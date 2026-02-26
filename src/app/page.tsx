@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,79 +29,88 @@ import {
   Bike,
   Leaf,
   Sun,
-  CloudRain,
-  Thermometer,
   Quote,
   Play,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
+  Flower2,
+  Rocket,
+  PenTool,
+  Globe,
+  Shield,
+  Lightbulb,
+  Palette as PaletteIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-// 学校风采图片数据
+// 使用更可靠的图片源 - 教育主题图片
 const campusGallery = [
-  { id: 1, src: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&h=600&fit=crop', title: '校园正门', desc: '百年名校，气势恢宏' },
-  { id: 2, src: 'https://images.unsplash.com/photo-1562774053-701cf5babab6?w=800&h=600&fit=crop', title: '教学楼', desc: '现代化教学设施' },
-  { id: 3, src: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=600&fit=crop', title: '图书馆', desc: '知识的海洋' },
-  { id: 4, src: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800&h=600&fit=crop', title: '科学实验室', desc: '探索科学奥秘' },
-  { id: 5, src: 'https://images.unsplash.com/photo-1571260899307-0f5b8e5c1c1a?w=800&h=600&fit=crop', title: '运动场', desc: '阳光体育，健康成长' },
-  { id: 6, src: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&h=600&fit=crop', title: '校园一角', desc: '绿树成荫，环境优美' },
+  { id: 1, src: 'https://images.pexels.com/photos/207692/pexels-photo-207692.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '校园正门', desc: '百年名校，气势恢宏' },
+  { id: 2, src: 'https://images.pexels.com/photos/256468/pexels-photo-256468.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '教学楼', desc: '现代化教学设施' },
+  { id: 3, src: 'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '图书馆', desc: '知识的海洋' },
+  { id: 4, src: 'https://images.pexels.com/photos/8566472/pexels-photo-8566472.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '科学实验室', desc: '探索科学奥秘' },
+  { id: 5, src: 'https://images.pexels.com/photos/863980/pexels-photo-863980.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '运动场', desc: '阳光体育，健康成长' },
+  { id: 6, src: 'https://images.pexels.com/photos/120435/pexels-photo-120435.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '校园一角', desc: '绿树成荫，环境优美' },
 ];
 
-// 办学特色
+// 办学特色 - 精美卡片设计
 const schoolFeatures = [
   { 
     icon: BookOpen, 
     title: '书香校园', 
     desc: '传承百年文化，打造阅读特色学校',
-    color: 'bg-blue-500',
-    details: ['藏书5万余册的图书馆', '每月读书分享会', '经典诵读活动']
+    gradient: 'from-blue-500 to-cyan-400',
+    details: ['藏书5万余册的图书馆', '每月读书分享会', '经典诵读活动'],
+    stats: '5万+藏书',
   },
   { 
     icon: Palette, 
     title: '艺术教育', 
     desc: '全面发展艺术素养，培养审美能力',
-    color: 'bg-purple-500',
-    details: ['合唱团、舞蹈队', '书法、绘画社团', '艺术节展演']
+    gradient: 'from-purple-500 to-pink-400',
+    details: ['合唱团、舞蹈队', '书法、绘画社团', '艺术节展演'],
+    stats: '20+社团',
   },
   { 
-    icon: Trophy, 
+    icon: Rocket, 
     title: '科技创新', 
     desc: '科技引领未来，培养创新精神',
-    color: 'bg-green-500',
-    details: ['创客实验室', '机器人编程', '科技竞赛获奖']
+    gradient: 'from-green-500 to-emerald-400',
+    details: ['创客实验室', '机器人编程', '科技竞赛获奖'],
+    stats: '省级获奖',
   },
   { 
     icon: Heart, 
     title: '德育为先', 
     desc: '立德树人，培养品德高尚的少年',
-    color: 'bg-orange-500',
-    details: ['红色基因传承', '德育主题活动', '行为习惯养成']
+    gradient: 'from-orange-500 to-amber-400',
+    details: ['红色基因传承', '德育主题活动', '行为习惯养成'],
+    stats: '全国文明校园',
   },
 ];
 
 // 校园活动
 const campusActivities = [
   { 
-    image: 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=600&h=400&fit=crop',
+    image: 'https://images.pexels.com/photos/8566584/pexels-photo-8566584.jpeg?auto=compress&cs=tinysrgb&w=600',
     title: '开学典礼', 
     date: '2024年9月1日',
     desc: '新学期新起点，全体师生共迎开学典礼'
   },
   { 
-    image: 'https://images.unsplash.com/photo-1544531586-fde5e5e2a0f2?w=600&h=400&fit=crop',
+    image: 'https://images.pexels.com/photos/863980/pexels-photo-863980.jpeg?auto=compress&cs=tinysrgb&w=600',
     title: '运动会', 
     date: '2024年10月15-17日',
     desc: '阳光体育，快乐运动，全校师生积极参与'
   },
   { 
-    image: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&h=400&fit=crop',
+    image: 'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=600',
     title: '读书节', 
     date: '2024年11月',
     desc: '书香满校园，阅读伴成长，系列读书活动'
   },
   { 
-    image: 'https://images.unsplash.com/photo-1571260899307-0f5b8e5c1c1a?w=600&h=400&fit=crop',
+    image: 'https://images.pexels.com/photos/12492591/pexels-photo-12492591.jpeg?auto=compress&cs=tinysrgb&w=600',
     title: '艺术节', 
     date: '2024年12月',
     desc: '艺术展示舞台，学生才艺绽放'
@@ -121,10 +129,10 @@ const honors = [
 
 // 新闻动态
 const newsList = [
-  { id: 1, title: '我校师生在省级科技创新大赛中荣获一等奖', date: '2024-03-15', type: '喜讯', image: 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=400&h=300&fit=crop' },
-  { id: 2, title: '学校开展"传承红色基因"主题教育活动', date: '2024-03-12', type: '活动', image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=400&h=300&fit=crop' },
-  { id: 3, title: '著名教育专家到校指导教学工作', date: '2024-03-10', type: '新闻', image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=400&h=300&fit=crop' },
-  { id: 4, title: '学校足球队荣获市级联赛冠军', date: '2024-03-08', type: '喜讯', image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=300&fit=crop' },
+  { id: 1, title: '我校师生在省级科技创新大赛中荣获一等奖', date: '2024-03-15', type: '喜讯', image: 'https://images.pexels.com/photos/8566472/pexels-photo-8566472.jpeg?auto=compress&cs=tinysrgb&w=400' },
+  { id: 2, title: '学校开展"传承红色基因"主题教育活动', date: '2024-03-12', type: '活动', image: 'https://images.pexels.com/photos/8566584/pexels-photo-8566584.jpeg?auto=compress&cs=tinysrgb&w=400' },
+  { id: 3, title: '著名教育专家到校指导教学工作', date: '2024-03-10', type: '新闻', image: 'https://images.pexels.com/photos/1523050854058/pexels-photo-1523050854058.jpeg?auto=compress&cs=tinysrgb&w=400' },
+  { id: 4, title: '学校足球队荣获市级联赛冠军', date: '2024-03-08', type: '喜讯', image: 'https://images.pexels.com/photos/863980/pexels-photo-863980.jpeg?auto=compress&cs=tinysrgb&w=400' },
 ];
 
 // 学校统计数据
@@ -138,8 +146,8 @@ const schoolStats = {
 export default function HomePage() {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [currentGallery, setCurrentGallery] = useState(0);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setMounted(true);
@@ -150,9 +158,13 @@ export default function HomePage() {
     if (!mounted) return;
     const timer = setInterval(() => {
       setCurrentGallery((prev) => (prev + 1) % campusGallery.length);
-    }, 4000);
+    }, 5000);
     return () => clearInterval(timer);
   }, [mounted]);
+
+  const handleImageError = (id: string) => {
+    setImageErrors(prev => ({ ...prev, [id]: true }));
+  };
 
   if (!mounted) return null;
 
@@ -176,7 +188,9 @@ export default function HomePage() {
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="龙岩师范附属小学" className="h-10 w-10 rounded-lg object-contain" />
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                <span className="text-white font-bold text-lg">龙</span>
+              </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-900">龙岩师范附属小学</h1>
                 <p className="text-xs text-gray-500">智慧校园管理平台</p>
@@ -195,7 +209,7 @@ export default function HomePage() {
 
             {/* 登录按钮 */}
             <Link href="/login">
-              <Button className="bg-primary hover:bg-primary/90 text-white gap-2 shadow-lg shadow-orange-500/20">
+              <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2 shadow-lg shadow-orange-500/30">
                 <GraduationCap className="h-4 w-4" />
                 登录系统
               </Button>
@@ -215,12 +229,17 @@ export default function HomePage() {
                 index === currentGallery ? 'opacity-100' : 'opacity-0'
               }`}
             >
-              <img
-                src={item.src}
-                alt={item.title}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
+              {!imageErrors[String(item.id)] ? (
+                <img
+                  src={item.src}
+                  alt={item.title}
+                  className="w-full h-full object-cover"
+                  onError={() => handleImageError(String(item.id))}
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-orange-400 to-amber-300" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/70" />
             </div>
           ))}
         </div>
@@ -228,7 +247,7 @@ export default function HomePage() {
         {/* 内容 */}
         <div className="relative h-full flex flex-col justify-center items-center text-white px-4 pt-16">
           {/* 装饰徽章 */}
-          <div className="mb-6 flex items-center gap-2 rounded-full bg-white/20 backdrop-blur-sm px-6 py-2">
+          <div className="mb-6 flex items-center gap-2 rounded-full bg-white/20 backdrop-blur-sm px-6 py-2 border border-white/20">
             <Sparkles className="h-4 w-4 text-yellow-300" />
             <span className="text-sm font-medium">福建省示范小学 · 百年名校</span>
             <Sparkles className="h-4 w-4 text-yellow-300" />
@@ -250,35 +269,30 @@ export default function HomePage() {
           </p>
 
           {/* 统计数据 */}
-          <div className="mb-10 grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-12">
-            <div className="text-center bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4">
-              <div className="text-3xl md:text-4xl font-bold">{schoolStats.totalStudents}</div>
-              <div className="text-sm text-white/70">在校学生</div>
-            </div>
-            <div className="text-center bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4">
-              <div className="text-3xl md:text-4xl font-bold">{schoolStats.totalTeachers}</div>
-              <div className="text-sm text-white/70">优秀教师</div>
-            </div>
-            <div className="text-center bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4">
-              <div className="text-3xl md:text-4xl font-bold">{schoolStats.totalClasses}</div>
-              <div className="text-sm text-white/70">教学班级</div>
-            </div>
-            <div className="text-center bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4">
-              <div className="text-3xl md:text-4xl font-bold">110</div>
-              <div className="text-sm text-white/70">办学历史/年</div>
-            </div>
+          <div className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-8">
+            {[
+              { value: String(schoolStats.totalStudents), label: '在校学生' },
+              { value: String(schoolStats.totalTeachers), label: '优秀教师' },
+              { value: String(schoolStats.totalClasses), label: '教学班级' },
+              { value: '110', label: '办学历史/年' },
+            ].map((stat, index) => (
+              <div key={index} className="text-center bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/10">
+                <div className="text-3xl md:text-4xl font-bold">{stat.value}</div>
+                <div className="text-sm text-white/70">{stat.label}</div>
+              </div>
+            ))}
           </div>
 
           {/* 快捷按钮 */}
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/login">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white gap-2 rounded-full px-8 h-12 shadow-xl shadow-orange-500/30">
+              <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2 rounded-full px-8 h-12 shadow-xl shadow-orange-500/30">
                 进入智慧校园
                 <ArrowRight className="h-5 w-5" />
               </Button>
             </Link>
             <a href="#about">
-              <Button size="lg" variant="outline" className="rounded-full px-8 h-12 bg-white/10 border-white/30 text-white hover:bg-white/20">
+              <Button size="lg" variant="outline" className="rounded-full px-8 h-12 bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm">
                 了解更多
               </Button>
             </a>
@@ -291,7 +305,7 @@ export default function HomePage() {
                 key={index}
                 onClick={() => setCurrentGallery(index)}
                 className={`h-2 rounded-full transition-all ${
-                  index === currentGallery ? 'w-8 bg-primary' : 'w-2 bg-white/50'
+                  index === currentGallery ? 'w-8 bg-orange-500' : 'w-2 bg-white/50'
                 }`}
               />
             ))}
@@ -322,17 +336,24 @@ export default function HomePage() {
             {/* 左侧图片 */}
             <div className="relative">
               <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
-                <img
-                  src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&h=600&fit=crop"
-                  alt="校园全景"
-                  className="w-full h-full object-cover"
-                />
+                {!imageErrors['main'] ? (
+                  <img
+                    src="https://images.pexels.com/photos/207692/pexels-photo-207692.jpeg?auto=compress&cs=tinysrgb&w=800"
+                    alt="校园全景"
+                    className="w-full h-full object-cover"
+                    onError={() => handleImageError('main')}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-amber-300 flex items-center justify-center">
+                    <GraduationCap className="h-20 w-20 text-white" />
+                  </div>
+                )}
               </div>
               {/* 装饰卡片 */}
               <div className="absolute -bottom-6 -right-6 bg-white rounded-xl shadow-xl p-4 hidden md:block">
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Trophy className="h-6 w-6 text-primary" />
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center">
+                    <Trophy className="h-6 w-6 text-white" />
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-gray-900">110年</div>
@@ -357,15 +378,15 @@ export default function HomePage() {
               
               {/* 特色数据 */}
               <div className="grid grid-cols-3 gap-4 pt-4">
-                <div className="text-center p-4 bg-orange-50 rounded-xl">
+                <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-100">
                   <div className="text-2xl font-bold text-primary">15人</div>
                   <div className="text-xs text-gray-500">省级骨干教师</div>
                 </div>
-                <div className="text-center p-4 bg-blue-50 rounded-xl">
+                <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-100">
                   <div className="text-2xl font-bold text-blue-500">32人</div>
                   <div className="text-xs text-gray-500">市级骨干教师</div>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-xl">
+                <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
                   <div className="text-2xl font-bold text-green-500">28人</div>
                   <div className="text-xs text-gray-500">高级教师</div>
                 </div>
@@ -393,17 +414,24 @@ export default function HomePage() {
               <div
                 key={item.id}
                 className={`relative overflow-hidden rounded-2xl group cursor-pointer ${
-                  index === 0 ? 'col-span-2 row-span-2' : ''
+                  index === 0 ? 'col-span-2 row-span-2 md:aspect-auto' : ''
                 }`}
               >
-                <div className={`relative ${index === 0 ? 'h-96 md:h-auto' : 'h-48'}`}>
-                  <img
-                    src={item.src}
-                    alt={item.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform">
+                <div className={`${index === 0 ? 'h-80 md:h-full' : 'h-48'} relative`}>
+                  {!imageErrors[String(item.id)] ? (
+                    <img
+                      src={item.src}
+                      alt={item.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={() => handleImageError(String(item.id))}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-orange-300 to-amber-200 flex items-center justify-center">
+                      <GraduationCap className="h-10 w-10 text-white" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                     <h3 className="text-white font-bold text-lg">{item.title}</h3>
                     <p className="text-white/80 text-sm">{item.desc}</p>
                   </div>
@@ -414,8 +442,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 办学特色 */}
-      <section id="features" className="py-20 bg-gradient-to-b from-white to-orange-50">
+      {/* 办学特色 - 全新精美卡片设计 */}
+      <section id="features" className="py-20 bg-gradient-to-b from-white via-orange-50/50 to-white">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full mb-4">
@@ -430,23 +458,47 @@ export default function HomePage() {
             {schoolFeatures.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <Card key={index} className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-white">
-                  <CardContent className="p-6">
-                    <div className={`h-14 w-14 rounded-2xl ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                      <Icon className="h-7 w-7 text-white" />
+                <div
+                  key={index}
+                  className="group relative bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden border border-gray-100 hover:border-transparent hover:-translate-y-2"
+                >
+                  {/* 顶部渐变装饰条 */}
+                  <div className={`h-2 w-full bg-gradient-to-r ${feature.gradient}`} />
+                  
+                  <div className="p-6">
+                    {/* 图标 */}
+                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className="h-8 w-8 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{feature.title}</h3>
-                    <p className="text-gray-600 text-sm mb-4">{feature.desc}</p>
+                    
+                    {/* 标题和描述 */}
+                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-900">{feature.title}</h3>
+                    <p className="text-gray-600 text-sm mb-4 leading-relaxed">{feature.desc}</p>
+                    
+                    {/* 分隔线 */}
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-4" />
+                    
+                    {/* 详情列表 */}
                     <ul className="space-y-2">
                       {feature.details.map((detail, idx) => (
                         <li key={idx} className="flex items-center gap-2 text-sm text-gray-500">
-                          <ChevronRight className="h-4 w-4 text-primary" />
+                          <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${feature.gradient}`} />
                           {detail}
                         </li>
                       ))}
                     </ul>
-                  </CardContent>
-                </Card>
+                    
+                    {/* 底部标签 */}
+                    <div className="mt-5 flex items-center justify-between">
+                      <span className={`text-xs font-semibold bg-gradient-to-r ${feature.gradient} bg-clip-text text-transparent`}>
+                        {feature.stats}
+                      </span>
+                      <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${feature.gradient} bg-opacity-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300`}>
+                        <ChevronRight className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -469,13 +521,20 @@ export default function HomePage() {
             {campusActivities.map((activity, index) => (
               <Card key={index} className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300">
                 <div className="relative h-48 overflow-hidden">
-                  <img
-                    src={activity.image}
-                    alt={activity.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
+                  {!imageErrors[`activity-${index}`] ? (
+                    <img
+                      src={activity.image}
+                      alt={activity.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={() => handleImageError(`activity-${index}`)}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-orange-300 to-amber-200 flex items-center justify-center">
+                      <Calendar className="h-10 w-10 text-white" />
+                    </div>
+                  )}
                   <div className="absolute top-3 left-3">
-                    <Badge className="bg-primary text-white">{activity.date}</Badge>
+                    <Badge className="bg-gradient-to-r from-orange-500 to-amber-500 text-white border-0">{activity.date}</Badge>
                   </div>
                 </div>
                 <CardContent className="p-4">
@@ -489,8 +548,14 @@ export default function HomePage() {
       </section>
 
       {/* 荣誉展示 */}
-      <section className="py-20 bg-gradient-to-r from-primary to-orange-400 text-white">
-        <div className="container mx-auto px-4">
+      <section className="py-20 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 text-white relative overflow-hidden">
+        {/* 背景装饰 */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl" />
+        </div>
+        
+        <div className="container mx-auto px-4 relative">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
               <Award className="h-4 w-4" />
@@ -502,9 +567,11 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
             {honors.map((honor, index) => (
-              <div key={index} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-colors">
+              <div key={index} className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-white/40">
                 <div className="flex items-start gap-3">
-                  <Trophy className="h-6 w-6 text-yellow-300 shrink-0 mt-1" />
+                  <div className="p-2 rounded-xl bg-white/20">
+                    <Trophy className="h-5 w-5 text-yellow-300" />
+                  </div>
                   <div>
                     <h4 className="font-bold mb-1">{honor.title}</h4>
                     <p className="text-sm text-white/70">{honor.org} · {honor.year}年</p>
@@ -532,14 +599,21 @@ export default function HomePage() {
             {newsList.map((news) => (
               <Card key={news.id} className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer">
                 <div className="relative h-48 overflow-hidden">
-                  <img
-                    src={news.image}
-                    alt={news.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
+                  {!imageErrors[`news-${news.id}`] ? (
+                    <img
+                      src={news.image}
+                      alt={news.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={() => handleImageError(`news-${news.id}`)}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-300 to-cyan-200 flex items-center justify-center">
+                      <Bell className="h-10 w-10 text-white" />
+                    </div>
+                  )}
                   <div className="absolute top-3 left-3">
                     <Badge variant={news.type === '喜讯' ? 'default' : 'secondary'} 
-                      className={news.type === '喜讯' ? 'bg-red-500 text-white' : ''}>
+                      className={news.type === '喜讯' ? 'bg-red-500 text-white border-0' : 'bg-white/90'}>
                       {news.type}
                     </Badge>
                   </div>
@@ -555,7 +629,7 @@ export default function HomePage() {
           </div>
 
           <div className="text-center mt-8">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 rounded-full px-6">
               查看更多新闻
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -576,78 +650,39 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* 总务后勤 */}
-            <Card className="group cursor-pointer overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <CardContent className="p-0">
-                <div className="bg-gradient-to-br from-orange-400 to-orange-500 p-6 text-white">
-                  <Building2 className="h-10 w-10 mb-4" />
-                  <h3 className="text-xl font-bold mb-2">总务后勤</h3>
-                  <p className="text-sm text-white/80">资产管理、报修维护、采购管理、安全保障</p>
-                </div>
-                <div className="p-4 bg-white group-hover:bg-orange-50 transition-colors">
-                  <div className="flex items-center justify-between text-gray-600 group-hover:text-orange-600">
-                    <span className="text-sm">进入系统</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 教务教研 */}
-            <Card className="group cursor-pointer overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <CardContent className="p-0">
-                <div className="bg-gradient-to-br from-blue-400 to-blue-500 p-6 text-white">
-                  <GraduationCap className="h-10 w-10 mb-4" />
-                  <h3 className="text-xl font-bold mb-2">教务教研</h3>
-                  <p className="text-sm text-white/80">课程安排、成绩管理、教研活动、教师发展</p>
-                </div>
-                <div className="p-4 bg-white group-hover:bg-blue-50 transition-colors">
-                  <div className="flex items-center justify-between text-gray-600 group-hover:text-blue-600">
-                    <span className="text-sm">进入系统</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 德育管理 */}
-            <Card className="group cursor-pointer overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <CardContent className="p-0">
-                <div className="bg-gradient-to-br from-green-400 to-green-500 p-6 text-white">
-                  <Heart className="h-10 w-10 mb-4" />
-                  <h3 className="text-xl font-bold mb-2">德育管理</h3>
-                  <p className="text-sm text-white/80">少先队管理、德育活动、学生评价、成长档案</p>
-                </div>
-                <div className="p-4 bg-white group-hover:bg-green-50 transition-colors">
-                  <div className="flex items-center justify-between text-gray-600 group-hover:text-green-600">
-                    <span className="text-sm">进入系统</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 教师空间 */}
-            <Card className="group cursor-pointer overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-              <CardContent className="p-0">
-                <div className="bg-gradient-to-br from-purple-400 to-purple-500 p-6 text-white">
-                  <Users className="h-10 w-10 mb-4" />
-                  <h3 className="text-xl font-bold mb-2">教师空间</h3>
-                  <p className="text-sm text-white/80">教师工作台、班级管理、家校沟通、日常管理</p>
-                </div>
-                <div className="p-4 bg-white group-hover:bg-purple-50 transition-colors">
-                  <div className="flex items-center justify-between text-gray-600 group-hover:text-purple-600">
-                    <span className="text-sm">进入系统</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {[
+              { icon: Building2, title: '总务后勤', desc: '资产管理、报修维护、采购管理、安全保障', gradient: 'from-orange-500 to-amber-400', href: '/general' },
+              { icon: GraduationCap, title: '教务教研', desc: '课程安排、成绩管理、教研活动、教师发展', gradient: 'from-blue-500 to-cyan-400', href: '/academic' },
+              { icon: Heart, title: '德育管理', desc: '少先队管理、德育活动、学生评价、成长档案', gradient: 'from-green-500 to-emerald-400', href: '/moral' },
+              { icon: Users, title: '教师空间', desc: '教师工作台、班级管理、家校沟通、日常管理', gradient: 'from-purple-500 to-pink-400', href: '/teacher' },
+            ].map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <Link key={index} href="/login">
+                  <Card className="group cursor-pointer overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                    <CardContent className="p-0">
+                      <div className={`bg-gradient-to-br ${item.gradient} p-6 text-white relative overflow-hidden`}>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <Icon className="h-10 w-10 mb-4 relative z-10" />
+                        <h3 className="text-xl font-bold mb-2 relative z-10">{item.title}</h3>
+                        <p className="text-sm text-white/80 relative z-10">{item.desc}</p>
+                      </div>
+                      <div className="p-4 bg-white group-hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between text-gray-600 group-hover:text-primary transition-colors">
+                          <span className="text-sm font-medium">进入系统</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
 
           <div className="text-center mt-10">
             <Link href="/login">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white gap-2 rounded-full px-10 h-12 shadow-xl shadow-orange-500/20">
+              <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white gap-2 rounded-full px-10 h-12 shadow-xl shadow-orange-500/20">
                 立即登录使用
                 <ArrowRight className="h-5 w-5" />
               </Button>
@@ -668,16 +703,16 @@ export default function HomePage() {
               
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center">
+                  <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center">
                     <MapPin className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <div className="text-sm text-gray-500">学校地址</div>
-                    <div>福建省龙岩市新罗区东城街道东宫下1号</div>
+                    <div>福建省龙岩市新罗区龙川东路11号</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center">
+                  <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center">
                     <Phone className="h-5 w-5 text-primary" />
                   </div>
                   <div>
@@ -686,7 +721,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center">
+                  <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center">
                     <Clock className="h-5 w-5 text-primary" />
                   </div>
                   <div>
@@ -698,17 +733,12 @@ export default function HomePage() {
             </div>
 
             <div className="relative">
-              <div className="aspect-video rounded-2xl overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop"
-                  alt="校园地图"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="absolute bottom-4 right-4">
-                <Button className="bg-primary hover:bg-primary/90 text-white">
-                  查看地图
-                </Button>
+              <div className="aspect-video rounded-2xl overflow-hidden bg-gradient-to-br from-gray-800 to-gray-700 flex items-center justify-center">
+                <div className="text-center">
+                  <MapPin className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500">学校位置</p>
+                  <p className="text-sm text-gray-600 mt-2">福建省龙岩市新罗区</p>
+                </div>
               </div>
             </div>
           </div>
@@ -720,7 +750,9 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="龙岩师范附属小学" className="h-8 w-8 rounded-lg object-contain bg-white/10 p-1" />
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center">
+                <span className="text-white font-bold text-sm">龙</span>
+              </div>
               <span className="text-white font-medium">龙岩师范附属小学</span>
             </div>
             <div className="text-sm">

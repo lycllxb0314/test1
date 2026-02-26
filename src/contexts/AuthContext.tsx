@@ -14,6 +14,21 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// 角色名称到角色的映射
+const roleNameToRole: Record<string, UserRole> = {
+  '校长': 'principal',
+  '书记': 'secretary',
+  '副校长': 'vice_principal',
+  '行政': 'admin',
+  '行政人员': 'admin',
+  '班主任': 'head_teacher',
+  '教师': 'teacher',
+  '学生': 'student',
+  '家长': 'parent',
+  '后勤': 'staff',
+  '后勤人员': 'staff',
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,14 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     
     // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
-    // 根据用户名查找用户（模拟认证）
-    const foundUser = mockUsers.find(u => 
+    // 根据用户名或角色名称查找用户
+    let foundUser = mockUsers.find(u => 
       u.name === username || 
       u.id === username ||
       u.phone?.includes(username)
     );
+    
+    // 如果没找到，尝试通过角色名称查找
+    if (!foundUser && roleNameToRole[username]) {
+      const targetRole = roleNameToRole[username];
+      foundUser = mockUsers.find(u => u.role === targetRole);
+    }
     
     if (foundUser && password === '123456') {
       setUser(foundUser);
