@@ -59,12 +59,14 @@ const studentDevelopment = [
     title: '智育启慧',
     color: 'from-blue-500 to-cyan-400',
     images: [
-      { src: '/images/campus/robot-award.jpg', title: '机器人竞赛获奖' },
-      { src: '/images/campus/robot-team.png', title: '机器人大赛合影' },
+      { src: '/images/campus/science-academy.png', title: '少年科学院成立' },
+      { src: '/images/campus/science-academy-opening.png', title: '少年科学院揭牌' },
+      { src: '/images/campus/robot-team.png', title: '机器人大赛获奖' },
       { src: '/images/campus/robot-programming.jpg', title: '机器人编程实操' },
+      { src: '/images/campus/model-car-activity.jpg', title: '科技模型车活动' },
+      { src: '/images/campus/science-dryice.jpg', title: '干冰科学实验' },
+      { src: '/images/campus/culture-class.jpg', title: '文化自信课堂' },
       { src: '/images/campus/math-contest.jpg', title: '小小神算手竞赛' },
-      { src: '/images/campus/classroom-show.jpg', title: '课堂展示活动' },
-      { src: '/images/campus/exam.jpg', title: '学科竞赛考试' },
     ],
     desc: '科技引领未来，培养创新精神和实践能力',
   },
@@ -73,6 +75,7 @@ const studentDevelopment = [
     title: '体育强身',
     color: 'from-orange-500 to-yellow-400',
     images: [
+      { src: '/images/campus/group-exercise.jpg', title: '广播体操活动' },
       { src: '/images/campus/sports-race.jpg', title: '田径比赛起跑' },
       { src: '/images/campus/sports-start.jpg', title: '短跑预备时刻' },
       { src: '/images/campus/eye-exercise.jpg', title: '眼保健操时间' },
@@ -84,6 +87,7 @@ const studentDevelopment = [
     title: '美育润心',
     color: 'from-purple-500 to-pink-400',
     images: [
+      { src: '/images/campus/dance-contest.png', title: '艺术节舞蹈比赛' },
       { src: '/images/campus/orchestra.png', title: '器乐表演' },
       { src: '/images/campus/festival-opening.png', title: '文艺汇演' },
     ],
@@ -104,16 +108,28 @@ const studentDevelopment = [
 // 教师发展
 const teacherDevelopment = [
   {
-    image: '/images/campus/dance-performance.png',
+    image: '/images/campus/teaching-seminar.png',
     title: '总校制办学教学研讨',
     desc: '总校制办学教育教学研讨活动',
     tag: '教学研讨',
   },
   {
-    image: '/images/campus/teacher-research.png',
-    title: '课题研究',
-    desc: '质量标准视域下整本书阅读教学逆向设计与实施的研究',
-    tag: '课题结题',
+    image: '/images/campus/ai-teaching.jpg',
+    title: 'AI赋能教学观摩课',
+    desc: '福建师范大学实习公开汇报课暨AI赋能教学观摩',
+    tag: '教学观摩',
+  },
+  {
+    image: '/images/campus/ai-research.png',
+    title: 'AI辅助跨学科研究开题',
+    desc: '生成式AI辅助跨学科主题学习设计与实施的研究开题活动',
+    tag: '课题研究',
+  },
+  {
+    image: '/images/campus/dance-performance.png',
+    title: '总校制办学教学研讨',
+    desc: '总校制办学教育教学研讨活动',
+    tag: '教学研讨',
   },
   {
     image: '/images/campus/teacher-summer-training.png',
@@ -126,18 +142,6 @@ const teacherDevelopment = [
     title: '青蓝工程启动仪式',
     desc: '2025-2026学年师徒结对帮扶培养项目',
     tag: '教师成长',
-  },
-  {
-    image: '/images/campus/teacher-day-award.png',
-    title: '教师节表彰活动',
-    desc: '第41个教师节致敬35年教育守望者',
-    tag: '教师荣誉',
-  },
-  {
-    image: '/images/campus/guzheng.png',
-    title: '艺术教师技能评比',
-    desc: '市第二届中小学艺术教师专业技能评比',
-    tag: '专业发展',
   },
 ];
 
@@ -186,6 +190,18 @@ const campusActivities = [
     desc: '第41届艺术节暨六一文艺汇演，童心闪耀放飞梦想'
   },
   { 
+    image: '/images/campus/science-academy.png',
+    title: '少年科学院成立', 
+    date: '2025年12月5日',
+    desc: '与院士同行，赴科学之约，少年科学院成立仪式'
+  },
+  { 
+    image: '/images/campus/parent-meeting.png',
+    title: '六年级家长会', 
+    date: '2025年11月21日',
+    desc: '同心同行共话成长，家校共育活动'
+  },
+  { 
     image: '/images/campus/art-festival.png',
     title: '培田古民居研学', 
     date: '2025年',
@@ -202,18 +218,6 @@ const campusActivities = [
     title: '田径运动会', 
     date: '2025年秋季',
     desc: '阳光体育，短跑比赛精彩瞬间'
-  },
-  { 
-    image: '/images/campus/math-contest.jpg',
-    title: '小小神算手竞赛', 
-    date: '2025年5月23日',
-    desc: '数独竞赛培养数学思维，激发学习兴趣'
-  },
-  { 
-    image: '/images/campus/planting.jpg',
-    title: '劳动实践活动', 
-    date: '2025年春季',
-    desc: '我与植物共成长，校园种植实践体验'
   },
 ];
 
