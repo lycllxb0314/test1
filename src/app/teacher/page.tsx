@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,28 +24,42 @@ import {
   Bell,
   Send,
   Plus,
+  GraduationCap,
+  LayoutDashboard,
+  NotebookPen,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function TeacherPage() {
   const { user } = useAuth();
 
+  // 判断是否是班主任
+  const isHeadTeacher = user?.role === 'head_teacher' || user?.role === 'principal' || user?.role === 'vice_principal';
+
   // 待办事项
   const todosData = [
-    { id: '1', title: '上报流感缺课情况统计表', priority: 'high', status: 'pending', deadline: '明天 10:00', source: '段长工作群' },
-    { id: '2', title: '参加年级例会', priority: 'medium', status: 'pending', deadline: '周五 15:00', source: '段长工作群' },
-    { id: '3', title: '批改期中试卷', priority: 'medium', status: 'processing', deadline: '周四', source: '教学任务' },
-    { id: '4', title: '完成学生评语撰写', priority: 'low', status: 'pending', deadline: '下周五', source: '学期任务' },
+    { id: '1', title: '批改期中试卷', priority: 'high', status: 'processing', deadline: '周四', source: '教学任务' },
+    { id: '2', title: '参加教研组会议', priority: 'medium', status: 'pending', deadline: '周五 15:00', source: '教研组' },
+    { id: '3', title: '完成教案编写', priority: 'medium', status: 'pending', deadline: '下周一', source: '教学任务' },
+    { id: '4', title: '提交教学反思', priority: 'low', status: 'pending', deadline: '下周', source: '学期任务' },
+  ];
+
+  // 班主任专属待办
+  const headTeacherTodos = [
+    { id: 'ht1', title: '上报流感缺课情况统计表', priority: 'high', status: 'pending', deadline: '明天 10:00', source: '段长工作群' },
+    { id: 'ht2', title: '组织家长会', priority: 'medium', status: 'pending', deadline: '下周五', source: '德育处' },
+    { id: 'ht3', title: '完成学生评语撰写', priority: 'medium', status: 'pending', deadline: '下周五', source: '学期任务' },
   ];
 
   // 通知提醒
   const notificationsData = [
-    { id: '1', title: '流感缺课统计表提醒', time: '10分钟前', type: 'urgent', isRead: false },
-    { id: '2', title: '家长会时间变更', time: '1小时前', type: 'info', isRead: false },
-    { id: '3', title: '作业提交情况', time: '2小时前', type: 'info', isRead: true },
+    { id: '1', title: '教研组活动通知', time: '10分钟前', type: 'info', isRead: false },
+    { id: '2', title: '期末工作安排', time: '1小时前', type: 'info', isRead: false },
+    { id: '3', title: '教学资料更新', time: '2小时前', type: 'info', isRead: true },
   ];
 
-  // 今日考勤
+  // 今日考勤（班主任专属）
   const todayAttendance = {
     present: 43,
     absent: 2,
@@ -53,7 +67,7 @@ export default function TeacherPage() {
     total: 45,
   };
 
-  // 班级概况
+  // 班级概况（班主任专属）
   const classOverview = {
     studentCount: 45,
     parentCount: 86,
@@ -83,23 +97,51 @@ export default function TeacherPage() {
   };
 
   // 统计
-  const pendingCount = todosData.filter(t => t.status === 'pending').length;
+  const pendingCount = todosData.filter(t => t.status === 'pending').length + (isHeadTeacher ? headTeacherTodos.filter(t => t.status === 'pending').length : 0);
   const processingCount = todosData.filter(t => t.status === 'processing').length;
   const urgentCount = notificationsData.filter(n => !n.isRead && n.type === 'urgent').length;
+
+  // 教师通用功能
+  const commonFunctions = [
+    { name: '我的课程', icon: BookOpen, color: 'bg-blue-100 text-blue-600', path: '/academic/schedule', desc: '查看课程安排' },
+    { name: '成绩录入', icon: BarChart3, color: 'bg-green-100 text-green-600', path: '/academic/scores', desc: '录入学生成绩' },
+    { name: '教研活动', icon: NotebookPen, color: 'bg-indigo-100 text-indigo-600', path: '/academic/research', desc: '参加教研活动' },
+    { name: '请假申请', icon: FileText, color: 'bg-amber-100 text-amber-600', path: '/workflow/leave', desc: '提交请假申请' },
+    { name: '教学资源', icon: GraduationCap, color: 'bg-purple-100 text-purple-600', path: '/academic/resources', desc: '教学资料库' },
+    { name: '个人设置', icon: LayoutDashboard, color: 'bg-gray-100 text-gray-600', path: '/profile', desc: '个人信息管理' },
+  ];
+
+  // 班主任专属功能
+  const headTeacherFunctions = [
+    { name: '班级管理', icon: Users, color: 'bg-blue-100 text-blue-600', path: '/teacher/class' },
+    { name: '信息收集', icon: ClipboardList, color: 'bg-cyan-100 text-cyan-600', path: '/teacher/collect' },
+    { name: '日常管理', icon: Calendar, color: 'bg-orange-100 text-orange-600', path: '/teacher/daily' },
+    { name: '家校沟通', icon: MessageSquare, color: 'bg-purple-100 text-purple-600', path: '/teacher/communication', badge: 'AI' },
+    { name: '成长德育', icon: Heart, color: 'bg-pink-100 text-pink-600', path: '/teacher/moral' },
+    { name: '学情作业', icon: BookOpen, color: 'bg-indigo-100 text-indigo-600', path: '/teacher/homework' },
+    { name: '行政材料', icon: FileText, color: 'bg-amber-100 text-amber-600', path: '/teacher/admin', badge: 'AI' },
+    { name: '安全应急', icon: Shield, color: 'bg-red-100 text-red-600', path: '/teacher/safety' },
+  ];
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-purple-50/30 via-white to-pink-50/30 min-h-screen">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">班主任工作台</h1>
-          <p className="text-gray-500 mt-1">{user?.className || '三年级1班'} · 班级管理与家校沟通</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isHeadTeacher ? '班主任工作台' : '教师工作台'}
+          </h1>
+          <p className="text-gray-500 mt-1">
+            {isHeadTeacher ? `${user?.className || '三年级1班'} · 班级管理与家校沟通` : `${user?.department || '教学组'} · 教学与教研工作`}
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2">
-            <MessageSquare className="h-4 w-4" />
-            读取群消息
-          </Button>
+          {isHeadTeacher && (
+            <Button variant="outline" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              读取群消息
+            </Button>
+          )}
           <Button className="bg-purple-500 hover:bg-purple-600 text-white gap-2">
             <Sparkles className="h-4 w-4" />
             AI助手
@@ -141,7 +183,7 @@ export default function TeacherPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">紧急通知</p>
+                <p className="text-sm text-gray-500">未读通知</p>
                 <p className="text-2xl font-bold text-red-600">{urgentCount}</p>
               </div>
               <div className="p-2 rounded-lg bg-red-100">
@@ -155,16 +197,57 @@ export default function TeacherPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">德育积分</p>
-                <p className="text-2xl font-bold text-green-600">{classOverview.moralScore}</p>
+                <p className="text-sm text-gray-500">
+                  {isHeadTeacher ? '德育积分' : '教学工作量'}
+                </p>
+                <p className="text-2xl font-bold text-green-600">
+                  {isHeadTeacher ? classOverview.moralScore : '96%'}
+                </p>
               </div>
               <div className="p-2 rounded-lg bg-green-100">
-                <Heart className="h-5 w-5 text-green-600" />
+                {isHeadTeacher ? <Heart className="h-5 w-5 text-green-600" /> : <GraduationCap className="h-5 w-5 text-green-600" />}
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* 班主任专属：班级概况 */}
+      {isHeadTeacher && (
+        <Card className="border-0 shadow-md bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Users className="h-6 w-6" />
+                <h3 className="font-semibold">班级概况 · {user?.className || '三年级1班'}</h3>
+              </div>
+              <Link href="/teacher/class">
+                <Button variant="outline" className="bg-white/20 border-white/30 text-white hover:bg-white/30">
+                  查看详情
+                </Button>
+              </Link>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-white/10 rounded-xl">
+                <p className="text-2xl font-bold">{classOverview.studentCount}</p>
+                <p className="text-sm text-white/80">学生人数</p>
+              </div>
+              <div className="text-center p-3 bg-white/10 rounded-xl">
+                <p className="text-2xl font-bold">{classOverview.parentCount}</p>
+                <p className="text-sm text-white/80">家长人数</p>
+              </div>
+              <div className="text-center p-3 bg-white/10 rounded-xl">
+                <p className="text-2xl font-bold">{classOverview.activityRate}%</p>
+                <p className="text-sm text-white/80">活动参与率</p>
+              </div>
+              <div className="text-center p-3 bg-white/10 rounded-xl">
+                <p className="text-2xl font-bold">{classOverview.moralScore}</p>
+                <p className="text-sm text-white/80">德育积分</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 主要内容 */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -173,7 +256,7 @@ export default function TeacherPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-lg">待办事项</CardTitle>
-              <CardDescription>需要处理的班级事务</CardDescription>
+              <CardDescription>需要处理的工作任务</CardDescription>
             </div>
             <Button variant="outline" size="sm" className="gap-1">
               <Plus className="h-4 w-4" />
@@ -182,6 +265,39 @@ export default function TeacherPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {/* 班主任专属待办 */}
+              {isHeadTeacher && headTeacherTodos.map((todo) => (
+                <div
+                  key={todo.id}
+                  className="flex items-center gap-4 p-4 rounded-xl bg-purple-50 hover:bg-purple-100 transition-colors cursor-pointer border border-purple-100"
+                >
+                  <div className={`w-2 h-2 rounded-full ${
+                    todo.priority === 'high' ? 'bg-red-500' :
+                    todo.priority === 'medium' ? 'bg-orange-500' : 'bg-gray-400'
+                  }`} />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium text-gray-900">{todo.title}</p>
+                      <Badge className="text-xs bg-purple-100 text-purple-700">班主任</Badge>
+                      <Badge className={`text-xs ${getPriorityColor(todo.priority)}`}>
+                        {todo.priority === 'high' ? '紧急' : todo.priority === 'medium' ? '中等' : '一般'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {todo.deadline}
+                      </span>
+                      <span>来源：{todo.source}</span>
+                    </div>
+                  </div>
+                  <Badge className={getStatusColor(todo.status)}>
+                    {todo.status === 'pending' ? '待处理' : todo.status === 'processing' ? '进行中' : '已完成'}
+                  </Badge>
+                </div>
+              ))}
+              
+              {/* 通用待办 */}
               {todosData.map((todo) => (
                 <div
                   key={todo.id}
@@ -251,9 +367,8 @@ export default function TeacherPage() {
         </Card>
       </div>
 
-      {/* 班级概况与快捷操作 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* 今日考勤 */}
+      {/* 班主任专属：今日考勤 */}
+      {isHeadTeacher && (
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -296,38 +411,71 @@ export default function TeacherPage() {
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* 快捷功能 */}
+      {/* 快捷功能 */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* 班主任专属功能 */}
+        {isHeadTeacher && (
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded bg-purple-100">
+                  <Users className="h-4 w-4 text-purple-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">班主任系统</CardTitle>
+                  <CardDescription>班级管理专属功能</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-4 gap-3">
+                {headTeacherFunctions.map((item, index) => (
+                  <Link
+                    key={index}
+                    href={item.path}
+                    className="flex flex-col items-center p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className={`p-2 rounded-lg ${item.color} mb-2 relative`}>
+                      <item.icon className="h-5 w-5" />
+                      {item.badge && (
+                        <span className="absolute -top-1 -right-1 px-1 py-0.5 text-[10px] font-bold bg-purple-500 text-white rounded">
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">{item.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 教师通用功能 */}
         <Card className="border-0 shadow-md">
           <CardHeader>
-            <CardTitle className="text-lg">快捷功能</CardTitle>
-            <CardDescription>常用功能入口</CardDescription>
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded bg-blue-100">
+                <GraduationCap className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">教学工作</CardTitle>
+                <CardDescription>教学与教研常用功能</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-3">
-              {[
-                { name: '班级管理', icon: Users, color: 'bg-blue-100 text-blue-600', path: '/teacher/class' },
-                { name: '信息收集', icon: ClipboardList, color: 'bg-cyan-100 text-cyan-600', path: '/teacher/collect' },
-                { name: '日常管理', icon: Calendar, color: 'bg-orange-100 text-orange-600', path: '/teacher/daily' },
-                { name: '家校沟通', icon: MessageSquare, color: 'bg-purple-100 text-purple-600', path: '/teacher/communication', badge: 'AI' },
-                { name: '成长德育', icon: Heart, color: 'bg-pink-100 text-pink-600', path: '/teacher/moral' },
-                { name: '学情作业', icon: BookOpen, color: 'bg-indigo-100 text-indigo-600', path: '/teacher/homework' },
-                { name: '行政材料', icon: FileText, color: 'bg-amber-100 text-amber-600', path: '/teacher/admin', badge: 'AI' },
-                { name: '安全应急', icon: Shield, color: 'bg-red-100 text-red-600', path: '/teacher/safety' },
-                { name: '请假申请', icon: FileText, color: 'bg-green-100 text-green-600', path: '/workflow/leave' },
-              ].map((item, index) => (
+              {commonFunctions.map((item, index) => (
                 <Link
                   key={index}
                   href={item.path}
                   className="flex flex-col items-center p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
-                  <div className={`p-2 rounded-lg ${item.color} mb-2 relative`}>
+                  <div className={`p-2 rounded-lg ${item.color} mb-2`}>
                     <item.icon className="h-5 w-5" />
-                    {item.badge && (
-                      <span className="absolute -top-1 -right-1 px-1 py-0.5 text-[10px] font-bold bg-purple-500 text-white rounded">
-                        {item.badge}
-                      </span>
-                    )}
                   </div>
                   <span className="text-xs font-medium text-gray-700">{item.name}</span>
                 </Link>
@@ -347,7 +495,11 @@ export default function TeacherPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold mb-1">AI智能助手</h3>
-                <p className="text-white/80 text-sm">智能生成评语、通知文案、工作计划，让班主任工作更轻松</p>
+                <p className="text-white/80 text-sm">
+                  {isHeadTeacher 
+                    ? '智能生成评语、通知文案、工作计划，让班主任工作更轻松'
+                    : '智能生成教案、课件、教学反思，助力教学创新'}
+                </p>
               </div>
             </div>
             <Button className="bg-white text-purple-600 hover:bg-white/90 gap-2">

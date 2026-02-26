@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User, UserRole } from '@/types';
 import { mockUsers } from '@/data/mock';
 
@@ -32,11 +32,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // 模拟登录
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
     // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     // 根据用户名查找用户（模拟认证）
     const foundUser = mockUsers.find(u => 
@@ -54,22 +54,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     setIsLoading(false);
     return false;
-  };
+  }, []);
 
   // 登出
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('smart_campus_user');
-  };
+  }, []);
 
   // 切换角色（用于演示）
-  const switchRole = (role: UserRole) => {
+  const switchRole = useCallback((role: UserRole) => {
     const userWithRole = mockUsers.find(u => u.role === role);
     if (userWithRole) {
       setUser(userWithRole);
       localStorage.setItem('smart_campus_user', JSON.stringify(userWithRole));
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout, switchRole }}>

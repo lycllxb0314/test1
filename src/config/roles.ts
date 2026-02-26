@@ -45,8 +45,8 @@ export const roleConfigs: Record<string, RoleConfig> = {
   teacher: {
     id: 'teacher',
     name: '教师',
-    description: '普通教师',
-    modules: ['academic'],
+    description: '普通教师，可访问教师空间',
+    modules: ['teacher', 'academic'],
     permissions: ['view', 'edit'],
     avatar: '👨‍🏫',
   },

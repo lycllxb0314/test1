@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoggingIn(true);
@@ -47,27 +47,45 @@ export default function LoginPage() {
       const success = await login(loginName, password);
       
       if (success) {
-        router.push('/dashboard');
+        // 使用 setTimeout 确保状态更新后再跳转
+        setTimeout(() => {
+          router.push('/dashboard');
+          router.refresh();
+        }, 100);
       } else {
         setError('用户名或密码错误');
+        setIsLoggingIn(false);
       }
     } catch (err) {
       setError('登录失败，请稍后重试');
-    } finally {
       setIsLoggingIn(false);
     }
-  };
+  }, [username, password, selectedRole, login, router]);
 
   // 快速登录（演示用）
-  const quickLogin = async (role: string) => {
+  const quickLogin = useCallback(async (role: string) => {
     setIsLoggingIn(true);
-    const roleName = roleOptions.find(r => r.value === role)?.label || '';
-    const success = await login(roleName, '123456');
-    if (success) {
-      router.push('/dashboard');
+    setError('');
+    
+    try {
+      const roleName = roleOptions.find(r => r.value === role)?.label || '';
+      const success = await login(roleName, '123456');
+      
+      if (success) {
+        // 使用 setTimeout 确保状态更新后再跳转
+        setTimeout(() => {
+          router.push('/dashboard');
+          router.refresh();
+        }, 100);
+      } else {
+        setError('快速登录失败，请重试');
+        setIsLoggingIn(false);
+      }
+    } catch (err) {
+      setError('登录失败，请稍后重试');
+      setIsLoggingIn(false);
     }
-    setIsLoggingIn(false);
-  };
+  }, [login, router]);
 
   return (
     <div className="min-h-screen flex">
@@ -235,58 +253,70 @@ export default function LoginPage() {
               {/* 快速登录按钮 */}
               <div className="grid grid-cols-3 gap-2">
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => quickLogin('principal')}
-                  className="h-auto py-2 flex-col"
+                  disabled={isLoggingIn}
+                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
                 >
-                  <GraduationCap className="h-4 w-4 mb-1" />
-                  <span className="text-xs">校长</span>
+                  <GraduationCap className="h-5 w-5 mb-1" />
+                  <span className="text-xs font-medium">校长</span>
                 </Button>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => quickLogin('admin')}
-                  className="h-auto py-2 flex-col"
+                  disabled={isLoggingIn}
+                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
                 >
-                  <User className="h-4 w-4 mb-1" />
-                  <span className="text-xs">行政</span>
+                  <User className="h-5 w-5 mb-1" />
+                  <span className="text-xs font-medium">行政</span>
                 </Button>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => quickLogin('head_teacher')}
-                  className="h-auto py-2 flex-col"
+                  disabled={isLoggingIn}
+                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
                 >
-                  <GraduationCap className="h-4 w-4 mb-1" />
-                  <span className="text-xs">班主任</span>
+                  <GraduationCap className="h-5 w-5 mb-1" />
+                  <span className="text-xs font-medium">班主任</span>
                 </Button>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => quickLogin('teacher')}
-                  className="h-auto py-2 flex-col"
+                  disabled={isLoggingIn}
+                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
                 >
-                  <User className="h-4 w-4 mb-1" />
-                  <span className="text-xs">教师</span>
+                  <User className="h-5 w-5 mb-1" />
+                  <span className="text-xs font-medium">教师</span>
                 </Button>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => quickLogin('student')}
-                  className="h-auto py-2 flex-col"
+                  disabled={isLoggingIn}
+                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
                 >
-                  <User className="h-4 w-4 mb-1" />
-                  <span className="text-xs">学生</span>
+                  <User className="h-5 w-5 mb-1" />
+                  <span className="text-xs font-medium">学生</span>
                 </Button>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => quickLogin('staff')}
-                  className="h-auto py-2 flex-col"
+                  disabled={isLoggingIn}
+                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
                 >
-                  <User className="h-4 w-4 mb-1" />
-                  <span className="text-xs">后勤</span>
+                  <User className="h-5 w-5 mb-1" />
+                  <span className="text-xs font-medium">后勤</span>
                 </Button>
               </div>
 
