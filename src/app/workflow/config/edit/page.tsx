@@ -1362,8 +1362,8 @@ function FlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
   
   nodes.forEach(node => {
     if (!visited.has(node.id)) {
-      if (!levels[levels.length]) levels[levels.length] = [];
-      levels[levels.length].push(node);
+      // Add to a new level
+      levels.push([node]);
     }
   });
 
