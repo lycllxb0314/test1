@@ -58,6 +58,9 @@ import {
   Cpu,
   Lightbulb,
   DoorOpen,
+  Edit,
+  Newspaper,
+  Trophy,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
@@ -141,6 +144,15 @@ const workflowNav: NavItem[] = [
   { name: '采购审批', href: '/workflow/purchase', icon: ShoppingCart, description: '采购申请审批' },
 ];
 
+// 主页内容管理导航
+const homepageNav: NavItem[] = [
+  { name: '内容概览', href: '/homepage', icon: LayoutDashboard, description: '主页内容总览' },
+  { name: '新闻管理', href: '/homepage/news', icon: Newspaper, description: '新闻发布管理' },
+  { name: '荣誉管理', href: '/homepage/honors', icon: Trophy, description: '荣誉展示管理' },
+  { name: '图片管理', href: '/homepage/images', icon: School, description: '图片资源管理' },
+  { name: '区块设置', href: '/homepage/sections', icon: Edit, description: '内容区块设置' },
+];
+
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout, switchRole } = useAuth();
@@ -159,6 +171,8 @@ export function AppSidebar() {
       setActiveModule('teacher');
     } else if (pathname.startsWith('/workflow')) {
       setActiveModule('workflow');
+    } else if (pathname.startsWith('/homepage')) {
+      setActiveModule('homepage');
     } else {
       setActiveModule(null);
     }
@@ -187,6 +201,8 @@ export function AppSidebar() {
         return teacherBaseNav;
       case 'workflow':
         return workflowNav;
+      case 'homepage':
+        return homepageNav;
       default:
         return [];
     }
@@ -388,6 +404,35 @@ export function AppSidebar() {
                   </button>
                 </TooltipTrigger>
                 {collapsed && <TooltipContent side="right">审批中心</TooltipContent>}
+              </Tooltip>
+            )}
+
+            {/* 主页内容管理 */}
+            {roleConfig.modules.includes('homepage') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setActiveModule(activeModule === 'homepage' ? null : 'homepage')}
+                    className={cn(
+                      'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                      activeModule === 'homepage'
+                        ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/25'
+                        : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
+                    )}
+                  >
+                    <Edit className="h-5 w-5" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left">主页管理</span>
+                        <ChevronRight className={cn(
+                          'h-4 w-4 transition-transform',
+                          activeModule === 'homepage' && 'rotate-90'
+                        )} />
+                      </>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                {collapsed && <TooltipContent side="right">主页管理</TooltipContent>}
               </Tooltip>
             )}
           </nav>

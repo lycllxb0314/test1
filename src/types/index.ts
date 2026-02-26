@@ -36,7 +36,8 @@ export type ModuleType =
   | 'general'      // 总务后勤
   | 'academic'     // 教务教研
   | 'moral'        // 德育管理
-  | 'teacher';     // 教师空间
+  | 'teacher'      // 教师空间
+  | 'homepage';    // 主页内容管理
 
 // 权限类型
 export type Permission = 
