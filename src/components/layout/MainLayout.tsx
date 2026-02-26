@@ -139,7 +139,9 @@ const headTeacherNav: NavItem[] = [
 
 // 教师空间导航 - 年段长专属功能
 const gradeLeaderNav: NavItem[] = [
+  { name: '年级管理', href: '/teacher/grade', icon: Users, description: '年级教师学生管理' },
   { name: '调课管理', href: '/teacher/adjust', icon: CalendarClock, description: '处理年级调课申请', badge: '专属' },
+  { name: '年级课表', href: '/teacher/grade-schedule', icon: Calendar, description: '查看年级课表' },
 ];
 
 // 工作流管理导航

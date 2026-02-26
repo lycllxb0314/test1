@@ -93,7 +93,7 @@ export const roleConfigs: Record<string, RoleConfig> = {
     id: 'grade_leader',
     name: '年段长',
     description: '年级段负责人，负责本年级调课安排、教师请假协调、年级事务管理',
-    modules: ['teacher', 'academic'],
+    modules: ['teacher'],  // 仅教师空间，年段长专属功能在教师空间内
     permissions: ['view', 'edit', 'approve'],
     avatar: '👨‍🏫',
     // 年段长特有权限
