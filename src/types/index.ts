@@ -356,24 +356,85 @@ export interface DashboardCard {
   module?: ModuleType;
 }
 
-// ========== 审批流程配置 ==========
+// ========== 审批流程配置（增强版） ==========
 
 // 审批流程类型
 export type WorkflowType = 'leave' | 'repair' | 'purchase';
 
-// 审批节点配置
-export interface ApprovalStepConfig {
+// 节点类型
+export type NodeType = 'start' | 'approval' | 'condition' | 'parallel' | 'end';
+
+// 拒绝处理方式
+export type RejectAction = 
+  | 'return_to_applicant'    // 退回申请人修改
+  | 'return_to_previous'     // 退回上一节点
+  | 'return_to_specific'     // 退回指定节点
+  | 'end_process';           // 流程结束
+
+// 条件操作符
+export type ConditionOperator = 
+  | 'eq'      // 等于
+  | 'ne'      // 不等于
+  | 'gt'      // 大于
+  | 'gte'     // 大于等于
+  | 'lt'      // 小于
+  | 'lte'     // 小于等于
+  | 'in'      // 包含于
+  | 'not_in'; // 不包含于
+
+// 条件规则
+export interface ConditionRule {
   id: string;
-  step: number;                          // 步骤序号
-  name: string;                          // 步骤名称，如"部门负责人审批"
-  approverType: 'role' | 'specific';     // 审批人类型：角色或指定人员
+  field: string;                         // 条件字段：type, duration, amount 等
+  operator: ConditionOperator;           // 操作符
+  value: string | number | string[];     // 比较值
+  label?: string;                        // 条件描述，如"病假"、"3天以内"
+}
+
+// 条件分支
+export interface ConditionBranch {
+  id: string;
+  name: string;                          // 分支名称，如"病假流程"、"事假流程"
+  conditionType: 'all' | 'any' | 'expression';  // 条件组合方式
+  rules: ConditionRule[];                // 条件规则列表
+  nextNodeId: string;                    // 满足条件后跳转的节点ID
+}
+
+// 审批节点配置
+export interface WorkflowNode {
+  id: string;                            // 节点ID
+  type: NodeType;                        // 节点类型
+  name: string;                          // 节点名称
+  description?: string;                  // 节点说明
+  
+  // 审批节点配置
+  approverType?: 'role' | 'specific' | 'applicant_leader';  // 审批人类型
   approverRole?: UserRole;               // 按角色审批
   approverId?: string;                   // 指定人员ID
   approverName?: string;                 // 指定人员姓名
-  isRequired: boolean;                   // 是否必须审批
+  
+  // 审批设置
+  isRequired?: boolean;                  // 是否必须审批（默认true）
+  allowTransfer?: boolean;               // 是否允许转交
   timeout?: number;                      // 超时时间（小时）
   timeoutAction?: 'auto_approve' | 'auto_reject' | 'escalate';  // 超时动作
-  description?: string;                  // 步骤说明
+  
+  // 拒绝处理
+  rejectAction?: RejectAction;           // 拒绝后动作
+  rejectReturnNodeId?: string;           // 拒绝后退回的节点ID
+  
+  // 条件节点配置
+  branches?: ConditionBranch[];          // 条件分支列表
+  defaultBranchId?: string;              // 默认分支ID（都不满足时）
+  
+  // 并行节点配置
+  parallelNodes?: string[];              // 并行执行的节点ID列表
+  mergeType?: 'all' | 'any';             // 合并方式：全部通过/任一通过
+  
+  // 流程控制
+  nextNodeId?: string;                   // 下一个节点ID
+  x?: number;                            // 可视化位置X
+  y?: number;                            // 可视化位置Y
 }
 
 // 审批流程配置
@@ -382,34 +443,54 @@ export interface WorkflowConfig {
   type: WorkflowType;                    // 流程类型
   name: string;                          // 流程名称
   description?: string;                  // 流程描述
+  version: number;                       // 版本号
   isActive: boolean;                     // 是否启用
-  steps: ApprovalStepConfig[];           // 审批步骤
-  conditions?: WorkflowCondition[];      // 条件分支（如金额大于某值需要更高层审批）
+  nodes: WorkflowNode[];                 // 流程节点列表
+  startNodeId: string;                   // 开始节点ID
+  endNodeId: string;                     // 结束节点ID
+  formFields?: FormFieldConfig[];        // 表单字段配置
   createdBy: string;                     // 创建人
   createdAt: string;                     // 创建时间
   updatedAt: string;                     // 更新时间
 }
 
-// 流程条件
+// 表单字段配置
+export interface FormFieldConfig {
+  name: string;                          // 字段名
+  label: string;                         // 显示名
+  type: 'text' | 'number' | 'select' | 'date' | 'file' | 'textarea';
+  required: boolean;                     // 是否必填
+  options?: { label: string; value: string }[];  // 下拉选项
+  defaultValue?: any;                    // 默认值
+  validation?: {                         // 验证规则
+    min?: number;
+    max?: number;
+    pattern?: string;
+    message?: string;
+  };
+}
+
+// 条件规则（兼容旧版）
 export interface WorkflowCondition {
-  field: string;                         // 条件字段，如 'amount', 'duration'
-  operator: 'gt' | 'gte' | 'lt' | 'lte' | 'eq';  // 比较运算符
-  value: number | string;                // 比较值
-  targetSteps?: number[];                // 满足条件时跳转到的步骤
+  field: string;
+  operator: ConditionOperator;
+  value: number | string;
+  targetSteps?: number[];
 }
 
 // 审批记录
 export interface ApprovalRecord {
   id: string;
-  workflowId: string;                    // 工作流实例ID
+  workflowId: string;
   workflowType: WorkflowType;
-  stepId: string;
-  stepName: string;
+  nodeId: string;                        // 节点ID
+  nodeName: string;
   approverId: string;
   approverName: string;
   approverRole: UserRole;
-  action: 'approve' | 'reject' | 'withdraw' | 'transfer';
+  action: 'approve' | 'reject' | 'withdraw' | 'transfer' | 'return';
   comment?: string;
+  returnToNodeId?: string;               // 退回到的节点ID
   createdAt: string;
 }
 
@@ -417,17 +498,29 @@ export interface ApprovalRecord {
 export interface WorkflowInstance {
   id: string;
   type: WorkflowType;
-  configId: string;                      // 使用的流程配置ID
+  configId: string;
   applicantId: string;
   applicantName: string;
   applicantRole: UserRole;
   title: string;
-  content: any;                          // 申请内容，根据类型不同结构不同
+  content: any;
   status: WorkflowStatus;
-  currentStep: number;                   // 当前步骤
-  steps: ApprovalNode[];                 // 各步骤状态
-  records: ApprovalRecord[];             // 审批记录
+  currentNodeId: string;                 // 当前节点ID
+  nodeHistory: NodeHistory[];            // 节点历史记录
+  records: ApprovalRecord[];
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
+}
+
+// 节点历史记录
+export interface NodeHistory {
+  nodeId: string;
+  nodeName: string;
+  status: 'pending' | 'approved' | 'rejected' | 'skipped';
+  enteredAt: string;
+  exitedAt?: string;
+  approverId?: string;
+  approverName?: string;
+  comment?: string;
 }

@@ -1,5 +1,109 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { 
+  WorkflowNode, 
+  ConditionBranch, 
+  ConditionRule, 
+  NodeHistory,
+  WorkflowConfig as WorkflowConfigType 
+} from '@/types';
+
+// 评估条件规则
+function evaluateRule(rule: ConditionRule, formData: Record<string, any>): boolean {
+  const fieldValue = formData[rule.field];
+  const ruleValue = rule.value;
+  
+  switch (rule.operator) {
+    case 'eq':
+      return fieldValue === ruleValue;
+    case 'ne':
+      return fieldValue !== ruleValue;
+    case 'gt':
+      return Number(fieldValue) > Number(ruleValue);
+    case 'gte':
+      return Number(fieldValue) >= Number(ruleValue);
+    case 'lt':
+      return Number(fieldValue) < Number(ruleValue);
+    case 'lte':
+      return Number(fieldValue) <= Number(ruleValue);
+    case 'in':
+      if (Array.isArray(ruleValue)) {
+        return ruleValue.includes(fieldValue);
+      }
+      return String(ruleValue).split(',').includes(String(fieldValue));
+    case 'not_in':
+      if (Array.isArray(ruleValue)) {
+        return !ruleValue.includes(fieldValue);
+      }
+      return !String(ruleValue).split(',').includes(String(fieldValue));
+    default:
+      return false;
+  }
+}
+
+// 评估条件分支
+function evaluateBranch(branch: ConditionBranch, formData: Record<string, any>): boolean {
+  const results = branch.rules.map(rule => evaluateRule(rule, formData));
+  
+  if (branch.conditionType === 'all') {
+    return results.every(r => r);
+  } else if (branch.conditionType === 'any') {
+    return results.some(r => r);
+  }
+  return false;
+}
+
+// 获取下一个节点ID
+function getNextNodeId(
+  currentNode: WorkflowNode, 
+  formData: Record<string, any>
+): string | null {
+  if (currentNode.type === 'condition') {
+    // 评估条件分支
+    for (const branch of currentNode.branches || []) {
+      if (evaluateBranch(branch, formData)) {
+        return branch.nextNodeId;
+      }
+    }
+    // 返回默认分支
+    return currentNode.defaultBranchId || null;
+  } else if (currentNode.type === 'parallel') {
+    // 并行节点暂不实现，返回第一个并行节点
+    return currentNode.parallelNodes?.[0] || currentNode.nextNodeId || null;
+  } else {
+    return currentNode.nextNodeId || null;
+  }
+}
+
+// 获取退回节点ID
+function getReturnNodeId(
+  currentNode: WorkflowNode,
+  nodes: WorkflowNode[],
+  nodeHistory: NodeHistory[],
+  formData: Record<string, any>
+): string | null {
+  switch (currentNode.rejectAction) {
+    case 'return_to_applicant':
+      // 找到开始节点
+      const startNode = nodes.find(n => n.type === 'start');
+      return startNode?.nextNodeId || null;
+    
+    case 'return_to_previous':
+      // 返回上一个审批节点
+      const prevApprovalNode = [...nodeHistory].reverse()
+        .find(h => h.status === 'approved' && h.nodeId !== currentNode.id);
+      return prevApprovalNode?.nodeId || null;
+    
+    case 'return_to_specific':
+      return currentNode.rejectReturnNodeId || null;
+    
+    case 'end_process':
+      return null; // 直接结束
+    
+    default:
+      return null;
+  }
+}
 
 // 获取工作流实例列表
 export async function GET(request: NextRequest) {
@@ -9,7 +113,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const status = searchParams.get('status');
     const applicantId = searchParams.get('applicantId');
-    const approverId = searchParams.get('approverId');
+    const approverRole = searchParams.get('approverRole');
     
     let query = client
       .from('workflow_instances')
@@ -35,14 +139,34 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
     
-    // 如果查询待审批的，需要根据当前步骤筛选
+    // 如果查询待审批的，需要根据当前节点筛选
     let result = data || [];
-    if (approverId && data) {
+    if (approverRole && data) {
+      // 获取所有配置
+      const configIds = [...new Set(data.map(d => d.config_id))];
+      const { data: configs } = await client
+        .from('workflow_configs')
+        .select('*')
+        .in('id', configIds);
+      
+      const configMap = new Map((configs || []).map(c => [c.id, c]));
+      
       result = data.filter(instance => {
-        const currentStepData = instance.steps[instance.current_step];
-        if (!currentStepData) return false;
-        return currentStepData.approverId === approverId || 
-               currentStepData.approverRole === approverId;
+        const config = configMap.get(instance.config_id);
+        if (!config) return false;
+        
+        const nodes = config.nodes || config.steps || [];
+        const currentNode = nodes.find((n: WorkflowNode) => n.id === instance.current_node_id);
+        
+        if (!currentNode || currentNode.type !== 'approval') return false;
+        
+        // 检查审批人
+        if (currentNode.approverType === 'role') {
+          return currentNode.approverRole === approverRole;
+        }
+        // TODO: 检查指定人员
+        
+        return false;
       });
     }
     
@@ -88,19 +212,39 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // 初始化步骤状态
-    const steps = config.steps.map((step: any) => ({
-      id: step.id,
-      step: step.step,
-      name: step.name,
-      approverType: step.approverType,
-      approverRole: step.approverRole,
-      approverId: step.approverId,
-      approverName: step.approverName,
-      status: 'pending',
-      comment: null,
-      approvedAt: null,
-    }));
+    const nodes = config.nodes || config.steps || [];
+    const startNode = nodes.find((n: WorkflowNode) => n.type === 'start');
+    
+    if (!startNode) {
+      return NextResponse.json({
+        success: false,
+        error: '流程配置缺少开始节点',
+      }, { status: 400 });
+    }
+    
+    // 获取第一个实际节点（开始节点的下一个）
+    const firstNodeId = getNextNodeId(startNode, content);
+    const firstNode = nodes.find((n: WorkflowNode) => n.id === firstNodeId);
+    
+    // 初始化节点历史
+    const nodeHistory: NodeHistory[] = [
+      {
+        nodeId: startNode.id,
+        nodeName: startNode.name,
+        status: 'approved',
+        enteredAt: new Date().toISOString(),
+        exitedAt: new Date().toISOString(),
+      }
+    ];
+    
+    if (firstNode) {
+      nodeHistory.push({
+        nodeId: firstNode.id,
+        nodeName: firstNode.name,
+        status: 'pending',
+        enteredAt: new Date().toISOString(),
+      });
+    }
     
     // 创建工作流实例
     const { data: instance, error: instanceError } = await client
@@ -114,8 +258,10 @@ export async function POST(request: NextRequest) {
         title,
         content,
         status: 'pending',
-        current_step: 0,
-        steps,
+        current_node_id: firstNodeId,
+        node_history: nodeHistory,
+        current_step: 0, // 兼容旧版
+        steps: nodes, // 兼容旧版
       })
       .select()
       .single();
@@ -146,7 +292,7 @@ export async function PUT(request: NextRequest) {
   try {
     const client = getSupabaseClient();
     const body = await request.json();
-    const { instanceId, action, comment, approverId, approverName, approverRole } = body;
+    const { instanceId, action, comment, approverId, approverName, approverRole, returnToNodeId } = body;
     
     if (!instanceId || !action || !approverId) {
       return NextResponse.json({
@@ -169,58 +315,180 @@ export async function PUT(request: NextRequest) {
       }, { status: 404 });
     }
     
-    const steps = [...instance.steps];
-    const currentStep = instance.current_step;
-    const currentStepData = steps[currentStep];
+    // 获取流程配置
+    const { data: config } = await client
+      .from('workflow_configs')
+      .select('*')
+      .eq('id', instance.config_id)
+      .single();
     
-    // 验证审批人
-    if (currentStepData.approverId !== approverId && 
-        currentStepData.approverRole !== approverRole) {
+    const nodes = config?.nodes || config?.steps || [];
+    const currentNodeId = instance.current_node_id;
+    const currentNode = nodes.find((n: WorkflowNode) => n.id === currentNodeId);
+    
+    if (!currentNode) {
       return NextResponse.json({
         success: false,
-        error: '您不是当前步骤的审批人',
-      }, { status: 403 });
+        error: '当前节点不存在',
+      }, { status: 400 });
     }
     
-    // 更新当前步骤状态
-    steps[currentStep] = {
-      ...currentStepData,
-      status: action === 'approve' ? 'approved' : 'rejected',
-      comment,
-      approvedAt: new Date().toISOString(),
-    };
+    // 验证审批人
+    if (currentNode.type === 'approval') {
+      if (currentNode.approverType === 'role' && currentNode.approverRole !== approverRole) {
+        return NextResponse.json({
+          success: false,
+          error: '您不是当前步骤的审批人',
+        }, { status: 403 });
+      }
+      // TODO: 验证指定人员
+    }
+    
+    // 更新节点历史
+    const nodeHistory: NodeHistory[] = instance.node_history || [];
+    const currentHistoryIndex = nodeHistory.findIndex(h => h.nodeId === currentNodeId);
     
     let newStatus = instance.status;
-    let newCurrentStep = currentStep;
-    let completedAt = null;
+    let newCurrentNodeId = currentNodeId;
+    let completedAt = instance.completed_at;
+    
+    // 创建审批记录
+    const approvalRecord = {
+      instance_id: instanceId,
+      workflow_type: instance.type,
+      node_id: currentNodeId,
+      node_name: currentNode.name,
+      approver_id: approverId,
+      approver_name: approverName,
+      approver_role: approverRole,
+      action,
+      comment,
+      return_to_node_id: null as string | null,
+      created_at: new Date().toISOString(),
+    };
     
     if (action === 'approve') {
-      // 如果还有下一步
-      if (currentStep < steps.length - 1) {
-        newCurrentStep = currentStep + 1;
+      // 更新当前节点历史为已通过
+      if (currentHistoryIndex >= 0) {
+        nodeHistory[currentHistoryIndex] = {
+          ...nodeHistory[currentHistoryIndex],
+          status: 'approved',
+          exitedAt: new Date().toISOString(),
+          approverId,
+          approverName,
+          comment,
+        };
+      }
+      
+      // 获取下一个节点
+      const nextNodeId = getNextNodeId(currentNode, instance.content);
+      
+      if (nextNodeId) {
+        const nextNode = nodes.find((n: WorkflowNode) => n.id === nextNodeId);
+        
+        if (nextNode?.type === 'end') {
+          // 流程结束
+          newStatus = 'approved';
+          newCurrentNodeId = nextNodeId;
+          completedAt = new Date().toISOString();
+          
+          nodeHistory.push({
+            nodeId: nextNode.id,
+            nodeName: nextNode.name,
+            status: 'approved',
+            enteredAt: new Date().toISOString(),
+            exitedAt: new Date().toISOString(),
+          });
+        } else {
+          // 进入下一个节点
+          newCurrentNodeId = nextNodeId;
+          
+          nodeHistory.push({
+            nodeId: nextNode!.id,
+            nodeName: nextNode!.name,
+            status: 'pending',
+            enteredAt: new Date().toISOString(),
+          });
+        }
       } else {
-        // 全部通过
+        // 没有下一个节点，流程结束
         newStatus = 'approved';
         completedAt = new Date().toISOString();
       }
     } else if (action === 'reject') {
-      newStatus = 'rejected';
-      completedAt = new Date().toISOString();
+      // 更新当前节点历史为已拒绝
+      if (currentHistoryIndex >= 0) {
+        nodeHistory[currentHistoryIndex] = {
+          ...nodeHistory[currentHistoryIndex],
+          status: 'rejected',
+          exitedAt: new Date().toISOString(),
+          approverId,
+          approverName,
+          comment,
+        };
+      }
+      
+      // 获取退回节点
+      const returnNodeId = returnToNodeId || getReturnNodeId(currentNode, nodes, nodeHistory, instance.content);
+      
+      if (returnNodeId) {
+        newStatus = 'returned';
+        newCurrentNodeId = returnNodeId;
+        
+        const returnNode = nodes.find((n: WorkflowNode) => n.id === returnNodeId);
+        
+        // 添加退回节点历史
+        nodeHistory.push({
+          nodeId: returnNodeId,
+          nodeName: returnNode?.name || '退回节点',
+          status: 'pending',
+          enteredAt: new Date().toISOString(),
+        });
+        
+        approvalRecord.return_to_node_id = returnNodeId;
+      } else {
+        // 流程结束
+        newStatus = 'rejected';
+        completedAt = new Date().toISOString();
+      }
+    } else if (action === 'return') {
+      // 主动退回（申请人修改后重新提交）
+      const returnNodeId = returnToNodeId;
+      
+      if (returnNodeId) {
+        newStatus = 'returned';
+        newCurrentNodeId = returnNodeId;
+        
+        // 更新当前节点历史
+        if (currentHistoryIndex >= 0) {
+          nodeHistory[currentHistoryIndex].status = 'approved';
+          nodeHistory[currentHistoryIndex].exitedAt = new Date().toISOString();
+        }
+        
+        const returnNode = nodes.find((n: WorkflowNode) => n.id === returnNodeId);
+        nodeHistory.push({
+          nodeId: returnNodeId,
+          nodeName: returnNode?.name || '退回节点',
+          status: 'pending',
+          enteredAt: new Date().toISOString(),
+        });
+        
+        approvalRecord.return_to_node_id = returnNodeId;
+      }
     }
     
     // 更新实例
-    const { data: updated, error: updateError } = await client
+    const { error: updateError } = await client
       .from('workflow_instances')
       .update({
         status: newStatus,
-        current_step: newCurrentStep,
-        steps,
+        current_node_id: newCurrentNodeId,
+        node_history: nodeHistory,
+        current_step: 0, // 兼容旧版
         completed_at: completedAt,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', instanceId)
-      .select()
-      .single();
+      .eq('id', instanceId);
     
     if (updateError) {
       return NextResponse.json({
@@ -229,28 +497,22 @@ export async function PUT(request: NextRequest) {
       }, { status: 500 });
     }
     
-    // 记录审批历史
+    // 记录审批操作
     await client
       .from('approval_records')
-      .insert({
-        instance_id: instanceId,
-        workflow_type: instance.type,
-        step_id: currentStepData.id,
-        step_name: currentStepData.name,
-        approver_id: approverId,
-        approver_name: approverName,
-        approver_role: approverRole,
-        action,
-        comment,
-      });
+      .insert(approvalRecord);
     
     return NextResponse.json({
       success: true,
-      data: updated,
-      message: action === 'approve' ? '已通过' : '已拒绝',
+      message: action === 'approve' ? '审批通过' : action === 'reject' ? '已拒绝' : '已退回',
+      data: {
+        newStatus,
+        newCurrentNodeId,
+        completedAt,
+      },
     });
   } catch (error) {
-    console.error('Failed to approve workflow:', error);
+    console.error('Failed to process approval:', error);
     return NextResponse.json({
       success: false,
       error: '审批操作失败',
