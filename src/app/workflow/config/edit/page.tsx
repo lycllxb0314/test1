@@ -43,6 +43,10 @@ import {
   ChevronRight,
   AlertTriangle,
   CalendarClock,
+  RefreshCw,
+  Database,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { roleOptions } from '@/contexts/AuthContext';
@@ -149,6 +153,7 @@ const nodeTypeConfig: Record<NodeType, { label: string; icon: any; color: string
   condition: { label: '条件', icon: GitBranch, color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-300' },
   parallel: { label: '并行', icon: Layers, color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-300' },
   course_adjust: { label: '调课', icon: CalendarClock, color: 'text-teal-600', bgColor: 'bg-teal-50', borderColor: 'border-teal-300' },
+  sync: { label: '同步', icon: RefreshCw, color: 'text-indigo-600', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-300' },
   end: { label: '结束', icon: Square, color: 'text-gray-600', bgColor: 'bg-gray-50', borderColor: 'border-gray-300' },
 };
 
@@ -175,7 +180,7 @@ const workflowTemplates: Record<string, Partial<WorkflowConfig>> = {
         { id: 'b5', name: '公假', conditionType: 'all', rules: [{ id: 'r9', field: 'type', operator: 'eq', value: '公假' }], nextNodeId: 'approval_dean' },
       ], defaultBranchId: 'b3' },
       { id: 'approval_dean', type: 'approval', name: '教务主任审批', approverType: 'role', approverRole: 'academic_director', rejectAction: 'return_to_previous', nextNodeId: 'arrange_class' },
-      { id: 'arrange_class', type: 'course_adjust', name: '年段长调课安排', nextNodeId: 'end', 
+      { id: 'arrange_class', type: 'course_adjust', name: '年段长调课安排', nextNodeId: 'sync_data', 
         courseAdjustConfig: {
           assigneeType: 'grade_leader',
           adjustTypes: ['substitute', 'swap', 'makeup'],
@@ -196,6 +201,27 @@ const workflowTemplates: Record<string, Partial<WorkflowConfig>> = {
           notifyHeadTeacher: true,
           requireReason: true,
           requireApproval: false,
+        }
+      },
+      { id: 'sync_data', type: 'sync', name: '数据同步', nextNodeId: 'end',
+        syncConfig: {
+          targets: {
+            teacherSchedule: true,
+            academicSchedule: true,
+            classSchedule: true,
+            electronicBoard: true,
+            teacherAttendance: true,
+          },
+          retryPolicy: {
+            maxRetries: 3,
+            retryInterval: 30,
+            retryOnPartialFailure: true,
+          },
+          timeout: 60,
+          onFailure: 'pause',
+          notifyOnFailure: true,
+          requireManualConfirm: false,
+          keepSyncLog: true,
         }
       },
       { id: 'end', type: 'end', name: '结束' },
@@ -1842,6 +1868,249 @@ export default function WorkflowConfigEditPage() {
                             const current = selectedNode.courseAdjustConfig || {};
                             updateNode(selectedNode.id, { 
                               courseAdjustConfig: { ...current, requireApproval: e.target.checked } as any
+                            });
+                          }}
+                          className="rounded"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-gray-600">下一个节点</Label>
+                    <Select
+                      value={selectedNode.nextNodeId || ''}
+                      onValueChange={(v) => updateNode(selectedNode.id, { nextNodeId: v })}
+                    >
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="选择下一个节点" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nodes.filter(n => n.id !== selectedNode.id).map(n => (
+                          <SelectItem key={n.id} value={n.id}>
+                            {nodeTypeConfig[n.type].label} - {n.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+              
+              {/* 同步节点配置 */}
+              {selectedNode.type === 'sync' && (
+                <>
+                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-indigo-700 mb-2">
+                      <RefreshCw className="h-4 w-4" />
+                      <span className="text-sm font-medium">数据同步节点</span>
+                    </div>
+                    <p className="text-xs text-indigo-600">
+                      自动将调课数据同步到各系统，支持失败重试和人工干预。
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-gray-600">节点名称</Label>
+                    <Input
+                      value={selectedNode.name}
+                      onChange={(e) => updateNode(selectedNode.id, { name: e.target.value })}
+                      className="mt-1.5"
+                    />
+                  </div>
+                  
+                  {/* === 同步目标 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                      <Database className="h-3 w-3" />
+                      同步目标
+                    </Label>
+                    <div className="mt-2 space-y-1.5">
+                      {[
+                        { key: 'teacherSchedule', label: '教师空间课表', icon: '👤' },
+                        { key: 'academicSchedule', label: '教务智能排课', icon: '📅' },
+                        { key: 'classSchedule', label: '班级课表', icon: '🏫' },
+                        { key: 'electronicBoard', label: '电子白板', icon: '📺' },
+                        { key: 'teacherAttendance', label: '教师考勤', icon: '📋' },
+                      ].map(item => {
+                        const targets = selectedNode.syncConfig?.targets || {
+                          teacherSchedule: true,
+                          academicSchedule: true,
+                          classSchedule: true,
+                          electronicBoard: true,
+                          teacherAttendance: true,
+                        };
+                        const isChecked = targets[item.key as keyof typeof targets] ?? true;
+                        return (
+                          <div key={item.key} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div className="flex items-center gap-2">
+                              <span>{item.icon}</span>
+                              <span className="text-xs">{item.label}</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const current = selectedNode.syncConfig || { targets: {} };
+                                const newTargets = { ...(current.targets || {}), [item.key]: e.target.checked };
+                                updateNode(selectedNode.id, { 
+                                  syncConfig: { ...current, targets: newTargets } as any
+                                });
+                              }}
+                              className="rounded"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* === 重试策略 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700">重试策略</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-xs">最大重试次数</span>
+                        <Input
+                          type="number"
+                          value={selectedNode.syncConfig?.retryPolicy?.maxRetries ?? 3}
+                          onChange={(e) => {
+                            const current = selectedNode.syncConfig || { targets: {} };
+                            const retryPolicy = current.retryPolicy || { maxRetries: 3, retryInterval: 30, retryOnPartialFailure: true };
+                            updateNode(selectedNode.id, { 
+                              syncConfig: { 
+                                ...current, 
+                                retryPolicy: { ...retryPolicy, maxRetries: parseInt(e.target.value) || 3 }
+                              }
+                            });
+                          }}
+                          className="w-16 h-6 text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-xs">重试间隔（秒）</span>
+                        <Input
+                          type="number"
+                          value={selectedNode.syncConfig?.retryPolicy?.retryInterval ?? 30}
+                          onChange={(e) => {
+                            const current = selectedNode.syncConfig || { targets: {} };
+                            const retryPolicy = current.retryPolicy || { maxRetries: 3, retryInterval: 30, retryOnPartialFailure: true };
+                            updateNode(selectedNode.id, { 
+                              syncConfig: { 
+                                ...current, 
+                                retryPolicy: { ...retryPolicy, retryInterval: parseInt(e.target.value) || 30 }
+                              }
+                            });
+                          }}
+                          className="w-16 h-6 text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-xs">部分失败时重试</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedNode.syncConfig?.retryPolicy?.retryOnPartialFailure ?? true}
+                          onChange={(e) => {
+                            const current = selectedNode.syncConfig || { targets: {} };
+                            const retryPolicy = current.retryPolicy || { maxRetries: 3, retryInterval: 30, retryOnPartialFailure: true };
+                            updateNode(selectedNode.id, { 
+                              syncConfig: { 
+                                ...current, 
+                                retryPolicy: { ...retryPolicy, retryOnPartialFailure: e.target.checked }
+                              }
+                            });
+                          }}
+                          className="rounded"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* === 失败处理 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700">失败处理</Label>
+                    <div className="mt-2 space-y-2">
+                      <Select
+                        value={selectedNode.syncConfig?.onFailure || 'pause'}
+                        onValueChange={(v) => {
+                          const current = selectedNode.syncConfig || {};
+                          updateNode(selectedNode.id, { 
+                            syncConfig: { ...current, onFailure: v as any } as any
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="continue">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              <span>继续执行</span>
+                              <span className="text-gray-400 text-[10px]">- 部分成功也算通过</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="pause">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                              <span>暂停等待</span>
+                              <span className="text-gray-400 text-[10px]">- 等待人工处理</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="rollback">
+                            <div className="flex items-center gap-2">
+                              <XCircle className="h-3 w-3 text-red-500" />
+                              <span>回滚</span>
+                              <span className="text-gray-400 text-[10px]">- 撤销已同步数据</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-xs">失败时通知管理员</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedNode.syncConfig?.notifyOnFailure ?? true}
+                          onChange={(e) => {
+                            const current = selectedNode.syncConfig || {};
+                            updateNode(selectedNode.id, { 
+                              syncConfig: { ...current, notifyOnFailure: e.target.checked } as any
+                            });
+                          }}
+                          className="rounded"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* === 确认设置 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700">确认设置</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-xs">需要人工确认同步结果</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedNode.syncConfig?.requireManualConfirm ?? false}
+                          onChange={(e) => {
+                            const current = selectedNode.syncConfig || {};
+                            updateNode(selectedNode.id, { 
+                              syncConfig: { ...current, requireManualConfirm: e.target.checked } as any
+                            });
+                          }}
+                          className="rounded"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-xs">保留同步日志</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedNode.syncConfig?.keepSyncLog ?? true}
+                          onChange={(e) => {
+                            const current = selectedNode.syncConfig || {};
+                            updateNode(selectedNode.id, { 
+                              syncConfig: { ...current, keepSyncLog: e.target.checked } as any
                             });
                           }}
                           className="rounded"

@@ -362,7 +362,7 @@ export interface DashboardCard {
 export type WorkflowType = 'leave' | 'repair' | 'purchase';
 
 // 节点类型
-export type NodeType = 'start' | 'approval' | 'condition' | 'parallel' | 'course_adjust' | 'end';
+export type NodeType = 'start' | 'approval' | 'condition' | 'parallel' | 'course_adjust' | 'sync' | 'end';
 
 // 拒绝处理方式
 export type RejectAction = 
@@ -484,6 +484,42 @@ export interface WorkflowNode {
     // === 其他配置 ===
     requireReason?: boolean;              // 是否必须填写调课原因
     requireApproval?: boolean;            // 是否需要教务主任确认
+  };
+  
+  // 同步节点配置（数据同步保障）
+  syncConfig?: {
+    // === 同步目标 ===
+    targets?: {
+      teacherSchedule?: boolean;          // 同步到教师空间课表
+      academicSchedule?: boolean;         // 同步到教务智能排课
+      classSchedule?: boolean;            // 同步到班级课表
+      electronicBoard?: boolean;          // 同步到电子白板
+      teacherAttendance?: boolean;        // 同步到教师考勤
+      externalSystem?: boolean;           // 同步到外部系统（如区教育平台）
+    };
+    
+    // === 重试策略 ===
+    retryPolicy?: {
+      maxRetries?: number;                 // 最大重试次数（默认3）
+      retryInterval?: number;              // 重试间隔（秒，默认30）
+      retryOnPartialFailure?: boolean;     // 部分失败时是否重试
+    };
+    
+    // === 超时设置 ===
+    timeout?: number;                      // 单次同步超时时间（秒，默认60）
+    
+    // === 失败处理 ===
+    onFailure?: 'continue' | 'pause' | 'rollback';  // 失败后动作
+    notifyOnFailure?: boolean;             // 失败时是否通知管理员
+    notifyTargets?: string[];              // 通知对象列表
+    
+    // === 确认设置 ===
+    requireManualConfirm?: boolean;        // 是否需要人工确认同步结果
+    confirmBy?: UserRole;                  // 确认人角色
+    
+    // === 日志记录 ===
+    keepSyncLog?: boolean;                 // 是否保留同步日志
+    logRetentionDays?: number;             // 日志保留天数
   };
   
   // 流程控制
