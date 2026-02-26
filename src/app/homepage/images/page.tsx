@@ -37,14 +37,17 @@ interface ImageFile {
   fileName: string;
 }
 
+// 图片分类 - 与主页区块对应
 const categories = [
-  { value: 'banner', label: '轮播图' },
-  { value: 'news', label: '新闻图片' },
-  { value: 'honor', label: '荣誉展示' },
-  { value: 'activity', label: '校园活动' },
-  { value: 'teacher', label: '教师风采' },
-  { value: 'education', label: '五育展示' },
-  { value: 'general', label: '其他' },
+  { value: 'hero', label: '顶部横幅', desc: '轮播图、学校介绍背景' },
+  { value: 'motto', label: '校训内涵', desc: '校训展示相关图片' },
+  { value: 'five_education', label: '五育并举', desc: '德智体美劳五育展示图片' },
+  { value: 'teacher_dev', label: '教师发展', desc: '教师培训、教研活动图片' },
+  { value: 'activities', label: '校园活动', desc: '校园活动、节日庆典图片' },
+  { value: 'honors', label: '荣誉展示', desc: '荣誉证书、奖牌图片' },
+  { value: 'news', label: '新闻动态', desc: '新闻配图' },
+  { value: 'smart_campus', label: '智慧校园', desc: '系统介绍相关图片' },
+  { value: 'general', label: '其他', desc: '其他图片资源' },
 ];
 
 export default function ImagesManagementPage() {
@@ -158,7 +161,7 @@ export default function ImagesManagementPage() {
         </div>
         <div className="flex items-center gap-3">
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-40">
               <SelectValue placeholder="选择分类" />
             </SelectTrigger>
             <SelectContent>
@@ -208,22 +211,27 @@ export default function ImagesManagementPage() {
       <Card className="border-0 shadow-md">
         <CardHeader>
           <CardTitle className="text-lg">图片分类说明</CardTitle>
-          <CardDescription>上传图片前请选择正确的分类，便于管理</CardDescription>
+          <CardDescription>图片分类与主页区块对应，上传前请选择正确的分类</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {categories.map(cat => (
               <div
                 key={cat.value}
-                className={`p-3 rounded-lg text-center cursor-pointer transition-all ${
+                className={`p-4 rounded-lg cursor-pointer transition-all border ${
                   selectedCategory === cat.value
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-50 hover:bg-gray-100'
+                    ? 'bg-primary/10 border-primary ring-2 ring-primary/20'
+                    : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
                 }`}
                 onClick={() => setSelectedCategory(cat.value)}
               >
-                <ImageIcon className="h-6 w-6 mx-auto mb-1" />
-                <p className="text-xs font-medium">{cat.label}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <ImageIcon className={`h-5 w-5 ${selectedCategory === cat.value ? 'text-primary' : 'text-gray-400'}`} />
+                  <p className={`font-medium ${selectedCategory === cat.value ? 'text-primary' : 'text-gray-900'}`}>
+                    {cat.label}
+                  </p>
+                </div>
+                <p className="text-xs text-gray-500">{cat.desc}</p>
               </div>
             ))}
           </div>
