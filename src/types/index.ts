@@ -1017,6 +1017,256 @@ export interface DailySchedule {
 }
 
 // ============================================================
+// 教研室/教室预约系统类型定义
+// ============================================================
+
+// 教室类型
+export type RoomType = 
+  | 'seminar_room'      // 教研室
+  | 'lecture_hall'      // 阶梯教室
+  | 'multimedia_room'   // 多媒体教室
+  | 'lab'               // 实验室
+  | 'meeting_room'      // 会议室
+  | 'activity_room';    // 活动室
+
+// 教室状态
+export type RoomStatus = 
+  | 'available'         // 可用
+  | 'in_use'            // 使用中
+  | 'reserved'          // 已预约
+  | 'maintenance'       // 维护中
+  | 'locked';           // 已锁定
+
+// 教室资源
+export interface Room {
+  id: string;
+  name: string;                          // 教室名称，如"2号楼教研室"
+  code: string;                          // 教室编码
+  type: RoomType;
+  building: string;                      // 所属楼栋
+  floor: number;                         // 楼层
+  location: string;                      // 具体位置
+  
+  // 容量与配置
+  capacity: number;                      // 容纳人数
+  area?: number;                         // 面积（平方米）
+  
+  // 设施配置
+  facilities: {
+    projector: boolean;                  // 投影仪
+    computer: boolean;                   // 电脑
+    microphone: boolean;                 // 麦克风
+    speaker: boolean;                    // 音响
+    whiteboard: boolean;                 // 白板
+    blackboard: boolean;                 // 黑板
+    airConditioner: boolean;             // 空调
+    wifi: boolean;                       // 无线网络
+    videoConference: boolean;            // 视频会议设备
+    recording: boolean;                  // 录播设备
+  };
+  
+  // 附加设施
+  extraFacilities?: string[];            // 如：['钢琴', '实验器材']
+  
+  // 状态
+  status: RoomStatus;
+  
+  // 管理信息
+  managerId?: string;                    // 管理员ID
+  managerName?: string;                  // 管理员姓名
+  departmentId?: string;                 // 归属部门
+  
+  // 使用统计
+  usageStats?: {
+    totalBookings: number;               // 总预约次数
+    thisMonth: number;                   // 本月预约次数
+    lastUsedAt?: string;                 // 最后使用时间
+  };
+  
+  // 图片
+  images?: string[];
+  
+  // 备注
+  remark?: string;
+  
+  // 时间戳
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 预约状态
+export type BookingStatus = 
+  | 'pending'           // 待审批
+  | 'approved'          // 已批准
+  | 'rejected'          // 已拒绝
+  | 'cancelled'         // 已取消
+  | 'completed'         // 已完成
+  | 'in_progress';      // 进行中
+
+// 预约用途类型
+export type BookingPurpose = 
+  | 'teaching'          // 教学活动
+  | 'meeting'           // 教研会议
+  | 'training'          // 培训讲座
+  | 'activity'          // 学生活动
+  | 'exam'              // 考试
+  | 'defense'           // 答辩
+  | 'competition'       // 比赛
+  | 'other';            // 其他
+
+// 教室预约申请
+export interface RoomBooking {
+  id: string;
+  
+  // 教室信息
+  roomId: string;
+  roomName: string;
+  roomType: RoomType;
+  building: string;
+  location: string;
+  
+  // 申请人信息
+  applicantId: string;
+  applicantName: string;
+  applicantRole: UserRole;
+  department?: string;
+  phone?: string;
+  
+  // 预约信息
+  purpose: BookingPurpose;
+  purposeDetail?: string;                // 详细用途说明
+  title: string;                         // 活动标题
+  description?: string;                  // 活动描述
+  
+  // 时间信息
+  bookingDate: string;                   // 预约日期
+  startTime: string;                     // 开始时间，如 "14:00"
+  endTime: string;                       // 结束时间，如 "16:00"
+  duration: number;                      // 时长（分钟）
+  
+  // 参与信息
+  expectedAttendees: number;             // 预计参与人数
+  attendeeType?: 'teacher' | 'student' | 'mixed' | 'external';  // 参与人员类型
+  
+  // 设备需求
+  requiredFacilities?: string[];         // 需要使用的设备
+  
+  // 审批信息
+  status: BookingStatus;
+  approvalFlow: BookingApprovalNode[];
+  currentStep: number;
+  rejectReason?: string;                 // 拒绝原因
+  
+  // 冲突处理
+  conflictWith?: {
+    bookingId: string;
+    title: string;
+    time: string;
+  };
+  
+  // 取消信息
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancelledByName?: string;
+  cancelReason?: string;
+  
+  // 实际使用
+  actualStartTime?: string;
+  actualEndTime?: string;
+  actualAttendees?: number;
+  usageReport?: string;                  // 使用报告/反馈
+  
+  // 关联总务
+  maintenanceRequest?: string;           // 关联维修申请ID
+  cleaningRequired?: boolean;            // 是否需要保洁
+  cleaningRequested?: boolean;           // 已请求保洁
+  
+  // 时间戳
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 预约审批节点
+export interface BookingApprovalNode {
+  id: string;
+  step: number;
+  name: string;                          // 节点名称
+  approverType: 'room_manager' | 'department_head' | 'academic_office' | 'general_office';
+  approverId?: string;
+  approverName?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  comment?: string;
+  approvedAt?: string;
+}
+
+// 教室使用记录（用于统计和追溯）
+export interface RoomUsageRecord {
+  id: string;
+  roomId: string;
+  roomName: string;
+  bookingId: string;
+  
+  // 使用信息
+  date: string;
+  startTime: string;
+  endTime: string;
+  actualStartTime?: string;
+  actualEndTime?: string;
+  
+  // 使用者
+  userId: string;
+  userName: string;
+  department?: string;
+  
+  // 活动信息
+  title: string;
+  purpose: BookingPurpose;
+  attendeeCount?: number;
+  
+  // 状态
+  status: 'completed' | 'cancelled' | 'no_show' | 'early_end';
+  
+  // 设备问题
+  equipmentIssues?: string[];
+  
+  // 备注
+  remark?: string;
+  
+  createdAt: string;
+}
+
+// 教室维护记录（关联总务）
+export interface RoomMaintenanceRecord {
+  id: string;
+  roomId: string;
+  roomName: string;
+  
+  // 维护类型
+  type: 'cleaning' | 'repair' | 'inspection' | 'upgrade';
+  
+  // 维护信息
+  description: string;
+  status: 'scheduled' | 'in_progress' | 'completed';
+  
+  // 关联
+  bookingId?: string;                    // 关联的预约
+  repairRequestId?: string;              // 关联总务维修申请
+  
+  // 时间
+  scheduledDate?: string;
+  completedDate?: string;
+  
+  // 执行人
+  executorId?: string;
+  executorName?: string;
+  
+  // 费用
+  cost?: number;
+  
+  createdAt: string;
+}
+
+// ============================================================
 // 门禁管理系统类型定义
 // ============================================================
 

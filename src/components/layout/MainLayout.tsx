@@ -103,6 +103,10 @@ const academicNav: NavItem[] = [
   { name: '智能排课', href: '/academic/schedule', icon: Calendar, description: '课程表管理' },
   { name: '考试管理', href: '/academic/exams', icon: ClipboardList, description: '考试安排管理' },
   { name: '成绩管理', href: '/academic/grades', icon: BookOpen, description: '成绩录入查询' },
+  { name: '教室管理', href: '/academic/rooms', icon: DoorOpen, description: '教室资源管理' },
+  { name: '教室预约', href: '/academic/rooms/booking', icon: Calendar, description: '预约使用教室' },
+  { name: '预约审批', href: '/academic/rooms/approval', icon: CheckSquare, description: '审批预约申请' },
+  { name: '使用日程', href: '/academic/rooms/calendar', icon: CalendarClock, description: '教室使用日程' },
   { name: '教研活动', href: '/academic/research', icon: Target, description: '教学研究活动' },
   { name: '教师考勤', href: '/academic/attendance', icon: CheckSquare, description: '教师考勤管理' },
   { name: '质量分析', href: '/academic/analysis', icon: BarChart3, description: '教学质量分析' },
@@ -126,6 +130,7 @@ const teacherBaseNav: NavItem[] = [
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排' },
   { name: '通知公告', href: '/teacher/announcements', icon: Bell, description: '学校通知公告' },
   { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请' },
+  { name: '教室预约', href: '/academic/rooms/booking', icon: DoorOpen, description: '预约使用教室' },
 ];
 
 // 教师空间导航 - 班主任专属功能
