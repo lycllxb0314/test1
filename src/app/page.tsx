@@ -51,6 +51,10 @@ const studentDevelopment = [
       { src: '/images/campus/young-pioneers.png', title: '少先队礼仪活动' },
       { src: '/images/campus/school-assembly.png', title: '强国复兴有我主题活动' },
       { src: '/images/campus/team-committee.jpg', title: '大队委竞选活动' },
+      { src: '/images/campus/recitation-grade6.jpg', title: '红色朗诵比赛六年级专场' },
+      { src: '/images/campus/recitation-nanjing.jpg', title: '南京大屠杀主题朗诵' },
+      { src: '/images/campus/recitation-grade5.jpg', title: '红色朗诵比赛五年级颁奖' },
+      { src: '/images/campus/recitation-grade4.jpg', title: '红色朗诵比赛四年级颁奖' },
       { src: '/images/campus/safety-roleplay.png', title: '课间安全我扮演' },
       { src: '/images/campus/fire-safety-class.jpg', title: '消防安全知识讲座' },
     ],
@@ -68,9 +72,14 @@ const studentDevelopment = [
       { src: '/images/campus/robot-playground.jpg', title: '操场机器人科普' },
       { src: '/images/campus/science-lecture.png', title: '公益科普进校园' },
       { src: '/images/campus/robot-team.png', title: '机器人大赛获奖' },
+      { src: '/images/campus/wrc-finals-team.jpg', title: '世界机器人大赛参赛队' },
+      { src: '/images/campus/wrc-competition.jpg', title: '世界机器人大赛现场' },
       { src: '/images/campus/science-dryice.jpg', title: '干冰科学实验' },
       { src: '/images/campus/culture-class.jpg', title: '文化自信课堂' },
-      { src: '/images/campus/math-contest.jpg', title: '小小神算手竞赛' },
+      { src: '/images/campus/classroom-teaching.jpg', title: '多媒体课堂教学' },
+      { src: '/images/campus/math-star-contest.jpg', title: '数学思维之星竞赛' },
+      { src: '/images/campus/english-contest.png', title: '趣味英语竞赛颁奖' },
+      { src: '/images/campus/paperless-assessment.jpg', title: '二年级无纸化测评' },
     ],
     desc: '科技引领未来，培养创新精神和实践能力',
   },
@@ -130,6 +139,42 @@ const teacherDevelopment = [
     title: '教师表彰典礼',
     desc: '优秀教育工作者表彰',
     tag: '表彰典礼',
+  },
+  {
+    image: '/images/campus/teacher-congress.png',
+    title: '教职工代表大会',
+    desc: '第七届第三次教职工代表大会',
+    tag: '民主管理',
+  },
+  {
+    image: '/images/campus/teacher-group-photo.png',
+    title: '教职工集体合影',
+    desc: '学校教职工团队建设',
+    tag: '团队建设',
+  },
+  {
+    image: '/images/campus/brain-science-training.jpg',
+    title: '脑科学教学培训',
+    desc: '聚焦新课标，构建新课堂',
+    tag: '专业培训',
+  },
+  {
+    image: '/images/campus/chinese-teaching-seminar.jpg',
+    title: '语文教学研讨',
+    desc: '小学语文课堂教学研讨',
+    tag: '教学研讨',
+  },
+  {
+    image: '/images/campus/chinese-review-seminar.png',
+    title: '语文复习专题研讨',
+    desc: '汇智复习之道，共话提质增效',
+    tag: '教学研讨',
+  },
+  {
+    image: '/images/campus/researcher-guidance.png',
+    title: '教研员入校指导',
+    desc: '教研员1+N领航挂钩入校指导',
+    tag: '教研指导',
   },
   {
     image: '/images/campus/teaching-seminar.png',
@@ -236,6 +281,24 @@ const campusActivities = [
     title: '田径运动会', 
     date: '2025年秋季',
     desc: '阳光体育，短跑比赛精彩瞬间'
+  },
+  { 
+    image: '/images/campus/tongxin-stage-award.jpg',
+    title: '童心舞台颁奖', 
+    date: '2025年',
+    desc: '童心舞台活动获奖学生合影'
+  },
+  { 
+    image: '/images/campus/lion-dance-activity.jpg',
+    title: '醒狮文化活动', 
+    date: '2025年',
+    desc: '传统文化进校园，醒狮主题活动'
+  },
+  { 
+    image: '/images/campus/school-opening.jpg',
+    title: '开学迎新活动', 
+    date: '2026年春季',
+    desc: '新学期开学班级迎新活动'
   },
 ];
 
