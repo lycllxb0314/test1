@@ -199,6 +199,22 @@ export const mockAnnouncements: Announcement[] = [
   },
 ];
 
+// 模拟学生数据
+export const mockStudents = [
+  { id: '1', studentId: '2023001', name: '张小明', gender: '男', grade: '三年级', class: '1班', homeroomTeacher: '张小燕', phone: '138****0001' },
+  { id: '2', studentId: '2023002', name: '李小红', gender: '女', grade: '三年级', class: '1班', homeroomTeacher: '张小燕', phone: '138****0002' },
+  { id: '3', studentId: '2023003', name: '王小强', gender: '男', grade: '三年级', class: '2班', homeroomTeacher: '吴老师', phone: '138****0003' },
+  { id: '4', studentId: '2023004', name: '赵小芳', gender: '女', grade: '三年级', class: '2班', homeroomTeacher: '吴老师', phone: '138****0004' },
+  { id: '5', studentId: '2024001', name: '刘小华', gender: '男', grade: '四年级', class: '1班', homeroomTeacher: '周老师', phone: '138****0005' },
+  { id: '6', studentId: '2024002', name: '陈小丽', gender: '女', grade: '四年级', class: '1班', homeroomTeacher: '周老师', phone: '138****0006' },
+  { id: '7', studentId: '2024003', name: '黄小龙', gender: '男', grade: '四年级', class: '2班', homeroomTeacher: '李文博', phone: '138****0007' },
+  { id: '8', studentId: '2024004', name: '周小燕', gender: '女', grade: '四年级', class: '2班', homeroomTeacher: '李文博', phone: '138****0008' },
+  { id: '9', studentId: '2025001', name: '孙小杰', gender: '男', grade: '五年级', class: '1班', homeroomTeacher: '徐老师', phone: '138****0009' },
+  { id: '10', studentId: '2025002', name: '马小云', gender: '女', grade: '五年级', class: '1班', homeroomTeacher: '徐老师', phone: '138****0010' },
+  { id: '11', studentId: '2025003', name: '朱小军', gender: '男', grade: '五年级', class: '2班', homeroomTeacher: '孙老师', phone: '138****0011' },
+  { id: '12', studentId: '2025004', name: '胡小梅', gender: '女', grade: '五年级', class: '2班', homeroomTeacher: '孙老师', phone: '138****0012' },
+];
+
 // 模拟请假申请
 export const mockLeaveRequests: LeaveRequest[] = [
   {
