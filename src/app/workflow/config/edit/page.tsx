@@ -158,6 +158,11 @@ export default function WorkflowConfigEditPage() {
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
+  // 连接线拖拽状态
+  const [connectingFrom, setConnectingFrom] = useState<{ nodeId: string; branchId?: string } | null>(null);
+  const [connectingTo, setConnectingTo] = useState<{ x: number; y: number } | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  
   // 节点位置 - 支持拖拽调整
   const [nodePositions, setNodePositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   
@@ -480,6 +485,19 @@ export default function WorkflowConfigEditPage() {
   };
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // 处理连接线拖拽
+    if (connectingFrom) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        setConnectingTo({
+          x: (e.clientX - rect.left) / zoom,
+          y: (e.clientY - rect.top) / zoom,
+        });
+      }
+      return;
+    }
+    
+    // 处理节点拖拽
     if (!draggedNodeId) return;
     
     const newX = e.clientX - dragOffset.x;
@@ -490,17 +508,25 @@ export default function WorkflowConfigEditPage() {
       newPositions.set(draggedNodeId, { x: Math.max(0, newX), y: Math.max(0, newY) });
       return newPositions;
     });
-  }, [draggedNodeId, dragOffset]);
+  }, [draggedNodeId, dragOffset, connectingFrom, zoom]);
 
   const handleMouseUp = useCallback(() => {
     setDraggedNodeId(null);
-  }, []);
+    // 取消连接
+    if (connectingFrom) {
+      setConnectingFrom(null);
+      setConnectingTo(null);
+    }
+  }, [connectingFrom]);
 
   // 点击空白处取消选中
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === canvasRef.current) {
       setSelectedNodeId(null);
       setShowNodePanel(false);
+      // 取消连接
+      setConnectingFrom(null);
+      setConnectingTo(null);
     }
   };
 
@@ -602,7 +628,7 @@ export default function WorkflowConfigEditPage() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          style={{ cursor: draggedNodeId ? 'grabbing' : 'default' }}
+          style={{ cursor: connectingFrom ? 'crosshair' : (draggedNodeId ? 'grabbing' : 'default') }}
         >
           {/* 网格背景 */}
           <div 
@@ -633,14 +659,18 @@ export default function WorkflowConfigEditPage() {
               </div>
             ) : (
               <>
-                {/* 连接线 */}
-                <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
+                {/* 连接线 SVG */}
+                <svg className="absolute inset-0" style={{ width: '100%', height: '100%', pointerEvents: 'none' }}>
                   <defs>
                     <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
                       <path d="M0,0 L0,6 L9,3 z" fill="#9ca3af" />
                     </marker>
+                    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                      <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
+                    </marker>
                   </defs>
                   
+                  {/* 已有连接线 */}
                   {nodes.map(node => {
                     const pos = nodePositions.get(node.id);
                     if (!pos) return null;
@@ -651,8 +681,10 @@ export default function WorkflowConfigEditPage() {
                         const targetPos = nodePositions.get(branch.nextNodeId);
                         if (!targetPos) return null;
                         
-                        const x1 = pos.x + 180;
-                        const y1 = pos.y + 40 + (idx - (node.branches!.length - 1) / 2) * 20;
+                        // 分支连接点位置
+                        const branchY = pos.y + 20 + idx * 24;
+                        const x1 = pos.x + 176;
+                        const y1 = branchY;
                         const x2 = targetPos.x;
                         const y2 = targetPos.y + 40;
                         
@@ -664,35 +696,36 @@ export default function WorkflowConfigEditPage() {
                               stroke="#9ca3af"
                               strokeWidth={2}
                               markerEnd="url(#arrow)"
-                            />
-                            {/* 分支标签 */}
-                            <rect
-                              x={(x1 + x2) / 2 - 30}
-                              y={(y1 + y2) / 2 - 12}
-                              width={60}
-                              height={20}
-                              fill="white"
-                              stroke="#fbbf24"
-                              strokeWidth={1}
-                              rx={4}
-                              className="pointer-events-auto cursor-pointer"
+                              className="pointer-events-auto cursor-pointer hover:stroke-red-400"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedNodeId(node.id);
-                                setShowNodePanel(true);
+                                // 点击连接线可以断开连接
+                                if (confirm('是否断开此连接？')) {
+                                  updateBranch(node.id, branch.id, { nextNodeId: '' });
+                                }
                               }}
                             />
-                            <text
-                              x={(x1 + x2) / 2}
-                              y={(y1 + y2) / 2}
-                              textAnchor="middle"
-                              dominantBaseline="middle"
-                              fill="#92400e"
-                              fontSize="11"
-                              className="pointer-events-none"
-                            >
-                              {branch.name.length > 6 ? branch.name.slice(0, 6) + '..' : branch.name}
-                            </text>
+                            {/* 分支标签 */}
+                            <g transform={`translate(${(x1 + x2) / 2}, ${(y1 + y2) / 2})`}>
+                              <rect
+                                x={-28}
+                                y={-10}
+                                width={56}
+                                height={18}
+                                fill="white"
+                                stroke="#fbbf24"
+                                strokeWidth={1}
+                                rx={4}
+                              />
+                              <text
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill="#92400e"
+                                fontSize="10"
+                              >
+                                {branch.name.length > 5 ? branch.name.slice(0, 5) + '..' : branch.name}
+                              </text>
+                            </g>
                           </g>
                         );
                       });
@@ -700,7 +733,7 @@ export default function WorkflowConfigEditPage() {
                       const targetPos = nodePositions.get(node.nextNodeId);
                       if (!targetPos) return null;
                       
-                      const x1 = pos.x + 180;
+                      const x1 = pos.x + 176;
                       const y1 = pos.y + 40;
                       const x2 = targetPos.x;
                       const y2 = targetPos.y + 40;
@@ -713,11 +746,47 @@ export default function WorkflowConfigEditPage() {
                           stroke="#9ca3af"
                           strokeWidth={2}
                           markerEnd="url(#arrow)"
+                          className="pointer-events-auto cursor-pointer hover:stroke-red-400"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('是否断开此连接？')) {
+                              updateNode(node.id, { nextNodeId: '' });
+                            }
+                          }}
                         />
                       );
                     }
                     return null;
                   })}
+                  
+                  {/* 正在拖拽的连接线 */}
+                  {connectingFrom && connectingTo && (() => {
+                    const fromPos = nodePositions.get(connectingFrom.nodeId);
+                    if (!fromPos) return null;
+                    
+                    const fromNode = nodes.find(n => n.id === connectingFrom.nodeId);
+                    let x1, y1;
+                    
+                    if (connectingFrom.branchId && fromNode?.type === 'condition') {
+                      const branchIdx = fromNode.branches?.findIndex(b => b.id === connectingFrom.branchId) ?? 0;
+                      x1 = fromPos.x + 176;
+                      y1 = fromPos.y + 20 + branchIdx * 24;
+                    } else {
+                      x1 = fromPos.x + 176;
+                      y1 = fromPos.y + 40;
+                    }
+                    
+                    return (
+                      <path
+                        d={`M ${x1} ${y1} C ${x1 + 50} ${y1}, ${connectingTo.x - 50} ${connectingTo.y}, ${connectingTo.x} ${connectingTo.y}`}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        strokeDasharray="5,5"
+                        markerEnd="url(#arrow-blue)"
+                      />
+                    );
+                  })()}
                 </svg>
                 
                 {/* 节点 */}
@@ -728,28 +797,61 @@ export default function WorkflowConfigEditPage() {
                   const config = nodeTypeConfig[node.type];
                   const Icon = config.icon;
                   const isSelected = selectedNodeId === node.id;
+                  const isHovered = hoveredNodeId === node.id;
+                  const canConnect = connectingFrom && connectingFrom.nodeId !== node.id;
                   
                   return (
                     <div
                       key={node.id}
-                      className={`absolute group cursor-pointer transition-all ${
+                      className={`absolute group transition-all ${
                         isSelected ? 'z-10' : 'z-0'
-                      }`}
+                      } ${canConnect ? 'cursor-pointer' : ''}`}
                       style={{ left: pos.x, top: pos.y }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedNodeId(node.id);
-                        setShowNodePanel(true);
+                        
+                        // 如果正在连接且点击了目标节点
+                        if (connectingFrom && connectingFrom.nodeId !== node.id) {
+                          e.preventDefault();
+                          // 建立连接
+                          if (connectingFrom.branchId) {
+                            updateBranch(connectingFrom.nodeId, connectingFrom.branchId, { nextNodeId: node.id });
+                          } else {
+                            updateNode(connectingFrom.nodeId, { nextNodeId: node.id });
+                          }
+                          setConnectingFrom(null);
+                          setConnectingTo(null);
+                        } else {
+                          setSelectedNodeId(node.id);
+                          setShowNodePanel(true);
+                        }
                       }}
-                      onMouseDown={(e) => handleMouseDown(e, node.id)}
+                      onMouseEnter={() => setHoveredNodeId(node.id)}
+                      onMouseLeave={() => setHoveredNodeId(null)}
                     >
+                      {/* 左侧输入连接点 */}
+                      {node.type !== 'start' && (
+                        <div
+                          className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white transition-all ${
+                            canConnect ? 'border-blue-400 scale-125' : 'border-gray-300'
+                          } ${isHovered || isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                        />
+                      )}
+                      
                       {/* 节点卡片 */}
                       <div
                         className={`w-44 rounded-lg border-2 shadow-sm transition-all ${
+                          canConnect ? 'ring-2 ring-blue-300 ring-offset-1' : ''
+                        } ${
                           isSelected 
                             ? `${config.bgColor} ${config.borderColor} shadow-lg ring-2 ring-offset-2 ring-blue-400` 
                             : `bg-white ${config.borderColor} hover:shadow-md`
                         }`}
+                        onMouseDown={(e) => {
+                          // 只有点击卡片本身（不是连接点）才拖拽
+                          if ((e.target as HTMLElement).closest('.connection-handle')) return;
+                          handleMouseDown(e, node.id);
+                        }}
                       >
                         {/* 拖拽手柄 */}
                         <div className="flex items-center justify-center h-5 border-b cursor-grab active:cursor-grabbing">
@@ -787,30 +889,10 @@ export default function WorkflowConfigEditPage() {
                           )}
                         </div>
                         
-                        {/* 添加下一个节点按钮 */}
-                        {node.type !== 'end' && node.type !== 'condition' && (
-                          <button
-                            className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 hover:scale-110"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const newNodeId = addNode('approval', node.id);
-                              // 设置位置
-                              setNodePositions(prev => {
-                                const newPositions = new Map(prev);
-                                newPositions.set(newNodeId, { x: pos.x + 200, y: pos.y });
-                                return newPositions;
-                              });
-                            }}
-                            title="添加下一个节点"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        )}
-                        
                         {/* 删除按钮 */}
                         {node.type !== 'start' && node.type !== 'end' && (
                           <button
-                            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-20"
                             onClick={(e) => {
                               e.stopPropagation();
                               deleteNode(node.id);
@@ -821,6 +903,62 @@ export default function WorkflowConfigEditPage() {
                           </button>
                         )}
                       </div>
+                      
+                      {/* 右侧输出连接点 */}
+                      {node.type !== 'end' && (
+                        node.type === 'condition' && node.branches ? (
+                          // 条件节点：每个分支一个连接点
+                          node.branches.map((branch, idx) => (
+                            <div
+                              key={branch.id}
+                              className="connection-handle absolute right-0 flex items-center gap-2"
+                              style={{ 
+                                top: `${20 + idx * 24}px`,
+                                transform: 'translateX(50%)'
+                              }}
+                            >
+                              {/* 分支名称标签 */}
+                              <div 
+                                className="absolute right-4 whitespace-nowrap text-[10px] text-gray-500 bg-gray-100 px-1 rounded"
+                                title={branch.name}
+                              >
+                                {branch.name.length > 4 ? branch.name.slice(0, 4) + '..' : branch.name}
+                              </div>
+                              {/* 连接点 */}
+                              <div
+                                className={`w-4 h-4 rounded-full border-2 cursor-crosshair transition-all ${
+                                  branch.nextNodeId 
+                                    ? 'bg-green-100 border-green-400' 
+                                    : 'bg-white border-gray-300 hover:border-blue-400 hover:scale-125'
+                                }`}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  setConnectingFrom({ nodeId: node.id, branchId: branch.id });
+                                }}
+                                title="拖拽连接到目标节点"
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          // 普通节点：单个输出连接点
+                          <div
+                            className="connection-handle absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2"
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-full border-2 cursor-crosshair transition-all ${
+                                node.nextNodeId 
+                                  ? 'bg-green-100 border-green-400' 
+                                  : 'bg-white border-gray-300 hover:border-blue-400 hover:scale-125'
+                              } ${isHovered || isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                setConnectingFrom({ nodeId: node.id });
+                              }}
+                              title="拖拽连接到目标节点"
+                            />
+                          </div>
+                        )
+                      )}
                     </div>
                   );
                 })}
@@ -1135,9 +1273,9 @@ export default function WorkflowConfigEditPage() {
         <div className="flex items-center gap-4">
           <span>节点: {nodes.length}</span>
           <span>|</span>
-          <span>拖拽节点可调整位置</span>
+          <span>从右侧圆点拖拽连接节点</span>
           <span>|</span>
-          <span>悬停节点显示操作按钮</span>
+          <span>点击连接线可断开</span>
         </div>
         <div className="flex items-center gap-2">
           {!nodes.find(n => n.type === 'start') && (
