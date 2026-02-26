@@ -44,6 +44,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { roleOptions } from '@/contexts/AuthContext';
@@ -499,6 +502,42 @@ export default function WorkflowEditorPage() {
   const [saving, setSaving] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(true);
+  const [previewWidth, setPreviewWidth] = useState(500); // 预览窗口宽度
+  const [isDragging, setIsDragging] = useState(false); // 是否正在拖拽
+  
+  // 拖拽处理
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      
+      // 计算新的宽度（从窗口右侧往左计算）
+      const newWidth = window.innerWidth - e.clientX;
+      // 限制最小和最大宽度
+      const minWidth = 300;
+      const maxWidth = 800;
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      setPreviewWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
   
   const [formData, setFormData] = useState<Partial<WorkflowConfig>>({
     type: configType as WorkflowType || undefined,
@@ -1273,33 +1312,46 @@ export default function WorkflowEditorPage() {
 
         {/* 右侧：流程图预览 */}
         {showPreview && (
-          <div className="w-[500px] bg-white border-l flex flex-col overflow-hidden flex-shrink-0">
-            <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                  <Eye className="h-4 w-4 text-gray-400" />
-                  流程图预览
-                </h3>
-                <p className="text-xs text-gray-500">横向流程图</p>
+          <>
+            {/* 可拖拽分隔条 */}
+            <div
+              className={`w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors flex-shrink-0 ${
+                isDragging ? 'bg-blue-500' : ''
+              }`}
+              onMouseDown={handleMouseDown}
+            />
+            
+            <div 
+              className="bg-white border-l flex flex-col overflow-hidden flex-shrink-0"
+              style={{ width: `${previewWidth}px` }}
+            >
+              <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-gray-400" />
+                    流程图预览
+                  </h3>
+                  <p className="text-xs text-gray-500">横向流程图 · 拖拽左侧边栏调整宽度</p>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto">
+                {nodes.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-gray-400">
+                    <div className="text-center">
+                      <Workflow className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm">暂无节点</p>
+                    </div>
+                  </div>
+                ) : (
+                  <HorizontalFlowDiagram 
+                    nodes={nodes} 
+                    selectedNodeId={selectedNodeId} 
+                    onSelectNode={setSelectedNodeId} 
+                  />
+                )}
               </div>
             </div>
-            <div className="flex-1 overflow-auto">
-              {nodes.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-gray-400">
-                  <div className="text-center">
-                    <Workflow className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">暂无节点</p>
-                  </div>
-                </div>
-              ) : (
-                <HorizontalFlowDiagram 
-                  nodes={nodes} 
-                  selectedNodeId={selectedNodeId} 
-                  onSelectNode={setSelectedNodeId} 
-                />
-              )}
-            </div>
-          </div>
+          </>
         )}
       </div>
     </div>
@@ -1312,6 +1364,8 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
   selectedNodeId: string | null;
   onSelectNode: (id: string) => void;
 }) {
+  const [zoom, setZoom] = useState(1); // 缩放比例
+  
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   
   // 节点尺寸
@@ -1581,53 +1635,94 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
   };
 
   return (
-    <div className="p-2">
-      {/* 图例 */}
-      <div className="flex items-center gap-4 mb-3 px-2 py-2 bg-gray-50 rounded-lg text-xs">
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-4 rounded-full bg-emerald-500" />
-          <span className="text-gray-600">开始</span>
+    <div className="p-2 h-full flex flex-col">
+      {/* 图例和缩放控制 */}
+      <div className="flex items-center justify-between mb-3 px-2 py-2 bg-gray-50 rounded-lg text-xs">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-4 rounded-full bg-emerald-500" />
+            <span className="text-gray-600">开始</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-4 rounded bg-blue-500" />
+            <span className="text-gray-600">审批</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-5 h-5 bg-amber-500" style={{ transform: 'rotate(45deg)', marginLeft: 2, marginRight: 2 }} />
+            <span className="text-gray-600">条件</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-4 rounded-full bg-gray-500" />
+            <span className="text-gray-600">结束</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-4 rounded bg-blue-500" />
-          <span className="text-gray-600">审批</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-5 h-5 bg-amber-500" style={{ transform: 'rotate(45deg)', marginLeft: 2, marginRight: 2 }} />
-          <span className="text-gray-600">条件</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-4 rounded-full bg-gray-500" />
-          <span className="text-gray-600">结束</span>
+        
+        {/* 缩放控制 */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="缩小"
+          >
+            <ZoomOut className="h-4 w-4 text-gray-600" />
+          </button>
+          <div className="flex items-center gap-1 min-w-[80px]">
+            <input
+              type="range"
+              min="0.5"
+              max="1.5"
+              step="0.1"
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="w-16 h-1 accent-blue-500"
+            />
+            <span className="text-gray-600 font-medium">{Math.round(zoom * 100)}%</span>
+          </div>
+          <button
+            onClick={() => setZoom(Math.min(1.5, zoom + 0.1))}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            title="放大"
+          >
+            <ZoomIn className="h-4 w-4 text-gray-600" />
+          </button>
+          <button
+            onClick={() => setZoom(1)}
+            className="p-1 hover:bg-gray-200 rounded transition-colors text-gray-500"
+            title="重置缩放"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
       
       {/* SVG 流程图 */}
-      <svg 
-        width={Math.max(maxX, 600)} 
-        height={Math.max(maxY, 300)}
-        className="border border-gray-100 rounded-lg bg-gray-50/50"
-      >
-        {/* 箭头定义 */}
-        <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="10"
-            markerHeight="7"
-            refX="9"
-            refY="3.5"
-            orient="auto"
-          >
-            <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
-          </marker>
-        </defs>
-        
-        {/* 连接线 */}
-        {connections.map(renderConnection)}
-        
-        {/* 节点 */}
-        {nodes.map(renderNode)}
-      </svg>
+      <div className="flex-1 overflow-auto border border-gray-100 rounded-lg bg-gray-50/50">
+        <svg 
+          width={Math.max(maxX, 600) * zoom} 
+          height={Math.max(maxY, 300) * zoom}
+          style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+        >
+          {/* 箭头定义 */}
+          <defs>
+            <marker
+              id="arrowhead"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
+            </marker>
+          </defs>
+          
+          {/* 连接线 */}
+          {connections.map(renderConnection)}
+          
+          {/* 节点 */}
+          {nodes.map(renderNode)}
+        </svg>
+      </div>
       
       {/* 点击提示 */}
       <p className="text-xs text-gray-400 mt-2 text-center">点击节点可编辑</p>
