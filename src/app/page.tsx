@@ -104,6 +104,12 @@ const studentDevelopment = [
 // 教师发展
 const teacherDevelopment = [
   {
+    image: '/images/campus/dance-performance.png',
+    title: '总校制办学教学研讨',
+    desc: '总校制办学教育教学研讨活动',
+    tag: '教学研讨',
+  },
+  {
     image: '/images/campus/teacher-research.png',
     title: '课题研究',
     desc: '质量标准视域下整本书阅读教学逆向设计与实施的研究',
@@ -132,12 +138,6 @@ const teacherDevelopment = [
     title: '艺术教师技能评比',
     desc: '市第二届中小学艺术教师专业技能评比',
     tag: '专业发展',
-  },
-  {
-    image: '/images/campus/speech.png',
-    title: '语言类技能展示',
-    desc: '教师朗诵演讲技能展示与评比活动',
-    tag: '教学技能',
   },
 ];
 
@@ -186,12 +186,6 @@ const campusActivities = [
     desc: '第41届艺术节暨六一文艺汇演，童心闪耀放飞梦想'
   },
   { 
-    image: '/images/campus/dance-performance.png',
-    title: '总校制办学教学研讨', 
-    date: '2025年',
-    desc: '总校制办学教育教学研讨活动'
-  },
-  { 
     image: '/images/campus/art-festival.png',
     title: '培田古民居研学', 
     date: '2025年',
@@ -208,6 +202,12 @@ const campusActivities = [
     title: '田径运动会', 
     date: '2025年秋季',
     desc: '阳光体育，短跑比赛精彩瞬间'
+  },
+  { 
+    image: '/images/campus/math-contest.jpg',
+    title: '小小神算手竞赛', 
+    date: '2025年5月23日',
+    desc: '数独竞赛培养数学思维，激发学习兴趣'
   },
   { 
     image: '/images/campus/planting.jpg',
