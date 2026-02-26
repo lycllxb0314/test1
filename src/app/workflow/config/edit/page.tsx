@@ -158,8 +158,12 @@ export default function WorkflowConfigEditPage() {
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
-  // 连接线拖拽状态
-  const [connectingFrom, setConnectingFrom] = useState<{ nodeId: string; branchId?: string } | null>(null);
+  // 连接线拖拽状态 - 支持条件节点分支和并行节点分支
+  const [connectingFrom, setConnectingFrom] = useState<{ 
+    nodeId: string; 
+    branchId?: string;      // 条件节点的分支ID
+    parallelIndex?: number; // 并行节点的分支索引
+  } | null>(null);
   const [connectingTo, setConnectingTo] = useState<{ x: number; y: number } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   
@@ -319,6 +323,7 @@ export default function WorkflowConfigEditPage() {
       name: nodeTypeConfig[type].label,
       ...(type === 'approval' ? { approverType: 'role', approverRole: undefined, rejectAction: 'return_to_applicant' } : {}),
       ...(type === 'condition' ? { branches: [], defaultBranchId: undefined } : {}),
+      ...(type === 'parallel' ? { parallelNodes: [], mergeType: 'all' } : {}),
     };
     
     setFormData(prev => {
@@ -421,6 +426,36 @@ export default function WorkflowConfigEditPage() {
     
     const newBranches = (node.branches || []).filter(b => b.id !== branchId);
     updateNode(nodeId, { branches: newBranches });
+  };
+
+  // ============ 并行节点辅助函数 ============
+  
+  // 添加并行分支
+  const addParallelBranch = (nodeId: string) => {
+    const node = formData.nodes.find(n => n.id === nodeId);
+    if (!node || node.type !== 'parallel') return;
+    
+    const newParallelNodes = [...(node.parallelNodes || []), ''];
+    updateNode(nodeId, { parallelNodes: newParallelNodes });
+  };
+
+  // 更新并行分支连接
+  const updateParallelBranch = (nodeId: string, index: number, targetNodeId: string) => {
+    const node = formData.nodes.find(n => n.id === nodeId);
+    if (!node || node.type !== 'parallel') return;
+    
+    const newParallelNodes = [...(node.parallelNodes || [])];
+    newParallelNodes[index] = targetNodeId;
+    updateNode(nodeId, { parallelNodes: newParallelNodes });
+  };
+
+  // 删除并行分支
+  const deleteParallelBranch = (nodeId: string, index: number) => {
+    const node = formData.nodes.find(n => n.id === nodeId);
+    if (!node || node.type !== 'parallel') return;
+    
+    const newParallelNodes = (node.parallelNodes || []).filter((_, i) => i !== index);
+    updateNode(nodeId, { parallelNodes: newParallelNodes });
   };
 
   // 添加条件规则
@@ -742,6 +777,62 @@ export default function WorkflowConfigEditPage() {
                       });
                     }
                     
+                    // 并行节点：渲染并行分支连接线
+                    if (node.type === 'parallel' && node.parallelNodes && node.parallelNodes.length > 0) {
+                      return node.parallelNodes.map((targetId, idx) => {
+                        if (!targetId) return null;
+                        const targetPos = nodePositions.get(targetId);
+                        if (!targetPos) return null;
+                        
+                        // 并行分支连接点位置
+                        const branchY = pos.y + 20 + idx * 24;
+                        const x1 = pos.x + 176;
+                        const y1 = branchY;
+                        const x2 = targetPos.x;
+                        const y2 = targetPos.y + 40;
+                        
+                        return (
+                          <g key={`parallel-line-${idx}`}>
+                            <path
+                              d={`M ${x1} ${y1} C ${x1 + 50} ${y1}, ${x2 - 50} ${y2}, ${x2} ${y2}`}
+                              fill="none"
+                              stroke="#9ca3af"
+                              strokeWidth={2}
+                              markerEnd="url(#arrow)"
+                              className="pointer-events-auto cursor-pointer hover:stroke-red-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('是否断开此连接？')) {
+                                  updateParallelBranch(node.id, idx, '');
+                                }
+                              }}
+                            />
+                            {/* 分支标签 */}
+                            <g transform={`translate(${(x1 + x2) / 2}, ${(y1 + y2) / 2})`}>
+                              <rect
+                                x={-20}
+                                y={-10}
+                                width={40}
+                                height={18}
+                                fill="white"
+                                stroke="#a855f7"
+                                strokeWidth={1}
+                                rx={4}
+                              />
+                              <text
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill="#7c3aed"
+                                fontSize="10"
+                              >
+                                分支 {idx + 1}
+                              </text>
+                            </g>
+                          </g>
+                        );
+                      });
+                    }
+                    
                     // 普通节点或没有分支的条件节点：渲染 nextNodeId 连接线
                     if (node.nextNodeId) {
                       const targetPos = nodePositions.get(node.nextNodeId);
@@ -830,8 +921,13 @@ export default function WorkflowConfigEditPage() {
                           e.preventDefault();
                           // 建立连接
                           if (connectingFrom.branchId) {
+                            // 条件节点分支
                             updateBranch(connectingFrom.nodeId, connectingFrom.branchId, { nextNodeId: node.id });
+                          } else if (connectingFrom.parallelIndex !== undefined) {
+                            // 并行节点分支
+                            updateParallelBranch(connectingFrom.nodeId, connectingFrom.parallelIndex, node.id);
                           } else {
+                            // 普通节点
                             updateNode(connectingFrom.nodeId, { nextNodeId: node.id });
                           }
                           setConnectingFrom(null);
@@ -848,8 +944,13 @@ export default function WorkflowConfigEditPage() {
                           e.stopPropagation();
                           // 建立连接
                           if (connectingFrom.branchId) {
+                            // 条件节点分支
                             updateBranch(connectingFrom.nodeId, connectingFrom.branchId, { nextNodeId: node.id });
+                          } else if (connectingFrom.parallelIndex !== undefined) {
+                            // 并行节点分支
+                            updateParallelBranch(connectingFrom.nodeId, connectingFrom.parallelIndex, node.id);
                           } else {
+                            // 普通节点
                             updateNode(connectingFrom.nodeId, { nextNodeId: node.id });
                           }
                           setConnectingFrom(null);
@@ -918,6 +1019,14 @@ export default function WorkflowConfigEditPage() {
                               {node.branches?.length || 0} 个分支
                             </div>
                           )}
+                          
+                          {/* 并行节点显示分支数 */}
+                          {node.type === 'parallel' && (
+                            <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+                              <Layers className="h-3 w-3" />
+                              {node.parallelNodes?.length || 0} 个分支
+                            </div>
+                          )}
                         </div>
                         
                         {/* 删除按钮 - 只有开始节点不能删除 */}
@@ -975,6 +1084,60 @@ export default function WorkflowConfigEditPage() {
                               </div>
                             </div>
                           ))
+                        ) : node.type === 'parallel' ? (
+                          // 并行节点：每个分支一个连接点 + 添加分支按钮
+                          <>
+                            {(node.parallelNodes || []).map((targetId, idx) => (
+                              <div
+                                key={`parallel-${idx}`}
+                                className="connection-handle absolute right-0 flex items-center"
+                                style={{ 
+                                  top: `${20 + idx * 24}px`,
+                                  transform: 'translateX(50%)'
+                                }}
+                              >
+                                {/* 分支名称标签 */}
+                                <div 
+                                  className="absolute right-5 whitespace-nowrap text-[10px] text-gray-600 bg-purple-50 border px-1.5 py-0.5 rounded"
+                                >
+                                  分支 {idx + 1}
+                                </div>
+                                {/* 连接点 */}
+                                <div
+                                  className={`w-5 h-5 rounded-full border-2 cursor-crosshair transition-all flex items-center justify-center ${
+                                    targetId 
+                                      ? 'bg-green-100 border-green-500 hover:bg-yellow-50 hover:border-yellow-500' 
+                                      : 'bg-white border-purple-400 hover:bg-purple-50 hover:scale-110'
+                                  }`}
+                                  onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setConnectingFrom({ nodeId: node.id, parallelIndex: idx });
+                                  }}
+                                  title={targetId ? '拖拽可重新连接到其他节点' : '拖拽连接到目标节点'}
+                                >
+                                  {targetId && (
+                                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            {/* 添加并行分支按钮 */}
+                            <button
+                              className="absolute right-0 flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 border-2 border-dashed border-purple-400 text-purple-600 hover:bg-purple-200 transition-colors"
+                              style={{ 
+                                top: `${20 + (node.parallelNodes?.length || 0) * 24}px`,
+                                transform: 'translateX(50%)'
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addParallelBranch(node.id);
+                              }}
+                              title="添加并行分支"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </>
                         ) : (
                           // 普通节点：单个输出连接点 - 始终可见，已连接也可以重新连接
                           <div
@@ -1267,6 +1430,75 @@ export default function WorkflowConfigEditPage() {
                       </Select>
                     </div>
                   )}
+                </div>
+              )}
+              
+              {/* 并行节点配置 */}
+              {selectedNode.type === 'parallel' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm text-gray-600">并行分支</Label>
+                    <Button variant="outline" size="sm" onClick={() => addParallelBranch(selectedNode.id)} className="h-7">
+                      <Plus className="h-3 w-3 mr-1" />
+                      添加
+                    </Button>
+                  </div>
+                  
+                  {(selectedNode.parallelNodes || []).map((targetId, idx) => (
+                    <Card key={`parallel-config-${idx}`} className="border-purple-200">
+                      <CardHeader className="py-2 px-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-purple-50">
+                            分支 {idx + 1}
+                          </Badge>
+                          <Select
+                            value={targetId || ''}
+                            onValueChange={(v) => updateParallelBranch(selectedNode.id, idx, v)}
+                          >
+                            <SelectTrigger className="h-7 flex-1">
+                              <SelectValue placeholder="选择目标节点" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {nodes.filter(n => n.id !== selectedNode.id).map(n => (
+                                <SelectItem key={n.id} value={n.id}>
+                                  {nodeTypeConfig[n.type].label} - {n.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteParallelBranch(selectedNode.id, idx)}
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-600"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                  
+                  <div>
+                    <Label className="text-sm text-gray-600">合并方式</Label>
+                    <Select
+                      value={selectedNode.mergeType || 'all'}
+                      onValueChange={(v) => updateNode(selectedNode.id, { mergeType: v as 'all' | 'any' })}
+                    >
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部通过</SelectItem>
+                        <SelectItem value="any">任一通过</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {selectedNode.mergeType === 'any' 
+                        ? '任一分支完成后即进入下一步' 
+                        : '所有分支完成后才进入下一步'}
+                    </p>
+                  </div>
                 </div>
               )}
               
