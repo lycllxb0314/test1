@@ -113,9 +113,16 @@ const moralNav: NavItem[] = [
   { name: '工作计划', href: '/moral/plans', icon: FileText, description: '德育工作计划' },
 ];
 
-// 教师空间导航（班主任专属）
-const teacherNav: NavItem[] = [
-  { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '班主任工作台', badge: 'AI' },
+// 教师空间导航 - 基础功能（所有教师可见）
+const teacherBaseNav: NavItem[] = [
+  { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台' },
+  { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排' },
+  { name: '通知公告', href: '/teacher/announcements', icon: Bell, description: '学校通知公告' },
+  { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请' },
+];
+
+// 教师空间导航 - 班主任专属功能
+const headTeacherNav: NavItem[] = [
   { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息' },
   { name: '信息收集', href: '/teacher/collect', icon: ClipboardList, description: '企业微信信息采集' },
   { name: '日常管理', href: '/teacher/daily', icon: Calendar, description: '考勤晨检值日' },
@@ -172,7 +179,12 @@ export function AppSidebar() {
       case 'moral':
         return moralNav;
       case 'teacher':
-        return teacherNav;
+        // 班主任有基础功能 + 班主任专属功能
+        if (isHeadTeacher) {
+          return [...teacherBaseNav, ...headTeacherNav];
+        }
+        // 普通教师只有基础功能
+        return teacherBaseNav;
       case 'workflow':
         return workflowNav;
       default:
@@ -317,8 +329,8 @@ export function AppSidebar() {
               </Tooltip>
             )}
 
-            {/* 教师空间（班主任专属） */}
-            {isHeadTeacher && (
+            {/* 教师空间（所有教师可访问） */}
+            {roleConfig.modules.includes('teacher') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button

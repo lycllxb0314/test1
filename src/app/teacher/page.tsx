@@ -96,6 +96,19 @@ export default function TeacherPage() {
     }
   };
 
+  // 今日课表数据
+  const todaySchedule = [
+    { period: '第一节', time: '8:00-8:40', subject: '语文', class: '三年级1班', location: '教学楼301' },
+    { period: '第二节', time: '8:50-9:30', subject: '语文', class: '三年级2班', location: '教学楼302' },
+    { period: '第三节', time: '9:50-10:30', subject: '阅读', class: '三年级1班', location: '教学楼301' },
+    { period: '第四节', time: '10:40-11:20', subject: '', class: '', location: '' }, // 空课
+    { period: '第五节', time: '14:00-14:40', subject: '语文', class: '三年级3班', location: '教学楼303' },
+    { period: '第六节', time: '14:50-15:30', subject: '', class: '', location: '' }, // 空课
+  ];
+
+  // 获取当前是第几节课（模拟）
+  const currentPeriod = 2;
+
   // 统计
   const pendingCount = todosData.filter(t => t.status === 'pending').length + (isHeadTeacher ? headTeacherTodos.filter(t => t.status === 'pending').length : 0);
   const processingCount = todosData.filter(t => t.status === 'processing').length;
@@ -208,6 +221,71 @@ export default function TeacherPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 今日课表 */}
+      <Card className="border-0 shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-blue-600" />
+              今日课表
+            </CardTitle>
+            <CardDescription>星期三 · 今天有 {todaySchedule.filter(s => s.subject).length} 节课</CardDescription>
+          </div>
+          <Link href="/teacher/schedule">
+            <Button variant="ghost" size="sm" className="text-blue-600">
+              查看完整课表 <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-6 gap-2">
+            {todaySchedule.map((item, index) => (
+              <div
+                key={index}
+                className={`relative p-3 rounded-xl border transition-all ${
+                  item.subject
+                    ? currentPeriod === index + 1
+                      ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/30'
+                      : 'bg-gray-50 border-gray-200 hover:border-blue-300'
+                    : 'bg-gray-50/50 border-gray-100'
+                }`}
+              >
+                <div className="text-center">
+                  <p className={`text-xs font-medium ${currentPeriod === index + 1 ? 'text-blue-100' : 'text-gray-500'}`}>
+                    {item.period}
+                  </p>
+                  <p className={`text-xs ${currentPeriod === index + 1 ? 'text-blue-100' : 'text-gray-400'}`}>
+                    {item.time.split('-')[0]}
+                  </p>
+                </div>
+                {item.subject && (
+                  <div className="mt-2 text-center">
+                    <p className={`font-bold ${currentPeriod === index + 1 ? 'text-white' : 'text-gray-900'}`}>
+                      {item.subject}
+                    </p>
+                    <p className={`text-xs mt-1 ${currentPeriod === index + 1 ? 'text-blue-100' : 'text-gray-500'}`}>
+                      {item.class}
+                    </p>
+                  </div>
+                )}
+                {currentPeriod === index + 1 && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 p-3 bg-blue-50 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                <span className="text-sm font-medium text-blue-700">当前：第二节 · 语文 · 三年级2班</span>
+              </div>
+              <span className="text-xs text-blue-600">距离下课还有 15 分钟</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 班主任专属：班级概况 */}
       {isHeadTeacher && (

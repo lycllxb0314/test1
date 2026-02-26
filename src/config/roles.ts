@@ -84,7 +84,7 @@ export const roleConfigs: Record<string, RoleConfig> = {
     id: 'head_teacher',
     name: '班主任',
     description: '班级管理教师，拥有班主任工作系统权限',
-    modules: ['teacher', 'moral'],
+    modules: ['teacher'],
     permissions: ['view', 'edit'],
     avatar: '👩‍🏫',
   },
@@ -160,7 +160,7 @@ export function canAccessAcademic(role: string): boolean {
 
 // 判断是否可以访问德育系统
 export function canAccessMoral(role: string): boolean {
-  const moralRoles = ['principal', 'secretary', 'vice_principal', 'moral_director', 'moral_staff', 'head_teacher'];
+  const moralRoles = ['principal', 'secretary', 'vice_principal', 'moral_director', 'moral_staff'];
   return moralRoles.includes(role);
 }
 
