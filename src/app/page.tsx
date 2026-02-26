@@ -13,12 +13,10 @@ import {
   Calendar,
   Bell,
   ArrowRight,
-  ChevronRight,
   Building2,
   Phone,
   MapPin,
   Clock,
-  Award,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -27,6 +25,7 @@ const fiveEducation = [
   {
     category: '德育',
     title: '立德树人',
+    desc: '传承红色基因，培养品德高尚的新时代少年',
     color: '#B22222',
     images: [
       { src: '/images/campus/scarf-ceremony.png', title: '红领巾佩戴仪式' },
@@ -38,7 +37,8 @@ const fiveEducation = [
   {
     category: '智育',
     title: '启迪智慧',
-    color: '#1E4D8C',
+    desc: '科技引领未来，培养创新精神和实践能力',
+    color: '#1565C0',
     images: [
       { src: '/images/campus/science-academy.png', title: '少年科学院成立' },
       { src: '/images/campus/robot-interaction.jpg', title: '机器人互动体验' },
@@ -49,7 +49,8 @@ const fiveEducation = [
   {
     category: '体育',
     title: '强健体魄',
-    color: '#D4650A',
+    desc: '阳光体育，强健体魄，培养运动精神',
+    color: '#E65100',
     images: [
       { src: '/images/campus/group-exercise.jpg', title: '广播体操比赛' },
       { src: '/images/campus/sports-race.jpg', title: '田径运动会' },
@@ -60,7 +61,8 @@ const fiveEducation = [
   {
     category: '美育',
     title: '陶冶情操',
-    color: '#6B4E9B',
+    desc: '全面发展艺术素养，培养审美能力',
+    color: '#6A1B9A',
     images: [
       { src: '/images/campus/dance-contest.png', title: '艺术节舞蹈' },
       { src: '/images/campus/orchestra.png', title: '器乐演奏' },
@@ -71,6 +73,7 @@ const fiveEducation = [
   {
     category: '劳育',
     title: '劳动光荣',
+    desc: '劳动实践，培养动手能力和劳动精神',
     color: '#2E7D32',
     images: [
       { src: '/images/campus/labor-food-display.jpg', title: '劳动素养大赛' },
@@ -121,7 +124,6 @@ export default function HomePage() {
   const router = useRouter();
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const [activeEdu, setActiveEdu] = useState(0);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -163,17 +165,19 @@ export default function HomePage() {
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-amber-700 rounded flex items-center justify-center">
-                <span className="text-white text-lg font-bold" style={{ fontFamily: 'var(--font-serif)' }}>龙</span>
-              </div>
-              <div>
+              <img 
+                src="/logo-school.png" 
+                alt="龙岩师范附属小学" 
+                className="h-12 w-auto"
+              />
+              <div className="hidden sm:block">
                 <h1 className="text-base font-bold text-gray-900" style={{ fontFamily: 'var(--font-serif)' }}>龙岩师范附属小学</h1>
-                <p className="text-xs text-gray-500">百年名校</p>
+                <p className="text-xs text-gray-500">百年名校 · 省级示范</p>
               </div>
             </div>
 
             {/* 导航菜单 */}
-            <nav className="hidden md:flex items-center gap-6">
+            <nav className="hidden md:flex items-center gap-8">
               {['学校概况', '五育并举', '教师发展', '新闻动态'].map((item, index) => (
                 <a
                   key={index}
@@ -187,8 +191,8 @@ export default function HomePage() {
 
             {/* 登录按钮 */}
             <Link href="/login">
-              <Button className="h-9 px-4 bg-amber-700 hover:bg-amber-800 text-white text-sm">
-                登录
+              <Button className="h-9 px-5 bg-amber-700 hover:bg-amber-800 text-white text-sm">
+                登录系统
               </Button>
             </Link>
           </div>
@@ -196,7 +200,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero 区域 */}
-      <section className="bg-amber-50 py-16">
+      <section className="bg-amber-50 py-16 md:py-20">
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             {/* 左侧文字 */}
@@ -331,68 +335,66 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 五育并举 */}
+      {/* 五育并举 - 重新设计 */}
       <section id="education" className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4">
           <h2 
-            className="text-2xl font-bold text-gray-900 mb-8 pb-2 border-b-2 border-amber-700 inline-block"
+            className="text-2xl font-bold text-gray-900 mb-12 pb-2 border-b-2 border-amber-700 inline-block"
             style={{ fontFamily: 'var(--font-serif)' }}
           >
             五育并举
           </h2>
 
-          {/* 五育切换标签 */}
-          <div className="flex gap-2 mb-8 flex-wrap">
-            {fiveEducation.map((edu, index) => (
-              <button
-                key={index}
-                onClick={() => setActiveEdu(index)}
-                className="px-4 py-2 text-sm border"
-                style={{
-                  background: activeEdu === index ? edu.color : 'white',
-                  color: activeEdu === index ? 'white' : edu.color,
-                  borderColor: edu.color
-                }}
-              >
-                {edu.category}
-              </button>
+          <div className="space-y-16">
+            {fiveEducation.map((edu, eduIndex) => (
+              <div key={eduIndex} className="grid md:grid-cols-12 gap-6 items-start">
+                {/* 左侧标题区域 */}
+                <div className="md:col-span-3 flex md:flex-col items-center md:items-start gap-4 md:gap-2">
+                  <div 
+                    className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center flex-shrink-0"
+                    style={{ background: edu.color }}
+                  >
+                    <span 
+                      className="text-3xl md:text-4xl font-bold text-white"
+                      style={{ fontFamily: 'var(--font-serif)' }}
+                    >
+                      {edu.category.charAt(0)}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">{edu.category}</h3>
+                    <p className="text-sm text-gray-500">{edu.title}</p>
+                  </div>
+                </div>
+
+                {/* 右侧图片区域 */}
+                <div className="md:col-span-9">
+                  <p className="text-gray-600 mb-4 text-sm">{edu.desc}</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {edu.images.map((img, imgIndex) => (
+                      <div key={imgIndex}>
+                        <div className="aspect-[4/3] bg-gray-200">
+                          {!imageErrors[`edu-${eduIndex}-${imgIndex}`] ? (
+                            <img
+                              src={img.src}
+                              alt={img.title}
+                              className="w-full h-full object-cover"
+                              onError={() => handleImageError(`edu-${eduIndex}-${imgIndex}`)}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <GraduationCap className="h-8 w-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1.5 truncate">{img.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-
-          {/* 五育内容展示 */}
-          {fiveEducation.map((edu, eduIndex) => (
-            <div
-              key={eduIndex}
-              className={activeEdu === eduIndex ? 'block' : 'hidden'}
-            >
-              <div className="mb-4">
-                <h3 className="text-lg font-bold" style={{ color: edu.color }}>{edu.title}</h3>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {edu.images.map((img, imgIndex) => (
-                  <div key={imgIndex} className="bg-white">
-                    <div className="aspect-[4/3] bg-gray-100">
-                      {!imageErrors[`edu-${eduIndex}-${imgIndex}`] ? (
-                        <img
-                          src={img.src}
-                          alt={img.title}
-                          className="w-full h-full object-cover"
-                          onError={() => handleImageError(`edu-${eduIndex}-${imgIndex}`)}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <GraduationCap className="h-8 w-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-2 bg-white">
-                      <p className="text-sm text-gray-800">{img.title}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -502,9 +504,9 @@ export default function HomePage() {
           <div className="grid md:grid-cols-4 gap-4">
             {[
               { icon: Building2, title: '总务后勤', color: '#8B4513' },
-              { icon: GraduationCap, title: '教务教研', color: '#1E4D8C' },
+              { icon: GraduationCap, title: '教务教研', color: '#1565C0' },
               { icon: Heart, title: '德育管理', color: '#B22222' },
-              { icon: Users, title: '教师空间', color: '#6B4E9B' },
+              { icon: Users, title: '教师空间', color: '#6A1B9A' },
             ].map((item, index) => {
               const Icon = item.icon;
               return (
@@ -562,10 +564,12 @@ export default function HomePage() {
       <footer className="py-6 bg-gray-900">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 bg-amber-700 rounded flex items-center justify-center">
-                <span className="text-white text-xs font-bold">龙</span>
-              </div>
+            <div className="flex items-center gap-3">
+              <img 
+                src="/logo-school.png" 
+                alt="龙岩师范附属小学" 
+                className="h-8 w-auto"
+              />
               <span className="text-sm text-gray-400">© 2024 龙岩师范附属小学</span>
             </div>
             <div className="flex gap-4 text-xs text-gray-500">
