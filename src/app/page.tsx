@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -128,6 +129,7 @@ const schoolStats = {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [currentGallery, setCurrentGallery] = useState(0);
@@ -136,6 +138,16 @@ export default function HomePage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // 已登录用户自动跳转到工作台
+  useEffect(() => {
+    if (mounted && user) {
+      const timer = setTimeout(() => {
+        router.push('/dashboard');
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [mounted, user, router]);
 
   // 自动轮播
   useEffect(() => {
