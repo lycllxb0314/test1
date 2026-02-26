@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +42,13 @@ import { mockAnnouncements, mockLeaveRequests, mockRepairRequests, schoolStats }
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
+  
+  // 教师角色重定向到教师空间
+  if (user && (user.role === 'teacher' || user.role === 'head_teacher')) {
+    router.push('/teacher');
+    return null;
+  }
   
   if (!user) return null;
 

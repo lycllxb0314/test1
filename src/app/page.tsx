@@ -197,7 +197,12 @@ export default function HomePage() {
   useEffect(() => {
     if (mounted && user) {
       const timer = setTimeout(() => {
-        router.push('/dashboard');
+        // 教师角色直接跳转到教师空间
+        if (user.role === 'teacher' || user.role === 'head_teacher') {
+          router.push('/teacher');
+        } else {
+          router.push('/dashboard');
+        }
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -210,11 +215,14 @@ export default function HomePage() {
   if (!mounted) return null;
 
   if (user) {
+    const isTeacher = user.role === 'teacher' || user.role === 'head_teacher';
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="h-10 w-10 animate-spin rounded-full border-3 border-amber-700 border-t-transparent mx-auto" />
-          <p className="mt-4 text-gray-600">正在跳转到工作台...</p>
+          <p className="mt-4 text-gray-600">
+            正在跳转到{isTeacher ? '教师空间' : '工作台'}...
+          </p>
         </div>
       </div>
     );

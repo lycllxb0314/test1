@@ -220,27 +220,31 @@ export function AppSidebar() {
 
           {/* 模块菜单 */}
           <nav className="flex-1 space-y-1 p-2">
-            {/* 返回门户 */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href="/dashboard"
-                  className={cn(
-                    'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-                    pathname === '/dashboard'
-                      ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  )}
-                >
-                  <LayoutDashboard className="h-5 w-5" />
-                  {!collapsed && <span>工作台</span>}
-                </Link>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right">工作台</TooltipContent>}
-            </Tooltip>
+            {/* 返回门户 - 教师角色不显示，直接进入教师空间 */}
+            {user.role !== 'teacher' && user.role !== 'head_teacher' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/dashboard"
+                    className={cn(
+                      'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                      pathname === '/dashboard'
+                        ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    )}
+                  >
+                    <LayoutDashboard className="h-5 w-5" />
+                    {!collapsed && <span>工作台</span>}
+                  </Link>
+                </TooltipTrigger>
+                {collapsed && <TooltipContent side="right">工作台</TooltipContent>}
+              </Tooltip>
+            )}
 
-            {/* 分割线 */}
-            <div className="my-2 border-t border-gray-200" />
+            {/* 分割线 - 教师角色不需要分割线 */}
+            {user.role !== 'teacher' && user.role !== 'head_teacher' && (
+              <div className="my-2 border-t border-gray-200" />
+            )}
 
             {/* 总务后勤 */}
             {roleConfig.modules.includes('general') && (
