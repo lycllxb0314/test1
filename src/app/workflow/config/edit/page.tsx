@@ -1302,14 +1302,14 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
   // 节点尺寸 - 增大尺寸避免文字重叠
   const NODE_WIDTH = 160;
   const NODE_HEIGHT = 70;
-  const GAP_X = 120;  // 水平间距
-  const GAP_Y = 140;  // 垂直间距 - 增大避免重叠
-  const BRANCH_GAP_Y = 120; // 分支垂直间距 - 增大避免重叠
+  const GAP_X = 140;  // 水平间距
+  const GAP_Y = 160;  // 垂直间距 - 增大避免重叠
+  const BRANCH_GAP_Y = 180; // 分支垂直间距 - 增大避免重叠
   
-  // 计算节点位置
+  // 计算节点位置 - 使用新的布局算法
   const nodePositions = new Map<string, { x: number; y: number; level: number }>();
   
-  // BFS 计算层级
+  // BFS 计算层级，同时保留 yOffset 信息
   const startNode = nodes.find(n => n.type === 'start');
   if (!startNode) {
     return (
@@ -1319,11 +1319,10 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
     );
   }
   
+  // 记录每个节点的 Y 偏移量
+  const nodeYOffsets = new Map<string, number>();
   const visited = new Set<string>();
   const queue: { nodeId: string; level: number; yOffset: number }[] = [{ nodeId: startNode.id, level: 0, yOffset: 0 }];
-  
-  // 记录每个层级的节点数量，用于垂直分布
-  const levelNodes: Map<number, string[]> = new Map();
   
   while (queue.length > 0) {
     const { nodeId, level, yOffset } = queue.shift()!;
@@ -1331,16 +1330,19 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
     if (visited.has(nodeId)) continue;
     visited.add(nodeId);
     
+    // 记录节点的 Y 偏移
+    nodeYOffsets.set(nodeId, yOffset);
+    
     const node = nodeMap.get(nodeId);
     if (!node) continue;
     
-    // 记录层级节点
-    if (!levelNodes.has(level)) levelNodes.set(level, []);
-    levelNodes.get(level)!.push(nodeId);
-    
     // 处理后续节点
     if (node.type === 'condition' && node.branches) {
-      let branchOffset = yOffset - ((node.branches.length - 1) * BRANCH_GAP_Y) / 2;
+      // 分支均匀分布
+      const branchCount = node.branches.length;
+      const totalBranchHeight = (branchCount - 1) * BRANCH_GAP_Y;
+      let branchOffset = yOffset - totalBranchHeight / 2;
+      
       node.branches.forEach((branch, idx) => {
         if (branch.nextNodeId && !visited.has(branch.nextNodeId)) {
           queue.push({ 
@@ -1355,51 +1357,113 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
     }
   }
   
-  // 处理未访问的节点
+  // 处理未访问的节点（孤立节点）
+  const maxLevel = Math.max(...Array.from(nodeYOffsets.values()).map((_, i) => {
+    const node = nodes.find((n, idx) => nodeYOffsets.has(n.id) === false && idx === i);
+    return node ? 1 : 0;
+  }), 0);
+  
+  let unvisitedLevel = Math.max(...Array.from(visited).map(id => {
+    // 找到该节点属于哪一层
+    let lvl = 0;
+    nodeYOffsets.forEach((_, nid) => {
+      if (nid === id) lvl = Math.max(lvl, 0);
+    });
+    return lvl;
+  })) + 1;
+  
   nodes.forEach(node => {
     if (!visited.has(node.id)) {
-      const maxLevel = Math.max(...Array.from(levelNodes.keys()), 0);
-      if (!levelNodes.has(maxLevel + 1)) levelNodes.set(maxLevel + 1, []);
-      levelNodes.get(maxLevel + 1)!.push(node.id);
+      nodeYOffsets.set(node.id, 0);
     }
   });
   
-  // 计算每个节点的位置
-  const maxLevel = Math.max(...Array.from(levelNodes.keys()), 0);
-  const centerX = 50; // 起始X
+  // 计算每个层级的节点范围，用于确定 SVG 尺寸
+  let minY = 0, maxY = 0;
+  nodeYOffsets.forEach(y => {
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  });
   
-  levelNodes.forEach((nodeIds, level) => {
-    const totalHeight = (nodeIds.length - 1) * GAP_Y;
-    const startY = -totalHeight / 2 + 150; // 居中，加150作为基础偏移
+  // Y 偏移量，确保所有 Y 坐标为正数
+  const yBase = -minY + 100;
+  
+  // 计算每个节点的最终位置
+  const nodeLevels = new Map<string, number>();
+  nodes.forEach(node => {
+    if (node.type === 'start') {
+      nodeLevels.set(node.id, 0);
+    }
+  });
+  
+  // BFS 确定层级
+  visited.clear();
+  const levelQueue: { nodeId: string; level: number }[] = [{ nodeId: startNode.id, level: 0 }];
+  
+  while (levelQueue.length > 0) {
+    const { nodeId, level } = levelQueue.shift()!;
     
-    nodeIds.forEach((nodeId, index) => {
-      nodePositions.set(nodeId, {
-        x: centerX + level * (NODE_WIDTH + GAP_X),
-        y: startY + index * GAP_Y,
-        level
+    if (visited.has(nodeId)) continue;
+    visited.add(nodeId);
+    
+    nodeLevels.set(nodeId, level);
+    
+    const node = nodeMap.get(nodeId);
+    if (!node) continue;
+    
+    if (node.type === 'condition' && node.branches) {
+      node.branches.forEach(branch => {
+        if (branch.nextNodeId && !visited.has(branch.nextNodeId)) {
+          levelQueue.push({ nodeId: branch.nextNodeId, level: level + 1 });
+        }
       });
+    } else if (node.nextNodeId && !visited.has(node.nextNodeId)) {
+      levelQueue.push({ nodeId: node.nextNodeId, level: level + 1 });
+    }
+  }
+  
+  // 计算最终位置
+  const centerX = 80; // 起始X
+  
+  nodeYOffsets.forEach((yOffset, nodeId) => {
+    const level = nodeLevels.get(nodeId) || 0;
+    nodePositions.set(nodeId, {
+      x: centerX + level * (NODE_WIDTH + GAP_X),
+      y: yBase + yOffset,
+      level
     });
   });
   
   // 计算SVG画布大小
-  let maxX = 0, maxY = 0;
+  let maxX = 0, finalMaxY = 0;
   nodePositions.forEach(pos => {
     maxX = Math.max(maxX, pos.x + NODE_WIDTH + 50);
-    maxY = Math.max(maxY, pos.y + NODE_HEIGHT + 50);
+    finalMaxY = Math.max(finalMaxY, pos.y + NODE_HEIGHT + 50);
   });
   
-  // 构建连接线数据
-  const connections: { from: string; to: string; label: string }[] = [];
+  // 构建连接线数据 - 包含分支索引用于定位
+  const connections: { from: string; to: string; label: string; branchIndex: number; totalBranches: number }[] = [];
   nodes.forEach(node => {
     if (node.type === 'condition' && node.branches) {
-      node.branches.forEach(branch => {
+      const totalBranches = node.branches.length;
+      node.branches.forEach((branch, branchIndex) => {
         if (branch.nextNodeId) {
-          const conditionLabel = branch.rules?.map(r => r.label || `${r.value}`).join(',') || branch.name;
-          connections.push({ from: node.id, to: branch.nextNodeId, label: conditionLabel });
+          const conditionLabel = branch.rules?.map(r => {
+            const fieldLabels: Record<string, string> = { type: '类型', duration: '天数', amount: '金额' };
+            const opLabels: Record<string, string> = { eq: '=', neq: '≠', gt: '>', gte: '≥', lt: '<', lte: '≤' };
+            return `${fieldLabels[r.field] || r.field}${opLabels[r.operator] || r.operator}${r.value}`;
+          }).join(',') || branch.name;
+          connections.push({ 
+            from: node.id, 
+            to: branch.nextNodeId, 
+            label: conditionLabel,
+            branchIndex,
+            totalBranches
+          });
         }
       });
     } else if (node.nextNodeId) {
-      connections.push({ from: node.id, to: node.nextNodeId, label: '' });
+      connections.push({ from: node.id, to: node.nextNodeId, label: '', branchIndex: 0, totalBranches: 1 });
     }
   });
 
@@ -1506,7 +1570,7 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
   };
 
   // 渲染连接线
-  const renderConnection = (conn: { from: string; to: string; label: string }) => {
+  const renderConnection = (conn: { from: string; to: string; label: string; branchIndex: number; totalBranches: number }) => {
     const fromPos = nodePositions.get(conn.from);
     const toPos = nodePositions.get(conn.to);
     
@@ -1520,15 +1584,22 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
     let x2 = toPos.x;
     let y2 = toPos.y + NODE_HEIGHT / 2;
     
-    if (isCondition) {
-      x1 = fromPos.x + NODE_WIDTH;
-      y1 = fromPos.y + NODE_HEIGHT / 2;
+    // 条件分支的连接线从不同高度出发
+    if (isCondition && conn.totalBranches > 1) {
+      // 分支在条件节点右侧的不同高度出发
+      const branchHeight = NODE_HEIGHT / (conn.totalBranches + 1);
+      y1 = fromPos.y + branchHeight * (conn.branchIndex + 1);
     }
     
+    // 使用贝塞尔曲线，从起点到终点
     const midX = (x1 + x2) / 2;
     
+    // 计算标签位置 - 在曲线的中点
+    const labelX = midX;
+    const labelY = (y1 + y2) / 2;
+    
     return (
-      <g key={`${conn.from}-${conn.to}`}>
+      <g key={`${conn.from}-${conn.to}-${conn.branchIndex}`}>
         <path
           d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
           fill="none"
@@ -1539,18 +1610,18 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
         {conn.label && (
           <g>
             <rect
-              x={(x1 + x2) / 2 - (conn.label.length * 6 + 8)}
-              y={(y1 + y2) / 2 - 20}
-              width={conn.label.length * 12 + 16}
-              height={18}
+              x={labelX - (conn.label.length * 6 + 4)}
+              y={labelY - 12}
+              width={conn.label.length * 12 + 8}
+              height={20}
               fill="white"
               stroke="#fcd34d"
               strokeWidth={1}
               rx={4}
             />
             <text
-              x={(x1 + x2) / 2}
-              y={(y1 + y2) / 2 - 11}
+              x={labelX}
+              y={labelY}
               textAnchor="middle"
               dominantBaseline="middle"
               fill="#b45309"
