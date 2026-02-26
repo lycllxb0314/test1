@@ -55,6 +55,9 @@ import {
   UserCircle,
   School,
   Workflow,
+  Cpu,
+  Lightbulb,
+  DoorOpen,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
@@ -75,6 +78,7 @@ interface NavItem {
 const generalNav: NavItem[] = [
   { name: '总务概览', href: '/general', icon: LayoutDashboard, description: '总务工作看板' },
   { name: '资产管理', href: '/general/assets', icon: Package, description: '资产登记与管理' },
+  { name: '设备管理', href: '/general/devices', icon: Cpu, description: '智慧设备控制' },
   { name: '报修管理', href: '/general/repairs', icon: Wrench, description: '设施报修与维修' },
   { name: '采购管理', href: '/general/purchase', icon: ShoppingCart, description: '物资采购申请' },
   { name: '财务管理', href: '/general/finance', icon: DollarSign, description: '费用报销管理' },

@@ -21,6 +21,7 @@ import {
   Bell,
   CheckCircle,
   XCircle,
+  Cpu,
 } from 'lucide-react';
 import { mockRepairRequests, mockAssets } from '@/data/mock';
 
@@ -38,11 +39,11 @@ export default function GeneralPage() {
   // 快捷操作
   const quickActions = [
     { name: '资产入库', href: '/general/assets', icon: Package, color: 'bg-blue-100 text-blue-600' },
+    { name: '设备控制', href: '/general/devices', icon: Cpu, color: 'bg-indigo-100 text-indigo-600' },
     { name: '报修申请', href: '/general/repairs', icon: Wrench, color: 'bg-orange-100 text-orange-600' },
     { name: '采购申请', href: '/general/purchase', icon: ShoppingCart, color: 'bg-green-100 text-green-600' },
     { name: '费用报销', href: '/general/finance', icon: DollarSign, color: 'bg-purple-100 text-purple-600' },
     { name: '访客登记', href: '/general/security', icon: Shield, color: 'bg-red-100 text-red-600' },
-    { name: '人员管理', href: '/general/staff', icon: Users, color: 'bg-cyan-100 text-cyan-600' },
   ];
 
   // 安全提醒
