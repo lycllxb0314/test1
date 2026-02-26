@@ -30,12 +30,84 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-// 使用本地图片，减少外部请求
+// 校园风光 - 使用真实校园活动图片
 const campusGallery = [
-  { id: 1, src: '/images/school-1.jpeg', title: '校园活动', desc: '体育节活动精彩瞬间' },
-  { id: 2, src: '/images/school-2.jpeg', title: '校园风采', desc: '食品药品安全宣传' },
-  { id: 3, src: '/images/school-1.jpeg', title: '教学活动', desc: '日常教学场景' },
-  { id: 4, src: '/images/school-2.jpeg', title: '学生活动', desc: '丰富多彩的校园生活' },
+  { id: 1, src: '/images/campus/festival-stage.png', title: '校园文化艺术节', desc: '第41届校园文化艺术节暨六一文艺汇演' },
+  { id: 2, src: '/images/campus/robot-award.jpg', title: '机器人竞赛获奖', desc: '世界机器人大赛荣获佳绩' },
+  { id: 3, src: '/images/campus/dance-performance.png', title: '舞蹈表演', desc: '童心闪耀 放飞梦想' },
+  { id: 4, src: '/images/campus/planting.jpg', title: '劳动实践', desc: '校园种植实践活动' },
+  { id: 5, src: '/images/campus/math-contest.jpg', title: '数学竞赛', desc: '小小神算手数独竞赛' },
+  { id: 6, src: '/images/campus/teacher-research.png', title: '教研活动', desc: '课题结题暨教学研讨' },
+];
+
+// 学生发展 - 德智体美劳
+const studentDevelopment = [
+  {
+    category: '德',
+    title: '德育为先',
+    color: 'from-red-500 to-rose-400',
+    images: [
+      { src: '/images/campus/scarf-ceremony.png', title: '红领巾佩戴仪式' },
+      { src: '/images/campus/young-pioneers.png', title: '少先队礼仪活动' },
+    ],
+    desc: '立德树人，培养品德高尚的新时代少年',
+  },
+  {
+    category: '智',
+    title: '智育启慧',
+    color: 'from-blue-500 to-cyan-400',
+    images: [
+      { src: '/images/campus/robot-award.jpg', title: '机器人竞赛获奖' },
+      { src: '/images/campus/math-contest.jpg', title: '小小神算手竞赛' },
+      { src: '/images/campus/classroom-show.jpg', title: '课堂展示活动' },
+      { src: '/images/campus/robot-contest.jpg', title: '机器人竞赛现场' },
+    ],
+    desc: '科技引领未来，培养创新精神和实践能力',
+  },
+  {
+    category: '美',
+    title: '美育润心',
+    color: 'from-purple-500 to-pink-400',
+    images: [
+      { src: '/images/campus/dance-performance.png', title: '舞蹈表演' },
+      { src: '/images/campus/art-festival.png', title: '情景舞蹈' },
+      { src: '/images/campus/orchestra.png', title: '器乐表演' },
+      { src: '/images/campus/festival-opening.png', title: '文艺汇演' },
+    ],
+    desc: '全面发展艺术素养，培养审美能力',
+  },
+  {
+    category: '劳',
+    title: '劳育强能',
+    color: 'from-green-500 to-emerald-400',
+    images: [
+      { src: '/images/campus/planting.jpg', title: '校园种植观察' },
+      { src: '/images/campus/succulent.jpg', title: '多肉植物种植' },
+    ],
+    desc: '劳动实践，培养动手能力和劳动精神',
+  },
+];
+
+// 教师发展
+const teacherDevelopment = [
+  {
+    image: '/images/campus/teacher-research.png',
+    title: '课题研究',
+    desc: '质量标准视域下整本书阅读教学逆向设计与实施的研究',
+    tag: '课题结题',
+  },
+  {
+    image: '/images/campus/guzheng.png',
+    title: '艺术教师技能评比',
+    desc: '市第二届中小学艺术教师专业技能评比',
+    tag: '专业发展',
+  },
+  {
+    image: '/images/campus/speech.png',
+    title: '语言类技能展示',
+    desc: '教师朗诵演讲技能展示与评比活动',
+    tag: '教学技能',
+  },
 ];
 
 // 办学特色 - 精美卡片设计
@@ -74,31 +146,31 @@ const schoolFeatures = [
   },
 ];
 
-// 校园活动
+// 校园活动 - 使用真实活动图片
 const campusActivities = [
   { 
-    image: '/images/school-1.jpeg',
-    title: '开学典礼', 
-    date: '2024年9月1日',
-    desc: '新学期新起点，全体师生共迎开学典礼'
+    image: '/images/campus/festival-stage.png',
+    title: '校园文化艺术节', 
+    date: '2025年5月30日',
+    desc: '第41届艺术节暨六一文艺汇演，童心闪耀放飞梦想'
   },
   { 
-    image: '/images/school-2.jpeg',
-    title: '运动会', 
-    date: '2024年10月15-17日',
-    desc: '阳光体育，快乐运动，全校师生积极参与'
+    image: '/images/campus/robot-award.jpg',
+    title: '机器人竞赛获奖', 
+    date: '2024年1月',
+    desc: '世界机器人大赛Matata World挑战赛荣获佳绩'
   },
   { 
-    image: '/images/school-1.jpeg',
-    title: '读书节', 
-    date: '2024年11月',
-    desc: '书香满校园，阅读伴成长，系列读书活动'
+    image: '/images/campus/math-contest.jpg',
+    title: '小小神算手竞赛', 
+    date: '2025年5月23日',
+    desc: '数独竞赛培养数学思维，激发学习兴趣'
   },
   { 
-    image: '/images/school-2.jpeg',
-    title: '艺术节', 
-    date: '2024年12月',
-    desc: '艺术展示舞台，学生才艺绽放'
+    image: '/images/campus/planting.jpg',
+    title: '劳动实践活动', 
+    date: '2025年春季',
+    desc: '我与植物共成长，校园种植实践体验'
   },
 ];
 
@@ -488,6 +560,107 @@ export default function HomePage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* 学生发展 - 德智体美劳 */}
+      <section className="py-20 bg-gradient-to-b from-white via-blue-50/30 to-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-blue-500/10 text-blue-600 px-4 py-2 rounded-full mb-4">
+              <Target className="h-4 w-4" />
+              <span className="text-sm font-medium">学生发展</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">五育并举，全面发展</h2>
+            <p className="text-gray-600">德智体美劳全面发展，培养新时代好少年</p>
+          </div>
+
+          <div className="space-y-12">
+            {studentDevelopment.map((item, index) => (
+              <div key={index} className="bg-white rounded-3xl shadow-lg overflow-hidden">
+                {/* 分类标题 */}
+                <div className={`bg-gradient-to-r ${item.color} px-6 py-4 flex items-center justify-between`}>
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
+                      <span className="text-2xl font-bold text-white">{item.category}</span>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">{item.title}</h3>
+                      <p className="text-white/80 text-sm">{item.desc}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 图片网格 */}
+                <div className={`grid gap-4 p-6 ${item.images.length > 2 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'}`}>
+                  {item.images.map((img, idx) => (
+                    <div key={idx} className="group relative overflow-hidden rounded-xl">
+                      <div className="aspect-[4/3] relative">
+                        {!imageErrors[`student-${index}-${idx}`] ? (
+                          <img
+                            src={img.src}
+                            alt={img.title}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            onError={() => handleImageError(`student-${index}-${idx}`)}
+                          />
+                        ) : (
+                          <div className={`w-full h-full bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+                            <GraduationCap className="h-8 w-8 text-white" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                          <p className="text-white text-sm font-medium">{img.title}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 教师发展 */}
+      <section className="py-20 bg-gradient-to-b from-white via-purple-50/30 to-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-purple-500/10 text-purple-600 px-4 py-2 rounded-full mb-4">
+              <Users className="h-4 w-4" />
+              <span className="text-sm font-medium">教师发展</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">强师兴教，专业成长</h2>
+            <p className="text-gray-600">打造高素质专业化教师队伍，助力教师专业发展</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {teacherDevelopment.map((item, index) => (
+              <div key={index} className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
+                <div className="relative h-48 overflow-hidden">
+                  {!imageErrors[`teacher-${index}`] ? (
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={() => handleImageError(`teacher-${index}`)}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-300 flex items-center justify-center">
+                      <Users className="h-10 w-10 text-white" />
+                    </div>
+                  )}
+                  <div className="absolute top-3 left-3">
+                    <Badge className="bg-purple-500 text-white border-0">{item.tag}</Badge>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <h3 className="font-bold text-gray-900 mb-2 text-lg">{item.title}</h3>
+                  <p className="text-sm text-gray-600">{item.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
