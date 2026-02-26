@@ -529,6 +529,21 @@ export default function WorkflowConfigEditPage() {
   const nodes = formData.nodes || [];
   const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
 
+  // 计算 SVG 画布尺寸（根据节点位置动态调整）
+  const calculateSvgSize = useCallback(() => {
+    let maxX = 2000;
+    let maxY = 1500;
+    
+    nodePositions.forEach((pos) => {
+      maxX = Math.max(maxX, pos.x + 300);
+      maxY = Math.max(maxY, pos.y + 200);
+    });
+    
+    return { width: maxX, height: maxY };
+  }, [nodePositions]);
+  
+  const svgSize = calculateSvgSize();
+
   // 拖拽处理
   const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
@@ -731,10 +746,12 @@ export default function WorkflowConfigEditPage() {
             }}
           />
           
-          {/* 流程图 */}
+          {/* 流程图容器 - 根据节点位置动态调整尺寸 */}
           <div 
-            className="absolute inset-0"
+            className="absolute top-0 left-0"
             style={{
+              width: svgSize.width,
+              height: svgSize.height,
               transform: `scale(${zoom})`,
               transformOrigin: 'top left',
             }}
@@ -749,8 +766,16 @@ export default function WorkflowConfigEditPage() {
               </div>
             ) : (
               <>
-                {/* 连接线 SVG */}
-                <svg className="absolute inset-0" style={{ width: '100%', height: '100%', pointerEvents: 'none' }}>
+                {/* 连接线 SVG - 根据节点位置动态计算尺寸 */}
+                <svg 
+                  className="absolute top-0 left-0" 
+                  style={{ 
+                    width: svgSize.width, 
+                    height: svgSize.height, 
+                    pointerEvents: 'none',
+                    overflow: 'visible'
+                  }}
+                >
                   <defs>
                     <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
                       <path d="M0,0 L0,6 L9,3 z" fill="#9ca3af" />
