@@ -442,12 +442,48 @@ export interface WorkflowNode {
   
   // 调课节点配置（与教务系统对接）
   courseAdjustConfig?: {
-    autoSyncToAcademic: boolean;         // 是否自动同步到教务系统
-    notifyTeacher: boolean;              // 是否通知被调课教师
-    notifyClass: boolean;                // 是否通知班级学生/家长
-    requireReason: boolean;              // 是否必须填写调课原因
-    allowMultipleDays: boolean;          // 是否允许多天调课
-    defaultAssignee?: UserRole;          // 默认分配给（年段长等）
+    // === 执行人配置 ===
+    assigneeType?: 'grade_leader' | 'academic_staff' | 'specific';  // 调课执行人类型（默认年段长）
+    assigneeId?: string;                  // 指定执行人ID
+    assigneeName?: string;                // 指定执行人姓名
+    
+    // === 调课方式 ===
+    adjustTypes?: ('substitute' | 'swap' | 'cancel' | 'makeup')[];  // 允许的调课方式
+    // substitute: 代课（找其他老师代上）
+    // swap: 调换（与其他时间互换）
+    // cancel: 取消（不上课）
+    // makeup: 补课（后续时间补上）
+    
+    // === 代课教师配置 ===
+    substituteMode?: 'auto_recommend' | 'manual_select' | 'both';  // 代课教师选择方式
+    allowAnyTeacher?: boolean;            // 是否允许任意教师代课
+    restrictBySubject?: boolean;          // 是否限制同学科教师
+    preferSameGrade?: boolean;            // 是否优先同年级教师
+    
+    // === 时间配置 ===
+    allowCrossWeek?: boolean;             // 是否允许跨周调课
+    maxAdvanceDays?: number;              // 最大提前调课天数
+    deadlineBeforeClass?: number;         // 上课前多久截止调课（小时）
+    
+    // === 同步目标 ===
+    syncTargets?: {
+      teacherSchedule?: boolean;          // 同步到教师空间课表
+      academicSchedule?: boolean;         // 同步到教务智能排课
+      classSchedule?: boolean;            // 同步到班级课表
+      electronicBoard?: boolean;          // 同步到电子白板
+      teacherAttendance?: boolean;        // 同步到教师考勤
+    };
+    
+    // === 通知配置 ===
+    notifySubstituteTeacher?: boolean;    // 通知代课教师
+    notifyOriginalTeacher?: boolean;      // 通知原任课教师
+    notifyClassStudents?: boolean;        // 通知班级学生
+    notifyClassParents?: boolean;         // 通知班级家长
+    notifyHeadTeacher?: boolean;          // 通知班主任
+    
+    // === 其他配置 ===
+    requireReason?: boolean;              // 是否必须填写调课原因
+    requireApproval?: boolean;            // 是否需要教务主任确认
   };
   
   // 流程控制
@@ -542,4 +578,282 @@ export interface NodeHistory {
   approverId?: string;
   approverName?: string;
   comment?: string;
+}
+
+// ============================================================
+// 教务系统类型定义
+// ============================================================
+
+// 星期枚举
+export type WeekDay = 1 | 2 | 3 | 4 | 5 | 6 | 7;  // 1=周一, 7=周日
+
+// 节次枚举
+export interface Period {
+  index: number;                         // 第几节课（从1开始）
+  name: string;                          // 名称，如"第一节"
+  startTime: string;                     // 开始时间，如"08:00"
+  endTime: string;                       // 结束时间，如"08:40"
+  type: 'morning' | 'afternoon' | 'evening';  // 时段
+}
+
+// 课程信息
+export interface Course {
+  id: string;
+  name: string;                          // 课程名称
+  code?: string;                         // 课程代码
+  subject: string;                       // 学科
+  grade: number;                         // 年级
+  type: 'required' | 'elective' | 'activity';  // 课程类型
+  hoursPerWeek: number;                  // 每周课时
+  description?: string;
+}
+
+// 教师任课信息
+export interface TeacherCourse {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  courseId: string;
+  courseName: string;
+  classId: string;
+  className: string;
+  subject: string;
+  weeklyHours: number;                   // 周课时数
+  isActive: boolean;
+}
+
+// 课表安排（单个课时段）
+export interface ScheduleSlot {
+  id: string;
+  classId: string;                       // 班级ID
+  className: string;
+  grade: number;
+  
+  // 时间信息
+  weekDay: WeekDay;                      // 星期几
+  periodIndex: number;                   // 第几节课
+  periodName: string;                    // 节次名称
+  startTime: string;
+  endTime: string;
+  
+  // 课程信息
+  courseId: string;
+  courseName: string;
+  subject: string;
+  
+  // 教师信息
+  teacherId: string;
+  teacherName: string;
+  
+  // 场地信息
+  classroomId?: string;
+  classroomName?: string;
+  
+  // 状态
+  status: 'normal' | 'substituted' | 'swapped' | 'cancelled' | 'makeup';
+  originalTeacherId?: string;            // 原任课教师（代课时）
+  originalTeacherName?: string;
+  adjustRecordId?: string;               // 关联的调课记录ID
+  
+  // 时间戳
+  effectiveDate?: string;                // 生效日期（临时调课）
+  expireDate?: string;                   // 失效日期
+}
+
+// 班级课表
+export interface ClassSchedule {
+  id: string;
+  classId: string;
+  className: string;
+  grade: number;
+  semester: string;                      // 学期，如"2024-2025-1"
+  weekStart: number;                     // 周次开始
+  weekEnd: number;                       // 周次结束
+  slots: ScheduleSlot[];
+  updatedAt: string;
+}
+
+// 教师课表
+export interface TeacherSchedule {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  semester: string;
+  slots: ScheduleSlot[];
+  updatedAt: string;
+}
+
+// 调课记录
+export interface CourseAdjustment {
+  id: string;
+  
+  // 关联信息
+  workflowInstanceId?: string;           // 关联的工作流实例ID
+  leaveRequestId?: string;               // 关联的请假申请ID
+  
+  // 申请人信息（请假教师）
+  applicantId: string;
+  applicantName: string;
+  
+  // 调课执行人
+  adjusterId: string;
+  adjusterName: string;
+  
+  // 调课类型
+  adjustType: 'substitute' | 'swap' | 'cancel' | 'makeup';
+  
+  // 原课程信息
+  originalSlot: {
+    classId: string;
+    className: string;
+    weekDay: WeekDay;
+    periodIndex: number;
+    periodName: string;
+    courseId: string;
+    courseName: string;
+    subject: string;
+    teacherId: string;
+    teacherName: string;
+    date: string;                        // 具体日期
+  };
+  
+  // 调课结果
+  adjustResult: {
+    // 代课
+    substituteTeacherId?: string;
+    substituteTeacherName?: string;
+    
+    // 调换
+    swapWithSlot?: {
+      classId: string;
+      className: string;
+      weekDay: WeekDay;
+      periodIndex: number;
+      date: string;
+    };
+    
+    // 补课
+    makeupSlot?: {
+      weekDay: WeekDay;
+      periodIndex: number;
+      date: string;
+    };
+  };
+  
+  // 调课原因
+  reason: string;
+  reasonType: 'leave' | 'meeting' | 'training' | 'personal' | 'other';
+  
+  // 审批状态
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  approvedBy?: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  
+  // 同步状态
+  syncStatus: {
+    teacherSchedule: boolean;
+    academicSchedule: boolean;
+    classSchedule: boolean;
+    electronicBoard: boolean;
+    teacherAttendance: boolean;
+  };
+  
+  // 通知状态
+  notifyStatus: {
+    substituteTeacher: boolean;
+    originalTeacher: boolean;
+    classStudents: boolean;
+    classParents: boolean;
+    headTeacher: boolean;
+  };
+  
+  // 时间戳
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+// 教师考勤记录
+export interface TeacherAttendance {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  date: string;                          // 日期
+  
+  // 考勤状态
+  status: 'present' | 'absent' | 'leave' | 'business_trip' | 'late' | 'early_leave';
+  
+  // 关联请假
+  leaveRequestId?: string;
+  leaveType?: string;
+  leaveDuration?: number;                // 请假天数
+  
+  // 课程安排
+  scheduledCourses: number;              // 当天应上课数
+  actualCourses: number;                 // 实际上课数
+  substitutedCourses: number;            // 被代课数
+  
+  // 备注
+  remark?: string;
+  
+  // 时间戳
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 电子白板课表展示
+export interface ElectronicBoardSchedule {
+  id: string;
+  classId: string;
+  className: string;
+  date: string;                          // 展示日期
+  
+  // 当天课程
+  slots: {
+    periodIndex: number;
+    periodName: string;
+    startTime: string;
+    endTime: string;
+    courseName: string;
+    teacherName: string;
+    status: 'normal' | 'substituted' | 'cancelled';
+    substituteTeacherName?: string;
+  }[];
+  
+  // 班级通知
+  notices?: {
+    content: string;
+    type: 'info' | 'warning' | 'important';
+    createdAt: string;
+  }[];
+  
+  // 同步时间
+  syncedAt: string;
+}
+
+// 学期配置
+export interface Semester {
+  id: string;
+  name: string;                          // 如 "2024-2025学年第一学期"
+  code: string;                          // 如 "2024-2025-1"
+  startDate: string;
+  endDate: string;
+  totalWeeks: number;
+  currentWeek: number;                   // 当前周次
+  isActive: boolean;
+}
+
+// 作息时间表
+export interface DailySchedule {
+  id: string;
+  semesterId: string;
+  name: string;                          // 如 "春秋季作息"
+  
+  // 时间段配置
+  periods: Period[];
+  
+  // 生效时间
+  effectiveFrom: string;
+  effectiveTo?: string;
 }

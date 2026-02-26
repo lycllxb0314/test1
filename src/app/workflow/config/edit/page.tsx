@@ -177,11 +177,25 @@ const workflowTemplates: Record<string, Partial<WorkflowConfig>> = {
       { id: 'approval_dean', type: 'approval', name: '教务主任审批', approverType: 'role', approverRole: 'academic_director', rejectAction: 'return_to_previous', nextNodeId: 'arrange_class' },
       { id: 'arrange_class', type: 'course_adjust', name: '年段长调课安排', nextNodeId: 'end', 
         courseAdjustConfig: {
-          autoSyncToAcademic: true,
-          notifyTeacher: true,
-          notifyClass: true,
+          assigneeType: 'grade_leader',
+          adjustTypes: ['substitute', 'swap', 'makeup'],
+          substituteMode: 'both',
+          restrictBySubject: true,
+          preferSameGrade: true,
+          syncTargets: {
+            teacherSchedule: true,
+            academicSchedule: true,
+            classSchedule: true,
+            electronicBoard: true,
+            teacherAttendance: true,
+          },
+          notifySubstituteTeacher: true,
+          notifyOriginalTeacher: true,
+          notifyClassStudents: true,
+          notifyClassParents: true,
+          notifyHeadTeacher: true,
           requireReason: true,
-          allowMultipleDays: true,
+          requireApproval: false,
         }
       },
       { id: 'end', type: 'end', name: '结束' },
@@ -1154,9 +1168,21 @@ export default function WorkflowConfigEditPage() {
                           
                           {/* 调课节点显示配置 */}
                           {node.type === 'course_adjust' && (
-                            <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
-                              <CalendarClock className="h-3 w-3" />
-                              {node.courseAdjustConfig?.autoSyncToAcademic ? '自动同步教务' : '手动同步'}
+                            <div className="mt-2 space-y-1">
+                              <div className="text-xs text-gray-500 flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {node.courseAdjustConfig?.assigneeType === 'grade_leader' ? '年段长' : 
+                                 node.courseAdjustConfig?.assigneeType === 'academic_staff' ? '教务员' : 
+                                 node.courseAdjustConfig?.assigneeName || '指定人员'}
+                              </div>
+                              <div className="text-xs text-gray-500 flex items-center gap-1">
+                                <CalendarClock className="h-3 w-3" />
+                                {(node.courseAdjustConfig?.adjustTypes || ['substitute']).map(t => 
+                                  t === 'substitute' ? '代课' : 
+                                  t === 'swap' ? '调换' : 
+                                  t === 'cancel' ? '取消' : '补课'
+                                ).join('/')}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1522,10 +1548,10 @@ export default function WorkflowConfigEditPage() {
                   <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg">
                     <div className="flex items-center gap-2 text-teal-700 mb-2">
                       <CalendarClock className="h-4 w-4" />
-                      <span className="text-sm font-medium">教务系统对接</span>
+                      <span className="text-sm font-medium">教务系统对接节点</span>
                     </div>
                     <p className="text-xs text-teal-600">
-                      调课节点完成后将自动同步到教务系统，更新课程表。
+                      年段长完成调课后，自动同步到教师课表、教务排课、班级课表、电子白板及教师考勤。
                     </p>
                   </div>
                   
@@ -1538,139 +1564,288 @@ export default function WorkflowConfigEditPage() {
                     />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label className="text-sm text-gray-600">调课配置</Label>
-                    
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div className="flex items-center gap-2">
+                  {/* === 执行人配置 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      调课执行人
+                    </Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex gap-2">
+                        <Button
+                          variant={(selectedNode.courseAdjustConfig?.assigneeType || 'grade_leader') === 'grade_leader' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const current = selectedNode.courseAdjustConfig || {};
+                            updateNode(selectedNode.id, { 
+                              courseAdjustConfig: { ...current, assigneeType: 'grade_leader' } as any
+                            });
+                          }}
+                          className="flex-1 text-xs"
+                        >
+                          年段长
+                        </Button>
+                        <Button
+                          variant={selectedNode.courseAdjustConfig?.assigneeType === 'academic_staff' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const current = selectedNode.courseAdjustConfig || {};
+                            updateNode(selectedNode.id, { 
+                              courseAdjustConfig: { ...current, assigneeType: 'academic_staff' } as any
+                            });
+                          }}
+                          className="flex-1 text-xs"
+                        >
+                          教务员
+                        </Button>
+                        <Button
+                          variant={selectedNode.courseAdjustConfig?.assigneeType === 'specific' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const current = selectedNode.courseAdjustConfig || {};
+                            updateNode(selectedNode.id, { 
+                              courseAdjustConfig: { ...current, assigneeType: 'specific' } as any
+                            });
+                          }}
+                          className="flex-1 text-xs"
+                        >
+                          指定人员
+                        </Button>
+                      </div>
+                      {selectedNode.courseAdjustConfig?.assigneeType === 'specific' && (
+                        <Input
+                          value={selectedNode.courseAdjustConfig?.assigneeName || ''}
+                          onChange={(e) => {
+                            const current = selectedNode.courseAdjustConfig || {};
+                            updateNode(selectedNode.id, { 
+                              courseAdjustConfig: { ...current, assigneeName: e.target.value } as any
+                            });
+                          }}
+                          placeholder="输入执行人姓名"
+                          className="h-8 text-xs"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* === 调课方式 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700">允许的调课方式</Label>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {[
+                        { key: 'substitute', label: '代课', desc: '找其他老师代上' },
+                        { key: 'swap', label: '调换', desc: '与其他时间互换' },
+                        { key: 'cancel', label: '取消', desc: '不上课' },
+                        { key: 'makeup', label: '补课', desc: '后续时间补上' },
+                      ].map(item => {
+                        const adjustTypes = selectedNode.courseAdjustConfig?.adjustTypes || ['substitute', 'swap'];
+                        const isChecked = adjustTypes.includes(item.key as any);
+                        return (
+                          <div
+                            key={item.key}
+                            className={`p-2 rounded border cursor-pointer transition-all ${
+                              isChecked ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                            onClick={() => {
+                              const current = selectedNode.courseAdjustConfig || {};
+                              const types = (current.adjustTypes || ['substitute']) as string[];
+                              const newTypes = isChecked 
+                                ? types.filter(t => t !== item.key)
+                                : [...types, item.key];
+                              updateNode(selectedNode.id, { 
+                                courseAdjustConfig: { ...current, adjustTypes: newTypes } as any
+                              });
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}}
+                                className="rounded"
+                              />
+                              <span className="text-xs font-medium">{item.label}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-0.5 ml-5">{item.desc}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* === 代课教师配置 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700">代课教师选择</Label>
+                    <div className="mt-2 space-y-2">
+                      <Select
+                        value={selectedNode.courseAdjustConfig?.substituteMode || 'auto_recommend'}
+                        onValueChange={(v) => {
+                          const current = selectedNode.courseAdjustConfig || {};
+                          updateNode(selectedNode.id, { 
+                            courseAdjustConfig: { ...current, substituteMode: v as any } as any
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto_recommend">系统自动推荐</SelectItem>
+                          <SelectItem value="manual_select">手动选择</SelectItem>
+                          <SelectItem value="both">推荐+手动选择</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                         <input
                           type="checkbox"
-                          checked={selectedNode.courseAdjustConfig?.autoSyncToAcademic ?? true}
+                          checked={selectedNode.courseAdjustConfig?.restrictBySubject ?? true}
                           onChange={(e) => {
-                            const current = selectedNode.courseAdjustConfig || {
-                              autoSyncToAcademic: true,
-                              notifyTeacher: true,
-                              notifyClass: true,
-                              requireReason: true,
-                              allowMultipleDays: true,
-                            };
+                            const current = selectedNode.courseAdjustConfig || {};
                             updateNode(selectedNode.id, { 
-                              courseAdjustConfig: { 
-                                ...current,
-                                autoSyncToAcademic: e.target.checked 
-                              } 
+                              courseAdjustConfig: { ...current, restrictBySubject: e.target.checked } as any
                             });
                           }}
                           className="rounded"
                         />
-                        <span className="text-xs">自动同步到教务系统</span>
+                        <span className="text-xs">仅限同学科教师</span>
                       </div>
-                      <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-                        推荐
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div className="flex items-center gap-2">
+                      
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                         <input
                           type="checkbox"
-                          checked={selectedNode.courseAdjustConfig?.notifyTeacher ?? true}
+                          checked={selectedNode.courseAdjustConfig?.preferSameGrade ?? true}
                           onChange={(e) => {
-                            const current = selectedNode.courseAdjustConfig || {
-                              autoSyncToAcademic: true,
-                              notifyTeacher: true,
-                              notifyClass: true,
-                              requireReason: true,
-                              allowMultipleDays: true,
-                            };
+                            const current = selectedNode.courseAdjustConfig || {};
                             updateNode(selectedNode.id, { 
-                              courseAdjustConfig: { 
-                                ...current,
-                                notifyTeacher: e.target.checked 
-                              } 
+                              courseAdjustConfig: { ...current, preferSameGrade: e.target.checked } as any
                             });
                           }}
                           className="rounded"
                         />
-                        <span className="text-xs">通知被调课教师</span>
+                        <span className="text-xs">优先同年级教师</span>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedNode.courseAdjustConfig?.notifyClass ?? true}
-                          onChange={(e) => {
-                            const current = selectedNode.courseAdjustConfig || {
-                              autoSyncToAcademic: true,
-                              notifyTeacher: true,
-                              notifyClass: true,
-                              requireReason: true,
-                              allowMultipleDays: true,
-                            };
-                            updateNode(selectedNode.id, { 
-                              courseAdjustConfig: { 
-                                ...current,
-                                notifyClass: e.target.checked 
-                              } 
-                            });
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-xs">通知班级学生/家长</span>
-                      </div>
+                  </div>
+                  
+                  {/* === 同步目标 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                      <ArrowRightLeft className="h-3 w-3" />
+                      数据同步目标
+                    </Label>
+                    <div className="mt-2 space-y-1.5">
+                      {[
+                        { key: 'teacherSchedule', label: '教师空间课表', icon: '👤' },
+                        { key: 'academicSchedule', label: '教务智能排课', icon: '📅' },
+                        { key: 'classSchedule', label: '班级课表', icon: '🏫' },
+                        { key: 'electronicBoard', label: '电子白板', icon: '📺' },
+                        { key: 'teacherAttendance', label: '教师考勤', icon: '📋' },
+                      ].map(item => {
+                        const syncTargets = selectedNode.courseAdjustConfig?.syncTargets || {
+                          teacherSchedule: true,
+                          academicSchedule: true,
+                          classSchedule: true,
+                          electronicBoard: true,
+                          teacherAttendance: true,
+                        };
+                        const isChecked = syncTargets[item.key as keyof typeof syncTargets] ?? true;
+                        return (
+                          <div key={item.key} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div className="flex items-center gap-2">
+                              <span>{item.icon}</span>
+                              <span className="text-xs">{item.label}</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const current = selectedNode.courseAdjustConfig || {};
+                                const targets = current.syncTargets || {
+                                  teacherSchedule: true,
+                                  academicSchedule: true,
+                                  classSchedule: true,
+                                  electronicBoard: true,
+                                  teacherAttendance: true,
+                                };
+                                updateNode(selectedNode.id, { 
+                                  courseAdjustConfig: { 
+                                    ...current, 
+                                    syncTargets: { ...targets, [item.key]: e.target.checked } 
+                                  } as any
+                                });
+                              }}
+                              className="rounded"
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div className="flex items-center gap-2">
+                  </div>
+                  
+                  {/* === 通知配置 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700">调课通知对象</Label>
+                    <div className="mt-2 grid grid-cols-2 gap-1.5">
+                      {[
+                        { key: 'notifySubstituteTeacher', label: '代课教师' },
+                        { key: 'notifyOriginalTeacher', label: '原任课教师' },
+                        { key: 'notifyClassStudents', label: '班级学生' },
+                        { key: 'notifyClassParents', label: '学生家长' },
+                        { key: 'notifyHeadTeacher', label: '班主任' },
+                      ].map(item => {
+                        const isChecked = (selectedNode.courseAdjustConfig as any)?.[item.key] ?? true;
+                        return (
+                          <div key={item.key} className="flex items-center gap-2 p-1.5 bg-gray-50 rounded">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const current = selectedNode.courseAdjustConfig || {};
+                                updateNode(selectedNode.id, { 
+                                  courseAdjustConfig: { ...current, [item.key]: e.target.checked } as any
+                                });
+                              }}
+                              className="rounded"
+                            />
+                            <span className="text-xs">{item.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* === 其他配置 === */}
+                  <div className="border-t pt-3">
+                    <Label className="text-sm font-medium text-gray-700">其他配置</Label>
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-xs">必须填写调课原因</span>
                         <input
                           type="checkbox"
                           checked={selectedNode.courseAdjustConfig?.requireReason ?? true}
                           onChange={(e) => {
-                            const current = selectedNode.courseAdjustConfig || {
-                              autoSyncToAcademic: true,
-                              notifyTeacher: true,
-                              notifyClass: true,
-                              requireReason: true,
-                              allowMultipleDays: true,
-                            };
+                            const current = selectedNode.courseAdjustConfig || {};
                             updateNode(selectedNode.id, { 
-                              courseAdjustConfig: { 
-                                ...current,
-                                requireReason: e.target.checked 
-                              } 
+                              courseAdjustConfig: { ...current, requireReason: e.target.checked } as any
                             });
                           }}
                           className="rounded"
                         />
-                        <span className="text-xs">必须填写调课原因</span>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="text-xs">需要教务主任确认</span>
                         <input
                           type="checkbox"
-                          checked={selectedNode.courseAdjustConfig?.allowMultipleDays ?? true}
+                          checked={selectedNode.courseAdjustConfig?.requireApproval ?? false}
                           onChange={(e) => {
-                            const current = selectedNode.courseAdjustConfig || {
-                              autoSyncToAcademic: true,
-                              notifyTeacher: true,
-                              notifyClass: true,
-                              requireReason: true,
-                              allowMultipleDays: true,
-                            };
+                            const current = selectedNode.courseAdjustConfig || {};
                             updateNode(selectedNode.id, { 
-                              courseAdjustConfig: { 
-                                ...current,
-                                allowMultipleDays: e.target.checked 
-                              } 
+                              courseAdjustConfig: { ...current, requireApproval: e.target.checked } as any
                             });
                           }}
                           className="rounded"
                         />
-                        <span className="text-xs">允许多天调课</span>
                       </div>
                     </div>
                   </div>
