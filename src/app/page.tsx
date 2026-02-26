@@ -51,6 +51,8 @@ const studentDevelopment = [
       { src: '/images/campus/young-pioneers.png', title: '少先队礼仪活动' },
       { src: '/images/campus/school-assembly.png', title: '强国复兴有我主题活动' },
       { src: '/images/campus/team-committee.jpg', title: '大队委竞选活动' },
+      { src: '/images/campus/safety-roleplay.png', title: '课间安全我扮演' },
+      { src: '/images/campus/fire-safety-class.jpg', title: '消防安全知识讲座' },
     ],
     desc: '立德树人，培养品德高尚的新时代少年',
   },
@@ -61,9 +63,11 @@ const studentDevelopment = [
     images: [
       { src: '/images/campus/science-academy.png', title: '少年科学院成立' },
       { src: '/images/campus/science-academy-opening.png', title: '少年科学院揭牌' },
+      { src: '/images/campus/tech-festival.jpg', title: '科技节闭幕式' },
+      { src: '/images/campus/robot-interaction.jpg', title: '机器人互动体验' },
+      { src: '/images/campus/robot-playground.jpg', title: '操场机器人科普' },
+      { src: '/images/campus/science-lecture.png', title: '公益科普进校园' },
       { src: '/images/campus/robot-team.png', title: '机器人大赛获奖' },
-      { src: '/images/campus/robot-programming.jpg', title: '机器人编程实操' },
-      { src: '/images/campus/model-car-activity.jpg', title: '科技模型车活动' },
       { src: '/images/campus/science-dryice.jpg', title: '干冰科学实验' },
       { src: '/images/campus/culture-class.jpg', title: '文化自信课堂' },
       { src: '/images/campus/math-contest.jpg', title: '小小神算手竞赛' },
@@ -98,6 +102,8 @@ const studentDevelopment = [
     title: '劳育强能',
     color: 'from-green-500 to-emerald-400',
     images: [
+      { src: '/images/campus/labor-food-display.jpg', title: '劳动素养大赛美食展示' },
+      { src: '/images/campus/labor-cooking.jpg', title: '劳动素养大赛烹饪实践' },
       { src: '/images/campus/planting.jpg', title: '校园种植观察' },
       { src: '/images/campus/succulent.jpg', title: '多肉植物种植' },
     ],
@@ -107,6 +113,24 @@ const studentDevelopment = [
 
 // 教师发展
 const teacherDevelopment = [
+  {
+    image: '/images/campus/conference-hall.png',
+    title: '学术报告厅',
+    desc: '现代化教学研讨空间',
+    tag: '教学研讨',
+  },
+  {
+    image: '/images/campus/talent-meeting.png',
+    title: '人才工作会议',
+    desc: '高质量发展人才大会',
+    tag: '人才发展',
+  },
+  {
+    image: '/images/campus/teacher-award.png',
+    title: '教师表彰典礼',
+    desc: '优秀教育工作者表彰',
+    tag: '表彰典礼',
+  },
   {
     image: '/images/campus/teaching-seminar.png',
     title: '总校制办学教学研讨',
@@ -124,18 +148,6 @@ const teacherDevelopment = [
     title: 'AI辅助跨学科研究开题',
     desc: '生成式AI辅助跨学科主题学习设计与实施的研究开题活动',
     tag: '课题研究',
-  },
-  {
-    image: '/images/campus/dance-performance.png',
-    title: '总校制办学教学研讨',
-    desc: '总校制办学教育教学研讨活动',
-    tag: '教学研讨',
-  },
-  {
-    image: '/images/campus/teacher-summer-training.png',
-    title: '暑期教师培训',
-    desc: '2025年暑期教师继续教育培训活动',
-    tag: '专业培训',
   },
   {
     image: '/images/campus/qinglan-project.png',
@@ -196,16 +208,22 @@ const campusActivities = [
     desc: '与院士同行，赴科学之约，少年科学院成立仪式'
   },
   { 
-    image: '/images/campus/parent-meeting.png',
-    title: '六年级家长会', 
-    date: '2025年11月21日',
-    desc: '同心同行共话成长，家校共育活动'
+    image: '/images/campus/tech-festival.jpg',
+    title: '科技节闭幕式', 
+    date: '2025年',
+    desc: '校园科技节活动闭幕，科技点亮梦想'
   },
   { 
-    image: '/images/campus/art-festival.png',
-    title: '培田古民居研学', 
+    image: '/images/campus/fire-safety-class.jpg',
+    title: '消防安全知识课堂', 
     date: '2025年',
-    desc: '学生研学活动，走进培田古民居'
+    desc: '消防安全教育活动，增强安全意识'
+  },
+  { 
+    image: '/images/campus/food-safety-class.jpg',
+    title: '食品安全知识课堂', 
+    date: '2025年',
+    desc: '食品安全宣传教育，守护健康饮食'
   },
   { 
     image: '/images/campus/robot-team.png',
