@@ -22,6 +22,8 @@ import {
   CheckCircle,
   XCircle,
   Cpu,
+  DoorOpen,
+  UserPlus,
 } from 'lucide-react';
 import { mockRepairRequests, mockAssets } from '@/data/mock';
 
@@ -43,7 +45,8 @@ export default function GeneralPage() {
     { name: '报修申请', href: '/general/repairs', icon: Wrench, color: 'bg-orange-100 text-orange-600' },
     { name: '采购申请', href: '/general/purchase', icon: ShoppingCart, color: 'bg-green-100 text-green-600' },
     { name: '费用报销', href: '/general/finance', icon: DollarSign, color: 'bg-purple-100 text-purple-600' },
-    { name: '访客登记', href: '/general/security', icon: Shield, color: 'bg-red-100 text-red-600' },
+    { name: '门禁管理', href: '/general/access', icon: DoorOpen, color: 'bg-teal-100 text-teal-600' },
+    { name: '访客登记', href: '/general/access/visitors', icon: UserPlus, color: 'bg-cyan-100 text-cyan-600' },
   ];
 
   // 安全提醒

@@ -62,6 +62,7 @@ import {
   Newspaper,
   Trophy,
   CalendarClock,
+  UserPlus,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
@@ -87,6 +88,8 @@ const generalNav: NavItem[] = [
   { name: '采购管理', href: '/general/purchase', icon: ShoppingCart, description: '物资采购申请' },
   { name: '财务管理', href: '/general/finance', icon: DollarSign, description: '费用报销管理' },
   { name: '安全管理', href: '/general/security', icon: Shield, description: '校园安全保障' },
+  { name: '门禁管理', href: '/general/access', icon: DoorOpen, description: '智慧门禁系统' },
+  { name: '访客管理', href: '/general/access/visitors', icon: UserPlus, description: '访客登记与审批' },
   { name: '环境管理', href: '/general/environment', icon: School, description: '校园环境维护' },
   { name: '人员管理', href: '/general/staff', icon: Users, description: '后勤人员管理' },
 ];
