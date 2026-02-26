@@ -252,10 +252,8 @@ export default function WorkflowConfigEditPage() {
       setNodePositions(prev => {
         const newPositions = new Map(autoPositions);
         prev.forEach((pos, id) => {
-          if (autoPositions.has(id)) {
-            // 保留用户手动调整的位置
-            newPositions.set(id, pos);
-          }
+          // 保留所有已存在的位置（包括用户手动调整和新添加的节点）
+          newPositions.set(id, pos);
         });
         return newPositions;
       });
@@ -326,13 +324,38 @@ export default function WorkflowConfigEditPage() {
       ...(type === 'parallel' ? { parallelNodes: [], mergeType: 'all' } : {}),
     };
     
+    // 计算新节点的初始位置
+    setNodePositions(prev => {
+      let newX = 100;
+      let newY = 100;
+      
+      if (prev.size > 0) {
+        // 找到最右边的节点
+        let maxX = 0;
+        let maxY = 0;
+        prev.forEach((pos) => {
+          if (pos.x > maxX) {
+            maxX = pos.x;
+            maxY = pos.y;
+          }
+        });
+        // 新节点放在最右边节点的右侧
+        newX = maxX + 200;
+        newY = maxY;
+      }
+      
+      const newPositions = new Map(prev);
+      newPositions.set(newNode.id, { x: newX, y: newY });
+      return newPositions;
+    });
+    
     setFormData(prev => {
       const newNodes = [...(prev.nodes || []), newNode];
       
       // 如果指定了前置节点，更新连接
       if (afterNodeId) {
         const afterNode = newNodes.find(n => n.id === afterNodeId);
-        if (afterNode && afterNode.type !== 'condition') {
+        if (afterNode && afterNode.type !== 'condition' && afterNode.type !== 'parallel') {
           afterNode.nextNodeId = newNode.id;
         }
       }
@@ -551,6 +574,34 @@ export default function WorkflowConfigEditPage() {
     setDraggedNodeId(null);
   }, []);
 
+  // 在画布上处理连接建立
+  const handleCanvasMouseUp = useCallback((e: React.MouseEvent) => {
+    if (connectingFrom) {
+      // 查找鼠标释放位置下的目标节点
+      const target = (e.target as HTMLElement).closest('[data-node-id]');
+      if (target) {
+        const targetNodeId = target.getAttribute('data-node-id');
+        if (targetNodeId && targetNodeId !== connectingFrom.nodeId) {
+          // 建立连接
+          if (connectingFrom.branchId) {
+            updateBranch(connectingFrom.nodeId, connectingFrom.branchId, { nextNodeId: targetNodeId });
+          } else if (connectingFrom.parallelIndex !== undefined) {
+            updateParallelBranch(connectingFrom.nodeId, connectingFrom.parallelIndex, targetNodeId);
+          } else {
+            updateNode(connectingFrom.nodeId, { nextNodeId: targetNodeId });
+          }
+          setConnectingFrom(null);
+          setConnectingTo(null);
+          return;
+        }
+      }
+      // 如果没有连接到目标节点，取消连接
+      setConnectingFrom(null);
+      setConnectingTo(null);
+    }
+    handleMouseUp();
+  }, [connectingFrom, handleMouseUp]);
+
   // 点击空白处取消选中
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === canvasRef.current) {
@@ -658,14 +709,7 @@ export default function WorkflowConfigEditPage() {
           className="flex-1 overflow-auto relative"
           onClick={handleCanvasClick}
           onMouseMove={handleMouseMove}
-          onMouseUp={(e) => {
-            // 如果在画布空白处释放，取消连接
-            if (connectingFrom && e.target === canvasRef.current) {
-              setConnectingFrom(null);
-              setConnectingTo(null);
-            }
-            handleMouseUp();
-          }}
+          onMouseUp={handleCanvasMouseUp}
           onMouseLeave={() => {
             // 鼠标离开画布时取消连接
             if (connectingFrom) {
@@ -916,46 +960,11 @@ export default function WorkflowConfigEditPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         
-                        // 如果正在连接且点击了目标节点
-                        if (connectingFrom && connectingFrom.nodeId !== node.id) {
-                          e.preventDefault();
-                          // 建立连接
-                          if (connectingFrom.branchId) {
-                            // 条件节点分支
-                            updateBranch(connectingFrom.nodeId, connectingFrom.branchId, { nextNodeId: node.id });
-                          } else if (connectingFrom.parallelIndex !== undefined) {
-                            // 并行节点分支
-                            updateParallelBranch(connectingFrom.nodeId, connectingFrom.parallelIndex, node.id);
-                          } else {
-                            // 普通节点
-                            updateNode(connectingFrom.nodeId, { nextNodeId: node.id });
-                          }
-                          setConnectingFrom(null);
-                          setConnectingTo(null);
-                          return;
-                        }
+                        // 如果正在连接，不选中节点（连接由画布的 onMouseUp 处理）
+                        if (connectingFrom) return;
                         
                         setSelectedNodeId(node.id);
                         setShowNodePanel(true);
-                      }}
-                      onMouseUp={(e) => {
-                        // 鼠标释放时建立连接（替代onClick，更可靠）
-                        if (connectingFrom && connectingFrom.nodeId !== node.id) {
-                          e.stopPropagation();
-                          // 建立连接
-                          if (connectingFrom.branchId) {
-                            // 条件节点分支
-                            updateBranch(connectingFrom.nodeId, connectingFrom.branchId, { nextNodeId: node.id });
-                          } else if (connectingFrom.parallelIndex !== undefined) {
-                            // 并行节点分支
-                            updateParallelBranch(connectingFrom.nodeId, connectingFrom.parallelIndex, node.id);
-                          } else {
-                            // 普通节点
-                            updateNode(connectingFrom.nodeId, { nextNodeId: node.id });
-                          }
-                          setConnectingFrom(null);
-                          setConnectingTo(null);
-                        }
                       }}
                       onMouseEnter={() => setHoveredNodeId(node.id)}
                       onMouseLeave={() => setHoveredNodeId(null)}
