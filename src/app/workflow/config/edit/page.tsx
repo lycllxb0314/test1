@@ -485,10 +485,10 @@ export default function WorkflowEditorPage() {
   const [saving, setSaving] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(true);
-  const [previewWidth, setPreviewWidth] = useState(500); // 预览窗口宽度
+  const [previewHeight, setPreviewHeight] = useState(280); // 预览窗口高度
   const [isDragging, setIsDragging] = useState(false); // 是否正在拖拽
   
-  // 拖拽处理
+  // 拖拽处理 - 垂直方向
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -498,13 +498,13 @@ export default function WorkflowEditorPage() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
       
-      // 计算新的宽度（从窗口右侧往左计算）
-      const newWidth = window.innerWidth - e.clientX;
-      // 限制最小和最大宽度
-      const minWidth = 300;
-      const maxWidth = 800;
-      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
-      setPreviewWidth(clampedWidth);
+      // 计算新的高度（从窗口底部往上计算）
+      const newHeight = window.innerHeight - e.clientY - 60; // 60是工具栏高度
+      // 限制最小和最大高度
+      const minHeight = 200;
+      const maxHeight = 500;
+      const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+      setPreviewHeight(clampedHeight);
     };
 
     const handleMouseUp = () => {
@@ -792,10 +792,12 @@ export default function WorkflowEditorPage() {
         </div>
       </div>
 
-      {/* 主内容区 */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 左侧：节点列表 */}
-        <div className={`${showPreview ? 'w-80' : 'w-96'} bg-white border-r flex flex-col overflow-hidden flex-shrink-0`}>
+      {/* 主内容区 - 上下布局 */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* 上方：左侧节点列表 + 右侧编辑区 */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          {/* 左侧：节点列表 */}
+          <div className="w-80 bg-white border-r flex flex-col overflow-hidden flex-shrink-0">
           {/* 基本信息 */}
           <div className="p-4 border-b flex-shrink-0">
             <div className="space-y-3">
@@ -931,7 +933,7 @@ export default function WorkflowEditorPage() {
           </div>
         </div>
 
-        {/* 中间：节点详细编辑区 */}
+        {/* 右侧：节点详细编辑区 */}
         <div className="flex-1 overflow-y-auto bg-gray-100 p-6">
           {selectedNode ? (
             <Card className="border-0 shadow-lg max-w-3xl mx-auto">
@@ -1292,49 +1294,47 @@ export default function WorkflowEditorPage() {
             </div>
           )}
         </div>
+        </div>
 
-        {/* 右侧：流程图预览 */}
+        {/* 下方：流程图预览 */}
         {showPreview && (
-          <>
+          <div 
+            className="bg-white border-t flex flex-col overflow-hidden flex-shrink-0"
+            style={{ height: `${previewHeight}px` }}
+          >
             {/* 可拖拽分隔条 */}
             <div
-              className={`w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors flex-shrink-0 ${
+              className={`h-1.5 bg-gray-200 hover:bg-blue-400 cursor-row-resize transition-colors flex-shrink-0 ${
                 isDragging ? 'bg-blue-500' : ''
               }`}
               onMouseDown={handleMouseDown}
             />
-            
-            <div 
-              className="bg-white border-l flex flex-col overflow-hidden flex-shrink-0"
-              style={{ width: `${previewWidth}px` }}
-            >
-              <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-gray-400" />
-                    流程图预览
-                  </h3>
-                  <p className="text-xs text-gray-500">横向流程图 · 拖拽左侧边栏调整宽度</p>
-                </div>
-              </div>
-              <div className="flex-1 overflow-auto">
-                {nodes.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-gray-400">
-                    <div className="text-center">
-                      <Workflow className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                      <p className="text-sm">暂无节点</p>
-                    </div>
-                  </div>
-                ) : (
-                  <HorizontalFlowDiagram 
-                    nodes={nodes} 
-                    selectedNodeId={selectedNodeId} 
-                    onSelectNode={setSelectedNodeId} 
-                  />
-                )}
+            <div className="p-3 border-b bg-gray-50 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-gray-400" />
+                  流程图预览
+                </h3>
+                <p className="text-xs text-gray-500">拖拽上方边栏调整高度</p>
               </div>
             </div>
-          </>
+            <div className="flex-1 overflow-auto">
+              {nodes.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-gray-400">
+                  <div className="text-center">
+                    <Workflow className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">暂无节点</p>
+                  </div>
+                </div>
+              ) : (
+                <HorizontalFlowDiagram 
+                  nodes={nodes} 
+                  selectedNodeId={selectedNodeId} 
+                  onSelectNode={setSelectedNodeId} 
+                />
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
