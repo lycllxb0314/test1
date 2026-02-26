@@ -33,11 +33,11 @@ import { useAuth } from '@/contexts/AuthContext';
 // 校园风光 - 使用真实校园活动图片
 const campusGallery = [
   { id: 1, src: '/images/campus/festival-stage.png', title: '校园文化艺术节', desc: '第41届校园文化艺术节暨六一文艺汇演' },
-  { id: 2, src: '/images/campus/robot-award.jpg', title: '机器人竞赛获奖', desc: '世界机器人大赛荣获佳绩' },
-  { id: 3, src: '/images/campus/dance-performance.png', title: '舞蹈表演', desc: '童心闪耀 放飞梦想' },
-  { id: 4, src: '/images/campus/planting.jpg', title: '劳动实践', desc: '校园种植实践活动' },
-  { id: 5, src: '/images/campus/math-contest.jpg', title: '数学竞赛', desc: '小小神算手数独竞赛' },
-  { id: 6, src: '/images/campus/teacher-research.png', title: '教研活动', desc: '课题结题暨教学研讨' },
+  { id: 2, src: '/images/campus/robot-team.png', title: '机器人大赛', desc: '2025世界机器人大赛福州选拔赛获奖' },
+  { id: 3, src: '/images/campus/school-assembly.png', title: '强国复兴有我', desc: '争当新时代好少年主题活动' },
+  { id: 4, src: '/images/campus/sports-race.jpg', title: '田径运动会', desc: '阳光体育，强健体魄' },
+  { id: 5, src: '/images/campus/planting.jpg', title: '劳动实践', desc: '校园种植实践活动' },
+  { id: 6, src: '/images/campus/qinglan-project.png', title: '青蓝工程', desc: '师徒结对，共促成长' },
 ];
 
 // 学生发展 - 德智体美劳
@@ -49,6 +49,8 @@ const studentDevelopment = [
     images: [
       { src: '/images/campus/scarf-ceremony.png', title: '红领巾佩戴仪式' },
       { src: '/images/campus/young-pioneers.png', title: '少先队礼仪活动' },
+      { src: '/images/campus/school-assembly.png', title: '强国复兴有我主题活动' },
+      { src: '/images/campus/team-committee.jpg', title: '大队委竞选活动' },
     ],
     desc: '立德树人，培养品德高尚的新时代少年',
   },
@@ -58,19 +60,30 @@ const studentDevelopment = [
     color: 'from-blue-500 to-cyan-400',
     images: [
       { src: '/images/campus/robot-award.jpg', title: '机器人竞赛获奖' },
+      { src: '/images/campus/robot-team.png', title: '机器人大赛合影' },
+      { src: '/images/campus/robot-programming.jpg', title: '机器人编程实操' },
       { src: '/images/campus/math-contest.jpg', title: '小小神算手竞赛' },
       { src: '/images/campus/classroom-show.jpg', title: '课堂展示活动' },
-      { src: '/images/campus/robot-contest.jpg', title: '机器人竞赛现场' },
+      { src: '/images/campus/exam.jpg', title: '学科竞赛考试' },
     ],
     desc: '科技引领未来，培养创新精神和实践能力',
+  },
+  {
+    category: '体',
+    title: '体育强身',
+    color: 'from-orange-500 to-yellow-400',
+    images: [
+      { src: '/images/campus/sports-race.jpg', title: '田径比赛起跑' },
+      { src: '/images/campus/sports-start.jpg', title: '短跑预备时刻' },
+      { src: '/images/campus/eye-exercise.jpg', title: '眼保健操时间' },
+    ],
+    desc: '阳光体育，强健体魄，培养运动精神',
   },
   {
     category: '美',
     title: '美育润心',
     color: 'from-purple-500 to-pink-400',
     images: [
-      { src: '/images/campus/dance-performance.png', title: '舞蹈表演' },
-      { src: '/images/campus/art-festival.png', title: '情景舞蹈' },
       { src: '/images/campus/orchestra.png', title: '器乐表演' },
       { src: '/images/campus/festival-opening.png', title: '文艺汇演' },
     ],
@@ -95,6 +108,24 @@ const teacherDevelopment = [
     title: '课题研究',
     desc: '质量标准视域下整本书阅读教学逆向设计与实施的研究',
     tag: '课题结题',
+  },
+  {
+    image: '/images/campus/teacher-summer-training.png',
+    title: '暑期教师培训',
+    desc: '2025年暑期教师继续教育培训活动',
+    tag: '专业培训',
+  },
+  {
+    image: '/images/campus/qinglan-project.png',
+    title: '青蓝工程启动仪式',
+    desc: '2025-2026学年师徒结对帮扶培养项目',
+    tag: '教师成长',
+  },
+  {
+    image: '/images/campus/teacher-day-award.png',
+    title: '教师节表彰活动',
+    desc: '第41个教师节致敬35年教育守望者',
+    tag: '教师荣誉',
   },
   {
     image: '/images/campus/guzheng.png',
@@ -155,16 +186,28 @@ const campusActivities = [
     desc: '第41届艺术节暨六一文艺汇演，童心闪耀放飞梦想'
   },
   { 
-    image: '/images/campus/robot-award.jpg',
-    title: '机器人竞赛获奖', 
-    date: '2024年1月',
-    desc: '世界机器人大赛Matata World挑战赛荣获佳绩'
+    image: '/images/campus/dance-performance.png',
+    title: '群舞表演', 
+    date: '2025年5月30日',
+    desc: '艺术节群舞节目，渐变色舞裙优美动人'
   },
   { 
-    image: '/images/campus/math-contest.jpg',
-    title: '小小神算手竞赛', 
-    date: '2025年5月23日',
-    desc: '数独竞赛培养数学思维，激发学习兴趣'
+    image: '/images/campus/art-festival.png',
+    title: '校园情景剧', 
+    date: '2025年5月30日',
+    desc: '校园生活主题情景表演，充满童趣'
+  },
+  { 
+    image: '/images/campus/robot-team.png',
+    title: '机器人竞赛获奖', 
+    date: '2025年7月',
+    desc: '世界机器人大赛福州选拔赛荣获佳绩'
+  },
+  { 
+    image: '/images/campus/sports-race.jpg',
+    title: '田径运动会', 
+    date: '2025年秋季',
+    desc: '阳光体育，短跑比赛精彩瞬间'
   },
   { 
     image: '/images/campus/planting.jpg',
