@@ -1308,149 +1308,172 @@ function FlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
 }) {
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   
-  const levels: WorkflowNode[][] = [];
-  const visited = new Set<string>();
-  
-  const startNode = nodes.find(n => n.type === 'start');
-  if (!startNode) {
-    return (
-      <div className="space-y-2">
-        {nodes.map(node => (
-          <FlowNodeItem 
-            key={node.id} 
-            node={node} 
-            allNodes={nodeMap}
-            isSelected={selectedNodeId === node.id}
-            onSelect={onSelectNode}
-          />
-        ))}
-      </div>
-    );
-  }
-  
-  const queue: { node: WorkflowNode; level: number }[] = [{ node: startNode, level: 0 }];
-  
-  while (queue.length > 0) {
-    const { node, level } = queue.shift()!;
-    
-    if (visited.has(node.id)) continue;
-    visited.add(node.id);
-    
-    if (!levels[level]) levels[level] = [];
-    levels[level].push(node);
-    
+  // 构建节点连接关系
+  const connections: { from: string; to: string; label?: string; branchName?: string }[] = [];
+  nodes.forEach(node => {
     if (node.type === 'condition' && node.branches) {
       node.branches.forEach(branch => {
-        const nextNode = nodeMap.get(branch.nextNodeId);
-        if (nextNode && !visited.has(nextNode.id)) {
-          queue.push({ node: nextNode, level: level + 1 });
+        if (branch.nextNodeId) {
+          const conditionLabels = branch.rules?.map(r => r.label || `${r.field} ${r.operator} ${r.value}`).join(', ') || '';
+          connections.push({ 
+            from: node.id, 
+            to: branch.nextNodeId, 
+            label: conditionLabels,
+            branchName: branch.name
+          });
         }
       });
-      if (node.defaultBranchId) {
-        const defaultNode = nodeMap.get(node.defaultBranchId);
-        if (defaultNode && !visited.has(defaultNode.id)) {
-          queue.push({ node: defaultNode, level: level + 1 });
-        }
-      }
     } else if (node.nextNodeId) {
-      const nextNode = nodeMap.get(node.nextNodeId);
-      if (nextNode && !visited.has(nextNode.id)) {
-        queue.push({ node: nextNode, level: level + 1 });
-      }
-    }
-  }
-  
-  nodes.forEach(node => {
-    if (!visited.has(node.id)) {
-      // Add to a new level
-      levels.push([node]);
+      connections.push({ from: node.id, to: node.nextNodeId });
     }
   });
 
   return (
-    <div className="space-y-3">
-      {levels.map((levelNodes, levelIndex) => (
-        <div key={levelIndex}>
-          {levelIndex > 0 && (
-            <div className="flex items-center justify-center mb-2">
-              <ChevronDown className="h-4 w-4 text-gray-300" />
-            </div>
-          )}
-          <div className="space-y-2">
-            {levelNodes.map(node => (
-              <FlowNodeItem
-                key={node.id}
-                node={node}
-                allNodes={nodeMap}
-                isSelected={selectedNodeId === node.id}
-                onSelect={onSelectNode}
-              />
-            ))}
-          </div>
+    <div className="space-y-4">
+      {/* 图例 */}
+      <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-emerald-500" />
+          <span className="text-gray-600">开始</span>
         </div>
-      ))}
-    </div>
-  );
-}
-
-// 流程节点项
-function FlowNodeItem({ node, allNodes, isSelected, onSelect }: {
-  node: WorkflowNode;
-  allNodes: Map<string, WorkflowNode>;
-  isSelected: boolean;
-  onSelect: (id: string) => void;
-}) {
-  const config = nodeTypeConfig[node.type];
-  const Icon = config.icon;
-  
-  const nextNodes: { name: string; condition?: string }[] = [];
-  
-  if (node.type === 'condition' && node.branches) {
-    node.branches.forEach(branch => {
-      const nextNode = allNodes.get(branch.nextNodeId);
-      if (nextNode) {
-        const conditionLabels = branch.rules.map(r => r.label || `${r.field}${r.operator}${r.value}`).join('且');
-        nextNodes.push({ name: nextNode.name, condition: `${branch.name}: ${conditionLabels}` });
-      }
-    });
-  } else if (node.nextNodeId) {
-    const nextNode = allNodes.get(node.nextNodeId);
-    if (nextNode) {
-      nextNodes.push({ name: nextNode.name });
-    }
-  }
-
-  return (
-    <div>
-      <div
-        onClick={() => onSelect(node.id)}
-        className={`px-3 py-2 rounded-lg ${config.bgColor} shadow cursor-pointer transition-all ${
-          isSelected ? 'ring-2 ring-blue-300 ring-offset-2' : 'hover:shadow-md'
-        }`}
-      >
-        <div className="flex items-center gap-2 text-white">
-          <Icon className="h-4 w-4" />
-          <span className="text-sm font-medium">{node.name}</span>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-blue-500" />
+          <span className="text-gray-600">审批</span>
         </div>
-        {node.type === 'approval' && node.approverRole && (
-          <div className="mt-1">
-            <span className="text-xs text-white/80">
-              {roleOptions.find(r => r.value === node.approverRole)?.label || node.approverRole}
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-amber-500" />
+          <span className="text-gray-600">条件</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-gray-500" />
+          <span className="text-gray-600">结束</span>
+        </div>
       </div>
-      
-      {nextNodes.length > 0 && (
-        <div className="mt-1 ml-4 pl-3 border-l-2 border-gray-200 space-y-1">
-          {nextNodes.map((next, idx) => (
-            <div key={idx} className="text-xs text-gray-500">
-              {next.condition && (
-                <span className="text-amber-600">{next.condition}</span>
-              )}
-              <span className="text-gray-400">→ {next.name}</span>
-            </div>
-          ))}
+
+      {/* 节点列表 */}
+      {nodes.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">
+          <Workflow className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+          <p className="text-sm">暂无节点</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {nodes.map((node, index) => {
+            const config = nodeTypeConfig[node.type];
+            const Icon = config.icon;
+            const isSelected = selectedNodeId === node.id;
+            
+            // 找到指向当前节点的连接
+            const incomingConnections = connections.filter(c => c.to === node.id);
+            // 找到从当前节点出发的连接
+            const outgoingConnections = connections.filter(c => c.from === node.id);
+            
+            return (
+              <div key={node.id}>
+                {/* 入口连接线 */}
+                {incomingConnections.length > 0 && (
+                  <div className="flex items-center justify-center mb-1">
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <ChevronDown className="h-4 w-4" />
+                    </div>
+                  </div>
+                )}
+                
+                {/* 节点卡片 */}
+                <div
+                  onClick={() => onSelectNode(node.id)}
+                  className={`relative rounded-xl border-2 transition-all cursor-pointer ${
+                    isSelected 
+                      ? 'border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200' 
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow'
+                  }`}
+                >
+                  {/* 节点头部 */}
+                  <div className={`flex items-center gap-3 px-4 py-3 rounded-t-xl ${config.bgColor}`}>
+                    <div className="p-1.5 rounded-lg bg-white/20">
+                      <Icon className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-white truncate">{node.name}</span>
+                        <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
+                          {config.label}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 节点详情 */}
+                  <div className="px-4 py-2.5 space-y-1.5">
+                    {node.type === 'approval' && node.approverRole && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="text-gray-600">审批角色：</span>
+                        <span className="font-medium text-gray-900">
+                          {roleOptions.find(r => r.value === node.approverRole)?.label || node.approverRole}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {node.type === 'approval' && node.rejectAction && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <RotateCcw className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="text-gray-600">拒绝处理：</span>
+                        <span className="text-gray-900">
+                          {rejectActions.find(a => a.value === node.rejectAction)?.label}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {node.type === 'condition' && (node.branches?.length || 0) > 0 && (
+                      <div className="space-y-1.5">
+                        {node.branches?.map((branch, idx) => {
+                          const targetNode = nodeMap.get(branch.nextNodeId || '');
+                          return (
+                            <div key={branch.id} className="flex items-start gap-2 text-sm">
+                              <div className="p-0.5 rounded bg-amber-100 mt-0.5">
+                                <GitBranch className="h-3 w-3 text-amber-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-amber-700">{branch.name}</span>
+                                <span className="text-gray-400 mx-1">→</span>
+                                <span className="text-gray-700">{targetNode?.name || '未设置'}</span>
+                                {branch.rules && branch.rules.length > 0 && (
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    条件: {branch.rules.map(r => r.label || `${r.field} ${r.operator} ${r.value}`).join(' 且 ')}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    {node.type !== 'condition' && node.type !== 'end' && node.nextNodeId && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <ArrowRightLeft className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="text-gray-600">下一节点：</span>
+                        <span className="font-medium text-gray-900">
+                          {nodeMap.get(node.nextNodeId)?.name || '未设置'}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* 下一步指示 */}
+                    {outgoingConnections.length > 0 && node.type !== 'condition' && (
+                      <div className="flex items-center gap-2 pt-1.5 border-t border-gray-100">
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <span>下一步</span>
+                          <ChevronDown className="h-3 w-3" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
