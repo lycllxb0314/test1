@@ -686,7 +686,8 @@ export default function WorkflowConfigEditPage() {
                     const pos = nodePositions.get(node.id);
                     if (!pos) return null;
                     
-                    if (node.type === 'condition' && node.branches) {
+                    // 条件节点：渲染分支连接线
+                    if (node.type === 'condition' && node.branches && node.branches.length > 0) {
                       return node.branches.map((branch, idx) => {
                         if (!branch.nextNodeId) return null;
                         const targetPos = nodePositions.get(branch.nextNodeId);
@@ -710,7 +711,6 @@ export default function WorkflowConfigEditPage() {
                               className="pointer-events-auto cursor-pointer hover:stroke-red-400"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // 点击连接线可以断开连接
                                 if (confirm('是否断开此连接？')) {
                                   updateBranch(node.id, branch.id, { nextNodeId: '' });
                                 }
@@ -740,7 +740,10 @@ export default function WorkflowConfigEditPage() {
                           </g>
                         );
                       });
-                    } else if (node.nextNodeId) {
+                    }
+                    
+                    // 普通节点或没有分支的条件节点：渲染 nextNodeId 连接线
+                    if (node.nextNodeId) {
                       const targetPos = nodePositions.get(node.nextNodeId);
                       if (!targetPos) return null;
                       
@@ -934,8 +937,8 @@ export default function WorkflowConfigEditPage() {
                       
                       {/* 右侧输出连接点 - 始终显示 */}
                       {node.type !== 'end' && (
-                        node.type === 'condition' && node.branches ? (
-                          // 条件节点：每个分支一个连接点
+                        node.type === 'condition' && node.branches && node.branches.length > 0 ? (
+                          // 条件节点有分支：每个分支一个连接点
                           node.branches.map((branch, idx) => (
                             <div
                               key={branch.id}
@@ -952,18 +955,19 @@ export default function WorkflowConfigEditPage() {
                               >
                                 {branch.name.length > 4 ? branch.name.slice(0, 4) + '..' : branch.name}
                               </div>
-                              {/* 连接点 - 始终可见 */}
+                              {/* 连接点 - 始终可见，已连接也可以重新连接 */}
                               <div
                                 className={`w-5 h-5 rounded-full border-2 cursor-crosshair transition-all flex items-center justify-center ${
                                   branch.nextNodeId 
-                                    ? 'bg-green-100 border-green-500' 
+                                    ? 'bg-green-100 border-green-500 hover:bg-yellow-50 hover:border-yellow-500' 
                                     : 'bg-white border-blue-400 hover:bg-blue-50 hover:scale-110'
                                 }`}
                                 onMouseDown={(e) => {
                                   e.stopPropagation();
+                                  e.preventDefault();
                                   setConnectingFrom({ nodeId: node.id, branchId: branch.id });
                                 }}
-                                title="拖拽连接到目标节点"
+                                title={branch.nextNodeId ? '拖拽可重新连接到其他节点' : '拖拽连接到目标节点'}
                               >
                                 {branch.nextNodeId && (
                                   <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -972,22 +976,22 @@ export default function WorkflowConfigEditPage() {
                             </div>
                           ))
                         ) : (
-                          // 普通节点：单个输出连接点 - 始终可见
+                          // 普通节点：单个输出连接点 - 始终可见，已连接也可以重新连接
                           <div
                             className="connection-handle absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2"
                           >
                             <div
                               className={`w-5 h-5 rounded-full border-2 cursor-crosshair transition-all flex items-center justify-center ${
                                 node.nextNodeId 
-                                  ? 'bg-green-100 border-green-500' 
+                                  ? 'bg-green-100 border-green-500 hover:bg-yellow-50 hover:border-yellow-500' 
                                   : 'bg-white border-blue-400 hover:bg-blue-50 hover:scale-110'
                               }`}
-                              style={{ opacity: isHovered || isSelected ? 1 : 0.8 }}
                               onMouseDown={(e) => {
                                 e.stopPropagation();
+                                e.preventDefault();
                                 setConnectingFrom({ nodeId: node.id });
                               }}
-                              title="拖拽连接到目标节点"
+                              title={node.nextNodeId ? '拖拽可重新连接到其他节点' : '拖拽连接到目标节点'}
                             >
                               {node.nextNodeId && (
                                 <div className="w-2 h-2 rounded-full bg-green-500" />
