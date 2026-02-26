@@ -511,13 +511,10 @@ export default function WorkflowConfigEditPage() {
   }, [draggedNodeId, dragOffset, connectingFrom, zoom]);
 
   const handleMouseUp = useCallback(() => {
+    // 只是清除拖拽状态，不清除连接状态
+    // 连接状态在节点点击或画布点击时清除
     setDraggedNodeId(null);
-    // 取消连接
-    if (connectingFrom) {
-      setConnectingFrom(null);
-      setConnectingTo(null);
-    }
-  }, [connectingFrom]);
+  }, []);
 
   // 点击空白处取消选中
   const handleCanvasClick = (e: React.MouseEvent) => {
@@ -626,8 +623,22 @@ export default function WorkflowConfigEditPage() {
           className="flex-1 overflow-auto relative"
           onClick={handleCanvasClick}
           onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onMouseUp={(e) => {
+            // 如果在画布空白处释放，取消连接
+            if (connectingFrom && e.target === canvasRef.current) {
+              setConnectingFrom(null);
+              setConnectingTo(null);
+            }
+            handleMouseUp();
+          }}
+          onMouseLeave={() => {
+            // 鼠标离开画布时取消连接
+            if (connectingFrom) {
+              setConnectingFrom(null);
+              setConnectingTo(null);
+            }
+            setDraggedNodeId(null);
+          }}
           style={{ cursor: connectingFrom ? 'crosshair' : (draggedNodeId ? 'grabbing' : 'default') }}
         >
           {/* 网格背景 */}
@@ -803,6 +814,7 @@ export default function WorkflowConfigEditPage() {
                   return (
                     <div
                       key={node.id}
+                      data-node-id={node.id}
                       className={`absolute group transition-all ${
                         isSelected ? 'z-10' : 'z-0'
                       } ${canConnect ? 'cursor-pointer' : ''}`}
@@ -821,9 +833,24 @@ export default function WorkflowConfigEditPage() {
                           }
                           setConnectingFrom(null);
                           setConnectingTo(null);
-                        } else {
-                          setSelectedNodeId(node.id);
-                          setShowNodePanel(true);
+                          return;
+                        }
+                        
+                        setSelectedNodeId(node.id);
+                        setShowNodePanel(true);
+                      }}
+                      onMouseUp={(e) => {
+                        // 鼠标释放时建立连接（替代onClick，更可靠）
+                        if (connectingFrom && connectingFrom.nodeId !== node.id) {
+                          e.stopPropagation();
+                          // 建立连接
+                          if (connectingFrom.branchId) {
+                            updateBranch(connectingFrom.nodeId, connectingFrom.branchId, { nextNodeId: node.id });
+                          } else {
+                            updateNode(connectingFrom.nodeId, { nextNodeId: node.id });
+                          }
+                          setConnectingFrom(null);
+                          setConnectingTo(null);
                         }
                       }}
                       onMouseEnter={() => setHoveredNodeId(node.id)}
