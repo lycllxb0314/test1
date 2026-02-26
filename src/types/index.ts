@@ -355,3 +355,79 @@ export interface DashboardCard {
   color: string;
   module?: ModuleType;
 }
+
+// ========== 审批流程配置 ==========
+
+// 审批流程类型
+export type WorkflowType = 'leave' | 'repair' | 'purchase';
+
+// 审批节点配置
+export interface ApprovalStepConfig {
+  id: string;
+  step: number;                          // 步骤序号
+  name: string;                          // 步骤名称，如"部门负责人审批"
+  approverType: 'role' | 'specific';     // 审批人类型：角色或指定人员
+  approverRole?: UserRole;               // 按角色审批
+  approverId?: string;                   // 指定人员ID
+  approverName?: string;                 // 指定人员姓名
+  isRequired: boolean;                   // 是否必须审批
+  timeout?: number;                      // 超时时间（小时）
+  timeoutAction?: 'auto_approve' | 'auto_reject' | 'escalate';  // 超时动作
+  description?: string;                  // 步骤说明
+}
+
+// 审批流程配置
+export interface WorkflowConfig {
+  id: string;
+  type: WorkflowType;                    // 流程类型
+  name: string;                          // 流程名称
+  description?: string;                  // 流程描述
+  isActive: boolean;                     // 是否启用
+  steps: ApprovalStepConfig[];           // 审批步骤
+  conditions?: WorkflowCondition[];      // 条件分支（如金额大于某值需要更高层审批）
+  createdBy: string;                     // 创建人
+  createdAt: string;                     // 创建时间
+  updatedAt: string;                     // 更新时间
+}
+
+// 流程条件
+export interface WorkflowCondition {
+  field: string;                         // 条件字段，如 'amount', 'duration'
+  operator: 'gt' | 'gte' | 'lt' | 'lte' | 'eq';  // 比较运算符
+  value: number | string;                // 比较值
+  targetSteps?: number[];                // 满足条件时跳转到的步骤
+}
+
+// 审批记录
+export interface ApprovalRecord {
+  id: string;
+  workflowId: string;                    // 工作流实例ID
+  workflowType: WorkflowType;
+  stepId: string;
+  stepName: string;
+  approverId: string;
+  approverName: string;
+  approverRole: UserRole;
+  action: 'approve' | 'reject' | 'withdraw' | 'transfer';
+  comment?: string;
+  createdAt: string;
+}
+
+// 工作流实例
+export interface WorkflowInstance {
+  id: string;
+  type: WorkflowType;
+  configId: string;                      // 使用的流程配置ID
+  applicantId: string;
+  applicantName: string;
+  applicantRole: UserRole;
+  title: string;
+  content: any;                          // 申请内容，根据类型不同结构不同
+  status: WorkflowStatus;
+  currentStep: number;                   // 当前步骤
+  steps: ApprovalNode[];                 // 各步骤状态
+  records: ApprovalRecord[];             // 审批记录
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}

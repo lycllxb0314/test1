@@ -138,7 +138,8 @@ const headTeacherNav: NavItem[] = [
 
 // 工作流管理导航
 const workflowNav: NavItem[] = [
-  { name: '审批中心', href: '/workflow', icon: Workflow, description: '统一审批中心' },
+  { name: '审批中心', href: '/workflow', icon: LayoutDashboard, description: '统一审批中心' },
+  { name: '流程配置', href: '/workflow/config', icon: Settings, description: '配置审批流程' },
   { name: '请假审批', href: '/workflow/leave', icon: FileText, description: '请假申请审批' },
   { name: '报修审批', href: '/workflow/repair', icon: Wrench, description: '报修申请审批' },
   { name: '采购审批', href: '/workflow/purchase', icon: ShoppingCart, description: '采购申请审批' },
