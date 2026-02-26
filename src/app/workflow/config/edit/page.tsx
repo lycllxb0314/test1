@@ -1273,15 +1273,17 @@ export default function WorkflowEditorPage() {
 
         {/* 右侧：流程图预览 */}
         {showPreview && (
-          <div className="w-96 bg-white border-l flex flex-col overflow-hidden flex-shrink-0">
-            <div className="p-4 border-b bg-gray-50">
-              <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                <Eye className="h-4 w-4 text-gray-400" />
-                流程图预览
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">实时显示流程走向</p>
+          <div className="w-[500px] bg-white border-l flex flex-col overflow-hidden flex-shrink-0">
+            <div className="p-3 border-b bg-gray-50 flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-gray-400" />
+                  流程图预览
+                </h3>
+                <p className="text-xs text-gray-500">横向流程图</p>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-auto">
               {nodes.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-gray-400">
                   <div className="text-center">
@@ -1290,7 +1292,11 @@ export default function WorkflowEditorPage() {
                   </div>
                 </div>
               ) : (
-                <FlowDiagram nodes={nodes} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
+                <HorizontalFlowDiagram 
+                  nodes={nodes} 
+                  selectedNodeId={selectedNodeId} 
+                  onSelectNode={setSelectedNodeId} 
+                />
               )}
             </div>
           </div>
@@ -1300,182 +1306,331 @@ export default function WorkflowEditorPage() {
   );
 }
 
-// 流程图组件
-function FlowDiagram({ nodes, selectedNodeId, onSelectNode }: { 
+// 横向流程图组件
+function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: { 
   nodes: WorkflowNode[]; 
   selectedNodeId: string | null;
   onSelectNode: (id: string) => void;
 }) {
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   
-  // 构建节点连接关系
-  const connections: { from: string; to: string; label?: string; branchName?: string }[] = [];
+  // 节点尺寸
+  const NODE_WIDTH = 140;
+  const NODE_HEIGHT = 60;
+  const GAP_X = 100;  // 水平间距
+  const GAP_Y = 100;  // 垂直间距
+  const BRANCH_GAP_Y = 80; // 分支垂直间距
+  
+  // 计算节点位置
+  const nodePositions = new Map<string, { x: number; y: number; level: number }>();
+  
+  // BFS 计算层级
+  const startNode = nodes.find(n => n.type === 'start');
+  if (!startNode) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        请添加开始节点
+      </div>
+    );
+  }
+  
+  const visited = new Set<string>();
+  const queue: { nodeId: string; level: number; yOffset: number }[] = [{ nodeId: startNode.id, level: 0, yOffset: 0 }];
+  
+  // 记录每个层级的节点数量，用于垂直分布
+  const levelNodes: Map<number, string[]> = new Map();
+  
+  while (queue.length > 0) {
+    const { nodeId, level, yOffset } = queue.shift()!;
+    
+    if (visited.has(nodeId)) continue;
+    visited.add(nodeId);
+    
+    const node = nodeMap.get(nodeId);
+    if (!node) continue;
+    
+    // 记录层级节点
+    if (!levelNodes.has(level)) levelNodes.set(level, []);
+    levelNodes.get(level)!.push(nodeId);
+    
+    // 处理后续节点
+    if (node.type === 'condition' && node.branches) {
+      let branchOffset = yOffset - ((node.branches.length - 1) * BRANCH_GAP_Y) / 2;
+      node.branches.forEach((branch, idx) => {
+        if (branch.nextNodeId && !visited.has(branch.nextNodeId)) {
+          queue.push({ 
+            nodeId: branch.nextNodeId, 
+            level: level + 1,
+            yOffset: branchOffset + idx * BRANCH_GAP_Y
+          });
+        }
+      });
+    } else if (node.nextNodeId && !visited.has(node.nextNodeId)) {
+      queue.push({ nodeId: node.nextNodeId, level: level + 1, yOffset });
+    }
+  }
+  
+  // 处理未访问的节点
+  nodes.forEach(node => {
+    if (!visited.has(node.id)) {
+      const maxLevel = Math.max(...Array.from(levelNodes.keys()), 0);
+      if (!levelNodes.has(maxLevel + 1)) levelNodes.set(maxLevel + 1, []);
+      levelNodes.get(maxLevel + 1)!.push(node.id);
+    }
+  });
+  
+  // 计算每个节点的位置
+  const maxLevel = Math.max(...Array.from(levelNodes.keys()), 0);
+  const centerX = 50; // 起始X
+  
+  levelNodes.forEach((nodeIds, level) => {
+    const totalHeight = (nodeIds.length - 1) * GAP_Y;
+    const startY = -totalHeight / 2 + 150; // 居中，加150作为基础偏移
+    
+    nodeIds.forEach((nodeId, index) => {
+      nodePositions.set(nodeId, {
+        x: centerX + level * (NODE_WIDTH + GAP_X),
+        y: startY + index * GAP_Y,
+        level
+      });
+    });
+  });
+  
+  // 计算SVG画布大小
+  let maxX = 0, maxY = 0;
+  nodePositions.forEach(pos => {
+    maxX = Math.max(maxX, pos.x + NODE_WIDTH + 50);
+    maxY = Math.max(maxY, pos.y + NODE_HEIGHT + 50);
+  });
+  
+  // 构建连接线数据
+  const connections: { from: string; to: string; label: string }[] = [];
   nodes.forEach(node => {
     if (node.type === 'condition' && node.branches) {
       node.branches.forEach(branch => {
         if (branch.nextNodeId) {
-          const conditionLabels = branch.rules?.map(r => r.label || `${r.field} ${r.operator} ${r.value}`).join(', ') || '';
-          connections.push({ 
-            from: node.id, 
-            to: branch.nextNodeId, 
-            label: conditionLabels,
-            branchName: branch.name
-          });
+          const conditionLabel = branch.rules?.map(r => r.label || `${r.value}`).join(',') || branch.name;
+          connections.push({ from: node.id, to: branch.nextNodeId, label: conditionLabel });
         }
       });
     } else if (node.nextNodeId) {
-      connections.push({ from: node.id, to: node.nextNodeId });
+      connections.push({ from: node.id, to: node.nextNodeId, label: '' });
     }
   });
 
+  // 渲染节点
+  const renderNode = (node: WorkflowNode) => {
+    const pos = nodePositions.get(node.id);
+    if (!pos) return null;
+    
+    const config = nodeTypeConfig[node.type];
+    const isSelected = selectedNodeId === node.id;
+    
+    // 节点形状
+    if (node.type === 'start' || node.type === 'end') {
+      // 圆角胶囊形
+      return (
+        <g key={node.id} onClick={() => onSelectNode(node.id)} style={{ cursor: 'pointer' }}>
+          <rect
+            x={pos.x}
+            y={pos.y}
+            width={NODE_WIDTH}
+            height={NODE_HEIGHT}
+            rx={30}
+            ry={30}
+            fill={isSelected ? '#dbeafe' : 'white'}
+            stroke={config.bgColor.replace('bg-', '').includes('emerald') ? '#10b981' : '#6b7280'}
+            strokeWidth={isSelected ? 3 : 2}
+          />
+          <text
+            x={pos.x + NODE_WIDTH / 2}
+            y={pos.y + NODE_HEIGHT / 2}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill={config.bgColor.includes('emerald') ? '#059669' : '#374151'}
+            fontSize="14"
+            fontWeight="600"
+          >
+            {node.name}
+          </text>
+        </g>
+      );
+    } else if (node.type === 'condition') {
+      // 菱形
+      const cx = pos.x + NODE_WIDTH / 2;
+      const cy = pos.y + NODE_HEIGHT / 2;
+      const hw = NODE_WIDTH / 2;
+      const hh = NODE_HEIGHT / 2;
+      
+      return (
+        <g key={node.id} onClick={() => onSelectNode(node.id)} style={{ cursor: 'pointer' }}>
+          <polygon
+            points={`${cx},${pos.y} ${pos.x + NODE_WIDTH},${cy} ${cx},${pos.y + NODE_HEIGHT} ${pos.x},${cy}`}
+            fill={isSelected ? '#fef3c7' : 'white'}
+            stroke="#f59e0b"
+            strokeWidth={isSelected ? 3 : 2}
+          />
+          <text
+            x={cx}
+            y={cy}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#b45309"
+            fontSize="12"
+            fontWeight="600"
+          >
+            {node.name.length > 6 ? node.name.slice(0, 6) + '..' : node.name}
+          </text>
+        </g>
+      );
+    } else {
+      // 矩形（审批节点）
+      return (
+        <g key={node.id} onClick={() => onSelectNode(node.id)} style={{ cursor: 'pointer' }}>
+          <rect
+            x={pos.x}
+            y={pos.y}
+            width={NODE_WIDTH}
+            height={NODE_HEIGHT}
+            rx={8}
+            ry={8}
+            fill={isSelected ? '#dbeafe' : 'white'}
+            stroke="#3b82f6"
+            strokeWidth={isSelected ? 3 : 2}
+          />
+          <text
+            x={pos.x + NODE_WIDTH / 2}
+            y={pos.y + 20}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#1e40af"
+            fontSize="13"
+            fontWeight="600"
+          >
+            {node.name.length > 8 ? node.name.slice(0, 8) + '..' : node.name}
+          </text>
+          {node.approverRole && (
+            <text
+              x={pos.x + NODE_WIDTH / 2}
+              y={pos.y + 40}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#6b7280"
+              fontSize="10"
+            >
+              {roleOptions.find(r => r.value === node.approverRole)?.label || node.approverRole}
+            </text>
+          )}
+        </g>
+      );
+    }
+  };
+
+  // 渲染连接线
+  const renderConnection = (conn: { from: string; to: string; label: string }) => {
+    const fromPos = nodePositions.get(conn.from);
+    const toPos = nodePositions.get(conn.to);
+    
+    if (!fromPos || !toPos) return null;
+    
+    const fromNode = nodeMap.get(conn.from);
+    const isCondition = fromNode?.type === 'condition';
+    
+    // 计算起点和终点
+    let x1 = fromPos.x + NODE_WIDTH;
+    let y1 = fromPos.y + NODE_HEIGHT / 2;
+    let x2 = toPos.x;
+    let y2 = toPos.y + NODE_HEIGHT / 2;
+    
+    // 条件节点的起点在菱形右侧
+    if (isCondition) {
+      x1 = fromPos.x + NODE_WIDTH;
+      y1 = fromPos.y + NODE_HEIGHT / 2;
+    }
+    
+    // 如果目标在右侧，调整连接
+    const midX = (x1 + x2) / 2;
+    
+    return (
+      <g key={`${conn.from}-${conn.to}`}>
+        {/* 连接线 */}
+        <path
+          d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
+          fill="none"
+          stroke="#9ca3af"
+          strokeWidth={2}
+          markerEnd="url(#arrowhead)"
+        />
+        {/* 标签 */}
+        {conn.label && (
+          <text
+            x={(x1 + x2) / 2}
+            y={(y1 + y2) / 2 - 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#f59e0b"
+            fontSize="11"
+            fontWeight="500"
+            style={{ backgroundColor: 'white' }}
+          >
+            {conn.label}
+          </text>
+        )}
+      </g>
+    );
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="p-2">
       {/* 图例 */}
-      <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg text-xs">
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-emerald-500" />
+      <div className="flex items-center gap-4 mb-3 px-2 py-2 bg-gray-50 rounded-lg text-xs">
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-4 rounded-full bg-emerald-500" />
           <span className="text-gray-600">开始</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-blue-500" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-4 rounded bg-blue-500" />
           <span className="text-gray-600">审批</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-amber-500" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 bg-amber-500" style={{ transform: 'rotate(45deg)', marginLeft: 2, marginRight: 2 }} />
           <span className="text-gray-600">条件</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-gray-500" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-4 rounded-full bg-gray-500" />
           <span className="text-gray-600">结束</span>
         </div>
       </div>
-
-      {/* 节点列表 */}
-      {nodes.length === 0 ? (
-        <div className="text-center py-8 text-gray-400">
-          <Workflow className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-          <p className="text-sm">暂无节点</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {nodes.map((node, index) => {
-            const config = nodeTypeConfig[node.type];
-            const Icon = config.icon;
-            const isSelected = selectedNodeId === node.id;
-            
-            // 找到指向当前节点的连接
-            const incomingConnections = connections.filter(c => c.to === node.id);
-            // 找到从当前节点出发的连接
-            const outgoingConnections = connections.filter(c => c.from === node.id);
-            
-            return (
-              <div key={node.id}>
-                {/* 入口连接线 */}
-                {incomingConnections.length > 0 && (
-                  <div className="flex items-center justify-center mb-1">
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <ChevronDown className="h-4 w-4" />
-                    </div>
-                  </div>
-                )}
-                
-                {/* 节点卡片 */}
-                <div
-                  onClick={() => onSelectNode(node.id)}
-                  className={`relative rounded-xl border-2 transition-all cursor-pointer ${
-                    isSelected 
-                      ? 'border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200' 
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow'
-                  }`}
-                >
-                  {/* 节点头部 */}
-                  <div className={`flex items-center gap-3 px-4 py-3 rounded-t-xl ${config.bgColor}`}>
-                    <div className="p-1.5 rounded-lg bg-white/20">
-                      <Icon className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-white truncate">{node.name}</span>
-                        <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
-                          {config.label}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 节点详情 */}
-                  <div className="px-4 py-2.5 space-y-1.5">
-                    {node.type === 'approval' && node.approverRole && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <User className="h-3.5 w-3.5 text-gray-400" />
-                        <span className="text-gray-600">审批角色：</span>
-                        <span className="font-medium text-gray-900">
-                          {roleOptions.find(r => r.value === node.approverRole)?.label || node.approverRole}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {node.type === 'approval' && node.rejectAction && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <RotateCcw className="h-3.5 w-3.5 text-gray-400" />
-                        <span className="text-gray-600">拒绝处理：</span>
-                        <span className="text-gray-900">
-                          {rejectActions.find(a => a.value === node.rejectAction)?.label}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {node.type === 'condition' && (node.branches?.length || 0) > 0 && (
-                      <div className="space-y-1.5">
-                        {node.branches?.map((branch, idx) => {
-                          const targetNode = nodeMap.get(branch.nextNodeId || '');
-                          return (
-                            <div key={branch.id} className="flex items-start gap-2 text-sm">
-                              <div className="p-0.5 rounded bg-amber-100 mt-0.5">
-                                <GitBranch className="h-3 w-3 text-amber-600" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <span className="font-medium text-amber-700">{branch.name}</span>
-                                <span className="text-gray-400 mx-1">→</span>
-                                <span className="text-gray-700">{targetNode?.name || '未设置'}</span>
-                                {branch.rules && branch.rules.length > 0 && (
-                                  <div className="text-xs text-gray-500 mt-0.5">
-                                    条件: {branch.rules.map(r => r.label || `${r.field} ${r.operator} ${r.value}`).join(' 且 ')}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    
-                    {node.type !== 'condition' && node.type !== 'end' && node.nextNodeId && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <ArrowRightLeft className="h-3.5 w-3.5 text-gray-400" />
-                        <span className="text-gray-600">下一节点：</span>
-                        <span className="font-medium text-gray-900">
-                          {nodeMap.get(node.nextNodeId)?.name || '未设置'}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* 下一步指示 */}
-                    {outgoingConnections.length > 0 && node.type !== 'condition' && (
-                      <div className="flex items-center gap-2 pt-1.5 border-t border-gray-100">
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <span>下一步</span>
-                          <ChevronDown className="h-3 w-3" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      
+      {/* SVG 流程图 */}
+      <svg 
+        width={Math.max(maxX, 600)} 
+        height={Math.max(maxY, 300)}
+        className="border border-gray-100 rounded-lg bg-gray-50/50"
+      >
+        {/* 箭头定义 */}
+        <defs>
+          <marker
+            id="arrowhead"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
+          </marker>
+        </defs>
+        
+        {/* 连接线 */}
+        {connections.map(renderConnection)}
+        
+        {/* 节点 */}
+        {nodes.map(renderNode)}
+      </svg>
+      
+      {/* 点击提示 */}
+      <p className="text-xs text-gray-400 mt-2 text-center">点击节点可编辑</p>
     </div>
   );
 }
