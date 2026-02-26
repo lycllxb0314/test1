@@ -230,11 +230,11 @@ export default function HomePage() {
             <div className="flex items-center gap-3">
               <img 
                 src="/logo-school.png" 
-                alt="龙岩师范附属小学" 
+                alt="福建省龙岩师范附属小学" 
                 className="h-12 w-auto"
               />
               <div className="hidden sm:block">
-                <h1 className="text-base font-bold text-gray-900" style={{ fontFamily: 'var(--font-serif)' }}>龙岩师范附属小学</h1>
+                <h1 className="text-base font-bold text-gray-900" style={{ fontFamily: 'var(--font-serif)' }}>福建省龙岩师范附属小学</h1>
                 <p className="text-xs text-gray-500">创建于1914年 · 福建省示范小学</p>
               </div>
             </div>
@@ -271,7 +271,7 @@ export default function HomePage() {
                 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4"
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
-                龙岩师范附属小学
+                福建省龙岩师范附属小学
               </h1>
               
               {/* 办学理念 - 核心价值主张 */}
@@ -386,7 +386,7 @@ export default function HomePage() {
               <div>
                 <h3 className="text-sm font-bold text-gray-800 mb-2">历史沿革</h3>
                 <p className="text-gray-600 text-sm leading-relaxed">
-                  龙岩师范附属小学创建于1914年，坐落于福建省龙岩市新罗区龙川东路，
+                  福建省龙岩师范附属小学创建于1914年，坐落于福建省龙岩市新罗区龙川东路，
                   是龙岩市教育局直属小学，福建省示范小学。学校占地面积约35亩，
                   建筑面积2万余平方米。
                 </p>
@@ -676,10 +676,10 @@ export default function HomePage() {
             <div className="flex items-center gap-3">
               <img 
                 src="/logo-school.png" 
-                alt="龙岩师范附属小学" 
+                alt="福建省龙岩师范附属小学" 
                 className="h-8 w-auto"
               />
-              <span className="text-sm text-gray-400">© 2024 龙岩师范附属小学</span>
+              <span className="text-sm text-gray-400">© 2024 福建省龙岩师范附属小学</span>
             </div>
             <div className="flex gap-4 text-xs text-gray-500">
               <a href="#" className="hover:text-gray-300">隐私政策</a>
