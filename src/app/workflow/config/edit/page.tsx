@@ -829,12 +829,13 @@ export default function WorkflowConfigEditPage() {
                       onMouseEnter={() => setHoveredNodeId(node.id)}
                       onMouseLeave={() => setHoveredNodeId(null)}
                     >
-                      {/* 左侧输入连接点 */}
+                      {/* 左侧输入连接点 - 始终显示 */}
                       {node.type !== 'start' && (
                         <div
-                          className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white transition-all ${
-                            canConnect ? 'border-blue-400 scale-125' : 'border-gray-300'
-                          } ${isHovered || isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                          className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full border-2 bg-white transition-all ${
+                            canConnect ? 'border-blue-500 scale-125 ring-2 ring-blue-200' : 'border-gray-400'
+                          }`}
+                          style={{ opacity: canConnect ? 1 : (isHovered || isSelected ? 1 : 0.7) }}
                         />
                       )}
                       
@@ -889,8 +890,8 @@ export default function WorkflowConfigEditPage() {
                           )}
                         </div>
                         
-                        {/* 删除按钮 */}
-                        {node.type !== 'start' && node.type !== 'end' && (
+                        {/* 删除按钮 - 只有开始节点不能删除 */}
+                        {node.type !== 'start' && (
                           <button
                             className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-20"
                             onClick={(e) => {
@@ -904,14 +905,14 @@ export default function WorkflowConfigEditPage() {
                         )}
                       </div>
                       
-                      {/* 右侧输出连接点 */}
+                      {/* 右侧输出连接点 - 始终显示 */}
                       {node.type !== 'end' && (
                         node.type === 'condition' && node.branches ? (
                           // 条件节点：每个分支一个连接点
                           node.branches.map((branch, idx) => (
                             <div
                               key={branch.id}
-                              className="connection-handle absolute right-0 flex items-center gap-2"
+                              className="connection-handle absolute right-0 flex items-center"
                               style={{ 
                                 top: `${20 + idx * 24}px`,
                                 transform: 'translateX(50%)'
@@ -919,43 +920,52 @@ export default function WorkflowConfigEditPage() {
                             >
                               {/* 分支名称标签 */}
                               <div 
-                                className="absolute right-4 whitespace-nowrap text-[10px] text-gray-500 bg-gray-100 px-1 rounded"
+                                className="absolute right-5 whitespace-nowrap text-[10px] text-gray-600 bg-amber-50 border px-1.5 py-0.5 rounded"
                                 title={branch.name}
                               >
                                 {branch.name.length > 4 ? branch.name.slice(0, 4) + '..' : branch.name}
                               </div>
-                              {/* 连接点 */}
+                              {/* 连接点 - 始终可见 */}
                               <div
-                                className={`w-4 h-4 rounded-full border-2 cursor-crosshair transition-all ${
+                                className={`w-5 h-5 rounded-full border-2 cursor-crosshair transition-all flex items-center justify-center ${
                                   branch.nextNodeId 
-                                    ? 'bg-green-100 border-green-400' 
-                                    : 'bg-white border-gray-300 hover:border-blue-400 hover:scale-125'
+                                    ? 'bg-green-100 border-green-500' 
+                                    : 'bg-white border-blue-400 hover:bg-blue-50 hover:scale-110'
                                 }`}
                                 onMouseDown={(e) => {
                                   e.stopPropagation();
                                   setConnectingFrom({ nodeId: node.id, branchId: branch.id });
                                 }}
                                 title="拖拽连接到目标节点"
-                              />
+                              >
+                                {branch.nextNodeId && (
+                                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                                )}
+                              </div>
                             </div>
                           ))
                         ) : (
-                          // 普通节点：单个输出连接点
+                          // 普通节点：单个输出连接点 - 始终可见
                           <div
                             className="connection-handle absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2"
                           >
                             <div
-                              className={`w-4 h-4 rounded-full border-2 cursor-crosshair transition-all ${
+                              className={`w-5 h-5 rounded-full border-2 cursor-crosshair transition-all flex items-center justify-center ${
                                 node.nextNodeId 
-                                  ? 'bg-green-100 border-green-400' 
-                                  : 'bg-white border-gray-300 hover:border-blue-400 hover:scale-125'
-                              } ${isHovered || isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                  ? 'bg-green-100 border-green-500' 
+                                  : 'bg-white border-blue-400 hover:bg-blue-50 hover:scale-110'
+                              }`}
+                              style={{ opacity: isHovered || isSelected ? 1 : 0.8 }}
                               onMouseDown={(e) => {
                                 e.stopPropagation();
                                 setConnectingFrom({ nodeId: node.id });
                               }}
                               title="拖拽连接到目标节点"
-                            />
+                            >
+                              {node.nextNodeId && (
+                                <div className="w-2 h-2 rounded-full bg-green-500" />
+                              )}
+                            </div>
                           </div>
                         )
                       )}
