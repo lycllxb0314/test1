@@ -362,7 +362,7 @@ export interface DashboardCard {
 export type WorkflowType = 'leave' | 'repair' | 'purchase';
 
 // 节点类型
-export type NodeType = 'start' | 'approval' | 'condition' | 'parallel' | 'end';
+export type NodeType = 'start' | 'approval' | 'condition' | 'parallel' | 'course_adjust' | 'end';
 
 // 拒绝处理方式
 export type RejectAction = 
@@ -439,6 +439,16 @@ export interface WorkflowNode {
   // 并行节点配置
   parallelNodes?: string[];              // 并行执行的节点ID列表
   mergeType?: 'all' | 'any';             // 合并方式：全部通过/任一通过
+  
+  // 调课节点配置（与教务系统对接）
+  courseAdjustConfig?: {
+    autoSyncToAcademic: boolean;         // 是否自动同步到教务系统
+    notifyTeacher: boolean;              // 是否通知被调课教师
+    notifyClass: boolean;                // 是否通知班级学生/家长
+    requireReason: boolean;              // 是否必须填写调课原因
+    allowMultipleDays: boolean;          // 是否允许多天调课
+    defaultAssignee?: UserRole;          // 默认分配给（年段长等）
+  };
   
   // 流程控制
   nextNodeId?: string;                   // 下一个节点ID
