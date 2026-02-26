@@ -61,6 +61,7 @@ import {
   Edit,
   Newspaper,
   Trophy,
+  CalendarClock,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
@@ -136,6 +137,11 @@ const headTeacherNav: NavItem[] = [
   { name: '安全应急', href: '/teacher/safety', icon: Shield, description: '安全台账隐患' },
 ];
 
+// 教师空间导航 - 年段长专属功能
+const gradeLeaderNav: NavItem[] = [
+  { name: '调课管理', href: '/teacher/adjust', icon: CalendarClock, description: '处理年级调课申请', badge: '专属' },
+];
+
 // 工作流管理导航
 const workflowNav: NavItem[] = [
   { name: '审批中心', href: '/workflow', icon: LayoutDashboard, description: '统一审批中心' },
@@ -183,6 +189,7 @@ export function AppSidebar() {
 
   const roleConfig = roleConfigs[user.role];
   const isHeadTeacher = user.role === 'head_teacher';
+  const isGradeLeader = user.role === 'grade_leader';
 
   // 获取当前模块的导航
   const getCurrentNav = (): NavItem[] => {
@@ -197,6 +204,10 @@ export function AppSidebar() {
         // 班主任有基础功能 + 班主任专属功能
         if (isHeadTeacher) {
           return [...teacherBaseNav, ...headTeacherNav];
+        }
+        // 年段长有基础功能 + 年段长专属功能
+        if (isGradeLeader) {
+          return [...teacherBaseNav, ...gradeLeaderNav];
         }
         // 普通教师只有基础功能
         return teacherBaseNav;

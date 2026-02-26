@@ -45,7 +45,7 @@ export default function DashboardPage() {
   const router = useRouter();
   
   // 教师角色重定向到教师空间
-  if (user && (user.role === 'teacher' || user.role === 'head_teacher')) {
+  if (user && (user.role === 'teacher' || user.role === 'head_teacher' || user.role === 'grade_leader')) {
     router.push('/teacher');
     return null;
   }
@@ -54,6 +54,7 @@ export default function DashboardPage() {
 
   const roleConfig = roleConfigs[user.role];
   const isHeadTeacher = user.role === 'head_teacher';
+  const isGradeLeader = user.role === 'grade_leader';
   const isLeader = ['principal', 'secretary', 'vice_principal'].includes(user.role);
   const isAdmin = ['principal', 'secretary', 'vice_principal', 'admin'].includes(user.role);
 

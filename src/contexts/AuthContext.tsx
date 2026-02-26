@@ -121,6 +121,7 @@ export const roleOptions = [
   { value: 'academic_staff', label: '教务员', description: '教务处工作人员' },
   { value: 'moral_staff', label: '德育员', description: '德育处工作人员' },
   { value: 'head_teacher', label: '班主任', description: '班级管理教师' },
+  { value: 'grade_leader', label: '年段长', description: '年级段负责人，处理调课安排' },
   { value: 'teacher', label: '教师', description: '普通教师' },
   { value: 'staff', label: '后勤人员', description: '后勤工作人员' },
 ];

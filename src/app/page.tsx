@@ -198,7 +198,7 @@ export default function HomePage() {
     if (mounted && user) {
       const timer = setTimeout(() => {
         // 教师角色直接跳转到教师空间
-        if (user.role === 'teacher' || user.role === 'head_teacher') {
+        if (user.role === 'teacher' || user.role === 'head_teacher' || user.role === 'grade_leader') {
           router.push('/teacher');
         } else {
           router.push('/dashboard');
@@ -215,7 +215,7 @@ export default function HomePage() {
   if (!mounted) return null;
 
   if (user) {
-    const isTeacher = user.role === 'teacher' || user.role === 'head_teacher';
+    const isTeacher = user.role === 'teacher' || user.role === 'head_teacher' || user.role === 'grade_leader';
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

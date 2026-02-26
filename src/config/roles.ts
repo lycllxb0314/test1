@@ -4,6 +4,7 @@ import { RoleConfig, ModuleType, Permission } from '@/types';
 // 权限说明：
 // - 普通教师：只能访问教师空间（课表、通知、请假调课）
 // - 班主任：教师空间 + 德育管理（班主任工作系统）
+// - 年段长：教师空间 + 教务系统（调课管理专属功能）
 // - 教务员：教务系统
 // - 德育员：德育系统
 // - 总务员：总务后勤
@@ -87,6 +88,23 @@ export const roleConfigs: Record<string, RoleConfig> = {
     modules: ['teacher'],
     permissions: ['view', 'edit'],
     avatar: '👩‍🏫',
+  },
+  grade_leader: {
+    id: 'grade_leader',
+    name: '年段长',
+    description: '年级段负责人，负责本年级调课安排、教师请假协调、年级事务管理',
+    modules: ['teacher', 'academic'],
+    permissions: ['view', 'edit', 'approve'],
+    avatar: '👨‍🏫',
+    // 年段长特有权限
+    specialPermissions: {
+      manageCourseAdjustment: true,      // 调课管理
+      receiveLeaveNotification: true,    // 接收请假通知
+      assignSubstituteTeacher: true,     // 指派代课教师
+      viewGradeSchedule: true,           // 查看年级课表
+    },
+    // 管理的年级
+    managedGrades: [],                    // 如 [1, 2] 表示管理一、二年级
   },
   teacher: {
     id: 'teacher',

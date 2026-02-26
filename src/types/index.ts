@@ -15,6 +15,7 @@ export type UserRole =
   | 'moral_staff'       // 德育员
   // === 教师群体 ===
   | 'head_teacher'     // 班主任
+  | 'grade_leader'     // 年段长
   | 'teacher'          // 普通教师
   // === 其他人员 ===
   | 'staff'            // 后勤人员
@@ -29,6 +30,14 @@ export interface RoleConfig {
   modules: ModuleType[];
   permissions: Permission[];
   avatar: string;
+  // 年段长特有配置
+  specialPermissions?: {
+    manageCourseAdjustment?: boolean;      // 调课管理
+    receiveLeaveNotification?: boolean;    // 接收请假通知
+    assignSubstituteTeacher?: boolean;     // 指派代课教师
+    viewGradeSchedule?: boolean;           // 查看年级课表
+  };
+  managedGrades?: number[];                // 管理的年级（年段长专用）
 }
 
 // 模块类型
