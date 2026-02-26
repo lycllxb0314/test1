@@ -257,29 +257,46 @@ export function AppSidebar() {
 
           {/* 模块菜单 */}
           <nav className="flex-1 space-y-1 p-2">
-            {/* 返回门户 - 教师角色不显示，直接进入教师空间 */}
-            {user.role !== 'teacher' && user.role !== 'head_teacher' && (
+            {/* 领导驾驶舱 / 工作台 - 根据角色跳转不同页面 */}
+            {user.role !== 'teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
-                    href="/dashboard"
+                    href={
+                      user.role === 'secretary' ? '/dashboard/secretary' :
+                      user.role === 'principal' ? '/dashboard/principal' :
+                      user.role === 'vice_principal' ? '/dashboard/vice-principal' :
+                      '/dashboard'
+                    }
                     className={cn(
                       'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-                      pathname === '/dashboard'
+                      (pathname === '/dashboard' || pathname.startsWith('/dashboard/secretary') || pathname.startsWith('/dashboard/principal') || pathname.startsWith('/dashboard/vice-principal'))
                         ? 'bg-primary text-white shadow-lg shadow-primary/25'
                         : 'text-gray-700 hover:bg-gray-100'
                     )}
                   >
                     <LayoutDashboard className="h-5 w-5" />
-                    {!collapsed && <span>工作台</span>}
+                    {!collapsed && (
+                      <span>
+                        {user.role === 'secretary' ? '书记工作台' :
+                         user.role === 'principal' ? '校长工作台' :
+                         user.role === 'vice_principal' ? '副校长工作台' : '工作台'}
+                      </span>
+                    )}
                   </Link>
                 </TooltipTrigger>
-                {collapsed && <TooltipContent side="right">工作台</TooltipContent>}
+                {collapsed && (
+                  <TooltipContent side="right">
+                    {user.role === 'secretary' ? '书记工作台' :
+                     user.role === 'principal' ? '校长工作台' :
+                     user.role === 'vice_principal' ? '副校长工作台' : '工作台'}
+                  </TooltipContent>
+                )}
               </Tooltip>
             )}
 
             {/* 分割线 - 教师角色不需要分割线 */}
-            {user.role !== 'teacher' && user.role !== 'head_teacher' && (
+            {user.role !== 'teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && (
               <div className="my-2 border-t border-gray-200" />
             )}
 
