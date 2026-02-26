@@ -16,7 +16,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Edit, Save, Settings, HelpCircle, ChevronRight, ChevronDown } from 'lucide-react';
-import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Section {
@@ -79,6 +78,18 @@ const sectionConfigs: Record<string, {
     fields: [
       { key: 'title', label: '区块标题', type: 'text', placeholder: '智慧校园' },
       { key: 'subtitle', label: '区块副标题', type: 'text', placeholder: '一体化管理平台' },
+    ],
+  },
+  teachers: {
+    name: '师资队伍',
+    description: '教师团队介绍和统计数据',
+    icon: '👨‍🏫',
+    fields: [
+      { key: 'title', label: '区块标题', type: 'text', placeholder: '师资队伍' },
+      { key: 'subtitle', label: '区块描述', type: 'textarea', placeholder: '百年名校，名师荟萃...' },
+    ],
+    subItems: [
+      { keyPrefix: 'stats', label: '师资数据统计', fields: ['total', 'senior', 'backbone', 'master'] },
     ],
   },
   contact: {
@@ -310,6 +321,69 @@ export default function SectionsManagementPage() {
                       </div>
                     </>
                   )}
+                  
+                  {currentSection === 'teachers' && item.keyPrefix === 'stats' && (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-gray-600">教师总数</label>
+                          <Input
+                            type="number"
+                            value={itemData.total || ''}
+                            onChange={(e) => {
+                              const newItems = [...(formData.items || [])];
+                              newItems[idx] = { ...itemData, total: e.target.value };
+                              updateFormData('items', newItems);
+                            }}
+                            placeholder="120"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600">高级教师数</label>
+                          <Input
+                            type="number"
+                            value={itemData.senior || ''}
+                            onChange={(e) => {
+                              const newItems = [...(formData.items || [])];
+                              newItems[idx] = { ...itemData, senior: e.target.value };
+                              updateFormData('items', newItems);
+                            }}
+                            placeholder="35"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600">骨干教师数</label>
+                          <Input
+                            type="number"
+                            value={itemData.backbone || ''}
+                            onChange={(e) => {
+                              const newItems = [...(formData.items || [])];
+                              newItems[idx] = { ...itemData, backbone: e.target.value };
+                              updateFormData('items', newItems);
+                            }}
+                            placeholder="28"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600">研究生学历数</label>
+                          <Input
+                            type="number"
+                            value={itemData.master || ''}
+                            onChange={(e) => {
+                              const newItems = [...(formData.items || [])];
+                              newItems[idx] = { ...itemData, master: e.target.value };
+                              updateFormData('items', newItems);
+                            }}
+                            placeholder="15"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -320,8 +394,7 @@ export default function SectionsManagementPage() {
   };
 
   return (
-    <MainLayout>
-      <div className="p-6 lg:p-8 space-y-6">
+    <div className="p-6 lg:p-8 space-y-6">
         {/* 页面标题 */}
         <div className="flex items-center justify-between">
           <div>
@@ -411,7 +484,6 @@ export default function SectionsManagementPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </MainLayout>
+    </div>
   );
 }

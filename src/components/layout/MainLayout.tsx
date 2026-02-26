@@ -437,8 +437,27 @@ export function AppSidebar() {
             )}
           </nav>
 
-          {/* 底部用户信息 */}
-          <div className="border-t p-3">
+          {/* 底部：折叠按钮 + 用户信息 */}
+          <div className="border-t">
+            {/* 折叠按钮 */}
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-xl p-2 transition-all hover:bg-gray-100',
+                collapsed && 'justify-center'
+              )}
+            >
+              {collapsed ? (
+                <ChevronRight className="h-4 w-4 text-gray-500" />
+              ) : (
+                <>
+                  <ChevronLeft className="h-4 w-4 text-gray-500" />
+                  <span className="text-xs text-gray-500">收起菜单</span>
+                </>
+              )}
+            </button>
+            
+            {/* 用户信息 */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

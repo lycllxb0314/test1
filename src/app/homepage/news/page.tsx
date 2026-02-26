@@ -32,7 +32,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface News {
@@ -180,8 +179,7 @@ export default function NewsManagementPage() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <MainLayout>
-      <div className="p-6 lg:p-8 space-y-6">
+    <div className="p-6 lg:p-8 space-y-6">
         {/* 页面标题 */}
         <div className="flex items-center justify-between">
           <div>
@@ -405,7 +403,6 @@ export default function NewsManagementPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </MainLayout>
+    </div>
   );
 }

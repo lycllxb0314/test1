@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trophy, Plus, Edit, Trash2, Award } from 'lucide-react';
-import { MainLayout } from '@/components/layout/MainLayout';
 
 interface Honor {
   id: number;
@@ -137,8 +136,7 @@ export default function HonorsManagementPage() {
   };
 
   return (
-    <MainLayout>
-      <div className="p-6 lg:p-8 space-y-6">
+    <div className="p-6 lg:p-8 space-y-6">
         {/* 页面标题 */}
         <div className="flex items-center justify-between">
           <div>
@@ -283,7 +281,6 @@ export default function HonorsManagementPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </MainLayout>
+    </div>
   );
 }
