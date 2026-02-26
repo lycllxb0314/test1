@@ -237,3 +237,8 @@ export async function DELETE(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+// PUT 方法 - 更新流程配置（复用 POST 逻辑）
+export async function PUT(request: NextRequest) {
+  return POST(request);
+}
