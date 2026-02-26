@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,11 +70,7 @@ export default function NewsManagementPage() {
     is_top: false,
   });
 
-  useEffect(() => {
-    fetchNews();
-  }, [page, categoryFilter]);
-
-  const fetchNews = async () => {
+  const fetchNews = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -92,7 +88,11 @@ export default function NewsManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, categoryFilter]);
+
+  useEffect(() => {
+    fetchNews();
+  }, [fetchNews]);
 
   const openCreateDialog = () => {
     setEditingNews(null);

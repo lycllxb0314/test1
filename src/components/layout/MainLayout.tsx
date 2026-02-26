@@ -491,16 +491,23 @@ export function AppSidebar() {
         </div>
 
         {/* 二级导航 - 功能菜单 */}
-        {activeModule && (
+        {activeModule && !collapsed && (
           <div className="w-56 border-r bg-white flex flex-col">
-            <div className="h-16 flex items-center px-4 border-b">
+            <div className="h-16 flex items-center justify-between px-4 border-b">
               <span className="font-semibold text-gray-900">
                 {activeModule === 'general' && '总务后勤'}
                 {activeModule === 'academic' && '教务教研'}
                 {activeModule === 'moral' && '德育管理'}
                 {activeModule === 'teacher' && '教师空间'}
                 {activeModule === 'workflow' && '审批中心'}
+                {activeModule === 'homepage' && '主页管理'}
               </span>
+              <button
+                onClick={() => setActiveModule(null)}
+                className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
             <nav className="flex-1 space-y-0.5 p-2 overflow-y-auto">
               {getCurrentNav().map((item) => {
