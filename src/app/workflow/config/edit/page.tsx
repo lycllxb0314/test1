@@ -47,6 +47,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Copy,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { roleOptions } from '@/contexts/AuthContext';
@@ -485,42 +486,6 @@ export default function WorkflowEditorPage() {
   const [saving, setSaving] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(true);
-  const [previewHeight, setPreviewHeight] = useState(280); // 预览窗口高度
-  const [isDragging, setIsDragging] = useState(false); // 是否正在拖拽
-  
-  // 拖拽处理 - 垂直方向
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      
-      // 计算新的高度（从窗口底部往上计算）
-      const newHeight = window.innerHeight - e.clientY - 60; // 60是工具栏高度
-      // 限制最小和最大高度
-      const minHeight = 200;
-      const maxHeight = 500;
-      const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
-      setPreviewHeight(clampedHeight);
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
   
   const [formData, setFormData] = useState<Partial<WorkflowConfig>>({
     type: configType as WorkflowType || undefined,
@@ -758,9 +723,9 @@ export default function WorkflowEditorPage() {
   const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* 顶部工具栏 */}
-      <div className="bg-white border-b px-6 py-3 flex items-center justify-between flex-shrink-0">
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* 顶部工具栏 - 固定 */}
+      <div className="bg-white border-b px-6 py-3 flex items-center justify-between flex-shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => router.push('/workflow/config')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -792,65 +757,68 @@ export default function WorkflowEditorPage() {
         </div>
       </div>
 
-      {/* 主内容区 - 上下布局 */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 上方：左侧节点列表 + 右侧编辑区 */}
-        <div className="flex-1 flex overflow-hidden min-h-0">
-          {/* 左侧：节点列表 */}
-          <div className="w-80 bg-white border-r flex flex-col overflow-hidden flex-shrink-0">
-          {/* 基本信息 */}
-          <div className="p-4 border-b flex-shrink-0">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs text-gray-500">流程类型</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(v) => setFormData({ ...formData, type: v as WorkflowType })}
-                    disabled={!!configId}
-                  >
-                    <SelectTrigger className="mt-1 h-8">
-                      <SelectValue placeholder="选择" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {workflowTypes.map(t => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">流程名称</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="例如：请假审批"
-                    className="mt-1 h-8"
-                  />
-                </div>
-              </div>
-
-              {formData.type && !configId && (
-                <div className="flex items-center gap-2 p-2 rounded bg-blue-50 border border-blue-200">
-                  <Sparkles className="h-4 w-4 text-blue-600" />
-                  <span className="text-xs text-blue-700">使用模板：</span>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => useTemplate(formData.type!)}
-                    className="p-0 h-auto text-xs text-blue-600 underline"
-                  >
-                    点击加载
-                  </Button>
-                </div>
-              )}
+      {/* 主内容区 - 可滚动 */}
+      <div className="flex-1 overflow-auto">
+        {/* 基本信息 - 横向 */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-start gap-6">
+            <div className="w-48">
+              <Label className="text-xs text-gray-500">流程类型</Label>
+              <Select
+                value={formData.type}
+                onValueChange={(v) => setFormData({ ...formData, type: v as WorkflowType })}
+                disabled={!!configId}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="选择类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workflowTypes.map(t => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            <div className="flex-1">
+              <Label className="text-xs text-gray-500">流程名称</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="例如：请假审批"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex-1">
+              <Label className="text-xs text-gray-500">流程描述</Label>
+              <Input
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="简要描述流程用途"
+                className="mt-1"
+              />
+            </div>
+            {formData.type && !configId && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                <Sparkles className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-blue-700">使用模板</span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => useTemplate(formData.type!)}
+                  className="p-0 h-auto text-sm text-blue-600 underline"
+                >
+                  点击加载
+                </Button>
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* 添加节点 */}
-          <div className="p-3 border-b flex-shrink-0">
-            <Label className="text-xs text-gray-500 mb-2 block">添加节点</Label>
-            <div className="flex gap-1.5 flex-wrap">
+        {/* 添加节点 - 横向 */}
+        <div className="bg-white border-b px-6 py-3">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">添加节点：</span>
+            <div className="flex gap-2">
               {(Object.keys(nodeTypeConfig) as NodeType[]).map(type => {
                 const config = nodeTypeConfig[type];
                 const Icon = config.icon;
@@ -860,27 +828,33 @@ export default function WorkflowEditorPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => addNode(type)}
-                    className="gap-1 h-7 px-2"
+                    className="gap-2"
                   >
-                    <div className={`p-0.5 rounded ${config.bgColor}`}>
-                      <Icon className="h-3 w-3 text-white" />
+                    <div className={`p-1 rounded ${config.bgColor}`}>
+                      <Icon className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-xs">{config.label}</span>
+                    <span>{config.label}</span>
                   </Button>
                 );
               })}
             </div>
           </div>
+        </div>
 
-          {/* 节点列表 */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {nodes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Workflow className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">点击上方按钮添加节点</p>
-              </div>
-            ) : (
-              nodes.map((node) => {
+        {/* 节点列表 - 横向排列 */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-medium text-gray-700">节点列表</span>
+            <Badge variant="secondary">{nodes.length} 个节点</Badge>
+          </div>
+          {nodes.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+              <Workflow className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+              <p className="text-sm">点击上方按钮添加节点开始配置</p>
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {nodes.map((node, index) => {
                 const config = nodeTypeConfig[node.type];
                 const Icon = config.icon;
                 const isSelected = selectedNodeId === node.id;
@@ -889,63 +863,61 @@ export default function WorkflowEditorPage() {
                   <div
                     key={node.id}
                     onClick={() => setSelectedNodeId(node.id)}
-                    className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition-all border ${
+                    className={`flex-shrink-0 w-56 p-3 rounded-xl cursor-pointer transition-all border-2 ${
                       isSelected 
-                        ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' 
-                        : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200 shadow-md' 
+                        : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
                     }`}
                   >
-                    <div className={`p-1.5 rounded ${config.bgColor}`}>
-                      <Icon className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`p-1.5 rounded-lg ${config.bgColor}`}>
+                        <Icon className="h-4 w-4 text-white" />
+                      </div>
+                      <span className={`font-medium text-sm truncate flex-1 ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
                         {node.name}
-                      </p>
-                      {node.type === 'approval' && node.approverRole && (
-                        <p className="text-xs text-gray-500 truncate">
-                          {roleOptions.find(r => r.value === node.approverRole)?.label || node.approverRole}
-                        </p>
-                      )}
-                      {node.type === 'condition' && (
-                        <p className="text-xs text-gray-500">
-                          {node.branches?.length || 0} 个分支
-                        </p>
+                      </span>
+                      {node.type !== 'start' && node.type !== 'end' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteNode(node.id);
+                          }}
+                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       )}
                     </div>
-                    {node.type !== 'start' && node.type !== 'end' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteNode(node.id);
-                        }}
-                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Badge variant="outline" className="text-xs">{config.label}</Badge>
+                      {node.approverRole && (
+                        <span className="truncate">
+                          → {roleOptions.find(r => r.value === node.approverRole)?.label}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
 
-        {/* 右侧：节点详细编辑区 */}
-        <div className="flex-1 overflow-y-auto bg-gray-100 p-6">
-          {selectedNode ? (
-            <Card className="border-0 shadow-lg max-w-3xl mx-auto">
-              <CardHeader className="border-b bg-gray-50">
+        {/* 选中节点的编辑区 - 展开显示 */}
+        {selectedNode && (
+          <div className="bg-blue-50 border-b px-6 py-4">
+            <Card className="border-0 shadow-lg max-w-5xl mx-auto">
+              <CardHeader className="border-b bg-gray-50 py-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl ${nodeTypeConfig[selectedNode.type].bgColor}`}>
+                    <div className={`p-2 rounded-lg ${nodeTypeConfig[selectedNode.type].bgColor}`}>
                       {React.createElement(nodeTypeConfig[selectedNode.type].icon, { className: 'h-5 w-5 text-white' })}
                     </div>
                     <div>
-                      <CardTitle className="text-lg">编辑节点</CardTitle>
-                      <CardDescription>
+                      <CardTitle className="text-base">编辑节点：{selectedNode.name}</CardTitle>
+                      <CardDescription className="text-xs">
                         {nodeTypeConfig[selectedNode.type].label}节点
                       </CardDescription>
                     </div>
@@ -954,85 +926,100 @@ export default function WorkflowEditorPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setSelectedNodeId(null)}
+                    className="h-8 w-8 p-0"
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               </CardHeader>
-              
-              <CardContent className="p-6 space-y-6">
+              <CardContent className="p-4 space-y-4">
                 {/* 节点名称 */}
                 <div>
                   <Label className="text-sm font-medium">节点名称</Label>
                   <Input
                     value={selectedNode.name}
                     onChange={(e) => updateNode(selectedNode.id, { name: e.target.value })}
-                    className="mt-2"
                     placeholder="输入节点名称"
+                    className="mt-1.5"
                   />
                 </div>
 
                 {/* 审批节点配置 */}
                 {selectedNode.type === 'approval' && (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium">审批人类型</Label>
-                        <Select
-                          value={selectedNode.approverType || 'role'}
-                          onValueChange={(v) => updateNode(selectedNode.id, { 
-                            approverType: v as 'role' | 'specific',
-                          })}
+                    {/* 审批人类型 */}
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">审批人类型</Label>
+                      <div className="flex gap-3">
+                        <div
+                          onClick={() => updateNode(selectedNode.id, { approverType: 'role' })}
+                          className={`flex-1 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            (selectedNode.approverType || 'role') === 'role' 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                          }`}
                         >
-                          <SelectTrigger className="mt-2">
-                            <SelectValue />
+                          <div className="flex items-center gap-2">
+                            <User className={`h-4 w-4 ${(selectedNode.approverType || 'role') === 'role' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            <span className={`font-medium text-sm ${(selectedNode.approverType || 'role') === 'role' ? 'text-blue-700' : 'text-gray-600'}`}>
+                              按角色
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">由该角色的所有人员审批</p>
+                        </div>
+                        <div
+                          onClick={() => updateNode(selectedNode.id, { approverType: 'specific' })}
+                          className={`flex-1 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            selectedNode.approverType === 'specific' 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <User className={`h-4 w-4 ${selectedNode.approverType === 'specific' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            <span className={`font-medium text-sm ${selectedNode.approverType === 'specific' ? 'text-blue-700' : 'text-gray-600'}`}>
+                              指定人员
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">由指定的人员审批</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 选择角色/人员 */}
+                    {selectedNode.approverType === 'role' ? (
+                      <div>
+                        <Label className="text-sm font-medium">选择角色</Label>
+                        <Select
+                          value={selectedNode.approverRole || ''}
+                          onValueChange={(v) => updateNode(selectedNode.id, { approverRole: v as UserRole })}
+                        >
+                          <SelectTrigger className="mt-1.5">
+                            <SelectValue placeholder="选择审批角色" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="role">按角色审批</SelectItem>
-                            <SelectItem value="specific">指定人员</SelectItem>
+                            {roleOptions.map(role => (
+                              <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      
-                      {selectedNode.approverType === 'role' ? (
-                        <div>
-                          <Label className="text-sm font-medium">审批角色</Label>
-                          <Select
-                            value={selectedNode.approverRole || ''}
-                            onValueChange={(v) => updateNode(selectedNode.id, { approverRole: v as UserRole })}
-                          >
-                            <SelectTrigger className="mt-2">
-                              <SelectValue placeholder="选择角色" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {roleOptions.map(role => (
-                                <SelectItem key={role.value} value={role.value}>
-                                  {role.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : (
-                        <div>
-                          <Label className="text-sm font-medium">指定人员姓名</Label>
-                          <Input
-                            value={selectedNode.approverName || ''}
-                            onChange={(e) => updateNode(selectedNode.id, { 
-                              approverName: e.target.value,
-                              approverId: e.target.value,
-                            })}
-                            placeholder="输入人员姓名"
-                            className="mt-2"
-                          />
-                        </div>
-                      )}
-                    </div>
+                    ) : (
+                      <div>
+                        <Label className="text-sm font-medium">指定人员</Label>
+                        <Input
+                          value={selectedNode.approverName || ''}
+                          onChange={(e) => updateNode(selectedNode.id, { approverName: e.target.value })}
+                          placeholder="输入人员姓名"
+                          className="mt-1.5"
+                        />
+                      </div>
+                    )}
 
                     {/* 拒绝处理 */}
                     <div>
-                      <Label className="text-sm font-medium mb-3 block">拒绝后处理</Label>
-                      <div className="grid grid-cols-2 gap-3">
+                      <Label className="text-sm font-medium mb-2 block">拒绝后处理</Label>
+                      <div className="grid grid-cols-4 gap-2">
                         {rejectActions.map(action => {
                           const ActionIcon = action.icon;
                           const isSelected = selectedNode.rejectAction === action.value;
@@ -1040,19 +1027,19 @@ export default function WorkflowEditorPage() {
                             <div
                               key={action.value}
                               onClick={() => updateNode(selectedNode.id, { rejectAction: action.value })}
-                              className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                              className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
                                 isSelected 
                                   ? 'border-blue-500 bg-blue-50' 
                                   : 'border-gray-200 hover:border-gray-300 bg-white'
                               }`}
                             >
-                              <div className="flex items-center gap-2 mb-1">
-                                <ActionIcon className={`h-5 w-5 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
-                                <span className={`font-medium ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <ActionIcon className={`h-4 w-4 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                                <span className={`font-medium text-xs ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>
                                   {action.label}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-500">{action.desc}</p>
+                              <p className="text-xs text-gray-500">{action.desc}</p>
                             </div>
                           );
                         })}
@@ -1063,164 +1050,151 @@ export default function WorkflowEditorPage() {
 
                 {/* 条件分支节点配置 */}
                 {selectedNode.type === 'condition' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">条件分支</Label>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => addBranch(selectedNode.id)}
-                        className="gap-1"
+                        className="gap-1 h-7"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3 w-3" />
                         添加分支
                       </Button>
                     </div>
                     
-                    {selectedNode.branches?.map((branch, branchIndex) => (
-                      <Card key={branch.id} className="border-amber-200 bg-amber-50/30">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="p-1.5 rounded-lg bg-amber-100">
-                              <GitBranch className="h-4 w-4 text-amber-600" />
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedNode.branches?.map((branch, branchIndex) => (
+                        <Card key={branch.id} className="border-amber-200 bg-amber-50/30">
+                          <CardHeader className="pb-2 pt-3 px-3">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1 rounded bg-amber-100">
+                                <GitBranch className="h-3 w-3 text-amber-600" />
+                              </div>
+                              <Input
+                                value={branch.name}
+                                onChange={(e) => updateBranch(selectedNode.id, branch.id, { name: e.target.value })}
+                                className="h-7 w-32 text-sm"
+                                placeholder="分支名称"
+                              />
+                              <Badge variant="outline" className="text-xs bg-white">分支 {branchIndex + 1}</Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteBranch(selectedNode.id, branch.id)}
+                                className="ml-auto h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
                             </div>
-                            <Input
-                              value={branch.name}
-                              onChange={(e) => updateBranch(selectedNode.id, branch.id, { name: e.target.value })}
-                              className="h-8 w-40"
-                              placeholder="分支名称"
-                            />
-                            <Badge variant="outline" className="bg-white">分支 {branchIndex + 1}</Badge>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteBranch(selectedNode.id, branch.id)}
-                              className="ml-auto h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {/* 条件规则 */}
-                          <div>
-                            <Label className="text-xs text-gray-500 mb-2 block">条件规则</Label>
-                            <div className="space-y-2">
-                              {branch.rules?.map((rule, ruleIndex) => (
-                                <div key={rule.id} className="flex items-center gap-2 flex-wrap bg-white p-2 rounded-lg border">
-                                  {ruleIndex > 0 && (
-                                    <Badge variant="secondary" className="text-xs">且</Badge>
-                                  )}
-                                  <Select
-                                    value={rule.field}
-                                    onValueChange={(v) => updateRule(selectedNode.id, branch.id, rule.id, { field: v })}
-                                  >
-                                    <SelectTrigger className="w-24 h-8">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="type">类型</SelectItem>
-                                      <SelectItem value="duration">天数</SelectItem>
-                                      <SelectItem value="amount">金额</SelectItem>
-                                      <SelectItem value="priority">紧急度</SelectItem>
-                                      <SelectItem value="estimatedCost">预估费用</SelectItem>
-                                      <SelectItem value="totalAmount">总金额</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  
-                                  <Select
-                                    value={rule.operator}
-                                    onValueChange={(v) => updateRule(selectedNode.id, branch.id, rule.id, { operator: v as any })}
-                                  >
-                                    <SelectTrigger className="w-20 h-8">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="eq">等于</SelectItem>
-                                      <SelectItem value="ne">不等</SelectItem>
-                                      <SelectItem value="gt">大于</SelectItem>
-                                      <SelectItem value="gte">≥</SelectItem>
-                                      <SelectItem value="lt">小于</SelectItem>
-                                      <SelectItem value="lte">≤</SelectItem>
-                                      <SelectItem value="in">包含</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  
-                                  <Input
-                                    value={String(rule.value)}
-                                    onChange={(e) => updateRule(selectedNode.id, branch.id, rule.id, { 
-                                      value: isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value) 
-                                    })}
-                                    className="w-28 h-8"
-                                    placeholder="比较值"
-                                  />
-                                  
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => deleteRule(selectedNode.id, branch.id, rule.id)}
-                                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))}
+                          </CardHeader>
+                          <CardContent className="space-y-2 pt-2 pb-3 px-3">
+                            {/* 条件规则 */}
+                            <div>
+                              <Label className="text-xs text-gray-500 mb-1 block">条件规则</Label>
+                              <div className="space-y-1">
+                                {branch.rules?.map((rule, ruleIndex) => (
+                                  <div key={rule.id} className="flex items-center gap-1.5 flex-wrap bg-white p-1.5 rounded border text-xs">
+                                    {ruleIndex > 0 && (
+                                      <Badge variant="secondary" className="text-xs h-5">且</Badge>
+                                    )}
+                                    <Select
+                                      value={rule.field}
+                                      onValueChange={(v) => updateRule(selectedNode.id, branch.id, rule.id, { field: v })}
+                                    >
+                                      <SelectTrigger className="w-16 h-6 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="type">类型</SelectItem>
+                                        <SelectItem value="duration">天数</SelectItem>
+                                        <SelectItem value="amount">金额</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Select
+                                      value={rule.operator}
+                                      onValueChange={(v) => updateRule(selectedNode.id, branch.id, rule.id, { operator: v as any })}
+                                    >
+                                      <SelectTrigger className="w-14 h-6 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="eq">等于</SelectItem>
+                                        <SelectItem value="neq">不等于</SelectItem>
+                                        <SelectItem value="gt">大于</SelectItem>
+                                        <SelectItem value="gte">≥</SelectItem>
+                                        <SelectItem value="lt">小于</SelectItem>
+                                        <SelectItem value="lte">≤</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Input
+                                      value={rule.value}
+                                      onChange={(e) => updateRule(selectedNode.id, branch.id, rule.id, { value: e.target.value })}
+                                      placeholder="值"
+                                      className="w-16 h-6 text-xs"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => deleteRule(selectedNode.id, branch.id, rule.id)}
+                                      className="h-5 w-5 p-0 text-gray-400 hover:text-red-500"
+                                    >
+                                      <Trash2 className="h-2.5 w-2.5" />
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => addRule(selectedNode.id, branch.id)}
+                                  className="h-6 text-xs text-gray-500"
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  添加条件
+                                </Button>
+                              </div>
                             </div>
                             
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => addRule(selectedNode.id, branch.id)}
-                              className="mt-2 text-xs gap-1"
-                            >
-                              <Plus className="h-3 w-3" />
-                              添加条件
-                            </Button>
-                          </div>
-                          
-                          {/* 跳转目标 */}
-                          <div className="flex items-center gap-2 pt-2 border-t border-amber-200">
-                            <ArrowRightLeft className="h-4 w-4 text-amber-600" />
-                            <Label className="text-xs text-gray-600">满足条件后跳转到：</Label>
-                            <Select
-                              value={branch.nextNodeId || ''}
-                              onValueChange={(v) => updateBranch(selectedNode.id, branch.id, { nextNodeId: v })}
-                            >
-                              <SelectTrigger className="flex-1 h-8">
-                                <SelectValue placeholder="选择目标节点" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {nodes.filter(n => n.id !== selectedNode.id).map(n => (
-                                  <SelectItem key={n.id} value={n.id}>
-                                    <span className="flex items-center gap-2">
-                                      <span className={`inline-block w-2 h-2 rounded-full ${nodeTypeConfig[n.type].bgColor}`} />
-                                      {n.name}
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            {/* 跳转目标 */}
+                            <div>
+                              <Label className="text-xs text-gray-500 mb-1 block">跳转到</Label>
+                              <Select
+                                value={branch.nextNodeId}
+                                onValueChange={(v) => updateBranch(selectedNode.id, branch.id, { nextNodeId: v })}
+                              >
+                                <SelectTrigger className="h-7 text-xs">
+                                  <SelectValue placeholder="选择目标节点" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {nodes.filter(n => n.id !== selectedNode.id).map(n => (
+                                    <SelectItem key={n.id} value={n.id}>
+                                      {nodeTypeConfig[n.type].label} - {n.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                     
                     {(!selectedNode.branches || selectedNode.branches.length === 0) && (
-                      <div className="text-center py-8 text-gray-400 border-2 border-dashed rounded-xl">
-                        <GitBranch className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                        <p>添加条件分支来定义不同情况下的审批路径</p>
+                      <div className="text-center py-4 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+                        <GitBranch className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm">点击上方按钮添加条件分支</p>
                       </div>
                     )}
-                    
-                    {/* 默认分支 */}
+
                     {(selectedNode.branches?.length || 0) > 0 && (
-                      <div className="flex items-center gap-3 p-4 bg-gray-100 rounded-xl">
-                        <Label className="text-sm font-medium text-gray-600 whitespace-nowrap">默认分支（其他情况）：</Label>
+                      <div>
+                        <Label className="text-sm font-medium">默认分支</Label>
                         <Select
                           value={selectedNode.defaultBranchId || ''}
                           onValueChange={(v) => updateNode(selectedNode.id, { defaultBranchId: v })}
                         >
-                          <SelectTrigger className="flex-1">
+                          <SelectTrigger className="mt-1.5">
                             <SelectValue placeholder="选择默认分支" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1234,25 +1208,21 @@ export default function WorkflowEditorPage() {
                   </div>
                 )}
 
-                {/* 下一个节点（非条件节点） */}
+                {/* 下一个节点 */}
                 {selectedNode.type !== 'condition' && selectedNode.type !== 'end' && (
-                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                    <ArrowRightLeft className="h-5 w-5 text-gray-400" />
-                    <Label className="text-sm font-medium text-gray-600">下一节点：</Label>
+                  <div>
+                    <Label className="text-sm font-medium">下一个节点</Label>
                     <Select
                       value={selectedNode.nextNodeId || ''}
                       onValueChange={(v) => updateNode(selectedNode.id, { nextNodeId: v })}
                     >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="选择" />
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="选择下一个节点" />
                       </SelectTrigger>
                       <SelectContent>
                         {nodes.filter(n => n.id !== selectedNode.id).map(n => (
                           <SelectItem key={n.id} value={n.id}>
-                            <span className="flex items-center gap-2">
-                              <span className={`inline-block w-2 h-2 rounded-full ${nodeTypeConfig[n.type].bgColor}`} />
-                              {n.name}
-                            </span>
+                            {nodeTypeConfig[n.type].label} - {n.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1262,13 +1232,14 @@ export default function WorkflowEditorPage() {
 
                 {/* 操作按钮 */}
                 {selectedNode.type !== 'start' && selectedNode.type !== 'end' && (
-                  <div className="flex items-center gap-2 pt-4 border-t">
+                  <div className="flex gap-2 pt-2 border-t">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => duplicateNode(selectedNode)}
                       className="gap-1"
                     >
+                      <Copy className="h-4 w-4" />
                       复制此节点
                     </Button>
                     <Button
@@ -1284,56 +1255,33 @@ export default function WorkflowEditorPage() {
                 )}
               </CardContent>
             </Card>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center text-gray-400">
-                <Settings className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-lg font-medium">请选择一个节点进行编辑</p>
-                <p className="text-sm mt-1">在左侧列表中点击节点，或添加新节点</p>
-              </div>
-            </div>
-          )}
-        </div>
-        </div>
+          </div>
+        )}
 
-        {/* 下方：流程图预览 */}
+        {/* 流程图预览 */}
         {showPreview && (
-          <div 
-            className="bg-white border-t flex flex-col overflow-hidden flex-shrink-0"
-            style={{ height: `${previewHeight}px` }}
-          >
-            {/* 可拖拽分隔条 */}
-            <div
-              className={`h-1.5 bg-gray-200 hover:bg-blue-400 cursor-row-resize transition-colors flex-shrink-0 ${
-                isDragging ? 'bg-blue-500' : ''
-              }`}
-              onMouseDown={handleMouseDown}
-            />
-            <div className="p-3 border-b bg-gray-50 flex items-center justify-between flex-shrink-0">
-              <div>
-                <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                  <Eye className="h-4 w-4 text-gray-400" />
-                  流程图预览
-                </h3>
-                <p className="text-xs text-gray-500">拖拽上方边栏调整高度</p>
+          <div className="bg-white border-t px-6 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-gray-400" />
+                <h3 className="font-medium text-gray-900">流程图预览</h3>
+                <Badge variant="secondary">横向展开</Badge>
               </div>
             </div>
-            <div className="flex-1 overflow-auto">
-              {nodes.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-gray-400">
-                  <div className="text-center">
-                    <Workflow className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">暂无节点</p>
-                  </div>
+            {nodes.length === 0 ? (
+              <div className="h-32 flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+                <div className="text-center">
+                  <Workflow className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">添加节点后显示流程图</p>
                 </div>
-              ) : (
-                <HorizontalFlowDiagram 
-                  nodes={nodes} 
-                  selectedNodeId={selectedNodeId} 
-                  onSelectNode={setSelectedNodeId} 
-                />
-              )}
-            </div>
+              </div>
+            ) : (
+              <HorizontalFlowDiagram 
+                nodes={nodes} 
+                selectedNodeId={selectedNodeId} 
+                onSelectNode={setSelectedNodeId} 
+              />
+            )}
           </div>
         )}
       </div>
@@ -1463,9 +1411,7 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
     const config = nodeTypeConfig[node.type];
     const isSelected = selectedNodeId === node.id;
     
-    // 节点形状
     if (node.type === 'start' || node.type === 'end') {
-      // 圆角胶囊形
       return (
         <g key={node.id} onClick={() => onSelectNode(node.id)} style={{ cursor: 'pointer' }}>
           <rect
@@ -1493,7 +1439,6 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
         </g>
       );
     } else if (node.type === 'condition') {
-      // 菱形
       const cx = pos.x + NODE_WIDTH / 2;
       const cy = pos.y + NODE_HEIGHT / 2;
       
@@ -1519,7 +1464,6 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
         </g>
       );
     } else {
-      // 矩形（审批节点）
       return (
         <g key={node.id} onClick={() => onSelectNode(node.id)} style={{ cursor: 'pointer' }}>
           <rect
@@ -1571,24 +1515,20 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
     const fromNode = nodeMap.get(conn.from);
     const isCondition = fromNode?.type === 'condition';
     
-    // 计算起点和终点
     let x1 = fromPos.x + NODE_WIDTH;
     let y1 = fromPos.y + NODE_HEIGHT / 2;
     let x2 = toPos.x;
     let y2 = toPos.y + NODE_HEIGHT / 2;
     
-    // 条件节点的起点在菱形右侧
     if (isCondition) {
       x1 = fromPos.x + NODE_WIDTH;
       y1 = fromPos.y + NODE_HEIGHT / 2;
     }
     
-    // 如果目标在右侧，调整连接
     const midX = (x1 + x2) / 2;
     
     return (
       <g key={`${conn.from}-${conn.to}`}>
-        {/* 连接线 */}
         <path
           d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
           fill="none"
@@ -1596,7 +1536,6 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
           strokeWidth={2}
           markerEnd="url(#arrowhead)"
         />
-        {/* 标签 - 带白色背景避免重叠 */}
         {conn.label && (
           <g>
             <rect
@@ -1628,7 +1567,6 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
 
   return (
     <div className="p-2 h-full flex flex-col">
-      {/* 图例和缩放控制 */}
       <div className="flex items-center justify-between mb-3 px-2 py-2 bg-gray-50 rounded-lg text-xs">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
@@ -1649,7 +1587,6 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
           </div>
         </div>
         
-        {/* 缩放控制 */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
@@ -1687,14 +1624,12 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
         </div>
       </div>
       
-      {/* SVG 流程图 */}
       <div className="flex-1 overflow-auto border border-gray-100 rounded-lg bg-gray-50/50">
         <svg 
           width={Math.max(maxX, 600) * zoom} 
           height={Math.max(maxY, 300) * zoom}
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
         >
-          {/* 箭头定义 */}
           <defs>
             <marker
               id="arrowhead"
@@ -1707,16 +1642,11 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
               <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
             </marker>
           </defs>
-          
-          {/* 连接线 */}
           {connections.map(renderConnection)}
-          
-          {/* 节点 */}
           {nodes.map(renderNode)}
         </svg>
       </div>
       
-      {/* 点击提示 */}
       <p className="text-xs text-gray-400 mt-2 text-center">点击节点可编辑</p>
     </div>
   );
