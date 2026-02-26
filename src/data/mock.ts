@@ -119,6 +119,17 @@ export const mockUsers: User[] = [
     avatar: '/avatars/teacher2.png',
   },
   {
+    id: '8-1',
+    name: '林国强',
+    role: 'grade_leader',
+    phone: '138****1081',
+    email: 'lingq@lysf.fx.edu.cn',
+    department: '三年级',
+    position: '年段长',
+    subjects: ['数学'],
+    avatar: '/avatars/teacher4.png',
+  },
+  {
     id: '9',
     name: '王丽萍',
     role: 'teacher',

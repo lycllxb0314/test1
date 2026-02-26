@@ -25,6 +25,7 @@ const roleNameToRole: Record<string, UserRole> = {
   '教务员': 'academic_staff',
   '德育员': 'moral_staff',
   '班主任': 'head_teacher',
+  '年段长': 'grade_leader',
   '教师': 'teacher',
   '学生': 'student',
   '家长': 'parent',
