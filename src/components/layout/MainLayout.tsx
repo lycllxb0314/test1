@@ -347,7 +347,7 @@ export function AppSidebar() {
             )}
 
             {/* 审批中心 */}
-            {(user.role === 'principal' || user.role === 'secretary' || user.role === 'vice_principal' || user.role === 'admin') && (
+            {(user.role === 'principal' || user.role === 'secretary' || user.role === 'vice_principal' || user.role === 'academic_director' || user.role === 'moral_director' || user.role === 'general_director') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button

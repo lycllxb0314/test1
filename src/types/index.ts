@@ -2,15 +2,24 @@
 
 // 用户角色枚举
 export type UserRole = 
+  // === 学校领导层 ===
   | 'principal'        // 校长
   | 'secretary'        // 书记
   | 'vice_principal'   // 分管副校长
-  | 'admin'            // 行政人员
+  // === 部门负责人 ===
+  | 'academic_director' // 教务主任
+  | 'moral_director'    // 德育主任
+  | 'general_director'  // 总务主任
+  // === 普通职员 ===
+  | 'academic_staff'    // 教务员
+  | 'moral_staff'       // 德育员
+  // === 教师群体 ===
   | 'head_teacher'     // 班主任
   | 'teacher'          // 普通教师
+  // === 其他人员 ===
+  | 'staff'            // 后勤人员
   | 'student'          // 学生
-  | 'parent'           // 家长
-  | 'staff';           // 后勤人员
+  | 'parent';          // 家长
 
 // 角色配置
 export interface RoleConfig {

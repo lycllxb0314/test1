@@ -101,14 +101,11 @@ export default function TeacherPage() {
   const processingCount = todosData.filter(t => t.status === 'processing').length;
   const urgentCount = notificationsData.filter(n => !n.isRead && n.type === 'urgent').length;
 
-  // 教师通用功能
+  // 教师通用功能 - 普通教师只能看到课表、通知、请假调课
   const commonFunctions = [
-    { name: '我的课程', icon: BookOpen, color: 'bg-blue-100 text-blue-600', path: '/academic/schedule', desc: '查看课程安排' },
-    { name: '成绩录入', icon: BarChart3, color: 'bg-green-100 text-green-600', path: '/academic/scores', desc: '录入学生成绩' },
-    { name: '教研活动', icon: NotebookPen, color: 'bg-indigo-100 text-indigo-600', path: '/academic/research', desc: '参加教研活动' },
-    { name: '请假申请', icon: FileText, color: 'bg-amber-100 text-amber-600', path: '/workflow/leave', desc: '提交请假申请' },
-    { name: '教学资源', icon: GraduationCap, color: 'bg-purple-100 text-purple-600', path: '/academic/resources', desc: '教学资料库' },
-    { name: '个人设置', icon: LayoutDashboard, color: 'bg-gray-100 text-gray-600', path: '/profile', desc: '个人信息管理' },
+    { name: '我的课表', icon: Calendar, color: 'bg-blue-100 text-blue-600', path: '/academic/schedule', desc: '查看课程安排' },
+    { name: '通知公告', icon: Bell, color: 'bg-amber-100 text-amber-600', path: '/workflow/announcements', desc: '查看通知公告' },
+    { name: '请假调课', icon: FileText, color: 'bg-green-100 text-green-600', path: '/workflow/leave', desc: '提交请假申请' },
   ];
 
   // 班主任专属功能

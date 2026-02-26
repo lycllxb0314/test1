@@ -1,7 +1,15 @@
 import { RoleConfig, ModuleType, Permission } from '@/types';
 
 // 角色配置映射
+// 权限说明：
+// - 普通教师：只能访问教师空间（课表、通知、请假调课）
+// - 班主任：教师空间 + 德育管理（班主任工作系统）
+// - 教务员：教务系统
+// - 德育员：德育系统
+// - 总务员：总务后勤
+// - 校长/书记/副校长：全部权限
 export const roleConfigs: Record<string, RoleConfig> = {
+  // === 学校领导层 ===
   principal: {
     id: 'principal',
     name: '校长',
@@ -26,29 +34,77 @@ export const roleConfigs: Record<string, RoleConfig> = {
     permissions: ['view', 'edit', 'approve', 'manage'],
     avatar: '👨‍💼',
   },
-  admin: {
-    id: 'admin',
-    name: '行政人员',
-    description: '学校行政管理人员',
-    modules: ['general', 'academic', 'moral'],
-    permissions: ['view', 'edit', 'manage'],
+  
+  // === 部门负责人 ===
+  academic_director: {
+    id: 'academic_director',
+    name: '教务主任',
+    description: '教务处负责人，管理教学相关事务',
+    modules: ['academic', 'teacher'],
+    permissions: ['view', 'edit', 'approve', 'manage'],
     avatar: '👩‍💼',
   },
+  moral_director: {
+    id: 'moral_director',
+    name: '德育主任',
+    description: '德育处负责人，管理德育相关事务',
+    modules: ['moral', 'teacher'],
+    permissions: ['view', 'edit', 'approve', 'manage'],
+    avatar: '👩‍💼',
+  },
+  general_director: {
+    id: 'general_director',
+    name: '总务主任',
+    description: '总务处负责人，管理后勤相关事务',
+    modules: ['general'],
+    permissions: ['view', 'edit', 'approve', 'manage'],
+    avatar: '👩‍💼',
+  },
+  
+  // === 普通职员 ===
+  academic_staff: {
+    id: 'academic_staff',
+    name: '教务员',
+    description: '教务处工作人员',
+    modules: ['academic'],
+    permissions: ['view', 'edit'],
+    avatar: '👩‍💼',
+  },
+  moral_staff: {
+    id: 'moral_staff',
+    name: '德育员',
+    description: '德育处工作人员',
+    modules: ['moral'],
+    permissions: ['view', 'edit'],
+    avatar: '👩‍💼',
+  },
+  
+  // === 教师群体 ===
   head_teacher: {
     id: 'head_teacher',
     name: '班主任',
-    description: '班级管理教师，可访问教师空间',
-    modules: ['teacher', 'academic', 'moral'],
+    description: '班级管理教师，拥有班主任工作系统权限',
+    modules: ['teacher', 'moral'],
     permissions: ['view', 'edit'],
     avatar: '👩‍🏫',
   },
   teacher: {
     id: 'teacher',
     name: '教师',
-    description: '普通教师，可访问教师空间',
-    modules: ['teacher', 'academic'],
+    description: '普通教师，可访问教师空间（课表、通知、请假调课）',
+    modules: ['teacher'],
     permissions: ['view', 'edit'],
     avatar: '👨‍🏫',
+  },
+  
+  // === 其他人员 ===
+  staff: {
+    id: 'staff',
+    name: '后勤人员',
+    description: '学校后勤工作人员',
+    modules: ['general'],
+    permissions: ['view', 'edit'],
+    avatar: '👷',
   },
   student: {
     id: 'student',
@@ -65,14 +121,6 @@ export const roleConfigs: Record<string, RoleConfig> = {
     modules: [],
     permissions: ['view'],
     avatar: '👨‍👩‍👧',
-  },
-  staff: {
-    id: 'staff',
-    name: '后勤人员',
-    description: '学校后勤工作人员',
-    modules: ['general'],
-    permissions: ['view', 'edit'],
-    avatar: '👷',
   },
 };
 
@@ -93,6 +141,27 @@ export function hasPermission(role: string, permission: Permission): boolean {
 // 获取用户可访问的所有模块
 export function getAccessibleModules(role: string): ModuleType[] {
   return roleConfigs[role]?.modules || [];
+}
+
+// 判断是否是班主任
+export function isHeadTeacher(role: string): boolean {
+  return role === 'head_teacher' || 
+         role === 'principal' || 
+         role === 'secretary' || 
+         role === 'vice_principal' ||
+         role === 'moral_director';
+}
+
+// 判断是否可以访问教务系统（仅教务处及校领导）
+export function canAccessAcademic(role: string): boolean {
+  const academicRoles = ['principal', 'secretary', 'vice_principal', 'academic_director', 'academic_staff'];
+  return academicRoles.includes(role);
+}
+
+// 判断是否可以访问德育系统
+export function canAccessMoral(role: string): boolean {
+  const moralRoles = ['principal', 'secretary', 'vice_principal', 'moral_director', 'moral_staff', 'head_teacher'];
+  return moralRoles.includes(role);
 }
 
 // 模块名称映射
@@ -117,7 +186,7 @@ export const moduleNames: Record<ModuleType, { name: string; description: string
   },
   teacher: {
     name: '教师空间',
-    description: '班主任工作台、班级管理、家校沟通、信息收集、日常管理',
+    description: '课表查看、学校通知、请假调课、班主任工作台',
     color: '#9B59B6',
     icon: 'Users',
   },
