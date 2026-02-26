@@ -1351,12 +1351,12 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
   
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   
-  // 节点尺寸
-  const NODE_WIDTH = 140;
-  const NODE_HEIGHT = 60;
-  const GAP_X = 100;  // 水平间距
-  const GAP_Y = 100;  // 垂直间距
-  const BRANCH_GAP_Y = 80; // 分支垂直间距
+  // 节点尺寸 - 增大尺寸避免文字重叠
+  const NODE_WIDTH = 160;
+  const NODE_HEIGHT = 70;
+  const GAP_X = 120;  // 水平间距
+  const GAP_Y = 140;  // 垂直间距 - 增大避免重叠
+  const BRANCH_GAP_Y = 120; // 分支垂直间距 - 增大避免重叠
   
   // 计算节点位置
   const nodePositions = new Map<string, { x: number; y: number; level: number }>();
@@ -1496,8 +1496,6 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
       // 菱形
       const cx = pos.x + NODE_WIDTH / 2;
       const cy = pos.y + NODE_HEIGHT / 2;
-      const hw = NODE_WIDTH / 2;
-      const hh = NODE_HEIGHT / 2;
       
       return (
         <g key={node.id} onClick={() => onSelectNode(node.id)} style={{ cursor: 'pointer' }}>
@@ -1513,10 +1511,10 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
             textAnchor="middle"
             dominantBaseline="middle"
             fill="#b45309"
-            fontSize="12"
+            fontSize="11"
             fontWeight="600"
           >
-            {node.name.length > 6 ? node.name.slice(0, 6) + '..' : node.name}
+            {node.name.length > 5 ? node.name.slice(0, 5) + '..' : node.name}
           </text>
         </g>
       );
@@ -1537,19 +1535,19 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
           />
           <text
             x={pos.x + NODE_WIDTH / 2}
-            y={pos.y + 20}
+            y={pos.y + NODE_HEIGHT / 2 - (node.approverRole ? 8 : 0)}
             textAnchor="middle"
             dominantBaseline="middle"
             fill="#1e40af"
             fontSize="13"
             fontWeight="600"
           >
-            {node.name.length > 8 ? node.name.slice(0, 8) + '..' : node.name}
+            {node.name.length > 7 ? node.name.slice(0, 7) + '..' : node.name}
           </text>
           {node.approverRole && (
             <text
               x={pos.x + NODE_WIDTH / 2}
-              y={pos.y + 40}
+              y={pos.y + NODE_HEIGHT / 2 + 12}
               textAnchor="middle"
               dominantBaseline="middle"
               fill="#6b7280"
@@ -1598,20 +1596,31 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
           strokeWidth={2}
           markerEnd="url(#arrowhead)"
         />
-        {/* 标签 */}
+        {/* 标签 - 带白色背景避免重叠 */}
         {conn.label && (
-          <text
-            x={(x1 + x2) / 2}
-            y={(y1 + y2) / 2 - 8}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#f59e0b"
-            fontSize="11"
-            fontWeight="500"
-            style={{ backgroundColor: 'white' }}
-          >
-            {conn.label}
-          </text>
+          <g>
+            <rect
+              x={(x1 + x2) / 2 - (conn.label.length * 6 + 8)}
+              y={(y1 + y2) / 2 - 20}
+              width={conn.label.length * 12 + 16}
+              height={18}
+              fill="white"
+              stroke="#fcd34d"
+              strokeWidth={1}
+              rx={4}
+            />
+            <text
+              x={(x1 + x2) / 2}
+              y={(y1 + y2) / 2 - 11}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#b45309"
+              fontSize="11"
+              fontWeight="500"
+            >
+              {conn.label}
+            </text>
+          </g>
         )}
       </g>
     );
