@@ -43,10 +43,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-// 使用更可靠的图片源 - 教育主题图片
+// 使用真实的龙岩师范附属小学图片
 const campusGallery = [
-  { id: 1, src: 'https://images.pexels.com/photos/207692/pexels-photo-207692.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '校园正门', desc: '百年名校，气势恢宏' },
-  { id: 2, src: 'https://images.pexels.com/photos/256468/pexels-photo-256468.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '教学楼', desc: '现代化教学设施' },
+  { id: 1, src: '/images/school-1.jpeg', title: '校园活动', desc: '体育节活动精彩瞬间' },
+  { id: 2, src: '/images/school-2.jpeg', title: '校园风采', desc: '食品药品安全宣传' },
   { id: 3, src: 'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '图书馆', desc: '知识的海洋' },
   { id: 4, src: 'https://images.pexels.com/photos/8566472/pexels-photo-8566472.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '科学实验室', desc: '探索科学奥秘' },
   { id: 5, src: 'https://images.pexels.com/photos/863980/pexels-photo-863980.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '运动场', desc: '阳光体育，健康成长' },
@@ -334,31 +334,22 @@ export default function HomePage() {
 
           <div className="grid md:grid-cols-2 gap-12 items-center">
             {/* 左侧图片 */}
-            <div className="relative">
+            <div className="relative mb-8 md:mb-0">
               <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
-                {!imageErrors['main'] ? (
-                  <img
-                    src="https://images.pexels.com/photos/207692/pexels-photo-207692.jpeg?auto=compress&cs=tinysrgb&w=800"
-                    alt="校园全景"
-                    className="w-full h-full object-cover"
-                    onError={() => handleImageError('main')}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-amber-300 flex items-center justify-center">
-                    <GraduationCap className="h-20 w-20 text-white" />
-                  </div>
-                )}
+                <img
+                  src="/images/school-1.jpeg"
+                  alt="龙岩师范附属小学"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              {/* 装饰卡片 */}
-              <div className="absolute -bottom-6 -right-6 bg-white rounded-xl shadow-xl p-4 hidden md:block">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center">
-                    <Trophy className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-gray-900">110年</div>
-                    <div className="text-sm text-gray-500">办学历史</div>
-                  </div>
+              {/* 装饰卡片 - 改为不超出容器 */}
+              <div className="absolute -bottom-4 right-4 md:right-8 bg-white rounded-xl shadow-xl p-4 hidden md:flex items-center gap-3 z-10">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center">
+                  <Trophy className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">110年</div>
+                  <div className="text-sm text-gray-500">办学历史</div>
                 </div>
               </div>
             </div>
