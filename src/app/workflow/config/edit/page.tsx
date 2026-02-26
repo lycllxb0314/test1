@@ -1566,7 +1566,7 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
   };
 
   return (
-    <div className="p-2 h-full flex flex-col">
+    <div className="p-2 flex flex-col">
       <div className="flex items-center justify-between mb-3 px-2 py-2 bg-gray-50 rounded-lg text-xs">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
@@ -1624,11 +1624,11 @@ function HorizontalFlowDiagram({ nodes, selectedNodeId, onSelectNode }: {
         </div>
       </div>
       
-      <div className="flex-1 overflow-auto border border-gray-100 rounded-lg bg-gray-50/50">
+      <div className="border border-gray-100 rounded-lg bg-gray-50/50 p-2">
         <svg 
-          width={Math.max(maxX, 600) * zoom} 
-          height={Math.max(maxY, 300) * zoom}
-          style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+          width={Math.max(maxX, 800) * zoom} 
+          height={Math.max(maxY, 400) * zoom}
+          style={{ minWidth: '100%' }}
         >
           <defs>
             <marker
