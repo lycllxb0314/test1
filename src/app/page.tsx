@@ -24,33 +24,17 @@ import {
   Award,
   Target,
   Camera,
-  Music,
   Palette,
-  Bike,
-  Leaf,
-  Sun,
-  Quote,
-  Play,
-  ChevronLeft,
-  ChevronRight as ChevronRightIcon,
-  Flower2,
   Rocket,
-  PenTool,
-  Globe,
-  Shield,
-  Lightbulb,
-  Palette as PaletteIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-// 使用真实的龙岩师范附属小学图片
+// 使用本地图片，减少外部请求
 const campusGallery = [
   { id: 1, src: '/images/school-1.jpeg', title: '校园活动', desc: '体育节活动精彩瞬间' },
   { id: 2, src: '/images/school-2.jpeg', title: '校园风采', desc: '食品药品安全宣传' },
-  { id: 3, src: 'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '图书馆', desc: '知识的海洋' },
-  { id: 4, src: 'https://images.pexels.com/photos/8566472/pexels-photo-8566472.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '科学实验室', desc: '探索科学奥秘' },
-  { id: 5, src: 'https://images.pexels.com/photos/863980/pexels-photo-863980.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '运动场', desc: '阳光体育，健康成长' },
-  { id: 6, src: 'https://images.pexels.com/photos/120435/pexels-photo-120435.jpeg?auto=compress&cs=tinysrgb&w=1200', title: '校园一角', desc: '绿树成荫，环境优美' },
+  { id: 3, src: '/images/school-1.jpeg', title: '教学活动', desc: '日常教学场景' },
+  { id: 4, src: '/images/school-2.jpeg', title: '学生活动', desc: '丰富多彩的校园生活' },
 ];
 
 // 办学特色 - 精美卡片设计
@@ -92,25 +76,25 @@ const schoolFeatures = [
 // 校园活动
 const campusActivities = [
   { 
-    image: 'https://images.pexels.com/photos/8566584/pexels-photo-8566584.jpeg?auto=compress&cs=tinysrgb&w=600',
+    image: '/images/school-1.jpeg',
     title: '开学典礼', 
     date: '2024年9月1日',
     desc: '新学期新起点，全体师生共迎开学典礼'
   },
   { 
-    image: 'https://images.pexels.com/photos/863980/pexels-photo-863980.jpeg?auto=compress&cs=tinysrgb&w=600',
+    image: '/images/school-2.jpeg',
     title: '运动会', 
     date: '2024年10月15-17日',
     desc: '阳光体育，快乐运动，全校师生积极参与'
   },
   { 
-    image: 'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=600',
+    image: '/images/school-1.jpeg',
     title: '读书节', 
     date: '2024年11月',
     desc: '书香满校园，阅读伴成长，系列读书活动'
   },
   { 
-    image: 'https://images.pexels.com/photos/12492591/pexels-photo-12492591.jpeg?auto=compress&cs=tinysrgb&w=600',
+    image: '/images/school-2.jpeg',
     title: '艺术节', 
     date: '2024年12月',
     desc: '艺术展示舞台，学生才艺绽放'
@@ -129,10 +113,10 @@ const honors = [
 
 // 新闻动态
 const newsList = [
-  { id: 1, title: '我校师生在省级科技创新大赛中荣获一等奖', date: '2024-03-15', type: '喜讯', image: 'https://images.pexels.com/photos/8566472/pexels-photo-8566472.jpeg?auto=compress&cs=tinysrgb&w=400' },
-  { id: 2, title: '学校开展"传承红色基因"主题教育活动', date: '2024-03-12', type: '活动', image: 'https://images.pexels.com/photos/8566584/pexels-photo-8566584.jpeg?auto=compress&cs=tinysrgb&w=400' },
-  { id: 3, title: '著名教育专家到校指导教学工作', date: '2024-03-10', type: '新闻', image: 'https://images.pexels.com/photos/1523050854058/pexels-photo-1523050854058.jpeg?auto=compress&cs=tinysrgb&w=400' },
-  { id: 4, title: '学校足球队荣获市级联赛冠军', date: '2024-03-08', type: '喜讯', image: 'https://images.pexels.com/photos/863980/pexels-photo-863980.jpeg?auto=compress&cs=tinysrgb&w=400' },
+  { id: 1, title: '我校师生在省级科技创新大赛中荣获一等奖', date: '2024-03-15', type: '喜讯', image: '/images/school-1.jpeg' },
+  { id: 2, title: '学校开展"传承红色基因"主题教育活动', date: '2024-03-12', type: '活动', image: '/images/school-2.jpeg' },
+  { id: 3, title: '著名教育专家到校指导教学工作', date: '2024-03-10', type: '新闻', image: '/images/school-1.jpeg' },
+  { id: 4, title: '学校足球队荣获市级联赛冠军', date: '2024-03-08', type: '喜讯', image: '/images/school-2.jpeg' },
 ];
 
 // 学校统计数据
@@ -314,7 +298,7 @@ export default function HomePage() {
 
         {/* 向下滚动提示 */}
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 animate-bounce">
-          <ChevronRightIcon className="h-8 w-8 text-white/50 rotate-90" />
+          <ChevronRight className="h-8 w-8 text-white/50 rotate-90" />
         </div>
       </section>
 
