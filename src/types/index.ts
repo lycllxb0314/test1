@@ -77,6 +77,119 @@ export interface User {
   }[];
 }
 
+// 教师详细信息
+export interface TeacherProfile {
+  id: string;
+  userId: string;
+  
+  // === 基本信息 ===
+  name: string;
+  gender: '男' | '女';
+  birthDate?: string;
+  idCard?: string;            // 身份证号
+  ethnicity?: string;         // 民族
+  politicalStatus?: string;   // 政治面貌
+  nativePlace?: string;       // 籍贯
+  
+  // === 联系信息 ===
+  phone: string;
+  email?: string;
+  emergencyContact?: string;  // 紧急联系人
+  emergencyPhone?: string;    // 紧急联系电话
+  address?: string;           // 家庭住址
+  
+  // === 工作信息 ===
+  employeeId?: string;        // 工号
+  subjects: string[];         // 任教学科
+  title: string;              // 职称
+  titleDate?: string;         // 职称取得时间
+  education: string;          // 学历
+  school?: string;            // 毕业院校
+  major?: string;             // 专业
+  graduationDate?: string;    // 毕业时间
+  teachYears: number;         // 教龄
+  joinDate: string;           // 入职时间
+  department: string;         // 教研组
+  
+  // === 班主任信息 ===
+  isHeadTeacher: boolean;
+  classId?: string;
+  className?: string;
+  headTeacherYears?: number;  // 班主任年限
+  
+  // === 状态 ===
+  status: 'active' | 'on_leave' | 'retired' | 'transferred';
+  
+  // === 成长记录 ===
+  records: TeacherRecord[];
+  
+  // === 荣誉奖项 ===
+  honors: TeacherHonor[];
+  
+  // === 培训记录 ===
+  trainings: TeacherTraining[];
+  
+  // === 教学成果 ===
+  achievements: TeacherAchievement[];
+  
+  // === 时间戳 ===
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 教师成长记录
+export interface TeacherRecord {
+  id: string;
+  teacherId: string;
+  type: 'education' | 'title' | 'position' | 'award' | 'training' | 'research' | 'other';
+  title: string;
+  description?: string;
+  date: string;
+  attachments?: string[];
+  createdAt: string;
+}
+
+// 教师荣誉奖项
+export interface TeacherHonor {
+  id: string;
+  teacherId: string;
+  title: string;
+  level: '校级' | '区级' | '市级' | '省级' | '国家级';
+  category: '教学' | '德育' | '科研' | '综合';
+  issuer?: string;           // 颁发单位
+  date: string;
+  certificateNo?: string;    // 证书编号
+  attachments?: string[];
+}
+
+// 教师培训记录
+export interface TeacherTraining {
+  id: string;
+  teacherId: string;
+  name: string;
+  type: '校内培训' | '区级培训' | '市级培训' | '省级培训' | '国家级培训';
+  organizer: string;
+  startDate: string;
+  endDate: string;
+  hours: number;             // 学时
+  status: '进行中' | '已完成' | '未通过';
+  certificate?: string;
+  notes?: string;
+}
+
+// 教师教学成果
+export interface TeacherAchievement {
+  id: string;
+  teacherId: string;
+  type: '公开课' | '教学比赛' | '论文发表' | '课题研究' | '指导学生获奖';
+  title: string;
+  level?: string;
+  result?: string;           // 成绩/奖项
+  date: string;
+  description?: string;
+  attachments?: string[];
+}
+
 // 班级信息
 export interface Class {
   id: string;

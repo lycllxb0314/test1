@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ import {
   UserCircle,
   BookOpen,
   Award,
+  Eye,
 } from 'lucide-react';
 
 // 模拟教师数据
@@ -45,6 +47,7 @@ const mockTeachers = [
 ];
 
 export default function TeachersPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('all');
 
@@ -200,8 +203,17 @@ export default function TeachersPage() {
             </TableHeader>
             <TableBody>
               {filteredTeachers.map((teacher) => (
-                <TableRow key={teacher.id} className="hover:bg-gray-50">
-                  <TableCell className="font-medium">{teacher.name}</TableCell>
+                <TableRow 
+                  key={teacher.id} 
+                  className="hover:bg-blue-50 cursor-pointer"
+                  onClick={() => router.push(`/academic/teachers/${teacher.id}`)}
+                >
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {teacher.name}
+                      <Eye className="h-3 w-3 text-gray-400" />
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={teacher.gender === '男' ? 'text-blue-600' : 'text-pink-600'}>
                       {teacher.gender}
