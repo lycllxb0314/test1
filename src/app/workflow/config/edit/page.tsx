@@ -57,6 +57,85 @@ import {
   ConditionOperator
 } from '@/types';
 
+// 预设条件字段配置（根据流程类型）
+const conditionFieldConfig: Record<string, { 
+  field: string; 
+  label: string; 
+  type: 'select' | 'number' | 'text';
+  options?: { label: string; value: string }[];
+}[]> = {
+  leave: [
+    { 
+      field: 'type', 
+      label: '请假类型', 
+      type: 'select',
+      options: [
+        { label: '病假', value: '病假' },
+        { label: '事假', value: '事假' },
+        { label: '公假', value: '公假' },
+        { label: '婚假', value: '婚假' },
+        { label: '产假', value: '产假' },
+        { label: '丧假', value: '丧假' },
+      ]
+    },
+    { field: 'duration', label: '请假天数', type: 'number' },
+  ],
+  repair: [
+    { field: 'amount', label: '报修金额', type: 'number' },
+    { field: 'urgency', label: '紧急程度', type: 'select', options: [
+      { label: '紧急', value: 'urgent' },
+      { label: '一般', value: 'normal' },
+    ]},
+  ],
+  purchase: [
+    { field: 'amount', label: '采购金额', type: 'number' },
+    { field: 'category', label: '采购类别', type: 'select', options: [
+      { label: '办公用品', value: 'office' },
+      { label: '教学设备', value: 'teaching' },
+      { label: '体育器材', value: 'sports' },
+      { label: '其他', value: 'other' },
+    ]},
+  ],
+};
+
+// 请假类型对应的附件要求
+const leaveTypeAttachmentConfig: Record<string, { 
+  required: boolean; 
+  description: string;
+  maxFiles: number;
+}> = {
+  '病假': { 
+    required: true, 
+    description: '请上传医院证明（三甲医院），包括诊断证明、病假条',
+    maxFiles: 5 
+  },
+  '事假': { 
+    required: false, 
+    description: '如有相关证明材料可上传',
+    maxFiles: 3 
+  },
+  '公假': { 
+    required: true, 
+    description: '请上传公派任务通知或相关证明',
+    maxFiles: 3 
+  },
+  '婚假': { 
+    required: true, 
+    description: '请上传结婚证复印件',
+    maxFiles: 2 
+  },
+  '产假': { 
+    required: true, 
+    description: '请上传医院产检证明或预产期证明',
+    maxFiles: 3 
+  },
+  '丧假': { 
+    required: false, 
+    description: '如有需要可上传相关证明',
+    maxFiles: 2 
+  },
+};
+
 const workflowTypes = [
   { value: 'leave', label: '请假审批', icon: FileText },
   { value: 'repair', label: '报修审批', icon: Wrench },
@@ -81,19 +160,20 @@ const rejectActions: { value: RejectAction; label: string; desc: string }[] = [
 // 预设流程模板
 const workflowTemplates: Record<string, Partial<WorkflowConfig>> = {
   leave: {
-    name: '教师请假审批流程',
-    description: '根据请假类型和天数，走不同的审批路径',
+    name: '教师请假审批流程（含调课）',
+    description: '教师请假审批通过后，需由年段长完成调课安排',
     nodes: [
       { id: 'start', type: 'start', name: '开始', nextNodeId: 'approval_grade' },
       { id: 'approval_grade', type: 'approval', name: '年级组长审批', approverType: 'role', approverRole: 'head_teacher', rejectAction: 'return_to_applicant', nextNodeId: 'condition_type' },
       { id: 'condition_type', type: 'condition', name: '判断请假类型', branches: [
-        { id: 'b1', name: '病假≤3天', conditionType: 'all', rules: [{ id: 'r1', field: 'type', operator: 'eq', value: '病假' }, { id: 'r2', field: 'duration', operator: 'lte', value: '3' }], nextNodeId: 'end' },
+        { id: 'b1', name: '病假≤3天', conditionType: 'all', rules: [{ id: 'r1', field: 'type', operator: 'eq', value: '病假' }, { id: 'r2', field: 'duration', operator: 'lte', value: '3' }], nextNodeId: 'arrange_class' },
         { id: 'b2', name: '病假>3天', conditionType: 'all', rules: [{ id: 'r3', field: 'type', operator: 'eq', value: '病假' }, { id: 'r4', field: 'duration', operator: 'gt', value: '3' }], nextNodeId: 'approval_dean' },
-        { id: 'b3', name: '事假≤3天', conditionType: 'all', rules: [{ id: 'r5', field: 'type', operator: 'eq', value: '事假' }, { id: 'r6', field: 'duration', operator: 'lte', value: '3' }], nextNodeId: 'end' },
+        { id: 'b3', name: '事假≤3天', conditionType: 'all', rules: [{ id: 'r5', field: 'type', operator: 'eq', value: '事假' }, { id: 'r6', field: 'duration', operator: 'lte', value: '3' }], nextNodeId: 'arrange_class' },
         { id: 'b4', name: '事假>3天', conditionType: 'all', rules: [{ id: 'r7', field: 'type', operator: 'eq', value: '事假' }, { id: 'r8', field: 'duration', operator: 'gt', value: '3' }], nextNodeId: 'approval_dean' },
         { id: 'b5', name: '公假', conditionType: 'all', rules: [{ id: 'r9', field: 'type', operator: 'eq', value: '公假' }], nextNodeId: 'approval_dean' },
       ], defaultBranchId: 'b3' },
-      { id: 'approval_dean', type: 'approval', name: '教务主任审批', approverType: 'role', approverRole: 'academic_director', rejectAction: 'return_to_previous', nextNodeId: 'end' },
+      { id: 'approval_dean', type: 'approval', name: '教务主任审批', approverType: 'role', approverRole: 'academic_director', rejectAction: 'return_to_previous', nextNodeId: 'arrange_class' },
+      { id: 'arrange_class', type: 'approval', name: '年段长调课安排', approverType: 'role', approverRole: 'head_teacher', rejectAction: 'return_to_applicant', nextNodeId: 'end' },
       { id: 'end', type: 'end', name: '结束' },
     ],
   },
@@ -1329,6 +1409,92 @@ export default function WorkflowConfigEditPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {/* 附件收集配置 - 仅请假流程显示 */}
+                  {formData.type === 'leave' && (
+                    <div className="border-t pt-3 mt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm text-gray-600">附件收集</Label>
+                        <Button
+                          variant={selectedNode.attachmentConfig?.enabled ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const current = selectedNode.attachmentConfig;
+                            updateNode(selectedNode.id, { 
+                              attachmentConfig: { 
+                                enabled: !current?.enabled,
+                                required: current?.required ?? false,
+                                description: current?.description ?? '',
+                                maxFiles: current?.maxFiles ?? 5,
+                                acceptTypes: current?.acceptTypes,
+                              } 
+                            });
+                          }}
+                          className="h-6 text-xs"
+                        >
+                          {selectedNode.attachmentConfig?.enabled ? '已启用' : '启用'}
+                        </Button>
+                      </div>
+                      
+                      {selectedNode.attachmentConfig?.enabled && (
+                        <div className="space-y-2 p-2 bg-gray-50 rounded text-xs">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedNode.attachmentConfig.required || false}
+                              onChange={(e) => {
+                                const current = selectedNode.attachmentConfig!;
+                                updateNode(selectedNode.id, { 
+                                  attachmentConfig: { 
+                                    ...current,
+                                    required: e.target.checked 
+                                  } 
+                                });
+                              }}
+                              className="rounded"
+                            />
+                            <span>必须上传附件</span>
+                          </div>
+                          
+                          <div>
+                            <span className="text-gray-500">附件说明：</span>
+                            <Input
+                              value={selectedNode.attachmentConfig.description || ''}
+                              onChange={(e) => {
+                                const current = selectedNode.attachmentConfig!;
+                                updateNode(selectedNode.id, { 
+                                  attachmentConfig: { 
+                                    ...current,
+                                    description: e.target.value 
+                                  } 
+                                });
+                              }}
+                              placeholder="如：请上传医院证明"
+                              className="h-6 text-xs mt-1"
+                            />
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">最大文件数：</span>
+                            <Input
+                              type="number"
+                              value={selectedNode.attachmentConfig.maxFiles || 5}
+                              onChange={(e) => {
+                                const current = selectedNode.attachmentConfig!;
+                                updateNode(selectedNode.id, { 
+                                  attachmentConfig: { 
+                                    ...current,
+                                    maxFiles: parseInt(e.target.value) || 5 
+                                  } 
+                                });
+                              }}
+                              className="w-16 h-6 text-xs"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
               
@@ -1366,53 +1532,91 @@ export default function WorkflowConfigEditPage() {
                       </CardHeader>
                       <CardContent className="py-2 px-3 space-y-2">
                         {/* 条件规则 */}
-                        {(branch.rules || []).map((rule, ruleIdx) => (
-                          <div key={rule.id} className="flex items-center gap-1 text-xs">
-                            {ruleIdx > 0 && <Badge variant="secondary" className="h-5 text-[10px]">且</Badge>}
-                            <Select
-                              value={rule.field}
-                              onValueChange={(v) => updateRule(selectedNode.id, branch.id, rule.id, { field: v })}
-                            >
-                              <SelectTrigger className="w-14 h-6 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="type">类型</SelectItem>
-                                <SelectItem value="duration">天数</SelectItem>
-                                <SelectItem value="amount">金额</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Select
-                              value={rule.operator}
-                              onValueChange={(v) => updateRule(selectedNode.id, branch.id, rule.id, { operator: v as ConditionOperator })}
-                            >
-                              <SelectTrigger className="w-12 h-6 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="eq">=</SelectItem>
-                                <SelectItem value="neq">≠</SelectItem>
-                                <SelectItem value="gt">&gt;</SelectItem>
-                                <SelectItem value="gte">≥</SelectItem>
-                                <SelectItem value="lt">&lt;</SelectItem>
-                                <SelectItem value="lte">≤</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              value={rule.value}
-                              onChange={(e) => updateRule(selectedNode.id, branch.id, rule.id, { value: e.target.value })}
-                              className="w-16 h-6 text-xs"
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteRule(selectedNode.id, branch.id, rule.id)}
-                              className="h-5 w-5 p-0 text-gray-400 hover:text-red-500"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
+                        {(branch.rules || []).map((rule, ruleIdx) => {
+                          // 获取当前字段的配置
+                          const fieldConfigs = conditionFieldConfig[formData.type] || [];
+                          const currentFieldConfig = fieldConfigs.find(f => f.field === rule.field);
+                          const isSelectField = currentFieldConfig?.type === 'select';
+                          
+                          return (
+                            <div key={rule.id} className="flex items-center gap-1 text-xs">
+                              {ruleIdx > 0 && <Badge variant="secondary" className="h-5 text-[10px]">且</Badge>}
+                              <Select
+                                value={rule.field}
+                                onValueChange={(v) => {
+                                  const newFieldConfig = fieldConfigs.find(f => f.field === v);
+                                  updateRule(selectedNode.id, branch.id, rule.id, { 
+                                    field: v, 
+                                    value: newFieldConfig?.type === 'select' ? (newFieldConfig.options?.[0]?.value || '') : ''
+                                  });
+                                }}
+                              >
+                                <SelectTrigger className="w-16 h-6 text-xs">
+                                  <SelectValue placeholder="字段" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {fieldConfigs.map(fc => (
+                                    <SelectItem key={fc.field} value={fc.field}>{fc.label}</SelectItem>
+                                  ))}
+                                  {/* 通用字段 */}
+                                  <SelectItem value="amount">金额</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Select
+                                value={rule.operator}
+                                onValueChange={(v) => updateRule(selectedNode.id, branch.id, rule.id, { operator: v as ConditionOperator })}
+                              >
+                                <SelectTrigger className="w-12 h-6 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="eq">=</SelectItem>
+                                  <SelectItem value="neq">≠</SelectItem>
+                                  {currentFieldConfig?.type === 'number' && (
+                                    <>
+                                      <SelectItem value="gt">&gt;</SelectItem>
+                                      <SelectItem value="gte">≥</SelectItem>
+                                      <SelectItem value="lt">&lt;</SelectItem>
+                                      <SelectItem value="lte">≤</SelectItem>
+                                    </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              {/* 值输入：选择类型用下拉，数字类型用输入框 */}
+                              {isSelectField ? (
+                                <Select
+                                  value={String(rule.value)}
+                                  onValueChange={(v) => updateRule(selectedNode.id, branch.id, rule.id, { value: v })}
+                                >
+                                  <SelectTrigger className="w-20 h-6 text-xs">
+                                    <SelectValue placeholder="选择" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {currentFieldConfig?.options?.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  type={currentFieldConfig?.type === 'number' ? 'number' : 'text'}
+                                  value={rule.value}
+                                  onChange={(e) => updateRule(selectedNode.id, branch.id, rule.id, { value: e.target.value })}
+                                  className="w-16 h-6 text-xs"
+                                  placeholder={currentFieldConfig?.type === 'number' ? '数字' : '值'}
+                                />
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteRule(selectedNode.id, branch.id, rule.id)}
+                                className="h-5 w-5 p-0 text-gray-400 hover:text-red-500"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
                         <Button
                           variant="ghost"
                           size="sm"

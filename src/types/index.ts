@@ -423,6 +423,15 @@ export interface WorkflowNode {
   rejectAction?: RejectAction;           // 拒绝后动作
   rejectReturnNodeId?: string;           // 拒绝后退回的节点ID
   
+  // 附件收集配置
+  attachmentConfig?: {
+    enabled: boolean;                    // 是否启用附件收集
+    required: boolean;                   // 是否必须上传附件
+    description?: string;                // 附件说明
+    maxFiles?: number;                   // 最大文件数
+    acceptTypes?: string[];              // 接受的文件类型，如 ['image/*', '.pdf', '.doc']
+  };
+  
   // 条件节点配置
   branches?: ConditionBranch[];          // 条件分支列表
   defaultBranchId?: string;              // 默认分支ID（都不满足时）
