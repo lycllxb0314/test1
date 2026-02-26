@@ -53,7 +53,7 @@ export default function NewsManagementPage() {
   const [newsList, setNewsList] = useState<News[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const pageSize = 10;
@@ -77,7 +77,7 @@ export default function NewsManagementPage() {
         limit: String(pageSize),
         offset: String(page * pageSize),
       });
-      if (categoryFilter) params.set('category', categoryFilter);
+      if (categoryFilter && categoryFilter !== 'all') params.set('category', categoryFilter);
 
       const res = await fetch(`/api/homepage/news?${params}`);
       const data = await res.json();
@@ -212,7 +212,7 @@ export default function NewsManagementPage() {
                   <SelectValue placeholder="全部分类" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部分类</SelectItem>
+                  <SelectItem value="all">全部分类</SelectItem>
                   <SelectItem value="新闻">新闻</SelectItem>
                   <SelectItem value="喜讯">喜讯</SelectItem>
                   <SelectItem value="活动">活动</SelectItem>
