@@ -1,10 +1,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700;900&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
-/* 龙岩师范附属小学 - 温暖智慧校园主题 */
+/* 龙岩师范附属小学 - 百年名校典雅主题 */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -44,104 +44,98 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-  --font-sans:
-    'Baloo 2', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif,
-    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, sans-serif;
-  --font-display: 'Baloo 2', 'PingFang SC', sans-serif;
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
-  --font-serif:
-    'Noto Serif SC', 'Songti SC', 'SimSun', ui-serif, Georgia, Cambria,
-    'Times New Roman', Times, serif;
   
-  /* 学校特色色彩 */
-  --color-school-warm: #E8734A;
-  --color-school-orange: #F5A623;
-  --color-school-green: #4CAF50;
-  --color-school-blue: #5B9BD5;
-  --color-school-purple: #9B59B6;
+  /* 衬线字体用于标题 - 典雅文化感 */
+  --font-serif: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+  /* 无衬线字体用于正文 - 清晰易读 */
+  --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  
+  /* 学校特色色彩 - 百年名校典雅色系 */
+  --color-school-primary: #8B4513;      /* 赭石色 - 主色 */
+  --color-school-secondary: #2F4F4F;    /* 墨绿色 - 辅色 */
+  --color-school-accent: #B8860B;       /* 暗金色 - 点缀 */
+  --color-school-warm: #D2691E;         /* 暖橙色 */
+  --color-school-cream: #FDF5E6;        /* 米白色 */
 }
 
 :root {
-  --radius: 0.625rem;
-  /* 温暖的奶油白背景 */
-  --background: #FFFBF5;
-  --foreground: #2D2A26;
+  --radius: 0.5rem;
+  /* 温暖的米白色背景 - 典雅 */
+  --background: #FFFAF0;
+  --foreground: #2C1810;
   /* 卡片 */
   --card: #FFFFFF;
-  --card-foreground: #2D2A26;
+  --card-foreground: #2C1810;
   /* 弹出层 */
   --popover: #FFFFFF;
-  --popover-foreground: #2D2A26;
-  /* 主色 - 温暖的橙红色，象征阳光与活力 */
-  --primary: #E8734A;
+  --popover-foreground: #2C1810;
+  /* 主色 - 赭石棕，百年厚重感 */
+  --primary: #8B4513;
   --primary-foreground: #FFFFFF;
   /* 次要色 */
-  --secondary: #FFF3E6;
-  --secondary-foreground: #E8734A;
-  /* 柔和的灰色 */
-  --muted: #F8F4F0;
-  --muted-foreground: #7A7672;
-  /* 强调色 */
-  --accent: #FFF3E6;
-  --accent-foreground: #E8734A;
+  --secondary: #FFF8F0;
+  --secondary-foreground: #8B4513;
+  /* 柔和的米色 */
+  --muted: #F5EDE4;
+  --muted-foreground: #6B5B4F;
+  /* 强调色 - 暗金 */
+  --accent: #B8860B;
+  --accent-foreground: #FFFFFF;
   /* 警告色 */
-  --destructive: #E53935;
+  --destructive: #C41E3A;
   /* 边框 */
-  --border: #EDE8E3;
-  --input: #EDE8E3;
-  --ring: #E8734A;
+  --border: #E8DDD0;
+  --input: #E8DDD0;
+  --ring: #8B4513;
   /* 图表颜色 */
-  --chart-1: #E8734A;
-  --chart-2: #F5A623;
-  --chart-3: #4CAF50;
-  --chart-4: #5B9BD5;
-  --chart-5: #9B59B6;
+  --chart-1: #8B4513;
+  --chart-2: #2F4F4F;
+  --chart-3: #B8860B;
+  --chart-4: #D2691E;
+  --chart-5: #556B2F;
   /* 侧边栏 */
-  --sidebar: #FFFBF5;
-  --sidebar-foreground: #2D2A26;
-  --sidebar-primary: #E8734A;
+  --sidebar: #FFFAF0;
+  --sidebar-foreground: #2C1810;
+  --sidebar-primary: #8B4513;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #FFF3E6;
-  --sidebar-accent-foreground: #E8734A;
-  --sidebar-border: #EDE8E3;
-  --sidebar-ring: #E8734A;
+  --sidebar-accent: #FFF8F0;
+  --sidebar-accent-foreground: #8B4513;
+  --sidebar-border: #E8DDD0;
+  --sidebar-ring: #8B4513;
 }
 
 .dark {
-  --background: #1A1816;
-  --foreground: #F5F2ED;
-  --card: #252220;
-  --card-foreground: #F5F2ED;
-  --popover: #252220;
-  --popover-foreground: #F5F2ED;
-  --primary: #F5A623;
-  --primary-foreground: #1A1816;
-  --secondary: #3A3632;
-  --secondary-foreground: #F5F2ED;
-  --muted: #2D2A26;
-  --muted-foreground: #A8A4A0;
-  --accent: #3A3632;
-  --accent-foreground: #F5F2ED;
-  --destructive: #EF5350;
-  --border: #3A3632;
-  --input: #3A3632;
-  --ring: #F5A623;
-  --chart-1: #F5A623;
-  --chart-2: #E8734A;
-  --chart-3: #66BB6A;
-  --chart-4: #64B5F6;
-  --chart-5: #BA68C8;
-  --sidebar: #1A1816;
-  --sidebar-foreground: #F5F2ED;
-  --sidebar-primary: #F5A623;
-  --sidebar-primary-foreground: #1A1816;
-  --sidebar-accent: #3A3632;
-  --sidebar-accent-foreground: #F5F2ED;
-  --sidebar-border: #3A3632;
-  --sidebar-ring: #F5A623;
+  --background: #1A1410;
+  --foreground: #F5EDE4;
+  --card: #252015;
+  --card-foreground: #F5EDE4;
+  --popover: #252015;
+  --popover-foreground: #F5EDE4;
+  --primary: #D4A574;
+  --primary-foreground: #1A1410;
+  --secondary: #3A3025;
+  --secondary-foreground: #F5EDE4;
+  --muted: #2C2520;
+  --muted-foreground: #A89888;
+  --accent: #B8860B;
+  --accent-foreground: #1A1410;
+  --destructive: #E57373;
+  --border: #3A3025;
+  --input: #3A3025;
+  --ring: #D4A574;
+  --chart-1: #D4A574;
+  --chart-2: #8FBC8F;
+  --chart-3: #DAA520;
+  --chart-4: #CD853F;
+  --chart-5: #6B8E23;
+  --sidebar: #1A1410;
+  --sidebar-foreground: #F5EDE4;
+  --sidebar-primary: #D4A574;
+  --sidebar-primary-foreground: #1A1410;
+  --sidebar-accent: #3A3025;
+  --sidebar-accent-foreground: #F5EDE4;
+  --sidebar-border: #3A3025;
+  --sidebar-ring: #D4A574;
 }
 
 @layer base {
@@ -157,72 +151,49 @@ body {
   @apply font-sans;
 }
 
+/* 标题使用衬线字体 */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+}
+
 /* 自定义滚动条 */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #F5EDE4;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D4CFC8;
-  border-radius: 3px;
+  background: #C4A77D;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #B8B3AC;
+  background: #8B4513;
 }
 
-/* 温暖的渐变背景 */
-.warm-gradient {
-  background: linear-gradient(135deg, #FFF3E6 0%, #FFE8D6 50%, #FFF5EE 100%);
+/* 装饰性边框 */
+.decorative-border {
+  border: 2px solid transparent;
+  background: linear-gradient(#FFFAF0, #FFFAF0) padding-box,
+              linear-gradient(135deg, #8B4513, #B8860B, #8B4513) border-box;
 }
 
-/* 阳光动画 */
-@keyframes sunshine {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
+/* 古典分隔线 */
+.classical-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #B8860B, transparent);
 }
 
-.sunshine-animate {
-  animation: sunshine 4s ease-in-out infinite;
-}
-
-/* 温柔的浮动动画 */
-@keyframes gentle-float {
+/* 浮动动画 */
+@keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
 
-.float-animate {
-  animation: gentle-float 6s ease-in-out infinite;
-}
-
-/* 卡片悬停效果 */
-.card-hover {
-  @apply transition-all duration-300;
-}
-
-.card-hover:hover {
-  @apply shadow-lg -translate-y-1;
-}
-
-/* 模块配色 */
-.module-general {
-  --module-color: #E8734A;
-}
-
-.module-academic {
-  --module-color: #5B9BD5;
-}
-
-.module-moral {
-  --module-color: #4CAF50;
-}
-
-.module-teacher {
-  --module-color: #9B59B6;
+.float-animation {
+  animation: float 6s ease-in-out infinite;
 }
