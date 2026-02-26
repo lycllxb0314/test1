@@ -187,15 +187,15 @@ const campusActivities = [
   },
   { 
     image: '/images/campus/dance-performance.png',
-    title: '群舞表演', 
-    date: '2025年5月30日',
-    desc: '艺术节群舞节目，渐变色舞裙优美动人'
+    title: '总校制办学教学研讨', 
+    date: '2025年',
+    desc: '总校制办学教育教学研讨活动'
   },
   { 
     image: '/images/campus/art-festival.png',
-    title: '校园情景剧', 
-    date: '2025年5月30日',
-    desc: '校园生活主题情景表演，充满童趣'
+    title: '培田古民居研学', 
+    date: '2025年',
+    desc: '学生研学活动，走进培田古民居'
   },
   { 
     image: '/images/campus/robot-team.png',
