@@ -34,6 +34,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -52,9 +53,15 @@ import {
   Edit,
   Trash2,
   Loader2,
+  Clock,
+  Settings,
 } from 'lucide-react';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { BatchToolbar, SelectColumn, type BatchAction } from '@/components/common/BatchToolbar';
+import { 
+  TeacherScheduleConfigDialog, 
+  type TeacherScheduleConfig 
+} from '@/components/teacher/TeacherScheduleConfigDialog';
 
 // 教师数据类型
 interface Teacher {
@@ -68,18 +75,25 @@ interface Teacher {
   email: string;
   status: string;
   teachYears: number;
+  // 课时配置
+  weeklyHours: number;        // 周课时量
+  currentHours: number;       // 已安排课时
+  teachableSubjects: string[]; // 可任教科目
+  teachableGrades: number[];   // 可任教年级
+  isHeadTeacher: boolean;      // 是否班主任
+  headTeacherClassId?: string; // 班主任班级
 }
 
 // 模拟教师数据
 const mockTeachers: Teacher[] = [
-  { id: '1', name: '王明华', gender: '男', subject: '语文', title: '高级教师', department: '语文组', phone: '138****1234', email: 'wang@lysf.edu.cn', status: 'active', teachYears: 15 },
-  { id: '2', name: '李芳', gender: '女', subject: '数学', title: '一级教师', department: '数学组', phone: '139****5678', email: 'li@lysf.edu.cn', status: 'active', teachYears: 10 },
-  { id: '3', name: '张强', gender: '男', subject: '英语', title: '二级教师', department: '英语组', phone: '137****9012', email: 'zhang@lysf.edu.cn', status: 'active', teachYears: 5 },
-  { id: '4', name: '刘洋', gender: '女', subject: '科学', title: '一级教师', department: '科学组', phone: '136****3456', email: 'liu@lysf.edu.cn', status: 'active', teachYears: 8 },
-  { id: '5', name: '陈红', gender: '女', subject: '音乐', title: '二级教师', department: '艺术组', phone: '135****7890', email: 'chen@lysf.edu.cn', status: 'active', teachYears: 6 },
-  { id: '6', name: '赵刚', gender: '男', subject: '体育', title: '一级教师', department: '体育组', phone: '134****2345', email: 'zhao@lysf.edu.cn', status: 'active', teachYears: 12 },
-  { id: '7', name: '孙丽', gender: '女', subject: '美术', title: '二级教师', department: '艺术组', phone: '133****6789', email: 'sun@lysf.edu.cn', status: 'on_leave', teachYears: 4 },
-  { id: '8', name: '周伟', gender: '男', subject: '信息技术', title: '二级教师', department: '信息组', phone: '132****0123', email: 'zhou@lysf.edu.cn', status: 'active', teachYears: 3 },
+  { id: '1', name: '王明华', gender: '男', subject: '语文', title: '高级教师', department: '语文组', phone: '138****1234', email: 'wang@lysf.edu.cn', status: 'active', teachYears: 15, weeklyHours: 14, currentHours: 8, teachableSubjects: ['语文', '道德与法治'], teachableGrades: [1, 2, 3], isHeadTeacher: true, headTeacherClassId: 'c001' },
+  { id: '2', name: '李芳', gender: '女', subject: '数学', title: '一级教师', department: '数学组', phone: '139****5678', email: 'li@lysf.edu.cn', status: 'active', teachYears: 10, weeklyHours: 14, currentHours: 6, teachableSubjects: ['数学', '科学'], teachableGrades: [1, 2, 3], isHeadTeacher: true, headTeacherClassId: 'c002' },
+  { id: '3', name: '张强', gender: '男', subject: '英语', title: '二级教师', department: '英语组', phone: '137****9012', email: 'zhang@lysf.edu.cn', status: 'active', teachYears: 5, weeklyHours: 16, currentHours: 12, teachableSubjects: ['英语'], teachableGrades: [3, 4, 5, 6], isHeadTeacher: false },
+  { id: '4', name: '刘洋', gender: '女', subject: '科学', title: '一级教师', department: '科学组', phone: '136****3456', email: 'liu@lysf.edu.cn', status: 'active', teachYears: 8, weeklyHours: 14, currentHours: 10, teachableSubjects: ['科学', '数学'], teachableGrades: [3, 4, 5, 6], isHeadTeacher: false },
+  { id: '5', name: '陈红', gender: '女', subject: '音乐', title: '二级教师', department: '艺术组', phone: '135****7890', email: 'chen@lysf.edu.cn', status: 'active', teachYears: 6, weeklyHours: 16, currentHours: 16, teachableSubjects: ['音乐'], teachableGrades: [1, 2, 3, 4, 5, 6], isHeadTeacher: false },
+  { id: '6', name: '赵刚', gender: '男', subject: '体育', title: '一级教师', department: '体育组', phone: '134****2345', email: 'zhao@lysf.edu.cn', status: 'active', teachYears: 12, weeklyHours: 18, currentHours: 18, teachableSubjects: ['体育'], teachableGrades: [1, 2, 3, 4, 5, 6], isHeadTeacher: false },
+  { id: '7', name: '孙丽', gender: '女', subject: '美术', title: '二级教师', department: '艺术组', phone: '133****6789', email: 'sun@lysf.edu.cn', status: 'on_leave', teachYears: 4, weeklyHours: 16, currentHours: 0, teachableSubjects: ['美术'], teachableGrades: [1, 2, 3, 4, 5, 6], isHeadTeacher: false },
+  { id: '8', name: '周伟', gender: '男', subject: '信息技术', title: '二级教师', department: '信息组', phone: '132****0123', email: 'zhou@lysf.edu.cn', status: 'active', teachYears: 3, weeklyHours: 16, currentHours: 8, teachableSubjects: ['信息技术', '科学'], teachableGrades: [3, 4, 5, 6], isHeadTeacher: false },
 ];
 
 // 性别选项
@@ -114,19 +128,31 @@ export default function TeachersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [scheduleConfigOpen, setScheduleConfigOpen] = useState(false);
   
   // 当前编辑/删除的教师
   const [currentTeacher, setCurrentTeacher] = useState<Teacher | null>(null);
+  const [scheduleConfig, setScheduleConfig] = useState<TeacherScheduleConfig | null>(null);
   
   // 表单数据
   const [formData, setFormData] = useState<Partial<Teacher>>({});
+  
+  // 班级列表（用于班主任选择）
+  const [classes] = useState([
+    { id: 'c001', name: '一年1班', grade: 1 },
+    { id: 'c002', name: '一年2班', grade: 1 },
+    { id: 'c003', name: '二年1班', grade: 2 },
+    { id: 'c004', name: '二年2班', grade: 2 },
+  ]);
 
   // 统计数据
   const stats = {
     total: teachers.length,
     senior: teachers.filter(t => t.title === '高级教师' || t.title === '正高级教师').length,
-    headTeachers: Math.floor(teachers.length * 0.33),
+    headTeachers: teachers.filter(t => t.isHeadTeacher).length,
     departments: new Set(teachers.map(t => t.department)).size,
+    unconfigured: teachers.filter(t => t.teachableSubjects.length === 0).length,
+    overHours: teachers.filter(t => t.currentHours > t.weeklyHours).length,
   };
 
   // 筛选后的教师列表
@@ -185,6 +211,38 @@ export default function TeachersPage() {
     setDeleteDialogOpen(true);
   }, []);
 
+  // 打开课时配置对话框
+  const openScheduleConfigDialog = useCallback((teacher: Teacher) => {
+    setScheduleConfig({
+      teacherId: teacher.id,
+      teacherName: teacher.name,
+      primarySubject: teacher.subject,
+      weeklyHours: teacher.weeklyHours,
+      currentHours: teacher.currentHours,
+      teachableSubjects: teacher.teachableSubjects,
+      teachableGrades: teacher.teachableGrades,
+      isHeadTeacher: teacher.isHeadTeacher,
+      headTeacherClassId: teacher.headTeacherClassId,
+    });
+    setScheduleConfigOpen(true);
+  }, []);
+
+  // 保存课时配置
+  const handleSaveScheduleConfig = useCallback((config: TeacherScheduleConfig) => {
+    setTeachers(prev => prev.map(t => 
+      t.id === config.teacherId 
+        ? {
+            ...t,
+            weeklyHours: config.weeklyHours,
+            teachableSubjects: config.teachableSubjects,
+            teachableGrades: config.teachableGrades,
+            isHeadTeacher: config.isHeadTeacher,
+            headTeacherClassId: config.headTeacherClassId,
+          }
+        : t
+    ));
+  }, []);
+
   // 打开新增对话框
   const openAddDialog = useCallback(() => {
     setCurrentTeacher(null);
@@ -223,6 +281,11 @@ export default function TeachersPage() {
         email: formData.email || '',
         status: formData.status || 'active',
         teachYears: formData.teachYears || 0,
+        weeklyHours: 14,
+        currentHours: 0,
+        teachableSubjects: [formData.subject || '语文'],
+        teachableGrades: [1, 2, 3, 4, 5, 6],
+        isHeadTeacher: false,
       };
       setTeachers(prev => [...prev, newTeacher]);
     }
@@ -430,6 +493,7 @@ export default function TeachersPage() {
                 <TableHead>学科</TableHead>
                 <TableHead>职称</TableHead>
                 <TableHead>教研组</TableHead>
+                <TableHead>课时配置</TableHead>
                 <TableHead>联系电话</TableHead>
                 <TableHead>教龄</TableHead>
                 <TableHead>状态</TableHead>
@@ -465,6 +529,30 @@ export default function TeachersPage() {
                   <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.subject}</TableCell>
                   <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.title}</TableCell>
                   <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.department}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-gray-400" />
+                        <span className={`text-sm ${
+                          teacher.currentHours > teacher.weeklyHours ? 'text-red-600 font-medium' :
+                          teacher.currentHours === teacher.weeklyHours ? 'text-green-600' :
+                          'text-gray-600'
+                        }`}>
+                          {teacher.currentHours}/{teacher.weeklyHours} 节
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-0.5">
+                        {teacher.teachableSubjects.slice(0, 3).map((s, i) => (
+                          <Badge key={i} variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                            {s}
+                          </Badge>
+                        ))}
+                        {teacher.isHeadTeacher && (
+                          <Badge className="text-[10px] px-1 py-0 h-4 bg-amber-100 text-amber-700">班主任</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
                     <div className="flex items-center gap-1 text-gray-600">
                       <Phone className="h-3 w-3" />
@@ -485,6 +573,11 @@ export default function TeachersPage() {
                           <Eye className="h-4 w-4 mr-2" />
                           查看详情
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openScheduleConfigDialog(teacher)}>
+                          <Settings className="h-4 w-4 mr-2" />
+                          课时配置
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
                           <Edit className="h-4 w-4 mr-2" />
                           编辑
@@ -677,6 +770,15 @@ export default function TeachersPage() {
         title="确认批量删除"
         description={`确定要删除选中的 ${selectedIds.size} 名教师吗？此操作不可撤销。`}
         loading={loading}
+      />
+
+      {/* 课时配置对话框 */}
+      <TeacherScheduleConfigDialog
+        open={scheduleConfigOpen}
+        onOpenChange={setScheduleConfigOpen}
+        config={scheduleConfig}
+        onSave={handleSaveScheduleConfig}
+        classes={classes}
       />
     </div>
   );
