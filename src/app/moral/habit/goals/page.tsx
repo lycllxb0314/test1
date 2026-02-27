@@ -88,6 +88,68 @@ export default function GoalsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  
+  // 新建目标表单状态
+  const [targetScope, setTargetScope] = useState<string>('all');
+  const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+
+  // 年级数据
+  const grades = ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
+  
+  // 班级数据（按年级分组）
+  const classesByGrade: Record<string, string[]> = {
+    '一年级': ['一(1)班', '一(2)班', '一(3)班', '一(4)班', '一(5)班', '一(6)班'],
+    '二年级': ['二(1)班', '二(2)班', '二(3)班', '二(4)班', '二(5)班', '二(6)班'],
+    '三年级': ['三(1)班', '三(2)班', '三(3)班', '三(4)班', '三(5)班', '三(6)班'],
+    '四年级': ['四(1)班', '四(2)班', '四(3)班', '四(4)班', '四(5)班', '四(6)班'],
+    '五年级': ['五(1)班', '五(2)班', '五(3)班', '五(4)班', '五(5)班', '五(6)班'],
+    '六年级': ['六(1)班', '六(2)班', '六(3)班', '六(4)班', '六(5)班', '六(6)班'],
+  };
+
+  // 切换适用对象时重置选择
+  const handleScopeChange = (value: string) => {
+    setTargetScope(value);
+    setSelectedGrades([]);
+    setSelectedClasses([]);
+  };
+
+  // 切换年级选择
+  const toggleGrade = (grade: string) => {
+    setSelectedGrades(prev => 
+      prev.includes(grade) 
+        ? prev.filter(g => g !== grade)
+        : [...prev, grade]
+    );
+  };
+
+  // 全选/取消全选年级
+  const toggleAllGrades = () => {
+    if (selectedGrades.length === grades.length) {
+      setSelectedGrades([]);
+    } else {
+      setSelectedGrades([...grades]);
+    }
+  };
+
+  // 切换班级选择
+  const toggleClass = (className: string) => {
+    setSelectedClasses(prev => 
+      prev.includes(className) 
+        ? prev.filter(c => c !== className)
+        : [...prev, className]
+    );
+  };
+
+  // 全选/取消全选班级
+  const toggleAllClasses = () => {
+    const allClasses = Object.values(classesByGrade).flat();
+    if (selectedClasses.length === allClasses.length) {
+      setSelectedClasses([]);
+    } else {
+      setSelectedClasses(allClasses);
+    }
+  };
 
   // 过滤目标
   const filteredGoals = goalsData.filter(goal => {
@@ -358,7 +420,7 @@ export default function GoalsPage() {
             </div>
             <div>
               <Label>适用对象</Label>
-              <Select>
+              <Select value={targetScope} onValueChange={handleScopeChange}>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="选择适用对象" />
                 </SelectTrigger>
@@ -369,10 +431,99 @@ export default function GoalsPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* 年级选择器 */}
+            {targetScope === 'grade' && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>选择年级</Label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 text-xs"
+                    onClick={toggleAllGrades}
+                  >
+                    {selectedGrades.length === grades.length ? '取消全选' : '全选'}
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
+                  {grades.map(grade => (
+                    <button
+                      key={grade}
+                      onClick={() => toggleGrade(grade)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        selectedGrades.includes(grade)
+                          ? 'bg-primary text-white'
+                          : 'bg-white border border-gray-200 text-gray-700 hover:border-primary hover:text-primary'
+                      }`}
+                    >
+                      {grade}
+                    </button>
+                  ))}
+                </div>
+                {selectedGrades.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    已选择 {selectedGrades.length} 个年级
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {/* 班级选择器 */}
+            {targetScope === 'class' && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>选择班级</Label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 text-xs"
+                    onClick={toggleAllClasses}
+                  >
+                    {selectedClasses.length === Object.values(classesByGrade).flat().length ? '取消全选' : '全选'}
+                  </Button>
+                </div>
+                <div className="space-y-3 p-3 bg-gray-50 rounded-lg max-h-48 overflow-y-auto">
+                  {grades.map(grade => (
+                    <div key={grade}>
+                      <div className="text-xs font-medium text-gray-500 mb-1.5">{grade}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {classesByGrade[grade].map(className => (
+                          <button
+                            key={className}
+                            onClick={() => toggleClass(className)}
+                            className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                              selectedClasses.includes(className)
+                                ? 'bg-primary text-white'
+                                : 'bg-white border border-gray-200 text-gray-700 hover:border-primary hover:text-primary'
+                            }`}
+                          >
+                            {className}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {selectedClasses.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    已选择 {selectedClasses.length} 个班级
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>取消</Button>
-            <Button onClick={() => setShowCreateDialog(false)}>创建目标</Button>
+            <Button variant="outline" onClick={() => {
+              setShowCreateDialog(false);
+              setTargetScope('all');
+              setSelectedGrades([]);
+              setSelectedClasses([]);
+            }}>取消</Button>
+            <Button onClick={() => {
+              setShowCreateDialog(false);
+              // 这里可以添加创建目标的逻辑
+            }}>创建目标</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
