@@ -87,6 +87,10 @@ export default function SchedulePage() {
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [activeTab, setActiveTab] = useState('schedule');
   
+  // 教师课表筛选
+  const [teacherGradeFilter, setTeacherGradeFilter] = useState<string>('all');
+  const [teacherSubjectFilter, setTeacherSubjectFilter] = useState<string>('all');
+  
   // 对话框控制
   const [showSlotDialog, setShowSlotDialog] = useState(false);
   const [showSubstituteDialog, setShowSubstituteDialog] = useState(false);
@@ -246,7 +250,45 @@ export default function SchedulePage() {
   // 获取教师课表
   const getTeacherScheduleSlots = useCallback(() => {
     if (!selectedTeacherId) return [];
-    return scheduleSlots.filter(s => s.teacherId === selectedTeacherId);
+    let slots = scheduleSlots.filter(s => s.teacherId === selectedTeacherId);
+    
+    // 按年级筛选
+    if (teacherGradeFilter !== 'all') {
+      slots = slots.filter(s => {
+        const slotClass = classes.find(c => c.id === s.classId);
+        return slotClass?.grade === parseInt(teacherGradeFilter);
+      });
+    }
+    
+    // 按科目筛选
+    if (teacherSubjectFilter !== 'all') {
+      slots = slots.filter(s => s.subject === teacherSubjectFilter);
+    }
+    
+    return slots;
+  }, [scheduleSlots, selectedTeacherId, teacherGradeFilter, teacherSubjectFilter, classes]);
+  
+  // 获取教师涉及的年级列表
+  const getTeacherGrades = useCallback(() => {
+    if (!selectedTeacherId) return [];
+    const teacherSlots = scheduleSlots.filter(s => s.teacherId === selectedTeacherId);
+    const gradesSet = new Set<number>();
+    teacherSlots.forEach(s => {
+      const cls = classes.find(c => c.id === s.classId);
+      if (cls) gradesSet.add(cls.grade);
+    });
+    return Array.from(gradesSet).sort((a, b) => a - b);
+  }, [scheduleSlots, selectedTeacherId, classes]);
+  
+  // 获取教师涉及的科目列表
+  const getTeacherSubjects = useCallback(() => {
+    if (!selectedTeacherId) return [];
+    const teacherSlots = scheduleSlots.filter(s => s.teacherId === selectedTeacherId);
+    const subjectsSet = new Set<string>();
+    teacherSlots.forEach(s => {
+      if (s.subject) subjectsSet.add(s.subject);
+    });
+    return Array.from(subjectsSet);
   }, [scheduleSlots, selectedTeacherId]);
 
   // 获取指定位置的课表
@@ -526,16 +568,50 @@ export default function SchedulePage() {
                   <CardTitle>教师课程表</CardTitle>
                   <CardDescription>查看各教师的授课安排和周课时统计</CardDescription>
                 </div>
-                <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="选择教师" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teachers.map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-3">
+                  {/* 年级筛选 */}
+                  <Select value={teacherGradeFilter} onValueChange={setTeacherGradeFilter}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue placeholder="年级" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部年级</SelectItem>
+                      {getTeacherGrades().map(grade => (
+                        <SelectItem key={grade} value={grade.toString()}>{grade}年级</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* 科目筛选 */}
+                  <Select value={teacherSubjectFilter} onValueChange={setTeacherSubjectFilter}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue placeholder="科目" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部科目</SelectItem>
+                      {getTeacherSubjects().map(subject => (
+                        <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* 教师选择 */}
+                  <Select value={selectedTeacherId} onValueChange={(val) => {
+                    setSelectedTeacherId(val);
+                    // 切换教师时重置筛选
+                    setTeacherGradeFilter('all');
+                    setTeacherSubjectFilter('all');
+                  }}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="选择教师" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teachers.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
