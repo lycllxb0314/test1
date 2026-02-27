@@ -80,13 +80,13 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     description: '教研组长带1个班：本班主科5-6节 + 本班兼任约3节 + 其他班约4节（教研工作折算）',
   },
   
-  // 中层行政（带1个班，课时略少）
+  // 中层行政（带1个班）
   {
     role: 'admin',
     classCount: 1,
     mainSubjectHours: [5, 6],
-    totalHours: 10,
-    description: '中层行政带1个班：本班主科5-6节 + 本班兼任约2节 + 其他班约2-3节（行政工作折算课时）',
+    totalHours: 13,
+    description: '中层行政带1个班：本班主科5-6节 + 本班兼任约2节 + 其他班约5-6节（行政工作另算）',
   },
   
   // 年段长（带1个班）
