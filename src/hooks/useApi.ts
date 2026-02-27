@@ -44,6 +44,8 @@ export interface UseQueryResult<T> {
 export interface UseMutationResult<T, P> {
   /** 执行 mutation */
   mutate: (params: P) => Promise<T | null>;
+  /** 执行 mutation (mutate的别名，兼容性更好) */
+  mutateAsync: (params: P) => Promise<T | null>;
   /** 加载中 */
   loading: boolean;
   /** 错误信息 */
@@ -255,7 +257,7 @@ export function useMutation<T, P>(
     setError(null);
   }, []);
 
-  return { mutate, loading, error, reset };
+  return { mutate, mutateAsync: mutate, loading, error, reset };
 }
 
 // ============================================
@@ -263,7 +265,7 @@ export function useMutation<T, P>(
 // ============================================
 
 import { api } from '@/services/api-client';
-import type { Teacher, Student, ClassInfo, LeaveRequest, ScheduleChange } from '@/types';
+import type { Teacher, Student, ClassInfo, LeaveRequest, ScheduleChange, ExpenseReimbursement } from '@/types';
 
 /**
  * 教师列表Hook
@@ -389,6 +391,97 @@ export function useRoomBookings(params?: QueryParams) {
  */
 export function useAccessRecords(params?: QueryParams) {
   return useQuery(() => api.access.getRecords(params), { deps: [params] });
+}
+
+/**
+ * 报销列表Hook
+ */
+export function useExpenses(params?: QueryParams) {
+  return useQuery(() => api.expense.list(params), { deps: [params] });
+}
+
+/**
+ * 报销详情Hook
+ */
+export function useExpense(id: string | null) {
+  return useQuery(
+    () => api.expense.get(id!),
+    { enabled: !!id, deps: [id] }
+  );
+}
+
+/**
+ * 报销统计Hook
+ */
+export function useExpenseStatistics() {
+  return useQuery(() => api.expense.getStatistics());
+}
+
+/**
+ * 创建报销Hook
+ */
+export function useCreateExpense() {
+  return useMutation((data: Partial<ExpenseReimbursement>) => api.expense.create(data));
+}
+
+/**
+ * 更新报销Hook
+ */
+export function useUpdateExpense() {
+  return useMutation(
+    ({ id, data }: { id: string; data: Partial<ExpenseReimbursement> }) =>
+      api.expense.update(id, data)
+  );
+}
+
+/**
+ * 提交报销Hook
+ */
+export function useSubmitExpense() {
+  return useMutation((id: string) => api.expense.submit(id));
+}
+
+/**
+ * 删除报销Hook
+ */
+export function useDeleteExpense() {
+  return useMutation((id: string) => api.expense.delete(id));
+}
+
+/**
+ * 审批报销Hook
+ */
+export function useApproveExpense() {
+  return useMutation(
+    ({ id, approved, comment, approverId, approverName }: { 
+      id: string; 
+      approved: boolean; 
+      comment?: string;
+      approverId?: string;
+      approverName?: string;
+    }) =>
+      api.expense.approve(id, approved, comment)
+  );
+}
+
+/**
+ * 财务处理报销Hook
+ */
+export function useProcessExpense() {
+  return useMutation(
+    ({ id, action, paymentNo, processorId, processorName }: { 
+      id: string; 
+      action: 'process' | 'complete';
+      paymentNo?: string;
+      processorId: string;
+      processorName: string;
+    }) =>
+      api.expense.process(id, { 
+        paymentDate: new Date().toISOString(),
+        paymentVoucher: paymentNo,
+        remark: action === 'process' ? '开始处理' : '已完成支付'
+      })
+  );
 }
 
 // ============================================

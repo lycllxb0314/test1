@@ -21,7 +21,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Table,
@@ -33,21 +32,19 @@ import {
 } from '@/components/ui/table';
 import {
   DollarSign,
-  Plus,
   Search,
   Clock,
   CheckCircle,
-  FileText,
-  Receipt,
-  TrendingUp,
-  Calendar,
+  XCircle,
+  Eye,
   AlertCircle,
   Loader2,
+  Receipt,
   CheckSquare,
-  Printer,
-  Wallet,
+  XSquare,
 } from 'lucide-react';
-import { useExpenses, useExpenseStatistics, useProcessExpense } from '@/hooks/useApi';
+import { useAuth } from '@/contexts/AuthContext';
+import { useExpenses, useApproveExpense } from '@/hooks/useApi';
 import { toast } from 'sonner';
 import type { ExpenseReimbursement } from '@/types';
 
@@ -87,28 +84,35 @@ const getStatusBadge = (status: string) => {
   }
 };
 
-export default function FinancePage() {
+export default function ExpenseApprovalPage() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [showProcessDialog, setShowProcessDialog] = useState(false);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseReimbursement | null>(null);
-  const [processAction, setProcessAction] = useState<'process' | 'complete'>('process');
-  const [paymentNo, setPaymentNo] = useState('');
+  const [approveComment, setApproveComment] = useState('');
+  const [approveAction, setApproveAction] = useState<'approve' | 'reject'>('approve');
 
   // 使用统一Hooks获取数据
-  const { data: expenses, loading: expensesLoading, refetch } = useExpenses();
-  const { data: stats, loading: statsLoading } = useExpenseStatistics();
-  const processMutation = useProcessExpense();
+  const { data: expenses, loading, refetch } = useExpenses({ status: statusFilter === 'all' ? undefined : statusFilter });
+  const approveMutation = useApproveExpense();
 
   // 过滤数据
   const filteredExpenses = (expenses || []).filter(e => {
     const matchesSearch = e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          e.expenseNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          e.applicantName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || e.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
+
+  // 统计
+  const stats = {
+    pending: (expenses || []).filter(e => e.status === 'pending').length,
+    approved: (expenses || []).filter(e => e.status === 'approved').length,
+    rejected: (expenses || []).filter(e => e.status === 'rejected').length,
+    totalAmount: (expenses || []).filter(e => e.status === 'pending').reduce((sum, e) => sum + e.totalAmount, 0),
+  };
 
   // 查看详情
   const handleViewDetail = (expense: ExpenseReimbursement) => {
@@ -116,34 +120,29 @@ export default function FinancePage() {
     setShowDetailDialog(true);
   };
 
-  // 打开处理对话框
-  const handleOpenProcess = (expense: ExpenseReimbursement, action: 'process' | 'complete') => {
+  // 打开审批对话框
+  const handleOpenApprove = (expense: ExpenseReimbursement, action: 'approve' | 'reject') => {
     setSelectedExpense(expense);
-    setProcessAction(action);
-    setPaymentNo('');
-    setShowProcessDialog(true);
+    setApproveAction(action);
+    setApproveComment('');
+    setShowApproveDialog(true);
   };
 
-  // 提交处理
-  const handleSubmitProcess = async () => {
+  // 提交审批
+  const handleSubmitApproval = async () => {
     if (!selectedExpense) return;
-    
-    if (processAction === 'complete' && !paymentNo) {
-      toast.error('请填写支付单号');
-      return;
-    }
 
     try {
-      await processMutation.mutateAsync({
+      await approveMutation.mutateAsync({
         id: selectedExpense.id,
-        action: processAction,
-        paymentNo: processAction === 'complete' ? paymentNo : undefined,
-        processorId: 'finance-001',
-        processorName: '财务人员',
+        approved: approveAction === 'approve',
+        comment: approveComment,
+        approverId: user?.id,
+        approverName: user?.name,
       });
       
-      toast.success(processAction === 'process' ? '已开始处理' : '已标记完成');
-      setShowProcessDialog(false);
+      toast.success(approveAction === 'approve' ? '审批通过' : '已拒绝');
+      setShowApproveDialog(false);
       setShowDetailDialog(false);
       refetch();
     } catch (error) {
@@ -152,25 +151,23 @@ export default function FinancePage() {
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-orange-50/30 via-white to-amber-50/30 min-h-screen">
+    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-purple-50/30 via-white to-pink-50/30 min-h-screen">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">财务管理</h1>
-          <p className="text-gray-500 mt-1">费用报销与财务支出管理</p>
+          <h1 className="text-2xl font-bold text-gray-900">报销审批</h1>
+          <p className="text-gray-500 mt-1">费用报销申请审批管理</p>
         </div>
       </div>
 
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setStatusFilter('pending')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">待处理报销</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {statsLoading ? '-' : (stats?.pendingCount || 0)}
-                </p>
+                <p className="text-sm text-gray-500">待审批</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
               </div>
               <div className="p-2 rounded-lg bg-yellow-100">
                 <Clock className="h-5 w-5 text-yellow-600" />
@@ -179,33 +176,29 @@ export default function FinancePage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setStatusFilter('approved')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">本月支出</p>
-                <p className="text-2xl font-bold text-red-600">
-                  ¥{(stats?.totalAmount || 0).toLocaleString()}
-                </p>
-              </div>
-              <div className="p-2 rounded-lg bg-red-100">
-                <DollarSign className="h-5 w-5 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">待支付金额</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  ¥{(stats?.approvedAmount || 0).toLocaleString()}
-                </p>
+                <p className="text-sm text-gray-500">已批准</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.approved}</p>
               </div>
               <div className="p-2 rounded-lg bg-blue-100">
-                <Receipt className="h-5 w-5 text-blue-600" />
+                <CheckCircle className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setStatusFilter('rejected')}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">已拒绝</p>
+                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-red-100">
+                <XCircle className="h-5 w-5 text-red-600" />
               </div>
             </div>
           </CardContent>
@@ -215,13 +208,11 @@ export default function FinancePage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">本月完成</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {statsLoading ? '-' : (stats?.completedCount || 0)}笔
-                </p>
+                <p className="text-sm text-gray-500">待审批金额</p>
+                <p className="text-2xl font-bold text-purple-600">¥{stats.totalAmount.toLocaleString()}</p>
               </div>
-              <div className="p-2 rounded-lg bg-green-100">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+              <div className="p-2 rounded-lg bg-purple-100">
+                <DollarSign className="h-5 w-5 text-purple-600" />
               </div>
             </div>
           </CardContent>
@@ -247,8 +238,9 @@ export default function FinancePage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="pending">待审批</SelectItem>
                 <SelectItem value="approved">已批准</SelectItem>
-                <SelectItem value="processing">处理中</SelectItem>
+                <SelectItem value="rejected">已拒绝</SelectItem>
                 <SelectItem value="completed">已完成</SelectItem>
               </SelectContent>
             </Select>
@@ -274,7 +266,7 @@ export default function FinancePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {expensesLoading ? (
+              {loading ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
@@ -303,27 +295,27 @@ export default function FinancePage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => handleViewDetail(expense)}>
-                          <FileText className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                        {expense.status === 'approved' && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleOpenProcess(expense, 'process')}
-                            className="text-purple-600 hover:text-purple-700"
-                          >
-                            <Wallet className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {expense.status === 'processing' && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleOpenProcess(expense, 'complete')}
-                            className="text-green-600 hover:text-green-700"
-                          >
-                            <CheckSquare className="h-4 w-4" />
-                          </Button>
+                        {expense.status === 'pending' && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleOpenApprove(expense, 'approve')}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <CheckSquare className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleOpenApprove(expense, 'reject')}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <XSquare className="h-4 w-4" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>
@@ -415,49 +407,81 @@ export default function FinancePage() {
                 </div>
               )}
               
-              {selectedExpense.paymentNo && (
-                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 text-green-700">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="font-medium">支付单号：{selectedExpense.paymentNo}</span>
-                  </div>
+              {/* 审批进度 */}
+              <div>
+                <Label className="text-gray-500">审批进度</Label>
+                <div className="mt-2 space-y-2">
+                  {selectedExpense.approvalFlow.map((node, index) => {
+                    const record = selectedExpense.approvalRecords.find(r => r.nodeId === node.id);
+                    return (
+                      <div key={node.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
+                        <div className={`w-2 h-2 rounded-full ${
+                          node.status === 'approved' ? 'bg-green-500' : 
+                          node.status === 'rejected' ? 'bg-red-500' : 
+                          index === selectedExpense.currentStep ? 'bg-yellow-500' : 'bg-gray-300'
+                        }`} />
+                        <div className="flex-1">
+                          <span className="font-medium">{node.name}</span>
+                          {record && (
+                            <>
+                              <span className="text-gray-500 mx-2">-</span>
+                              <span>{record.approverName}</span>
+                              {record.comment && (
+                                <span className="text-gray-500 ml-2">({record.comment})</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div>
+                          {node.status === 'approved' && <Badge className="bg-green-100 text-green-700 text-xs">已通过</Badge>}
+                          {node.status === 'rejected' && <Badge className="bg-red-100 text-red-700 text-xs">已拒绝</Badge>}
+                          {node.status === 'pending' && index === selectedExpense.currentStep && (
+                            <Badge className="bg-yellow-100 text-yellow-700 text-xs">待审批</Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
             </div>
           )}
           
           <DialogFooter>
-            {selectedExpense?.status === 'approved' && (
-              <Button 
-                onClick={() => handleOpenProcess(selectedExpense, 'process')}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                <Wallet className="h-4 w-4 mr-2" />
-                开始处理
+            {selectedExpense?.status === 'pending' && (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleOpenApprove(selectedExpense, 'reject')}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <XSquare className="h-4 w-4 mr-2" />
+                  拒绝
+                </Button>
+                <Button 
+                  onClick={() => handleOpenApprove(selectedExpense, 'approve')}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckSquare className="h-4 w-4 mr-2" />
+                  通过
+                </Button>
+              </>
+            )}
+            {selectedExpense?.status !== 'pending' && (
+              <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
+                关闭
               </Button>
             )}
-            {selectedExpense?.status === 'processing' && (
-              <Button 
-                onClick={() => handleOpenProcess(selectedExpense, 'complete')}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <CheckSquare className="h-4 w-4 mr-2" />
-                标记完成
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
-              关闭
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 处理确认对话框 */}
-      <Dialog open={showProcessDialog} onOpenChange={setShowProcessDialog}>
+      {/* 审批确认对话框 */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {processAction === 'process' ? '开始处理报销' : '标记报销完成'}
+              {approveAction === 'approve' ? '确认通过' : '确认拒绝'}
             </DialogTitle>
             <DialogDescription>
               {selectedExpense?.title} - ¥{selectedExpense?.totalAmount.toLocaleString()}
@@ -465,29 +489,28 @@ export default function FinancePage() {
           </DialogHeader>
           
           <div className="space-y-4">
-            {processAction === 'complete' && (
-              <div className="space-y-2">
-                <Label>支付单号 *</Label>
-                <Input
-                  placeholder="请输入支付单号"
-                  value={paymentNo}
-                  onChange={(e) => setPaymentNo(e.target.value)}
-                />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>审批意见（可选）</Label>
+              <Textarea
+                placeholder={approveAction === 'approve' ? '填写审批意见...' : '请填写拒绝原因...'}
+                value={approveComment}
+                onChange={(e) => setApproveComment(e.target.value)}
+                rows={3}
+              />
+            </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowProcessDialog(false)}>
+            <Button variant="outline" onClick={() => setShowApproveDialog(false)}>
               取消
             </Button>
             <Button 
-              onClick={handleSubmitProcess}
-              className={processAction === 'process' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'}
-              disabled={processMutation.loading}
+              onClick={handleSubmitApproval}
+              className={approveAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+              disabled={approveMutation.loading}
             >
-              {processMutation.loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              确认
+              {approveMutation.loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              确认{approveAction === 'approve' ? '通过' : '拒绝'}
             </Button>
           </DialogFooter>
         </DialogContent>

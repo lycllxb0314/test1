@@ -146,6 +146,7 @@ const teacherBaseNav: NavItem[] = [
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排' },
   { name: '通知公告', href: '/teacher/announcements', icon: Bell, description: '学校通知公告' },
   { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请' },
+  { name: '报销申请', href: '/teacher/expense', icon: DollarSign, description: '费用报销申请' },
   { name: '教室预约', href: '/academic/rooms/booking', icon: DoorOpen, description: '预约使用教室' },
 ];
 
@@ -175,6 +176,7 @@ const workflowNav: NavItem[] = [
   { name: '审批中心', href: '/workflow', icon: LayoutDashboard, description: '统一审批中心' },
   { name: '流程配置', href: '/workflow/config', icon: Settings, description: '配置审批流程' },
   { name: '请假审批', href: '/workflow/leave', icon: FileText, description: '请假申请审批' },
+  { name: '报销审批', href: '/workflow/expense', icon: DollarSign, description: '报销申请审批' },
   { name: '报修审批', href: '/workflow/repair', icon: Wrench, description: '报修申请审批' },
   { name: '采购审批', href: '/workflow/purchase', icon: ShoppingCart, description: '采购申请审批' },
 ];

@@ -2340,3 +2340,161 @@ export interface ClassInfo {
 
 // 调课记录别名
 export type ScheduleChange = CourseAdjustment;
+
+// ============================================================
+// 报销管理类型定义
+// ============================================================
+
+/**
+ * 报销类型
+ */
+export type ExpenseCategory = 
+  | 'office_supplies'     // 办公用品
+  | 'travel'              // 差旅费
+  | 'training'            // 培训费用
+  | 'teaching_materials'  // 教学材料
+  | 'activity'            // 活动经费
+  | 'transportation'      // 交通费
+  | 'communication'       // 通讯费
+  | 'equipment'           // 设备费用
+  | 'maintenance'         // 维修费用
+  | 'other';              // 其他
+
+/**
+ * 报销状态
+ */
+export type ExpenseStatus = 
+  | 'draft'        // 草稿
+  | 'pending'      // 待审批
+  | 'approved'     // 已批准
+  | 'rejected'     // 已拒绝
+  | 'processing'   // 财务处理中
+  | 'completed'    // 已完成（已打款）
+  | 'cancelled';   // 已取消
+
+/**
+ * 报销项目明细
+ */
+export interface ExpenseItem {
+  id: string;
+  /** 项目名称 */
+  name: string;
+  /** 类别 */
+  category: ExpenseCategory;
+  /** 金额 */
+  amount: number;
+  /** 说明 */
+  description?: string;
+  /** 发票号 */
+  invoiceNo?: string;
+  /** 发票图片 */
+  invoiceImage?: string;
+  /** 发生日期 */
+  expenseDate: string;
+}
+
+/**
+ * 报销申请
+ */
+export interface ExpenseReimbursement {
+  id: string;
+  
+  // === 基本信息 ===
+  /** 报销单号 */
+  expenseNo: string;
+  /** 标题 */
+  title: string;
+  
+  // === 申请人信息 ===
+  applicantId: string;
+  applicantName: string;
+  applicantRole: UserRole;
+  department: string;
+  phone?: string;
+  
+  // === 报销详情 ===
+  /** 报销类别 */
+  category: ExpenseCategory;
+  /** 报销项目明细 */
+  items: ExpenseItem[];
+  /** 总金额 */
+  totalAmount: number;
+  /** 报销说明 */
+  description: string;
+  /** 附件 */
+  attachments?: string[];
+  
+  // === 关联信息 ===
+  /** 关联的项目/活动ID */
+  relatedId?: string;
+  /** 关联的项目/活动名称 */
+  relatedName?: string;
+  
+  // === 审批流程 ===
+  status: ExpenseStatus;
+  /** 审批流程节点 */
+  approvalFlow: ApprovalNode[];
+  /** 当前审批步骤 */
+  currentStep: number;
+  /** 审批记录 */
+  approvalRecords: ApprovalRecord[];
+  
+  // === 财务处理 ===
+  /** 财务处理人ID */
+  financeHandlerId?: string;
+  /** 财务处理人姓名 */
+  financeHandlerName?: string;
+  /** 支付单号 */
+  paymentNo?: string;
+  /** 打款时间 */
+  paymentDate?: string;
+  /** 打款凭证 */
+  paymentVoucher?: string;
+  /** 财务备注 */
+  financeRemark?: string;
+  
+  // === 时间戳 ===
+  createdAt: string;
+  updatedAt: string;
+  /** 提交时间 */
+  submittedAt?: string;
+  /** 完成时间 */
+  completedAt?: string;
+}
+
+/**
+ * 报销类别配置
+ */
+export interface ExpenseCategoryConfig {
+  id: ExpenseCategory;
+  name: string;
+  description: string;
+  /** 是否需要关联项目 */
+  requireProject?: boolean;
+  /** 上限金额（需要更高级别审批） */
+  limitAmount?: number;
+  /** 图标 */
+  icon?: string;
+}
+
+/**
+ * 报销统计
+ */
+export interface ExpenseStatistics {
+  /** 待审批数量 */
+  pendingCount: number;
+  /** 处理中数量 */
+  processingCount: number;
+  /** 已完成数量 */
+  completedCount: number;
+  /** 本月已报销金额 */
+  monthlyAmount: number;
+  /** 本年已报销金额 */
+  yearlyAmount: number;
+  /** 待报销金额 */
+  pendingAmount: number;
+  /** 已批准待支付金额 */
+  approvedAmount: number;
+  /** 总金额 */
+  totalAmount: number;
+}
