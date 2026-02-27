@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 /**
- * GET - 获取教室预约列表
+ * GET - 获取请假申请列表
  * 查询参数：
- * - roomId: 教室ID
  * - applicantId: 申请人ID
  * - status: 状态
+ * - type: 请假类型
  * - startDate: 开始日期
  * - endDate: 结束日期
  */
@@ -14,54 +14,52 @@ export async function GET(request: NextRequest) {
   try {
     const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
-    const roomId = searchParams.get('roomId');
     const applicantId = searchParams.get('applicantId');
     const status = searchParams.get('status');
+    const type = searchParams.get('type');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
     // 构建查询
     let query = client
-      .from('room_bookings')
+      .from('leave_requests')
       .select(`
         id,
-        room_id,
         applicant_id,
         applicant_name,
-        purpose,
+        applicant_type,
+        type,
         start_time,
         end_time,
+        duration,
+        reason,
         status,
-        attendees_count,
-        facilities_needed,
-        notes,
-        approver_id,
-        approver_name,
-        approved_at,
-        rejection_reason,
+        current_step,
+        attachment_url,
+        replacement_id,
+        replacement_name,
         created_at,
-        rooms (
+        teachers (
           id,
           name,
-          code,
-          type,
-          building,
-          location
+          employee_id,
+          grade_role,
+          department_role
         )
       `)
-      .order('start_time', { ascending: true });
+      .order('created_at', { ascending: false });
 
     // 应用筛选条件
-    if (roomId) {
-      query = query.eq('room_id', roomId);
-    }
-
     if (applicantId) {
       query = query.eq('applicant_id', applicantId);
     }
 
     if (status) {
       query = query.eq('status', status);
+    }
+
+    if (type) {
+      query = query.eq('type', type);
     }
 
     if (startDate) {
@@ -79,28 +77,24 @@ export async function GET(request: NextRequest) {
     }
 
     // 格式化返回数据
-    const formattedData = (data || []).map((booking: any) => ({
-      id: booking.id,
-      roomId: booking.room_id,
-      roomName: booking.rooms?.name || '',
-      roomCode: booking.rooms?.code || '',
-      roomType: booking.rooms?.type || '',
-      building: booking.rooms?.building || '',
-      location: booking.rooms?.location || '',
-      applicantId: booking.applicant_id,
-      applicantName: booking.applicant_name,
-      purpose: booking.purpose,
-      startTime: booking.start_time,
-      endTime: booking.end_time,
-      status: booking.status,
-      attendeesCount: booking.attendees_count,
-      facilitiesNeeded: booking.facilities_needed || [],
-      notes: booking.notes,
-      approverId: booking.approver_id,
-      approverName: booking.approver_name,
-      approvedAt: booking.approved_at,
-      rejectionReason: booking.rejection_reason,
-      createdAt: booking.created_at,
+    const formattedData = (data || []).map((leave: any) => ({
+      id: leave.id,
+      applicantId: leave.applicant_id,
+      applicantName: leave.applicant_name,
+      applicantType: leave.applicant_type,
+      applicantGradeRole: leave.teachers?.grade_role || '',
+      applicantDepartmentRole: leave.teachers?.department_role || '',
+      type: leave.type,
+      startTime: leave.start_time,
+      endTime: leave.end_time,
+      duration: leave.duration,
+      reason: leave.reason,
+      status: leave.status,
+      currentStep: leave.current_step,
+      attachmentUrl: leave.attachment_url,
+      replacementId: leave.replacement_id,
+      replacementName: leave.replacement_name,
+      createdAt: leave.created_at,
     }));
 
     return NextResponse.json({
@@ -108,16 +102,16 @@ export async function GET(request: NextRequest) {
       data: formattedData,
     });
   } catch (error) {
-    console.error('Failed to fetch room bookings:', error);
+    console.error('Failed to fetch leave requests:', error);
     return NextResponse.json({
       success: false,
-      error: '获取教室预约列表失败',
+      error: '获取请假申请列表失败',
     }, { status: 500 });
   }
 }
 
 /**
- * POST - 创建教室预约
+ * POST - 创建请假申请
  */
 export async function POST(request: NextRequest) {
   try {
@@ -125,45 +119,35 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const {
-      roomId,
       applicantId,
       applicantName,
-      purpose,
+      applicantType,
+      type,
       startTime,
       endTime,
-      attendeesCount,
-      facilitiesNeeded,
-      notes,
+      duration,
+      reason,
+      attachmentUrl,
+      replacementId,
+      replacementName,
     } = body;
 
-    // 检查时间冲突
-    const { data: conflicts } = await client
-      .from('room_bookings')
-      .select('id')
-      .eq('room_id', roomId)
-      .neq('status', 'rejected')
-      .or(`start_time.lt.${endTime},end_time.gt.${startTime}`);
-
-    if (conflicts && conflicts.length > 0) {
-      return NextResponse.json({
-        success: false,
-        error: '该时间段已有预约，请选择其他时间',
-      }, { status: 400 });
-    }
-
     const { data, error } = await client
-      .from('room_bookings')
+      .from('leave_requests')
       .insert({
-        room_id: roomId,
         applicant_id: applicantId,
         applicant_name: applicantName,
-        purpose,
+        applicant_type: applicantType || 'teacher',
+        type,
         start_time: startTime,
         end_time: endTime,
+        duration,
+        reason,
         status: 'pending',
-        attendees_count: attendeesCount,
-        facilities_needed: facilitiesNeeded || [],
-        notes,
+        current_step: 1,
+        attachment_url: attachmentUrl,
+        replacement_id: replacementId,
+        replacement_name: replacementName,
       })
       .select()
       .single();
@@ -177,41 +161,48 @@ export async function POST(request: NextRequest) {
       data,
     });
   } catch (error) {
-    console.error('Failed to create room booking:', error);
+    console.error('Failed to create leave request:', error);
     return NextResponse.json({
       success: false,
-      error: '创建教室预约失败',
+      error: '创建请假申请失败',
     }, { status: 500 });
   }
 }
 
 /**
- * PUT - 更新教室预约状态（审批）
+ * PUT - 更新请假申请状态（审批）
  */
 export async function PUT(request: NextRequest) {
   try {
     const client = getSupabaseClient();
     const body = await request.json();
 
-    const { id, action, approverId, approverName, rejectionReason } = body;
+    const { id, action, approverId, approverName, comments, nextStep } = body;
+
+    // 获取当前请假申请
+    const { data: leaveRequest, error: fetchError } = await client
+      .from('leave_requests')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      throw fetchError;
+    }
 
     const updateData: any = {
-      approver_id: approverId,
-      approver_name: approverName,
-      approved_at: new Date().toISOString(),
+      current_step: nextStep || leaveRequest.current_step,
     };
 
     if (action === 'approve') {
+      // 如果是最后一步审批，更新为已通过
       updateData.status = 'approved';
     } else if (action === 'reject') {
       updateData.status = 'rejected';
-      updateData.rejection_reason = rejectionReason;
-    } else if (action === 'cancel') {
-      updateData.status = 'cancelled';
     }
 
     const { data, error } = await client
-      .from('room_bookings')
+      .from('leave_requests')
       .update(updateData)
       .eq('id', id)
       .select()
@@ -221,15 +212,27 @@ export async function PUT(request: NextRequest) {
       throw error;
     }
 
+    // 记录审批历史
+    await client
+      .from('leave_approval_records')
+      .insert({
+        leave_request_id: id,
+        approver_id: approverId,
+        approver_name: approverName,
+        action,
+        comments,
+        created_at: new Date().toISOString(),
+      });
+
     return NextResponse.json({
       success: true,
       data,
     });
   } catch (error) {
-    console.error('Failed to update room booking:', error);
+    console.error('Failed to update leave request:', error);
     return NextResponse.json({
       success: false,
-      error: '更新教室预约失败',
+      error: '更新请假申请失败',
     }, { status: 500 });
   }
 }

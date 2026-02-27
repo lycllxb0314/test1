@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,12 @@ import {
   habitCategoryNames,
   habitCategoryColors,
 } from '@/types';
+import {
+  useSchoolHabitStats,
+  habitCategoryNames as hookCategoryNames,
+  habitCategoryColors as hookCategoryColors,
+  type HabitCategory as HookHabitCategory,
+} from '@/hooks/useHabitData';
 
 // 习惯类别图标映射
 const habitIcons: Record<HabitCategory, React.ElementType> = {
@@ -55,44 +61,7 @@ const habitIcons: Record<HabitCategory, React.ElementType> = {
   labor: Hammer,
 };
 
-// 模拟全校数据
-const schoolOverview = {
-  totalStudents: 1896,
-  totalClasses: 42,
-  totalTeachers: 128,
-  averageRate: 86.3,
-  rateChange: 2.1,
-  habitStars: 186,
-  starsChange: 12,
-  attentionStudents: 47,
-  attentionChange: -8,
-  monthlyEvaluations: 3428,
-  goalsCompletion: 78.5,
-};
-
-// 八大习惯全校数据
-const habitCategoryData = [
-  { category: 'civilization' as HabitCategory, rate: 89.2, trend: 'up', change: 2.3, topGrade: '三年级', weakGrade: '六年级' },
-  { category: 'writing' as HabitCategory, rate: 78.5, trend: 'stable', change: 0.5, topGrade: '五年级', weakGrade: '一年级' },
-  { category: 'reading' as HabitCategory, rate: 92.1, trend: 'up', change: 3.8, topGrade: '四年级', weakGrade: '二年级' },
-  { category: 'sports' as HabitCategory, rate: 83.7, trend: 'up', change: 1.2, topGrade: '三年级', weakGrade: '六年级' },
-  { category: 'safety' as HabitCategory, rate: 91.5, trend: 'stable', change: 0.2, topGrade: '二年级', weakGrade: '五年级' },
-  { category: 'hygiene' as HabitCategory, rate: 85.8, trend: 'up', change: 1.5, topGrade: '四年级', weakGrade: '一年级' },
-  { category: 'aesthetic' as HabitCategory, rate: 72.3, trend: 'down', change: -1.2, topGrade: '五年级', weakGrade: '二年级' },
-  { category: 'labor' as HabitCategory, rate: 87.6, trend: 'up', change: 2.1, topGrade: '三年级', weakGrade: '六年级' },
-];
-
-// 各年级数据
-const gradeData = [
-  { grade: '一年级', students: 320, classes: 6, avgRate: 82.1, trend: 'up', stars: 24, attention: 12, topHabit: '安全', weakHabit: '书写' },
-  { grade: '二年级', students: 315, classes: 6, avgRate: 84.5, trend: 'stable', stars: 28, attention: 9, topHabit: '安全', weakHabit: '审美' },
-  { grade: '三年级', students: 328, classes: 6, avgRate: 89.2, trend: 'up', stars: 38, attention: 5, topHabit: '文明', weakHabit: '书写' },
-  { grade: '四年级', students: 324, classes: 6, avgRate: 88.7, trend: 'up', stars: 36, attention: 6, topHabit: '阅读', weakHabit: '审美' },
-  { grade: '五年级', students: 308, classes: 6, avgRate: 86.3, trend: 'stable', stars: 32, attention: 8, topHabit: '审美', weakHabit: '安全' },
-  { grade: '六年级', students: 301, classes: 6, avgRate: 85.1, trend: 'down', stars: 28, attention: 7, topHabit: '劳动', weakHabit: '运动' },
-];
-
-// 月度趋势数据
+// 月度趋势模拟数据（TODO: 从API获取）
 const monthlyTrend = [
   { month: '9月', rate: 78.2, stars: 142 },
   { month: '10月', rate: 80.5, stars: 156 },
@@ -103,24 +72,14 @@ const monthlyTrend = [
   { month: '3月', rate: 86.3, stars: 186 },
 ];
 
-// 预警班级
+// 预警班级模拟数据（TODO: 从API获取）
 const alertClasses = [
   { id: 'c601', name: '六(1)班', teacher: '张老师', issue: '运动习惯下降明显', rate: 72.3, change: -5.2 },
   { id: 'c102', name: '一(2)班', teacher: '李老师', issue: '书写习惯待提升', rate: 75.8, change: -2.1 },
   { id: 'c205', name: '二(5)班', teacher: '王老师', issue: '审美习惯达标率低', rate: 68.5, change: -1.8 },
 ];
 
-// 习惯之星排行榜
-const habitStarRanking = [
-  { rank: 1, grade: '三年级', students: 38, rate: 11.6, trend: 'up' },
-  { rank: 2, grade: '四年级', students: 36, rate: 11.1, trend: 'up' },
-  { rank: 3, grade: '五年级', students: 32, rate: 10.4, trend: 'stable' },
-  { rank: 4, grade: '六年级', students: 28, rate: 9.3, trend: 'down' },
-  { rank: 5, grade: '二年级', students: 28, rate: 8.9, trend: 'up' },
-  { rank: 6, grade: '一年级', students: 24, rate: 7.5, trend: 'stable' },
-];
-
-// 近期优秀学生
+// 近期优秀学生模拟数据（TODO: 从API获取）
 const outstandingStudents = [
   { name: '李小明', grade: '四年级', class: '四(1)班', achievements: '全习惯达标·阅读之星', avatar: '' },
   { name: '张小红', grade: '三年级', class: '三(2)班', achievements: '7项习惯优秀', avatar: '' },
@@ -131,6 +90,38 @@ const outstandingStudents = [
 export default function HabitOverviewPage() {
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<HabitCategory | null>(null);
+  
+  // 使用Hook获取数据
+  const { data: statsData, loading, error, refetch } = useSchoolHabitStats();
+  
+  // 解构数据
+  const schoolOverview = statsData?.overview || {
+    totalStudents: 0,
+    totalClasses: 0,
+    totalTeachers: 0,
+    averageRate: 0,
+    rateChange: 0,
+    habitStars: 0,
+    starsChange: 0,
+    attentionStudents: 0,
+    attentionChange: 0,
+    monthlyEvaluations: 0,
+    goalsCompletion: 0,
+  };
+  
+  const habitCategoryData = statsData?.categoryStats || [];
+  const gradeData = statsData?.gradeStats || [];
+  
+  // 计算习惯之星排行
+  const habitStarRanking = gradeData
+    .map((g, idx) => ({
+      rank: idx + 1,
+      grade: g.grade,
+      students: g.stars,
+      rate: g.students > 0 ? parseFloat(((g.stars / g.students) * 100).toFixed(1)) : 0,
+      trend: g.trend,
+    }))
+    .sort((a, b) => b.students - a.students);
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-slate-50 via-white to-green-50/30 min-h-screen">
@@ -151,16 +142,28 @@ export default function HabitOverviewPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg border border-green-200">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm text-green-700">数据已同步</span>
-          </div>
+          {loading ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200">
+              <RefreshCw className="h-3 w-3 animate-spin text-gray-500" />
+              <span className="text-sm text-gray-500">加载中...</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg border border-red-200">
+              <AlertTriangle className="h-3 w-3 text-red-500" />
+              <span className="text-sm text-red-700">{error}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg border border-green-200">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm text-green-700">数据已同步</span>
+            </div>
+          )}
           <Button variant="outline" size="sm" className="gap-2">
             <Download className="h-4 w-4" />
             导出报告
           </Button>
-          <Button variant="outline" size="icon">
-            <RefreshCw className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={() => refetch()} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -314,8 +317,8 @@ export default function HabitOverviewPage() {
                         </div>
                         <div className="mt-2 pt-2 border-t border-gray-100 w-full">
                           <div className="flex justify-between text-xs text-gray-400">
-                            <span>优:{item.topGrade}</span>
-                            <span>弱:{item.weakGrade}</span>
+                            <span>优:{item.topGrade || '-'}</span>
+                            <span>弱:{item.weakGrade || '-'}</span>
                           </div>
                         </div>
                       </div>
@@ -387,9 +390,9 @@ export default function HabitOverviewPage() {
                         <span>{grade.attention}</span>
                       </div>
                       <div className="text-xs">
-                        <span className="text-green-600">优:{grade.topHabit}</span>
-                        <span className="mx-1">·</span>
-                        <span className="text-orange-600">弱:{grade.weakHabit}</span>
+                        {grade.topHabit && <span className="text-green-600">优:{grade.topHabit}</span>}
+                        {grade.topHabit && grade.weakHabit && <span className="mx-1">·</span>}
+                        {grade.weakHabit && <span className="text-orange-600">弱:{grade.weakHabit}</span>}
                       </div>
                     </div>
                   </div>

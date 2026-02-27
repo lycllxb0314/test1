@@ -1,69 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { type HabitCategory } from '@/types';
 
 /**
  * GET - 获取习惯评价记录列表
  * 查询参数：
- * - page: 页码
- * - pageSize: 每页数量
  * - studentId: 学生ID
- * - classId: 班级ID
  * - category: 习惯类别
- * - type: 评价类型 (praise/improve)
+ * - startDate: 开始日期
+ * - endDate: 结束日期
+ * - limit: 返回数量限制
  */
 export async function GET(request: NextRequest) {
   try {
     const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
-    
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
     const studentId = searchParams.get('studentId');
-    const classId = searchParams.get('classId');
     const category = searchParams.get('category');
-    const type = searchParams.get('type');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+    const limit = parseInt(searchParams.get('limit') || '100');
 
+    // 构建查询
     let query = client
       .from('habit_assessments')
-      .select('*', { count: 'exact' });
+      .select(`
+        id,
+        student_id,
+        category,
+        score,
+        evaluator_id,
+        evaluator_name,
+        evaluator_type,
+        context,
+        occurred_at,
+        notes,
+        students (
+          id,
+          name,
+          student_number,
+          grade,
+          class_id,
+          classes (
+            id,
+            name
+          )
+        )
+      `)
+      .order('occurred_at', { ascending: false })
+      .limit(limit);
 
+    // 应用筛选条件
     if (studentId) {
       query = query.eq('student_id', studentId);
     }
-    if (classId) {
-      query = query.eq('class_id', classId);
-    }
+
     if (category) {
       query = query.eq('category', category);
     }
-    if (type) {
-      query = query.eq('type', type);
+
+    if (startDate) {
+      query = query.gte('occurred_at', startDate);
     }
 
-    // 分页
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to);
-    query = query.order('occurred_at', { ascending: false });
+    if (endDate) {
+      query = query.lte('occurred_at', endDate);
+    }
 
-    const { data, error, count } = await query;
+    const { data, error } = await query;
 
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+      throw error;
     }
+
+    // 格式化返回数据
+    const formattedData = (data || []).map((assessment: any) => ({
+      id: assessment.id,
+      studentId: assessment.student_id,
+      studentName: assessment.students?.name || '',
+      grade: assessment.students?.grade || 0,
+      className: assessment.students?.classes?.name || '',
+      category: assessment.category,
+      score: assessment.score,
+      evaluatorId: assessment.evaluator_id,
+      evaluatorName: assessment.evaluator_name,
+      evaluatorType: assessment.evaluator_type,
+      context: assessment.context,
+      occurredAt: assessment.occurred_at,
+      notes: assessment.notes,
+    }));
 
     return NextResponse.json({
       success: true,
-      data: {
-        data: data || [],
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
+      data: formattedData,
     });
   } catch (error) {
     console.error('Failed to fetch habit assessments:', error);
@@ -82,32 +111,46 @@ export async function POST(request: NextRequest) {
     const client = getSupabaseClient();
     const body = await request.json();
 
+    const {
+      studentId,
+      category,
+      score,
+      evaluatorId,
+      evaluatorName,
+      evaluatorType,
+      context,
+      notes,
+    } = body;
+
     const { data, error } = await client
       .from('habit_assessments')
       .insert({
-        ...body,
-        created_at: new Date().toISOString(),
+        student_id: studentId,
+        category,
+        score,
+        evaluator_id: evaluatorId,
+        evaluator_name: evaluatorName,
+        evaluator_type: evaluatorType || 'teacher',
+        context,
+        notes,
+        occurred_at: new Date().toISOString(),
       })
       .select()
       .single();
 
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+      throw error;
     }
 
     return NextResponse.json({
       success: true,
       data,
-      message: '评价记录创建成功',
     });
   } catch (error) {
     console.error('Failed to create habit assessment:', error);
     return NextResponse.json({
       success: false,
-      error: '创建评价记录失败',
+      error: '创建习惯评价记录失败',
     }, { status: 500 });
   }
 }
