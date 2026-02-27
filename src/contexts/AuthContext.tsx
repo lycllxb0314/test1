@@ -4,6 +4,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { User, UserRole } from '@/types';
 import { mockUsers } from '@/data/mock';
 
+// 是否使用真实API（生产环境设为true）
+const USE_REAL_API = process.env.NODE_ENV === 'production';
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -39,46 +42,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 初始化时检查本地存储的登录状态
   useEffect(() => {
-    const savedUser = localStorage.getItem('smart_campus_user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('smart_campus_user');
+    const initAuth = async () => {
+      const savedUser = localStorage.getItem('smart_campus_user');
+      if (savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          
+          // 如果使用真实API，验证用户是否仍然有效
+          if (USE_REAL_API && parsedUser.id) {
+            try {
+              const response = await fetch(`/api/auth/current?userId=${parsedUser.id}`);
+              const result = await response.json();
+              
+              if (result.success && result.data) {
+                setUser(result.data);
+                localStorage.setItem('smart_campus_user', JSON.stringify(result.data));
+              } else {
+                // 用户已失效，清除本地存储
+                localStorage.removeItem('smart_campus_user');
+              }
+            } catch {
+              // API调用失败，使用本地存储的用户信息（离线模式）
+              setUser(parsedUser);
+            }
+          } else {
+            setUser(parsedUser);
+          }
+        } catch {
+          localStorage.removeItem('smart_campus_user');
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+    
+    initAuth();
   }, []);
 
-  // 模拟登录
+  // 登录
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // 根据用户名或角色名称查找用户
-    let foundUser = mockUsers.find(u => 
-      u.name === username || 
-      u.id === username ||
-      u.phone?.includes(username)
-    );
-    
-    // 如果没找到，尝试通过角色名称查找
-    if (!foundUser && roleNameToRole[username]) {
-      const targetRole = roleNameToRole[username];
-      foundUser = mockUsers.find(u => u.role === targetRole);
-    }
-    
-    if (foundUser && password === '123456') {
-      setUser(foundUser);
-      localStorage.setItem('smart_campus_user', JSON.stringify(foundUser));
+    try {
+      if (USE_REAL_API) {
+        // 使用真实API登录
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          setUser(result.data);
+          localStorage.setItem('smart_campus_user', JSON.stringify(result.data));
+          setIsLoading(false);
+          return true;
+        }
+        
+        setIsLoading(false);
+        return false;
+      } else {
+        // 开发环境使用模拟登录
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // 根据用户名或角色名称查找用户
+        let foundUser = mockUsers.find(u => 
+          u.name === username || 
+          u.id === username ||
+          u.phone?.includes(username)
+        );
+        
+        // 如果没找到，尝试通过角色名称查找
+        if (!foundUser && roleNameToRole[username]) {
+          const targetRole = roleNameToRole[username];
+          foundUser = mockUsers.find(u => u.role === targetRole);
+        }
+        
+        if (foundUser && password === '123456') {
+          setUser(foundUser);
+          localStorage.setItem('smart_campus_user', JSON.stringify(foundUser));
+          setIsLoading(false);
+          return true;
+        }
+        
+        setIsLoading(false);
+        return false;
+      }
+    } catch (error) {
+      console.error('Login error:', error);
       setIsLoading(false);
-      return true;
+      return false;
     }
-    
-    setIsLoading(false);
-    return false;
   }, []);
 
   // 登出

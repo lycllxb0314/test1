@@ -145,6 +145,25 @@ class ApiClient {
 export const apiClient = new ApiClient();
 
 /**
+ * 认证相关API
+ */
+export const authApi = {
+  // 登录
+  login: (username: string, password: string) => 
+    apiClient.post<User>('/auth/login', { username, password }),
+
+  // 获取当前用户
+  getCurrentUser: (userId: string) => 
+    apiClient.get<User>('/auth/current', { userId }),
+
+  // 登出（清除本地状态）
+  logout: () => {
+    localStorage.removeItem('smart_campus_user');
+    return Promise.resolve({ success: true });
+  },
+};
+
+/**
  * 用户相关API
  */
 export const userApi = {
