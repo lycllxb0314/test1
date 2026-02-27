@@ -66,6 +66,7 @@ import {
   Video,
   Star,
   Sliders,
+  CalendarDays,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
@@ -105,6 +106,8 @@ const academicNav: NavItem[] = [
   { name: '教师管理', href: '/academic/teachers', icon: UserCircle, description: '教师信息管理' },
   { name: '班级管理', href: '/academic/classes', icon: School, description: '班级信息管理' },
   { name: '智能排课', href: '/academic/schedule', icon: Calendar, description: '课程表管理' },
+  { name: '实际课表', href: '/academic/schedule/actual', icon: CalendarDays, description: '每周实际课表' },
+  { name: '工作量统计', href: '/academic/workload', icon: BarChart3, description: '教师工作量统计', badge: '新' },
   { name: '考试管理', href: '/academic/exams', icon: ClipboardList, description: '考试安排管理' },
   { name: '成绩管理', href: '/academic/grades', icon: BookOpen, description: '成绩录入查询' },
   { name: '教室管理', href: '/academic/rooms', icon: DoorOpen, description: '教室资源与预约' },
