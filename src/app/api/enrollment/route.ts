@@ -1,45 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Parent } from '@/types';
 
-// 新生注册申请类型
+// 扩展的新生注册申请类型 - 与 StudentFullProfile 对齐
 interface NewStudentApplication {
   id: string;
-  // 学生基本信息
+  
+  // === 基本信息（与学生管理对齐）===
   studentName: string;
   gender: 'male' | 'female';
   birthDate: string;
   idCard?: string;
   ethnicity?: string;
   nativePlace?: string;
+  politicalStatus?: string;     // 政治面貌（少先队员等）
   
-  // 申请信息
-  applyGrade: number;          // 申请年级
-  applyClass?: string;         // 分配班级（教务分配）
+  // === 申请信息 ===
+  applyGrade: number;           // 申请年级（1-6）
+  applyClassId?: string;        // 分配班级ID（教务分配）
+  applyClassName?: string;      // 分配班级名称
   
-  // 家庭信息
-  parentName: string;
-  parentPhone: string;
-  parentRelation: string;      // 与学生关系
-  parent2Name?: string;
-  parent2Phone?: string;
-  parent2Relation?: string;
-  
-  // 地址
+  // === 联系信息 ===
   homeAddress: string;
+  phone?: string;               // 学生联系电话（可选）
   
-  // 学生类型
+  // === 家庭信息（与学生管理对齐）===
+  familyType?: '核心家庭' | '单亲家庭' | '重组家庭' | '隔代家庭' | '其他';
+  parents: Parent[];            // 家长信息列表
+  emergencyContact?: string;    // 紧急联系人
+  emergencyPhone?: string;      // 紧急联系电话
+  
+  // === 学生类型 ===
   studentType: '普通' | '随迁子女' | '留守儿童' | '残疾学生' | '低保家庭';
   
-  // 状态
+  // === 附件 ===
+  attachments?: {
+    idCardFront?: string;       // 身份证正面
+    idCardBack?: string;        // 身份证背面
+    householdRegister?: string; // 户口本
+    birthCertificate?: string;  // 出生证明
+    other?: string[];           // 其他证明材料
+  };
+  
+  // === 状态 ===
   status: 'pending' | 'reviewing' | 'approved' | 'rejected' | 'synced';
   
-  // 时间戳
-  submittedAt: string;         // 家长提交时间
-  reviewedAt?: string;         // 教务审核时间
-  syncedAt?: string;           // 同步到学生管理时间
+  // === 时间戳 ===
+  submittedAt: string;          // 家长提交时间
+  reviewedAt?: string;          // 教务审核时间
+  syncedAt?: string;            // 同步到学生管理时间
   
-  reviewedBy?: string;         // 审核人
-  syncedBy?: string;           // 同步人
-  notes?: string;              // 备注
+  // === 操作人 ===
+  reviewedBy?: string;
+  syncedBy?: string;
+  notes?: string;
+  
+  // === 同步结果 ===
+  syncResult?: {
+    success: boolean;
+    studentId?: string;         // 同步后的学生ID
+    studentNo?: string;         // 分配的学号
+    error?: string;
+  };
 }
 
 // Mock数据
@@ -52,14 +73,16 @@ let mockApplications: NewStudentApplication[] = [
     idCard: '350802201903150011',
     ethnicity: '汉族',
     nativePlace: '福建龙岩',
+    politicalStatus: '少先队员',
     applyGrade: 1,
-    parentName: '张伟',
-    parentPhone: '13800138001',
-    parentRelation: '父亲',
-    parent2Name: '李芳',
-    parent2Phone: '13800138002',
-    parent2Relation: '母亲',
     homeAddress: '龙岩市新罗区东城街道xx路xx号',
+    familyType: '核心家庭',
+    parents: [
+      { id: 'p1', name: '张伟', relationship: '父亲', phone: '13800138001', isPrimary: true },
+      { id: 'p2', name: '李芳', relationship: '母亲', phone: '13800138002', isPrimary: false }
+    ],
+    emergencyContact: '张伟',
+    emergencyPhone: '13800138001',
     studentType: '普通',
     status: 'pending',
     submittedAt: '2024-08-15 10:30:00',
@@ -73,12 +96,17 @@ let mockApplications: NewStudentApplication[] = [
     ethnicity: '汉族',
     nativePlace: '福建龙岩',
     applyGrade: 1,
-    parentName: '林建国',
-    parentPhone: '13900139001',
-    parentRelation: '父亲',
     homeAddress: '龙岩市新罗区西城街道xx路xx号',
+    familyType: '单亲家庭',
+    parents: [
+      { id: 'p1', name: '林建国', relationship: '父亲', phone: '13900139001', isPrimary: true }
+    ],
+    emergencyContact: '林建国',
+    emergencyPhone: '13900139001',
     studentType: '随迁子女',
     status: 'approved',
+    applyClassId: 'c1-1',
+    applyClassName: '一年(1)班',
     submittedAt: '2024-08-14 14:20:00',
     reviewedAt: '2024-08-16 09:00:00',
     reviewedBy: '王主任',
@@ -91,15 +119,18 @@ let mockApplications: NewStudentApplication[] = [
     idCard: '350802201811080033',
     ethnicity: '汉族',
     nativePlace: '福建龙岩',
+    politicalStatus: '少先队员',
     applyGrade: 1,
-    applyClass: '一年(1)班',
-    parentName: '王志强',
-    parentPhone: '13700137001',
-    parentRelation: '父亲',
-    parent2Name: '刘小燕',
-    parent2Phone: '13700137002',
-    parent2Relation: '母亲',
+    applyClassId: 'c1-1',
+    applyClassName: '一年(1)班',
     homeAddress: '龙岩市新罗区南城街道xx路xx号',
+    familyType: '核心家庭',
+    parents: [
+      { id: 'p1', name: '王志强', relationship: '父亲', phone: '13700137001', isPrimary: true },
+      { id: 'p2', name: '刘小燕', relationship: '母亲', phone: '13700137002', isPrimary: false }
+    ],
+    emergencyContact: '王志强',
+    emergencyPhone: '13700137001',
     studentType: '普通',
     status: 'synced',
     submittedAt: '2024-08-10 09:15:00',
@@ -107,8 +138,92 @@ let mockApplications: NewStudentApplication[] = [
     reviewedBy: '王主任',
     syncedAt: '2024-08-20 14:30:00',
     syncedBy: '王主任',
+    syncResult: {
+      success: true,
+      studentId: 's-new-001',
+      studentNo: '2024001'
+    }
   },
 ];
+
+// 年级名称映射
+const gradeNames: Record<number, string> = {
+  1: '一年级',
+  2: '二年级', 
+  3: '三年级',
+  4: '四年级',
+  5: '五年级',
+  6: '六年级'
+};
+
+// 生成学号（年份 + 年级 + 班级号 + 序号）
+function generateStudentNo(grade: number, classNumber: number, sequence: number): string {
+  const year = new Date().getFullYear();
+  const gradeStr = String(grade);
+  const classStr = String(classNumber).padStart(2, '0');
+  const seqStr = String(sequence).padStart(3, '0');
+  return `${year}${gradeStr}${classStr}${seqStr}`;
+}
+
+// 将新生申请转换为学生记录格式
+function convertToStudentRecord(app: NewStudentApplication, classNumber: number, sequence: number) {
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  
+  return {
+    // 基本信息
+    id: `s-${app.id}`,
+    studentNo: generateStudentNo(app.applyGrade, classNumber, sequence),
+    name: app.studentName,
+    gender: app.gender,
+    birthDate: app.birthDate,
+    idCard: app.idCard,
+    ethnicity: app.ethnicity,
+    nativePlace: app.nativePlace,
+    politicalStatus: app.politicalStatus,
+    
+    // 学籍信息
+    grade: app.applyGrade,
+    gradeName: gradeNames[app.applyGrade],
+    classId: app.applyClassId,
+    className: app.applyClassName,
+    classNumber: classNumber,
+    enrollmentDate: now.split(' ')[0],
+    studentType: app.studentType,
+    
+    // 联系信息
+    phone: app.phone,
+    address: app.homeAddress,
+    homeAddress: app.homeAddress,
+    
+    // 家庭信息
+    familyType: app.familyType,
+    parents: app.parents,
+    emergencyContact: app.emergencyContact,
+    emergencyPhone: app.emergencyPhone,
+    
+    // 状态
+    status: '在校' as const,
+    
+    // 初始化空数组
+    academicRecords: [],
+    honors: [],
+    growthRecords: [{
+      id: `gr-${app.id}`,
+      studentId: `s-${app.id}`,
+      type: '入学' as const,
+      title: '新生入学',
+      description: `通过新生注册审核入学，分配至${app.applyClassName}`,
+      date: now.split(' ')[0],
+      operator: app.syncedBy,
+      createdAt: now
+    }],
+    moralRecords: [],
+    
+    // 时间戳
+    createdAt: now,
+    updatedAt: now
+  };
+}
 
 // GET - 获取新生注册列表
 export async function GET(request: NextRequest) {
@@ -145,9 +260,47 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
+    // 转换家长信息格式
+    const parents: Parent[] = [];
+    if (body.parentName && body.parentPhone) {
+      parents.push({
+        id: `p1-${Date.now()}`,
+        name: body.parentName,
+        relationship: body.parentRelation || '父亲',
+        phone: body.parentPhone,
+        isPrimary: true,
+        wechat: body.parentWechat
+      });
+    }
+    if (body.parent2Name && body.parent2Phone) {
+      parents.push({
+        id: `p2-${Date.now()}`,
+        name: body.parent2Name,
+        relationship: body.parent2Relation || '母亲',
+        phone: body.parent2Phone,
+        isPrimary: false,
+        wechat: body.parent2Wechat
+      });
+    }
+    
     const newApplication: NewStudentApplication = {
       id: `ns${String(mockApplications.length + 1).padStart(3, '0')}`,
-      ...body,
+      studentName: body.studentName,
+      gender: body.gender,
+      birthDate: body.birthDate,
+      idCard: body.idCard,
+      ethnicity: body.ethnicity,
+      nativePlace: body.nativePlace,
+      politicalStatus: body.politicalStatus,
+      applyGrade: body.applyGrade || 1,
+      homeAddress: body.homeAddress,
+      phone: body.phone,
+      familyType: body.familyType,
+      parents: parents,
+      emergencyContact: body.emergencyContact || body.parentName,
+      emergencyPhone: body.emergencyPhone || body.parentPhone,
+      studentType: body.studentType || '普通',
+      attachments: body.attachments,
       status: 'pending',
       submittedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
     };
@@ -167,11 +320,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - 更新申请状态（审核/同步）
+// PUT - 更新申请状态（审核/分配班级/同步）
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, action, applyClass, notes, operator } = body;
+    const { id, action, applyClassId, applyClassName, notes, operator } = body;
     
     const appIndex = mockApplications.findIndex(a => a.id === id);
     if (appIndex === -1) {
@@ -186,28 +339,77 @@ export async function PUT(request: NextRequest) {
     
     switch (action) {
       case 'review':
+        // 开始审核
         app.status = 'reviewing';
         app.reviewedBy = operator;
         app.reviewedAt = now;
         break;
+        
       case 'approve':
+        // 审核通过并分配班级
+        if (!applyClassId || !applyClassName) {
+          return NextResponse.json({
+            success: false,
+            message: '请选择分配班级'
+          }, { status: 400 });
+        }
         app.status = 'approved';
-        app.applyClass = applyClass;
+        app.applyClassId = applyClassId;
+        app.applyClassName = applyClassName;
         app.reviewedBy = operator;
         app.reviewedAt = now;
         app.notes = notes;
         break;
+        
       case 'reject':
+        // 审核拒绝
         app.status = 'rejected';
         app.reviewedBy = operator;
         app.reviewedAt = now;
         app.notes = notes;
         break;
+        
       case 'sync':
-        app.status = 'synced';
-        app.syncedBy = operator;
-        app.syncedAt = now;
+        // 同步到学生管理系统
+        if (app.status !== 'approved') {
+          return NextResponse.json({
+            success: false,
+            message: '只能同步已审核通过的申请'
+          }, { status: 400 });
+        }
+        
+        try {
+          // 从班级名称提取班级号
+          const classNumberMatch = app.applyClassName?.match(/(\d+)班/);
+          const classNumber = classNumberMatch ? parseInt(classNumberMatch[1]) : 1;
+          
+          // 转换为学生记录
+          const studentRecord = convertToStudentRecord(app, classNumber, appIndex + 1);
+          
+          // 这里应该调用学生管理API创建学生记录
+          // 目前仅更新状态，实际项目中需要调用数据库或学生管理API
+          
+          app.status = 'synced';
+          app.syncedBy = operator;
+          app.syncedAt = now;
+          app.syncResult = {
+            success: true,
+            studentId: studentRecord.id,
+            studentNo: studentRecord.studentNo
+          };
+        } catch (syncError) {
+          app.syncResult = {
+            success: false,
+            error: syncError instanceof Error ? syncError.message : '同步失败'
+          };
+          return NextResponse.json({
+            success: false,
+            message: '同步失败',
+            error: app.syncResult.error
+          }, { status: 500 });
+        }
         break;
+        
       default:
         return NextResponse.json({
           success: false,
@@ -226,6 +428,81 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       success: false,
       message: '操作失败'
+    }, { status: 400 });
+  }
+}
+
+// DELETE - 批量同步已审核通过的学生
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { ids, operator } = body;
+    
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: '请选择要同步的申请'
+      }, { status: 400 });
+    }
+    
+    const results: { id: string; success: boolean; studentNo?: string; error?: string }[] = [];
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    
+    for (const id of ids) {
+      const appIndex = mockApplications.findIndex(a => a.id === id);
+      if (appIndex === -1) {
+        results.push({ id, success: false, error: '申请不存在' });
+        continue;
+      }
+      
+      const app = mockApplications[appIndex];
+      
+      if (app.status !== 'approved') {
+        results.push({ id, success: false, error: '只能同步已审核通过的申请' });
+        continue;
+      }
+      
+      try {
+        // 从班级名称提取班级号
+        const classNumberMatch = app.applyClassName?.match(/(\d+)班/);
+        const classNumber = classNumberMatch ? parseInt(classNumberMatch[1]) : 1;
+        
+        // 转换为学生记录
+        const studentRecord = convertToStudentRecord(app, classNumber, appIndex + 1);
+        
+        // 更新申请状态
+        app.status = 'synced';
+        app.syncedBy = operator;
+        app.syncedAt = now;
+        app.syncResult = {
+          success: true,
+          studentId: studentRecord.id,
+          studentNo: studentRecord.studentNo
+        };
+        
+        mockApplications[appIndex] = app;
+        results.push({ id, success: true, studentNo: studentRecord.studentNo });
+      } catch (syncError) {
+        results.push({ 
+          id, 
+          success: false, 
+          error: syncError instanceof Error ? syncError.message : '同步失败' 
+        });
+      }
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+    
+    return NextResponse.json({
+      success: true,
+      message: `成功同步 ${successCount} 条，失败 ${failCount} 条`,
+      results
+    });
+  } catch {
+    return NextResponse.json({
+      success: false,
+      message: '批量同步失败'
     }, { status: 400 });
   }
 }

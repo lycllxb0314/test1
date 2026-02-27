@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -31,12 +32,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -47,7 +42,6 @@ import { toast } from 'sonner';
 import {
   UserPlus,
   Search,
-  Filter,
   RefreshCw,
   MoreHorizontal,
   Eye,
@@ -55,7 +49,6 @@ import {
   XCircle,
   Users,
   Clock,
-  CheckSquare,
   AlertCircle,
   RefreshCw as Sync,
   Download,
@@ -64,37 +57,56 @@ import {
   Phone,
   MapPin,
   FileText,
+  Home,
+  AlertTriangle,
+  CheckSquare,
 } from 'lucide-react';
+import type { Parent } from '@/types';
 
 // 新生申请状态
 type ApplicationStatus = 'pending' | 'reviewing' | 'approved' | 'rejected' | 'synced';
 
-// 新生注册申请类型
+// 扩展的新生注册申请类型 - 与 API 对齐
 interface NewStudentApplication {
   id: string;
+  // 基本信息
   studentName: string;
   gender: 'male' | 'female';
   birthDate: string;
   idCard?: string;
   ethnicity?: string;
   nativePlace?: string;
+  politicalStatus?: string;
+  // 申请信息
   applyGrade: number;
-  applyClass?: string;
-  parentName: string;
-  parentPhone: string;
-  parentRelation: string;
-  parent2Name?: string;
-  parent2Phone?: string;
-  parent2Relation?: string;
+  applyClassId?: string;
+  applyClassName?: string;
+  // 家庭信息
+  familyType?: '核心家庭' | '单亲家庭' | '重组家庭' | '隔代家庭' | '其他';
+  parents: Parent[];
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  // 联系信息
   homeAddress: string;
+  phone?: string;
+  // 学生类型
   studentType: '普通' | '随迁子女' | '留守儿童' | '残疾学生' | '低保家庭';
+  // 状态
   status: ApplicationStatus;
+  // 时间戳
   submittedAt: string;
   reviewedAt?: string;
   syncedAt?: string;
   reviewedBy?: string;
   syncedBy?: string;
   notes?: string;
+  // 同步结果
+  syncResult?: {
+    success: boolean;
+    studentId?: string;
+    studentNo?: string;
+    error?: string;
+  };
 }
 
 // 状态配置
@@ -106,11 +118,51 @@ const statusConfig: Record<ApplicationStatus, { label: string; color: string; bg
   synced: { label: '已同步', color: 'text-purple-600', bgColor: 'bg-purple-50' },
 };
 
-// 班级选项
-const classOptions = [
-  '一年(1)班', '一年(2)班', '一年(3)班', '一年(4)班', '一年(5)班', '一年(6)班',
-  '二年(1)班', '二年(2)班', '二年(3)班', '二年(4)班', '二年(5)班', '二年(6)班',
-];
+// 班级选项（带ID）
+const classOptionsByGrade: Record<number, { id: string; name: string }[]> = {
+  1: [
+    { id: 'c1-1', name: '一年(1)班' },
+    { id: 'c1-2', name: '一年(2)班' },
+    { id: 'c1-3', name: '一年(3)班' },
+    { id: 'c1-4', name: '一年(4)班' },
+    { id: 'c1-5', name: '一年(5)班' },
+    { id: 'c1-6', name: '一年(6)班' },
+  ],
+  2: [
+    { id: 'c2-1', name: '二年(1)班' },
+    { id: 'c2-2', name: '二年(2)班' },
+    { id: 'c2-3', name: '二年(3)班' },
+    { id: 'c2-4', name: '二年(4)班' },
+    { id: 'c2-5', name: '二年(5)班' },
+    { id: 'c2-6', name: '二年(6)班' },
+  ],
+  3: [
+    { id: 'c3-1', name: '三年(1)班' },
+    { id: 'c3-2', name: '三年(2)班' },
+    { id: 'c3-3', name: '三年(3)班' },
+    { id: 'c3-4', name: '三年(4)班' },
+    { id: 'c3-5', name: '三年(5)班' },
+  ],
+  4: [
+    { id: 'c4-1', name: '四年(1)班' },
+    { id: 'c4-2', name: '四年(2)班' },
+    { id: 'c4-3', name: '四年(3)班' },
+    { id: 'c4-4', name: '四年(4)班' },
+    { id: 'c4-5', name: '四年(5)班' },
+  ],
+  5: [
+    { id: 'c5-1', name: '五年(1)班' },
+    { id: 'c5-2', name: '五年(2)班' },
+    { id: 'c5-3', name: '五年(3)班' },
+    { id: 'c5-4', name: '五年(4)班' },
+  ],
+  6: [
+    { id: 'c6-1', name: '六年(1)班' },
+    { id: 'c6-2', name: '六年(2)班' },
+    { id: 'c6-3', name: '六年(3)班' },
+    { id: 'c6-4', name: '六年(4)班' },
+  ],
+};
 
 export default function EnrollmentPage() {
   const [applications, setApplications] = useState<NewStudentApplication[]>([]);
@@ -127,13 +179,18 @@ export default function EnrollmentPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [gradeFilter, setGradeFilter] = useState('all');
   
+  // 批量选择
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  
   // 对话框状态
   const [detailDialog, setDetailDialog] = useState(false);
   const [approveDialog, setApproveDialog] = useState(false);
   const [rejectDialog, setRejectDialog] = useState(false);
   const [syncDialog, setSyncDialog] = useState(false);
+  const [batchSyncDialog, setBatchSyncDialog] = useState(false);
   const [selectedApp, setSelectedApp] = useState<NewStudentApplication | null>(null);
-  const [approveClass, setApproveClass] = useState('');
+  const [approveClassId, setApproveClassId] = useState('');
+  const [approveClassName, setApproveClassName] = useState('');
   const [rejectReason, setRejectReason] = useState('');
 
   // 获取数据
@@ -164,9 +221,26 @@ export default function EnrollmentPage() {
   // 过滤搜索
   const filteredApplications = applications.filter(app => 
     app.studentName.includes(searchTerm) || 
-    app.parentName.includes(searchTerm) ||
-    app.parentPhone.includes(searchTerm)
+    app.parents.some(p => p.name.includes(searchTerm) || p.phone.includes(searchTerm))
   );
+
+  // 全选/取消全选
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(filteredApplications.map(a => a.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  // 单个选择
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds([...selectedIds, id]);
+    } else {
+      setSelectedIds(selectedIds.filter(i => i !== id));
+    }
+  };
 
   // 查看详情
   const handleViewDetail = (app: NewStudentApplication) => {
@@ -199,13 +273,14 @@ export default function EnrollmentPage() {
   // 打开通过对话框
   const handleOpenApprove = (app: NewStudentApplication) => {
     setSelectedApp(app);
-    setApproveClass('');
+    setApproveClassId('');
+    setApproveClassName('');
     setApproveDialog(true);
   };
 
   // 确认通过
   const handleApprove = async () => {
-    if (!selectedApp || !approveClass) {
+    if (!selectedApp || !approveClassId || !approveClassName) {
       toast.error('请选择分配班级');
       return;
     }
@@ -216,15 +291,18 @@ export default function EnrollmentPage() {
         body: JSON.stringify({
           id: selectedApp.id,
           action: 'approve',
-          applyClass: approveClass,
+          applyClassId: approveClassId,
+          applyClassName: approveClassName,
           operator: '教务员',
         }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success('审核通过');
+        toast.success('审核通过，已分配班级');
         setApproveDialog(false);
         fetchData();
+      } else {
+        toast.error(data.message || '操作失败');
       }
     } catch {
       toast.error('操作失败');
@@ -269,7 +347,7 @@ export default function EnrollmentPage() {
     setSyncDialog(true);
   };
 
-  // 确认同步
+  // 确认同步单个
   const handleSync = async () => {
     if (!selectedApp) return;
     try {
@@ -284,39 +362,61 @@ export default function EnrollmentPage() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success('已同步到学生管理系统');
+        toast.success(`已同步到学生管理系统，学号：${data.data.syncResult?.studentNo}`);
         setSyncDialog(false);
         fetchData();
+      } else {
+        toast.error(data.message || '同步失败');
       }
     } catch {
       toast.error('同步失败');
     }
   };
 
+  // 打开批量同步对话框
+  const handleOpenBatchSync = () => {
+    const approvedIds = selectedIds.filter(id => 
+      applications.find(a => a.id === id && a.status === 'approved')
+    );
+    if (approvedIds.length === 0) {
+      toast.error('请选择已审核通过待同步的申请');
+      return;
+    }
+    setBatchSyncDialog(true);
+  };
+
   // 批量同步
   const handleBatchSync = async () => {
-    const approvedApps = applications.filter(a => a.status === 'approved');
-    if (approvedApps.length === 0) {
-      toast.error('没有可同步的申请');
+    const approvedIds = selectedIds.filter(id => 
+      applications.find(a => a.id === id && a.status === 'approved')
+    );
+    
+    if (approvedIds.length === 0) {
+      toast.error('请选择已审核通过待同步的申请');
       return;
     }
     
-    toast.info(`正在同步 ${approvedApps.length} 条申请...`);
-    
-    for (const app of approvedApps) {
-      await fetch('/api/enrollment', {
-        method: 'PUT',
+    try {
+      const res = await fetch('/api/enrollment', {
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: app.id,
-          action: 'sync',
+          ids: approvedIds,
           operator: '教务员',
         }),
       });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        setBatchSyncDialog(false);
+        setSelectedIds([]);
+        fetchData();
+      } else {
+        toast.error(data.message || '批量同步失败');
+      }
+    } catch {
+      toast.error('批量同步失败');
     }
-    
-    toast.success('批量同步完成');
-    fetchData();
   };
 
   // 计算年龄
@@ -331,13 +431,18 @@ export default function EnrollmentPage() {
     return age;
   };
 
+  // 获取主要家长信息
+  const getPrimaryParent = (parents: Parent[]) => {
+    return parents.find(p => p.isPrimary) || parents[0];
+  };
+
   return (
     <div className="space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">新生注册</h1>
-          <p className="text-muted-foreground mt-1">管理新生信息采集与学籍注册</p>
+          <p className="text-muted-foreground mt-1">管理新生信息采集、审核分配班级与学籍同步</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
@@ -411,10 +516,14 @@ export default function EnrollmentPage() {
           <div className="flex items-center justify-between">
             <CardTitle>新生申请列表</CardTitle>
             <div className="flex items-center gap-2">
-              {summary.approved > 0 && (
-                <Button variant="default" onClick={handleBatchSync}>
+              {selectedIds.filter(id => 
+                applications.find(a => a.id === id && a.status === 'approved')
+              ).length > 0 && (
+                <Button variant="default" onClick={handleOpenBatchSync}>
                   <Sync className="h-4 w-4 mr-2" />
-                  批量同步 ({summary.approved})
+                  批量同步 ({selectedIds.filter(id => 
+                    applications.find(a => a.id === id && a.status === 'approved')
+                  ).length})
                 </Button>
               )}
               <Button variant="outline" onClick={fetchData}>
@@ -474,99 +583,123 @@ export default function EnrollmentPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedIds.length === filteredApplications.length && filteredApplications.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>学生姓名</TableHead>
                   <TableHead>性别</TableHead>
                   <TableHead>年龄</TableHead>
                   <TableHead>申请年级</TableHead>
                   <TableHead>家长信息</TableHead>
                   <TableHead>学生类型</TableHead>
+                  <TableHead>分配班级</TableHead>
                   <TableHead>状态</TableHead>
-                  <TableHead>提交时间</TableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       加载中...
                     </TableCell>
                   </TableRow>
                 ) : filteredApplications.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       暂无数据
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredApplications.map((app) => (
-                    <TableRow key={app.id}>
-                      <TableCell className="font-medium">{app.studentName}</TableCell>
-                      <TableCell>{app.gender === 'male' ? '男' : '女'}</TableCell>
-                      <TableCell>{calculateAge(app.birthDate)}岁</TableCell>
-                      <TableCell>{app.applyGrade}年级</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{app.parentName}({app.parentRelation})</div>
-                          <div className="text-muted-foreground">{app.parentPhone}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{app.studentType}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${statusConfig[app.status].bgColor} ${statusConfig[app.status].color}`}>
-                          {statusConfig[app.status].label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {app.submittedAt.split(' ')[0]}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewDetail(app)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              查看详情
-                            </DropdownMenuItem>
-                            {app.status === 'pending' && (
-                              <DropdownMenuItem onClick={() => handleReview(app)}>
-                                <FileText className="h-4 w-4 mr-2" />
-                                开始审核
+                  filteredApplications.map((app) => {
+                    const primaryParent = getPrimaryParent(app.parents);
+                    return (
+                      <TableRow key={app.id} className={selectedIds.includes(app.id) ? 'bg-muted/50' : ''}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.includes(app.id)}
+                            onCheckedChange={(checked) => handleSelect(app.id, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{app.studentName}</TableCell>
+                        <TableCell>{app.gender === 'male' ? '男' : '女'}</TableCell>
+                        <TableCell>{calculateAge(app.birthDate)}岁</TableCell>
+                        <TableCell>{app.applyGrade}年级</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>{primaryParent?.name}({primaryParent?.relationship})</div>
+                            <div className="text-muted-foreground">{primaryParent?.phone}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{app.studentType}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {app.applyClassName || <span className="text-muted-foreground">待分配</span>}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`${statusConfig[app.status].bgColor} ${statusConfig[app.status].color}`}>
+                            {statusConfig[app.status].label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewDetail(app)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                查看详情
                               </DropdownMenuItem>
-                            )}
-                            {(app.status === 'pending' || app.status === 'reviewing') && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleOpenApprove(app)}>
-                                  <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                                  审核通过
+                              {app.status === 'pending' && (
+                                <DropdownMenuItem onClick={() => handleReview(app)}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  开始审核
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenReject(app)}>
-                                  <XCircle className="h-4 w-4 mr-2 text-red-600" />
-                                  拒绝申请
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {app.status === 'approved' && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleOpenSync(app)}>
-                                  <Sync className="h-4 w-4 mr-2 text-purple-600" />
-                                  同步到学生管理
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                              )}
+                              {(app.status === 'pending' || app.status === 'reviewing') && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleOpenApprove(app)}>
+                                    <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                                    审核通过
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenReject(app)}>
+                                    <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                    拒绝申请
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {app.status === 'approved' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleOpenSync(app)}>
+                                    <Sync className="h-4 w-4 mr-2 text-purple-600" />
+                                    同步到学生管理
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {app.status === 'synced' && app.syncResult && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem disabled className="text-muted-foreground">
+                                    <CheckSquare className="h-4 w-4 mr-2" />
+                                    学号: {app.syncResult.studentNo}
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -576,7 +709,7 @@ export default function EnrollmentPage() {
 
       {/* 详情对话框 */}
       <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>新生申请详情</DialogTitle>
           </DialogHeader>
@@ -613,6 +746,10 @@ export default function EnrollmentPage() {
                     <span className="text-muted-foreground text-sm">籍贯：</span>
                     <span>{selectedApp.nativePlace || '-'}</span>
                   </div>
+                  <div>
+                    <span className="text-muted-foreground text-sm">政治面貌：</span>
+                    <span>{selectedApp.politicalStatus || '-'}</span>
+                  </div>
                 </div>
               </div>
 
@@ -629,7 +766,7 @@ export default function EnrollmentPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground text-sm">分配班级：</span>
-                    <span>{selectedApp.applyClass || '待分配'}</span>
+                    <span>{selectedApp.applyClassName || '待分配'}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground text-sm">学生类型：</span>
@@ -644,23 +781,40 @@ export default function EnrollmentPage() {
                 </div>
               </div>
 
-              {/* 家长信息 */}
+              {/* 家庭信息 */}
               <div>
                 <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  家长信息
+                  <Home className="h-4 w-4" />
+                  家庭信息
                 </h4>
-                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg">
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
                   <div>
-                    <span className="text-muted-foreground text-sm">家长1：</span>
-                    <span>{selectedApp.parentName}({selectedApp.parentRelation}) - {selectedApp.parentPhone}</span>
+                    <span className="text-muted-foreground text-sm">家庭类型：</span>
+                    <span>{selectedApp.familyType || '-'}</span>
                   </div>
-                  {selectedApp.parent2Name && (
+                  <div className="space-y-2">
+                    <span className="text-muted-foreground text-sm">家长信息：</span>
+                    {selectedApp.parents.map((parent, index) => (
+                      <div key={parent.id || index} className="flex items-center gap-2 text-sm">
+                        <span className="font-medium">{parent.name}</span>
+                        <span className="text-muted-foreground">({parent.relationship})</span>
+                        <span className="text-muted-foreground">{parent.phone}</span>
+                        {parent.isPrimary && (
+                          <Badge variant="outline" className="text-xs">主要联系人</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <span className="text-muted-foreground text-sm">家长2：</span>
-                      <span>{selectedApp.parent2Name}({selectedApp.parent2Relation}) - {selectedApp.parent2Phone}</span>
+                      <span className="text-muted-foreground text-sm">紧急联系人：</span>
+                      <span>{selectedApp.emergencyContact || '-'}</span>
                     </div>
-                  )}
+                    <div>
+                      <span className="text-muted-foreground text-sm">紧急联系电话：</span>
+                      <span>{selectedApp.emergencyPhone || '-'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -684,6 +838,35 @@ export default function EnrollmentPage() {
                   {selectedApp.syncedAt && <div>同步时间：{selectedApp.syncedAt}</div>}
                 </div>
               </div>
+
+              {/* 同步结果 */}
+              {selectedApp.syncResult && (
+                <div>
+                  <h4 className="font-medium mb-2">同步结果</h4>
+                  <div className={`p-4 rounded-lg ${selectedApp.syncResult.success ? 'bg-green-50' : 'bg-red-50'}`}>
+                    {selectedApp.syncResult.success ? (
+                      <div className="text-sm">
+                        <div className="text-green-700 font-medium">同步成功</div>
+                        <div className="text-green-600">学号：{selectedApp.syncResult.studentNo}</div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-red-700">
+                        同步失败：{selectedApp.syncResult.error}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 备注 */}
+              {selectedApp.notes && (
+                <div>
+                  <h4 className="font-medium mb-2">备注</h4>
+                  <div className="bg-muted/30 p-4 rounded-lg text-sm">
+                    {selectedApp.notes}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -709,21 +892,36 @@ export default function EnrollmentPage() {
             </div>
             <div className="space-y-2">
               <Label>分配班级 *</Label>
-              <Select value={approveClass} onValueChange={setApproveClass}>
+              <Select 
+                value={approveClassId} 
+                onValueChange={(value) => {
+                  setApproveClassId(value);
+                  const grade = selectedApp?.applyGrade || 1;
+                  const classInfo = classOptionsByGrade[grade]?.find(c => c.id === value);
+                  setApproveClassName(classInfo?.name || '');
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="请选择班级" />
                 </SelectTrigger>
                 <SelectContent>
-                  {classOptions.map(cls => (
-                    <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                  {selectedApp && classOptionsByGrade[selectedApp.applyGrade]?.map(cls => (
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>备注</Label>
+              <Textarea
+                placeholder="可选：添加备注信息..."
+                rows={2}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApproveDialog(false)}>取消</Button>
-            <Button onClick={handleApprove}>确认通过</Button>
+            <Button onClick={handleApprove} disabled={!approveClassId}>确认通过</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -759,7 +957,7 @@ export default function EnrollmentPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 同步对话框 */}
+      {/* 单个同步对话框 */}
       <Dialog open={syncDialog} onOpenChange={setSyncDialog}>
         <DialogContent>
           <DialogHeader>
@@ -776,10 +974,19 @@ export default function EnrollmentPage() {
                   <p className="font-medium text-purple-800">同步确认</p>
                   <p className="text-purple-700 mt-1">
                     将把 <strong>{selectedApp?.studentName}</strong> 的信息同步到学生管理系统，
-                    分配班级为 <strong>{selectedApp?.applyClass}</strong>，此操作不可撤销。
+                    分配班级为 <strong>{selectedApp?.applyClassName}</strong>，此操作不可撤销。
                   </p>
                 </div>
               </div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-4 text-sm">
+              <div className="font-medium mb-2">将同步以下信息：</div>
+              <ul className="text-muted-foreground space-y-1">
+                <li>• 学生基本信息（姓名、性别、出生日期、身份证等）</li>
+                <li>• 学籍信息（年级、班级、入学日期）</li>
+                <li>• 家庭信息（家长信息、联系方式）</li>
+                <li>• 自动生成学号</li>
+              </ul>
             </div>
           </div>
           <DialogFooter>
@@ -787,6 +994,56 @@ export default function EnrollmentPage() {
             <Button onClick={handleSync}>
               <Sync className="h-4 w-4 mr-2" />
               确认同步
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量同步对话框 */}
+      <Dialog open={batchSyncDialog} onOpenChange={setBatchSyncDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>批量同步到学生管理系统</DialogTitle>
+            <DialogDescription>
+              将选中的已审核通过的新生信息批量同步到学生管理系统
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-purple-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-purple-800">批量同步确认</p>
+                  <p className="text-purple-700 mt-1">
+                    将同步 <strong>{selectedIds.filter(id => 
+                      applications.find(a => a.id === id && a.status === 'approved')
+                    ).length}</strong> 条已审核通过的申请，此操作不可撤销。
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-4 text-sm max-h-48 overflow-y-auto">
+              <div className="font-medium mb-2">待同步学生：</div>
+              <ul className="text-muted-foreground space-y-1">
+                {selectedIds
+                  .filter(id => applications.find(a => a.id === id && a.status === 'approved'))
+                  .map(id => {
+                    const app = applications.find(a => a.id === id);
+                    return (
+                      <li key={id} className="flex items-center gap-2">
+                        <span>{app?.studentName}</span>
+                        <span className="text-xs">→ {app?.applyClassName}</span>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchSyncDialog(false)}>取消</Button>
+            <Button onClick={handleBatchSync}>
+              <Sync className="h-4 w-4 mr-2" />
+              确认批量同步
             </Button>
           </DialogFooter>
         </DialogContent>
