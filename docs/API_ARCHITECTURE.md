@@ -92,8 +92,44 @@
 |------|------|------|
 | `/api/moral/activities` | GET/POST/PUT | 德育活动列表/创建/更新 |
 | `/api/moral/alerts` | GET/POST/PUT | 德育预警列表/创建/处理 |
+| `/api/moral/plans` | GET/POST | 德育计划列表/创建 |
+| `/api/moral/growth` | GET/POST | 成长档案列表/创建 |
 
-### 10. 通知消息模块 (Communications)
+### 10. 教师空间模块 (Teacher Space)
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/homeworks` | GET/POST | 作业列表/创建 |
+| `/api/homeworks/[id]` | GET/PUT/DELETE | 作业详情/更新/删除 |
+| `/api/data-collection` | GET/POST | 数据采集任务列表/创建 |
+| `/api/data-collection/[id]` | GET/PUT/DELETE | 数据采集任务详情/更新/删除 |
+
+### 11. 财务管理模块 (Finance)
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/finance/records` | GET/POST | 财务记录列表/创建 |
+| `/api/finance/records/[id]` | GET/PUT/DELETE | 财务记录详情/更新/删除 |
+| `/api/finance/statistics` | GET | 财务统计数据 |
+
+### 12. 安全管理模块 (Safety)
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/safety/inspections` | GET/POST | 安全检查记录列表/创建 |
+| `/api/safety/inspections/[id]` | GET/PUT | 安全检查详情/更新 |
+| `/api/safety/drills` | GET/POST | 安全演练记录列表/创建 |
+| `/api/safety/drills/[id]` | GET/PUT | 安全演练详情/更新 |
+
+### 13. 空间管理模块 (Spaces)
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/spaces` | GET/POST | 空间列表/创建 |
+| `/api/spaces/reservations` | GET/POST | 空间预约列表/创建 |
+| `/api/spaces/reservations/[id]` | GET/PUT/DELETE | 预约详情/更新/删除 |
+
+### 14. 通知消息模块 (Communications)
 
 | 接口 | 方法 | 描述 |
 |------|------|------|
@@ -223,6 +259,10 @@ visitorCheckInOut(id, action) // 访客签到/签退
 ### 6. 德育管理 Hooks (`useMoralData.ts`)
 
 ```typescript
+// 德育计划
+useMoralPlans(semester?, type?) // 获取德育计划列表
+useMoralPlanMutation()         // 德育计划操作
+
 // 德育活动
 useMoralActivities(filters?) // 获取活动列表
 createMoralActivity(data)    // 创建活动
@@ -231,9 +271,27 @@ createMoralActivity(data)    // 创建活动
 useMoralAlerts(filters?)     // 获取预警列表
 createMoralAlert(data)       // 创建预警
 handleMoralAlert(id, ...)    // 处理预警
+
+// 成长档案
+useGrowthRecords(studentId?, type?) // 获取成长档案列表
 ```
 
-### 7. 总务管理 Hooks (`useGeneralAffairsData.ts`)
+### 7. 教师空间 Hooks (`useTeacherData.ts`)
+
+```typescript
+// 作业管理
+useHomeworks(teacherId?, classId?, subject?) // 获取作业列表
+useHomeworkMutation()                        // 作业操作
+
+// 数据采集
+useDataCollectionTasks(status?, type?) // 获取数据采集任务列表
+useDataCollectionMutation()            // 数据采集任务操作
+
+// 通知消息
+useCommunications(type?, status?) // 获取通知消息列表
+```
+
+### 8. 总务管理 Hooks (`useGeneralAffairsData.ts`)
 
 ```typescript
 // 维修申请
@@ -243,9 +301,20 @@ updateRepairRequest(id, data) // 更新维修申请
 
 // 资产管理
 useAssets(filters?)   // 获取资产列表
-createAsset(data)     // 创建资产
-updateAsset(id, data) // 更新资产
-deleteAsset(id)       // 删除资产
+useAssetMutation()    // 资产操作
+
+// 财务管理
+useFinancialRecords(type?, category?, year?, month?) // 获取财务记录
+useFinancialMutation()                                // 财务记录操作
+
+// 安全管理
+useSafetyInspections(type?, status?, location?) // 获取安全检查记录
+useSafetyDrills(type?, year?)                   // 获取安全演练记录
+useSafetyInspectionMutation()                   // 安全检查操作
+
+// 空间预约
+useSpaceReservations(spaceId?, applicantId?, date?, status?) // 获取空间预约
+useSpaceReservationMutation()                                 // 空间预约操作
 ```
 
 ### 4. 习惯养成 Hooks (`useHabitData.ts`)

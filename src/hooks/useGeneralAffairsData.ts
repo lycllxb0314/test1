@@ -1,283 +1,166 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useDataFetch, useSingleDataFetch, useDataMutation } from './useDataFetch';
 
-/**
- * 总务管理数据获取 Hook
- */
-
-// 维修类型
-export type RepairType = 'electrical' | 'plumbing' | 'furniture' | 'equipment' | 'building' | 'network' | 'other';
-export type RepairUrgency = 'urgent' | 'high' | 'normal' | 'low';
-export type RepairStatus = 'pending' | 'assigned' | 'in_progress' | 'completed' | 'rejected';
-
-// 维修申请
-export interface RepairRequest {
+// 财务记录相关类型
+export interface FinancialRecord {
   id: string;
-  applicantId: string;
-  applicantName: string;
-  applicantDepartment: string;
-  type: RepairType;
-  location: string;
+  type: 'income' | 'expense';
+  category: string;
+  amount: number;
   description: string;
-  images: string[];
-  urgency: RepairUrgency;
-  status: RepairStatus;
-  assignedTo?: string;
-  assignedName?: string;
-  estimatedCost?: number;
-  actualCost?: number;
-  startedAt?: string;
-  completedAt?: string;
-  feedback?: string;
-  rating?: number;
+  transactionDate: string;
+  payer: string;
+  payee: string;
+  invoiceNumber: string;
+  status: string;
+  approvedBy: string;
   createdAt: string;
 }
 
-// 资产类别
-export type AssetCategory = 'equipment' | 'furniture' | 'electronic' | 'vehicle' | 'building' | 'other';
-export type AssetStatus = 'in_use' | 'idle' | 'maintenance' | 'scrapped' | 'lost';
+// 安全检查记录相关类型
+export interface SafetyInspection {
+  id: string;
+  type: string;
+  location: string;
+  inspector: string;
+  inspectionDate: string;
+  issues: any[];
+  status: string;
+  resolvedAt: string;
+  notes: string;
+  createdAt: string;
+}
 
-// 资产
+// 安全演练相关类型
+export interface SafetyDrill {
+  id: string;
+  type: string;
+  title: string;
+  drillDate: string;
+  location: string;
+  participants: number;
+  duration: number;
+  result: string;
+  issues: string[];
+  improvements: string[];
+  organizer: string;
+  createdAt: string;
+}
+
+// 资产相关类型
 export interface Asset {
   id: string;
-  assetCode: string;
   name: string;
-  category: AssetCategory;
-  brand?: string;
-  model?: string;
-  specification?: string;
-  quantity: number;
-  unit: string;
-  unitPrice: number;
-  totalPrice: number;
-  purchaseDate: string;
-  warrantyExpiry?: string;
-  department: string;
-  location: string;
-  responsiblePerson?: string;
-  status: AssetStatus;
-  lastMaintenanceDate?: string;
-  nextMaintenanceDate?: string;
-  notes?: string;
-  images: string[];
-  createdAt: string;
-}
-
-// 采购申请
-export interface PurchaseRequest {
-  id: string;
-  applicantId: string;
-  applicantName: string;
-  department: string;
-  items: PurchaseItem[];
-  totalAmount: number;
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected' | 'purchasing' | 'completed';
-  urgency: 'urgent' | 'high' | 'normal';
-  approverId?: string;
-  approverName?: string;
-  approvedAt?: string;
-  rejectionReason?: string;
-  createdAt: string;
-}
-
-export interface PurchaseItem {
-  name: string;
-  specification?: string;
-  quantity: number;
-  unit: string;
-  estimatedPrice: number;
-  subtotal: number;
-}
-
-// 供应商
-export interface Supplier {
-  id: string;
-  name: string;
-  contact: string;
-  phone: string;
-  address: string;
+  assetNumber: string;
   category: string;
-  rating: number;
-  notes?: string;
+  brand: string;
+  model: string;
+  purchaseDate: string;
+  purchasePrice: number;
+  location: string;
+  manager: string;
+  status: string;
+  lastMaintenance: string;
+  nextMaintenance: string;
+  createdAt: string;
 }
 
-/**
- * 获取维修申请列表
- */
-export function useRepairRequests(filters?: {
-  applicantId?: string;
-  status?: RepairStatus;
-  type?: RepairType;
-  urgency?: RepairUrgency;
-}) {
-  const [data, setData] = useState<RepairRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.applicantId) params.append('applicantId', filters.applicantId);
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.type) params.append('type', filters.type);
-      if (filters?.urgency) params.append('urgency', filters.urgency);
-      
-      const response = await fetch(`/api/repair-requests?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch repair requests:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.applicantId, filters?.status, filters?.type, filters?.urgency]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
-}
-
-/**
- * 创建维修申请
- */
-export async function createRepairRequest(request: {
+// 空间预约相关类型
+export interface SpaceReservation {
+  id: string;
+  spaceId: string;
+  spaceName: string;
   applicantId: string;
   applicantName: string;
-  applicantDepartment: string;
-  type: RepairType;
-  location: string;
-  description: string;
-  images?: string[];
-  urgency?: RepairUrgency;
-}) {
-  const response = await fetch('/api/repair-requests', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  return response.json();
+  reservationDate: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
+  participants: number;
+  status: string;
+  approvedBy: string;
+  createdAt: string;
 }
 
 /**
- * 更新维修申请状态
+ * 财务记录数据Hook
  */
-export async function updateRepairRequest(id: string, updates: Partial<RepairRequest>) {
-  const response = await fetch('/api/repair-requests', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, ...updates }),
-  });
-  return response.json();
+export function useFinancialRecords(type?: string, category?: string, year?: string, month?: string) {
+  const params: Record<string, string> = {};
+  if (type) params.type = type;
+  if (category) params.category = category;
+  if (year) params.year = year;
+  if (month) params.month = month;
+  return useDataFetch<FinancialRecord>('/api/finance/records', params);
 }
 
 /**
- * 获取资产列表
+ * 安全检查记录Hook
  */
-export function useAssets(filters?: {
-  category?: AssetCategory;
-  status?: AssetStatus;
-  department?: string;
-  location?: string;
-}) {
-  const [data, setData] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.category) params.append('category', filters.category);
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.department) params.append('department', filters.department);
-      if (filters?.location) params.append('location', filters.location);
-      
-      const response = await fetch(`/api/assets?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch assets:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.category, filters?.status, filters?.department, filters?.location]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+export function useSafetyInspections(type?: string, status?: string, location?: string) {
+  const params: Record<string, string> = {};
+  if (type) params.type = type;
+  if (status) params.status = status;
+  if (location) params.location = location;
+  return useDataFetch<SafetyInspection>('/api/safety/inspections', params);
 }
 
 /**
- * 创建资产
+ * 安全演练Hook
  */
-export async function createAsset(asset: {
-  assetCode: string;
-  name: string;
-  category: AssetCategory;
-  brand?: string;
-  model?: string;
-  specification?: string;
-  quantity?: number;
-  unit?: string;
-  unitPrice: number;
-  totalPrice?: number;
-  purchaseDate: string;
-  warrantyExpiry?: string;
-  department: string;
-  location: string;
-  responsiblePerson?: string;
-  notes?: string;
-  images?: string[];
-}) {
-  const response = await fetch('/api/assets', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(asset),
-  });
-  return response.json();
+export function useSafetyDrills(type?: string, year?: string) {
+  const params: Record<string, string> = {};
+  if (type) params.type = type;
+  if (year) params.year = year;
+  return useDataFetch<SafetyDrill>('/api/safety/drills', params);
 }
 
 /**
- * 更新资产信息
+ * 资产数据Hook
  */
-export async function updateAsset(id: string, updates: Partial<Asset>) {
-  const response = await fetch('/api/assets', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, ...updates }),
-  });
-  return response.json();
+export function useAssets(category?: string, status?: string, location?: string) {
+  const params: Record<string, string> = {};
+  if (category) params.category = category;
+  if (status) params.status = status;
+  if (location) params.location = location;
+  return useDataFetch<Asset>('/api/assets', params);
 }
 
 /**
- * 删除资产
+ * 空间预约Hook
  */
-export async function deleteAsset(id: string) {
-  const response = await fetch(`/api/assets?id=${id}`, {
-    method: 'DELETE',
-  });
-  return response.json();
+export function useSpaceReservations(spaceId?: string, applicantId?: string, date?: string, status?: string) {
+  const params: Record<string, string> = {};
+  if (spaceId) params.spaceId = spaceId;
+  if (applicantId) params.applicantId = applicantId;
+  if (date) params.date = date;
+  if (status) params.status = status;
+  return useDataFetch<SpaceReservation>('/api/spaces/reservations', params);
+}
+
+/**
+ * 财务记录操作Hook
+ */
+export function useFinancialMutation() {
+  return useDataMutation<Partial<FinancialRecord>, FinancialRecord>();
+}
+
+/**
+ * 安全检查操作Hook
+ */
+export function useSafetyInspectionMutation() {
+  return useDataMutation<Partial<SafetyInspection>, SafetyInspection>();
+}
+
+/**
+ * 资产操作Hook
+ */
+export function useAssetMutation() {
+  return useDataMutation<Partial<Asset>, Asset>();
+}
+
+/**
+ * 空间预约操作Hook
+ */
+export function useSpaceReservationMutation() {
+  return useDataMutation<Partial<SpaceReservation>, SpaceReservation>();
 }
