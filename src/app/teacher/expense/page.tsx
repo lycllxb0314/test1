@@ -851,7 +851,7 @@ export default function TeacherExpensePage() {
 
       {/* 详情对话框 - 全屏大屏显示 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0">
+        <DialogContent className="!max-w-[95vw] !w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
           <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-green-50 to-emerald-50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
