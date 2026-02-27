@@ -337,7 +337,7 @@ export function TeacherScheduleConfigDialog({
                     <span className="text-sm text-gray-500">节</span>
                   </div>
                   <p className="text-xs text-gray-500">
-                    建议：{suggestedHours.mainSubjectHours} 节
+                    参考：{suggestedHours.mainSubjectHours} 节（可调整）
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -356,7 +356,7 @@ export function TeacherScheduleConfigDialog({
                     <span className="text-sm text-gray-500">节</span>
                   </div>
                   <p className="text-xs text-gray-500">
-                    标准约：{suggestedHours.totalHours} 节
+                    参考约：{suggestedHours.totalHours} 节（可调整）
                   </p>
                 </div>
               </div>
@@ -448,7 +448,7 @@ export function TeacherScheduleConfigDialog({
                 <span className="text-sm text-gray-500">节</span>
               </div>
               <p className="text-xs text-gray-500">
-                技能科教师周课时约14-18节（跨多个班级）
+                技能科教师周课时约13节（跨多个班级，可能跨段）
               </p>
             </div>
           )}
@@ -509,12 +509,12 @@ export function TeacherScheduleConfigDialog({
           <Alert className="border-blue-200 bg-blue-50">
             <Info className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800 text-sm">
-              <div className="font-medium mb-2">课时分配规则（周课时约13节）</div>
+              <div className="font-medium mb-2">课时分配参考（周课时约13节）</div>
+              <div className="text-xs text-blue-600 mb-2">⚠️ 以下规则仅供参考，教务主任有最终决定权</div>
               <ul className="space-y-1 text-xs">
-                <li>• 班主任：本班主科5-6节 + 本班兼任约4节 + 其他班约3节</li>
-                <li>• 科任（带1个班）：本班主科5-6节 + 本班兼任约2节 + 其他班约5节</li>
-                <li>• 普通教师（带2个班）：两个班主科共10-12节 + 兼任1-2节</li>
-                <li>• 技能科教师：不带班，约16节（跨多个班级）</li>
+                <li>• 班主任/教研组长/中层行政/年段长：本班主科5-6节 + 本班兼任约4节 + 其他班约3节</li>
+                <li>• 科任：两个班主科共10-12节 + 兼任1-2节</li>
+                <li>• 技能科教师：跨多个班级，约13节（可能跨段）</li>
               </ul>
             </AlertDescription>
           </Alert>
