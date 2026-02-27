@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Users,
   Plus,
   Search,
@@ -29,36 +45,137 @@ import {
   Mail,
   User,
   GraduationCap,
+  MoreHorizontal,
+  Eye,
+  Edit,
+  Trash2,
+  UserPlus,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
-import { mockStudents } from '@/data/mock';
+import { useStudentsList, useStudentMutation, StudentListItem } from '@/hooks/useStudentData';
+import { toast } from 'sonner';
+
+// 年级选项
+const gradeOptions = [
+  { value: 'all', label: '全部年级' },
+  { value: '1', label: '一年级' },
+  { value: '2', label: '二年级' },
+  { value: '3', label: '三年级' },
+  { value: '4', label: '四年级' },
+  { value: '5', label: '五年级' },
+  { value: '6', label: '六年级' },
+];
+
+// 状态选项
+const statusOptions = [
+  { value: 'all', label: '全部状态' },
+  { value: '在校', label: '在校' },
+  { value: '请假', label: '请假' },
+  { value: '休学', label: '休学' },
+];
+
+// 获取状态颜色
+const getStatusColor = (status: string) => {
+  const colorMap: Record<string, string> = {
+    '在校': 'bg-green-100 text-green-700',
+    '请假': 'bg-yellow-100 text-yellow-700',
+    '休学': 'bg-red-100 text-red-700',
+    '毕业': 'bg-blue-100 text-blue-700',
+    '转学': 'bg-gray-100 text-gray-700',
+  };
+  return colorMap[status] || 'bg-gray-100 text-gray-700';
+};
+
+// 获取性别图标和颜色
+const getGenderStyle = (gender: string) => {
+  return gender === 'male' 
+    ? { icon: '👨', color: 'text-blue-600', bg: 'bg-blue-50' }
+    : { icon: '👩', color: 'text-pink-600', bg: 'bg-pink-50' };
+};
 
 export default function StudentsPage() {
+  const router = useRouter();
+  
+  // 搜索和筛选状态
   const [searchTerm, setSearchTerm] = useState('');
   const [gradeFilter, setGradeFilter] = useState('all');
-  const [classFilter, setClassFilter] = useState('all');
-
-  const filteredStudents = mockStudents.filter(s => {
-    const matchesSearch = s.name.includes(searchTerm) || s.studentId.includes(searchTerm);
-    const matchesGrade = gradeFilter === 'all' || s.grade === gradeFilter;
-    const matchesClass = classFilter === 'all' || s.class === classFilter;
-    return matchesSearch && matchesGrade && matchesClass;
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  
+  // 使用统一Hook获取学生列表
+  const { data: students, pagination, loading, error, refetch } = useStudentsList({
+    search: searchTerm,
+    grade: gradeFilter,
+    status: statusFilter,
+    page,
+    pageSize: 10,
   });
+  
+  // 学生操作Hook
+  const { deleteStudent, loading: mutationLoading } = useStudentMutation();
+  
+  // 删除确认弹窗
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<StudentListItem | null>(null);
+
+  // 查看详情
+  const handleViewDetail = (studentId: string) => {
+    router.push(`/academic/students/${studentId}`);
+  };
+
+  // 编辑学生
+  const handleEdit = (studentId: string) => {
+    router.push(`/academic/students/${studentId}?edit=true`);
+  };
+
+  // 删除学生
+  const handleDelete = async () => {
+    if (!studentToDelete) return;
+    
+    const success = await deleteStudent(studentToDelete.id);
+    if (success) {
+      toast.success('学生已删除');
+      refetch();
+    } else {
+      toast.error('删除失败，请重试');
+    }
+    setDeleteDialogOpen(false);
+    setStudentToDelete(null);
+  };
+
+  // 导出数据
+  const handleExport = () => {
+    toast.success('数据导出中，请稍候...');
+    // TODO: 实现导出功能
+  };
+
+  // 添加学生
+  const handleAddStudent = () => {
+    toast.info('添加学生功能开发中...');
+    // TODO: 实现添加学生功能
+  };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-blue-50/30 via-white to-indigo-50/30 min-h-screen">
+    <div className="p-6 lg:p-8 space-y-6 min-h-screen">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">学生管理</h1>
-          <p className="text-gray-500 mt-1">学生信息查询与管理</p>
+          <div className="flex items-center gap-2">
+            <Users className="h-7 w-7 text-primary" />
+            <h1 className="text-2xl font-bold">学生管理</h1>
+          </div>
+          <p className="text-muted-foreground mt-1">学生信息查询与管理</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleExport}>
             <Download className="h-4 w-4" />
             导出数据
           </Button>
-          <Button className="bg-blue-500 hover:bg-blue-600 text-white gap-2">
-            <Plus className="h-4 w-4" />
+          <Button className="gap-2" onClick={handleAddStudent}>
+            <UserPlus className="h-4 w-4" />
             添加学生
           </Button>
         </div>
@@ -66,56 +183,60 @@ export default function StudentsPage() {
 
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-0 shadow-md">
+        <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">学生总数</p>
-                <p className="text-2xl font-bold text-blue-600">2,800</p>
+                <p className="text-sm text-muted-foreground">学生总数</p>
+                <p className="text-2xl font-bold text-primary">{pagination.total}</p>
               </div>
-              <div className="p-2 rounded-lg bg-blue-100">
-                <Users className="h-5 w-5 text-blue-600" />
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Users className="h-5 w-5 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-md">
+        <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">男生</p>
-                <p className="text-2xl font-bold text-cyan-600">1,456</p>
+                <p className="text-sm text-muted-foreground">男生</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {students.filter(s => s.gender === 'male').length}
+                </p>
               </div>
-              <div className="p-2 rounded-lg bg-cyan-100">
-                <User className="h-5 w-5 text-cyan-600" />
+              <div className="p-2 rounded-lg bg-blue-50">
+                <User className="h-5 w-5 text-blue-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-md">
+        <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">女生</p>
-                <p className="text-2xl font-bold text-pink-600">1,344</p>
+                <p className="text-sm text-muted-foreground">女生</p>
+                <p className="text-2xl font-bold text-pink-600">
+                  {students.filter(s => s.gender === 'female').length}
+                </p>
               </div>
-              <div className="p-2 rounded-lg bg-pink-100">
+              <div className="p-2 rounded-lg bg-pink-50">
                 <User className="h-5 w-5 text-pink-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-md">
+        <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">班级数</p>
+                <p className="text-sm text-muted-foreground">班级数</p>
                 <p className="text-2xl font-bold text-green-600">56</p>
               </div>
-              <div className="p-2 rounded-lg bg-green-100">
+              <div className="p-2 rounded-lg bg-green-50">
                 <GraduationCap className="h-5 w-5 text-green-600" />
               </div>
             </div>
@@ -124,92 +245,204 @@ export default function StudentsPage() {
       </div>
 
       {/* 搜索和筛选 */}
-      <Card className="border-0 shadow-md">
+      <Card className="shadow-sm">
         <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="搜索学生姓名或学号..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(1);
+                }}
                 className="pl-10"
               />
             </div>
-            <Select value={gradeFilter} onValueChange={setGradeFilter}>
+            <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setPage(1); }}>
               <SelectTrigger className="w-[120px]">
                 <SelectValue placeholder="年级" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部年级</SelectItem>
-                <SelectItem value="一年级">一年级</SelectItem>
-                <SelectItem value="二年级">二年级</SelectItem>
-                <SelectItem value="三年级">三年级</SelectItem>
-                <SelectItem value="四年级">四年级</SelectItem>
-                <SelectItem value="五年级">五年级</SelectItem>
-                <SelectItem value="六年级">六年级</SelectItem>
+                {gradeOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Select value={classFilter} onValueChange={setClassFilter}>
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
               <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="班级" />
+                <SelectValue placeholder="状态" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部班级</SelectItem>
-                <SelectItem value="1班">1班</SelectItem>
-                <SelectItem value="2班">2班</SelectItem>
-                <SelectItem value="3班">3班</SelectItem>
-                <SelectItem value="4班">4班</SelectItem>
+                {statusOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <Button variant="outline" size="icon" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* 学生列表 */}
-      <Card className="border-0 shadow-md">
+      <Card className="shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">学生列表</CardTitle>
+          <CardDescription>
+            共 {pagination.total} 名学生，当前显示第 {page} 页
+          </CardDescription>
+        </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>学号</TableHead>
-                <TableHead>姓名</TableHead>
-                <TableHead>性别</TableHead>
-                <TableHead>年级</TableHead>
-                <TableHead>班级</TableHead>
-                <TableHead>班主任</TableHead>
-                <TableHead>联系电话</TableHead>
-                <TableHead>状态</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStudents.map((student) => (
-                <TableRow key={student.id} className="hover:bg-gray-50">
-                  <TableCell className="font-medium">{student.studentId}</TableCell>
-                  <TableCell>{student.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={student.gender === '男' ? 'text-blue-600' : 'text-pink-600'}>
-                      {student.gender}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{student.grade}</TableCell>
-                  <TableCell>{student.class}</TableCell>
-                  <TableCell>{student.homeroomTeacher}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 text-gray-600">
-                      <Phone className="h-3 w-3" />
-                      {student.phone}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className="bg-green-100 text-green-700">在读</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-red-500">
+              {error}
+              <Button variant="link" onClick={refetch}>重试</Button>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              暂无学生数据
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[100px]">学号</TableHead>
+                    <TableHead>姓名</TableHead>
+                    <TableHead>性别</TableHead>
+                    <TableHead>年级</TableHead>
+                    <TableHead>班级</TableHead>
+                    <TableHead>班主任</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead className="w-[80px]">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {students.map((student) => {
+                    const genderStyle = getGenderStyle(student.gender);
+                    return (
+                      <TableRow key={student.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => handleViewDetail(student.id)}>
+                        <TableCell className="font-medium">{student.studentNo}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${genderStyle.bg}`}>
+                              {genderStyle.icon}
+                            </span>
+                            <span className="font-medium">{student.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={genderStyle.color}>
+                            {student.gender === 'male' ? '男' : '女'}
+                          </span>
+                        </TableCell>
+                        <TableCell>{student.gradeName}</TableCell>
+                        <TableCell>{student.className}</TableCell>
+                        <TableCell>{student.headTeacherName || '-'}</TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(student.status)}>
+                            {student.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewDetail(student.id)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                查看详情
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEdit(student.id)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                编辑信息
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-red-600"
+                                onClick={() => {
+                                  setStudentToDelete(student);
+                                  setDeleteDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                删除学生
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              {/* 分页 */}
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    显示 {(page - 1) * 10 + 1} - {Math.min(page * 10, pagination.total)} 条，共 {pagination.total} 条
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      上一页
+                    </Button>
+                    <span className="text-sm">
+                      第 {page} / {pagination.totalPages} 页
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                      disabled={page === pagination.totalPages}
+                    >
+                      下一页
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {/* 删除确认弹窗 */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              确定要删除学生 <strong>{studentToDelete?.name}</strong> 吗？此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={mutationLoading}>
+              {mutationLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              确认删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

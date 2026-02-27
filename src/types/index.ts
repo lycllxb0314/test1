@@ -210,9 +210,144 @@ export interface Student {
   birthDate: string;
   classId: string;
   className: string;
-  status: '在校' | '请假' | '休学';
+  status: '在校' | '请假' | '休学' | '毕业' | '转学';
   parents: Parent[];
   avatar?: string;
+}
+
+// 学生完整档案（用于详情页展示）
+export interface StudentFullProfile {
+  id: string;
+  studentNo: string;
+  
+  // === 基本信息 ===
+  name: string;
+  gender: 'male' | 'female';
+  birthDate: string;
+  idCard?: string;              // 身份证号
+  ethnicity?: string;           // 民族
+  nativePlace?: string;         // 籍贯
+  politicalStatus?: string;     // 政治面貌（少先队员等）
+  
+  // === 学籍信息 ===
+  grade: number;                // 年级（1-6）
+  gradeName: string;            // 年级名称
+  classId: string;
+  className: string;
+  classNumber: number;          // 班级号
+  enrollmentDate: string;       // 入学日期
+  studentType?: '普通' | '随迁子女' | '留守儿童' | '残疾学生' | '低保家庭';
+  
+  // === 联系信息 ===
+  phone?: string;
+  address?: string;
+  homeAddress?: string;         // 家庭详细地址
+  
+  // === 家庭信息 ===
+  familyType?: '核心家庭' | '单亲家庭' | '重组家庭' | '隔代家庭' | '其他';
+  parents: Parent[];
+  emergencyContact?: string;    // 紧急联系人
+  emergencyPhone?: string;      // 紧急联系电话
+  
+  // === 班级信息 ===
+  headTeacherId?: string;
+  headTeacherName?: string;     // 班主任姓名
+  
+  // === 状态 ===
+  status: '在校' | '请假' | '休学' | '毕业' | '转学';
+  statusReason?: string;        // 状态变更原因
+  
+  // === 学业信息 ===
+  academicRecords: StudentAcademicRecord[];
+  
+  // === 荣誉奖项 ===
+  honors: StudentHonor[];
+  
+  // === 成长记录 ===
+  growthRecords: StudentGrowthRecord[];
+  
+  // === 习惯养成 ===
+  habitProfile?: {
+    overallScore: number;
+    level: '优秀' | '良好' | '合格' | '待提高';
+    habitStarCount: number;
+    monthlyStars: string[];
+  };
+  
+  // === 德育表现 ===
+  moralRecords: StudentMoralRecord[];
+  
+  // === 出勤统计 ===
+  attendanceStats?: {
+    totalDays: number;
+    presentDays: number;
+    absentDays: number;
+    lateDays: number;
+    earlyLeaveDays: number;
+    attendanceRate: number;
+  };
+  
+  // === 头像 ===
+  avatar?: string;
+  
+  // === 时间戳 ===
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 学业记录
+export interface StudentAcademicRecord {
+  id: string;
+  studentId: string;
+  semester: string;             // 学期，如 "2024-2025-1"
+  examType: string;             // 考试类型：期中、期末、单元测试
+  subject: string;              // 科目
+  score?: number;               // 分数
+  level?: '优秀' | '良好' | '合格' | '待提高';  // 等级
+  classRank?: number;           // 班级排名
+  gradeRank?: number;           // 年级排名
+  progress?: number;            // 进步幅度
+  teacherComment?: string;      // 教师评语
+  createdAt: string;
+}
+
+// 学生荣誉
+export interface StudentHonor {
+  id: string;
+  studentId: string;
+  title: string;
+  level: '国家级' | '省级' | '市级' | '区级' | '校级' | '班级';
+  category: '综合' | '学习' | '德育' | '体育' | '艺术' | '劳动' | '科技';
+  issuer?: string;
+  date: string;
+  certificateNo?: string;
+  description?: string;
+}
+
+// 成长记录
+export interface StudentGrowthRecord {
+  id: string;
+  studentId: string;
+  type: '入学' | '转学' | '休学' | '复学' | '毕业' | '表彰' | '处分' | '家访' | '谈心' | '其他';
+  title: string;
+  description?: string;
+  date: string;
+  operator?: string;            // 操作人
+  attachments?: string[];
+  createdAt: string;
+}
+
+// 德育记录
+export interface StudentMoralRecord {
+  id: string;
+  studentId: string;
+  type: '表扬' | '批评' | '志愿服务' | '社会实践' | '升旗仪式' | '其他';
+  title: string;
+  content?: string;
+  score?: number;               // 德育分数（正数为加分，负数为减分）
+  date: string;
+  recorder?: string;            // 记录人
+  createdAt: string;
 }
 
 // 家长信息
