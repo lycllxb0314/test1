@@ -2787,3 +2787,195 @@ export interface ScheduleStatistics {
   /** 课程覆盖率 */
   coverageRate: number;
 }
+
+// ==================== 课表与工作量系统 ====================
+
+/**
+ * 基准课表
+ * 学期开始前确定的课表，作为整个学期的基准
+ */
+export interface BaseSchedule {
+  id: string;
+  semester: string;                    // 学期，如"2024-2025-1"
+  
+  // 元数据
+  createdAt: string;
+  createdBy: string;                   // 教务主任ID
+  createdByName: string;
+  updatedAt: string;
+  status: 'draft' | 'published' | 'archived';
+  
+  // 统计
+  classCount: number;
+  teacherCount: number;
+  totalSlots: number;
+}
+
+/**
+ * 实际课表
+ * 每周生成的实际课表，反映请假、代课等变化
+ */
+export interface ActualSchedule {
+  id: string;
+  semester: string;
+  weekNumber: number;                  // 第几周
+  weekStartDate: string;               // 周一日期
+  weekEndDate: string;                 // 周五日期
+  
+  // 本周变更统计
+  changeCount: number;
+  substituteCount: number;
+  leaveCount: number;
+  
+  // 元数据
+  generatedAt: string;                 // 生成时间
+  generatedFrom: string;               // 基准课表ID
+}
+
+/**
+ * 教师工作量统计
+ */
+export interface TeacherWorkload {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  semester: string;
+  month?: number;                      // 月度统计时使用（1-12）
+  
+  // === 基准课时 ===
+  /** 基准周课时（教务主任配置） */
+  baseWeeklyHours: number;
+  /** 本期应上课时 */
+  expectedHours: number;
+  
+  // === 实际授课 ===
+  /** 自己上的课 */
+  selfTaughtHours: number;
+  /** 请假课时 */
+  leaveHours: number;
+  /** 请假详情 */
+  leaveDetails: Array<{
+    date: string;
+    leaveType: string;
+    hours: number;
+  }>;
+  
+  // === 代课 ===
+  /** 帮人代课的课 */
+  substituteHours: number;
+  /** 代课详情 */
+  substituteDetails: Array<{
+    date: string;
+    classId: string;
+    className: string;
+    subject: string;
+    originalTeacherId: string;
+    originalTeacherName: string;
+    hours: number;
+  }>;
+  
+  // === 课后服务 ===
+  /** 课后服务节数 */
+  afterSchoolServiceHours: number;
+  /** 课后服务详情 */
+  afterSchoolServiceDetails: Array<{
+    date: string;
+    serviceType: string;
+    classId: string;
+    className: string;
+    hours: number;
+  }>;
+  
+  // === 统计 ===
+  /** 实际工作量 = 自己上的课 + 代课 + 课后服务 */
+  totalWorkload: number;
+  /** 与预期差异 */
+  variance: number;
+  /** 备注 */
+  remark?: string;
+  
+  updatedAt: string;
+}
+
+/**
+ * 课后服务记录
+ */
+export interface AfterSchoolService {
+  id: string;
+  semester: string;
+  weekNumber: number;
+  date: string;
+  
+  // 服务信息
+  serviceType: string;                 // 课后服务类型（托管/兴趣班等）
+  classId: string;
+  className: string;
+  grade: number;
+  
+  // 教师信息
+  teacherId: string;
+  teacherName: string;
+  
+  // 时间信息
+  periodIndex: number;                 // 第几节课
+  startTime: string;
+  endTime: string;
+  hours: number;                       // 课时数
+  
+  // 状态
+  status: 'scheduled' | 'completed' | 'cancelled';
+  
+  // 学生人数
+  studentCount?: number;
+  
+  // 备注
+  remark?: string;
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 教师月度工作量汇总
+ */
+export interface TeacherMonthlyWorkloadSummary {
+  teacherId: string;
+  teacherName: string;
+  semester: string;
+  month: number;
+  
+  // 周课时
+  baseWeeklyHours: number;
+  
+  // 本月统计
+  workingDays: number;                 // 工作日天数
+  expectedHours: number;               // 应上课时
+  selfTaughtHours: number;             // 自己上的课
+  leaveHours: number;                  // 请假课时
+  substituteHours: number;             // 代课课时
+  afterSchoolServiceHours: number;     // 课后服务
+  
+  // 总计
+  totalWorkload: number;
+  variance: number;
+  
+  // 趋势（与上月对比）
+  trend: {
+    totalWorkloadChange: number;
+    leaveHoursChange: number;
+    substituteHoursChange: number;
+  };
+}
+
+/**
+ * 工作量统计查询参数
+ */
+export interface WorkloadQueryParams {
+  teacherId?: string;
+  semester?: string;
+  month?: number;
+  startDate?: string;
+  endDate?: string;
+  departmentId?: string;
+  grade?: number;
+}
