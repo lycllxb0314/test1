@@ -47,7 +47,15 @@ export interface ClassInfo {
   students: number;
   headTeacherId: string;
   headTeacherName: string;
-  subjectHeadId?: string;         // 科任（副班主任）
+  // 科任（副班主任）- 按科目存储，一个班可以有多个科任
+  // 例如：语文科任、数学科任可能是不同老师
+  subjectHeads?: Array<{
+    subject: string;      // 科目
+    teacherId: string;    // 教师ID
+    teacherName: string;  // 教师姓名
+  }>;
+  // 兼容旧数据
+  subjectHeadId?: string;         // 科任（副班主任）- 已废弃，建议使用 subjectHeads
   subjectHeadName?: string;
   subjectTeachers: ClassSubjectTeacher[];
   classroom: string;
@@ -287,7 +295,12 @@ export const CLASSES_DATA: ClassInfo[] = [
     students: 50,
     headTeacherId: 't001',      // 张明华（语文老师）
     headTeacherName: '张明华',
-    subjectHeadId: 't002',      // 李秀芳（数学老师，同时是一年级2班班主任）
+    // 科任（按科目）：李秀芳是一年级2班班主任，同时也教这个班的数学
+    subjectHeads: [
+      { subject: '数学', teacherId: 't002', teacherName: '李秀芳' },
+    ],
+    // 兼容旧数据
+    subjectHeadId: 't002',
     subjectHeadName: '李秀芳',
     subjectTeachers: [
       // 班主任教的课（本班优先）
@@ -320,7 +333,12 @@ export const CLASSES_DATA: ClassInfo[] = [
     students: 49,
     headTeacherId: 't002',      // 李秀芳（数学老师）
     headTeacherName: '李秀芳',
-    subjectHeadId: 't003',      // 王建国（语文老师，同时是二年级1班班主任）
+    // 科任（按科目）：王建国是二年级1班班主任，同时也教这个班的语文
+    subjectHeads: [
+      { subject: '语文', teacherId: 't003', teacherName: '王建国' },
+    ],
+    // 兼容旧数据
+    subjectHeadId: 't003',
     subjectHeadName: '王建国',
     subjectTeachers: [
       // 科任教的课（本班优先）
@@ -353,7 +371,12 @@ export const CLASSES_DATA: ClassInfo[] = [
     students: 48,
     headTeacherId: 't003',      // 王建国（语文老师）
     headTeacherName: '王建国',
-    subjectHeadId: 't004',      // 赵丽萍（数学老师，普通教师带2个班）
+    // 科任（按科目）：赵丽萍是数学科任，带2个班
+    subjectHeads: [
+      { subject: '数学', teacherId: 't004', teacherName: '赵丽萍' },
+    ],
+    // 兼容旧数据
+    subjectHeadId: 't004',
     subjectHeadName: '赵丽萍',
     subjectTeachers: [
       // 班主任教的课（本班优先）
@@ -385,7 +408,12 @@ export const CLASSES_DATA: ClassInfo[] = [
     students: 52,
     headTeacherId: 't006',      // 陈美玲（数学老师）
     headTeacherName: '陈美玲',
-    subjectHeadId: 't005',      // 刘伟强（语文老师，普通教师带2个班）
+    // 科任（按科目）：刘伟强是语文科任，带2个班
+    subjectHeads: [
+      { subject: '语文', teacherId: 't005', teacherName: '刘伟强' },
+    ],
+    // 兼容旧数据
+    subjectHeadId: 't005',
     subjectHeadName: '刘伟强',
     subjectTeachers: [
       // 科任教的课（本班优先）

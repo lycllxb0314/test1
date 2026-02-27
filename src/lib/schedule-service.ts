@@ -81,8 +81,13 @@ interface SchedulingContext {
     grade: number;
     headTeacherId?: string;
     headTeacherName?: string;
-    subjectHeadId?: string;
+    subjectHeadId?: string;         // 兼容旧数据
     subjectHeadName?: string;
+    subjectHeads?: Array<{          // 新数据结构：按科目存储科任
+      subject: string;
+      teacherId: string;
+      teacherName: string;
+    }>;
   }>;
   // 教师信息
   teachers: Array<{

@@ -261,7 +261,11 @@ export function calculateTaskPriority(
   },
   classInfo: {
     headTeacherId?: string;
-    subjectHeadId?: string;
+    subjectHeadId?: string;         // 兼容旧数据
+    subjectHeads?: Array<{          // 新数据结构：按科目存储科任
+      subject: string;
+      teacherId: string;
+    }>;
   } | undefined,
   teacherInfo: {
     role?: TeacherRole;
@@ -271,7 +275,20 @@ export function calculateTaskPriority(
   if (!classInfo) return SCHEDULING_PRIORITY.SKILL_TEACHER;
   
   const isHeadTeacher = classInfo.headTeacherId === task.teacherId;
-  const isSubjectHead = classInfo.subjectHeadId === task.teacherId;
+  
+  // 检查是否是科任（本班的科任）
+  // 优先使用新的 subjectHeads 结构，兼容旧的 subjectHeadId
+  let isSubjectHead = false;
+  if (classInfo.subjectHeads && classInfo.subjectHeads.length > 0) {
+    // 新结构：按科目匹配
+    isSubjectHead = classInfo.subjectHeads.some(
+      sh => sh.teacherId === task.teacherId && sh.subject === task.subject
+    );
+  } else if (classInfo.subjectHeadId) {
+    // 兼容旧结构
+    isSubjectHead = classInfo.subjectHeadId === task.teacherId;
+  }
+  
   const isMainSubject = MAIN_SUBJECTS.includes(task.subject as MainSubject);
   
   // 判断是否是班主任/科任优先兼任的科目
