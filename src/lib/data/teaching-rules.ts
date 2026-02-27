@@ -66,7 +66,7 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     classCount: 1,
     mainSubjectHours: [5, 6],
     totalHours: 13,
-    description: '班主任带1个班，主科5-6节，兼任道法/劳动等约7-8节',
+    description: '班主任带1个班：本班主科5-6节 + 本班兼任（道法/劳动/班会）约4节 + 其他班约3节',
   },
   
   // 教研组长（带1个班）
@@ -75,7 +75,7 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     classCount: 1,
     mainSubjectHours: [5, 6],
     totalHours: 13,
-    description: '教研组长带1个班，主科5-6节，剩余课时由教研工作折算',
+    description: '教研组长带1个班：本班主科5-6节 + 本班兼任约3节 + 其他班约4节（教研工作折算）',
   },
   
   // 中层行政（带1个班，课时略少）
@@ -84,7 +84,7 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     classCount: 1,
     mainSubjectHours: [4, 5],
     totalHours: 10,
-    description: '中层行政带1个班，主科4-5节，行政工作折算部分课时',
+    description: '中层行政带1个班：本班主科4-5节 + 本班兼任约2节（行政工作折算课时）',
   },
   
   // 年段长（带1个班）
@@ -93,7 +93,7 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     classCount: 1,
     mainSubjectHours: [5, 6],
     totalHours: 12,
-    description: '年段长带1个班，主科5-6节，管理工作折算部分课时',
+    description: '年段长带1个班：本班主科5-6节 + 本班兼任约3节（管理工作折算）',
   },
   
   // 普通主科教师（带2个班）
@@ -102,16 +102,16 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     classCount: 2,
     mainSubjectHours: [10, 12],
     totalHours: 13,
-    description: '普通主科教师带2个班，主科10-12节，剩余1-3节可兼任其他',
+    description: '普通主科教师带2个班：两个班主科共10-12节 + 兼任1-2节',
   },
   
-  // 普通主科教师（带1个班）
+  // 普通主科教师（带1个班，科任）
   {
     role: 'normal',
     classCount: 1,
     mainSubjectHours: [5, 6],
     totalHours: 13,
-    description: '普通主科教师带1个班，主科5-6节，剩余课时兼任其他科目',
+    description: '科任带1个班：本班主科5-6节 + 本班兼任约2节 + 其他班约5节',
   },
   
   // 技能科教师（体育、音乐、美术等）

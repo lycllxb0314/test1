@@ -17,9 +17,13 @@ export interface Teacher {
   
   // 课时量配置
   mainClassCount: number;         // 主科带班数（1或2）
-  mainSubjectHours: number;       // 主科周课时
+  mainSubjectHours: number;       // 主科总课时
   totalWeeklyHours: number;       // 总周课时（约13节）
   currentHours: number;           // 已安排课时
+  
+  // 课时分配明细
+  ownClassHours?: number;         // 本班课时（班主任/科任在自己班的课时）
+  otherClassHours?: number;       // 其他班课时（剩余课时分配到其他班）
   
   // 班级关联
   headTeacherClassId?: string;    // 班主任班级ID
@@ -53,9 +57,18 @@ export interface ClassInfo {
 }
 
 // ==================== 教师数据 ====================
+// 
+// 课时分配逻辑（周课时约13节）：
+// - 班主任：本班主科5-6节 + 本班兼任（道法/劳动/班会）约4节 + 其他班约3节
+// - 科任（副班主任）：本班主科5-6节 + 本班兼任约2节 + 其他班约5节
+// - 普通主科教师（带2个班）：主科10-12节 + 兼任1-2节
+// - 技能科教师：约16节（跨多个班级）
 
 export const TEACHERS_DATA: Teacher[] = [
-  // 班主任 - 语文老师
+  // ==================== 班主任 - 语文老师 ====================
+  // 张明华：一年级1班班主任
+  // 本班课时：语文6 + 道法2 + 劳动1 + 班会1 = 10节
+  // 其他班课时：约3节（教其他班语文，待分配）
   { 
     id: 't001', 
     name: '张明华', 
@@ -64,13 +77,18 @@ export const TEACHERS_DATA: Teacher[] = [
     secondarySubjects: ['道德与法治', '劳动'],
     grades: [1, 2, 3],
     mainClassCount: 1,
-    mainSubjectHours: 6,
+    mainSubjectHours: 9,
     totalWeeklyHours: 13,
     currentHours: 0,
+    ownClassHours: 10,
+    otherClassHours: 3,
     headTeacherClassId: 'c001',
   },
   
-  // 班主任 - 数学老师（同时是科任）
+  // ==================== 班主任兼科任 - 数学老师 ====================
+  // 李秀芳：一年级2班班主任 + 一年级1班科任
+  // 一年级2班（班主任班）：数学6 + 班会1 = 7节
+  // 一年级1班（科任班）：数学5 + 科学1 = 6节
   { 
     id: 't002', 
     name: '李秀芳', 
@@ -79,14 +97,19 @@ export const TEACHERS_DATA: Teacher[] = [
     secondarySubjects: ['科学'],
     grades: [1, 2, 3],
     mainClassCount: 1,
-    mainSubjectHours: 6,
+    mainSubjectHours: 11,
     totalWeeklyHours: 13,
     currentHours: 0,
+    ownClassHours: 7,
+    otherClassHours: 6,
     headTeacherClassId: 'c002',
-    subjectHeadClassId: 'c001',  // 同时是一年级1班的科任
+    subjectHeadClassId: 'c001',
   },
   
-  // 班主任 - 语文老师
+  // ==================== 班主任兼科任 - 语文老师 ====================
+  // 王建国：二年级1班班主任 + 一年级2班科任
+  // 二年级1班（班主任班）：语文6 + 道法2 + 劳动1 + 班会1 = 10节
+  // 一年级2班（科任班）：语文3节
   { 
     id: 't003', 
     name: '王建国', 
@@ -95,14 +118,19 @@ export const TEACHERS_DATA: Teacher[] = [
     secondarySubjects: ['道德与法治'],
     grades: [1, 2, 3],
     mainClassCount: 1,
-    mainSubjectHours: 6,
+    mainSubjectHours: 9,
     totalWeeklyHours: 13,
     currentHours: 0,
+    ownClassHours: 10,
+    otherClassHours: 3,
     headTeacherClassId: 'c003',
-    subjectHeadClassId: 'c002',  // 同时是一年级2班的科任
+    subjectHeadClassId: 'c002',
   },
   
-  // 普通教师 - 数学老师（带2个班）
+  // ==================== 普通教师 - 数学老师（带2个班）====================
+  // 赵丽萍：二年级1班科任 + 三年级1班
+  // 二年级1班（科任班）：数学5 + 科学2 = 7节
+  // 三年级1班：数学5节
   { 
     id: 't004', 
     name: '赵丽萍', 
@@ -111,13 +139,18 @@ export const TEACHERS_DATA: Teacher[] = [
     secondarySubjects: ['科学'],
     grades: [2, 3, 4],
     mainClassCount: 2,
-    mainSubjectHours: 12,
+    mainSubjectHours: 10,
     totalWeeklyHours: 13,
     currentHours: 0,
-    subjectHeadClassId: 'c003',  // 二年级1班的科任
+    ownClassHours: 7,  // 科任班算"本班"
+    otherClassHours: 6,
+    subjectHeadClassId: 'c003',
   },
   
-  // 普通教师 - 语文老师（带2个班）
+  // ==================== 普通教师 - 语文老师（带2个班）====================
+  // 刘伟强：三年级1班科任 + 其他班
+  // 三年级1班（科任班）：语文6 + 道法2 = 8节
+  // 其他班：语文5节
   { 
     id: 't005', 
     name: '刘伟强', 
@@ -126,13 +159,18 @@ export const TEACHERS_DATA: Teacher[] = [
     secondarySubjects: ['道德与法治'],
     grades: [3, 4],
     mainClassCount: 2,
-    mainSubjectHours: 12,
+    mainSubjectHours: 11,
     totalWeeklyHours: 13,
     currentHours: 0,
-    subjectHeadClassId: 'c004',  // 三年级1班的科任
+    ownClassHours: 8,
+    otherClassHours: 5,
+    subjectHeadClassId: 'c004',
   },
   
-  // 班主任 - 数学老师
+  // ==================== 班主任 - 数学老师 ====================
+  // 陈美玲：三年级1班班主任
+  // 本班：数学6 + 劳动1 + 班会1 = 8节
+  // 其他班：数学5节
   { 
     id: 't006', 
     name: '陈美玲', 
@@ -141,13 +179,15 @@ export const TEACHERS_DATA: Teacher[] = [
     secondarySubjects: [],
     grades: [3, 4],
     mainClassCount: 1,
-    mainSubjectHours: 6,
+    mainSubjectHours: 11,
     totalWeeklyHours: 13,
     currentHours: 0,
+    ownClassHours: 8,
+    otherClassHours: 5,
     headTeacherClassId: 'c004',
   },
   
-  // 技能科教师 - 英语
+  // ==================== 技能科教师（跨多个班级）====================
   { 
     id: 't007', 
     name: '周志明', 
@@ -155,13 +195,12 @@ export const TEACHERS_DATA: Teacher[] = [
     primarySubject: '英语',
     secondarySubjects: [],
     grades: [3, 4, 5, 6],
-    mainClassCount: 0,  // 技能科不带班
+    mainClassCount: 0,
     mainSubjectHours: 0,
     totalWeeklyHours: 16,
     currentHours: 0,
   },
   
-  // 技能科教师 - 体育
   { 
     id: 't008', 
     name: '吴晓燕', 
@@ -175,7 +214,6 @@ export const TEACHERS_DATA: Teacher[] = [
     currentHours: 0,
   },
   
-  // 技能科教师 - 音乐
   { 
     id: 't009', 
     name: '郑文博', 
@@ -189,7 +227,6 @@ export const TEACHERS_DATA: Teacher[] = [
     currentHours: 0,
   },
   
-  // 技能科教师 - 美术
   { 
     id: 't010', 
     name: '孙艺华', 
@@ -203,7 +240,6 @@ export const TEACHERS_DATA: Teacher[] = [
     currentHours: 0,
   },
   
-  // 技能科教师 - 科学
   { 
     id: 't011', 
     name: '黄志强', 
@@ -217,7 +253,7 @@ export const TEACHERS_DATA: Teacher[] = [
     currentHours: 0,
   },
   
-  // 技能科教师 - 道德与法治
+  // 道法老师（专任）
   { 
     id: 't012', 
     name: '林小红', 
@@ -233,122 +269,145 @@ export const TEACHERS_DATA: Teacher[] = [
 ];
 
 // ==================== 班级数据 ====================
+// 
+// 课程周课时参考：
+// - 语文：6节（主科）
+// - 数学：5-6节（主科）
+// - 英语：3-4节
+// - 体育：3节
+// - 音乐：2节
+// - 美术：2节
+// - 科学：2节
+// - 道德与法治：2节
+// - 劳动：1节
+// - 信息技术：1节
+// - 班会：1节
+// 总计：约28节/周
 
 export const CLASSES_DATA: ClassInfo[] = [
+  // ==================== 一年级1班 ====================
   {
     id: 'c001',
     name: '一年级1班',
     grade: 1,
     classNum: 1,
     students: 50,
-    headTeacherId: 't001',
+    headTeacherId: 't001',      // 张明华（语文老师）
     headTeacherName: '张明华',
-    subjectHeadId: 't002',
+    subjectHeadId: 't002',      // 李秀芳（数学老师，同时是一年级2班班主任）
     subjectHeadName: '李秀芳',
     subjectTeachers: [
-      // 班主任教的课（主科 + 兼任）
+      // 班主任教的课（本班优先）
       { subject: '语文', teacherId: 't001', teacherName: '张明华', weeklyHours: 6, isHeadTeacherSubject: true },
       { subject: '道德与法治', teacherId: 't001', teacherName: '张明华', weeklyHours: 2, isHeadTeacherSubject: true },
       { subject: '劳动', teacherId: 't001', teacherName: '张明华', weeklyHours: 1, isHeadTeacherSubject: true },
-      // 科任教的课
+      { subject: '班会', teacherId: 't001', teacherName: '张明华', weeklyHours: 1, isHeadTeacherSubject: true },
+      // 科任教的课（本班优先）
       { subject: '数学', teacherId: 't002', teacherName: '李秀芳', weeklyHours: 5, isSubjectHeadSubject: true },
       { subject: '科学', teacherId: 't002', teacherName: '李秀芳', weeklyHours: 1, isSubjectHeadSubject: true },
-      // 其他技能科
+      // 技能科教师
       { subject: '英语', teacherId: 't007', teacherName: '周志明', weeklyHours: 4 },
       { subject: '体育', teacherId: 't008', teacherName: '吴晓燕', weeklyHours: 3 },
       { subject: '音乐', teacherId: 't009', teacherName: '郑文博', weeklyHours: 2 },
       { subject: '美术', teacherId: 't010', teacherName: '孙艺华', weeklyHours: 2 },
-      { subject: '班会', teacherId: 't001', teacherName: '张明华', weeklyHours: 1, isHeadTeacherSubject: true },
+      { subject: '科学', teacherId: 't011', teacherName: '黄志强', weeklyHours: 1 },  // 科学共2节
     ],
     classroom: '教学楼A101',
     status: 'active',
     createdAt: '2024-09-01',
     updatedAt: '2024-09-01',
   },
+  
+  // ==================== 一年级2班 ====================
   {
     id: 'c002',
     name: '一年级2班',
     grade: 1,
     classNum: 2,
     students: 49,
-    headTeacherId: 't002',
+    headTeacherId: 't002',      // 李秀芳（数学老师）
     headTeacherName: '李秀芳',
-    subjectHeadId: 't003',
+    subjectHeadId: 't003',      // 王建国（语文老师，同时是二年级1班班主任）
     subjectHeadName: '王建国',
     subjectTeachers: [
-      // 班主任教的课
-      { subject: '数学', teacherId: 't002', teacherName: '李秀芳', weeklyHours: 5, isHeadTeacherSubject: true },
-      { subject: '科学', teacherId: 't002', teacherName: '李秀芳', weeklyHours: 2, isHeadTeacherSubject: true },
-      // 科任教的课
-      { subject: '语文', teacherId: 't003', teacherName: '王建国', weeklyHours: 6, isSubjectHeadSubject: true },
+      // 科任教的课（本班优先）
+      { subject: '语文', teacherId: 't003', teacherName: '王建国', weeklyHours: 5, isSubjectHeadSubject: true },
       { subject: '道德与法治', teacherId: 't003', teacherName: '王建国', weeklyHours: 2, isSubjectHeadSubject: true },
-      // 其他技能科
+      { subject: '劳动', teacherId: 't003', teacherName: '王建国', weeklyHours: 1, isSubjectHeadSubject: true },
+      // 班主任教的课（本班优先）
+      { subject: '数学', teacherId: 't002', teacherName: '李秀芳', weeklyHours: 6, isHeadTeacherSubject: true },
+      { subject: '班会', teacherId: 't002', teacherName: '李秀芳', weeklyHours: 1, isHeadTeacherSubject: true },
+      // 技能科教师
       { subject: '英语', teacherId: 't007', teacherName: '周志明', weeklyHours: 4 },
       { subject: '体育', teacherId: 't008', teacherName: '吴晓燕', weeklyHours: 3 },
       { subject: '音乐', teacherId: 't009', teacherName: '郑文博', weeklyHours: 2 },
       { subject: '美术', teacherId: 't010', teacherName: '孙艺华', weeklyHours: 2 },
-      { subject: '劳动', teacherId: 't003', teacherName: '王建国', weeklyHours: 1, isSubjectHeadSubject: true },
-      { subject: '班会', teacherId: 't002', teacherName: '李秀芳', weeklyHours: 1, isHeadTeacherSubject: true },
+      { subject: '科学', teacherId: 't002', teacherName: '李秀芳', weeklyHours: 1 },  // 班主任兼任
+      { subject: '科学', teacherId: 't011', teacherName: '黄志强', weeklyHours: 1 },  // 科学共2节
     ],
     classroom: '教学楼A102',
     status: 'active',
     createdAt: '2024-09-01',
     updatedAt: '2024-09-01',
   },
+  
+  // ==================== 二年级1班 ====================
   {
     id: 'c003',
     name: '二年级1班',
     grade: 2,
     classNum: 1,
     students: 48,
-    headTeacherId: 't003',
+    headTeacherId: 't003',      // 王建国（语文老师）
     headTeacherName: '王建国',
-    subjectHeadId: 't004',
+    subjectHeadId: 't004',      // 赵丽萍（数学老师，普通教师带2个班）
     subjectHeadName: '赵丽萍',
     subjectTeachers: [
-      // 班主任教的课
+      // 班主任教的课（本班优先）
       { subject: '语文', teacherId: 't003', teacherName: '王建国', weeklyHours: 6, isHeadTeacherSubject: true },
       { subject: '道德与法治', teacherId: 't003', teacherName: '王建国', weeklyHours: 2, isHeadTeacherSubject: true },
-      // 科任教的课
+      { subject: '劳动', teacherId: 't003', teacherName: '王建国', weeklyHours: 1, isHeadTeacherSubject: true },
+      { subject: '班会', teacherId: 't003', teacherName: '王建国', weeklyHours: 1, isHeadTeacherSubject: true },
+      // 科任教的课（本班优先）
       { subject: '数学', teacherId: 't004', teacherName: '赵丽萍', weeklyHours: 5, isSubjectHeadSubject: true },
       { subject: '科学', teacherId: 't004', teacherName: '赵丽萍', weeklyHours: 2, isSubjectHeadSubject: true },
-      // 其他技能科
+      // 技能科教师
       { subject: '英语', teacherId: 't007', teacherName: '周志明', weeklyHours: 4 },
       { subject: '体育', teacherId: 't008', teacherName: '吴晓燕', weeklyHours: 3 },
       { subject: '音乐', teacherId: 't009', teacherName: '郑文博', weeklyHours: 2 },
       { subject: '美术', teacherId: 't010', teacherName: '孙艺华', weeklyHours: 2 },
-      { subject: '劳动', teacherId: 't003', teacherName: '王建国', weeklyHours: 1, isHeadTeacherSubject: true },
-      { subject: '班会', teacherId: 't003', teacherName: '王建国', weeklyHours: 1, isHeadTeacherSubject: true },
     ],
     classroom: '教学楼A201',
     status: 'active',
     createdAt: '2024-09-01',
     updatedAt: '2024-09-01',
   },
+  
+  // ==================== 三年级1班 ====================
   {
     id: 'c004',
     name: '三年级1班',
     grade: 3,
     classNum: 1,
     students: 52,
-    headTeacherId: 't006',
+    headTeacherId: 't006',      // 陈美玲（数学老师）
     headTeacherName: '陈美玲',
-    subjectHeadId: 't005',
+    subjectHeadId: 't005',      // 刘伟强（语文老师，普通教师带2个班）
     subjectHeadName: '刘伟强',
     subjectTeachers: [
-      // 班主任教的课
-      { subject: '数学', teacherId: 't006', teacherName: '陈美玲', weeklyHours: 6, isHeadTeacherSubject: true },
-      // 科任教的课
+      // 科任教的课（本班优先）
       { subject: '语文', teacherId: 't005', teacherName: '刘伟强', weeklyHours: 6, isSubjectHeadSubject: true },
       { subject: '道德与法治', teacherId: 't005', teacherName: '刘伟强', weeklyHours: 2, isSubjectHeadSubject: true },
-      // 其他技能科
+      // 班主任教的课（本班优先）
+      { subject: '数学', teacherId: 't006', teacherName: '陈美玲', weeklyHours: 6, isHeadTeacherSubject: true },
+      { subject: '劳动', teacherId: 't006', teacherName: '陈美玲', weeklyHours: 1, isHeadTeacherSubject: true },
+      { subject: '班会', teacherId: 't006', teacherName: '陈美玲', weeklyHours: 1, isHeadTeacherSubject: true },
+      // 技能科教师
       { subject: '英语', teacherId: 't007', teacherName: '周志明', weeklyHours: 4 },
       { subject: '体育', teacherId: 't008', teacherName: '吴晓燕', weeklyHours: 3 },
       { subject: '音乐', teacherId: 't009', teacherName: '郑文博', weeklyHours: 2 },
       { subject: '美术', teacherId: 't010', teacherName: '孙艺华', weeklyHours: 2 },
       { subject: '科学', teacherId: 't011', teacherName: '黄志强', weeklyHours: 2 },
-      { subject: '劳动', teacherId: 't006', teacherName: '陈美玲', weeklyHours: 1, isHeadTeacherSubject: true },
-      { subject: '班会', teacherId: 't006', teacherName: '陈美玲', weeklyHours: 1, isHeadTeacherSubject: true },
     ],
     classroom: '教学楼A301',
     status: 'active',

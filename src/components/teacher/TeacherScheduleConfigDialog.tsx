@@ -359,6 +359,44 @@ export function TeacherScheduleConfigDialog({
                 </div>
               </div>
 
+              {/* 课时分配预览 */}
+              {form.headTeacherClassId && form.mainClassCount === 1 && (
+                <div className="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <Label className="flex items-center gap-2 text-blue-700">
+                    <Calculator className="h-4 w-4" />
+                    课时分配预览
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">本班主科：</span>
+                      <span className="font-medium">{form.mainSubjectHours}节</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">本班兼任：</span>
+                      <span className="font-medium">
+                        {form.secondarySubjects.length > 0 
+                          ? `${form.secondarySubjects.length * 2}节` 
+                          : '待配置'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">本班班会：</span>
+                      <span className="font-medium">1节</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">其他班课时：</span>
+                      <span className="font-medium text-amber-600">
+                        {Math.max(0, form.totalWeeklyHours - form.mainSubjectHours - 
+                          (form.secondarySubjects.length * 2) - 1)}节
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 本班课程有限，剩余课时需到其他班级教学
+                  </p>
+                </div>
+              )}
+
               {/* 兼任科目 */}
               <div className="space-y-2">
                 <Label>兼任科目</Label>
@@ -469,10 +507,11 @@ export function TeacherScheduleConfigDialog({
           <Alert className="border-blue-200 bg-blue-50">
             <Info className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800 text-sm">
-              <div className="font-medium mb-2">课时量标准（周课时约13节）</div>
+              <div className="font-medium mb-2">课时分配规则（周课时约13节）</div>
               <ul className="space-y-1 text-xs">
-                <li>• 班主任/教研组长：带1个班，主科5-6节，兼任道法/劳动等约7-8节</li>
-                <li>• 普通主科教师：带2个班，主科10-12节，剩余1-3节</li>
+                <li>• 班主任：本班主科5-6节 + 本班兼任约4节 + 其他班约3节</li>
+                <li>• 科任（带1个班）：本班主科5-6节 + 本班兼任约2节 + 其他班约5节</li>
+                <li>• 普通教师（带2个班）：两个班主科共10-12节 + 兼任1-2节</li>
                 <li>• 技能科教师：不带班，约16节（跨多个班级）</li>
               </ul>
             </AlertDescription>
