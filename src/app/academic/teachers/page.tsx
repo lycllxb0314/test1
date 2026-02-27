@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -22,6 +23,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
   Users,
   Plus,
   Search,
@@ -32,47 +48,249 @@ import {
   BookOpen,
   Award,
   Eye,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
+import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
+import { BatchToolbar, SelectColumn, type BatchAction } from '@/components/common/BatchToolbar';
+
+// 教师数据类型
+interface Teacher {
+  id: string;
+  name: string;
+  gender: string;
+  subject: string;
+  title: string;
+  department: string;
+  phone: string;
+  email: string;
+  status: string;
+  teachYears: number;
+}
 
 // 模拟教师数据
-const mockTeachers = [
-  { id: 1, name: '王明华', gender: '男', subject: '语文', title: '高级教师', department: '语文组', phone: '138****1234', email: 'wang@lysf.edu.cn', status: 'active', teachYears: 15 },
-  { id: 2, name: '李芳', gender: '女', subject: '数学', title: '一级教师', department: '数学组', phone: '139****5678', email: 'li@lysf.edu.cn', status: 'active', teachYears: 10 },
-  { id: 3, name: '张强', gender: '男', subject: '英语', title: '二级教师', department: '英语组', phone: '137****9012', email: 'zhang@lysf.edu.cn', status: 'active', teachYears: 5 },
-  { id: 4, name: '刘洋', gender: '女', subject: '科学', title: '一级教师', department: '科学组', phone: '136****3456', email: 'liu@lysf.edu.cn', status: 'active', teachYears: 8 },
-  { id: 5, name: '陈红', gender: '女', subject: '音乐', title: '二级教师', department: '艺术组', phone: '135****7890', email: 'chen@lysf.edu.cn', status: 'active', teachYears: 6 },
-  { id: 6, name: '赵刚', gender: '男', subject: '体育', title: '一级教师', department: '体育组', phone: '134****2345', email: 'zhao@lysf.edu.cn', status: 'active', teachYears: 12 },
-  { id: 7, name: '孙丽', gender: '女', subject: '美术', title: '二级教师', department: '艺术组', phone: '133****6789', email: 'sun@lysf.edu.cn', status: 'on_leave', teachYears: 4 },
-  { id: 8, name: '周伟', gender: '男', subject: '信息技术', title: '二级教师', department: '信息组', phone: '132****0123', email: 'zhou@lysf.edu.cn', status: 'active', teachYears: 3 },
+const mockTeachers: Teacher[] = [
+  { id: '1', name: '王明华', gender: '男', subject: '语文', title: '高级教师', department: '语文组', phone: '138****1234', email: 'wang@lysf.edu.cn', status: 'active', teachYears: 15 },
+  { id: '2', name: '李芳', gender: '女', subject: '数学', title: '一级教师', department: '数学组', phone: '139****5678', email: 'li@lysf.edu.cn', status: 'active', teachYears: 10 },
+  { id: '3', name: '张强', gender: '男', subject: '英语', title: '二级教师', department: '英语组', phone: '137****9012', email: 'zhang@lysf.edu.cn', status: 'active', teachYears: 5 },
+  { id: '4', name: '刘洋', gender: '女', subject: '科学', title: '一级教师', department: '科学组', phone: '136****3456', email: 'liu@lysf.edu.cn', status: 'active', teachYears: 8 },
+  { id: '5', name: '陈红', gender: '女', subject: '音乐', title: '二级教师', department: '艺术组', phone: '135****7890', email: 'chen@lysf.edu.cn', status: 'active', teachYears: 6 },
+  { id: '6', name: '赵刚', gender: '男', subject: '体育', title: '一级教师', department: '体育组', phone: '134****2345', email: 'zhao@lysf.edu.cn', status: 'active', teachYears: 12 },
+  { id: '7', name: '孙丽', gender: '女', subject: '美术', title: '二级教师', department: '艺术组', phone: '133****6789', email: 'sun@lysf.edu.cn', status: 'on_leave', teachYears: 4 },
+  { id: '8', name: '周伟', gender: '男', subject: '信息技术', title: '二级教师', department: '信息组', phone: '132****0123', email: 'zhou@lysf.edu.cn', status: 'active', teachYears: 3 },
+];
+
+// 性别选项
+const genderOptions = ['男', '女'];
+// 学科选项
+const subjectOptions = ['语文', '数学', '英语', '科学', '音乐', '体育', '美术', '信息技术'];
+// 职称选项
+const titleOptions = ['二级教师', '一级教师', '高级教师', '正高级教师'];
+// 状态选项
+const statusOptions = [
+  { value: 'active', label: '在职' },
+  { value: 'on_leave', label: '请假' },
+  { value: 'retired', label: '退休' },
 ];
 
 export default function TeachersPage() {
   const router = useRouter();
+  
+  // 数据状态
+  const [teachers, setTeachers] = useState<Teacher[]>(mockTeachers);
+  const [loading, setLoading] = useState(false);
+  
+  // 搜索和筛选
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('all');
+  
+  // 选择状态
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  // 对话框状态
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  
+  // 当前编辑/删除的教师
+  const [currentTeacher, setCurrentTeacher] = useState<Teacher | null>(null);
+  
+  // 表单数据
+  const [formData, setFormData] = useState<Partial<Teacher>>({});
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-700">在职</Badge>;
-      case 'on_leave':
-        return <Badge className="bg-yellow-100 text-yellow-700">请假</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+  // 统计数据
+  const stats = {
+    total: teachers.length,
+    senior: teachers.filter(t => t.title === '高级教师' || t.title === '正高级教师').length,
+    headTeachers: Math.floor(teachers.length * 0.33),
+    departments: new Set(teachers.map(t => t.department)).size,
   };
 
-  const filteredTeachers = mockTeachers.filter(t => {
+  // 筛选后的教师列表
+  const filteredTeachers = teachers.filter(t => {
     const matchesSearch = t.name.includes(searchTerm) || t.email.includes(searchTerm);
     const matchesSubject = subjectFilter === 'all' || t.subject === subjectFilter;
     return matchesSearch && matchesSubject;
   });
 
-  // 按学科统计
-  const subjectStats = mockTeachers.reduce((acc, t) => {
-    acc[t.subject] = (acc[t.subject] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // 获取状态标签
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { bg: string; text: string; label: string }> = {
+      active: { bg: 'bg-green-100', text: 'text-green-700', label: '在职' },
+      on_leave: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: '请假' },
+      retired: { bg: 'bg-gray-100', text: 'text-gray-700', label: '退休' },
+    };
+    const s = statusMap[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: status };
+    return <Badge className={`${s.bg} ${s.text}`}>{s.label}</Badge>;
+  };
+
+  // 选择操作
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === filteredTeachers.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredTeachers.map(t => t.id)));
+    }
+  }, [selectedIds.size, filteredTeachers]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  // 打开编辑对话框
+  const openEditDialog = useCallback((teacher: Teacher) => {
+    setCurrentTeacher(teacher);
+    setFormData({ ...teacher });
+    setEditDialogOpen(true);
+  }, []);
+
+  // 打开删除对话框
+  const openDeleteDialog = useCallback((teacher: Teacher) => {
+    setCurrentTeacher(teacher);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  // 打开新增对话框
+  const openAddDialog = useCallback(() => {
+    setCurrentTeacher(null);
+    setFormData({
+      gender: '男',
+      subject: '语文',
+      title: '二级教师',
+      status: 'active',
+      teachYears: 0,
+    });
+    setAddDialogOpen(true);
+  }, []);
+
+  // 保存教师（新增/编辑）
+  const handleSave = useCallback(async () => {
+    setLoading(true);
+    
+    // 模拟API调用
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    if (currentTeacher) {
+      // 编辑
+      setTeachers(prev => prev.map(t => 
+        t.id === currentTeacher.id ? { ...t, ...formData } as Teacher : t
+      ));
+    } else {
+      // 新增
+      const newTeacher: Teacher = {
+        id: String(Date.now()),
+        name: formData.name || '',
+        gender: formData.gender || '男',
+        subject: formData.subject || '语文',
+        title: formData.title || '二级教师',
+        department: `${formData.subject || '语文'}组`,
+        phone: formData.phone || '',
+        email: formData.email || '',
+        status: formData.status || 'active',
+        teachYears: formData.teachYears || 0,
+      };
+      setTeachers(prev => [...prev, newTeacher]);
+    }
+    
+    setLoading(false);
+    setEditDialogOpen(false);
+    setAddDialogOpen(false);
+    setFormData({});
+  }, [currentTeacher, formData]);
+
+  // 删除教师
+  const handleDelete = useCallback(async () => {
+    if (!currentTeacher) return;
+    
+    setLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setTeachers(prev => prev.filter(t => t.id !== currentTeacher.id));
+    setLoading(false);
+    setDeleteDialogOpen(false);
+    setCurrentTeacher(null);
+  }, [currentTeacher]);
+
+  // 批量删除
+  const handleBatchDelete = useCallback(async () => {
+    setLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setTeachers(prev => prev.filter(t => !selectedIds.has(t.id)));
+    setLoading(false);
+    setBatchDeleteDialogOpen(false);
+    clearSelection();
+  }, [selectedIds, clearSelection]);
+
+  // 批量更新状态
+  const handleBatchUpdateStatus = useCallback(async (status: string) => {
+    setLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setTeachers(prev => prev.map(t => 
+      selectedIds.has(t.id) ? { ...t, status } : t
+    ));
+    setLoading(false);
+    clearSelection();
+  }, [selectedIds, clearSelection]);
+
+  // 批量操作按钮
+  const batchActions: BatchAction[] = [
+    {
+      key: 'delete',
+      label: '批量删除',
+      icon: <Trash2 className="h-4 w-4" />,
+      onClick: () => setBatchDeleteDialogOpen(true),
+      destructive: true,
+    },
+    {
+      key: 'status-active',
+      label: '设为在职',
+      icon: <UserCircle className="h-4 w-4" />,
+      onClick: () => handleBatchUpdateStatus('active'),
+    },
+    {
+      key: 'status-leave',
+      label: '设为请假',
+      icon: <Mail className="h-4 w-4" />,
+      onClick: () => handleBatchUpdateStatus('on_leave'),
+    },
+  ];
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-blue-50/30 via-white to-indigo-50/30 min-h-screen">
@@ -87,7 +305,10 @@ export default function TeachersPage() {
             <Download className="h-4 w-4" />
             导出数据
           </Button>
-          <Button className="bg-blue-500 hover:bg-blue-600 text-white gap-2">
+          <Button 
+            className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
+            onClick={openAddDialog}
+          >
             <Plus className="h-4 w-4" />
             添加教师
           </Button>
@@ -101,7 +322,7 @@ export default function TeachersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">教师总数</p>
-                <p className="text-2xl font-bold text-blue-600">168</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
               </div>
               <div className="p-2 rounded-lg bg-blue-100">
                 <Users className="h-5 w-5 text-blue-600" />
@@ -115,7 +336,7 @@ export default function TeachersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">高级教师</p>
-                <p className="text-2xl font-bold text-purple-600">32</p>
+                <p className="text-2xl font-bold text-purple-600">{stats.senior}</p>
               </div>
               <div className="p-2 rounded-lg bg-purple-100">
                 <Award className="h-5 w-5 text-purple-600" />
@@ -129,7 +350,7 @@ export default function TeachersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">班主任</p>
-                <p className="text-2xl font-bold text-green-600">56</p>
+                <p className="text-2xl font-bold text-green-600">{stats.headTeachers}</p>
               </div>
               <div className="p-2 rounded-lg bg-green-100">
                 <UserCircle className="h-5 w-5 text-green-600" />
@@ -143,7 +364,7 @@ export default function TeachersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">教研组</p>
-                <p className="text-2xl font-bold text-orange-600">8</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.departments}</p>
               </div>
               <div className="p-2 rounded-lg bg-orange-100">
                 <BookOpen className="h-5 w-5 text-orange-600" />
@@ -172,18 +393,25 @@ export default function TeachersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部学科</SelectItem>
-                <SelectItem value="语文">语文</SelectItem>
-                <SelectItem value="数学">数学</SelectItem>
-                <SelectItem value="英语">英语</SelectItem>
-                <SelectItem value="科学">科学</SelectItem>
-                <SelectItem value="音乐">音乐</SelectItem>
-                <SelectItem value="体育">体育</SelectItem>
-                <SelectItem value="美术">美术</SelectItem>
+                {subjectOptions.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
+
+      {/* 批量操作工具栏 */}
+      <BatchToolbar
+        selectedCount={selectedIds.size}
+        totalCount={filteredTeachers.length}
+        isAllSelected={selectedIds.size === filteredTeachers.length && filteredTeachers.length > 0}
+        onToggleSelectAll={toggleSelectAll}
+        onClearSelection={clearSelection}
+        actions={batchActions}
+        processing={loading}
+      />
 
       {/* 教师列表 */}
       <Card className="border-0 shadow-md">
@@ -191,6 +419,12 @@ export default function TeachersPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedIds.size === filteredTeachers.length && filteredTeachers.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead>姓名</TableHead>
                 <TableHead>性别</TableHead>
                 <TableHead>学科</TableHead>
@@ -199,6 +433,7 @@ export default function TeachersPage() {
                 <TableHead>联系电话</TableHead>
                 <TableHead>教龄</TableHead>
                 <TableHead>状态</TableHead>
+                <TableHead className="w-12">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -206,36 +441,239 @@ export default function TeachersPage() {
                 <TableRow 
                   key={teacher.id} 
                   className="hover:bg-blue-50 cursor-pointer"
-                  onClick={() => router.push(`/academic/teachers/${teacher.id}`)}
                 >
-                  <TableCell className="font-medium">
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <SelectColumn
+                      selected={selectedIds.has(teacher.id)}
+                      onToggle={() => toggleSelect(teacher.id)}
+                    />
+                  </TableCell>
+                  <TableCell 
+                    className="font-medium"
+                    onClick={() => router.push(`/academic/teachers/${teacher.id}`)}
+                  >
                     <div className="flex items-center gap-2">
                       {teacher.name}
                       <Eye className="h-3 w-3 text-gray-400" />
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
                     <Badge variant="outline" className={teacher.gender === '男' ? 'text-blue-600' : 'text-pink-600'}>
                       {teacher.gender}
                     </Badge>
                   </TableCell>
-                  <TableCell>{teacher.subject}</TableCell>
-                  <TableCell>{teacher.title}</TableCell>
-                  <TableCell>{teacher.department}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.subject}</TableCell>
+                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.title}</TableCell>
+                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.department}</TableCell>
+                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
                     <div className="flex items-center gap-1 text-gray-600">
                       <Phone className="h-3 w-3" />
                       {teacher.phone}
                     </div>
                   </TableCell>
-                  <TableCell>{teacher.teachYears}年</TableCell>
-                  <TableCell>{getStatusBadge(teacher.status)}</TableCell>
+                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.teachYears}年</TableCell>
+                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{getStatusBadge(teacher.status)}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(teacher)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          编辑
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => openDeleteDialog(teacher)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          删除
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* 新增/编辑对话框 */}
+      <Dialog open={addDialogOpen || editDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setAddDialogOpen(false);
+          setEditDialogOpen(false);
+          setFormData({});
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{currentTeacher ? '编辑教师' : '新增教师'}</DialogTitle>
+            <DialogDescription>
+              {currentTeacher ? '修改教师信息' : '填写新教师信息'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">姓名 *</Label>
+                <Input
+                  id="name"
+                  value={formData.name || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="请输入姓名"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gender">性别</Label>
+                <Select
+                  value={formData.gender || '男'}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {genderOptions.map(g => (
+                      <SelectItem key={g} value={g}>{g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="subject">学科</Label>
+                <Select
+                  value={formData.subject || '语文'}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value, department: `${value}组` }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjectOptions.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="title">职称</Label>
+                <Select
+                  value={formData.title || '二级教师'}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, title: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {titleOptions.map(t => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">联系电话</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="请输入电话"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">邮箱</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="请输入邮箱"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="teachYears">教龄（年）</Label>
+                <Input
+                  id="teachYears"
+                  type="number"
+                  value={formData.teachYears || 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, teachYears: parseInt(e.target.value) || 0 }))}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">状态</Label>
+                <Select
+                  value={formData.status || 'active'}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map(s => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setAddDialogOpen(false);
+              setEditDialogOpen(false);
+            }}>
+              取消
+            </Button>
+            <Button onClick={handleSave} disabled={loading || !formData.name}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                '保存'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认对话框 */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDelete}
+        title="确认删除教师"
+        description={`确定要删除教师"${currentTeacher?.name}"吗？此操作不可撤销。`}
+        loading={loading}
+      />
+
+      {/* 批量删除确认对话框 */}
+      <DeleteConfirmDialog
+        open={batchDeleteDialogOpen}
+        onOpenChange={setBatchDeleteDialogOpen}
+        onConfirm={handleBatchDelete}
+        title="确认批量删除"
+        description={`确定要删除选中的 ${selectedIds.size} 名教师吗？此操作不可撤销。`}
+        loading={loading}
+      />
     </div>
   );
 }
