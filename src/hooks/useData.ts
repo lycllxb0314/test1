@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient, type QueryParams, type PaginatedResponse, type ApiResponse } from '@/lib/api-helpers';
+import { apiClient, type QueryParams, type PaginatedResponse, type ApiResponse } from '@/services/api-client';
 import type {
   User,
   Teacher,
