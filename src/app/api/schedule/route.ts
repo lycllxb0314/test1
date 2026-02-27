@@ -35,6 +35,8 @@ interface ClassInfo {
   students: number;
   headTeacherId: string;
   headTeacherName: string;
+  subjectHeadId?: string;       // 科任（副班主任）
+  subjectHeadName?: string;
   subjectTeachers: ClassSubjectTeacher[];
 }
 
@@ -345,6 +347,12 @@ export async function POST(request: NextRequest) {
         periods: DEFAULT_PERIODS,
         weekDays: [1, 2, 3, 4, 5] as const,
         semester: '2024-2025-1',
+        // 传递班级信息，用于判断班主任和科任
+        classes: classesData.map(c => ({
+          id: c.id,
+          headTeacherId: c.headTeacherId,
+          subjectHeadId: c.subjectHeadId,
+        })),
       });
       
       if (result.success) {

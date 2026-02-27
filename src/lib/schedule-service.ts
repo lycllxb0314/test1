@@ -64,28 +64,39 @@ interface SchedulingContext {
   periods: PeriodConfig[];
   weekDays: WeekDay[];
   semester: string;
+  // 新增：班级信息（用于判断班主任和科任）
+  classes?: Array<{
+    id: string;
+    headTeacherId?: string;
+    subjectHeadId?: string;
+  }>;
 }
 
 /**
  * 智能排课算法
  * 使用贪心算法 + 约束满足
+ * 
+ * 优先级规则：
+ * 1. 班主任的课程优先排（包括兼任的其他科目）
+ * 2. 科任（副班主任）的课程优先排
+ * 3. 课时量约束是核心
  */
 export function generateSchedule(context: SchedulingContext): ScheduleResult {
   const startTime = Date.now();
-  const { tasks, existingSlots, rules, periods, weekDays, semester } = context;
+  const { tasks, existingSlots, rules, periods, weekDays, semester, classes } = context;
   
   const newSlots: ScheduleSlot[] = [...existingSlots];
   const conflicts: ScheduleConflict[] = [];
   
-  // 按优先级排序教学任务（主科优先、课时多的优先）
-  const sortedTasks = sortTasksByPriority(tasks);
+  // 按优先级排序教学任务（班主任>科任>其他）
+  const sortedTasks = sortTasksByPriority(tasks, classes || []);
   
   // 为每个教学任务分配时间槽
   for (const task of sortedTasks) {
     const neededSlots = task.weeklyHours - task.arrangedHours;
     
     for (let i = 0; i < neededSlots; i++) {
-      const bestSlot = findBestSlot(task, newSlots, rules, periods, weekDays, semester);
+      const bestSlot = findBestSlot(task, newSlots, rules, periods, weekDays, semester, classes);
       
       if (bestSlot) {
         newSlots.push(bestSlot);
@@ -124,8 +135,16 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
 
 /**
  * 按优先级排序教学任务
+ * 
+ * 优先级规则：
+ * 1. 班主任教本班的课 > 科任教本班的课 > 其他
+ * 2. 主科优先（语数英）
+ * 3. 课时多的优先
  */
-function sortTasksByPriority(tasks: TeachingTask[]): TeachingTask[] {
+function sortTasksByPriority(
+  tasks: TeachingTask[], 
+  classes: Array<{ id: string; headTeacherId?: string; subjectHeadId?: string }>
+): TeachingTask[] {
   const subjectPriority: Record<string, number> = {
     '语文': 10,
     '数学': 10,
@@ -140,13 +159,31 @@ function sortTasksByPriority(tasks: TeachingTask[]): TeachingTask[] {
   };
   
   return [...tasks].sort((a, b) => {
-    // 主科优先
+    // 1. 判断是否是班主任教本班的课
+    const classA = classes.find(c => c.id === a.classId);
+    const classB = classes.find(c => c.id === b.classId);
+    
+    const isHeadTeacherA = classA?.headTeacherId === a.teacherId;
+    const isHeadTeacherB = classB?.headTeacherId === b.teacherId;
+    
+    const isSubjectHeadA = classA?.subjectHeadId === a.teacherId;
+    const isSubjectHeadB = classB?.subjectHeadId === b.teacherId;
+    
+    // 班主任教本班 > 科任教本班 > 其他
+    const rolePriorityA = isHeadTeacherA ? 100 : (isSubjectHeadA ? 50 : 0);
+    const rolePriorityB = isHeadTeacherB ? 100 : (isSubjectHeadB ? 50 : 0);
+    
+    if (rolePriorityA !== rolePriorityB) return rolePriorityB - rolePriorityA;
+    
+    // 2. 主科优先
     const priorityA = subjectPriority[a.subject] || 1;
     const priorityB = subjectPriority[b.subject] || 1;
     if (priorityA !== priorityB) return priorityB - priorityA;
     
-    // 课时多的优先
-    return b.weeklyHours - a.weeklyHours;
+    // 3. 课时多的优先（剩余课时）
+    const remainingA = a.weeklyHours - a.arrangedHours;
+    const remainingB = b.weeklyHours - b.arrangedHours;
+    return remainingB - remainingA;
   });
 }
 
@@ -159,8 +196,15 @@ function findBestSlot(
   rules: ScheduleRule[],
   periods: PeriodConfig[],
   weekDays: WeekDay[],
-  semester: string
+  semester: string,
+  classes?: Array<{ id: string; headTeacherId?: string; subjectHeadId?: string }>
 ): ScheduleSlot | null {
+  // 判断是否是班主任/科任教本班
+  const cls = classes?.find(c => c.id === task.classId);
+  const isHeadTeacher = cls?.headTeacherId === task.teacherId;
+  const isSubjectHead = cls?.subjectHeadId === task.teacherId;
+  const isPriorityClass = isHeadTeacher || isSubjectHead;
+  
   // 生成所有可能的时间槽候选
   const candidates: Array<{ weekDay: WeekDay; periodIndex: number; score: number }> = [];
   
@@ -169,7 +213,7 @@ function findBestSlot(
       if (!period.isActive) continue;
       
       // 检查该时间槽是否可用
-      const score = evaluateSlot(weekDay, period.index, task, existingSlots, rules);
+      const score = evaluateSlot(weekDay, period.index, task, existingSlots, rules, isPriorityClass);
       
       if (score > 0) {
         candidates.push({ weekDay, periodIndex: period.index, score });
@@ -205,13 +249,16 @@ function findBestSlot(
 
 /**
  * 评估时间槽的适合程度
+ * 
+ * @param isPriorityClass 是否是班主任/科任教本班的课
  */
 function evaluateSlot(
   weekDay: WeekDay,
   periodIndex: number,
   task: TeachingTask,
   existingSlots: ScheduleSlot[],
-  rules: ScheduleRule[]
+  rules: ScheduleRule[],
+  isPriorityClass: boolean = false
 ): number {
   let score = 100;
   
@@ -227,27 +274,32 @@ function evaluateSlot(
   );
   if (classConflict) return 0;
   
-  // 3. 主科尽量安排在上午（软约束）
+  // 3. 班主任/科任教本班的课给予额外优先分（软约束）
+  if (isPriorityClass) {
+    score += 30; // 优先安排
+  }
+  
+  // 4. 主科尽量安排在上午（软约束）
   const morningSubjects = ['语文', '数学', '英语'];
   if (morningSubjects.includes(task.subject)) {
     if (periodIndex <= 4) score += 20;
     else score -= 10;
   }
   
-  // 4. 体育课尽量安排在下午（软约束）
+  // 5. 体育课尽量安排在下午（软约束）
   if (task.subject === '体育') {
     if (periodIndex > 4) score += 15;
     else score -= 5;
   }
   
-  // 5. 同一科目尽量分散在不同天（软约束）
+  // 6. 同一科目尽量分散在不同天（软约束）
   const sameSubjectSlots = existingSlots.filter(
     s => s.classId === task.classId && s.subject === task.subject
   );
   const usedDays = new Set(sameSubjectSlots.map(s => s.weekDay));
   if (!usedDays.has(weekDay)) score += 10;
   
-  // 6. 避免连续同一科目（除非是连堂）
+  // 7. 避免连续同一科目（除非是连堂）
   if (periodIndex > 1) {
     const prevSlot = existingSlots.find(
       s => s.classId === task.classId && s.weekDay === weekDay && s.periodIndex === periodIndex - 1
