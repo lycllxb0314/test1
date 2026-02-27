@@ -115,7 +115,20 @@ const academicNav: NavItem[] = [
 // 德育管理导航
 const moralNav: NavItem[] = [
   { name: '德育概览', href: '/moral', icon: LayoutDashboard, description: '德育工作看板' },
-  { name: '习惯养成', href: '/moral/habit', icon: Star, description: '八大习惯评价与小目标', badge: '特色' },
+  {
+    name: '习惯养成',
+    href: '/moral/habit',
+    icon: Star,
+    description: '八大习惯评价与小目标',
+    badge: '特色',
+    children: [
+      { name: '全校总览', href: '/moral/habit/overview', icon: School, description: '全校习惯养成总览' },
+      { name: '学生档案', href: '/moral/habit/students', icon: Users, description: '学生习惯成长档案' },
+      { name: '小目标管理', href: '/moral/habit/goals', icon: Target, description: '小目标模板与进度' },
+      { name: '习惯之星', href: '/moral/habit/stars', icon: Award, description: '习惯之星评选管理' },
+      { name: '数据报表', href: '/moral/habit/reports', icon: BarChart3, description: '习惯数据统计分析' },
+    ],
+  },
   { name: '习惯设置', href: '/moral/habit/settings', icon: Sliders, description: '目标模板与评选规则' },
   { name: '少先队管理', href: '/moral/pioneer', icon: Flag, description: '少先队组织管理' },
   { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '德育活动管理' },
@@ -178,6 +191,7 @@ export function AppSidebar() {
   const { user, logout, switchRole } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [activeModule, setActiveModule] = useState<ModuleType | 'workflow' | null>(null);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]); // 展开的三级菜单项
 
   // 根据当前路径确定活跃模块
   useEffect(() => {
@@ -572,30 +586,92 @@ export function AppSidebar() {
             </div>
             <nav className="flex-1 space-y-0.5 p-2 overflow-y-auto">
               {getCurrentNav().map((item) => {
-                const isActive = pathname === item.href;
+                const isActive = pathname === item.href || (item.children && pathname.startsWith(item.href));
+                const isExpanded = expandedItems.includes(item.href) || (item.children && pathname.startsWith(item.href));
                 const Icon = item.icon;
+                const hasChildren = item.children && item.children.length > 0;
+                
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all',
-                      isActive
-                        ? 'bg-primary text-white font-medium'
-                        : 'text-gray-700 hover:bg-gray-100'
+                  <div key={item.href}>
+                    {hasChildren ? (
+                      <button
+                        onClick={() => {
+                          setExpandedItems(prev => 
+                            prev.includes(item.href) 
+                              ? prev.filter(h => h !== item.href)
+                              : [...prev, item.href]
+                          );
+                        }}
+                        className={cn(
+                          'group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all',
+                          isActive
+                            ? 'bg-primary text-white font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span className="flex-1 text-left">{item.name}</span>
+                        {item.badge && (
+                          <span className={cn(
+                            'px-1.5 py-0.5 text-[10px] font-bold rounded',
+                            isActive ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
+                          )}>
+                            {item.badge}
+                          </span>
+                        )}
+                        <ChevronRight className={cn(
+                          'h-4 w-4 transition-transform',
+                          isExpanded && 'rotate-90'
+                        )} />
+                      </button>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all',
+                          isActive
+                            ? 'bg-primary text-white font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span className="flex-1">{item.name}</span>
+                        {item.badge && (
+                          <span className={cn(
+                            'px-1.5 py-0.5 text-[10px] font-bold rounded',
+                            isActive ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
+                          )}>
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
                     )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="flex-1">{item.name}</span>
-                    {item.badge && (
-                      <span className={cn(
-                        'px-1.5 py-0.5 text-[10px] font-bold rounded',
-                        isActive ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
-                      )}>
-                        {item.badge}
-                      </span>
+                    
+                    {/* 三级菜单 */}
+                    {hasChildren && isExpanded && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-gray-200 pl-2">
+                        {item.children!.map((child) => {
+                          const childIsActive = pathname === child.href;
+                          const ChildIcon = child.icon;
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              className={cn(
+                                'group flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-all',
+                                childIsActive
+                                  ? 'bg-primary/10 text-primary font-medium'
+                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                              )}
+                            >
+                              <ChildIcon className="h-3.5 w-3.5" />
+                              <span>{child.name}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     )}
-                  </Link>
+                  </div>
                 );
               })}
             </nav>
