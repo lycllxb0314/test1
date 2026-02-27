@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Table,
@@ -33,23 +32,24 @@ import {
 } from '@/components/ui/table';
 import {
   DollarSign,
-  Plus,
   Search,
   Clock,
   CheckCircle,
   FileText,
   Receipt,
   TrendingUp,
-  Calendar,
   AlertCircle,
   Loader2,
   CheckSquare,
-  Printer,
   Wallet,
+  Upload,
+  X,
+  Paperclip,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useExpenses, useExpenseStatistics, useProcessExpense } from '@/hooks/useApi';
 import { toast } from 'sonner';
-import type { ExpenseReimbursement } from '@/types';
+import type { ExpenseReimbursement, ExpenseItem } from '@/types';
 
 // 报销类别配置
 const expenseCategories: { id: string; name: string }[] = [
@@ -87,6 +87,42 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+// 附件预览组件
+const AttachmentPreview: React.FC<{
+  files: string[];
+  onRemove?: (index: number) => void;
+  readonly?: boolean;
+}> = ({ files, onRemove, readonly = false }) => {
+  if (!files || files.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {files.map((file, index) => (
+        <div key={index} className="relative group">
+          <a href={file} target="_blank" rel="noopener noreferrer">
+            <div className="w-20 h-20 border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center hover:opacity-80 transition-opacity">
+              {file.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                <img src={file} alt={`附件${index + 1}`} className="w-full h-full object-cover" />
+              ) : (
+                <Paperclip className="h-6 w-6 text-gray-400" />
+              )}
+            </div>
+          </a>
+          {!readonly && onRemove && (
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function FinancePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -95,20 +131,44 @@ export default function FinancePage() {
   const [selectedExpense, setSelectedExpense] = useState<ExpenseReimbursement | null>(null);
   const [processAction, setProcessAction] = useState<'process' | 'complete'>('process');
   const [paymentNo, setPaymentNo] = useState('');
+  const [bankTransactionNo, setBankTransactionNo] = useState('');
+  const [financeRemark, setFinanceRemark] = useState('');
+  const [paymentVouchers, setPaymentVouchers] = useState<string[]>([]);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 使用统一Hooks获取数据
   const { data: expenses, loading: expensesLoading, refetch } = useExpenses();
   const { data: stats, loading: statsLoading } = useExpenseStatistics();
   const processMutation = useProcessExpense();
 
-  // 过滤数据
+  // 过滤数据 - 只显示已批准及之后的报销
   const filteredExpenses = (expenses || []).filter(e => {
     const matchesSearch = e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          e.expenseNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          e.applicantName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || e.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesFinance = ['approved', 'processing', 'completed'].includes(e.status);
+    return matchesSearch && matchesStatus && matchesFinance;
   });
+
+  // 模拟文件上传
+  const handleFileUpload = async (files: FileList) => {
+    const newFiles: string[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const url = URL.createObjectURL(file);
+      newFiles.push(url);
+    }
+
+    setPaymentVouchers(prev => [...prev, ...newFiles]);
+  };
+
+  // 移除支付凭证
+  const handleRemoveVoucher = (index: number) => {
+    setPaymentVouchers(prev => prev.filter((_, i) => i !== index));
+  };
 
   // 查看详情
   const handleViewDetail = (expense: ExpenseReimbursement) => {
@@ -121,6 +181,9 @@ export default function FinancePage() {
     setSelectedExpense(expense);
     setProcessAction(action);
     setPaymentNo('');
+    setBankTransactionNo('');
+    setFinanceRemark('');
+    setPaymentVouchers([]);
     setShowProcessDialog(true);
   };
 
@@ -128,9 +191,19 @@ export default function FinancePage() {
   const handleSubmitProcess = async () => {
     if (!selectedExpense) return;
     
-    if (processAction === 'complete' && !paymentNo) {
-      toast.error('请填写支付单号');
-      return;
+    if (processAction === 'complete') {
+      if (!paymentNo) {
+        toast.error('请填写支付单号');
+        return;
+      }
+      if (!bankTransactionNo) {
+        toast.error('请填写银行流水号');
+        return;
+      }
+      if (paymentVouchers.length === 0) {
+        toast.error('请上传支付凭证');
+        return;
+      }
     }
 
     try {
@@ -268,8 +341,8 @@ export default function FinancePage() {
                 <TableHead>部门</TableHead>
                 <TableHead>类别</TableHead>
                 <TableHead>金额</TableHead>
+                <TableHead>发票</TableHead>
                 <TableHead>状态</TableHead>
-                <TableHead>提交时间</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -298,8 +371,17 @@ export default function FinancePage() {
                       {expenseCategories.find(c => c.id === expense.category)?.name || expense.category}
                     </TableCell>
                     <TableCell className="text-red-600 font-medium">¥{expense.totalAmount.toLocaleString()}</TableCell>
+                    <TableCell>
+                      {expense.items.some(item => (item.invoiceImages?.length || 0) > 0) ? (
+                        <Badge className="bg-green-100 text-green-700 text-xs">
+                          <Paperclip className="h-3 w-3 mr-1" />
+                          {expense.items.reduce((sum, item) => sum + (item.invoiceImages?.length || 0), 0)}张
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-gray-400 text-xs">无</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{getStatusBadge(expense.status)}</TableCell>
-                    <TableCell>{expense.submittedAt?.split('T')[0] || expense.createdAt.split('T')[0]}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => handleViewDetail(expense)}>
@@ -337,7 +419,7 @@ export default function FinancePage() {
 
       {/* 详情对话框 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5" />
@@ -378,7 +460,7 @@ export default function FinancePage() {
               </div>
               
               <div>
-                <Label className="text-gray-500">报销明细</Label>
+                <Label className="text-gray-500">报销明细及发票</Label>
                 <div className="mt-2 border rounded-lg">
                   <Table>
                     <TableHeader>
@@ -386,6 +468,7 @@ export default function FinancePage() {
                         <TableHead>项目名称</TableHead>
                         <TableHead>金额</TableHead>
                         <TableHead>发票号</TableHead>
+                        <TableHead>发票附件</TableHead>
                         <TableHead>发生日期</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -395,13 +478,24 @@ export default function FinancePage() {
                           <TableCell>{item.name}</TableCell>
                           <TableCell className="text-red-600">¥{item.amount.toLocaleString()}</TableCell>
                           <TableCell>{item.invoiceNo || '-'}</TableCell>
+                          <TableCell>
+                            {item.invoiceImages && item.invoiceImages.length > 0 ? (
+                              <div className="flex gap-1">
+                                {item.invoiceImages.map((img, i) => (
+                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                    <img src={img} alt={`发票${i+1}`} className="w-12 h-12 object-cover rounded border hover:opacity-80" />
+                                  </a>
+                                ))}
+                              </div>
+                            ) : '-'}
+                          </TableCell>
                           <TableCell>{item.expenseDate}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="bg-gray-50 font-semibold">
                         <TableCell>合计</TableCell>
                         <TableCell className="text-red-600">¥{selectedExpense.totalAmount.toLocaleString()}</TableCell>
-                        <TableCell colSpan={2}></TableCell>
+                        <TableCell colSpan={3}></TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -415,12 +509,25 @@ export default function FinancePage() {
                 </div>
               )}
               
-              {selectedExpense.paymentNo && (
-                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 text-green-700">
+              {/* 支付信息 */}
+              {selectedExpense.status === 'completed' && (
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200 space-y-3">
+                  <div className="flex items-center gap-2 text-green-700 font-medium">
                     <CheckCircle className="h-4 w-4" />
-                    <span className="font-medium">支付单号：{selectedExpense.paymentNo}</span>
+                    已完成支付
                   </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div><span className="text-gray-500">支付单号：</span>{selectedExpense.paymentNo}</div>
+                    <div><span className="text-gray-500">支付时间：</span>{selectedExpense.paymentDate}</div>
+                    <div><span className="text-gray-500">银行流水号：</span>{selectedExpense.bankTransactionNo || '-'}</div>
+                    <div><span className="text-gray-500">处理人：</span>{selectedExpense.financeHandlerName}</div>
+                  </div>
+                  {selectedExpense.paymentVouchers && selectedExpense.paymentVouchers.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-gray-500 text-sm">支付凭证：</span>
+                      <AttachmentPreview files={selectedExpense.paymentVouchers} readonly />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -454,10 +561,10 @@ export default function FinancePage() {
 
       {/* 处理确认对话框 */}
       <Dialog open={showProcessDialog} onOpenChange={setShowProcessDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {processAction === 'process' ? '开始处理报销' : '标记报销完成'}
+              {processAction === 'process' ? '开始处理报销' : '完成支付确认'}
             </DialogTitle>
             <DialogDescription>
               {selectedExpense?.title} - ¥{selectedExpense?.totalAmount.toLocaleString()}
@@ -466,13 +573,70 @@ export default function FinancePage() {
           
           <div className="space-y-4">
             {processAction === 'complete' && (
-              <div className="space-y-2">
-                <Label>支付单号 *</Label>
-                <Input
-                  placeholder="请输入支付单号"
-                  value={paymentNo}
-                  onChange={(e) => setPaymentNo(e.target.value)}
-                />
+              <>
+                <div className="space-y-2">
+                  <Label>支付单号 *</Label>
+                  <Input
+                    placeholder="如：PAY-2024-001"
+                    value={paymentNo}
+                    onChange={(e) => setPaymentNo(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>银行流水号 *</Label>
+                  <Input
+                    placeholder="银行转账流水号"
+                    value={bankTransactionNo}
+                    onChange={(e) => setBankTransactionNo(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>支付凭证 *</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      上传凭证
+                    </Button>
+                    <span className="text-xs text-gray-400">
+                      已上传 {paymentVouchers.length} 张
+                    </span>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+                  />
+                  <AttachmentPreview 
+                    files={paymentVouchers} 
+                    onRemove={handleRemoveVoucher}
+                  />
+                  <p className="text-xs text-gray-400">请上传银行转账凭证、回单等</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>财务备注</Label>
+                  <Textarea
+                    placeholder="备注信息（可选）"
+                    value={financeRemark}
+                    onChange={(e) => setFinanceRemark(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
+            
+            {processAction === 'process' && (
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <p className="text-amber-700 text-sm">
+                  确认后将开始处理该报销申请，请核实发票信息后进行打款操作。
+                </p>
               </div>
             )}
           </div>

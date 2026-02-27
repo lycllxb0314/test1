@@ -397,7 +397,10 @@ export function useAccessRecords(params?: QueryParams) {
  * 报销列表Hook
  */
 export function useExpenses(params?: QueryParams) {
-  return useQuery(() => api.expense.list(params), { deps: [params] });
+  // 将 params 转换为稳定的字符串依赖，避免每次渲染都重新获取
+  const paramsKey = JSON.stringify(params || {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useQuery(() => api.expense.list(params), { deps: [paramsKey] });
 }
 
 /**

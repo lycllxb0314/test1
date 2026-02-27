@@ -370,7 +370,7 @@ export default function ExpenseApprovalPage() {
               </div>
               
               <div>
-                <Label className="text-gray-500">报销明细</Label>
+                <Label className="text-gray-500">报销明细及发票</Label>
                 <div className="mt-2 border rounded-lg">
                   <Table>
                     <TableHeader>
@@ -378,6 +378,7 @@ export default function ExpenseApprovalPage() {
                         <TableHead>项目名称</TableHead>
                         <TableHead>金额</TableHead>
                         <TableHead>发票号</TableHead>
+                        <TableHead>发票附件</TableHead>
                         <TableHead>发生日期</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -387,13 +388,24 @@ export default function ExpenseApprovalPage() {
                           <TableCell>{item.name}</TableCell>
                           <TableCell className="text-red-600">¥{item.amount.toLocaleString()}</TableCell>
                           <TableCell>{item.invoiceNo || '-'}</TableCell>
+                          <TableCell>
+                            {item.invoiceImages && item.invoiceImages.length > 0 ? (
+                              <div className="flex gap-1">
+                                {item.invoiceImages.map((img, i) => (
+                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                    <img src={img} alt={`发票${i+1}`} className="w-10 h-10 object-cover rounded border hover:opacity-80" />
+                                  </a>
+                                ))}
+                              </div>
+                            ) : '-'}
+                          </TableCell>
                           <TableCell>{item.expenseDate}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="bg-gray-50 font-semibold">
                         <TableCell>合计</TableCell>
                         <TableCell className="text-red-600">¥{selectedExpense.totalAmount.toLocaleString()}</TableCell>
-                        <TableCell colSpan={2}></TableCell>
+                        <TableCell colSpan={3}></TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>

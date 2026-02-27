@@ -2387,8 +2387,10 @@ export interface ExpenseItem {
   description?: string;
   /** 发票号 */
   invoiceNo?: string;
-  /** 发票图片 */
+  /** 发票图片（单个，已废弃，建议使用invoiceImages） */
   invoiceImage?: string;
+  /** 发票图片列表 */
+  invoiceImages?: string[];
   /** 发生日期 */
   expenseDate: string;
 }
@@ -2448,8 +2450,12 @@ export interface ExpenseReimbursement {
   paymentNo?: string;
   /** 打款时间 */
   paymentDate?: string;
-  /** 打款凭证 */
+  /** 打款凭证（单个，已废弃，建议使用paymentVouchers） */
   paymentVoucher?: string;
+  /** 打款凭证列表 */
+  paymentVouchers?: string[];
+  /** 银行流水号 */
+  bankTransactionNo?: string;
   /** 财务备注 */
   financeRemark?: string;
   
