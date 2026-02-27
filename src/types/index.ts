@@ -2979,3 +2979,66 @@ export interface WorkloadQueryParams {
   departmentId?: string;
   grade?: number;
 }
+
+
+// ============================================================
+// 课表服务扩展类型
+// ============================================================
+
+/**
+ * 基准课表课次
+ * 用于基准课表API的单个课次
+ */
+export interface BaseScheduleSlot {
+  id: string;
+  semester: string;
+  classId: string;
+  className: string;
+  grade: number;
+  
+  // 时间信息
+  weekNumber?: number;                  // 周次（基准课表通常不区分，实际课表必填）
+  dayOfWeek: number;                    // 星期几 (1-7)
+  periodIndex: number;                  // 第几节课
+  startTime: string;
+  endTime: string;
+  
+  // 课程信息
+  subject: string;
+  courseType?: 'normal' | 'activity' | 'self_study';
+  
+  // 教师信息
+  teacherId: string;
+  teacherName: string;
+  
+  // 场地信息
+  classroomId?: string;
+  classroomName?: string;
+  
+  // 状态
+  status: 'normal' | 'leave' | 'substitute' | 'cancelled';
+  
+  // 时间戳
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 实际课表课次
+ * 每周生成，反映请假、代课等变化
+ */
+export interface ActualScheduleSlot extends BaseScheduleSlot {
+  weekNumber: number;                   // 第几周
+  date: string;                         // 具体日期
+  
+  // 变化信息
+  isAdjusted: boolean;                  // 是否有调整
+  originalTeacherId?: string;           // 原教师ID（代课时）
+  originalTeacherName?: string;
+  substituteReason?: string;            // 代课原因
+  
+  // 关联信息
+  leaveRequestId?: string;              // 关联的请假申请
+  substituteId?: string;                // 关联的代课记录
+  adjustRecordId?: string;              // 关联的调课记录
+}
