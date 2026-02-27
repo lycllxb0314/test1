@@ -37,6 +37,7 @@ import {
   Star,
   TrendingUp,
   TrendingDown,
+  Minus,
   Plus,
   Search,
   Users,
@@ -52,6 +53,19 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  Layers,
+  UserCheck,
+  School,
+  Flag,
+  PieChart,
+  LineChart,
+  Download,
+  RefreshCw,
+  Bell,
+  Settings,
 } from 'lucide-react';
 import {
   HabitCategory,
@@ -71,384 +85,344 @@ const habitIcons: Record<HabitCategory, React.ElementType> = {
   labor: Hammer,
 };
 
-// 模拟班级学生列表
-const mockStudents = [
-  { id: 's001', name: '张小明', habitRate: 88.5, trend: 'up', habitStar: true },
-  { id: 's002', name: '李小红', habitRate: 92.3, trend: 'up', habitStar: true },
-  { id: 's003', name: '王小刚', habitRate: 78.2, trend: 'stable', habitStar: false },
-  { id: 's004', name: '赵小芳', habitRate: 85.6, trend: 'up', habitStar: false },
-  { id: 's005', name: '刘小伟', habitRate: 72.1, trend: 'down', habitStar: false },
-  { id: 's006', name: '陈小丽', habitRate: 90.8, trend: 'up', habitStar: true },
-  { id: 's007', name: '吴小强', habitRate: 68.5, trend: 'stable', habitStar: false },
-  { id: 's008', name: '周小燕', habitRate: 86.3, trend: 'up', habitStar: false },
-];
-
-// 班级习惯统计
-const mockClassStats = {
-  totalStudents: 45,
-  averageRate: 85.2,
-  habitStarCount: 5,
-  topCategories: ['reading', 'civilization', 'labor'] as HabitCategory[],
-  improvementCategories: ['aesthetic', 'writing'] as HabitCategory[],
-  categoryAverages: {
-    civilization: 88,
-    writing: 75,
-    reading: 92,
-    sports: 82,
-    safety: 90,
-    hygiene: 85,
-    aesthetic: 72,
-    labor: 88,
-  },
+// 模拟全校数据
+const schoolOverview = {
+  totalStudents: 1896,
+  totalClasses: 42,
+  totalTeachers: 128,
+  averageRate: 86.3,
+  rateChange: 2.1,
+  habitStars: 186,
+  starsChange: 12,
+  attentionStudents: 47,
+  attentionChange: -8,
+  monthlyEvaluations: 3428,
+  goalsCompletion: 78.5,
 };
 
-// 模拟月度小目标
-const mockMonthlyGoals = [
-  { id: 'g001', category: 'civilization' as HabitCategory, title: '每天主动问好', rate: 91, achieved: true },
-  { id: 'g002', category: 'reading' as HabitCategory, title: '每日阅读30分钟', rate: 86, achieved: true },
-  { id: 'g003', category: 'sports' as HabitCategory, title: '每天运动1小时', rate: 82, achieved: true },
-  { id: 'g004', category: 'writing' as HabitCategory, title: '书写工整', rate: 77, achieved: false },
-  { id: 'g005', category: 'hygiene' as HabitCategory, title: '整理书包', rate: 91, achieved: true },
-  { id: 'g006', category: 'labor' as HabitCategory, title: '做家务', rate: 55, achieved: false },
+// 八大习惯全校数据
+const habitCategoryData = [
+  { category: 'civilization' as HabitCategory, rate: 89.2, trend: 'up', change: 2.3, topGrade: '三年级', weakGrade: '六年级' },
+  { category: 'writing' as HabitCategory, rate: 78.5, trend: 'stable', change: 0.5, topGrade: '五年级', weakGrade: '一年级' },
+  { category: 'reading' as HabitCategory, rate: 92.1, trend: 'up', change: 3.8, topGrade: '四年级', weakGrade: '二年级' },
+  { category: 'sports' as HabitCategory, rate: 83.7, trend: 'up', change: 1.2, topGrade: '三年级', weakGrade: '六年级' },
+  { category: 'safety' as HabitCategory, rate: 91.5, trend: 'stable', change: 0.2, topGrade: '二年级', weakGrade: '五年级' },
+  { category: 'hygiene' as HabitCategory, rate: 85.8, trend: 'up', change: 1.5, topGrade: '四年级', weakGrade: '一年级' },
+  { category: 'aesthetic' as HabitCategory, rate: 72.3, trend: 'down', change: -1.2, topGrade: '五年级', weakGrade: '二年级' },
+  { category: 'labor' as HabitCategory, rate: 87.6, trend: 'up', change: 2.1, topGrade: '三年级', weakGrade: '六年级' },
 ];
 
-// 习惯之星榜单
-const mockHabitStars = [
-  { rank: 1, name: '李小红', achievements: '全习惯达标', monthlyStars: 6 },
-  { rank: 2, name: '陈小丽', achievements: '7项达标', monthlyStars: 5 },
-  { rank: 3, name: '张小明', achievements: '6项达标', monthlyStars: 5 },
+// 各年级数据
+const gradeData = [
+  { grade: '一年级', students: 320, classes: 6, avgRate: 82.1, trend: 'up', stars: 24, attention: 12, topHabit: '安全', weakHabit: '书写' },
+  { grade: '二年级', students: 315, classes: 6, avgRate: 84.5, trend: 'stable', stars: 28, attention: 9, topHabit: '安全', weakHabit: '审美' },
+  { grade: '三年级', students: 328, classes: 6, avgRate: 89.2, trend: 'up', stars: 38, attention: 5, topHabit: '文明', weakHabit: '书写' },
+  { grade: '四年级', students: 324, classes: 6, avgRate: 88.7, trend: 'up', stars: 36, attention: 6, topHabit: '阅读', weakHabit: '审美' },
+  { grade: '五年级', students: 308, classes: 6, avgRate: 86.3, trend: 'stable', stars: 32, attention: 8, topHabit: '审美', weakHabit: '安全' },
+  { grade: '六年级', students: 301, classes: 6, avgRate: 85.1, trend: 'down', stars: 28, attention: 7, topHabit: '劳动', weakHabit: '运动' },
+];
+
+// 月度趋势数据
+const monthlyTrend = [
+  { month: '9月', rate: 78.2, stars: 142 },
+  { month: '10月', rate: 80.5, stars: 156 },
+  { month: '11月', rate: 82.1, stars: 164 },
+  { month: '12月', rate: 83.8, stars: 172 },
+  { month: '1月', rate: 84.5, stars: 178 },
+  { month: '2月', rate: 85.2, stars: 182 },
+  { month: '3月', rate: 86.3, stars: 186 },
+];
+
+// 预警班级
+const alertClasses = [
+  { id: 'c601', name: '六(1)班', teacher: '张老师', issue: '运动习惯下降明显', rate: 72.3, change: -5.2 },
+  { id: 'c102', name: '一(2)班', teacher: '李老师', issue: '书写习惯待提升', rate: 75.8, change: -2.1 },
+  { id: 'c205', name: '二(5)班', teacher: '王老师', issue: '审美习惯达标率低', rate: 68.5, change: -1.8 },
+];
+
+// 习惯之星排行榜
+const habitStarRanking = [
+  { rank: 1, grade: '三年级', students: 38, rate: 11.6, trend: 'up' },
+  { rank: 2, grade: '四年级', students: 36, rate: 11.1, trend: 'up' },
+  { rank: 3, grade: '五年级', students: 32, rate: 10.4, trend: 'stable' },
+  { rank: 4, grade: '六年级', students: 28, rate: 9.3, trend: 'down' },
+  { rank: 5, grade: '二年级', students: 28, rate: 8.9, trend: 'up' },
+  { rank: 6, grade: '一年级', students: 24, rate: 7.5, trend: 'stable' },
+];
+
+// 近期优秀学生
+const outstandingStudents = [
+  { name: '李小明', grade: '四年级', class: '四(1)班', achievements: '全习惯达标·阅读之星', avatar: '' },
+  { name: '张小红', grade: '三年级', class: '三(2)班', achievements: '7项习惯优秀', avatar: '' },
+  { name: '王小刚', grade: '五年级', class: '五(3)班', achievements: '劳动习惯突出', avatar: '' },
+  { name: '赵小芳', grade: '四年级', class: '四(4)班', achievements: '文明习惯优秀', avatar: '' },
 ];
 
 export default function HabitDevelopmentPage() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [currentMonth, setCurrentMonth] = useState('2024-03');
-  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showGoalDialog, setShowGoalDialog] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<HabitCategory | 'all'>('all');
-
-  // 评价表单
-  const [assessmentForm, setAssessmentForm] = useState({
-    studentId: '',
-    category: 'civilization' as HabitCategory,
-    type: 'praise' as 'praise' | 'improve',
-    title: '',
-    content: '',
-  });
-
-  // 切换月份
-  const changeMonth = (direction: 'prev' | 'next') => {
-    const [year, month] = currentMonth.split('-').map(Number);
-    const date = new Date(year, month - 1);
-    if (direction === 'prev') {
-      date.setMonth(date.getMonth() - 1);
-    } else {
-      date.setMonth(date.getMonth() + 1);
-    }
-    setCurrentMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
-  };
+  const [selectedGrade, setSelectedGrade] = useState<string>('all');
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<HabitCategory | null>(null);
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-green-50/30 via-white to-teal-50/30 min-h-screen">
-      {/* 页面标题 */}
+    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-slate-50 via-white to-green-50/30 min-h-screen">
+      {/* 顶部标题栏 */}
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Star className="h-7 w-7 text-green-600" />
-            <h1 className="text-2xl font-bold text-gray-900">习惯养成</h1>
-            <Badge className="bg-green-100 text-green-700">德育特色</Badge>
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/30">
+            <Star className="h-7 w-7 text-white" />
           </div>
-          <p className="text-gray-500 mt-1">八大行为习惯评价 · 小目标促成长 · 习惯之星评选</p>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-gray-900">习惯养成驾驶舱</h1>
+              <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white border-0 shadow-sm">
+                八大行为习惯
+              </Badge>
+            </div>
+            <p className="text-gray-500 mt-0.5">龙岩师范附属小学德育特色 · 全校习惯养成情况总览</p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setShowGoalDialog(true)}>
-            <Target className="h-4 w-4" />
-            制定小目标
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg border border-green-200">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm text-green-700">数据已同步</span>
+          </div>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Download className="h-4 w-4" />
+            导出报告
           </Button>
-          <Button className="bg-green-600 hover:bg-green-700 text-white gap-2" onClick={() => setShowAddDialog(true)}>
-            <Plus className="h-4 w-4" />
-            添加评价
+          <Button variant="outline" size="icon">
+            <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* 八大习惯概览 */}
-      <Card className="border-0 shadow-md">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Award className="h-5 w-5 text-green-600" />
-            八大行为习惯 · 班级整体情况
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-            {(Object.keys(habitCategoryNames) as HabitCategory[]).map((category) => {
-              const Icon = habitIcons[category];
-              const avg = mockClassStats.categoryAverages[category];
-              return (
-                <div
-                  key={category}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
-                    selectedCategory === category ? 'border-green-500 bg-green-50' : 'border-gray-200'
-                  }`}
-                  onClick={() => setSelectedCategory(selectedCategory === category ? 'all' : category)}
-                >
-                  <div className="flex flex-col items-center text-center">
-                    <div className={`p-2 rounded-lg ${habitCategoryColors[category]} mb-2`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">{habitCategoryNames[category]}</span>
-                    <span className={`text-sm font-bold mt-1 ${
-                      avg >= 90 ? 'text-green-600' : avg >= 80 ? 'text-blue-600' : 'text-orange-600'
-                    }`}>
-                      {avg}%
-                    </span>
-                    {mockClassStats.improvementCategories.includes(category) && (
-                      <AlertTriangle className="h-3 w-3 text-orange-500 mt-1" />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tab 切换内容 */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 h-11">
-          <TabsTrigger value="overview">概览统计</TabsTrigger>
-          <TabsTrigger value="students">学生详情</TabsTrigger>
-          <TabsTrigger value="goals">小目标管理</TabsTrigger>
-          <TabsTrigger value="stars">习惯之星</TabsTrigger>
-        </TabsList>
-
-        {/* 概览统计 */}
-        <TabsContent value="overview" className="mt-4 space-y-4">
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold text-green-600">{mockClassStats.averageRate}%</p>
-                <p className="text-xs text-gray-500 mt-1">班级平均达成率</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold text-blue-600">{mockClassStats.totalStudents}</p>
-                <p className="text-xs text-gray-500 mt-1">学生总数</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold text-amber-600">{mockClassStats.habitStarCount}</p>
-                <p className="text-xs text-gray-500 mt-1">本月习惯之星</p>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold text-purple-600">{mockStudents.filter(s => s.trend === 'up').length}</p>
-                <p className="text-xs text-gray-500 mt-1">进步学生</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* 优势习惯 */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  班级优势习惯
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {mockClassStats.topCategories.map((cat) => {
-                    const Icon = habitIcons[cat];
-                    return (
-                      <div key={cat} className="flex items-center gap-3 p-2 bg-green-50 rounded-lg">
-                        <div className={`p-1.5 rounded ${habitCategoryColors[cat]}`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <span className="flex-1 text-sm">{habitCategoryNames[cat]}</span>
-                        <span className="font-medium text-green-600">{mockClassStats.categoryAverages[cat]}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 待提升习惯 */}
-            <Card className="border-0 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-orange-500" />
-                  需重点关注
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {mockClassStats.improvementCategories.map((cat) => {
-                    const Icon = habitIcons[cat];
-                    return (
-                      <div key={cat} className="flex items-center gap-3 p-2 bg-orange-50 rounded-lg">
-                        <div className={`p-1.5 rounded ${habitCategoryColors[cat]}`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <span className="flex-1 text-sm">{habitCategoryNames[cat]}</span>
-                        <span className="font-medium text-orange-600">{mockClassStats.categoryAverages[cat]}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* 学生详情 */}
-        <TabsContent value="students" className="mt-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">学生习惯档案</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Input placeholder="搜索学生..." className="w-48 h-8" />
-                  <Select value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as HabitCategory | 'all')}>
-                    <SelectTrigger className="w-32 h-8">
-                      <SelectValue placeholder="筛选习惯" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部</SelectItem>
-                      {(Object.keys(habitCategoryNames) as HabitCategory[]).map((cat) => (
-                        <SelectItem key={cat} value={cat}>{habitCategoryNames[cat]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+      {/* 核心指标卡片 */}
+      <div className="grid grid-cols-5 gap-4">
+        {/* 总体达成率 */}
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-500 to-emerald-600 text-white overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="p-5 relative z-10">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-green-100 text-sm">全校达成率</span>
+              <div className="flex items-center gap-1 bg-white/20 rounded-full px-2 py-0.5">
+                <TrendingUp className="h-3 w-3" />
+                <span className="text-xs">+{schoolOverview.rateChange}%</span>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {mockStudents.map((student) => (
-                  <div
-                    key={student.id}
-                    className={`p-4 border rounded-xl cursor-pointer transition-all hover:shadow-md ${
-                      student.habitStar ? 'border-amber-400 bg-amber-50' : 'border-gray-200'
-                    }`}
-                    onClick={() => setSelectedStudent(student.id)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{student.name}</span>
-                      {student.habitStar && <Star className="h-4 w-4 text-amber-500 fill-amber-500" />}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Progress value={student.habitRate} className="flex-1 h-2" />
-                      <span className="text-sm font-medium">{student.habitRate}%</span>
-                    </div>
-                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                      <span>本月达成率</span>
-                      {student.trend === 'up' ? (
-                        <TrendingUp className="h-3 w-3 text-green-500" />
-                      ) : student.trend === 'down' ? (
-                        <TrendingDown className="h-3 w-3 text-red-500" />
-                      ) : (
-                        <span className="text-gray-300">→</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 小目标管理 */}
-        <TabsContent value="goals" className="mt-4 space-y-4">
-          {/* 月份选择 */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" onClick={() => changeMonth('prev')}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-lg font-medium">
-                {currentMonth.split('-')[0]}年{parseInt(currentMonth.split('-')[1])}月
-              </span>
-              <Button variant="outline" size="icon" onClick={() => changeMonth('next')}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
             </div>
-            <div className="text-sm text-gray-500">
-              已达成 {mockMonthlyGoals.filter(g => g.achieved).length}/{mockMonthlyGoals.length} 项目标
-            </div>
-          </div>
+            <div className="text-4xl font-bold mb-1">{schoolOverview.averageRate}%</div>
+            <div className="text-green-100 text-xs">较上月提升 {schoolOverview.rateChange} 个百分点</div>
+          </CardContent>
+        </Card>
 
-          {/* 目标列表 */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {mockMonthlyGoals.map((goal) => {
-              const Icon = habitIcons[goal.category];
-              return (
-                <Card key={goal.id} className={`border-0 shadow-md ${goal.achieved ? 'ring-2 ring-green-400' : ''}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${habitCategoryColors[goal.category]}`}>
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm">{goal.title}</span>
-                          {goal.achieved ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Clock className="h-4 w-4 text-orange-400" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Progress value={goal.rate} className="flex-1 h-1.5" />
-                          <span className="text-xs font-medium">{goal.rate}%</span>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">{habitCategoryNames[goal.category]}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </TabsContent>
+        {/* 学生总数 */}
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-500 text-sm">在校学生</span>
+              <Users className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="text-3xl font-bold text-gray-900">{schoolOverview.totalStudents.toLocaleString()}</div>
+            <div className="text-xs text-gray-400 mt-1">{schoolOverview.totalClasses}个班级</div>
+          </CardContent>
+        </Card>
 
         {/* 习惯之星 */}
-        <TabsContent value="stars" className="mt-4 space-y-4">
-          {/* 本月榜单 */}
-          <Card className="border-0 shadow-md bg-gradient-to-br from-amber-50 to-orange-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-amber-500" />
-                本月习惯之星
-              </CardTitle>
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-500 text-sm">习惯之星</span>
+              <Award className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-gray-900">{schoolOverview.habitStars}</span>
+              <span className="text-sm text-green-600 flex items-center">
+                <ArrowUpRight className="h-3 w-3" />
+                +{schoolOverview.starsChange}
+              </span>
+            </div>
+            <div className="text-xs text-gray-400 mt-1">占比 {((schoolOverview.habitStars / schoolOverview.totalStudents) * 100).toFixed(1)}%</div>
+          </CardContent>
+        </Card>
+
+        {/* 需关注学生 */}
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-orange-400">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-500 text-sm">需关注学生</span>
+              <AlertTriangle className="h-4 w-4 text-orange-500" />
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-gray-900">{schoolOverview.attentionStudents}</span>
+              <span className="text-sm text-green-600 flex items-center">
+                <ArrowDownRight className="h-3 w-3" />
+                {schoolOverview.attentionChange}
+              </span>
+            </div>
+            <div className="text-xs text-gray-400 mt-1">较上月减少 {Math.abs(schoolOverview.attentionChange)} 人</div>
+          </CardContent>
+        </Card>
+
+        {/* 本月评价 */}
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-500 text-sm">本月评价次数</span>
+              <Activity className="h-4 w-4 text-purple-500" />
+            </div>
+            <div className="text-3xl font-bold text-gray-900">{schoolOverview.monthlyEvaluations.toLocaleString()}</div>
+            <div className="text-xs text-gray-400 mt-1">人均 {((schoolOverview.monthlyEvaluations / schoolOverview.totalStudents) * 10).toFixed(1)} 条</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 主内容区 */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* 左侧：核心数据 */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* 八大习惯雷达 */}
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-green-600" />
+                    八大习惯达成情况
+                  </CardTitle>
+                  <CardDescription>全校各习惯类别达成率及趋势分析</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-500" /> 上升
+                    <span className="w-2 h-2 rounded-full bg-gray-400 ml-2" /> 持平
+                    <span className="w-2 h-2 rounded-full bg-red-500 ml-2" /> 下降
+                  </span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                {mockHabitStars.map((star) => (
-                  <div
-                    key={star.rank}
-                    className={`p-4 rounded-xl text-center ${
-                      star.rank === 1 ? 'bg-amber-100' :
-                      star.rank === 2 ? 'bg-gray-100' : 'bg-orange-100'
-                    }`}
-                  >
-                    <div className={`w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-xl font-bold ${
-                      star.rank === 1 ? 'bg-amber-400 text-white' :
-                      star.rank === 2 ? 'bg-gray-300 text-gray-700' : 'bg-amber-600 text-white'
-                    }`}>
-                      {star.rank}
+              <div className="grid grid-cols-4 gap-4">
+                {habitCategoryData.map((item) => {
+                  const Icon = habitIcons[item.category];
+                  return (
+                    <div
+                      key={item.category}
+                      className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md ${
+                        item.rate >= 85 ? 'border-green-200 bg-green-50/50' :
+                        item.rate >= 75 ? 'border-blue-200 bg-blue-50/50' :
+                        'border-orange-200 bg-orange-50/50'
+                      }`}
+                      onClick={() => setSelectedCategory(item.category)}
+                    >
+                      {/* 趋势指示器 */}
+                      <div className={`absolute -top-1 -right-1 p-1 rounded-full ${
+                        item.trend === 'up' ? 'bg-green-500' :
+                        item.trend === 'down' ? 'bg-red-500' : 'bg-gray-400'
+                      }`}>
+                        {item.trend === 'up' ? <TrendingUp className="h-3 w-3 text-white" /> :
+                         item.trend === 'down' ? <TrendingDown className="h-3 w-3 text-white" /> :
+                         <Minus className="h-3 w-3 text-white" />}
+                      </div>
+
+                      <div className="flex flex-col items-center text-center">
+                        <div className={`p-2.5 rounded-xl ${habitCategoryColors[item.category]} mb-2 shadow-sm`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <span className="text-xs font-medium text-gray-700 mb-1">{habitCategoryNames[item.category]}</span>
+                        <span className={`text-2xl font-bold ${
+                          item.rate >= 85 ? 'text-green-600' :
+                          item.rate >= 75 ? 'text-blue-600' : 'text-orange-600'
+                        }`}>
+                          {item.rate}%
+                        </span>
+                        <div className="flex items-center gap-1 mt-1">
+                          {item.change > 0 ? (
+                            <span className="text-xs text-green-600">+{item.change}%</span>
+                          ) : item.change < 0 ? (
+                            <span className="text-xs text-red-600">{item.change}%</span>
+                          ) : (
+                            <span className="text-xs text-gray-400">持平</span>
+                          )}
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-gray-100 w-full">
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>优:{item.topGrade}</span>
+                            <span>弱:{item.weakGrade}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <p className="font-medium">{star.name}</p>
-                    <p className="text-xs text-gray-500 mt-1">{star.achievements}</p>
-                    <div className="flex items-center justify-center gap-1 mt-2">
-                      <Star className="h-3 w-3 text-amber-500" />
-                      <span className="text-xs text-amber-600">累计{star.monthlyStars}次</span>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 年级对比分析 */}
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                    年级对比分析
+                  </CardTitle>
+                  <CardDescription>各年级习惯养成达成率横向对比</CardDescription>
+                </div>
+                <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+                  <SelectTrigger className="w-28 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部年级</SelectItem>
+                    {gradeData.map(g => (
+                      <SelectItem key={g.grade} value={g.grade}>{g.grade}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {gradeData.map((grade, idx) => (
+                  <div key={grade.grade} className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                      idx === 0 ? 'bg-amber-100 text-amber-700' :
+                      idx === 1 ? 'bg-gray-100 text-gray-600' :
+                      idx === 2 ? 'bg-orange-100 text-orange-700' :
+                      'bg-gray-50 text-gray-500'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    <div className="w-16 font-medium">{grade.grade}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <Progress value={grade.avgRate} className="flex-1 h-2.5" />
+                        <span className={`font-bold w-14 text-right ${
+                          grade.avgRate >= 88 ? 'text-green-600' :
+                          grade.avgRate >= 84 ? 'text-blue-600' : 'text-orange-600'
+                        }`}>
+                          {grade.avgRate}%
+                        </span>
+                        {grade.trend === 'up' && <TrendingUp className="h-4 w-4 text-green-500" />}
+                        {grade.trend === 'down' && <TrendingDown className="h-4 w-4 text-red-500" />}
+                        {grade.trend === 'stable' && <Minus className="h-4 w-4 text-gray-400" />}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5 text-amber-500" />
+                        <span>{grade.stars}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
+                        <span>{grade.attention}</span>
+                      </div>
+                      <div className="text-xs">
+                        <span className="text-green-600">优:{grade.topHabit}</span>
+                        <span className="mx-1">·</span>
+                        <span className="text-orange-600">弱:{grade.weakHabit}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -456,163 +430,173 @@ export default function HabitDevelopmentPage() {
             </CardContent>
           </Card>
 
-          {/* 评选标准 */}
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Award className="h-4 w-4 text-purple-500" />
-                评选标准
+          {/* 月度趋势 */}
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <LineChart className="h-5 w-5 text-purple-600" />
+                学期发展趋势
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-4 gap-4 text-sm">
-                <div className="p-3 bg-purple-50 rounded-lg text-center">
-                  <p className="font-medium text-purple-700">全习惯达标</p>
-                  <p className="text-xs text-gray-500 mt-1">8项习惯全部≥80%</p>
+              <div className="flex items-end gap-2 h-40">
+                {monthlyTrend.map((item, idx) => {
+                  const height = ((item.rate - 75) / 15) * 100;
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center">
+                      <div className="text-xs text-gray-500 mb-1">{item.rate}%</div>
+                      <div
+                        className="w-full bg-gradient-to-t from-green-500 to-emerald-400 rounded-t-lg transition-all hover:from-green-600 hover:to-emerald-500"
+                        style={{ height: `${height}%` }}
+                      />
+                      <div className="text-xs text-gray-400 mt-2">{item.month}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <span className="text-sm text-gray-600">达成率持续上升</span>
                 </div>
-                <div className="p-3 bg-blue-50 rounded-lg text-center">
-                  <p className="font-medium text-blue-700">月度小目标</p>
-                  <p className="text-xs text-gray-500 mt-1">达成率≥80%</p>
-                </div>
-                <div className="p-3 bg-green-50 rounded-lg text-center">
-                  <p className="font-medium text-green-700">家长评价</p>
-                  <p className="text-xs text-gray-500 mt-1">家长已签字确认</p>
-                </div>
-                <div className="p-3 bg-amber-50 rounded-lg text-center">
-                  <p className="font-medium text-amber-700">班主任审核</p>
-                  <p className="text-xs text-gray-500 mt-1">综合评定通过</p>
+                <div className="text-sm text-gray-500">
+                  本学期累计<span className="font-bold text-green-600"> +8.1%</span>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
 
-      {/* 添加评价对话框 */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>添加习惯评价</DialogTitle>
-            <DialogDescription>记录学生习惯养成的表扬或待改进事项</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>选择学生</Label>
-              <Select value={assessmentForm.studentId} onValueChange={(v) => setAssessmentForm(prev => ({ ...prev, studentId: v }))}>
-                <SelectTrigger><SelectValue placeholder="选择学生" /></SelectTrigger>
-                <SelectContent>
-                  {mockStudents.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>评价类型</Label>
-              <div className="flex gap-2">
-                <Button
-                  variant={assessmentForm.type === 'praise' ? 'default' : 'outline'}
-                  className={assessmentForm.type === 'praise' ? 'bg-green-600' : ''}
-                  onClick={() => setAssessmentForm(prev => ({ ...prev, type: 'praise' }))}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />表扬
+        {/* 右侧：预警与荣誉 */}
+        <div className="space-y-6">
+          {/* 预警提醒 */}
+          <Card className="border-0 shadow-lg border-l-4 border-l-orange-400">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                重点预警
+                <Badge className="bg-orange-100 text-orange-700 ml-auto">{alertClasses.length}项</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {alertClasses.map((cls) => (
+                  <div key={cls.id} className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-gray-900">{cls.name}</span>
+                      <span className="text-xs text-gray-500">{cls.teacher}</span>
+                    </div>
+                    <p className="text-sm text-orange-700 mb-2">{cls.issue}</p>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">达成率 {cls.rate}%</span>
+                      <span className="text-red-600 flex items-center gap-1">
+                        <ArrowDownRight className="h-3 w-3" />
+                        {cls.change}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button variant="ghost" className="w-full mt-3 text-orange-600 hover:bg-orange-50">
+                查看全部预警 →
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* 习惯之星排行 */}
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-50 to-orange-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Award className="h-5 w-5 text-amber-500" />
+                年级习惯之星排行
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {habitStarRanking.map((item) => (
+                  <div key={item.grade} className="flex items-center gap-3 p-2 bg-white rounded-lg">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      item.rank === 1 ? 'bg-amber-400 text-white' :
+                      item.rank === 2 ? 'bg-gray-300 text-gray-700' :
+                      item.rank === 3 ? 'bg-amber-600 text-white' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {item.rank}
+                    </div>
+                    <span className="font-medium text-sm flex-1">{item.grade}</span>
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                      <span className="font-bold">{item.students}</span>
+                    </div>
+                    <span className="text-xs text-gray-400 w-12 text-right">{item.rate}%</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 近期优秀学生 */}
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <UserCheck className="h-5 w-5 text-green-600" />
+                近期优秀学生
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {outstandingStudents.map((student, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white font-bold">
+                      {student.name.charAt(0)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{student.name}</span>
+                        <span className="text-xs text-gray-400">{student.class}</span>
+                      </div>
+                      <p className="text-xs text-gray-500">{student.achievements}</p>
+                    </div>
+                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 快捷操作 */}
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="h-auto py-3 flex-col gap-1" asChild>
+                  <a href="/moral/habit/students">
+                    <Users className="h-5 w-5 text-blue-500" />
+                    <span className="text-xs">学生档案</span>
+                  </a>
                 </Button>
-                <Button
-                  variant={assessmentForm.type === 'improve' ? 'default' : 'outline'}
-                  className={assessmentForm.type === 'improve' ? 'bg-orange-600' : ''}
-                  onClick={() => setAssessmentForm(prev => ({ ...prev, type: 'improve' }))}
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />待改进
+                <Button variant="outline" className="h-auto py-3 flex-col gap-1" asChild>
+                  <a href="/moral/habit/goals">
+                    <Target className="h-5 w-5 text-purple-500" />
+                    <span className="text-xs">小目标管理</span>
+                  </a>
+                </Button>
+                <Button variant="outline" className="h-auto py-3 flex-col gap-1" asChild>
+                  <a href="/moral/habit/stars">
+                    <Award className="h-5 w-5 text-amber-500" />
+                    <span className="text-xs">习惯之星</span>
+                  </a>
+                </Button>
+                <Button variant="outline" className="h-auto py-3 flex-col gap-1" asChild>
+                  <a href="/moral/habit/reports">
+                    <PieChart className="h-5 w-5 text-green-500" />
+                    <span className="text-xs">数据报表</span>
+                  </a>
                 </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>习惯类别</Label>
-              <Select value={assessmentForm.category} onValueChange={(v) => setAssessmentForm(prev => ({ ...prev, category: v as HabitCategory }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(habitCategoryNames) as HabitCategory[]).map((cat) => {
-                    const Icon = habitIcons[cat];
-                    return (
-                      <SelectItem key={cat} value={cat}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
-                          {habitCategoryNames[cat]}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>评价标题</Label>
-              <Input
-                value={assessmentForm.title}
-                onChange={(e) => setAssessmentForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="如：主动帮助同学"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>详细描述</Label>
-              <Textarea
-                value={assessmentForm.content}
-                onChange={(e) => setAssessmentForm(prev => ({ ...prev, content: e.target.value }))}
-                placeholder="描述具体行为表现..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>取消</Button>
-            <Button className={assessmentForm.type === 'praise' ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'}>
-              提交评价
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 制定小目标对话框 */}
-      <Dialog open={showGoalDialog} onOpenChange={setShowGoalDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>制定月度小目标</DialogTitle>
-            <DialogDescription>从八个习惯中选择并制定本月的成长目标</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-4 gap-2">
-              {(Object.keys(habitCategoryNames) as HabitCategory[]).map((cat) => {
-                const Icon = habitIcons[cat];
-                return (
-                  <button
-                    key={cat}
-                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-                  >
-                    <div className="flex flex-col items-center">
-                      <div className={`p-1.5 rounded ${habitCategoryColors[cat]} mb-1`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <span className="text-xs">{habitCategoryNames[cat]}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="space-y-2">
-              <Label>目标标题</Label>
-              <Input placeholder="输入目标标题" />
-            </div>
-            <div className="space-y-2">
-              <Label>具体要求</Label>
-              <Textarea placeholder="描述具体要做的事情..." rows={2} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGoalDialog(false)}>取消</Button>
-            <Button className="bg-green-600 hover:bg-green-700">添加目标</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
