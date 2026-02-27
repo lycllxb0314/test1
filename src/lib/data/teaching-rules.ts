@@ -16,6 +16,7 @@ export type TeacherRole =
   | 'subject_leader'  // 教研组长
   | 'admin'           // 中层行政（教导主任、德育主任等）
   | 'grade_leader'    // 年段长
+  | 'subject_head'    // 科任（副班主任）
   | 'normal';         // 普通教师
 
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
@@ -23,6 +24,7 @@ export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   subject_leader: '教研组长',
   admin: '中层行政',
   grade_leader: '年段长',
+  subject_head: '科任（副班主任）',
   normal: '普通教师',
 };
 
@@ -57,7 +59,7 @@ export interface TeachingHoursRule {
 /**
  * 课时量标准规则表
  * 
- * 基准：教师周课时量约13节
+ * 基准：周课时约13节（前三类教师的基准课时，技能科教师为特殊情况）
  */
 export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
   // 班主任（带1个班）
@@ -82,9 +84,9 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
   {
     role: 'admin',
     classCount: 1,
-    mainSubjectHours: [4, 5],
+    mainSubjectHours: [5, 6],
     totalHours: 10,
-    description: '中层行政带1个班：本班主科4-5节 + 本班兼任约2节（行政工作折算课时）',
+    description: '中层行政带1个班：本班主科5-6节 + 本班兼任约2节 + 其他班约2-3节（行政工作折算课时）',
   },
   
   // 年段长（带1个班）
@@ -93,7 +95,16 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     classCount: 1,
     mainSubjectHours: [5, 6],
     totalHours: 12,
-    description: '年段长带1个班：本班主科5-6节 + 本班兼任约3节（管理工作折算）',
+    description: '年段长带1个班：本班主科5-6节 + 本班兼任约3节 + 其他班约3-4节（管理工作折算）',
+  },
+  
+  // 科任/副班主任（带1个班）
+  {
+    role: 'subject_head',
+    classCount: 1,
+    mainSubjectHours: [5, 6],
+    totalHours: 13,
+    description: '科任（副班主任）带1个班：本班主科5-6节 + 本班兼任约2节 + 其他班约5节',
   },
   
   // 普通主科教师（带2个班）
@@ -103,15 +114,6 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     mainSubjectHours: [10, 12],
     totalHours: 13,
     description: '普通主科教师带2个班：两个班主科共10-12节 + 兼任1-2节',
-  },
-  
-  // 普通主科教师（带1个班，科任）
-  {
-    role: 'normal',
-    classCount: 1,
-    mainSubjectHours: [5, 6],
-    totalHours: 13,
-    description: '科任带1个班：本班主科5-6节 + 本班兼任约2节 + 其他班约5节',
   },
   
   // 技能科教师（体育、音乐、美术等）
