@@ -63,6 +63,8 @@ import {
   Trophy,
   CalendarClock,
   UserPlus,
+  Video,
+  Star,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
@@ -106,6 +108,8 @@ const academicNav: NavItem[] = [
   { name: '教室管理', href: '/academic/rooms', icon: DoorOpen, description: '教室资源管理' },
   { name: '预约审批', href: '/academic/rooms/approval', icon: CheckSquare, description: '审批教室预约申请' },
   { name: '使用日程', href: '/academic/rooms/calendar', icon: CalendarClock, description: '教室使用日程' },
+  { name: '集体备课', href: '/teaching/lesson-planning', icon: Users, description: '备课组协同', badge: '智慧' },
+  { name: '听课评课', href: '/teaching/observation', icon: Video, description: '课堂听课评价', badge: '智慧' },
   { name: '教研活动', href: '/academic/research', icon: Target, description: '教学研究活动' },
   { name: '教师考勤', href: '/academic/attendance', icon: CheckSquare, description: '教师考勤管理' },
   { name: '质量分析', href: '/academic/analysis', icon: BarChart3, description: '教学质量分析' },
@@ -114,6 +118,8 @@ const academicNav: NavItem[] = [
 // 德育管理导航
 const moralNav: NavItem[] = [
   { name: '德育概览', href: '/moral', icon: LayoutDashboard, description: '德育工作看板' },
+  { name: '习惯养成评价', href: '/moral/habit', icon: Star, description: '八大行为习惯评价', badge: '特色' },
+  { name: '小目标管理', href: '/moral/habit-goals', icon: Target, description: '学生月度小目标', badge: '特色' },
   { name: '少先队管理', href: '/moral/pioneer', icon: Flag, description: '少先队组织管理' },
   { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '德育活动管理' },
   { name: '德育评价', href: '/moral/assessment', icon: Award, description: '学生德育评价' },
@@ -179,7 +185,7 @@ export function AppSidebar() {
   useEffect(() => {
     if (pathname.startsWith('/general')) {
       setActiveModule('general');
-    } else if (pathname.startsWith('/academic')) {
+    } else if (pathname.startsWith('/academic') || pathname.startsWith('/teaching')) {
       setActiveModule('academic');
     } else if (pathname.startsWith('/moral')) {
       setActiveModule('moral');

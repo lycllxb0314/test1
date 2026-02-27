@@ -1645,3 +1645,518 @@ export interface AccessStatistics {
   deviceOfflineCount: number;
   deviceFaultCount: number;
 }
+
+
+// ============================================================
+// 习惯养成评价系统类型定义
+// ============================================================
+
+// 八大习惯类别
+export type HabitCategory = 
+  | 'civilization'    // 文明习惯
+  | 'writing'         // 书写习惯
+  | 'reading'         // 阅读习惯
+  | 'sports'          // 运动习惯
+  | 'safety'          // 安全习惯
+  | 'hygiene'         // 卫生习惯
+  | 'aesthetic'       // 审美习惯
+  | 'labor';          // 劳动习惯
+
+// 习惯类别中文名称映射
+export const habitCategoryNames: Record<HabitCategory, string> = {
+  civilization: '文明习惯',
+  writing: '书写习惯',
+  reading: '阅读习惯',
+  sports: '运动习惯',
+  safety: '安全习惯',
+  hygiene: '卫生习惯',
+  aesthetic: '审美习惯',
+  labor: '劳动习惯',
+};
+
+// 习惯类别图标映射
+export const habitCategoryIcons: Record<HabitCategory, string> = {
+  civilization: 'Heart',
+  writing: 'Pen',
+  reading: 'BookOpen',
+  sports: 'Trophy',
+  safety: 'Shield',
+  hygiene: 'Sparkles',
+  aesthetic: 'Palette',
+  labor: 'Hammer',
+};
+
+// 习惯类别颜色映射
+export const habitCategoryColors: Record<HabitCategory, string> = {
+  civilization: 'text-red-600 bg-red-50',
+  writing: 'text-blue-600 bg-blue-50',
+  reading: 'text-green-600 bg-green-50',
+  sports: 'text-orange-600 bg-orange-50',
+  safety: 'text-purple-600 bg-purple-50',
+  hygiene: 'text-teal-600 bg-teal-50',
+  aesthetic: 'text-pink-600 bg-pink-50',
+  labor: 'text-amber-600 bg-amber-50',
+};
+
+// 年级段
+export type GradeLevel = 'lower' | 'middle' | 'upper';  // 低年级(1-2)、中年级(3-4)、高年级(5-6)
+
+// 习惯目标定义
+export interface HabitGoal {
+  id: string;
+  category: HabitCategory;
+  code: string;                          // 目标编码，如 "C01"
+  title: string;                         // 目标标题，如"理性爱国"
+  description: string;                   // 目标描述
+  gradeLevel: GradeLevel;                // 适用年级段
+  indicators: string[];                  // 具体表现指标
+  maxScore: number;                      // 满分
+}
+
+// 学生月度小目标
+export interface StudentMonthlyGoal {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  grade: number;                         // 年级
+  month: string;                         // 月份，如 "2024-03"
+  
+  // 小目标列表（每月最多8个，对应八大习惯）
+  goals: MonthlyGoalItem[];
+  
+  // 家长参与
+  parentSignature?: string;
+  parentPhone?: string;
+  parentEvaluation?: string;
+  
+  // 班主任审核
+  teacherReview?: string;
+  isHabitStar: boolean;                  // 是否评为月度习惯之星
+  
+  // 统计
+  totalGoals: number;
+  achievedGoals: number;
+  achievementRate: number;               // 达成率
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 月度小目标项
+export interface MonthlyGoalItem {
+  id: string;
+  category: HabitCategory;
+  goalId: string;                        // 关联习惯目标
+  title: string;                         // 小目标标题
+  description?: string;                  // 具体内容
+  
+  // 过程记录（每日/每周）
+  records: GoalRecord[];
+  
+  // 统计
+  totalDays: number;                     // 总天数
+  achievedDays: number;                  // 达标天数
+  achievementRate: number;               // 达成率
+  isAchieved: boolean;                   // 是否达成月度目标
+}
+
+// 目标记录（每日/每周）
+export interface GoalRecord {
+  date: string;                          // 日期
+  achieved: boolean;                     // 是否达标（☆/△）
+  note?: string;                         // 备注
+  recordedBy: 'student' | 'parent' | 'teacher';
+  recordedAt: string;
+}
+
+// 习惯评价记录（即时评价）
+export interface HabitAssessment {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  
+  // 评价信息
+  category: HabitCategory;
+  goalId?: string;
+  type: 'praise' | 'improve';            // 表扬/待改进
+  title: string;
+  content: string;
+  score: number;                         // 分数（表扬为正，待改进为负）
+  
+  // 场景
+  scene: 'classroom' | 'campus' | 'home' | 'activity' | 'other';
+  
+  // 证据
+  images?: string[];
+  
+  // 记录人
+  recorderId: string;
+  recorderName: string;
+  recorderRole: 'teacher' | 'parent' | 'student';
+  
+  occurredAt: string;
+  createdAt: string;
+}
+
+// 习惯之星
+export interface HabitStar {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  grade: number;
+  
+  // 评选信息
+  month: string;
+  category?: HabitCategory;              // 分类之星（可选）
+  achievementRate: number;               // 达成率
+  
+  // 荣誉
+  level: 'class' | 'grade' | 'school';   // 班级之星/年级之星/校级之星
+  
+  // 奖励
+  reward?: string;
+  
+  createdAt: string;
+}
+
+// 学生习惯档案（汇总视图）
+export interface StudentHabitProfile {
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  grade: number;
+  
+  // 各习惯类别得分
+  categoryScores: {
+    category: HabitCategory;
+    score: number;
+    maxScore: number;
+    rate: number;
+    trend: 'up' | 'down' | 'stable';
+  }[];
+  
+  // 总体评价
+  totalScore: number;
+  totalMaxScore: number;
+  overallRate: number;
+  level: '优秀' | '良好' | '合格' | '待提高';
+  
+  // 荣誉统计
+  habitStarCount: number;
+  monthlyStars: string[];                // 获评月份
+  
+  // 成长轨迹
+  monthlyTrend: {
+    month: string;
+    rate: number;
+  }[];
+  
+  // 突出表现
+  highlights: {
+    category: HabitCategory;
+    description: string;
+  }[];
+  
+  // 待改进
+  improvements: {
+    category: HabitCategory;
+    suggestion: string;
+  }[];
+  
+  updatedAt: string;
+}
+
+// 班级习惯统计
+export interface ClassHabitStats {
+  classId: string;
+  className: string;
+  grade: number;
+  month: string;
+  
+  // 各习惯类别平均达成率
+  categoryRates: {
+    category: HabitCategory;
+    rate: number;
+    rank: number;                        // 年级排名
+  }[];
+  
+  // 整体数据
+  averageRate: number;
+  gradeRank: number;
+  
+  // 习惯之星
+  habitStarCount: number;
+  habitStars: {
+    studentId: string;
+    studentName: string;
+  }[];
+  
+  // 预警学生
+  warningStudents: {
+    studentId: string;
+    studentName: string;
+    lowCategories: HabitCategory[];
+  }[];
+}
+
+// ============================================================
+// 智慧教研系统类型定义
+// ============================================================
+
+// 教研活动类型
+export type ResearchActivityType = 
+  | 'collective_prep'    // 集体备课
+  | 'lesson_observation' // 听课评课
+  | 'thematic_study'     // 专题研修
+  | 'project_research'   // 课题研究
+  | 'training'           // 培训活动
+  | 'competition';       // 教学比赛
+
+// 教研活动
+export interface ResearchActivity {
+  id: string;
+  type: ResearchActivityType;
+  title: string;
+  description?: string;
+  
+  // 组织信息
+  organizerId: string;
+  organizerName: string;
+  department: string;                    // 教研组
+  participantIds: string[];
+  participantNames: string[];
+  
+  // 时间地点
+  startDate: string;
+  endDate: string;
+  location: string;
+  
+  // 内容
+  subject?: string;                      // 学科
+  grade?: number;                        // 年级
+  topic?: string;                        // 主题
+  objectives?: string[];                 // 活动目标
+  
+  // 资源
+  materials?: ResearchMaterial[];
+  
+  // 成果
+  outcomes?: string[];
+  summary?: string;
+  
+  status: 'planning' | 'ongoing' | 'completed';
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 教研资源
+export interface ResearchMaterial {
+  id: string;
+  name: string;
+  type: 'document' | 'video' | 'image' | 'link';
+  url: string;
+  size?: number;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+// 集体备课
+export interface CollectivePreparation {
+  id: string;
+  subject: string;
+  grade: number;
+  topic: string;                         // 备课主题
+  unit?: string;                         // 单元
+  lesson?: string;                       // 课时
+  
+  // 主备人
+  hostId: string;
+  hostName: string;
+  
+  // 参与人
+  participantIds: string[];
+  participantNames: string[];
+  
+  // 时间
+  scheduledDate: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  
+  // 备课内容
+  teachingObjectives?: string[];         // 教学目标
+  keyPoints?: string[];                  // 教学重点
+  difficulties?: string[];               // 教学难点
+  methods?: string[];                    // 教学方法
+  
+  // 教案
+  lessonPlan?: {
+    content: string;
+    attachments: string[];
+    version: number;
+    lastEditedBy: string;
+    lastEditedAt: string;
+  };
+  
+  // 讨论记录
+  discussions: PreparationDiscussion[];
+  
+  // 成果
+  finalPlan?: string;                    // 最终教案
+  pptUrl?: string;                       // 课件链接
+  
+  status: 'draft' | 'discussing' | 'finalized';
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 备课讨论
+export interface PreparationDiscussion {
+  id: string;
+  speakerId: string;
+  speakerName: string;
+  content: string;
+  topic?: string;                        // 讨论议题
+  replyTo?: string;                      // 回复的讨论ID
+  createdAt: string;
+}
+
+// 听课评课
+export interface LessonObservation {
+  id: string;
+  
+  // 课程信息
+  teacherId: string;
+  teacherName: string;
+  subject: string;
+  grade: number;
+  className: string;
+  lessonTopic: string;
+  
+  // 时间地点
+  date: string;
+  period: number;
+  classroom: string;
+  
+  // 听课人
+  observerIds: string[];
+  observerNames: string[];
+  
+  // 评价维度
+  evaluations: LessonEvaluation[];
+  
+  // 综合评价
+  overallScore: number;
+  overallComment?: string;
+  strengths?: string[];                   // 优点
+  suggestions?: string[];                 // 建议
+  
+  // 课堂记录
+  notes?: string;
+  images?: string[];
+  
+  status: 'scheduled' | 'ongoing' | 'completed';
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 课堂评价维度
+export interface LessonEvaluation {
+  id: string;
+  dimension: string;                     // 评价维度，如"教学设计"
+  indicators: EvaluationIndicator[];     // 评价指标
+  score: number;
+  maxScore: number;
+  comment?: string;
+}
+
+// 评价指标
+export interface EvaluationIndicator {
+  id: string;
+  content: string;                       // 指标内容
+  score: number;
+  maxScore: number;
+  level: 'excellent' | 'good' | 'qualified' | 'unqualified';
+}
+
+// 评价量表模板
+export interface EvaluationTemplate {
+  id: string;
+  name: string;
+  subject?: string;                      // 适用学科
+  description?: string;
+  
+  dimensions: {
+    name: string;
+    weight: number;                      // 权重
+    maxScore: number;
+    indicators: {
+      content: string;
+      maxScore: number;
+      criteria: string;                  // 评分标准
+    }[];
+  }[];
+  
+  isDefault: boolean;
+  createdAt: string;
+}
+
+// 教师教研档案
+export interface TeacherResearchProfile {
+  teacherId: string;
+  teacherName: string;
+  
+  // 教研活动统计
+  totalActivities: number;
+  activityByType: {
+    type: ResearchActivityType;
+    count: number;
+  }[];
+  
+  // 听课统计
+  lessonsObserved: number;               // 听课节数
+  lessonsTaught: number;                 // 被听课节数
+  averageScore?: number;                 // 平均得分
+  
+  // 备课统计
+  lessonsPrepared: number;               // 主备节数
+  lessonsParticipated: number;           // 参与节数
+  
+  // 课题研究
+  projects: {
+    id: string;
+    name: string;
+    role: 'host' | 'core_member' | 'participant';
+    status: 'ongoing' | 'completed';
+  }[];
+  
+  // 培训研修
+  trainings: {
+    id: string;
+    name: string;
+    hours: number;
+    completedAt: string;
+  }[];
+  totalTrainingHours: number;
+  
+  // 教学成果
+  achievements: {
+    id: string;
+    title: string;
+    type: string;
+    level: string;
+    date: string;
+  }[];
+  
+  updatedAt: string;
+}
