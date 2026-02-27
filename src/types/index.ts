@@ -2333,3 +2333,10 @@ export interface ClassInfo {
   createdAt: string;
   updatedAt: string;
 }
+
+// ============================================================
+// 类型别名（向后兼容）
+// ============================================================
+
+// 调课记录别名
+export type ScheduleChange = CourseAdjustment;

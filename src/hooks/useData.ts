@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient, type QueryParams, type PaginatedResponse, type ApiResponse } from '@/services/api-client';
+import { apiClient, type QueryParams, type ApiResponse, type Pagination, type PaginatedResponse } from '@/services/api-client';
 import type {
   User,
   Teacher,
@@ -88,7 +88,7 @@ function useData<T>(
  * 通用列表数据获取Hook
  */
 function useList<T>(
-  fetcher: () => Promise<ApiResponse<PaginatedResponse<T>>>,
+  fetcher: () => Promise<ApiResponse<T[] | PaginatedResponse<T>>>,
   deps: unknown[] = []
 ): UseListResult<T> {
   const [data, setData] = useState<T[]>([]);
@@ -106,11 +106,21 @@ function useList<T>(
     try {
       const result = await fetcher();
       if (result.success && result.data) {
-        setData(result.data.data || []);
-        setTotal(result.data.total || 0);
-        setPage(result.data.page || 1);
-        setPageSize(result.data.pageSize || 20);
-        setTotalPages(result.data.totalPages || 0);
+        // 支持两种响应格式：数组或分页对象
+        if (Array.isArray(result.data)) {
+          setData(result.data);
+          setTotal(result.pagination?.total || result.data.length);
+          setPage(result.pagination?.page || 1);
+          setPageSize(result.pagination?.pageSize || 20);
+          setTotalPages(result.pagination?.totalPages || 1);
+        } else if ('data' in result.data && Array.isArray(result.data.data)) {
+          // PaginatedResponse格式
+          setData(result.data.data);
+          setTotal(result.data.total || result.pagination?.total || 0);
+          setPage(result.data.page || result.pagination?.page || 1);
+          setPageSize(result.data.pageSize || result.pagination?.pageSize || 20);
+          setTotalPages(result.data.totalPages || result.pagination?.totalPages || 1);
+        }
       } else {
         setError(result.error || '获取数据失败');
       }

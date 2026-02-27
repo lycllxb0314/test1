@@ -1,19 +1,63 @@
 /**
  * API辅助工具
- * @deprecated 请直接使用 '@/services/api-client'
+ * @deprecated 请直接使用 '@/services/api-client' 或 '@/hooks/useApi'
  * 此文件仅为保持向后兼容而存在
  */
 
 // 重新导出统一API客户端的所有内容
 export {
   apiClient,
+  api,
   authApi,
-  userApi,
   teacherApi,
+  studentApi,
+  classApi,
+  leaveRequestApi,
+  scheduleChangeApi,
+  workflowApi,
+  habitApi,
+  researchApi,
+  roomApi,
+  accessApi,
+  enrollmentApi,
   type ApiResponse,
-  type PaginationParams,
-  type PaginatedResponse,
+  type Pagination,
+  type PaginatedData,
   type QueryParams,
 } from '@/services/api-client';
 
-export default (await import('@/services/api-client')).apiClient;
+// 重新导出统一Hooks
+export {
+  useQuery,
+  usePaginatedQuery,
+  useMutation,
+  useTeachers,
+  useTeacher,
+  useTeacherProfile,
+  useStudents,
+  useStudent,
+  useStudentProfile,
+  useStudentHabitProfile,
+  useClasses,
+  useClass,
+  useClassStudents,
+  useLeaveRequests,
+  useScheduleChanges,
+  useRooms,
+  useRoomBookings,
+  useAccessRecords,
+  useCreateTeacher,
+  useUpdateTeacher,
+  useDeleteTeacher,
+  useCreateStudent,
+  useUpdateStudent,
+  useDeleteStudent,
+  useCreateLeaveRequest,
+  useCreateScheduleChange,
+  useApproveBooking,
+  useWorkflowApprove,
+  type UseQueryOptions,
+  type UseQueryResult,
+  type UseMutationResult,
+  type UsePaginatedResult,
+} from '@/hooks/useApi';
