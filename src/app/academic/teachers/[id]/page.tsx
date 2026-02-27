@@ -48,9 +48,13 @@ import {
   X,
   Loader2,
 } from 'lucide-react';
-import { TeacherProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/types';
-import { useTeacherFullProfile } from '@/hooks/useTeacherData';
+import { TeacherProfile } from '@/types';
+import { useTeacherFullProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/hooks/useTeacherData';
 import { toast } from 'sonner';
+import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
+
+// 本地类型定义，用于对话框编辑项
+type EditItem = TeacherHonor | TeacherTraining | TeacherAchievement | TeacherRecord;
 
 // 模拟教师详细数据
 const mockTeacherProfile: TeacherProfile = {
@@ -193,6 +197,12 @@ export default function TeacherDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // 对话框状态
+  const [dialogType, setDialogType] = useState<'honor' | 'training' | 'achievement' | 'record' | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<EditItem | null>(null);
+  
   const [formData, setFormData] = useState<FormData>({
     name: '',
     gender: '',
@@ -319,6 +329,39 @@ export default function TeacherDetailPage() {
       });
     }
     setIsEditing(false);
+  };
+
+  // 打开添加对话框
+  const openAddDialog = (type: 'honor' | 'training' | 'achievement' | 'record') => {
+    setDialogType(type);
+    setEditItem(null);
+    setDialogOpen(true);
+  };
+
+  // 打开编辑对话框
+  const openEditDialog = (type: 'honor' | 'training' | 'achievement' | 'record', item: EditItem) => {
+    setDialogType(type);
+    setEditItem(item);
+    setDialogOpen(true);
+  };
+
+  // 处理删除
+  const handleDelete = async (type: 'honor' | 'training' | 'achievement' | 'record', id: string) => {
+    if (!confirm('确定要删除这条记录吗？')) return;
+    
+    const success = await deleteTeacherProfileItem(type, id);
+    if (success) {
+      toast.success('删除成功');
+      refetch();
+    } else {
+      toast.error('删除失败');
+    }
+  };
+
+  // 对话框保存成功
+  const handleDialogSuccess = () => {
+    toast.success('保存成功');
+    refetch();
   };
 
   // 加载中状态
@@ -829,7 +872,7 @@ export default function TeacherDetailPage() {
                   <Trophy className="h-5 w-5 text-primary" />
                   荣誉奖项
                 </CardTitle>
-                <Button variant="outline" size="sm" className="gap-1">
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => openAddDialog('honor')}>
                   <Plus className="h-4 w-4" />
                   添加荣誉
                 </Button>
@@ -856,8 +899,8 @@ export default function TeacherDetailPage() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm">编辑</Button>
-                      <Button variant="ghost" size="sm" className="text-destructive">删除</Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('honor', honor)}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('honor', honor.id)}>删除</Button>
                     </div>
                   </div>
                 ))}
@@ -875,7 +918,7 @@ export default function TeacherDetailPage() {
                   <BookOpen className="h-5 w-5 text-primary" />
                   培训记录
                 </CardTitle>
-                <Button variant="outline" size="sm" className="gap-1">
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => openAddDialog('training')}>
                   <Plus className="h-4 w-4" />
                   添加培训
                 </Button>
@@ -901,6 +944,10 @@ export default function TeacherDetailPage() {
                         {training.certificate && <span className="ml-4 text-green-600">已获得证书</span>}
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('training', training)}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('training', training.id)}>删除</Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -917,7 +964,7 @@ export default function TeacherDetailPage() {
                   <Target className="h-5 w-5 text-primary" />
                   教学成果
                 </CardTitle>
-                <Button variant="outline" size="sm" className="gap-1">
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => openAddDialog('achievement')}>
                   <Plus className="h-4 w-4" />
                   添加成果
                 </Button>
@@ -951,6 +998,10 @@ export default function TeacherDetailPage() {
                         <div className="text-sm text-muted-foreground mt-1">{achievement.description}</div>
                       )}
                     </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('achievement', achievement)}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('achievement', achievement.id)}>删除</Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -967,7 +1018,7 @@ export default function TeacherDetailPage() {
                   <FileText className="h-5 w-5 text-primary" />
                   成长档案
                 </CardTitle>
-                <Button variant="outline" size="sm" className="gap-1">
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => openAddDialog('record')}>
                   <Plus className="h-4 w-4" />
                   添加记录
                 </Button>
@@ -988,10 +1039,16 @@ export default function TeacherDetailPage() {
                         <div className={`absolute left-2.5 w-3 h-3 rounded-full bg-background border-2 border-border`}></div>
                         
                         <div className="flex-1 p-4 bg-muted/30 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Icon className={`h-4 w-4 ${typeInfo.color}`} />
-                            <Badge variant="outline" className="text-xs">{typeInfo.label}</Badge>
-                            <span className="font-medium">{record.title}</span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Icon className={`h-4 w-4 ${typeInfo.color}`} />
+                              <Badge variant="outline" className="text-xs">{typeInfo.label}</Badge>
+                              <span className="font-medium">{record.title}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => openEditDialog('record', record)}>编辑</Button>
+                              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('record', record.id)}>删除</Button>
+                            </div>
                           </div>
                           {record.description && (
                             <p className="text-sm text-muted-foreground mt-1">{record.description}</p>
@@ -1007,6 +1064,16 @@ export default function TeacherDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* 对话框组件 */}
+      <TeacherProfileDialogs
+        teacherId={teacherId}
+        type={dialogType}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={handleDialogSuccess}
+        editItem={editItem}
+      />
     </div>
   );
 }

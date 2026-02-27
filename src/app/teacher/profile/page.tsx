@@ -56,9 +56,13 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { TeacherProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/types';
-import { useTeacherFullProfile, TeacherFullProfile } from '@/hooks/useTeacherData';
+import { TeacherProfile } from '@/types';
+import { useTeacherFullProfile, TeacherFullProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/hooks/useTeacherData';
 import { toast } from 'sonner';
+import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
+
+// 本地类型定义，用于对话框编辑项
+type EditItem = TeacherHonor | TeacherTraining | TeacherAchievement | TeacherRecord;
 
 // 获取记录类型图标和颜色
 const getHonorLevelColor = (level: string) => {
@@ -109,8 +113,11 @@ export default function TeacherProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [addType, setAddType] = useState<'honor' | 'training' | 'achievement'>('honor');
+  
+  // 对话框状态
+  const [dialogType, setDialogType] = useState<'honor' | 'training' | 'achievement' | 'record' | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<EditItem | null>(null);
   
   // 可编辑字段状态
   const [formData, setFormData] = useState<EditableFormData>({
@@ -123,21 +130,6 @@ export default function TeacherProfilePage() {
     ethnicity: '',
     politicalStatus: '',
     nativePlace: '',
-  });
-
-  // 新增表单
-  const [newHonor, setNewHonor] = useState<{
-    title: string;
-    level: '国家级' | '省级' | '市级' | '区级' | '校级';
-    category: '综合' | '教学' | '德育' | '科研';
-    issuer: string;
-    date: string;
-  }>({
-    title: '',
-    level: '校级',
-    category: '综合',
-    issuer: '',
-    date: '',
   });
 
   // 初始化表单数据
@@ -210,22 +202,37 @@ export default function TeacherProfilePage() {
     setIsEditing(false);
   };
 
-  // 添加荣誉
-  const handleAddHonor = () => {
-    if (!profile) return;
-    // 本地更新（实际应调用API）
-    const newHonorItem: TeacherHonor = {
-      id: `h${Date.now()}`,
-      teacherId: profile.id,
-      ...newHonor,
-    };
-    // 调用updateProfile更新荣誉列表
-    updateProfile({
-      honors: [newHonorItem, ...profile.honors],
-    });
-    setShowAddDialog(false);
-    setNewHonor({ title: '', level: '校级', category: '综合', issuer: '', date: '' });
-    toast.success('荣誉已提交，等待审核');
+  // 打开添加对话框
+  const openAddDialog = (type: 'honor' | 'training' | 'achievement' | 'record') => {
+    setDialogType(type);
+    setEditItem(null);
+    setDialogOpen(true);
+  };
+
+  // 打开编辑对话框
+  const openEditDialog = (type: 'honor' | 'training' | 'achievement' | 'record', item: EditItem) => {
+    setDialogType(type);
+    setEditItem(item);
+    setDialogOpen(true);
+  };
+
+  // 处理删除
+  const handleDelete = async (type: 'honor' | 'training' | 'achievement' | 'record', id: string) => {
+    if (!confirm('确定要删除这条记录吗？')) return;
+    
+    const success = await deleteTeacherProfileItem(type, id);
+    if (success) {
+      toast.success('删除成功');
+      refetch();
+    } else {
+      toast.error('删除失败');
+    }
+  };
+
+  // 对话框保存成功
+  const handleDialogSuccess = () => {
+    toast.success('保存成功');
+    refetch();
   };
 
   // 加载状态
@@ -619,10 +626,7 @@ export default function TeacherProfilePage() {
                   variant="outline" 
                   size="sm" 
                   className="gap-1"
-                  onClick={() => {
-                    setAddType('honor');
-                    setShowAddDialog(true);
-                  }}
+                  onClick={() => openAddDialog('honor')}
                 >
                   <Plus className="h-4 w-4" />
                   申报荣誉
@@ -650,7 +654,8 @@ export default function TeacherProfilePage() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm">编辑</Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('honor', honor)}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('honor', honor.id)}>删除</Button>
                     </div>
                   </div>
                 ))}
@@ -668,9 +673,9 @@ export default function TeacherProfilePage() {
                   <BookOpen className="h-5 w-5 text-primary" />
                   培训记录
                 </CardTitle>
-                <Button variant="outline" size="sm" className="gap-1">
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => openAddDialog('training')}>
                   <Plus className="h-4 w-4" />
-                  上传证书
+                  添加培训
                 </Button>
               </div>
             </CardHeader>
@@ -694,6 +699,10 @@ export default function TeacherProfilePage() {
                         {training.certificate && <span className="ml-4 text-green-600">已获得证书</span>}
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('training', training)}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('training', training.id)}>删除</Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -710,7 +719,7 @@ export default function TeacherProfilePage() {
                   <Target className="h-5 w-5 text-primary" />
                   教学成果
                 </CardTitle>
-                <Button variant="outline" size="sm" className="gap-1">
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => openAddDialog('achievement')}>
                   <Plus className="h-4 w-4" />
                   添加成果
                 </Button>
@@ -744,6 +753,10 @@ export default function TeacherProfilePage() {
                         <div className="text-sm text-muted-foreground mt-1">{achievement.description}</div>
                       )}
                     </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('achievement', achievement)}>编辑</Button>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('achievement', achievement.id)}>删除</Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -760,6 +773,10 @@ export default function TeacherProfilePage() {
                   <TrendingUp className="h-5 w-5 text-primary" />
                   成长档案
                 </CardTitle>
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => openAddDialog('record')}>
+                  <Plus className="h-4 w-4" />
+                  添加记录
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -776,10 +793,16 @@ export default function TeacherProfilePage() {
                         <div className="absolute left-2.5 w-3 h-3 rounded-full bg-background border-2 border-border"></div>
                         
                         <div className="flex-1 p-4 bg-muted/30 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Icon className={`h-4 w-4 ${typeInfo.color}`} />
-                            <Badge variant="outline" className="text-xs">{typeInfo.label}</Badge>
-                            <span className="font-medium">{record.title}</span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Icon className={`h-4 w-4 ${typeInfo.color}`} />
+                              <Badge variant="outline" className="text-xs">{typeInfo.label}</Badge>
+                              <span className="font-medium">{record.title}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => openEditDialog('record', record)}>编辑</Button>
+                              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('record', record.id)}>删除</Button>
+                            </div>
                           </div>
                           {record.description && (
                             <p className="text-sm text-muted-foreground mt-1">{record.description}</p>
@@ -796,92 +819,15 @@ export default function TeacherProfilePage() {
         </TabsContent>
       </Tabs>
 
-      {/* 添加荣誉对话框 */}
-      <Dialog open={showAddDialog && addType === 'honor'} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>申报荣誉</DialogTitle>
-            <DialogDescription>
-              填写荣誉信息，提交后将由教务处审核
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>荣誉名称 *</Label>
-              <Input
-                value={newHonor.title}
-                onChange={(e) => setNewHonor(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="如：优秀教师、教学能手等"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>级别</Label>
-                <Select value={newHonor.level} onValueChange={(v) => setNewHonor(prev => ({ ...prev, level: v as '国家级' | '省级' | '市级' | '区级' | '校级' }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="校级">校级</SelectItem>
-                    <SelectItem value="区级">区级</SelectItem>
-                    <SelectItem value="市级">市级</SelectItem>
-                    <SelectItem value="省级">省级</SelectItem>
-                    <SelectItem value="国家级">国家级</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>类别</Label>
-                <Select value={newHonor.category} onValueChange={(v) => setNewHonor(prev => ({ ...prev, category: v as '综合' | '教学' | '德育' | '科研' }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="综合">综合</SelectItem>
-                    <SelectItem value="教学">教学</SelectItem>
-                    <SelectItem value="德育">德育</SelectItem>
-                    <SelectItem value="科研">科研</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>颁发单位</Label>
-              <Input
-                value={newHonor.issuer}
-                onChange={(e) => setNewHonor(prev => ({ ...prev, issuer: e.target.value }))}
-                placeholder="颁发荣誉的单位"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>获得时间</Label>
-              <Input
-                type="date"
-                value={newHonor.date}
-                onChange={(e) => setNewHonor(prev => ({ ...prev, date: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>证书材料</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors">
-                <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">点击上传证书扫描件</p>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>取消</Button>
-            <Button 
-              onClick={handleAddHonor}
-              disabled={!newHonor.title || !newHonor.date}
-            >
-              提交申报
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 对话框组件 */}
+      <TeacherProfileDialogs
+        teacherId={teacherId}
+        type={dialogType}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={handleDialogSuccess}
+        editItem={editItem}
+      />
     </div>
   );
 }
