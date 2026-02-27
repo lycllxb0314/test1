@@ -180,4 +180,5 @@ export const roleOptions = [
   { value: 'grade_leader', label: '年段长', description: '年级段负责人，处理调课安排' },
   { value: 'teacher', label: '教师', description: '普通教师' },
   { value: 'staff', label: '后勤人员', description: '后勤工作人员' },
+  { value: 'parent', label: '家长', description: '学生家长，查看子女信息' },
 ];
