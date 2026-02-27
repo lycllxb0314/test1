@@ -2,15 +2,17 @@
  * 教师课时配置对话框
  * 
  * 用于配置：
- * - 周课时量
- * - 可任教科目（跨教科目）
+ * - 教师角色（班主任/教研组长/中层行政/年段长/普通教师）
+ * - 主教学科
+ * - 主科带班数
+ * - 主科课时量（根据规则自动计算建议值）
+ * - 兼任科目
  * - 可任教年级
- * - 是否班主任
  */
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Clock,
   BookOpen,
@@ -38,45 +41,50 @@ import {
   UserCheck,
   Save,
   Loader2,
+  AlertCircle,
+  Info,
+  Calculator,
 } from 'lucide-react';
+import {
+  TeacherRole,
+  TEACHER_ROLE_LABELS,
+  MAIN_SUBJECTS,
+  PRIORITY_SECONDARY_SUBJECTS,
+  ALL_SUBJECTS,
+  TEACHING_HOURS_RULES,
+  calculateSuggestedHours,
+  validateTeachingHours,
+} from '@/lib/data/teaching-rules';
 
 // 科目配置
-const SUBJECTS = [
-  { name: '语文', color: 'bg-red-100 text-red-700 border-red-200' },
-  { name: '数学', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { name: '英语', color: 'bg-green-100 text-green-700 border-green-200' },
-  { name: '体育', color: 'bg-orange-100 text-orange-700 border-orange-200' },
-  { name: '音乐', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { name: '美术', color: 'bg-pink-100 text-pink-700 border-pink-200' },
-  { name: '科学', color: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
-  { name: '道德与法治', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-  { name: '信息技术', color: 'bg-teal-100 text-teal-700 border-teal-200' },
+const SUBJECTS_CONFIG = [
+  { name: '语文', color: 'bg-red-100 text-red-700 border-red-200', isMain: true },
+  { name: '数学', color: 'bg-blue-100 text-blue-700 border-blue-200', isMain: true },
+  { name: '英语', color: 'bg-green-100 text-green-700 border-green-200', isMain: true },
+  { name: '体育', color: 'bg-orange-100 text-orange-700 border-orange-200', isMain: false },
+  { name: '音乐', color: 'bg-purple-100 text-purple-700 border-purple-200', isMain: false },
+  { name: '美术', color: 'bg-pink-100 text-pink-700 border-pink-200', isMain: false },
+  { name: '科学', color: 'bg-cyan-100 text-cyan-700 border-cyan-200', isMain: false },
+  { name: '道德与法治', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', isMain: false },
+  { name: '信息技术', color: 'bg-teal-100 text-teal-700 border-teal-200', isMain: false },
+  { name: '劳动', color: 'bg-amber-100 text-amber-700 border-amber-200', isMain: false },
 ];
 
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
 
-// 跨教科目建议
-const CROSS_SUBJECT_SUGGESTIONS: Record<string, string[]> = {
-  '语文': ['道德与法治'],
-  '数学': ['科学'],
-  '英语': [],
-  '体育': [],
-  '音乐': [],
-  '美术': [],
-  '科学': ['数学'],
-  '道德与法治': ['语文'],
-};
-
 export interface TeacherScheduleConfig {
   teacherId: string;
   teacherName: string;
-  primarySubject: string;       // 主教学科
-  weeklyHours: number;          // 周课时量
-  currentHours: number;         // 已安排课时
-  teachableSubjects: string[];  // 可任教科目
-  teachableGrades: number[];    // 可任教年级
-  isHeadTeacher: boolean;       // 是否班主任
-  headTeacherClassId?: string;  // 班主任班级
+  role: TeacherRole;
+  primarySubject: string;
+  secondarySubjects: string[];
+  mainClassCount: number;      // 主科带班数
+  mainSubjectHours: number;    // 主科课时
+  totalWeeklyHours: number;    // 总课时
+  currentHours: number;
+  teachableGrades: number[];
+  headTeacherClassId?: string;
+  subjectHeadClassId?: string;
 }
 
 interface TeacherScheduleConfigDialogProps {
@@ -98,288 +106,384 @@ export function TeacherScheduleConfigDialog({
   const [form, setForm] = useState<TeacherScheduleConfig>({
     teacherId: '',
     teacherName: '',
-    primarySubject: '语文',
-    weeklyHours: 14,
+    role: 'normal',
+    primarySubject: '',
+    secondarySubjects: [],
+    mainClassCount: 1,
+    mainSubjectHours: 6,
+    totalWeeklyHours: 13,
     currentHours: 0,
-    teachableSubjects: ['语文'],
-    teachableGrades: [1, 2, 3, 4, 5, 6],
-    isHeadTeacher: false,
+    teachableGrades: [],
+    headTeacherClassId: undefined,
+    subjectHeadClassId: undefined,
   });
+
+  // 是否是技能科教师（非主科）
+  const isSkillTeacher = useMemo(() => {
+    return !MAIN_SUBJECTS.includes(form.primarySubject as any);
+  }, [form.primarySubject]);
+
+  // 根据角色和带班数计算建议课时
+  const suggestedHours = useMemo(() => {
+    return calculateSuggestedHours(form.role, form.mainClassCount, isSkillTeacher);
+  }, [form.role, form.mainClassCount, isSkillTeacher]);
+
+  // 验证课时配置
+  const validation = useMemo(() => {
+    if (isSkillTeacher) {
+      return { valid: true, message: '', warnings: [] };
+    }
+    return validateTeachingHours(
+      form.role,
+      form.mainClassCount,
+      form.mainSubjectHours,
+      form.totalWeeklyHours
+    );
+  }, [form.role, form.mainClassCount, form.mainSubjectHours, form.totalWeeklyHours, isSkillTeacher]);
+
+  // 获取兼任科目建议
+  const secondarySuggestions = useMemo(() => {
+    return PRIORITY_SECONDARY_SUBJECTS[form.primarySubject] || [];
+  }, [form.primarySubject]);
 
   // 初始化表单
   useEffect(() => {
     if (config) {
-      setForm({ ...config });
+      setForm({
+        ...config,
+        secondarySubjects: config.secondarySubjects || [],
+        teachableGrades: config.teachableGrades || [],
+      });
     }
   }, [config]);
 
-  // 切换可任教科目
-  const toggleSubject = (subject: string) => {
-    setForm(prev => {
-      const subjects = prev.teachableSubjects.includes(subject)
-        ? prev.teachableSubjects.filter(s => s !== subject)
-        : [...prev.teachableSubjects, subject];
-      
-      return {
+  // 角色或带班数变化时，自动调整建议课时
+  useEffect(() => {
+    if (!isSkillTeacher) {
+      setForm(prev => ({
         ...prev,
-        teachableSubjects: subjects,
-        // 如果主教学科被移除，重新设置
-        primarySubject: subjects.includes(prev.primarySubject) 
-          ? prev.primarySubject 
-          : subjects[0] || '语文',
-      };
-    });
-  };
+        mainSubjectHours: suggestedHours.mainSubjectHours,
+        totalWeeklyHours: suggestedHours.totalHours,
+      }));
+    } else {
+      // 技能科教师
+      setForm(prev => ({
+        ...prev,
+        mainClassCount: 0,
+        mainSubjectHours: 0,
+        totalWeeklyHours: suggestedHours.totalHours,
+      }));
+    }
+  }, [suggestedHours, isSkillTeacher]);
 
-  // 切换可任教年级
-  const toggleGrade = (grade: number) => {
-    setForm(prev => {
-      const grades = prev.teachableGrades.includes(grade)
-        ? prev.teachableGrades.filter(g => g !== grade)
-        : [...prev.teachableGrades, grade].sort();
-      return { ...prev, teachableGrades: grades };
-    });
-  };
+  // 主科变化时，自动选择建议的兼任科目
+  useEffect(() => {
+    if (form.primarySubject && secondarySuggestions.length > 0) {
+      setForm(prev => ({
+        ...prev,
+        secondarySubjects: secondarySuggestions.filter(s => !prev.secondarySubjects.includes(s)),
+      }));
+    }
+  }, [form.primarySubject, secondarySuggestions]);
 
-  // 保存
   const handleSave = async () => {
     setLoading(true);
-    
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    onSave(form);
-    setLoading(false);
-    onOpenChange(false);
+    try {
+      await onSave(form);
+      onOpenChange(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 获取推荐跨教科目
-  const suggestedSubjects = form.primarySubject 
-    ? CROSS_SUBJECT_SUGGESTIONS[form.primarySubject] || []
-    : [];
+  const toggleGrade = (grade: number) => {
+    setForm(prev => ({
+      ...prev,
+      teachableGrades: prev.teachableGrades.includes(grade)
+        ? prev.teachableGrades.filter(g => g !== grade)
+        : [...prev.teachableGrades, grade].sort(),
+    }));
+  };
+
+  const toggleSecondarySubject = (subject: string) => {
+    setForm(prev => ({
+      ...prev,
+      secondarySubjects: prev.secondarySubjects.includes(subject)
+        ? prev.secondarySubjects.filter(s => s !== subject)
+        : [...prev.secondarySubjects, subject],
+    }));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-amber-600" />
+            <Clock className="h-5 w-5 text-blue-500" />
             教师课时配置
           </DialogTitle>
           <DialogDescription>
-            配置 {form.teacherName} 的课时量、任教科目和年级，这是智能排课的关键依据
+            配置教师的角色、课时量和任教信息
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* 课时量配置 */}
-          <div className="space-y-4">
-            <h4 className="font-medium flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600" />
-              课时量配置
-            </h4>
-            
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>周课时量要求</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={24}
-                  value={form.weeklyHours}
-                  onChange={(e) => setForm({ ...form, weeklyHours: parseInt(e.target.value) || 0 })}
-                />
-                <p className="text-xs text-gray-500">标准：语数英14节，其他16节</p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>已安排课时</Label>
-                <Input
-                  type="number"
-                  value={form.currentHours}
-                  disabled
-                  className="bg-gray-50"
-                />
-                <p className="text-xs text-gray-500">由系统自动计算</p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>剩余课时</Label>
-                <div className={`text-2xl font-bold ${
-                  form.weeklyHours - form.currentHours > 0 ? 'text-green-600' : 'text-gray-400'
-                }`}>
-                  {form.weeklyHours - form.currentHours} 节
-                </div>
-              </div>
+          {/* 教师信息 */}
+          <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+              <UserCheck className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <div className="font-medium">{form.teacherName}</div>
+              <div className="text-sm text-gray-500">当前已安排 {form.currentHours} 节课</div>
             </div>
           </div>
 
-          {/* 任教科目配置 */}
-          <div className="space-y-4">
-            <h4 className="font-medium flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-amber-600" />
-              任教科目
-            </h4>
-            
+          {/* 角色选择 */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4" />
+              教师角色
+            </Label>
+            <Select
+              value={form.role}
+              onValueChange={(value: TeacherRole) => setForm(prev => ({ ...prev, role: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择角色" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(TEACHER_ROLE_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">
+              角色影响课时量标准：班主任/教研组长带1个班，普通主科教师可带2个班
+            </p>
+          </div>
+
+          {/* 主教学科 */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              主教学科
+            </Label>
+            <Select
+              value={form.primarySubject}
+              onValueChange={(value) => setForm(prev => ({ ...prev, primarySubject: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择主教学科" />
+              </SelectTrigger>
+              <SelectContent>
+                {SUBJECTS_CONFIG.map(subject => (
+                  <SelectItem key={subject.name} value={subject.name}>
+                    <div className="flex items-center gap-2">
+                      <span>{subject.name}</span>
+                      {subject.isMain && (
+                        <Badge variant="outline" className="text-[10px]">主科</Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 主科配置（仅主科教师显示） */}
+          {!isSkillTeacher && (
+            <>
+              {/* 带班数 */}
+              <div className="space-y-2">
+                <Label>主科带班数</Label>
+                <Select
+                  value={form.mainClassCount.toString()}
+                  onValueChange={(value) => setForm(prev => ({ ...prev, mainClassCount: parseInt(value) }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">带1个班</SelectItem>
+                    <SelectItem value="2">带2个班</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  {form.role === 'head_teacher' && '班主任只能带1个班'}
+                  {form.role === 'subject_leader' && '教研组长通常带1个班'}
+                  {form.role === 'admin' && '中层行政通常带1个班'}
+                  {form.role === 'normal' && '普通主科教师可以带1-2个班'}
+                </p>
+              </div>
+
+              {/* 课时配置 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>主科课时（周）</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={form.mainSubjectHours}
+                      onChange={(e) => setForm(prev => ({ 
+                        ...prev, 
+                        mainSubjectHours: parseInt(e.target.value) || 0 
+                      }))}
+                      min={0}
+                      max={20}
+                    />
+                    <span className="text-sm text-gray-500">节</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    建议：{suggestedHours.mainSubjectHours} 节
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>总课时（周）</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={form.totalWeeklyHours}
+                      onChange={(e) => setForm(prev => ({ 
+                        ...prev, 
+                        totalWeeklyHours: parseInt(e.target.value) || 0 
+                      }))}
+                      min={0}
+                      max={25}
+                    />
+                    <span className="text-sm text-gray-500">节</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    标准约：{suggestedHours.totalHours} 节
+                  </p>
+                </div>
+              </div>
+
+              {/* 兼任科目 */}
+              <div className="space-y-2">
+                <Label>兼任科目</Label>
+                <div className="flex flex-wrap gap-2">
+                  {SUBJECTS_CONFIG
+                    .filter(s => s.name !== form.primarySubject)
+                    .map(subject => (
+                      <Badge
+                        key={subject.name}
+                        variant={form.secondarySubjects.includes(subject.name) ? 'default' : 'outline'}
+                        className={`cursor-pointer ${
+                          secondarySuggestions.includes(subject.name) 
+                            ? 'ring-2 ring-amber-400' 
+                            : ''
+                        }`}
+                        onClick={() => toggleSecondarySubject(subject.name)}
+                      >
+                        {subject.name}
+                        {secondarySuggestions.includes(subject.name) && (
+                          <span className="ml-1 text-[10px]">推荐</span>
+                        )}
+                      </Badge>
+                    ))}
+                </div>
+                <p className="text-xs text-gray-500">
+                  班主任/科任优先兼任本班的道法、劳动等科目
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* 技能科教师课时 */}
+          {isSkillTeacher && (
             <div className="space-y-2">
-              <Label>主教学科</Label>
-              <Select 
-                value={form.primarySubject} 
-                onValueChange={(v) => {
-                  setForm(prev => ({
-                    ...prev,
-                    primarySubject: v,
-                    // 自动添加主教学科到可任教科目
-                    teachableSubjects: prev.teachableSubjects.includes(v) 
-                      ? prev.teachableSubjects 
-                      : [v, ...prev.teachableSubjects],
-                  }));
-                }}
+              <Label>周课时量</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={form.totalWeeklyHours}
+                  onChange={(e) => setForm(prev => ({ 
+                    ...prev, 
+                    totalWeeklyHours: parseInt(e.target.value) || 0 
+                  }))}
+                  min={10}
+                  max={25}
+                />
+                <span className="text-sm text-gray-500">节</span>
+              </div>
+              <p className="text-xs text-gray-500">
+                技能科教师周课时约14-18节（跨多个班级）
+              </p>
+            </div>
+          )}
+
+          {/* 可任教年级 */}
+          <div className="space-y-2">
+            <Label>可任教年级</Label>
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 3, 4, 5, 6].map(grade => (
+                <Badge
+                  key={grade}
+                  variant={form.teachableGrades.includes(grade) ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => toggleGrade(grade)}
+                >
+                  {GRADE_NAMES[grade]}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* 班级关联 */}
+          {form.role === 'head_teacher' && (
+            <div className="space-y-2">
+              <Label>班主任班级</Label>
+              <Select
+                value={form.headTeacherClassId || ''}
+                onValueChange={(value) => setForm(prev => ({ ...prev, headTeacherClassId: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="选择班主任班级" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUBJECTS.map(s => (
-                    <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>
+                  {classes.map(cls => (
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          )}
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>可任教科目（可跨教）</Label>
-                {suggestedSubjects.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">推荐：</span>
-                    {suggestedSubjects.map(s => (
-                      <Badge 
-                        key={s}
-                        variant="outline" 
-                        className="cursor-pointer hover:bg-amber-50"
-                        onClick={() => !form.teachableSubjects.includes(s) && toggleSubject(s)}
-                      >
-                        + {s}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
-                {SUBJECTS.map(subject => {
-                  const isSelected = form.teachableSubjects.includes(subject.name);
-                  const isPrimary = form.primarySubject === subject.name;
-                  
-                  return (
-                    <Badge
-                      key={subject.name}
-                      variant={isSelected ? 'default' : 'outline'}
-                      className={`cursor-pointer transition-all ${
-                        isSelected 
-                          ? `${subject.color} border-2` 
-                          : 'bg-white hover:bg-gray-100'
-                      } ${isPrimary ? 'ring-2 ring-amber-400' : ''}`}
-                      onClick={() => toggleSubject(subject.name)}
-                    >
-                      {subject.name}
-                      {isPrimary && ' (主)'}
-                    </Badge>
-                  );
-                })}
-              </div>
-              
-              <p className="text-xs text-gray-500">
-                点击选择可任教科目。语文老师通常可兼教道法，数学老师可兼教科学
-              </p>
-            </div>
-          </div>
+          {/* 验证提示 */}
+          {!validation.valid && (
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                {validation.message}
+              </AlertDescription>
+              {validation.warnings.map((w, i) => (
+                <AlertDescription key={i} className="text-amber-700 text-sm mt-1">
+                  • {w}
+                </AlertDescription>
+              ))}
+            </Alert>
+          )}
 
-          {/* 任教年级配置 */}
-          <div className="space-y-4">
-            <h4 className="font-medium flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-amber-600" />
-              任教年级
-            </h4>
-            
-            <div className="flex flex-wrap gap-3">
-              {[1, 2, 3, 4, 5, 6].map(grade => {
-                const isSelected = form.teachableGrades.includes(grade);
-                return (
-                  <div
-                    key={grade}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
-                      isSelected 
-                        ? 'bg-amber-100 border-2 border-amber-300' 
-                        : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
-                    }`}
-                    onClick={() => toggleGrade(grade)}
-                  >
-                    <Checkbox checked={isSelected} />
-                    <span className={isSelected ? 'font-medium' : 'text-gray-600'}>
-                      {GRADE_NAMES[grade]}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <p className="text-xs text-gray-500">
-              选择该教师可以任教的年级范围。一般教师会固定在某个年级段
-            </p>
-          </div>
-
-          {/* 班主任配置 */}
-          <div className="space-y-4">
-            <h4 className="font-medium flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-amber-600" />
-              班主任配置
-            </h4>
-            
-            <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-              <Checkbox
-                checked={form.isHeadTeacher}
-                onCheckedChange={(checked) => setForm({ 
-                  ...form, 
-                  isHeadTeacher: !!checked,
-                  headTeacherClassId: checked ? form.headTeacherClassId : undefined,
-                })}
-              />
-              <Label className="cursor-pointer">担任班主任</Label>
-              
-              {form.isHeadTeacher && (
-                <Select 
-                  value={form.headTeacherClassId || ''} 
-                  onValueChange={(v) => setForm({ ...form, headTeacherClassId: v })}
-                >
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="选择班级" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-            
-            <p className="text-xs text-gray-500">
-              班主任在排课时会优先安排本班课程
-            </p>
-          </div>
+          {/* 课时规则说明 */}
+          <Alert className="border-blue-200 bg-blue-50">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 text-sm">
+              <div className="font-medium mb-2">课时量标准（周课时约13节）</div>
+              <ul className="space-y-1 text-xs">
+                <li>• 班主任/教研组长：带1个班，主科5-6节，兼任道法/劳动等约7-8节</li>
+                <li>• 普通主科教师：带2个班，主科10-12节，剩余1-3节</li>
+                <li>• 技能科教师：不带班，约16节（跨多个班级）</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={loading || form.teachableSubjects.length === 0}
-            className="bg-amber-600 hover:bg-amber-700"
-          >
+          <Button onClick={handleSave} disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

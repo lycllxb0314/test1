@@ -216,12 +216,14 @@ export default function TeachersPage() {
     setScheduleConfig({
       teacherId: teacher.id,
       teacherName: teacher.name,
+      role: teacher.isHeadTeacher ? 'head_teacher' : 'normal',
       primarySubject: teacher.subject,
-      weeklyHours: teacher.weeklyHours,
+      secondarySubjects: teacher.teachableSubjects?.filter(s => s !== teacher.subject) || [],
+      mainClassCount: teacher.weeklyHours > 8 ? 2 : 1,
+      mainSubjectHours: teacher.weeklyHours,
+      totalWeeklyHours: teacher.weeklyHours,
       currentHours: teacher.currentHours,
-      teachableSubjects: teacher.teachableSubjects,
       teachableGrades: teacher.teachableGrades,
-      isHeadTeacher: teacher.isHeadTeacher,
       headTeacherClassId: teacher.headTeacherClassId,
     });
     setScheduleConfigOpen(true);
@@ -233,10 +235,10 @@ export default function TeachersPage() {
       t.id === config.teacherId 
         ? {
             ...t,
-            weeklyHours: config.weeklyHours,
-            teachableSubjects: config.teachableSubjects,
+            weeklyHours: config.totalWeeklyHours,
+            teachableSubjects: [config.primarySubject, ...config.secondarySubjects],
             teachableGrades: config.teachableGrades,
-            isHeadTeacher: config.isHeadTeacher,
+            isHeadTeacher: config.role === 'head_teacher',
             headTeacherClassId: config.headTeacherClassId,
           }
         : t

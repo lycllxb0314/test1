@@ -10,13 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  DEFAULT_PERIODS,
-  WEEK_DAYS,
-  processLeaveApproval,
-  arrangeSubstitute,
-  getPendingSubstitutes,
-} from '@/lib/schedule-service';
+import { DEFAULT_PERIODS, WEEK_DAYS } from '@/lib/schedule-service';
 import type { SubstituteRecord, ScheduleSlot } from '@/types';
 
 // 模拟代课记录存储
@@ -56,7 +50,12 @@ export async function GET(request: NextRequest) {
     case 'pending':
       // 获取待安排的代课（年段长用）
       const grades = managedGrades ? managedGrades.split(',').map(Number) : [];
-      const pendingRecords = getPendingSubstitutes(substituteRecords, grades, mockClasses);
+      const pendingRecords = substituteRecords.filter(r => {
+        if (r.status !== 'pending') return false;
+        if (grades.length === 0) return true;
+        const cls = mockClasses.find(c => c.id === r.classId);
+        return cls ? grades.includes(cls.grade) : false;
+      });
       
       return NextResponse.json({
         success: true,
@@ -87,12 +86,9 @@ export async function GET(request: NextRequest) {
       
     case 'available-teachers':
       // 获取可代课教师列表
-      const weekDay = parseInt(searchParams.get('weekDay') || '1');
-      const periodIndex = parseInt(searchParams.get('periodIndex') || '1');
       const subject = searchParams.get('subject');
       
-      // 获取当前课表（需要从全局状态或数据库获取）
-      // 这里简化处理，返回所有教师
+      // 简化处理，返回所有教师
       const availableTeachers = mockTeachers.filter(
         t => subject ? t.subjects.includes(subject) : true
       );
@@ -126,118 +122,67 @@ export async function POST(request: NextRequest) {
       // 安排代课教师
       const { substituteRecordId, substituteTeacherId, substituteTeacherName, arrangerId, arrangerName, remark } = body;
       
-      const record = substituteRecords.find(r => r.id === substituteRecordId);
-      if (!record) {
+      const recordIndex = substituteRecords.findIndex(r => r.id === substituteRecordId);
+      if (recordIndex === -1) {
         return NextResponse.json({
           success: false,
           message: '找不到代课记录',
         }, { status: 404 });
       }
       
-      try {
-        // 安排代课
-        const result = arrangeSubstitute({
-          substituteRecord: record,
-          substituteTeacherId,
-          substituteTeacherName,
-          arrangerId,
-          arrangerName,
-          remark,
-          currentSlots: [], // 需要传入实际课表
-        });
-        
-        // 更新代课记录
-        const recordIndex = substituteRecords.findIndex(r => r.id === substituteRecordId);
-        substituteRecords[recordIndex] = result.updatedRecord;
-        
-        return NextResponse.json({
-          success: true,
-          data: {
-            record: result.updatedRecord,
-            slot: result.updatedSlot,
-          },
-          message: `已安排${substituteTeacherName}老师代课`,
-        });
-      } catch (error) {
-        return NextResponse.json({
-          success: false,
-          message: error instanceof Error ? error.message : '安排代课失败',
-        }, { status: 400 });
-      }
+      const record = substituteRecords[recordIndex];
+      
+      // 更新代课记录
+      const updatedRecord: SubstituteRecord = {
+        ...record,
+        status: 'arranged',
+        substituteTeacherId,
+        substituteTeacherName,
+        arrangerId,
+        arrangerName,
+        arrangedAt: new Date().toISOString(),
+        arrangeRemark: remark,
+      };
+      
+      substituteRecords[recordIndex] = updatedRecord;
+      
+      return NextResponse.json({
+        success: true,
+        data: {
+          record: updatedRecord,
+        },
+        message: `已安排${substituteTeacherName}老师代课`,
+      });
       
     case 'create-from-leave':
       // 从请假记录创建代课记录（内部接口，由请假审批调用）
-      const { leaveRequestId, teacherId, teacherName, startDate, endDate, reason } = body;
+      const { leaveRequestId, teacherId, teacherName, startDate, endDate, reason, affectedSlots } = body;
       
-      // 获取当前课表
-      // 这里需要实际从数据库或全局状态获取
-      const currentSlots: ScheduleSlot[] = [];
-      
-      const newRecords = processLeaveApproval({
+      // 为每个受影响的课时创建代课记录
+      const newRecords: SubstituteRecord[] = (affectedSlots || []).map((slot: ScheduleSlot, index: number) => ({
+        id: `sub-${Date.now()}-${index}`,
         leaveRequestId,
-        teacherId,
-        teacherName,
-        startDate,
-        endDate,
-        reason,
-        currentSlots,
-        semester: '2024-2025-1',
-      });
+        originalTeacherId: teacherId,
+        originalTeacherName: teacherName,
+        classId: slot.classId,
+        className: slot.className,
+        subject: slot.subject,
+        weekDay: slot.weekDay,
+        periodIndex: slot.periodIndex,
+        periodName: `第${slot.periodIndex}节`,
+        date: startDate, // 简化处理
+        leaveReason: reason,
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
       
       substituteRecords.push(...newRecords);
       
       return NextResponse.json({
         success: true,
         data: newRecords,
-        message: `已创建${newRecords.length}条代课记录，请通知相关年段长安排代课`,
-      });
-      
-    case 'complete':
-      // 完成代课
-      const { recordId } = body;
-      const completeIndex = substituteRecords.findIndex(r => r.id === recordId);
-      
-      if (completeIndex === -1) {
-        return NextResponse.json({
-          success: false,
-          message: '找不到代课记录',
-        }, { status: 404 });
-      }
-      
-      substituteRecords[completeIndex] = {
-        ...substituteRecords[completeIndex],
-        status: 'completed',
-        completedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      return NextResponse.json({
-        success: true,
-        data: substituteRecords[completeIndex],
-        message: '代课已完成',
-      });
-      
-    case 'cancel':
-      // 取消代课安排
-      const { cancelRecordId, cancelReason } = body;
-      const cancelIndex = substituteRecords.findIndex(r => r.id === cancelRecordId);
-      
-      if (cancelIndex === -1) {
-        return NextResponse.json({
-          success: false,
-          message: '找不到代课记录',
-        }, { status: 404 });
-      }
-      
-      substituteRecords[cancelIndex] = {
-        ...substituteRecords[cancelIndex],
-        status: 'cancelled',
-        updatedAt: new Date().toISOString(),
-      };
-      
-      return NextResponse.json({
-        success: true,
-        message: '代课安排已取消',
+        message: `已创建${newRecords.length}条代课记录`,
       });
       
     default:

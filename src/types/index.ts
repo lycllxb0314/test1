@@ -2736,7 +2736,7 @@ export interface ScheduleResult {
 export interface ScheduleConflict {
   id: string;
   /** 冲突类型 */
-  type: 'teacher_conflict' | 'room_conflict' | 'time_conflict' | 'rule_violation';
+  type: 'teacher_conflict' | 'room_conflict' | 'time_conflict' | 'class_conflict' | 'rule_violation';
   /** 冲突描述 */
   description: string;
   /** 相关的课表槽位 */

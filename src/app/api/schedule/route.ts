@@ -61,8 +61,8 @@ function checkScheduleReadiness(): ScheduleReadiness {
   }
   
   // 检查教师课时配置
-  const teachersWithHours = teachersData.filter(t => t.weeklyHours > 0);
-  const teachersWithoutHours = teachersData.filter(t => t.weeklyHours === 0);
+  const teachersWithHours = teachersData.filter(t => t.totalWeeklyHours > 0);
+  const teachersWithoutHours = teachersData.filter(t => t.totalWeeklyHours === 0);
   
   if (teachersWithoutHours.length > 0) {
     issues.push(`${teachersWithoutHours.length}位教师未配置周课时量：${teachersWithoutHours.map(t => t.name).join('、')}`);
@@ -135,8 +135,8 @@ export async function GET(request: NextRequest) {
         success: true,
         data: {
           slots: classSlots,
-          table: formatScheduleAsTable(classSlots, DEFAULT_PERIODS, [1, 2, 3, 4, 5]),
-          subjectHours: classId ? calculateClassSubjectHours(scheduleSlots, classId) : {},
+          table: formatScheduleAsTable(classSlots, DEFAULT_PERIODS, WEEK_DAYS),
+          subjectHours: classId ? calculateClassSubjectHours(scheduleSlots.filter(s => s.classId === classId)) : {},
         },
       });
       
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
         success: true,
         data: {
           slots: teacherSlots,
-          table: formatScheduleAsTable(teacherSlots, DEFAULT_PERIODS, [1, 2, 3, 4, 5]),
+          table: formatScheduleAsTable(teacherSlots, DEFAULT_PERIODS, WEEK_DAYS),
           weeklyHours: teacherId ? calculateTeacherWeeklyHours(scheduleSlots, teacherId) : 0,
         },
       });
@@ -233,11 +233,23 @@ export async function POST(request: NextRequest) {
         periods: DEFAULT_PERIODS,
         weekDays: [1, 2, 3, 4, 5] as const,
         semester: '2024-2025-1',
-        // 传递班级信息，用于判断班主任和科任
+        // 传递完整的班级和教师信息
         classes: classesData.map(c => ({
           id: c.id,
+          name: c.name,
+          grade: c.grade,
           headTeacherId: c.headTeacherId,
+          headTeacherName: c.headTeacherName,
           subjectHeadId: c.subjectHeadId,
+          subjectHeadName: c.subjectHeadName,
+        })),
+        teachers: teachersData.map(t => ({
+          id: t.id,
+          name: t.name,
+          role: t.role,
+          primarySubject: t.primarySubject,
+          headTeacherClassId: t.headTeacherClassId,
+          subjectHeadClassId: t.subjectHeadClassId,
         })),
       });
       
