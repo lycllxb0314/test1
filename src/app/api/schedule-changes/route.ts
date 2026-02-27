@@ -1,11 +1,165 @@
+/**
+ * 调课管理 API
+ * 
+ * 功能：
+ * 1. 获取调课记录列表
+ * 2. 从请假记录创建调课记录（内部调用）
+ * 3. 年段长安排代课/调换
+ * 4. 调课完成后同步到各系统
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// Mock调课数据
-const mockScheduleChanges = [
-  { id: 'sc1', originalScheduleId: 'sch1', classId: 'c001', className: '六年级1班', originalTeacherId: 't001', originalTeacherName: '王芳', courseId: 'course1', courseName: '语文', originalDayOfWeek: 1, originalPeriod: 2, newTeacherId: 't002', newTeacherName: '张华', newRoomId: null, newRoomName: null, newDayOfWeek: 1, newPeriod: 2, reason: '教师请假', status: 'approved', requesterId: 't005', requesterName: '赵敏', approverId: 'admin', approverName: '管理员', approvedAt: '2024-11-18', createdAt: '2024-11-17', semester: '2024-2025-1' },
-  { id: 'sc2', originalScheduleId: 'sch2', classId: 'c002', className: '六年级2班', originalTeacherId: 't003', originalTeacherName: '李强', courseId: 'course2', courseName: '数学', originalDayOfWeek: 3, originalPeriod: 1, newTeacherId: 't003', newTeacherName: '李强', newRoomId: null, newRoomName: null, newDayOfWeek: 4, newPeriod: 3, reason: '外出培训', status: 'pending', requesterId: 't003', requesterName: '李强', approverId: null, approverName: null, approvedAt: null, createdAt: '2024-11-19', semester: '2024-2025-1' },
+// ==================== 数据结构定义 ====================
+
+interface ScheduleChangeRecord {
+  id: string;
+  leaveRequestId?: string;
+  // 申请人（请假教师）信息
+  applicantId: string;
+  applicantName: string;
+  applicantSubject: string;
+  applicantGrade: number;
+  // 请假信息
+  leaveType: string;
+  leaveStartDate: string;
+  leaveEndDate: string;
+  leaveReason: string;
+  // 原课程信息
+  originalClassId: string;
+  originalClassName: string;
+  originalSubject: string;
+  originalWeekDay: number;
+  originalPeriodIndex: number;
+  originalPeriodName: string;
+  // 调课状态
+  status: 'pending' | 'processing' | 'completed' | 'cancelled';
+  adjustType?: 'substitute' | 'swap' | 'cancel' | 'makeup';
+  // 代课教师
+  substituteTeacherId?: string;
+  substituteTeacherName?: string;
+  // 调换信息
+  swapWithSlot?: {
+    classId: string;
+    className: string;
+    weekDay: number;
+    periodIndex: number;
+  };
+  // 处理人
+  handlerId?: string;
+  handlerName?: string;
+  handledAt?: string;
+  // 备注
+  remark?: string;
+  // 时间
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// Mock调课数据（用于演示和fallback）
+const mockScheduleChanges: ScheduleChangeRecord[] = [
+  {
+    id: 'sc-001',
+    leaveRequestId: 'lr-001',
+    applicantId: 't001',
+    applicantName: '张明华',
+    applicantSubject: '语文',
+    applicantGrade: 3,
+    leaveType: '病假',
+    leaveStartDate: '2024-11-20',
+    leaveEndDate: '2024-11-20',
+    leaveReason: '身体不适，需就医',
+    originalClassId: 'class-3-1',
+    originalClassName: '三年1班',
+    originalSubject: '语文',
+    originalWeekDay: 1,
+    originalPeriodIndex: 3,
+    originalPeriodName: '第三节',
+    status: 'pending',
+    createdAt: '2024-11-18 08:30:00',
+  },
+  {
+    id: 'sc-002',
+    leaveRequestId: 'lr-002',
+    applicantId: 't002',
+    applicantName: '李小红',
+    applicantSubject: '数学',
+    applicantGrade: 3,
+    leaveType: '事假',
+    leaveStartDate: '2024-11-21',
+    leaveEndDate: '2024-11-21',
+    leaveReason: '家中有事需处理',
+    originalClassId: 'class-3-2',
+    originalClassName: '三年2班',
+    originalSubject: '数学',
+    originalWeekDay: 2,
+    originalPeriodIndex: 1,
+    originalPeriodName: '第一节',
+    status: 'completed',
+    adjustType: 'substitute',
+    substituteTeacherId: 't003',
+    substituteTeacherName: '王建国',
+    handlerId: 'gl-001',
+    handlerName: '林国强',
+    handledAt: '2024-11-19 10:00:00',
+    createdAt: '2024-11-17 14:20:00',
+    remark: '已安排王建国老师代课',
+  },
 ];
+
+// 内存存储（实际应使用数据库）
+let scheduleChangesStore: ScheduleChangeRecord[] = [...mockScheduleChanges];
+
+// ==================== 辅助函数 ====================
+
+const weekDayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
+/**
+ * 获取教师当天的课程安排
+ * 实际应从课表系统获取
+ */
+function getTeacherCoursesForDate(teacherId: string, dateStr: string): Array<{
+  classId: string;
+  className: string;
+  subject: string;
+  weekDay: number;
+  periodIndex: number;
+  periodName: string;
+}> {
+  // 简化处理：根据日期计算星期几
+  const date = new Date(dateStr);
+  const weekDay = date.getDay(); // 0=周日, 1=周一
+  
+  // 只处理工作日
+  if (weekDay === 0 || weekDay === 6) return [];
+  
+  // Mock数据：返回教师当天的课程
+  // 实际应调用课表系统API
+  const mockCourses: Record<string, Array<{
+    classId: string;
+    className: string;
+    subject: string;
+    weekDay: number;
+    periodIndex: number;
+    periodName: string;
+  }>> = {
+    't001': [
+      { classId: 'class-3-1', className: '三年1班', subject: '语文', weekDay: 1, periodIndex: 1, periodName: '第一节' },
+      { classId: 'class-3-1', className: '三年1班', subject: '语文', weekDay: 1, periodIndex: 2, periodName: '第二节' },
+      { classId: 'class-3-2', className: '三年2班', subject: '语文', weekDay: 1, periodIndex: 3, periodName: '第三节' },
+      { classId: 'class-3-1', className: '三年1班', subject: '语文', weekDay: 2, periodIndex: 1, periodName: '第一节' },
+    ],
+    't002': [
+      { classId: 'class-3-1', className: '三年1班', subject: '数学', weekDay: 1, periodIndex: 4, periodName: '第四节' },
+      { classId: 'class-3-2', className: '三年2班', subject: '数学', weekDay: 2, periodIndex: 1, periodName: '第一节' },
+    ],
+  };
+  
+  return (mockCourses[teacherId] || []).filter(c => c.weekDay === weekDay);
+}
+
+// ==================== API 处理函数 ====================
 
 /**
  * GET - 获取调课记录
@@ -13,66 +167,99 @@ const mockScheduleChanges = [
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const teacherId = searchParams.get('teacherId');
-    const classId = searchParams.get('classId');
+    const action = searchParams.get('action');
     const status = searchParams.get('status');
-    const semester = searchParams.get('semester');
-
-    const client = getSupabaseClient();
+    const grade = searchParams.get('grade');
+    const teacherId = searchParams.get('teacherId');
     
-    let query = client
-      .from('schedule_changes')
-      .select('id, original_schedule_id, new_teacher_id, new_teacher_name, new_room_id, new_room_name, new_day_of_week, new_period, reason, status, requester_id, requester_name, approver_id, approver_name, approved_at, created_at, semester')
-      .order('created_at', { ascending: false });
-
-    if (status) query = query.eq('status', status);
-    if (semester) query = query.eq('semester', semester);
-
-    const { data, error } = await query;
-
-    if (error) {
-      // 数据库失败，使用Mock数据
-      let filteredData = [...mockScheduleChanges];
-      if (teacherId) filteredData = filteredData.filter(s => s.originalTeacherId === teacherId || s.newTeacherId === teacherId);
-      if (classId) filteredData = filteredData.filter(s => s.classId === classId);
-      if (status) filteredData = filteredData.filter(s => s.status === status);
-      if (semester) filteredData = filteredData.filter(s => s.semester === semester);
-
-      return NextResponse.json({ success: true, data: filteredData, source: 'mock' });
+    // 获取待处理的调课（年段长用）
+    if (action === 'pending') {
+      const grades = grade ? grade.split(',').map(Number) : [];
+      let pendingRecords = scheduleChangesStore.filter(r => r.status === 'pending');
+      
+      if (grades.length > 0) {
+        pendingRecords = pendingRecords.filter(r => grades.includes(r.applicantGrade));
+      }
+      
+      return NextResponse.json({
+        success: true,
+        data: pendingRecords,
+        message: `共有 ${pendingRecords.length} 条待处理调课`,
+      });
     }
-
-    const formattedData = (data || []).map((change: Record<string, unknown>) => ({
-      id: change.id,
-      originalScheduleId: change.original_schedule_id,
-      classId: null,
-      className: '',
-      originalTeacherId: null,
-      originalTeacherName: '',
-      courseId: null,
-      courseName: '',
-      originalDayOfWeek: null,
-      originalPeriod: null,
-      newTeacherId: change.new_teacher_id,
-      newTeacherName: change.new_teacher_name,
-      newRoomId: change.new_room_id,
-      newRoomName: change.new_room_name,
-      newDayOfWeek: change.new_day_of_week,
-      newPeriod: change.new_period,
-      reason: change.reason,
-      status: change.status,
-      requesterId: change.requester_id,
-      requesterName: change.requester_name,
-      approverId: change.approver_id,
-      approverName: change.approver_name,
-      approvedAt: change.approved_at,
-      createdAt: change.created_at,
-      semester: change.semester,
-    }));
-
-    return NextResponse.json({ success: true, data: formattedData, source: 'database' });
+    
+    // 获取历史记录
+    if (action === 'history') {
+      let historyRecords = [...scheduleChangesStore];
+      
+      if (status) {
+        historyRecords = historyRecords.filter(r => r.status === status);
+      }
+      
+      if (grade) {
+        historyRecords = historyRecords.filter(r => r.applicantGrade === parseInt(grade));
+      }
+      
+      return NextResponse.json({
+        success: true,
+        data: historyRecords.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ),
+      });
+    }
+    
+    // 获取可代课教师
+    if (action === 'available-teachers') {
+      const subject = searchParams.get('subject');
+      const weekDay = parseInt(searchParams.get('weekDay') || '1');
+      const periodIndex = parseInt(searchParams.get('periodIndex') || '1');
+      
+      // Mock可代课教师列表
+      const availableTeachers = [
+        { id: 't003', name: '王建国', subjects: ['语文'], available: true },
+        { id: 't004', name: '赵丽萍', subjects: ['数学'], available: true },
+        { id: 't005', name: '周志明', subjects: ['英语'], available: true },
+      ].filter(t => !subject || t.subjects.includes(subject));
+      
+      return NextResponse.json({
+        success: true,
+        data: availableTeachers,
+      });
+    }
+    
+    // 默认返回所有记录
+    let records = [...scheduleChangesStore];
+    
+    if (status) {
+      records = records.filter(r => r.status === status);
+    }
+    
+    if (grade) {
+      records = records.filter(r => r.applicantGrade === parseInt(grade));
+    }
+    
+    if (teacherId) {
+      records = records.filter(r => r.applicantId === teacherId);
+    }
+    
+    return NextResponse.json({
+      success: true,
+      data: records,
+      statistics: {
+        total: scheduleChangesStore.length,
+        pending: scheduleChangesStore.filter(r => r.status === 'pending').length,
+        processing: scheduleChangesStore.filter(r => r.status === 'processing').length,
+        completed: scheduleChangesStore.filter(r => r.status === 'completed').length,
+      },
+    });
+    
   } catch (error) {
     console.error('Failed to fetch schedule changes:', error);
-    return NextResponse.json({ success: true, data: mockScheduleChanges, source: 'mock' });
+    return NextResponse.json({
+      success: true,
+      data: mockScheduleChanges,
+      source: 'mock',
+    });
   }
 }
 
@@ -81,38 +268,91 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
-    const { originalScheduleId, newTeacherId, newTeacherName, newRoomId, newRoomName, newDayOfWeek, newPeriod, reason, requesterId, requesterName, semester } = body;
-
-    const { data, error } = await client
-      .from('schedule_changes')
-      .insert({
-        original_schedule_id: originalScheduleId,
-        new_teacher_id: newTeacherId,
-        new_teacher_name: newTeacherName,
-        new_room_id: newRoomId,
-        new_room_name: newRoomName,
-        new_day_of_week: newDayOfWeek,
-        new_period: newPeriod,
-        reason,
-        status: 'pending',
-        requester_id: requesterId,
-        requester_name: requesterName,
-        semester,
-      })
-      .select()
-      .single();
-
-    if (error) {
+    const { action } = body;
+    
+    // 从请假记录创建调课记录（由请假审批API调用）
+    if (action === 'createFromLeave') {
+      const { leaveRequestId, teacherId, teacherName, startDate, endDate, reason, grade } = body;
+      
+      // 获取教师请假期间的所有课程
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const newRecords: ScheduleChangeRecord[] = [];
+      
+      // 遍历请假日期范围内的每一天
+      const current = new Date(start);
+      while (current <= end) {
+        const dateStr = current.toISOString().split('T')[0];
+        const courses = getTeacherCoursesForDate(teacherId, dateStr);
+        
+        for (const course of courses) {
+          newRecords.push({
+            id: `sc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            leaveRequestId,
+            applicantId: teacherId,
+            applicantName: teacherName,
+            applicantSubject: course.subject,
+            applicantGrade: grade || 3,
+            leaveType: body.leaveType || '请假',
+            leaveStartDate: startDate,
+            leaveEndDate: endDate,
+            leaveReason: reason,
+            originalClassId: course.classId,
+            originalClassName: course.className,
+            originalSubject: course.subject,
+            originalWeekDay: course.weekDay,
+            originalPeriodIndex: course.periodIndex,
+            originalPeriodName: course.periodName,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+          });
+        }
+        
+        current.setDate(current.getDate() + 1);
+      }
+      
+      // 添加到存储
+      scheduleChangesStore.push(...newRecords);
+      
       return NextResponse.json({
         success: true,
-        data: { id: `sc-${Date.now()}`, ...body, status: 'pending' },
-        source: 'mock',
+        data: newRecords,
+        message: `已创建 ${newRecords.length} 条调课记录，请通知年段长安排代课`,
       });
     }
-
-    return NextResponse.json({ success: true, data, source: 'database' });
+    
+    // 手动创建调课申请
+    const { originalScheduleId, newTeacherId, newTeacherName, newDayOfWeek, newPeriod, reason, requesterId, requesterName, semester } = body;
+    
+    const newRecord: ScheduleChangeRecord = {
+      id: `sc-${Date.now()}`,
+      applicantId: requesterId,
+      applicantName: requesterName,
+      applicantSubject: '',
+      applicantGrade: 1,
+      leaveType: '调课',
+      leaveStartDate: new Date().toISOString(),
+      leaveEndDate: new Date().toISOString(),
+      leaveReason: reason,
+      originalClassId: '',
+      originalClassName: '',
+      originalSubject: '',
+      originalWeekDay: newDayOfWeek || 1,
+      originalPeriodIndex: newPeriod || 1,
+      originalPeriodName: '',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    
+    scheduleChangesStore.push(newRecord);
+    
+    return NextResponse.json({
+      success: true,
+      data: newRecord,
+      message: '调课申请已创建',
+    });
+    
   } catch (error) {
     console.error('Failed to create schedule change:', error);
     return NextResponse.json({ success: false, error: '创建调课申请失败' }, { status: 500 });
@@ -120,42 +360,89 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PUT - 审批调课申请
+ * PUT - 处理调课申请（年段长安排代课/调换）
  */
 export async function PUT(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
-    const { id, action, approverId, approverName } = body;
-
-    const updateData: Record<string, unknown> = {
-      approver_id: approverId,
-      approver_name: approverName,
-      approved_at: new Date().toISOString(),
-    };
-
-    if (action === 'approve') {
-      updateData.status = 'approved';
-    } else {
-      updateData.status = 'rejected';
-    }
-
-    const { error } = await client
-      .from('schedule_changes')
-      .update(updateData)
-      .eq('id', id);
-
-    if (error) {
+    const { action } = body;
+    
+    // 安排代课
+    if (action === 'arrange') {
+      const { recordId, adjustType, substituteTeacherId, substituteTeacherName, swapWithSlot, handlerId, handlerName, remark } = body;
+      
+      const recordIndex = scheduleChangesStore.findIndex(r => r.id === recordId);
+      
+      if (recordIndex === -1) {
+        return NextResponse.json({
+          success: false,
+          error: '找不到调课记录',
+        }, { status: 404 });
+      }
+      
+      // 更新调课记录
+      scheduleChangesStore[recordIndex] = {
+        ...scheduleChangesStore[recordIndex],
+        status: 'completed',
+        adjustType,
+        substituteTeacherId,
+        substituteTeacherName,
+        swapWithSlot,
+        handlerId,
+        handlerName,
+        handledAt: new Date().toISOString(),
+        remark,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      // TODO: 同步到各系统
+      // 1. 更新课表系统
+      // 2. 更新电子白板
+      // 3. 更新教师考勤
+      // 4. 发送通知
+      
       return NextResponse.json({
         success: true,
-        data: { id, status: action === 'approve' ? 'approved' : 'rejected' },
-        source: 'mock',
+        data: scheduleChangesStore[recordIndex],
+        message: adjustType === 'substitute' 
+          ? `已安排${substituteTeacherName}老师代课`
+          : '调课已完成',
       });
     }
-
-    return NextResponse.json({ success: true, source: 'database' });
+    
+    // 取消调课
+    if (action === 'cancel') {
+      const { recordId, reason } = body;
+      
+      const recordIndex = scheduleChangesStore.findIndex(r => r.id === recordId);
+      
+      if (recordIndex === -1) {
+        return NextResponse.json({
+          success: false,
+          error: '找不到调课记录',
+        }, { status: 404 });
+      }
+      
+      scheduleChangesStore[recordIndex] = {
+        ...scheduleChangesStore[recordIndex],
+        status: 'cancelled',
+        remark: reason,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      return NextResponse.json({
+        success: true,
+        message: '调课已取消',
+      });
+    }
+    
+    return NextResponse.json({
+      success: false,
+      error: '未知操作',
+    }, { status: 400 });
+    
   } catch (error) {
     console.error('Failed to update schedule change:', error);
-    return NextResponse.json({ success: false, error: '审批调课申请失败' }, { status: 500 });
+    return NextResponse.json({ success: false, error: '处理调课失败' }, { status: 500 });
   }
 }

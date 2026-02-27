@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,16 +42,16 @@ import {
   Send,
   Eye,
   Filter,
+  Loader2,
+  Link,
 } from 'lucide-react';
 
-// 调课状态类型
-type AdjustStatus = 'pending' | 'processing' | 'completed' | 'failed';
+// ==================== 数据类型定义 ====================
 
-// 调课单数据结构
+type AdjustStatus = 'pending' | 'processing' | 'completed' | 'cancelled';
+
 interface CourseAdjustmentItem {
   id: string;
-  // 关联信息
-  workflowInstanceId?: string;
   leaveRequestId?: string;
   // 申请人信息（请假教师）
   applicantId: string;
@@ -59,152 +59,52 @@ interface CourseAdjustmentItem {
   applicantSubject: string;
   applicantGrade: number;
   // 请假信息
-  leaveType: '病假' | '事假' | '公假';
-  leaveDate: string;
-  leavePeriod: string;
+  leaveType: string;
+  leaveStartDate: string;
+  leaveEndDate: string;
   leaveReason: string;
   // 原课程信息
-  originalCourse: {
-    classId: string;
-    className: string;
-    weekDay: string;
-    periodIndex: number;
-    periodName: string;
-    courseId: string;
-    courseName: string;
-    subject: string;
-  };
+  originalClassId: string;
+  originalClassName: string;
+  originalSubject: string;
+  originalWeekDay: number;
+  originalPeriodIndex: number;
+  originalPeriodName: string;
   // 调课状态
   status: AdjustStatus;
   adjustType?: 'substitute' | 'swap' | 'cancel' | 'makeup';
   // 代课教师
   substituteTeacherId?: string;
   substituteTeacherName?: string;
-  // 调课结果
-  adjustResult?: {
-    substituteTeacherId?: string;
-    substituteTeacherName?: string;
-    swapWithSlot?: {
-      classId: string;
-      className: string;
-      weekDay: string;
-      periodIndex: number;
-    };
-    makeupSlot?: {
-      weekDay: string;
-      periodIndex: number;
-      date: string;
-    };
-  };
+  // 处理人
+  handlerId?: string;
+  handlerName?: string;
+  handledAt?: string;
+  // 备注
+  remark?: string;
   // 时间
   createdAt: string;
   updatedAt?: string;
-  completedAt?: string;
-  // 备注
-  remark?: string;
 }
 
-// 模拟数据
-const mockAdjustments: CourseAdjustmentItem[] = [
-  {
-    id: 'adj-001',
-    workflowInstanceId: 'wf-001',
-    leaveRequestId: 'leave-001',
-    applicantId: 't001',
-    applicantName: '张明华',
-    applicantSubject: '语文',
-    applicantGrade: 3,
-    leaveType: '病假',
-    leaveDate: '2024-03-18',
-    leavePeriod: '第3-4节',
-    leaveReason: '身体不适，需就医',
-    originalCourse: {
-      classId: 'c301',
-      className: '三年1班',
-      weekDay: '周一',
-      periodIndex: 3,
-      periodName: '第3节',
-      courseId: 'course-语文',
-      courseName: '语文',
-      subject: '语文',
-    },
-    status: 'pending',
-    createdAt: '2024-03-15 08:30:00',
-  },
-  {
-    id: 'adj-002',
-    workflowInstanceId: 'wf-002',
-    leaveRequestId: 'leave-002',
-    applicantId: 't002',
-    applicantName: '李小红',
-    applicantSubject: '数学',
-    applicantGrade: 3,
-    leaveType: '事假',
-    leaveDate: '2024-03-19',
-    leavePeriod: '第1-2节',
-    leaveReason: '家中有事需处理',
-    originalCourse: {
-      classId: 'c302',
-      className: '三年2班',
-      weekDay: '周二',
-      periodIndex: 1,
-      periodName: '第1节',
-      courseId: 'course-数学',
-      courseName: '数学',
-      subject: '数学',
-    },
-    status: 'processing',
-    adjustType: 'substitute',
-    substituteTeacherId: 't010',
-    substituteTeacherName: '王建国',
-    createdAt: '2024-03-15 09:15:00',
-    updatedAt: '2024-03-15 10:00:00',
-  },
-  {
-    id: 'adj-003',
-    workflowInstanceId: 'wf-003',
-    leaveRequestId: 'leave-003',
-    applicantId: 't003',
-    applicantName: '陈伟',
-    applicantSubject: '英语',
-    applicantGrade: 3,
-    leaveType: '公假',
-    leaveDate: '2024-03-20',
-    leavePeriod: '全天',
-    leaveReason: '参加区教研活动',
-    originalCourse: {
-      classId: 'c303',
-      className: '三年3班',
-      weekDay: '周三',
-      periodIndex: 5,
-      periodName: '第5节',
-      courseId: 'course-英语',
-      courseName: '英语',
-      subject: '英语',
-    },
-    status: 'completed',
-    adjustType: 'substitute',
-    adjustResult: {
-      substituteTeacherId: 't011',
-      substituteTeacherName: '刘芳',
-    },
-    createdAt: '2024-03-14 14:20:00',
-    completedAt: '2024-03-14 16:30:00',
-    remark: '已安排刘芳老师代课',
-  },
-];
+interface AvailableTeacher {
+  id: string;
+  name: string;
+  subjects: string[];
+  available: boolean;
+}
 
-// 可选代课教师列表
-const availableTeachers = [
-  { id: 't010', name: '王建国', subject: '数学', grade: 3, available: true },
-  { id: 't011', name: '刘芳', subject: '英语', grade: 3, available: true },
-  { id: 't012', name: '张丽', subject: '语文', grade: 3, available: true },
-  { id: 't013', name: '李强', subject: '数学', grade: 2, available: true },
-  { id: 't014', name: '周敏', subject: '语文', grade: 4, available: false },
-];
+// 星期几映射
+const weekDayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
 export default function GradeLeaderAdjustPage() {
-  const [adjustments, setAdjustments] = useState<CourseAdjustmentItem[]>(mockAdjustments);
+  // 状态
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [adjustments, setAdjustments] = useState<CourseAdjustmentItem[]>([]);
+  const [availableTeachers, setAvailableTeachers] = useState<AvailableTeacher[]>([]);
+  
+  // 对话框状态
   const [selectedAdjust, setSelectedAdjust] = useState<CourseAdjustmentItem | null>(null);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -216,13 +116,44 @@ export default function GradeLeaderAdjustPage() {
     remark: '',
   });
 
+  // 初始化数据
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // 并行获取调课记录和可用教师
+      const [adjustmentsRes, teachersRes] = await Promise.all([
+        fetch('/api/schedule-changes'),
+        fetch('/api/schedule-changes?action=available-teachers'),
+      ]);
+      
+      const adjustmentsData = await adjustmentsRes.json();
+      const teachersData = await teachersRes.json();
+      
+      if (adjustmentsData.success) {
+        setAdjustments(adjustmentsData.data);
+      }
+      
+      if (teachersData.success) {
+        setAvailableTeachers(teachersData.data);
+      }
+    } catch (error) {
+      console.error('获取数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 获取状态徽章
   const getStatusBadge = (status: AdjustStatus) => {
-    const statusMap = {
+    const statusMap: Record<AdjustStatus, { label: string; color: string }> = {
       pending: { label: '待处理', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
       processing: { label: '处理中', color: 'bg-blue-100 text-blue-700 border-blue-200' },
       completed: { label: '已完成', color: 'bg-green-100 text-green-700 border-green-200' },
-      failed: { label: '失败', color: 'bg-red-100 text-red-700 border-red-200' },
+      cancelled: { label: '已取消', color: 'bg-gray-100 text-gray-700 border-gray-200' },
     };
     const { label, color } = statusMap[status];
     return <Badge className={`${color} border`}>{label}</Badge>;
@@ -248,13 +179,27 @@ export default function GradeLeaderAdjustPage() {
   };
 
   // 打开处理对话框
-  const handleOpenProcess = (adjust: CourseAdjustmentItem) => {
+  const handleOpenProcess = async (adjust: CourseAdjustmentItem) => {
     setSelectedAdjust(adjust);
     setProcessForm({
       adjustType: 'substitute',
       substituteTeacherId: '',
       remark: '',
     });
+    
+    // 获取该时间段可用的教师
+    try {
+      const res = await fetch(
+        `/api/schedule-changes?action=available-teachers&subject=${adjust.originalSubject}&weekDay=${adjust.originalWeekDay}&periodIndex=${adjust.originalPeriodIndex}`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setAvailableTeachers(data.data);
+      }
+    } catch (error) {
+      console.error('获取可用教师失败:', error);
+    }
+    
     setShowProcessDialog(true);
   };
 
@@ -265,38 +210,85 @@ export default function GradeLeaderAdjustPage() {
   };
 
   // 提交处理
-  const handleSubmitProcess = () => {
+  const handleSubmitProcess = async () => {
     if (!selectedAdjust) return;
+    if (processForm.adjustType === 'substitute' && !processForm.substituteTeacherId) {
+      alert('请选择代课教师');
+      return;
+    }
     
-    const teacher = availableTeachers.find(t => t.id === processForm.substituteTeacherId);
+    setSubmitting(true);
     
-    setAdjustments(prev => prev.map(a => {
-      if (a.id === selectedAdjust.id) {
-        return {
-          ...a,
-          status: 'completed' as AdjustStatus,
+    try {
+      const response = await fetch('/api/schedule-changes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'arrange',
+          recordId: selectedAdjust.id,
           adjustType: processForm.adjustType,
-          adjustResult: {
-            substituteTeacherId: processForm.substituteTeacherId,
-            substituteTeacherName: teacher?.name || '',
-          },
-          completedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+          substituteTeacherId: processForm.substituteTeacherId,
+          substituteTeacherName: availableTeachers.find(t => t.id === processForm.substituteTeacherId)?.name,
+          handlerId: 'current-user', // 实际应从登录状态获取
+          handlerName: '当前年段长',
           remark: processForm.remark,
-        };
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // 刷新数据
+        await fetchData();
+        
+        // 同步到排课系统
+        try {
+          await fetch('/api/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'update-slot',
+              slotId: selectedAdjust.id,
+              updates: {
+                teacherId: processForm.substituteTeacherId,
+                teacherName: availableTeachers.find(t => t.id === processForm.substituteTeacherId)?.name,
+                status: 'substituted',
+                substituteRecordId: selectedAdjust.id,
+              },
+            }),
+          });
+        } catch (error) {
+          console.error('同步课表失败:', error);
+        }
+        
+        setShowProcessDialog(false);
+        setSelectedAdjust(null);
       }
-      return a;
-    }));
-    
-    setShowProcessDialog(false);
-    setSelectedAdjust(null);
+      
+    } catch (error) {
+      console.error('处理调课失败:', error);
+      alert('处理失败，请重试');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  // 推荐代课教师（模拟AI推荐）
+  // 推荐代课教师
   const getRecommendedTeachers = (adjust: CourseAdjustmentItem) => {
     return availableTeachers
-      .filter(t => t.available && (t.subject === adjust.originalCourse.subject || t.grade === adjust.applicantGrade))
+      .filter(t => t.available && (t.subjects.includes(adjust.originalSubject)))
       .slice(0, 3);
   };
+
+  // 加载状态
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <span className="ml-2 text-gray-500">加载数据中...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-orange-50/30 via-white to-amber-50/30 min-h-screen">
@@ -310,12 +302,24 @@ export default function GradeLeaderAdjustPage() {
           <p className="text-gray-500 mt-1">处理年级教师请假调课申请，安排代课教师</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={fetchData}>
             <RefreshCw className="h-4 w-4" />
             刷新
           </Button>
         </div>
       </div>
+
+      {/* 联动提示 */}
+      <Card className="border-orange-200 bg-orange-50/50">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 text-orange-700">
+            <Link className="h-4 w-4" />
+            <span className="text-sm">
+              本页面与请假系统、排课系统、电子白板实时联动。请假审批通过后自动创建调课记录，安排代课后自动同步到各系统。
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -378,12 +382,6 @@ export default function GradeLeaderAdjustPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">调课申请列表</CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1">
-                <Filter className="h-4 w-4" />
-                筛选
-              </Button>
-            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -429,18 +427,18 @@ export default function GradeLeaderAdjustPage() {
                           </div>
                           <div className="flex items-center gap-1 text-sm text-gray-600">
                             <Calendar className="h-4 w-4" />
-                            {adjust.leaveDate} {adjust.leavePeriod}
+                            {adjust.leaveStartDate}
                           </div>
                         </div>
                         <div className="text-sm text-gray-600 mb-2">
                           <span className="font-medium">原课程：</span>
-                          {adjust.originalCourse.className} · {adjust.originalCourse.weekDay} {adjust.originalCourse.periodName} · {adjust.originalCourse.courseName}
+                          {adjust.originalClassName} · {weekDayNames[adjust.originalWeekDay]} {adjust.originalPeriodName} · {adjust.originalSubject}
                         </div>
                         <div className="text-sm text-gray-500">
                           <span className="font-medium">请假原因：</span>{adjust.leaveReason}
                         </div>
                         
-                        {/* AI推荐代课教师 */}
+                        {/* 推荐代课教师 */}
                         <div className="mt-3 p-3 bg-white rounded-lg border border-orange-100">
                           <div className="flex items-center gap-1 text-sm font-medium text-orange-600 mb-2">
                             <Users className="h-4 w-4" />
@@ -453,9 +451,12 @@ export default function GradeLeaderAdjustPage() {
                                 variant="outline" 
                                 className="cursor-pointer hover:bg-orange-100 border-orange-200"
                               >
-                                {teacher.name}（{teacher.subject}）
+                                {teacher.name}（{teacher.subjects.join(', ')}）
                               </Badge>
                             ))}
+                            {getRecommendedTeachers(adjust).length === 0 && (
+                              <span className="text-sm text-gray-400">暂无推荐</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -485,45 +486,6 @@ export default function GradeLeaderAdjustPage() {
               )}
             </TabsContent>
 
-            {/* 处理中列表 */}
-            <TabsContent value="processing" className="space-y-3">
-              {adjustments.filter(a => a.status === 'processing').map(adjust => (
-                <Card key={adjust.id} className="border border-blue-200 bg-blue-50/50">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          {getStatusBadge(adjust.status)}
-                          <Badge variant="outline" className="text-blue-600 border-blue-200">
-                            {getAdjustTypeName(adjust.adjustType)}
-                          </Badge>
-                          <span className="text-sm text-gray-500">{adjust.createdAt}</span>
-                        </div>
-                        <div className="flex items-center gap-4 mb-2">
-                          <div className="flex items-center gap-1">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">{adjust.applicantName}</span>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            代课教师：{adjust.substituteTeacherName}
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {adjust.originalCourse.className} · {adjust.leaveDate}
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-2 ml-4">
-                        <Button variant="outline" size="sm" className="gap-1" onClick={() => handleOpenDetail(adjust)}>
-                          <Eye className="h-4 w-4" />
-                          查看详情
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-
             {/* 已完成列表 */}
             <TabsContent value="completed" className="space-y-3">
               {adjustments.filter(a => a.status === 'completed').map(adjust => (
@@ -536,7 +498,7 @@ export default function GradeLeaderAdjustPage() {
                           <Badge variant="outline" className="text-green-600 border-green-200">
                             {getAdjustTypeName(adjust.adjustType)}
                           </Badge>
-                          <span className="text-sm text-gray-500">完成于 {adjust.completedAt}</span>
+                          <span className="text-sm text-gray-500">{adjust.handledAt}</span>
                         </div>
                         <div className="flex items-center gap-4 mb-2">
                           <div className="flex items-center gap-1">
@@ -544,20 +506,17 @@ export default function GradeLeaderAdjustPage() {
                             <span className="font-medium">{adjust.applicantName}</span>
                           </div>
                           <div className="text-sm text-gray-600">
-                            代课教师：{adjust.adjustResult?.substituteTeacherName}
+                            <span className="text-green-600 font-medium">{adjust.substituteTeacherName}</span> 代课
                           </div>
                         </div>
                         <div className="text-sm text-gray-600">
-                          {adjust.originalCourse.className} · {adjust.leaveDate}
+                          {adjust.originalClassName} · {weekDayNames[adjust.originalWeekDay]} {adjust.originalPeriodName}
                         </div>
                         {adjust.remark && (
-                          <div className="text-sm text-gray-500 mt-1">
-                            备注：{adjust.remark}
-                          </div>
+                          <div className="text-sm text-gray-500 mt-1">备注：{adjust.remark}</div>
                         )}
                       </div>
-                      <Button variant="outline" size="sm" className="gap-1" onClick={() => handleOpenDetail(adjust)}>
-                        <Eye className="h-4 w-4" />
+                      <Button variant="outline" size="sm" onClick={() => handleOpenDetail(adjust)}>
                         查看详情
                       </Button>
                     </div>
@@ -569,37 +528,21 @@ export default function GradeLeaderAdjustPage() {
             {/* 全部列表 */}
             <TabsContent value="all" className="space-y-3">
               {adjustments.map(adjust => (
-                <Card key={adjust.id} className="hover:shadow-md transition-shadow">
+                <Card key={adjust.id} className="border">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           {getStatusBadge(adjust.status)}
-                          {adjust.adjustType && (
-                            <Badge variant="outline">
-                              {getAdjustTypeName(adjust.adjustType)}
-                            </Badge>
-                          )}
                           <span className="text-sm text-gray-500">{adjust.createdAt}</span>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">{adjust.applicantName}</span>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {adjust.originalCourse.className} · {adjust.leaveDate}
-                          </div>
+                        <div className="text-sm">
+                          {adjust.applicantName} · {adjust.originalClassName} · {adjust.originalSubject}
                         </div>
                       </div>
                       {adjust.status === 'pending' && (
-                        <Button 
-                          size="sm" 
-                          className="bg-orange-500 hover:bg-orange-600 text-white gap-1"
-                          onClick={() => handleOpenProcess(adjust)}
-                        >
-                          <Send className="h-4 w-4" />
-                          处理调课
+                        <Button size="sm" onClick={() => handleOpenProcess(adjust)}>
+                          处理
                         </Button>
                       )}
                     </div>
@@ -613,116 +556,70 @@ export default function GradeLeaderAdjustPage() {
 
       {/* 处理调课对话框 */}
       <Dialog open={showProcessDialog} onOpenChange={setShowProcessDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-orange-500" />
-              处理调课申请
-            </DialogTitle>
+            <DialogTitle>处理调课申请</DialogTitle>
             <DialogDescription>
               为 {selectedAdjust?.applicantName} 老师的请假安排调课
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* 原课程信息 */}
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm font-medium text-gray-700 mb-2">原课程信息</div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><span className="text-gray-500">班级：</span>{selectedAdjust?.originalCourse.className}</div>
-                <div><span className="text-gray-500">时间：</span>{selectedAdjust?.originalCourse.weekDay} {selectedAdjust?.originalCourse.periodName}</div>
-                <div><span className="text-gray-500">课程：</span>{selectedAdjust?.originalCourse.courseName}</div>
-                <div><span className="text-gray-500">请假日期：</span>{selectedAdjust?.leaveDate}</div>
-              </div>
+            <div className="p-3 bg-gray-50 rounded-lg space-y-1">
+              <div className="text-sm"><span className="text-gray-500">班级：</span>{selectedAdjust?.originalClassName}</div>
+              <div className="text-sm"><span className="text-gray-500">时间：</span>{weekDayNames[selectedAdjust?.originalWeekDay || 0]} {selectedAdjust?.originalPeriodName}</div>
+              <div className="text-sm"><span className="text-gray-500">课程：</span>{selectedAdjust?.originalSubject}</div>
+              <div className="text-sm"><span className="text-gray-500">请假原因：</span>{selectedAdjust?.leaveReason}</div>
             </div>
 
             {/* 调课方式 */}
             <div className="space-y-2">
               <Label>调课方式</Label>
-              <Select
-                value={processForm.adjustType}
-                onValueChange={(v) => setProcessForm(prev => ({ ...prev, adjustType: v as any }))}
+              <Select 
+                value={processForm.adjustType} 
+                onValueChange={(v) => setProcessForm({ ...processForm, adjustType: v as typeof processForm.adjustType })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="substitute">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      <span>代课</span>
-                      <span className="text-gray-400 text-xs">- 安排其他教师代上</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="swap">
-                    <div className="flex items-center gap-2">
-                      <RefreshCw className="h-4 w-4" />
-                      <span>调换</span>
-                      <span className="text-gray-400 text-xs">- 与其他时间互换</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="cancel">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <span>取消</span>
-                      <span className="text-gray-400 text-xs">- 不上课</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="makeup">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      <span>补课</span>
-                      <span className="text-gray-400 text-xs">- 后续时间补上</span>
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="substitute">安排代课</SelectItem>
+                  <SelectItem value="swap">课程调换</SelectItem>
+                  <SelectItem value="cancel">取消课程</SelectItem>
+                  <SelectItem value="makeup">后期补课</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* 代课教师选择（仅代课方式显示） */}
+            {/* 代课教师选择 */}
             {processForm.adjustType === 'substitute' && (
               <div className="space-y-2">
-                <Label>代课教师</Label>
-                <Select
-                  value={processForm.substituteTeacherId}
-                  onValueChange={(v) => setProcessForm(prev => ({ ...prev, substituteTeacherId: v }))}
+                <Label>选择代课教师</Label>
+                <Select 
+                  value={processForm.substituteTeacherId} 
+                  onValueChange={(v) => setProcessForm({ ...processForm, substituteTeacherId: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择代课教师" />
+                    <SelectValue placeholder="请选择代课教师" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableTeachers.filter(t => t.available).map(teacher => (
                       <SelectItem key={teacher.id} value={teacher.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{teacher.name}</span>
-                          <span className="text-gray-400 text-xs">({teacher.subject} · {teacher.grade}年级)</span>
-                        </div>
+                        {teacher.name}（{teacher.subjects.join(', ')}）
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="text-xs text-gray-500">快速选择：</span>
-                  {selectedAdjust && getRecommendedTeachers(selectedAdjust).map(teacher => (
-                    <Badge
-                      key={teacher.id}
-                      variant={processForm.substituteTeacherId === teacher.id ? 'default' : 'outline'}
-                      className="cursor-pointer"
-                      onClick={() => setProcessForm(prev => ({ ...prev, substituteTeacherId: teacher.id }))}
-                    >
-                      {teacher.name}
-                    </Badge>
-                  ))}
-                </div>
               </div>
             )}
 
             {/* 备注 */}
             <div className="space-y-2">
-              <Label>备注</Label>
+              <Label>备注说明</Label>
               <Textarea
                 value={processForm.remark}
-                onChange={(e) => setProcessForm(prev => ({ ...prev, remark: e.target.value }))}
+                onChange={(e) => setProcessForm({ ...processForm, remark: e.target.value })}
                 placeholder="填写调课安排说明..."
                 rows={3}
               />
@@ -732,12 +629,18 @@ export default function GradeLeaderAdjustPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowProcessDialog(false)}>取消</Button>
             <Button 
-              className="bg-orange-500 hover:bg-orange-600 text-white"
               onClick={handleSubmitProcess}
-              disabled={processForm.adjustType === 'substitute' && !processForm.substituteTeacherId}
+              disabled={submitting}
+              className="bg-orange-500 hover:bg-orange-600"
             >
-              <Send className="h-4 w-4 mr-1" />
-              确认安排
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  处理中...
+                </>
+              ) : (
+                '确认安排'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -745,80 +648,60 @@ export default function GradeLeaderAdjustPage() {
 
       {/* 详情对话框 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>调课详情</DialogTitle>
           </DialogHeader>
-          
+
           {selectedAdjust && (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-2">
-                {getStatusBadge(selectedAdjust.status)}
-                <Badge variant="outline">{selectedAdjust.leaveType}</Badge>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-gray-500">申请人</Label>
-                  <p className="font-medium">{selectedAdjust.applicantName}</p>
+            <div className="space-y-3 py-4">
+              <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">状态</span>
+                  {getStatusBadge(selectedAdjust.status)}
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500">任教学科</Label>
-                  <p>{selectedAdjust.applicantSubject}</p>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">申请人</span>
+                  <span>{selectedAdjust.applicantName}</span>
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500">请假日期</Label>
-                  <p>{selectedAdjust.leaveDate}</p>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">请假类型</span>
+                  <span>{selectedAdjust.leaveType}</span>
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500">请假节次</Label>
-                  <p>{selectedAdjust.leavePeriod}</p>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">请假时间</span>
+                  <span>{selectedAdjust.leaveStartDate}</span>
                 </div>
-              </div>
-              
-              <div>
-                <Label className="text-xs text-gray-500">请假原因</Label>
-                <p className="text-sm">{selectedAdjust.leaveReason}</p>
-              </div>
-              
-              <div className="border-t pt-4">
-                <Label className="text-sm font-medium">原课程信息</Label>
-                <div className="mt-2 p-3 bg-gray-50 rounded-lg text-sm">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div><span className="text-gray-500">班级：</span>{selectedAdjust.originalCourse.className}</div>
-                    <div><span className="text-gray-500">时间：</span>{selectedAdjust.originalCourse.weekDay} {selectedAdjust.originalCourse.periodName}</div>
-                    <div><span className="text-gray-500">课程：</span>{selectedAdjust.originalCourse.courseName}</div>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">原班级</span>
+                  <span>{selectedAdjust.originalClassName}</span>
                 </div>
-              </div>
-              
-              {selectedAdjust.adjustResult && (
-                <div className="border-t pt-4">
-                  <Label className="text-sm font-medium">调课结果</Label>
-                  <div className="mt-2 p-3 bg-green-50 rounded-lg text-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><span className="text-gray-500">方式：</span>{getAdjustTypeName(selectedAdjust.adjustType)}</div>
-                      {selectedAdjust.adjustResult.substituteTeacherName && (
-                        <div><span className="text-gray-500">代课教师：</span>{selectedAdjust.adjustResult.substituteTeacherName}</div>
-                      )}
+                <div className="flex justify-between">
+                  <span className="text-gray-500">原课程</span>
+                  <span>{selectedAdjust.originalSubject}</span>
+                </div>
+                {selectedAdjust.substituteTeacherName && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">代课教师</span>
+                      <span className="text-green-600 font-medium">{selectedAdjust.substituteTeacherName}</span>
                     </div>
-                    {selectedAdjust.remark && (
-                      <div className="mt-2"><span className="text-gray-500">备注：</span>{selectedAdjust.remark}</div>
-                    )}
-                  </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">处理人</span>
+                      <span>{selectedAdjust.handlerName}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              {selectedAdjust.remark && (
+                <div>
+                  <Label className="text-sm font-medium">备注</Label>
+                  <p className="text-sm text-gray-600 mt-1">{selectedAdjust.remark}</p>
                 </div>
               )}
-              
-              <div className="border-t pt-4 text-xs text-gray-500">
-                <div>创建时间：{selectedAdjust.createdAt}</div>
-                {selectedAdjust.completedAt && <div>完成时间：{selectedAdjust.completedAt}</div>}
-              </div>
             </div>
           )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailDialog(false)}>关闭</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

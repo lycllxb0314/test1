@@ -924,32 +924,40 @@ export interface ScheduleSlot {
   grade: number;
   
   // 时间信息
-  weekDay: WeekDay;                      // 星期几
+  weekDay: WeekDay;                      // 星期几 (1-7)
   periodIndex: number;                   // 第几节课
-  periodName: string;                    // 节次名称
-  startTime: string;
-  endTime: string;
+  periodName?: string;                   // 节次名称
+  startTime?: string;
+  endTime?: string;
+  semester?: string;                     // 学期，如"2024-2025-1"
   
   // 课程信息
-  courseId: string;
+  courseId?: string;
   courseName: string;
   subject: string;
+  courseType?: 'normal' | 'activity' | 'self_study' | 'meeting';  // 课程类型
   
   // 教师信息
   teacherId: string;
   teacherName: string;
   
   // 场地信息
-  classroomId?: string;
+  roomId?: string;
+  roomName?: string;
+  classroomId?: string;                  // 兼容旧字段
   classroomName?: string;
+  venueType?: 'classroom' | 'lab' | 'playground' | 'music_room' | 'art_room' | 'computer_room';
   
   // 状态
-  status: 'normal' | 'substituted' | 'swapped' | 'cancelled' | 'makeup';
+  status: 'normal' | 'substituted' | 'swapped' | 'cancelled' | 'makeup' | 'adjusted';
   originalTeacherId?: string;            // 原任课教师（代课时）
   originalTeacherName?: string;
   adjustRecordId?: string;               // 关联的调课记录ID
+  substituteRecordId?: string;           // 代课记录ID
   
   // 时间戳
+  createdAt: string;
+  updatedAt?: string;
   effectiveDate?: string;                // 生效日期（临时调课）
   expireDate?: string;                   // 失效日期
 }
@@ -2505,4 +2513,277 @@ export interface ExpenseStatistics {
   approvedAmount: number;
   /** 总金额 */
   totalAmount: number;
+}
+
+// ==================== 智能排课系统 ====================
+
+/**
+ * 课程时段配置
+ */
+export interface PeriodConfig {
+  id: string;
+  /** 节次序号 */
+  index: number;
+  /** 节次名称 */
+  name: string;
+  /** 开始时间 */
+  startTime: string;
+  /** 结束时间 */
+  endTime: string;
+  /** 时段类型 */
+  type: 'morning' | 'afternoon' | 'evening';
+  /** 是否启用 */
+  isActive: boolean;
+}
+
+/**
+ * 排课规则
+ */
+export interface ScheduleRule {
+  id: string;
+  
+  // === 规则基本信息 ===
+  /** 规则名称 */
+  name: string;
+  /** 规则类型 */
+  type: 'teacher_conflict' | 'room_conflict' | 'subject_distribution' | 'teacher_preference' | 'special_time';
+  /** 规则描述 */
+  description: string;
+  
+  // === 规则配置 ===
+  /** 规则参数 */
+  params: Record<string, any>;
+  /** 优先级 1-10，10最高 */
+  priority: number;
+  /** 是否启用 */
+  isActive: boolean;
+  
+  // === 适用范围 ===
+  /** 适用的年级，空表示所有年级 */
+  applyGrades?: number[];
+  /** 适用的科目，空表示所有科目 */
+  applySubjects?: string[];
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 教学任务（排课基础数据）
+ */
+export interface TeachingTask {
+  id: string;
+  
+  // === 课程信息 ===
+  /** 科目 */
+  subject: string;
+  /** 班级ID */
+  classId: string;
+  /** 班级名称 */
+  className: string;
+  /** 年级 */
+  grade: number;
+  
+  // === 教师信息 ===
+  /** 教师ID */
+  teacherId: string;
+  /** 教师姓名 */
+  teacherName: string;
+  
+  // === 课时信息 ===
+  /** 每周课时数 */
+  weeklyHours: number;
+  /** 已安排课时数 */
+  arrangedHours: number;
+  
+  // === 连堂配置 ===
+  /** 是否允许连堂 */
+  allowContinuous: boolean;
+  /** 连堂节数（2表示双连堂） */
+  continuousCount?: number;
+  
+  // === 学期信息 ===
+  semester: string;
+  
+  // === 状态 ===
+  status: 'pending' | 'partial' | 'completed';
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 代课记录
+ */
+export interface SubstituteRecord {
+  id: string;
+  
+  // === 关联信息 ===
+  /** 关联的请假申请ID */
+  leaveRequestId: string;
+  /** 关联的课表槽位ID */
+  scheduleSlotId: string;
+  
+  // === 原任教师信息 ===
+  originalTeacherId: string;
+  originalTeacherName: string;
+  
+  // === 代课教师信息 ===
+  substituteTeacherId?: string;
+  substituteTeacherName?: string;
+  
+  // === 课程信息 ===
+  classId: string;
+  className: string;
+  subject: string;
+  courseName: string;
+  weekDay: number;
+  periodIndex: number;
+  periodName: string;
+  semester: string;
+  
+  // === 代课状态 ===
+  /** 代课状态 */
+  status: 'pending' | 'arranged' | 'completed' | 'cancelled';
+  /** 代课类型 */
+  substituteType: 'temporary' | 'long_term';
+  
+  // === 安排信息 ===
+  /** 安排人ID（年段长） */
+  arrangerId?: string;
+  /** 安排人姓名 */
+  arrangerName?: string;
+  /** 安排时间 */
+  arrangedAt?: string;
+  /** 安排备注 */
+  arrangeRemark?: string;
+  
+  // === 请假信息（冗余，方便查询） ===
+  leaveTeacherName: string;
+  leaveReason: string;
+  leaveStartDate: string;
+  leaveEndDate: string;
+  
+  // === 完成信息 ===
+  completedAt?: string;
+  completionRemark?: string;
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 课表变更日志
+ */
+export interface ScheduleChangeLog {
+  id: string;
+  
+  // === 变更信息 ===
+  /** 变更类型 */
+  changeType: 'create' | 'update' | 'delete' | 'substitute' | 'cancel_substitute';
+  /** 关联的课表槽位ID */
+  scheduleSlotId: string;
+  
+  // === 变更前后数据 ===
+  /** 变更前数据 */
+  beforeData?: Partial<ScheduleSlot>;
+  /** 变更后数据 */
+  afterData?: Partial<ScheduleSlot>;
+  
+  // === 关联信息 ===
+  /** 关联的代课记录ID */
+  substituteRecordId?: string;
+  /** 关联的请假申请ID */
+  leaveRequestId?: string;
+  
+  // === 操作信息 ===
+  /** 操作人ID */
+  operatorId: string;
+  /** 操作人姓名 */
+  operatorName: string;
+  /** 操作时间 */
+  operatedAt: string;
+  /** 变更原因 */
+  reason: string;
+  
+  createdAt: string;
+}
+
+/**
+ * 排课结果
+ */
+export interface ScheduleResult {
+  /** 是否成功 */
+  success: boolean;
+  /** 生成的课表 */
+  slots: ScheduleSlot[];
+  /** 冲突列表 */
+  conflicts: ScheduleConflict[];
+  /** 统计信息 */
+  statistics: {
+    totalSlots: number;
+    arrangedSlots: number;
+    conflictCount: number;
+    coverageRate: number;
+  };
+  /** 排课耗时（毫秒） */
+  duration: number;
+}
+
+/**
+ * 排课冲突
+ */
+export interface ScheduleConflict {
+  id: string;
+  /** 冲突类型 */
+  type: 'teacher_conflict' | 'room_conflict' | 'time_conflict' | 'rule_violation';
+  /** 冲突描述 */
+  description: string;
+  /** 相关的课表槽位 */
+  relatedSlots: string[];
+  /** 冲突严重程度 */
+  severity: 'error' | 'warning' | 'info';
+  /** 建议的解决方案 */
+  suggestions?: string[];
+}
+
+/**
+ * 代课安排请求
+ */
+export interface SubstituteArrangeRequest {
+  /** 代课记录ID */
+  substituteRecordId: string;
+  /** 代课教师ID */
+  substituteTeacherId: string;
+  /** 代课教师姓名 */
+  substituteTeacherName: string;
+  /** 安排人ID */
+  arrangerId: string;
+  /** 安排人姓名 */
+  arrangerName: string;
+  /** 安排备注 */
+  remark?: string;
+}
+
+/**
+ * 课表视图类型
+ */
+export type ScheduleViewType = 'class' | 'teacher' | 'room' | 'grade';
+
+/**
+ * 课表统计
+ */
+export interface ScheduleStatistics {
+  /** 班级数 */
+  classCount: number;
+  /** 教师数 */
+  teacherCount: number;
+  /** 课程总数 */
+  totalCourses: number;
+  /** 本周代课数 */
+  weeklySubstitutes: number;
+  /** 待安排代课数 */
+  pendingSubstitutes: number;
+  /** 课程覆盖率 */
+  coverageRate: number;
 }

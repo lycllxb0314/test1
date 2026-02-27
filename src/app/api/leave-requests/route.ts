@@ -134,17 +134,51 @@ export async function POST(request: NextRequest) {
 
 /**
  * PUT - 更新请假申请状态（审批）
+ * 
+ * 审批通过后会触发：
+ * 1. 如果是教师请假，自动创建调课记录
+ * 2. 通知相关年段长安排代课
  */
 export async function PUT(request: NextRequest) {
   try {
     const client = getSupabaseClient();
     const body = await request.json();
-    const { id, action, nextStep } = body;
+    const { id, action, nextStep, leaveDetails } = body;
 
     let updateData: Record<string, unknown> = { current_step: nextStep };
+    let scheduleChangeCreated = false;
 
     if (action === 'approve') {
       updateData.status = 'approved';
+      
+      // 如果是教师请假，创建调课记录
+      if (leaveDetails?.applicantType === 'teacher') {
+        try {
+          // 调用调课系统创建调课记录
+          const scheduleChangeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/schedule-changes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'createFromLeave',
+              leaveRequestId: id,
+              teacherId: leaveDetails.applicantId,
+              teacherName: leaveDetails.applicantName,
+              startDate: leaveDetails.startTime,
+              endDate: leaveDetails.endTime,
+              reason: leaveDetails.reason,
+              grade: leaveDetails.grade,
+            }),
+          });
+          
+          const scheduleChangeResult = await scheduleChangeResponse.json();
+          scheduleChangeCreated = scheduleChangeResult.success;
+          
+          console.log(`[请假审批] 已为请假记录 ${id} 创建调课记录:`, scheduleChangeResult);
+        } catch (error) {
+          console.error('[请假审批] 创建调课记录失败:', error);
+          // 不影响审批流程，继续执行
+        }
+      }
     } else if (action === 'reject') {
       updateData.status = 'rejected';
     }
@@ -157,12 +191,25 @@ export async function PUT(request: NextRequest) {
     if (error) {
       return NextResponse.json({
         success: true,
-        data: { id, status: action === 'approve' ? 'approved' : 'rejected' },
+        data: { 
+          id, 
+          status: action === 'approve' ? 'approved' : 'rejected',
+          scheduleChangeCreated,
+        },
         source: 'mock',
       });
     }
 
-    return NextResponse.json({ success: true, source: 'database' });
+    return NextResponse.json({ 
+      success: true, 
+      source: 'database',
+      data: {
+        scheduleChangeCreated,
+        message: scheduleChangeCreated 
+          ? '审批成功，已自动创建调课记录，请通知年段长安排代课'
+          : '审批成功',
+      },
+    });
   } catch (error) {
     console.error('Failed to update leave request:', error);
     return NextResponse.json({ success: false, error: '更新请假申请失败' }, { status: 500 });
