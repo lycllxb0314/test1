@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import {
   Table,
   TableBody,
@@ -38,6 +39,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import {
   UserPlus,
@@ -60,6 +67,10 @@ import {
   Home,
   AlertTriangle,
   CheckSquare,
+  XSquare,
+  UserCheck,
+  Layers,
+  Edit3,
 } from 'lucide-react';
 import type { Parent } from '@/types';
 
@@ -188,10 +199,17 @@ export default function EnrollmentPage() {
   const [rejectDialog, setRejectDialog] = useState(false);
   const [syncDialog, setSyncDialog] = useState(false);
   const [batchSyncDialog, setBatchSyncDialog] = useState(false);
+  const [batchApproveDialog, setBatchApproveDialog] = useState(false);
+  const [batchRejectDialog, setBatchRejectDialog] = useState(false);
+  const [batchAssignDialog, setBatchAssignDialog] = useState(false);
   const [selectedApp, setSelectedApp] = useState<NewStudentApplication | null>(null);
   const [approveClassId, setApproveClassId] = useState('');
   const [approveClassName, setApproveClassName] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  
+  // 批量分配班级
+  const [batchClassId, setBatchClassId] = useState('');
+  const [batchClassName, setBatchClassName] = useState('');
 
   // 获取数据
   const fetchData = async () => {
@@ -248,37 +266,15 @@ export default function EnrollmentPage() {
     setDetailDialog(true);
   };
 
-  // 审核申请
-  const handleReview = async (app: NewStudentApplication) => {
-    try {
-      const res = await fetch('/api/enrollment', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: app.id,
-          action: 'review',
-          operator: '教务员',
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('已开始审核');
-        fetchData();
-      }
-    } catch {
-      toast.error('操作失败');
-    }
-  };
-
   // 打开通过对话框
   const handleOpenApprove = (app: NewStudentApplication) => {
     setSelectedApp(app);
-    setApproveClassId('');
-    setApproveClassName('');
+    setApproveClassId(app.applyClassId || '');
+    setApproveClassName(app.applyClassName || '');
     setApproveDialog(true);
   };
 
-  // 确认通过
+  // 确认通过（单个）
   const handleApprove = async () => {
     if (!selectedApp || !approveClassId || !approveClassName) {
       toast.error('请选择分配班级');
@@ -316,7 +312,7 @@ export default function EnrollmentPage() {
     setRejectDialog(true);
   };
 
-  // 确认拒绝
+  // 确认拒绝（单个）
   const handleReject = async () => {
     if (!selectedApp) return;
     try {
@@ -373,11 +369,201 @@ export default function EnrollmentPage() {
     }
   };
 
+  // ========== 批量操作 ==========
+
+  // 获取选中的待审核申请
+  const getSelectedPending = () => selectedIds.filter(id => 
+    applications.find(a => a.id === id && (a.status === 'pending' || a.status === 'reviewing'))
+  );
+
+  // 获取选中的已通过申请
+  const getSelectedApproved = () => selectedIds.filter(id => 
+    applications.find(a => a.id === id && a.status === 'approved')
+  );
+
+  // 打开批量审核通过对话框
+  const handleOpenBatchApprove = () => {
+    const pendingIds = getSelectedPending();
+    if (pendingIds.length === 0) {
+      toast.error('请选择待审核的申请');
+      return;
+    }
+    setBatchClassId('');
+    setBatchClassName('');
+    setBatchApproveDialog(true);
+  };
+
+  // 批量审核通过
+  const handleBatchApprove = async () => {
+    const pendingIds = getSelectedPending();
+    if (pendingIds.length === 0) {
+      toast.error('请选择待审核的申请');
+      return;
+    }
+    if (!batchClassId || !batchClassName) {
+      toast.error('请选择分配班级');
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of pendingIds) {
+      try {
+        const res = await fetch('/api/enrollment', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            action: 'approve',
+            applyClassId: batchClassId,
+            applyClassName: batchClassName,
+            operator: '教务员',
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+
+    setBatchApproveDialog(false);
+    setSelectedIds([]);
+    fetchData();
+    
+    if (failCount === 0) {
+      toast.success(`批量审核通过 ${successCount} 条申请`);
+    } else {
+      toast.info(`成功 ${successCount} 条，失败 ${failCount} 条`);
+    }
+  };
+
+  // 打开批量拒绝对话框
+  const handleOpenBatchReject = () => {
+    const pendingIds = getSelectedPending();
+    if (pendingIds.length === 0) {
+      toast.error('请选择待审核的申请');
+      return;
+    }
+    setRejectReason('');
+    setBatchRejectDialog(true);
+  };
+
+  // 批量拒绝
+  const handleBatchReject = async () => {
+    const pendingIds = getSelectedPending();
+    if (pendingIds.length === 0) {
+      toast.error('请选择待审核的申请');
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of pendingIds) {
+      try {
+        const res = await fetch('/api/enrollment', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            action: 'reject',
+            notes: rejectReason,
+            operator: '教务员',
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+
+    setBatchRejectDialog(false);
+    setSelectedIds([]);
+    fetchData();
+    
+    if (failCount === 0) {
+      toast.success(`批量拒绝 ${successCount} 条申请`);
+    } else {
+      toast.info(`成功 ${successCount} 条，失败 ${failCount} 条`);
+    }
+  };
+
+  // 打开批量分配班级对话框
+  const handleOpenBatchAssign = () => {
+    const approvedIds = getSelectedApproved();
+    if (approvedIds.length === 0) {
+      toast.error('请选择已通过待同步的申请');
+      return;
+    }
+    setBatchClassId('');
+    setBatchClassName('');
+    setBatchAssignDialog(true);
+  };
+
+  // 批量分配班级（修改已通过申请的班级）
+  const handleBatchAssign = async () => {
+    const approvedIds = getSelectedApproved();
+    if (approvedIds.length === 0) {
+      toast.error('请选择已通过待同步的申请');
+      return;
+    }
+    if (!batchClassId || !batchClassName) {
+      toast.error('请选择分配班级');
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of approvedIds) {
+      try {
+        const res = await fetch('/api/enrollment', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            action: 'approve',
+            applyClassId: batchClassId,
+            applyClassName: batchClassName,
+            operator: '教务员',
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+
+    setBatchAssignDialog(false);
+    setSelectedIds([]);
+    fetchData();
+    
+    if (failCount === 0) {
+      toast.success(`批量分配班级成功 ${successCount} 条`);
+    } else {
+      toast.info(`成功 ${successCount} 条，失败 ${failCount} 条`);
+    }
+  };
+
   // 打开批量同步对话框
   const handleOpenBatchSync = () => {
-    const approvedIds = selectedIds.filter(id => 
-      applications.find(a => a.id === id && a.status === 'approved')
-    );
+    const approvedIds = getSelectedApproved();
     if (approvedIds.length === 0) {
       toast.error('请选择已审核通过待同步的申请');
       return;
@@ -387,9 +573,7 @@ export default function EnrollmentPage() {
 
   // 批量同步
   const handleBatchSync = async () => {
-    const approvedIds = selectedIds.filter(id => 
-      applications.find(a => a.id === id && a.status === 'approved')
-    );
+    const approvedIds = getSelectedApproved();
     
     if (approvedIds.length === 0) {
       toast.error('请选择已审核通过待同步的申请');
@@ -436,7 +620,12 @@ export default function EnrollmentPage() {
     return parents.find(p => p.isPrimary) || parents[0];
   };
 
+  // 选中统计
+  const selectedPendingCount = getSelectedPending().length;
+  const selectedApprovedCount = getSelectedApproved().length;
+
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
@@ -463,7 +652,7 @@ export default function EnrollmentPage() {
             <p className="text-2xl font-bold mt-2">{summary.total}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:ring-2 hover:ring-amber-300" onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-500" />
@@ -472,7 +661,7 @@ export default function EnrollmentPage() {
             <p className="text-2xl font-bold mt-2 text-amber-600">{summary.pending}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:ring-2 hover:ring-blue-300" onClick={() => setStatusFilter(statusFilter === 'reviewing' ? 'all' : 'reviewing')}>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-500" />
@@ -481,7 +670,7 @@ export default function EnrollmentPage() {
             <p className="text-2xl font-bold mt-2 text-blue-600">{summary.reviewing}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:ring-2 hover:ring-green-300" onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-green-500" />
@@ -490,7 +679,7 @@ export default function EnrollmentPage() {
             <p className="text-2xl font-bold mt-2 text-green-600">{summary.approved}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:ring-2 hover:ring-red-300" onClick={() => setStatusFilter(statusFilter === 'rejected' ? 'all' : 'rejected')}>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <XCircle className="h-4 w-4 text-red-500" />
@@ -499,7 +688,7 @@ export default function EnrollmentPage() {
             <p className="text-2xl font-bold mt-2 text-red-600">{summary.rejected}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:ring-2 hover:ring-purple-300" onClick={() => setStatusFilter(statusFilter === 'synced' ? 'all' : 'synced')}>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Sync className="h-4 w-4 text-purple-500" />
@@ -514,24 +703,51 @@ export default function EnrollmentPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>新生申请列表</CardTitle>
-            <div className="flex items-center gap-2">
-              {selectedIds.filter(id => 
-                applications.find(a => a.id === id && a.status === 'approved')
-              ).length > 0 && (
-                <Button variant="default" onClick={handleOpenBatchSync}>
-                  <Sync className="h-4 w-4 mr-2" />
-                  批量同步 ({selectedIds.filter(id => 
-                    applications.find(a => a.id === id && a.status === 'approved')
-                  ).length})
-                </Button>
+            <div>
+              <CardTitle>新生申请列表</CardTitle>
+              {selectedIds.length > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  已选择 {selectedIds.length} 条（待审核 {selectedPendingCount}，已通过 {selectedApprovedCount}）
+                </p>
               )}
-              <Button variant="outline" onClick={fetchData}>
-                <RefreshCw className="h-4 w-4 mr-2" />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* 批量操作按钮 */}
+              {selectedIds.length > 0 && (
+                <>
+                  {selectedPendingCount > 0 && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={handleOpenBatchApprove}>
+                        <CheckSquare className="h-4 w-4 mr-1" />
+                        批量通过 ({selectedPendingCount})
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleOpenBatchReject}>
+                        <XSquare className="h-4 w-4 mr-1" />
+                        批量拒绝 ({selectedPendingCount})
+                      </Button>
+                    </>
+                  )}
+                  {selectedApprovedCount > 0 && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={handleOpenBatchAssign}>
+                        <Layers className="h-4 w-4 mr-1" />
+                        批量分配班级 ({selectedApprovedCount})
+                      </Button>
+                      <Button variant="default" size="sm" onClick={handleOpenBatchSync}>
+                        <Sync className="h-4 w-4 mr-1" />
+                        批量同步 ({selectedApprovedCount})
+                      </Button>
+                    </>
+                  )}
+                  <Separator orientation="vertical" className="h-8" />
+                </>
+              )}
+              <Button variant="outline" size="sm" onClick={fetchData}>
+                <RefreshCw className="h-4 w-4 mr-1" />
                 刷新
               </Button>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-1" />
                 导出
               </Button>
             </div>
@@ -638,7 +854,11 @@ export default function EnrollmentPage() {
                           <Badge variant="outline">{app.studentType}</Badge>
                         </TableCell>
                         <TableCell>
-                          {app.applyClassName || <span className="text-muted-foreground">待分配</span>}
+                          {app.applyClassName ? (
+                            <Badge className="bg-blue-100 text-blue-700">{app.applyClassName}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">待分配</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge className={`${statusConfig[app.status].bgColor} ${statusConfig[app.status].color}`}>
@@ -657,18 +877,12 @@ export default function EnrollmentPage() {
                                 <Eye className="h-4 w-4 mr-2" />
                                 查看详情
                               </DropdownMenuItem>
-                              {app.status === 'pending' && (
-                                <DropdownMenuItem onClick={() => handleReview(app)}>
-                                  <FileText className="h-4 w-4 mr-2" />
-                                  开始审核
-                                </DropdownMenuItem>
-                              )}
                               {(app.status === 'pending' || app.status === 'reviewing') && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => handleOpenApprove(app)}>
                                     <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                                    审核通过
+                                    审核通过并分配班级
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleOpenReject(app)}>
                                     <XCircle className="h-4 w-4 mr-2 text-red-600" />
@@ -679,6 +893,10 @@ export default function EnrollmentPage() {
                               {app.status === 'approved' && (
                                 <>
                                   <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleOpenApprove(app)}>
+                                    <Edit3 className="h-4 w-4 mr-2 text-blue-600" />
+                                    修改班级
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleOpenSync(app)}>
                                     <Sync className="h-4 w-4 mr-2 text-purple-600" />
                                     同步到学生管理
@@ -872,13 +1090,13 @@ export default function EnrollmentPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 通过对话框 */}
+      {/* 单个通过对话框 */}
       <Dialog open={approveDialog} onOpenChange={setApproveDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>审核通过</DialogTitle>
+            <DialogTitle>{selectedApp?.status === 'approved' ? '修改班级' : '审核通过'}</DialogTitle>
             <DialogDescription>
-              请为该学生分配班级
+              {selectedApp?.status === 'approved' ? '修改该学生的分配班级' : '审核通过并为该学生分配班级'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -911,22 +1129,17 @@ export default function EnrollmentPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>备注</Label>
-              <Textarea
-                placeholder="可选：添加备注信息..."
-                rows={2}
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApproveDialog(false)}>取消</Button>
-            <Button onClick={handleApprove} disabled={!approveClassId}>确认通过</Button>
+            <Button onClick={handleApprove} disabled={!approveClassId}>
+              {selectedApp?.status === 'approved' ? '确认修改' : '确认通过'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 拒绝对话框 */}
+      {/* 单个拒绝对话框 */}
       <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
         <DialogContent>
           <DialogHeader>
@@ -999,6 +1212,153 @@ export default function EnrollmentPage() {
         </DialogContent>
       </Dialog>
 
+      {/* 批量审核通过对话框 */}
+      <Dialog open={batchApproveDialog} onOpenChange={setBatchApproveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>批量审核通过</DialogTitle>
+            <DialogDescription>
+              将选中的 {selectedPendingCount} 条待审核申请批量通过并分配班级
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-green-800">批量通过确认</p>
+                  <p className="text-green-700 mt-1">
+                    已选择 <strong>{selectedPendingCount}</strong> 条待审核申请，将统一分配到指定班级。
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>分配班级 *</Label>
+              <Select 
+                value={batchClassId} 
+                onValueChange={(value) => {
+                  setBatchClassId(value);
+                  // 批量分配默认一年级
+                  const classInfo = classOptionsByGrade[1]?.find(c => c.id === value);
+                  setBatchClassName(classInfo?.name || '');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择班级" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classOptionsByGrade[1]?.map(cls => (
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">注：批量分配仅支持同一年级，如需分配到不同年级请单独操作</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchApproveDialog(false)}>取消</Button>
+            <Button onClick={handleBatchApprove} disabled={!batchClassId}>
+              <CheckSquare className="h-4 w-4 mr-2" />
+              确认批量通过
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量拒绝对话框 */}
+      <Dialog open={batchRejectDialog} onOpenChange={setBatchRejectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>批量拒绝</DialogTitle>
+            <DialogDescription>
+              将选中的 {selectedPendingCount} 条待审核申请批量拒绝
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-red-800">批量拒绝确认</p>
+                  <p className="text-red-700 mt-1">
+                    已选择 <strong>{selectedPendingCount}</strong> 条待审核申请，此操作不可撤销。
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>拒绝原因</Label>
+              <Textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="请填写拒绝原因，将统一通知家长..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchRejectDialog(false)}>取消</Button>
+            <Button variant="destructive" onClick={handleBatchReject}>
+              <XSquare className="h-4 w-4 mr-2" />
+              确认批量拒绝
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量分配班级对话框 */}
+      <Dialog open={batchAssignDialog} onOpenChange={setBatchAssignDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>批量分配班级</DialogTitle>
+            <DialogDescription>
+              修改选中的 {selectedApprovedCount} 条已通过申请的分配班级
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Layers className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-800">批量分配班级</p>
+                  <p className="text-blue-700 mt-1">
+                    已选择 <strong>{selectedApprovedCount}</strong> 条已通过待同步的申请，将统一修改分配班级。
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>分配班级 *</Label>
+              <Select 
+                value={batchClassId} 
+                onValueChange={(value) => {
+                  setBatchClassId(value);
+                  const classInfo = classOptionsByGrade[1]?.find(c => c.id === value);
+                  setBatchClassName(classInfo?.name || '');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择班级" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classOptionsByGrade[1]?.map(cls => (
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchAssignDialog(false)}>取消</Button>
+            <Button onClick={handleBatchAssign} disabled={!batchClassId}>
+              <Layers className="h-4 w-4 mr-2" />
+              确认批量分配
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 批量同步对话框 */}
       <Dialog open={batchSyncDialog} onOpenChange={setBatchSyncDialog}>
         <DialogContent>
@@ -1015,9 +1375,7 @@ export default function EnrollmentPage() {
                 <div className="text-sm">
                   <p className="font-medium text-purple-800">批量同步确认</p>
                   <p className="text-purple-700 mt-1">
-                    将同步 <strong>{selectedIds.filter(id => 
-                      applications.find(a => a.id === id && a.status === 'approved')
-                    ).length}</strong> 条已审核通过的申请，此操作不可撤销。
+                    将同步 <strong>{selectedApprovedCount}</strong> 条已审核通过的申请，此操作不可撤销。
                   </p>
                 </div>
               </div>
@@ -1049,5 +1407,6 @@ export default function EnrollmentPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }
