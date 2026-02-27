@@ -65,6 +65,7 @@ import {
   UserPlus,
   Video,
   Star,
+  Sliders,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
@@ -115,6 +116,7 @@ const academicNav: NavItem[] = [
 const moralNav: NavItem[] = [
   { name: '德育概览', href: '/moral', icon: LayoutDashboard, description: '德育工作看板' },
   { name: '习惯养成', href: '/moral/habit', icon: Star, description: '八大习惯评价与小目标', badge: '特色' },
+  { name: '习惯设置', href: '/moral/habit/settings', icon: Sliders, description: '目标模板与评选规则' },
   { name: '少先队管理', href: '/moral/pioneer', icon: Flag, description: '少先队组织管理' },
   { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '德育活动管理' },
   { name: '预警管理', href: '/moral/alerts', icon: AlertTriangle, description: '预警任务管理' },
