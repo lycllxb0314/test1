@@ -59,10 +59,9 @@ export interface ClassInfo {
 // ==================== 教师数据 ====================
 // 
 // 课时分配逻辑（周课时约13节）：
-// - 班主任：本班主科5-6节 + 本班兼任（道法/劳动/班会）约4节 + 其他班约3节
-// - 科任（副班主任）：本班主科5-6节 + 本班兼任约2节 + 其他班约5节
-// - 普通主科教师（带2个班）：主科10-12节 + 兼任1-2节
-// - 技能科教师：约16节（跨多个班级）
+// - 班主任/教研组长/中层行政/年段长：本班主科5-6节 + 本班兼任约4节 + 其他班约3节
+// - 科任（带2个班）：主科10-12节 + 兼任1-2节
+// - 技能科教师：约13节（跨多个班级，可能跨段）
 
 export const TEACHERS_DATA: Teacher[] = [
   // ==================== 班主任 - 语文老师 ====================
@@ -127,14 +126,14 @@ export const TEACHERS_DATA: Teacher[] = [
     subjectHeadClassId: 'c002',
   },
   
-  // ==================== 普通教师 - 数学老师（带2个班）====================
-  // 赵丽萍：二年级1班科任 + 三年级1班
-  // 二年级1班（科任班）：数学5 + 科学2 = 7节
+  // ==================== 科任 - 数学老师（带2个班）====================
+  // 赵丽萍：二年级1班 + 三年级1班
+  // 二年级1班：数学5 + 科学2 = 7节
   // 三年级1班：数学5节
   { 
     id: 't004', 
     name: '赵丽萍', 
-    role: 'normal',
+    role: 'subject_head',
     primarySubject: '数学',
     secondarySubjects: ['科学'],
     grades: [2, 3, 4],
@@ -142,19 +141,16 @@ export const TEACHERS_DATA: Teacher[] = [
     mainSubjectHours: 10,
     totalWeeklyHours: 13,
     currentHours: 0,
-    ownClassHours: 7,  // 科任班算"本班"
-    otherClassHours: 6,
-    subjectHeadClassId: 'c003',
   },
   
-  // ==================== 普通教师 - 语文老师（带2个班）====================
-  // 刘伟强：三年级1班科任 + 其他班
-  // 三年级1班（科任班）：语文6 + 道法2 = 8节
+  // ==================== 科任 - 语文老师（带2个班）====================
+  // 刘伟强：三年级1班 + 其他班
+  // 三年级1班：语文6 + 道法2 = 8节
   // 其他班：语文5节
   { 
     id: 't005', 
     name: '刘伟强', 
-    role: 'normal',
+    role: 'subject_head',
     primarySubject: '语文',
     secondarySubjects: ['道德与法治'],
     grades: [3, 4],
@@ -162,94 +158,91 @@ export const TEACHERS_DATA: Teacher[] = [
     mainSubjectHours: 11,
     totalWeeklyHours: 13,
     currentHours: 0,
-    ownClassHours: 8,
-    otherClassHours: 5,
-    subjectHeadClassId: 'c004',
   },
   
   // ==================== 班主任 - 数学老师 ====================
   // 陈美玲：三年级1班班主任
-  // 本班：数学6 + 劳动1 + 班会1 = 8节
-  // 其他班：数学5节
+  // 本班：数学6 + 道法2 + 劳动1 + 班会1 = 10节
+  // 其他班：约3节
   { 
     id: 't006', 
     name: '陈美玲', 
     role: 'head_teacher',
     primarySubject: '数学',
-    secondarySubjects: [],
+    secondarySubjects: ['道德与法治', '劳动'],
     grades: [3, 4],
     mainClassCount: 1,
-    mainSubjectHours: 11,
+    mainSubjectHours: 9,
     totalWeeklyHours: 13,
     currentHours: 0,
-    ownClassHours: 8,
-    otherClassHours: 5,
+    ownClassHours: 10,
+    otherClassHours: 3,
     headTeacherClassId: 'c004',
   },
   
-  // ==================== 技能科教师（跨多个班级）====================
+  // ==================== 技能科教师（跨多个班级，可能跨段）====================
   { 
     id: 't007', 
     name: '周志明', 
-    role: 'normal',
+    role: 'skill_teacher',
     primarySubject: '英语',
     secondarySubjects: [],
     grades: [3, 4, 5, 6],
     mainClassCount: 0,
     mainSubjectHours: 0,
-    totalWeeklyHours: 16,
+    totalWeeklyHours: 13,
     currentHours: 0,
   },
   
   { 
     id: 't008', 
     name: '吴晓燕', 
-    role: 'normal',
+    role: 'skill_teacher',
     primarySubject: '体育',
     secondarySubjects: [],
     grades: [1, 2, 3, 4, 5, 6],
     mainClassCount: 0,
     mainSubjectHours: 0,
-    totalWeeklyHours: 16,
+    totalWeeklyHours: 13,
     currentHours: 0,
   },
   
   { 
     id: 't009', 
     name: '郑文博', 
-    role: 'normal',
+    role: 'skill_teacher',
     primarySubject: '音乐',
     secondarySubjects: [],
     grades: [1, 2, 3, 4, 5, 6],
     mainClassCount: 0,
     mainSubjectHours: 0,
-    totalWeeklyHours: 16,
+    totalWeeklyHours: 13,
     currentHours: 0,
   },
   
   { 
     id: 't010', 
     name: '孙艺华', 
-    role: 'normal',
+    role: 'skill_teacher',
     primarySubject: '美术',
     secondarySubjects: [],
     grades: [1, 2, 3, 4, 5, 6],
     mainClassCount: 0,
     mainSubjectHours: 0,
-    totalWeeklyHours: 16,
+    totalWeeklyHours: 13,
     currentHours: 0,
   },
   
   { 
     id: 't011', 
     name: '黄志强', 
-    role: 'normal',
+    role: 'skill_teacher',
     primarySubject: '科学',
     secondarySubjects: [],
     grades: [3, 4, 5, 6],
     mainClassCount: 0,
     mainSubjectHours: 0,
-    totalWeeklyHours: 16,
+    totalWeeklyHours: 13,
     currentHours: 0,
   },
   
@@ -257,13 +250,13 @@ export const TEACHERS_DATA: Teacher[] = [
   { 
     id: 't012', 
     name: '林小红', 
-    role: 'normal',
+    role: 'skill_teacher',
     primarySubject: '道德与法治',
     secondarySubjects: [],
     grades: [1, 2, 3, 4, 5, 6],
     mainClassCount: 0,
     mainSubjectHours: 0,
-    totalWeeklyHours: 16,
+    totalWeeklyHours: 13,
     currentHours: 0,
   },
 ];

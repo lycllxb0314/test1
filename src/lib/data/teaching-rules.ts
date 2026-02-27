@@ -16,16 +16,16 @@ export type TeacherRole =
   | 'subject_leader'  // 教研组长
   | 'admin'           // 中层行政（教导主任、德育主任等）
   | 'grade_leader'    // 年段长
-  | 'subject_head'    // 科任（副班主任）
-  | 'normal';         // 普通教师
+  | 'subject_head'    // 科任
+  | 'skill_teacher';  // 技能科教师（体育、音乐、美术等）
 
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   head_teacher: '班主任',
   subject_leader: '教研组长',
   admin: '中层行政',
   grade_leader: '年段长',
-  subject_head: '科任（副班主任）',
-  normal: '普通教师',
+  subject_head: '科任',
+  skill_teacher: '技能科教师',
 };
 
 // ==================== 主科定义 ====================
@@ -77,7 +77,7 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     classCount: 1,
     mainSubjectHours: [5, 6],
     totalHours: 13,
-    description: '教研组长带1个班：本班主科5-6节 + 本班兼任约3节 + 其他班约4节（教研工作折算）',
+    description: '教研组长带1个班：本班主科5-6节 + 本班兼任约4节 + 其他班约3节',
   },
   
   // 中层行政（带1个班）
@@ -86,7 +86,7 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     classCount: 1,
     mainSubjectHours: [5, 6],
     totalHours: 13,
-    description: '中层行政带1个班：本班主科5-6节 + 本班兼任约2节 + 其他班约5-6节（行政工作另算）',
+    description: '中层行政带1个班：本班主科5-6节 + 本班兼任约4节 + 其他班约3节',
   },
   
   // 年段长（带1个班）
@@ -94,35 +94,26 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     role: 'grade_leader',
     classCount: 1,
     mainSubjectHours: [5, 6],
-    totalHours: 12,
-    description: '年段长带1个班：本班主科5-6节 + 本班兼任约3节 + 其他班约3-4节（管理工作折算）',
+    totalHours: 13,
+    description: '年段长带1个班：本班主科5-6节 + 本班兼任约4节 + 其他班约3节',
   },
   
-  // 科任/副班主任（带1个班）
+  // 科任（带2个班）
   {
     role: 'subject_head',
-    classCount: 1,
-    mainSubjectHours: [5, 6],
-    totalHours: 13,
-    description: '科任（副班主任）带1个班：本班主科5-6节 + 本班兼任约2节 + 其他班约5节',
-  },
-  
-  // 普通主科教师（带2个班）
-  {
-    role: 'normal',
     classCount: 2,
     mainSubjectHours: [10, 12],
     totalHours: 13,
-    description: '普通主科教师带2个班：两个班主科共10-12节 + 兼任1-2节',
+    description: '科任带2个班：两个班主科共10-12节 + 兼任1-2节',
   },
   
-  // 技能科教师（体育、音乐、美术等）
+  // 技能科教师（跨多个班级）
   {
-    role: 'normal',
-    classCount: 0,  // 不带主科班
+    role: 'skill_teacher',
+    classCount: 0,  // 跨多个班级
     mainSubjectHours: [0, 0],
-    totalHours: 16,
-    description: '技能科教师不带主科班，周课时约16节（跨多个班级）',
+    totalHours: 13,
+    description: '技能科教师跨多个班级教学，可能跨段，周课时约13节',
   },
 ];
 
@@ -135,8 +126,8 @@ export function calculateSuggestedHours(
   isSkillTeacher: boolean = false
 ): { mainSubjectHours: number; totalHours: number } {
   // 技能科教师特殊处理
-  if (isSkillTeacher) {
-    return { mainSubjectHours: 0, totalHours: 16 };
+  if (role === 'skill_teacher' || isSkillTeacher) {
+    return { mainSubjectHours: 0, totalHours: 13 };
   }
   
   // 查找匹配的规则
@@ -236,23 +227,20 @@ export const SCHEDULING_PRIORITY = {
   // 班主任教本班兼任科目（道法、劳动等）: 95分
   HEAD_TEACHER_SECONDARY_SUBJECT: 95,
   
-  // 科任（副班主任）教本班主科: 85分
+  // 科任教本班主科: 85分
   SUBJECT_HEAD_MAIN_SUBJECT: 85,
   
   // 科任教本班兼任科目: 80分
   SUBJECT_HEAD_SECONDARY_SUBJECT: 80,
   
-  // 班主任教其他班主科: 60分
-  HEAD_TEACHER_OTHER_CLASS: 60,
+  // 班主任/科任教其他班主科: 60分
+  OTHER_CLASS_MAIN: 60,
   
-  // 科任教其他班课程: 50分
-  SUBJECT_HEAD_OTHER_CLASS: 50,
+  // 班主任/科任教其他班课程: 50分
+  OTHER_CLASS_SECONDARY: 50,
   
-  // 普通教师主科: 40分
-  NORMAL_TEACHER_MAIN: 40,
-  
-  // 普通教师其他: 30分
-  NORMAL_TEACHER_OTHER: 30,
+  // 技能科教师: 40分
+  SKILL_TEACHER: 40,
 } as const;
 
 /**
@@ -273,7 +261,7 @@ export function calculateTaskPriority(
     primarySubject?: string;
   } | undefined
 ): number {
-  if (!classInfo) return SCHEDULING_PRIORITY.NORMAL_TEACHER_OTHER;
+  if (!classInfo) return SCHEDULING_PRIORITY.SKILL_TEACHER;
   
   const isHeadTeacher = classInfo.headTeacherId === task.teacherId;
   const isSubjectHead = classInfo.subjectHeadId === task.teacherId;
@@ -283,6 +271,11 @@ export function calculateTaskPriority(
   const primarySubject = teacherInfo?.primarySubject || '';
   const isPrioritySecondary = PRIORITY_SECONDARY_SUBJECTS[primarySubject]?.includes(task.subject);
   
+  // 技能科教师
+  if (teacherInfo?.role === 'skill_teacher') {
+    return SCHEDULING_PRIORITY.SKILL_TEACHER;
+  }
+  
   // 班主任的课程
   if (isHeadTeacher) {
     if (isMainSubject) {
@@ -290,23 +283,23 @@ export function calculateTaskPriority(
     } else if (isPrioritySecondary) {
       return SCHEDULING_PRIORITY.HEAD_TEACHER_SECONDARY_SUBJECT;
     } else {
-      return SCHEDULING_PRIORITY.HEAD_TEACHER_OTHER_CLASS;
+      return SCHEDULING_PRIORITY.OTHER_CLASS_SECONDARY;
     }
   }
   
-  // 科任（副班主任）的课程
+  // 科任的课程
   if (isSubjectHead) {
     if (isMainSubject) {
       return SCHEDULING_PRIORITY.SUBJECT_HEAD_MAIN_SUBJECT;
     } else if (isPrioritySecondary) {
       return SCHEDULING_PRIORITY.SUBJECT_HEAD_SECONDARY_SUBJECT;
     } else {
-      return SCHEDULING_PRIORITY.SUBJECT_HEAD_OTHER_CLASS;
+      return SCHEDULING_PRIORITY.OTHER_CLASS_SECONDARY;
     }
   }
   
-  // 普通教师
+  // 其他教师的课程
   return isMainSubject 
-    ? SCHEDULING_PRIORITY.NORMAL_TEACHER_MAIN 
-    : SCHEDULING_PRIORITY.NORMAL_TEACHER_OTHER;
+    ? SCHEDULING_PRIORITY.OTHER_CLASS_MAIN 
+    : SCHEDULING_PRIORITY.OTHER_CLASS_SECONDARY;
 }

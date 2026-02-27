@@ -2,7 +2,7 @@
  * 教师课时配置对话框
  * 
  * 用于配置：
- * - 教师角色（班主任/教研组长/中层行政/年段长/普通教师）
+ * - 教师角色（班主任/教研组长/中层行政/年段长/科任/技能科教师）
  * - 主教学科
  * - 主科带班数
  * - 主科课时量（根据规则自动计算建议值）
@@ -106,11 +106,11 @@ export function TeacherScheduleConfigDialog({
   const [form, setForm] = useState<TeacherScheduleConfig>({
     teacherId: '',
     teacherName: '',
-    role: 'normal',
+    role: 'subject_head',
     primarySubject: '',
     secondarySubjects: [],
-    mainClassCount: 1,
-    mainSubjectHours: 6,
+    mainClassCount: 2,
+    mainSubjectHours: 11,
     totalWeeklyHours: 13,
     currentHours: 0,
     teachableGrades: [],
@@ -313,7 +313,9 @@ export function TeacherScheduleConfigDialog({
                   {form.role === 'head_teacher' && '班主任只能带1个班'}
                   {form.role === 'subject_leader' && '教研组长通常带1个班'}
                   {form.role === 'admin' && '中层行政通常带1个班'}
-                  {form.role === 'normal' && '普通主科教师可以带1-2个班'}
+                  {form.role === 'grade_leader' && '年段长通常带1个班'}
+                  {form.role === 'subject_head' && '科任通常带2个班'}
+                  {form.role === 'skill_teacher' && '技能科教师跨多个班级'}
                 </p>
               </div>
 

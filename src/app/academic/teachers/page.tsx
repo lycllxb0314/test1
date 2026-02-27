@@ -213,10 +213,11 @@ export default function TeachersPage() {
 
   // 打开课时配置对话框
   const openScheduleConfigDialog = useCallback((teacher: Teacher) => {
+    const isSkillTeacher = !['语文', '数学', '英语'].includes(teacher.subject);
     setScheduleConfig({
       teacherId: teacher.id,
       teacherName: teacher.name,
-      role: teacher.isHeadTeacher ? 'head_teacher' : 'normal',
+      role: teacher.isHeadTeacher ? 'head_teacher' : (isSkillTeacher ? 'skill_teacher' : 'subject_head'),
       primarySubject: teacher.subject,
       secondarySubjects: teacher.teachableSubjects?.filter(s => s !== teacher.subject) || [],
       mainClassCount: teacher.weeklyHours > 8 ? 2 : 1,
