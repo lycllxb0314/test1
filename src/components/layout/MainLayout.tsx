@@ -141,6 +141,7 @@ const moralNav: NavItem[] = [
 // 教师空间导航 - 基础功能（所有教师可见）
 const teacherBaseNav: NavItem[] = [
   { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台' },
+  { name: '个人档案', href: '/teacher/profile', icon: UserCircle, description: '个人信息维护' },
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排' },
   { name: '通知公告', href: '/teacher/announcements', icon: Bell, description: '学校通知公告' },
   { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请' },

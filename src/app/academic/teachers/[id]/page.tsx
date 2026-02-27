@@ -46,8 +46,10 @@ import {
   IdCard,
   Save,
   X,
+  Loader2,
 } from 'lucide-react';
 import { TeacherProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/types';
+import { useTeacherFullProfile } from '@/hooks/useTeacherData';
 import { toast } from 'sonner';
 
 // 模拟教师详细数据
@@ -185,7 +187,9 @@ export default function TeacherDetailPage() {
   const router = useRouter();
   const teacherId = params.id as string;
   
-  const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
+  // 使用统一数据接口
+  const { data: teacher, loading, error, refetch, updateProfile } = useTeacherFullProfile(teacherId);
+  
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -212,35 +216,33 @@ export default function TeacherDetailPage() {
     status: '',
   });
 
+  // 当数据加载完成后初始化表单
   useEffect(() => {
-    // 模拟加载教师数据
-    setTeacher(mockTeacherProfile);
-    // 初始化表单数据
-    if (mockTeacherProfile) {
+    if (teacher) {
       setFormData({
-        name: mockTeacherProfile.name ?? '',
-        gender: mockTeacherProfile.gender ?? '男',
-        birthDate: mockTeacherProfile.birthDate ?? '',
-        ethnicity: mockTeacherProfile.ethnicity ?? '',
-        politicalStatus: mockTeacherProfile.politicalStatus ?? '',
-        nativePlace: mockTeacherProfile.nativePlace ?? '',
-        phone: mockTeacherProfile.phone ?? '',
-        email: mockTeacherProfile.email ?? '',
-        emergencyContact: mockTeacherProfile.emergencyContact ?? '',
-        emergencyPhone: mockTeacherProfile.emergencyPhone ?? '',
-        address: mockTeacherProfile.address ?? '',
-        education: mockTeacherProfile.education ?? '',
-        school: mockTeacherProfile.school ?? '',
-        major: mockTeacherProfile.major ?? '',
-        graduationDate: mockTeacherProfile.graduationDate ?? '',
-        title: mockTeacherProfile.title ?? '',
-        titleDate: mockTeacherProfile.titleDate ?? '',
-        department: mockTeacherProfile.department ?? '',
-        subjects: mockTeacherProfile.subjects?.join('、') ?? '',
-        status: mockTeacherProfile.status ?? 'active',
+        name: teacher.name ?? '',
+        gender: teacher.gender ?? '男',
+        birthDate: teacher.birthDate ?? '',
+        ethnicity: teacher.ethnicity ?? '',
+        politicalStatus: teacher.politicalStatus ?? '',
+        nativePlace: teacher.nativePlace ?? '',
+        phone: teacher.phone ?? '',
+        email: teacher.email ?? '',
+        emergencyContact: teacher.emergencyContact ?? '',
+        emergencyPhone: teacher.emergencyPhone ?? '',
+        address: teacher.address ?? '',
+        education: teacher.education ?? '',
+        school: teacher.school ?? '',
+        major: teacher.major ?? '',
+        graduationDate: teacher.graduationDate ?? '',
+        title: teacher.title ?? '',
+        titleDate: teacher.titleDate ?? '',
+        department: teacher.department ?? '',
+        subjects: teacher.subjects?.join('、') ?? '',
+        status: teacher.status ?? 'active',
       });
     }
-  }, [teacherId]);
+  }, [teacher]);
 
   // 处理表单字段变化
   const handleFieldChange = (field: keyof FormData, value: string) => {
@@ -251,38 +253,37 @@ export default function TeacherDetailPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 调用API更新数据
+      const success = await updateProfile({
+        name: formData.name,
+        gender: formData.gender,
+        birthDate: formData.birthDate,
+        ethnicity: formData.ethnicity,
+        politicalStatus: formData.politicalStatus,
+        nativePlace: formData.nativePlace,
+        phone: formData.phone,
+        email: formData.email,
+        emergencyContact: formData.emergencyContact,
+        emergencyPhone: formData.emergencyPhone,
+        address: formData.address,
+        education: formData.education,
+        school: formData.school,
+        major: formData.major,
+        graduationDate: formData.graduationDate,
+        title: formData.title,
+        titleDate: formData.titleDate,
+        department: formData.department,
+        subjects: formData.subjects.split('、').filter(s => s.trim()),
+        status: formData.status,
+      });
       
-      // 更新本地数据
-      if (teacher) {
-        setTeacher({
-          ...teacher,
-          name: formData.name,
-          gender: formData.gender as '男' | '女',
-          birthDate: formData.birthDate,
-          ethnicity: formData.ethnicity,
-          politicalStatus: formData.politicalStatus,
-          nativePlace: formData.nativePlace,
-          phone: formData.phone,
-          email: formData.email,
-          emergencyContact: formData.emergencyContact,
-          emergencyPhone: formData.emergencyPhone,
-          address: formData.address,
-          education: formData.education,
-          school: formData.school,
-          major: formData.major,
-          graduationDate: formData.graduationDate,
-          title: formData.title,
-          titleDate: formData.titleDate,
-          department: formData.department,
-          subjects: formData.subjects.split('、').filter(s => s.trim()),
-          status: formData.status as TeacherProfile['status'],
-        });
+      if (success) {
+        setIsEditing(false);
+        toast.success('保存成功');
+        refetch(); // 刷新数据
+      } else {
+        toast.error('保存失败，请重试');
       }
-      
-      setIsEditing(false);
-      toast.success('保存成功');
     } catch (error) {
       toast.error('保存失败，请重试');
     } finally {
@@ -320,12 +321,27 @@ export default function TeacherDetailPage() {
     setIsEditing(false);
   };
 
-  if (!teacher) {
+  // 加载中状态
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
           <p className="mt-4 text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (error || !teacher) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-destructive">{error || '教师不存在'}</p>
+          <Button variant="outline" className="mt-4" onClick={() => router.back()}>
+            返回列表
+          </Button>
         </div>
       </div>
     );

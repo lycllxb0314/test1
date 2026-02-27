@@ -53,80 +53,14 @@ import {
   Star,
   TrendingUp,
   X,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TeacherProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/types';
+import { useTeacherFullProfile, TeacherFullProfile } from '@/hooks/useTeacherData';
 import { toast } from 'sonner';
 
-// 模拟教师数据（与教务教研共享）
-const mockTeacherProfile: TeacherProfile = {
-  id: 'teacher-001',
-  userId: 't001',
-  
-  name: '张明华',
-  gender: '男',
-  birthDate: '1985-03-15',
-  idCard: '3508**********0015',
-  ethnicity: '汉族',
-  politicalStatus: '中共党员',
-  nativePlace: '福建龙岩',
-  
-  phone: '138****1001',
-  email: 'zhangmh@lysf.fx.edu.cn',
-  emergencyContact: '张父',
-  emergencyPhone: '139****2001',
-  address: '龙岩市新罗区xx路xx号',
-  
-  employeeId: 'T2005001',
-  subjects: ['语文'],
-  title: '高级教师',
-  titleDate: '2018-09-01',
-  education: '本科',
-  school: '福建师范大学',
-  major: '汉语言文学',
-  graduationDate: '2007-06',
-  teachYears: 17,
-  joinDate: '2007-09-01',
-  department: '语文组',
-  
-  isHeadTeacher: false,
-  
-  status: 'active',
-  
-  records: [
-    { id: 'r1', teacherId: 'teacher-001', type: 'education', title: '本科学历', description: '福建师范大学 汉语言文学专业', date: '2007-06', createdAt: '2020-01-01' },
-    { id: 'r2', teacherId: 'teacher-001', type: 'title', title: '二级教师', date: '2010-09', createdAt: '2020-01-01' },
-    { id: 'r3', teacherId: 'teacher-001', type: 'title', title: '一级教师', date: '2014-09', createdAt: '2020-01-01' },
-    { id: 'r4', teacherId: 'teacher-001', type: 'title', title: '高级教师', date: '2018-09', createdAt: '2020-01-01' },
-    { id: 'r5', teacherId: 'teacher-001', type: 'position', title: '担任语文教研组长', date: '2019-09', createdAt: '2020-01-01' },
-  ],
-  
-  honors: [
-    { id: 'h1', teacherId: 'teacher-001', title: '龙岩市优秀教师', level: '市级', category: '综合', issuer: '龙岩市教育局', date: '2023-09', certificateNo: 'LY202309001' },
-    { id: 'h2', teacherId: 'teacher-001', title: '区级教学能手', level: '区级', category: '教学', issuer: '新罗区教育局', date: '2022-06' },
-    { id: 'h3', teacherId: 'teacher-001', title: '校级优秀班主任', level: '校级', category: '德育', issuer: '学校', date: '2020-09' },
-    { id: 'h4', teacherId: 'teacher-001', title: '福建省骨干教师', level: '省级', category: '综合', issuer: '福建省教育厅', date: '2021-12' },
-  ],
-  
-  trainings: [
-    { id: 't1', teacherId: 'teacher-001', name: '新课标解读培训', type: '市级培训', organizer: '龙岩市教育局', startDate: '2024-01-15', endDate: '2024-01-17', hours: 24, status: '已完成', certificate: 'cert-001' },
-    { id: 't2', teacherId: 'teacher-001', name: '信息技术应用能力提升', type: '省级培训', organizer: '福建省教育厅', startDate: '2023-11-01', endDate: '2023-11-30', hours: 48, status: '已完成' },
-    { id: 't3', teacherId: 'teacher-001', name: '班主任工作培训', type: '校内培训', organizer: '学校教务处', startDate: '2023-09-01', endDate: '2023-09-03', hours: 16, status: '已完成' },
-  ],
-  
-  achievements: [
-    { id: 'a1', teacherId: 'teacher-001', type: '公开课', title: '《背影》区级公开课', level: '区级', result: '优秀', date: '2023-11-20', description: '面向全区语文教师的示范课' },
-    { id: 'a2', teacherId: 'teacher-001', type: '教学比赛', title: '龙岩市语文教学技能大赛', level: '市级', result: '一等奖', date: '2023-05-10' },
-    { id: 'a3', teacherId: 'teacher-001', type: '论文发表', title: '小学语文阅读教学策略研究', level: '省级', date: '2022-08', description: '发表于《福建教育》2022年第8期' },
-    { id: 'a4', teacherId: 'teacher-001', type: '课题研究', title: '小学语文核心素养培养研究', level: '市级', result: '结题', date: '2023-06', description: '市级课题主持人' },
-    { id: 'a5', teacherId: 'teacher-001', type: '指导学生获奖', title: '指导学生参加征文比赛', level: '省级', result: '一等奖2人', date: '2023-12' },
-  ],
-  
-  createdAt: '2020-01-01',
-  updatedAt: '2024-03-15',
-};
-
-// 获取荣誉级别颜色
+// 获取记录类型图标和颜色
 const getHonorLevelColor = (level: string) => {
   const colorMap: Record<string, string> = {
     '国家级': 'text-red-600 bg-red-50',
@@ -167,7 +101,11 @@ interface EditableFormData {
 
 export default function TeacherProfilePage() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<TeacherProfile | null>(null);
+  const teacherId = user?.id || 'teacher-001'; // 默认使用当前登录用户的ID
+  
+  // 使用统一数据接口获取教师完整档案
+  const { data: profile, loading: isLoading, error, refetch, updateProfile } = useTeacherFullProfile(teacherId);
+  
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -202,24 +140,22 @@ export default function TeacherProfilePage() {
     date: '',
   });
 
+  // 初始化表单数据
   useEffect(() => {
-    // 模拟加载教师数据
-    setProfile(mockTeacherProfile);
-    // 初始化表单数据
-    if (mockTeacherProfile) {
+    if (profile) {
       setFormData({
-        phone: mockTeacherProfile.phone ?? '',
-        email: mockTeacherProfile.email ?? '',
-        emergencyContact: mockTeacherProfile.emergencyContact ?? '',
-        emergencyPhone: mockTeacherProfile.emergencyPhone ?? '',
-        address: mockTeacherProfile.address ?? '',
-        birthDate: mockTeacherProfile.birthDate ?? '',
-        ethnicity: mockTeacherProfile.ethnicity ?? '',
-        politicalStatus: mockTeacherProfile.politicalStatus ?? '',
-        nativePlace: mockTeacherProfile.nativePlace ?? '',
+        phone: profile.phone ?? '',
+        email: profile.email ?? '',
+        emergencyContact: profile.emergencyContact ?? '',
+        emergencyPhone: profile.emergencyPhone ?? '',
+        address: profile.address ?? '',
+        birthDate: profile.birthDate ?? '',
+        ethnicity: profile.ethnicity ?? '',
+        politicalStatus: profile.politicalStatus ?? '',
+        nativePlace: profile.nativePlace ?? '',
       });
     }
-  }, [user]);
+  }, [profile]);
 
   // 处理字段变化
   const handleFieldChange = (field: keyof EditableFormData, value: string) => {
@@ -228,26 +164,23 @@ export default function TeacherProfilePage() {
 
   // 保存基本信息
   const handleSaveBasicInfo = async () => {
+    if (!profile) return;
     setIsSaving(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 调用updateProfile更新教师信息
+      const success = await updateProfile({
+        phone: formData.phone,
+        email: formData.email,
+        emergencyContact: formData.emergencyContact,
+        emergencyPhone: formData.emergencyPhone,
+        address: formData.address,
+        birthDate: formData.birthDate,
+        ethnicity: formData.ethnicity,
+        politicalStatus: formData.politicalStatus,
+        nativePlace: formData.nativePlace,
+      });
       
-      // 更新本地数据
-      if (profile) {
-        setProfile({
-          ...profile,
-          phone: formData.phone,
-          email: formData.email,
-          emergencyContact: formData.emergencyContact,
-          emergencyPhone: formData.emergencyPhone,
-          address: formData.address,
-          birthDate: formData.birthDate,
-          ethnicity: formData.ethnicity,
-          politicalStatus: formData.politicalStatus,
-          nativePlace: formData.nativePlace,
-        });
-      }
+      if (!success) throw new Error('保存失败');
       
       setIsEditing(false);
       toast.success('个人信息已保存');
@@ -280,13 +213,14 @@ export default function TeacherProfilePage() {
   // 添加荣誉
   const handleAddHonor = () => {
     if (!profile) return;
+    // 本地更新（实际应调用API）
     const newHonorItem: TeacherHonor = {
       id: `h${Date.now()}`,
       teacherId: profile.id,
       ...newHonor,
     };
-    setProfile({
-      ...profile,
+    // 调用updateProfile更新荣誉列表
+    updateProfile({
       honors: [newHonorItem, ...profile.honors],
     });
     setShowAddDialog(false);
@@ -294,12 +228,24 @@ export default function TeacherProfilePage() {
     toast.success('荣誉已提交，等待审核');
   };
 
-  if (!profile) {
+  // 加载状态
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
           <p className="mt-4 text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (error || !profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-500">加载失败，请刷新页面重试</p>
         </div>
       </div>
     );

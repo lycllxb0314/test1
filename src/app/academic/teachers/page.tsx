@@ -481,7 +481,11 @@ export default function TeachersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditDialog(teacher)}>
+                        <DropdownMenuItem onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          查看详情
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
                           <Edit className="h-4 w-4 mr-2" />
                           编辑
                         </DropdownMenuItem>
