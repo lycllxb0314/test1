@@ -105,12 +105,8 @@ const academicNav: NavItem[] = [
   { name: '智能排课', href: '/academic/schedule', icon: Calendar, description: '课程表管理' },
   { name: '考试管理', href: '/academic/exams', icon: ClipboardList, description: '考试安排管理' },
   { name: '成绩管理', href: '/academic/grades', icon: BookOpen, description: '成绩录入查询' },
-  { name: '教室管理', href: '/academic/rooms', icon: DoorOpen, description: '教室资源管理' },
-  { name: '预约审批', href: '/academic/rooms/approval', icon: CheckSquare, description: '审批教室预约申请' },
-  { name: '使用日程', href: '/academic/rooms/calendar', icon: CalendarClock, description: '教室使用日程' },
-  { name: '集体备课', href: '/teaching/lesson-planning', icon: Users, description: '备课组协同', badge: '智慧' },
-  { name: '听课评课', href: '/teaching/observation', icon: Video, description: '课堂听课评价', badge: '智慧' },
-  { name: '教研活动', href: '/academic/research', icon: Target, description: '教学研究活动' },
+  { name: '教室管理', href: '/academic/rooms', icon: DoorOpen, description: '教室资源与预约' },
+  { name: '教研活动', href: '/academic/research', icon: Target, description: '集体备课与听课评课', badge: '智慧' },
   { name: '教师考勤', href: '/academic/attendance', icon: CheckSquare, description: '教师考勤管理' },
   { name: '质量分析', href: '/academic/analysis', icon: BarChart3, description: '教学质量分析' },
 ];
@@ -118,11 +114,9 @@ const academicNav: NavItem[] = [
 // 德育管理导航
 const moralNav: NavItem[] = [
   { name: '德育概览', href: '/moral', icon: LayoutDashboard, description: '德育工作看板' },
-  { name: '习惯养成评价', href: '/moral/habit', icon: Star, description: '八大行为习惯评价', badge: '特色' },
-  { name: '小目标管理', href: '/moral/habit-goals', icon: Target, description: '学生月度小目标', badge: '特色' },
+  { name: '习惯养成', href: '/moral/habit', icon: Star, description: '八大习惯评价与小目标', badge: '特色' },
   { name: '少先队管理', href: '/moral/pioneer', icon: Flag, description: '少先队组织管理' },
   { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '德育活动管理' },
-  { name: '德育评价', href: '/moral/assessment', icon: Award, description: '学生德育评价' },
   { name: '预警管理', href: '/moral/alerts', icon: AlertTriangle, description: '预警任务管理' },
   { name: '成长档案', href: '/moral/growth', icon: Target, description: '学生成长档案' },
   { name: '数据分析', href: '/moral/analytics', icon: BarChart3, description: '德育数据分析' },
@@ -141,6 +135,7 @@ const teacherBaseNav: NavItem[] = [
 // 教师空间导航 - 班主任专属功能
 const headTeacherNav: NavItem[] = [
   { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息' },
+  { name: '习惯养成', href: '/teacher/habit', icon: Star, description: '八大习惯评价与目标', badge: '特色' },
   { name: '信息收集', href: '/teacher/collect', icon: ClipboardList, description: '企业微信信息采集' },
   { name: '日常管理', href: '/teacher/daily', icon: Calendar, description: '考勤晨检值日' },
   { name: '家校沟通', href: '/teacher/communication', icon: MessageSquare, description: '通知话术家长会', badge: 'AI' },
@@ -153,6 +148,7 @@ const headTeacherNav: NavItem[] = [
 // 教师空间导航 - 年段长专属功能
 const gradeLeaderNav: NavItem[] = [
   { name: '年级管理', href: '/teacher/grade', icon: Users, description: '年级教师学生管理' },
+  { name: '习惯养成', href: '/teacher/grade-habit', icon: Star, description: '年级习惯养成统计', badge: '特色' },
   { name: '调课管理', href: '/teacher/adjust', icon: CalendarClock, description: '处理年级调课申请', badge: '专属' },
   { name: '年级课表', href: '/teacher/grade-schedule', icon: Calendar, description: '查看年级课表' },
 ];
