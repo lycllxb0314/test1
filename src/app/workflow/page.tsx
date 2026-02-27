@@ -17,6 +17,7 @@ import {
   FileText,
   Wrench,
   ShoppingCart,
+  Receipt,
   Clock,
   CheckCircle,
   XCircle,
@@ -38,6 +39,7 @@ export default function WorkflowPage() {
     { id: 'L002', type: 'leave', applicant: '王丽萍', title: '病假申请', duration: '1天', time: '2小时前', urgent: false },
     { id: 'R001', type: 'repair', applicant: '张小燕', title: '投影仪报修', location: '教学楼301', time: '3小时前', urgent: true },
     { id: 'P001', type: 'purchase', applicant: '教务处', title: '办公用品采购', amount: '¥5,800', time: '昨天', urgent: false },
+    { id: 'E001', type: 'expense', applicant: '王丽萍', title: '培训差旅费报销', amount: '¥1,280', time: '昨天', urgent: false },
   ];
 
   // 已处理列表
@@ -45,6 +47,7 @@ export default function WorkflowPage() {
     { id: 'L003', type: 'leave', applicant: '李文博', title: '调休申请', status: 'approved', time: '昨天' },
     { id: 'R002', type: 'repair', applicant: '刘婷婷', title: '办公室门锁报修', status: 'approved', time: '2天前' },
     { id: 'P002', type: 'purchase', applicant: '德育处', title: '活动物资采购', status: 'rejected', time: '3天前' },
+    { id: 'E002', type: 'expense', applicant: '张小燕', title: '办公用品报销', status: 'approved', time: '4天前' },
   ];
 
   // 获取类型图标和颜色
@@ -56,6 +59,8 @@ export default function WorkflowPage() {
         return { icon: Wrench, color: 'bg-orange-100 text-orange-600', label: '报修' };
       case 'purchase':
         return { icon: ShoppingCart, color: 'bg-green-100 text-green-600', label: '采购' };
+      case 'expense':
+        return { icon: Receipt, color: 'bg-purple-100 text-purple-600', label: '报销' };
       default:
         return { icon: FileText, color: 'bg-gray-100 text-gray-600', label: '其他' };
     }
@@ -79,6 +84,7 @@ export default function WorkflowPage() {
               <SelectItem value="leave">请假审批</SelectItem>
               <SelectItem value="repair">报修审批</SelectItem>
               <SelectItem value="purchase">采购审批</SelectItem>
+              <SelectItem value="expense">报销审批</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" className="gap-2">
@@ -271,7 +277,7 @@ export default function WorkflowPage() {
       </Card>
 
       {/* 快捷入口 */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Link href="/workflow/leave">
           <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer group">
             <CardContent className="p-6">
@@ -318,6 +324,23 @@ export default function WorkflowPage() {
                   <p className="text-sm text-gray-500">物资采购审批</p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-green-600 transition-colors" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/workflow/expense">
+          <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer group">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-purple-100 text-purple-600">
+                  <Receipt className="h-6 w-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">报销申请</h3>
+                  <p className="text-sm text-gray-500">费用报销审批</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 transition-colors" />
               </div>
             </CardContent>
           </Card>

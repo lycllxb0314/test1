@@ -47,8 +47,8 @@ import {
   Loader2,
   Upload,
   X,
-  Image as ImageIcon,
   Paperclip,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useExpenses, useCreateExpense, useUpdateExpense, useSubmitExpense, useDeleteExpense } from '@/hooks/useApi';
@@ -100,16 +100,18 @@ const AttachmentPreview: React.FC<{
   if (!files || files.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mt-2">
+    <div className="flex flex-wrap gap-2">
       {files.map((file, index) => (
         <div key={index} className="relative group">
-          <div className="w-16 h-16 border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
-            {file.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-              <img src={file} alt={`附件${index + 1}`} className="w-full h-full object-cover" />
-            ) : (
-              <Paperclip className="h-6 w-6 text-gray-400" />
-            )}
-          </div>
+          <a href={file} target="_blank" rel="noopener noreferrer">
+            <div className="w-16 h-16 border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center hover:opacity-80 transition-opacity">
+              {file.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                <img src={file} alt={`附件${index + 1}`} className="w-full h-full object-cover" />
+              ) : (
+                <Paperclip className="h-6 w-6 text-gray-400" />
+              )}
+            </div>
+          </a>
           {!readonly && onRemove && (
             <button
               type="button"
@@ -147,7 +149,8 @@ export default function TeacherExpensePage() {
       expenseDate: new Date().toISOString().split('T')[0],
       invoiceNo: '',
       invoiceImages: [] as string[],
-    }] as (ExpenseItem & { invoiceImages: string[] })[],
+      paymentProofs: [] as string[],
+    }] as (ExpenseItem & { invoiceImages: string[]; paymentProofs: string[] })[],
   });
 
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
@@ -159,7 +162,7 @@ export default function TeacherExpensePage() {
   const submitMutation = useSubmitExpense();
   const deleteMutation = useDeleteExpense();
 
-  // 过滤数据 - 显示所有报销，不按申请人筛选（模拟数据中没有当前用户）
+  // 过滤数据
   const filteredExpenses = (expenses || []).filter(e => {
     const matchesSearch = e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          e.expenseNo.toLowerCase().includes(searchTerm.toLowerCase());
@@ -175,13 +178,12 @@ export default function TeacherExpensePage() {
     totalAmount: (expenses || []).filter(e => e.status === 'completed').reduce((sum, e) => sum + e.totalAmount, 0),
   };
 
-  // 模拟文件上传（实际项目中应调用对象存储API）
-  const handleFileUpload = async (itemIndex: number, files: FileList) => {
+  // 模拟文件上传
+  const handleFileUpload = async (itemIndex: number, type: 'invoice' | 'payment', files: FileList) => {
     const newFiles: string[] = [];
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      // 模拟上传，生成一个临时的 blob URL
       const url = URL.createObjectURL(file);
       newFiles.push(url);
     }
@@ -190,19 +192,29 @@ export default function TeacherExpensePage() {
       ...prev,
       items: prev.items.map((item, i) => 
         i === itemIndex 
-          ? { ...item, invoiceImages: [...(item.invoiceImages || []), ...newFiles] }
+          ? { 
+              ...item, 
+              [type === 'invoice' ? 'invoiceImages' : 'paymentProofs']: [
+                ...(type === 'invoice' ? (item.invoiceImages || []) : (item.paymentProofs || [])), 
+                ...newFiles
+              ] 
+            }
           : item
       ),
     }));
   };
 
-  // 移除发票图片
-  const handleRemoveInvoiceImage = (itemIndex: number, imageIndex: number) => {
+  // 移除附件
+  const handleRemoveFile = (itemIndex: number, type: 'invoice' | 'payment', fileIndex: number) => {
     setFormData(prev => ({
       ...prev,
       items: prev.items.map((item, i) => 
         i === itemIndex 
-          ? { ...item, invoiceImages: item.invoiceImages?.filter((_, j) => j !== imageIndex) || [] }
+          ? { 
+              ...item, 
+              [type === 'invoice' ? 'invoiceImages' : 'paymentProofs']: 
+                (type === 'invoice' ? item.invoiceImages : item.paymentProofs)?.filter((_, j) => j !== fileIndex) || [] 
+            }
           : item
       ),
     }));
@@ -220,6 +232,7 @@ export default function TeacherExpensePage() {
         expenseDate: new Date().toISOString().split('T')[0],
         invoiceNo: '',
         invoiceImages: [],
+        paymentProofs: [],
       }],
     }));
   };
@@ -271,6 +284,7 @@ export default function TeacherExpensePage() {
           expenseDate: item.expenseDate,
           invoiceNo: item.invoiceNo,
           invoiceImages: item.invoiceImages,
+          paymentProofs: item.paymentProofs,
         })),
         totalAmount,
         applicantId: user?.id || 'teacher-001',
@@ -340,6 +354,7 @@ export default function TeacherExpensePage() {
         expenseDate: new Date().toISOString().split('T')[0],
         invoiceNo: '',
         invoiceImages: [],
+        paymentProofs: [],
       }],
     });
     setIsEditing(false);
@@ -356,6 +371,7 @@ export default function TeacherExpensePage() {
       items: expense.items.map(item => ({
         ...item,
         invoiceImages: item.invoiceImages || [],
+        paymentProofs: item.paymentProofs || [],
       })),
     });
     setIsEditing(true);
@@ -484,7 +500,7 @@ export default function TeacherExpensePage() {
                 <TableHead>标题</TableHead>
                 <TableHead>类别</TableHead>
                 <TableHead>金额</TableHead>
-                <TableHead>发票</TableHead>
+                <TableHead>附件</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead>提交时间</TableHead>
                 <TableHead className="text-right">操作</TableHead>
@@ -505,95 +521,99 @@ export default function TeacherExpensePage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredExpenses.map((expense) => (
-                  <TableRow key={expense.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium">{expense.expenseNo}</TableCell>
-                    <TableCell>{expense.title}</TableCell>
-                    <TableCell>
-                      {expenseCategories.find(c => c.id === expense.category)?.name || expense.category}
-                    </TableCell>
-                    <TableCell className="text-red-600 font-medium">¥{expense.totalAmount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      {expense.items.some(item => (item.invoiceImages?.length || 0) > 0 || item.invoiceNo) ? (
-                        <Badge className="bg-green-100 text-green-700">
-                          <Paperclip className="h-3 w-3 mr-1" />
-                          已上传
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-gray-400">未上传</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(expense.status)}</TableCell>
-                    <TableCell>{expense.submittedAt?.split('T')[0] || expense.createdAt.split('T')[0]}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewDetail(expense)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {expense.status === 'draft' && (
-                          <>
-                            <Button variant="ghost" size="sm" onClick={() => handleEdit(expense)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleDelete(expense.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleSubmitApproval(expense.id)}
-                              className="text-green-600 hover:text-green-700"
-                            >
-                              <Send className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                        {expense.status === 'rejected' && (
-                          <>
-                            <Button variant="ghost" size="sm" onClick={() => handleEdit(expense)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleDelete(expense.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredExpenses.map((expense) => {
+                  const hasInvoice = expense.items.some(item => (item.invoiceImages?.length || 0) > 0);
+                  const hasPayment = expense.items.some(item => (item.paymentProofs?.length || 0) > 0);
+                  return (
+                    <TableRow key={expense.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">{expense.expenseNo}</TableCell>
+                      <TableCell>{expense.title}</TableCell>
+                      <TableCell>
+                        {expenseCategories.find(c => c.id === expense.category)?.name || expense.category}
+                      </TableCell>
+                      <TableCell className="text-red-600 font-medium">¥{expense.totalAmount.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Badge variant={hasInvoice ? 'default' : 'outline'} className={hasInvoice ? 'bg-blue-100 text-blue-700 text-xs' : 'text-gray-400 text-xs'}>
+                            发票{hasInvoice ? '✓' : '✗'}
+                          </Badge>
+                          <Badge variant={hasPayment ? 'default' : 'outline'} className={hasPayment ? 'bg-green-100 text-green-700 text-xs' : 'text-gray-400 text-xs'}>
+                            支付{hasPayment ? '✓' : '✗'}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(expense.status)}</TableCell>
+                      <TableCell>{expense.submittedAt?.split('T')[0] || expense.createdAt.split('T')[0]}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewDetail(expense)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {expense.status === 'draft' && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(expense)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDelete(expense.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleSubmitApproval(expense.id)}
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                <Send className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                          {expense.status === 'rejected' && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(expense)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDelete(expense.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* 新建/编辑报销对话框 */}
+      {/* 新建/编辑报销对话框 - 横向大屏幕 */}
       <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[1200px] w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-xl">
               <Receipt className="h-5 w-5" />
               {isEditing ? '编辑报销申请' : '新建报销申请'}
             </DialogTitle>
             <DialogDescription>
-              填写报销信息，请确保上传发票扫描件或照片
+              填写报销信息，请上传发票和支付凭证
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             {/* 基本信息 */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>报销标题 *</Label>
                 <Input
@@ -620,12 +640,20 @@ export default function TeacherExpensePage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>报销说明</Label>
+                <Input
+                  placeholder="简要说明"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
             </div>
 
-            {/* 报销明细 */}
+            {/* 报销明细 - 横向布局 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>报销明细 *</Label>
+                <Label className="text-base font-semibold">报销明细 *</Label>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddItem}>
                   <Plus className="h-4 w-4 mr-1" />
                   添加项目
@@ -634,46 +662,49 @@ export default function TeacherExpensePage() {
               
               <div className="border rounded-lg divide-y">
                 {formData.items.map((item, index) => (
-                  <div key={item.id} className="p-4 space-y-3">
-                    <div className="grid grid-cols-12 gap-3">
-                      <div className="col-span-4">
-                        <Label className="text-xs text-gray-500">项目名称</Label>
-                        <Input
-                          placeholder="项目名称"
-                          value={item.name}
-                          onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-xs text-gray-500">金额</Label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={item.amount || ''}
-                          onChange={(e) => handleItemChange(index, 'amount', parseFloat(e.target.value) || 0)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-xs text-gray-500">发生日期</Label>
-                        <Input
-                          type="date"
-                          value={item.expenseDate}
-                          onChange={(e) => handleItemChange(index, 'expenseDate', e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-xs text-gray-500">发票号</Label>
-                        <Input
-                          placeholder="发票号"
-                          value={item.invoiceNo || ''}
-                          onChange={(e) => handleItemChange(index, 'invoiceNo', e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="col-span-2 flex items-end">
+                  <div key={item.id} className="p-4">
+                    <div className="grid grid-cols-12 gap-4">
+                      {/* 左侧：基本信息 */}
+                      <div className="col-span-4 space-y-3">
+                        <div>
+                          <Label className="text-xs text-gray-500">项目名称</Label>
+                          <Input
+                            placeholder="项目名称"
+                            value={item.name}
+                            onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-gray-500">金额</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={item.amount || ''}
+                              onChange={(e) => handleItemChange(index, 'amount', parseFloat(e.target.value) || 0)}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-500">发生日期</Label>
+                            <Input
+                              type="date"
+                              value={item.expenseDate}
+                              onChange={(e) => handleItemChange(index, 'expenseDate', e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">发票号</Label>
+                          <Input
+                            placeholder="发票号（选填）"
+                            value={item.invoiceNo || ''}
+                            onChange={(e) => handleItemChange(index, 'invoiceNo', e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
                         {formData.items.length > 1 && (
                           <Button 
                             type="button" 
@@ -682,62 +713,106 @@ export default function TeacherExpensePage() {
                             onClick={() => handleRemoveItem(index)}
                             className="text-red-600 hover:text-red-700"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            删除此项
                           </Button>
                         )}
                       </div>
-                    </div>
-                    
-                    {/* 发票附件上传 */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs text-gray-500">发票附件</Label>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => fileInputRefs.current[`item-${index}`]?.click()}
-                        >
-                          <Upload className="h-3 w-3 mr-1" />
-                          上传发票
-                        </Button>
-                        <input
-                          ref={(el) => { fileInputRefs.current[`item-${index}`] = el; }}
-                          type="file"
-                          accept="image/*,.pdf"
-                          multiple
-                          className="hidden"
-                          onChange={(e) => e.target.files && handleFileUpload(index, e.target.files)}
-                        />
+                      
+                      {/* 右侧：附件上传 */}
+                      <div className="col-span-8 grid grid-cols-2 gap-4">
+                        {/* 发票附件 */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-gray-500 font-medium">
+                              <Paperclip className="h-3 w-3 inline mr-1" />
+                              发票附件
+                            </Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fileInputRefs.current[`invoice-${index}`]?.click()}
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              上传
+                            </Button>
+                            <input
+                              ref={(el) => { fileInputRefs.current[`invoice-${index}`] = el; }}
+                              type="file"
+                              accept="image/*,.pdf"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => e.target.files && handleFileUpload(index, 'invoice', e.target.files)}
+                            />
+                          </div>
+                          <div className="min-h-[80px] border rounded-lg p-2 bg-gray-50">
+                            <AttachmentPreview 
+                              files={item.invoiceImages || []} 
+                              onRemove={(fileIndex) => handleRemoveFile(index, 'invoice', fileIndex)}
+                            />
+                            {(!item.invoiceImages || item.invoiceImages.length === 0) && (
+                              <p className="text-xs text-gray-400 text-center py-4">点击上传发票扫描件或照片</p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* 支付凭证 */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-gray-500 font-medium">
+                              <CreditCard className="h-3 w-3 inline mr-1" />
+                              支付凭证
+                            </Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fileInputRefs.current[`payment-${index}`]?.click()}
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              上传
+                            </Button>
+                            <input
+                              ref={(el) => { fileInputRefs.current[`payment-${index}`] = el; }}
+                              type="file"
+                              accept="image/*,.pdf"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => e.target.files && handleFileUpload(index, 'payment', e.target.files)}
+                            />
+                          </div>
+                          <div className="min-h-[80px] border rounded-lg p-2 bg-gray-50">
+                            <AttachmentPreview 
+                              files={item.paymentProofs || []} 
+                              onRemove={(fileIndex) => handleRemoveFile(index, 'payment', fileIndex)}
+                            />
+                            {(!item.paymentProofs || item.paymentProofs.length === 0) && (
+                              <p className="text-xs text-gray-400 text-center py-4">上传支付截图（支付宝/微信/银行转账）</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <AttachmentPreview 
-                        files={item.invoiceImages || []} 
-                        onRemove={(imgIndex) => handleRemoveInvoiceImage(index, imgIndex)}
-                      />
-                      <p className="text-xs text-gray-400">支持上传发票扫描件或照片，可上传多张</p>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* 合计 */}
-              <div className="flex justify-end p-4 bg-gray-50 rounded-lg">
-                <div className="text-lg">
+              <div className="flex justify-end p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-lg border">
+                <div className="text-xl">
                   <span className="text-gray-500">合计金额：</span>
                   <span className="text-red-600 font-bold">¥{totalAmount.toLocaleString()}</span>
                 </div>
               </div>
             </div>
 
-            {/* 报销说明 */}
-            <div className="space-y-2">
-              <Label>报销说明</Label>
-              <Textarea
-                placeholder="请详细说明报销原因和用途..."
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                rows={3}
-              />
+            {/* 温馨提示 */}
+            <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="text-amber-700 text-sm">
+                <strong>温馨提示：</strong>请确保上传清晰的发票扫描件和支付凭证，以便审批人员快速审核。
+                支付凭证可以是支付宝、微信转账截图或银行转账记录等。
+              </p>
             </div>
           </div>
           
@@ -769,11 +844,11 @@ export default function TeacherExpensePage() {
         </DialogContent>
       </Dialog>
 
-      {/* 详情对话框 */}
+      {/* 详情对话框 - 横向大屏幕 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[1200px] w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-xl">
               <Receipt className="h-5 w-5" />
               报销详情
             </DialogTitle>
@@ -784,50 +859,61 @@ export default function TeacherExpensePage() {
           
           {selectedExpense && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              {/* 基本信息 - 横向布局 */}
+              <div className="grid grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div>
-                  <Label className="text-gray-500">报销标题</Label>
+                  <Label className="text-gray-500 text-xs">报销标题</Label>
                   <p className="font-medium">{selectedExpense.title}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">报销类别</Label>
+                  <Label className="text-gray-500 text-xs">报销类别</Label>
                   <p>{expenseCategories.find(c => c.id === selectedExpense.category)?.name}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">申请人</Label>
+                  <Label className="text-gray-500 text-xs">申请人</Label>
                   <p>{selectedExpense.applicantName}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">申请部门</Label>
+                  <Label className="text-gray-500 text-xs">申请部门</Label>
                   <p>{selectedExpense.department}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">当前状态</Label>
+                  <Label className="text-gray-500 text-xs">联系电话</Label>
+                  <p>{selectedExpense.phone || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500 text-xs">当前状态</Label>
                   {getStatusBadge(selectedExpense.status)}
                 </div>
                 <div>
-                  <Label className="text-gray-500">提交时间</Label>
+                  <Label className="text-gray-500 text-xs">提交时间</Label>
                   <p>{selectedExpense.submittedAt || selectedExpense.createdAt}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500 text-xs">总金额</Label>
+                  <p className="text-red-600 font-bold text-lg">¥{selectedExpense.totalAmount.toLocaleString()}</p>
                 </div>
               </div>
               
+              {/* 报销明细 - 横向表格带附件预览 */}
               <div>
-                <Label className="text-gray-500">报销明细</Label>
-                <div className="mt-2 border rounded-lg">
+                <Label className="text-gray-500 text-xs mb-2 block">报销明细及附件</Label>
+                <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>项目名称</TableHead>
-                        <TableHead>金额</TableHead>
-                        <TableHead>发票号</TableHead>
-                        <TableHead>发票附件</TableHead>
+                      <TableRow className="bg-gray-100">
+                        <TableHead className="w-[200px]">项目名称</TableHead>
+                        <TableHead className="w-[100px]">金额</TableHead>
+                        <TableHead className="w-[120px]">发票号</TableHead>
+                        <TableHead className="w-[150px]">发票附件</TableHead>
+                        <TableHead className="w-[150px]">支付凭证</TableHead>
                         <TableHead>发生日期</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedExpense.items.map(item => (
                         <TableRow key={item.id}>
-                          <TableCell>{item.name}</TableCell>
+                          <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell className="text-red-600">¥{item.amount.toLocaleString()}</TableCell>
                           <TableCell>{item.invoiceNo || '-'}</TableCell>
                           <TableCell>
@@ -835,19 +921,30 @@ export default function TeacherExpensePage() {
                               <div className="flex gap-1">
                                 {item.invoiceImages.map((img, i) => (
                                   <a key={i} href={img} target="_blank" rel="noopener noreferrer">
-                                    <img src={img} alt={`发票${i+1}`} className="w-10 h-10 object-cover rounded border hover:opacity-80" />
+                                    <img src={img} alt={`发票${i+1}`} className="w-12 h-12 object-cover rounded border hover:opacity-80 cursor-pointer" />
                                   </a>
                                 ))}
                               </div>
-                            ) : '-'}
+                            ) : <span className="text-gray-400 text-xs">无</span>}
+                          </TableCell>
+                          <TableCell>
+                            {item.paymentProofs && item.paymentProofs.length > 0 ? (
+                              <div className="flex gap-1">
+                                {item.paymentProofs.map((img, i) => (
+                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                    <img src={img} alt={`支付凭证${i+1}`} className="w-12 h-12 object-cover rounded border hover:opacity-80 cursor-pointer" />
+                                  </a>
+                                ))}
+                              </div>
+                            ) : <span className="text-gray-400 text-xs">无</span>}
                           </TableCell>
                           <TableCell>{item.expenseDate}</TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="bg-gray-50 font-semibold">
-                        <TableCell>合计</TableCell>
-                        <TableCell className="text-red-600">¥{selectedExpense.totalAmount.toLocaleString()}</TableCell>
-                        <TableCell colSpan={3}></TableCell>
+                      <TableRow className="bg-green-50">
+                        <TableCell className="font-bold">合计</TableCell>
+                        <TableCell className="text-red-600 font-bold">¥{selectedExpense.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell colSpan={4}></TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -855,45 +952,45 @@ export default function TeacherExpensePage() {
               </div>
               
               {selectedExpense.description && (
-                <div>
-                  <Label className="text-gray-500">报销说明</Label>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <Label className="text-gray-500 text-xs">报销说明</Label>
                   <p className="mt-1 text-gray-700">{selectedExpense.description}</p>
                 </div>
               )}
               
-              {/* 审批进度 */}
+              {/* 审批进度 - 横向步骤条 */}
               <div>
-                <Label className="text-gray-500">审批进度</Label>
-                <div className="mt-2 space-y-2">
+                <Label className="text-gray-500 text-xs mb-3 block">审批进度</Label>
+                <div className="flex items-center gap-2 p-4 bg-gray-50 rounded-lg overflow-x-auto">
                   {selectedExpense.approvalFlow.map((node, index) => {
                     const record = selectedExpense.approvalRecords.find(r => r.nodeId === node.id);
+                    const isLast = index === selectedExpense.approvalFlow.length - 1;
                     return (
-                      <div key={node.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
-                        <div className={`w-2 h-2 rounded-full ${
-                          node.status === 'approved' ? 'bg-green-500' : 
-                          node.status === 'rejected' ? 'bg-red-500' : 
-                          index === selectedExpense.currentStep ? 'bg-yellow-500' : 'bg-gray-300'
-                        }`} />
-                        <div className="flex-1">
-                          <span className="font-medium">{node.name}</span>
+                      <React.Fragment key={node.id}>
+                        <div className="flex flex-col items-center min-w-[120px]">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            node.status === 'approved' ? 'bg-green-500 text-white' : 
+                            node.status === 'rejected' ? 'bg-red-500 text-white' : 
+                            index === selectedExpense.currentStep ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-500'
+                          }`}>
+                            {node.status === 'approved' ? <CheckCircle className="h-5 w-5" /> :
+                             node.status === 'rejected' ? <XCircle className="h-5 w-5" /> :
+                             index + 1}
+                          </div>
+                          <span className="mt-2 text-sm font-medium">{node.name}</span>
                           {record && (
-                            <>
-                              <span className="text-gray-500 mx-2">-</span>
-                              <span>{record.approverName}</span>
-                              {record.comment && (
-                                <span className="text-gray-500 ml-2">({record.comment})</span>
-                              )}
-                            </>
+                            <span className="text-xs text-gray-500">{record.approverName}</span>
+                          )}
+                          {record?.comment && (
+                            <span className="text-xs text-gray-400 max-w-[100px] truncate">({record.comment})</span>
                           )}
                         </div>
-                        <div>
-                          {node.status === 'approved' && <Badge className="bg-green-100 text-green-700 text-xs">已通过</Badge>}
-                          {node.status === 'rejected' && <Badge className="bg-red-100 text-red-700 text-xs">已拒绝</Badge>}
-                          {node.status === 'pending' && index === selectedExpense.currentStep && (
-                            <Badge className="bg-yellow-100 text-yellow-700 text-xs">待审批</Badge>
-                          )}
-                        </div>
-                      </div>
+                        {!isLast && (
+                          <div className={`h-1 w-12 rounded ${
+                            node.status === 'approved' ? 'bg-green-500' : 'bg-gray-200'
+                          }`} />
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </div>
@@ -901,22 +998,23 @@ export default function TeacherExpensePage() {
               
               {/* 支付信息 */}
               {selectedExpense.status === 'completed' && (
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200 space-y-2">
-                  <div className="flex items-center gap-2 text-green-700 font-medium">
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 text-green-700 font-medium mb-2">
                     <CheckCircle className="h-4 w-4" />
                     已完成支付
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
                     <div><span className="text-gray-500">支付单号：</span>{selectedExpense.paymentNo}</div>
                     <div><span className="text-gray-500">支付时间：</span>{selectedExpense.paymentDate}</div>
+                    <div><span className="text-gray-500">处理人：</span>{selectedExpense.financeHandlerName}</div>
                   </div>
                   {selectedExpense.paymentVouchers && selectedExpense.paymentVouchers.length > 0 && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <span className="text-gray-500 text-sm">支付凭证：</span>
                       <div className="flex gap-2 mt-1">
                         {selectedExpense.paymentVouchers.map((v, i) => (
                           <a key={i} href={v} target="_blank" rel="noopener noreferrer">
-                            <img src={v} alt={`凭证${i+1}`} className="w-16 h-16 object-cover rounded border hover:opacity-80" />
+                            <img src={v} alt={`凭证${i+1}`} className="w-20 h-20 object-cover rounded border hover:opacity-80" />
                           </a>
                         ))}
                       </div>

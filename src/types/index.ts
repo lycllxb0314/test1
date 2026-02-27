@@ -2391,6 +2391,8 @@ export interface ExpenseItem {
   invoiceImage?: string;
   /** 发票图片列表 */
   invoiceImages?: string[];
+  /** 支付凭证（教师垫付款项的凭证，如支付宝/微信转账截图） */
+  paymentProofs?: string[];
   /** 发生日期 */
   expenseDate: string;
 }

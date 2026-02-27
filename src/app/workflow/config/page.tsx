@@ -19,6 +19,7 @@ import {
   FileText,
   Wrench,
   ShoppingCart,
+  Receipt,
   CheckCircle,
   User,
   Clock,
@@ -35,6 +36,7 @@ const workflowTypes = [
   { value: 'leave', label: '请假审批', icon: FileText, color: 'bg-blue-100 text-blue-600' },
   { value: 'repair', label: '报修审批', icon: Wrench, color: 'bg-orange-100 text-orange-600' },
   { value: 'purchase', label: '采购审批', icon: ShoppingCart, color: 'bg-green-100 text-green-600' },
+  { value: 'expense', label: '报销审批', icon: Receipt, color: 'bg-purple-100 text-purple-600' },
 ];
 
 export default function WorkflowConfigPage() {
