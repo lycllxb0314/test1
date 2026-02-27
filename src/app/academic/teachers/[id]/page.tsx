@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Tabs,
   TabsContent,
@@ -43,8 +44,11 @@ import {
   CheckCircle,
   Building,
   IdCard,
+  Save,
+  X,
 } from 'lucide-react';
 import { TeacherProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/types';
+import { toast } from 'sonner';
 
 // 模拟教师详细数据
 const mockTeacherProfile: TeacherProfile = {
@@ -152,46 +156,218 @@ const getRecordTypeInfo = (type: string) => {
   return typeMap[type] || typeMap.other;
 };
 
+// 表单字段类型
+interface FormData {
+  name: string;
+  gender: string;
+  birthDate: string;
+  ethnicity: string;
+  politicalStatus: string;
+  nativePlace: string;
+  phone: string;
+  email: string;
+  emergencyContact: string;
+  emergencyPhone: string;
+  address: string;
+  education: string;
+  school: string;
+  major: string;
+  graduationDate: string;
+  title: string;
+  titleDate: string;
+  department: string;
+  subjects: string;
+  status: string;
+}
+
 export default function TeacherDetailPage() {
   const params = useParams();
   const router = useRouter();
   const teacherId = params.id as string;
   
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    gender: '',
+    birthDate: '',
+    ethnicity: '',
+    politicalStatus: '',
+    nativePlace: '',
+    phone: '',
+    email: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    address: '',
+    education: '',
+    school: '',
+    major: '',
+    graduationDate: '',
+    title: '',
+    titleDate: '',
+    department: '',
+    subjects: '',
+    status: '',
+  });
 
   useEffect(() => {
     // 模拟加载教师数据
     setTeacher(mockTeacherProfile);
+    // 初始化表单数据
+    if (mockTeacherProfile) {
+      setFormData({
+        name: mockTeacherProfile.name ?? '',
+        gender: mockTeacherProfile.gender ?? '男',
+        birthDate: mockTeacherProfile.birthDate ?? '',
+        ethnicity: mockTeacherProfile.ethnicity ?? '',
+        politicalStatus: mockTeacherProfile.politicalStatus ?? '',
+        nativePlace: mockTeacherProfile.nativePlace ?? '',
+        phone: mockTeacherProfile.phone ?? '',
+        email: mockTeacherProfile.email ?? '',
+        emergencyContact: mockTeacherProfile.emergencyContact ?? '',
+        emergencyPhone: mockTeacherProfile.emergencyPhone ?? '',
+        address: mockTeacherProfile.address ?? '',
+        education: mockTeacherProfile.education ?? '',
+        school: mockTeacherProfile.school ?? '',
+        major: mockTeacherProfile.major ?? '',
+        graduationDate: mockTeacherProfile.graduationDate ?? '',
+        title: mockTeacherProfile.title ?? '',
+        titleDate: mockTeacherProfile.titleDate ?? '',
+        department: mockTeacherProfile.department ?? '',
+        subjects: mockTeacherProfile.subjects?.join('、') ?? '',
+        status: mockTeacherProfile.status ?? 'active',
+      });
+    }
   }, [teacherId]);
+
+  // 处理表单字段变化
+  const handleFieldChange = (field: keyof FormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // 保存编辑
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 更新本地数据
+      if (teacher) {
+        setTeacher({
+          ...teacher,
+          name: formData.name,
+          gender: formData.gender as '男' | '女',
+          birthDate: formData.birthDate,
+          ethnicity: formData.ethnicity,
+          politicalStatus: formData.politicalStatus,
+          nativePlace: formData.nativePlace,
+          phone: formData.phone,
+          email: formData.email,
+          emergencyContact: formData.emergencyContact,
+          emergencyPhone: formData.emergencyPhone,
+          address: formData.address,
+          education: formData.education,
+          school: formData.school,
+          major: formData.major,
+          graduationDate: formData.graduationDate,
+          title: formData.title,
+          titleDate: formData.titleDate,
+          department: formData.department,
+          subjects: formData.subjects.split('、').filter(s => s.trim()),
+          status: formData.status as TeacherProfile['status'],
+        });
+      }
+      
+      setIsEditing(false);
+      toast.success('保存成功');
+    } catch (error) {
+      toast.error('保存失败，请重试');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 取消编辑
+  const handleCancel = () => {
+    // 重置表单数据
+    if (teacher) {
+      setFormData({
+        name: teacher.name ?? '',
+        gender: teacher.gender ?? '男',
+        birthDate: teacher.birthDate ?? '',
+        ethnicity: teacher.ethnicity ?? '',
+        politicalStatus: teacher.politicalStatus ?? '',
+        nativePlace: teacher.nativePlace ?? '',
+        phone: teacher.phone ?? '',
+        email: teacher.email ?? '',
+        emergencyContact: teacher.emergencyContact ?? '',
+        emergencyPhone: teacher.emergencyPhone ?? '',
+        address: teacher.address ?? '',
+        education: teacher.education ?? '',
+        school: teacher.school ?? '',
+        major: teacher.major ?? '',
+        graduationDate: teacher.graduationDate ?? '',
+        title: teacher.title ?? '',
+        titleDate: teacher.titleDate ?? '',
+        department: teacher.department ?? '',
+        subjects: teacher.subjects?.join('、') ?? '',
+        status: teacher.status ?? 'active',
+      });
+    }
+    setIsEditing(false);
+  };
 
   if (!teacher) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-500">加载中...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">加载中...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-blue-50/30 via-white to-indigo-50/30 min-h-screen">
-      {/* 返回按钮 */}
-      <Button variant="ghost" className="gap-2 text-gray-600" onClick={() => router.back()}>
-        <ArrowLeft className="h-4 w-4" />
-        返回列表
-      </Button>
+    <div className="p-6 lg:p-8 space-y-6 min-h-screen">
+      {/* 返回按钮和操作区 */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" className="gap-2" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+          返回列表
+        </Button>
+        
+        <div className="flex items-center gap-2">
+          {isEditing ? (
+            <>
+              <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+                <X className="h-4 w-4 mr-1" />
+                取消
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                <Save className="h-4 w-4 mr-1" />
+                {isSaving ? '保存中...' : '保存'}
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => setIsEditing(true)}>
+              <Edit className="h-4 w-4 mr-1" />
+              编辑信息
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* 教师基本信息卡片 */}
-      <Card className="border-0 shadow-lg">
+      <Card className="shadow-lg">
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-6">
             {/* 头像 */}
             <div className="flex-shrink-0">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
                 {teacher.name.charAt(0)}
               </div>
             </div>
@@ -200,49 +376,104 @@ export default function TeacherDetailPage() {
             <div className="flex-1">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{teacher.name}</h1>
-                  <p className="text-gray-500 mt-1">{teacher.title} · {teacher.department}</p>
+                  {isEditing ? (
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => handleFieldChange('name', e.target.value)}
+                      className="text-2xl font-bold w-48"
+                    />
+                  ) : (
+                    <h1 className="text-2xl font-bold">{teacher.name}</h1>
+                  )}
+                  <p className="text-muted-foreground mt-1">{teacher.title} · {teacher.department}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {getStatusBadge(teacher.status)}
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Edit className="h-4 w-4" />
-                    编辑
-                  </Button>
+                  {isEditing ? (
+                    <Select value={formData.status} onValueChange={(v) => handleFieldChange('status', v)}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">在职</SelectItem>
+                        <SelectItem value="on_leave">请假</SelectItem>
+                        <SelectItem value="retired">退休</SelectItem>
+                        <SelectItem value="transferred">调离</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    getStatusBadge(teacher.status)
+                  )}
                 </div>
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <IdCard className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <IdCard className="h-4 w-4" />
                   <span>工号：{teacher.employeeId}</span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <User className="h-4 w-4 text-gray-400" />
-                  <span>{teacher.gender} · {teacher.ethnicity}</span>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  {isEditing ? (
+                    <Select value={formData.gender} onValueChange={(v) => handleFieldChange('gender', v)}>
+                      <SelectTrigger className="w-20 h-6 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="男">男</SelectItem>
+                        <SelectItem value="女">女</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span>{teacher.gender} · {teacher.ethnicity}</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                  <span>{teacher.phone}</span>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                  {isEditing ? (
+                    <Input
+                      value={formData.phone}
+                      onChange={(e) => handleFieldChange('phone', e.target.value)}
+                      className="h-6 text-xs w-32"
+                    />
+                  ) : (
+                    <span>{teacher.phone}</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  <span>{teacher.email}</span>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                  {isEditing ? (
+                    <Input
+                      value={formData.email}
+                      onChange={(e) => handleFieldChange('email', e.target.value)}
+                      className="h-6 text-xs w-48"
+                    />
+                  ) : (
+                    <span>{teacher.email}</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <GraduationCap className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <GraduationCap className="h-4 w-4" />
                   <span>{teacher.education} · {teacher.major}</span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Clock className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4" />
                   <span>教龄 {teacher.teachYears} 年</span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <BookOpen className="h-4 w-4 text-gray-400" />
-                  <span>任教学科：{teacher.subjects.join('、')}</span>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <BookOpen className="h-4 w-4" />
+                  {isEditing ? (
+                    <Input
+                      value={formData.subjects}
+                      onChange={(e) => handleFieldChange('subjects', e.target.value)}
+                      placeholder="多个学科用顿号分隔"
+                      className="h-6 text-xs w-32"
+                    />
+                  ) : (
+                    <span>任教学科：{teacher.subjects.join('、')}</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Calendar className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
                   <span>入职：{teacher.joinDate}</span>
                 </div>
               </div>
@@ -253,7 +484,7 @@ export default function TeacherDetailPage() {
 
       {/* 详情标签页 */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-white border rounded-lg p-1">
+        <TabsList className="bg-card border rounded-lg p-1">
           <TabsTrigger value="overview">个人概览</TabsTrigger>
           <TabsTrigger value="honors">荣誉奖项</TabsTrigger>
           <TabsTrigger value="trainings">培训记录</TabsTrigger>
@@ -265,147 +496,275 @@ export default function TeacherDetailPage() {
         <TabsContent value="overview" className="space-y-4 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* 基本信息详情 */}
-            <Card className="border-0 shadow-md">
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5 text-blue-500" />
+                  <User className="h-5 w-5 text-primary" />
                   基本信息
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <Label className="text-gray-500">姓名</Label>
-                    <p className="font-medium">{teacher.name}</p>
+                    <Label className="text-muted-foreground">姓名</Label>
+                    {isEditing ? (
+                      <Input value={formData.name} onChange={(e) => handleFieldChange('name', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.name}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">性别</Label>
-                    <p className="font-medium">{teacher.gender}</p>
+                    <Label className="text-muted-foreground">性别</Label>
+                    {isEditing ? (
+                      <Select value={formData.gender} onValueChange={(v) => handleFieldChange('gender', v)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="男">男</SelectItem>
+                          <SelectItem value="女">女</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium">{teacher.gender}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">出生日期</Label>
-                    <p className="font-medium">{teacher.birthDate}</p>
+                    <Label className="text-muted-foreground">出生日期</Label>
+                    {isEditing ? (
+                      <Input type="date" value={formData.birthDate} onChange={(e) => handleFieldChange('birthDate', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.birthDate}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">民族</Label>
-                    <p className="font-medium">{teacher.ethnicity}</p>
+                    <Label className="text-muted-foreground">民族</Label>
+                    {isEditing ? (
+                      <Input value={formData.ethnicity} onChange={(e) => handleFieldChange('ethnicity', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.ethnicity}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">政治面貌</Label>
-                    <p className="font-medium">{teacher.politicalStatus}</p>
+                    <Label className="text-muted-foreground">政治面貌</Label>
+                    {isEditing ? (
+                      <Select value={formData.politicalStatus} onValueChange={(v) => handleFieldChange('politicalStatus', v)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="中共党员">中共党员</SelectItem>
+                          <SelectItem value="共青团员">共青团员</SelectItem>
+                          <SelectItem value="群众">群众</SelectItem>
+                          <SelectItem value="民主党派">民主党派</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium">{teacher.politicalStatus}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">籍贯</Label>
-                    <p className="font-medium">{teacher.nativePlace}</p>
+                    <Label className="text-muted-foreground">籍贯</Label>
+                    {isEditing ? (
+                      <Input value={formData.nativePlace} onChange={(e) => handleFieldChange('nativePlace', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.nativePlace}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* 联系信息 */}
-            <Card className="border-0 shadow-md">
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-green-500" />
+                  <Phone className="h-5 w-5 text-primary" />
                   联系信息
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <Label className="text-gray-500">联系电话</Label>
-                    <p className="font-medium">{teacher.phone}</p>
+                    <Label className="text-muted-foreground">联系电话</Label>
+                    {isEditing ? (
+                      <Input value={formData.phone} onChange={(e) => handleFieldChange('phone', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.phone}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">电子邮箱</Label>
-                    <p className="font-medium">{teacher.email}</p>
+                    <Label className="text-muted-foreground">电子邮箱</Label>
+                    {isEditing ? (
+                      <Input value={formData.email} onChange={(e) => handleFieldChange('email', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.email}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">紧急联系人</Label>
-                    <p className="font-medium">{teacher.emergencyContact}</p>
+                    <Label className="text-muted-foreground">紧急联系人</Label>
+                    {isEditing ? (
+                      <Input value={formData.emergencyContact} onChange={(e) => handleFieldChange('emergencyContact', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.emergencyContact}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">紧急联系电话</Label>
-                    <p className="font-medium">{teacher.emergencyPhone}</p>
+                    <Label className="text-muted-foreground">紧急联系电话</Label>
+                    {isEditing ? (
+                      <Input value={formData.emergencyPhone} onChange={(e) => handleFieldChange('emergencyPhone', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.emergencyPhone}</p>
+                    )}
                   </div>
                   <div className="col-span-2">
-                    <Label className="text-gray-500">家庭住址</Label>
-                    <p className="font-medium">{teacher.address}</p>
+                    <Label className="text-muted-foreground">家庭住址</Label>
+                    {isEditing ? (
+                      <Textarea value={formData.address} onChange={(e) => handleFieldChange('address', e.target.value)} rows={2} />
+                    ) : (
+                      <p className="font-medium">{teacher.address}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* 学历职称 */}
-            <Card className="border-0 shadow-md">
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-purple-500" />
+                  <GraduationCap className="h-5 w-5 text-primary" />
                   学历职称
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <Label className="text-gray-500">学历</Label>
-                    <p className="font-medium">{teacher.education}</p>
+                    <Label className="text-muted-foreground">学历</Label>
+                    {isEditing ? (
+                      <Select value={formData.education} onValueChange={(v) => handleFieldChange('education', v)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="专科">专科</SelectItem>
+                          <SelectItem value="本科">本科</SelectItem>
+                          <SelectItem value="硕士">硕士</SelectItem>
+                          <SelectItem value="博士">博士</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium">{teacher.education}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">职称</Label>
-                    <p className="font-medium">{teacher.title}</p>
+                    <Label className="text-muted-foreground">职称</Label>
+                    {isEditing ? (
+                      <Select value={formData.title} onValueChange={(v) => handleFieldChange('title', v)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="二级教师">二级教师</SelectItem>
+                          <SelectItem value="一级教师">一级教师</SelectItem>
+                          <SelectItem value="高级教师">高级教师</SelectItem>
+                          <SelectItem value="正高级教师">正高级教师</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium">{teacher.title}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">毕业院校</Label>
-                    <p className="font-medium">{teacher.school}</p>
+                    <Label className="text-muted-foreground">毕业院校</Label>
+                    {isEditing ? (
+                      <Input value={formData.school} onChange={(e) => handleFieldChange('school', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.school}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">专业</Label>
-                    <p className="font-medium">{teacher.major}</p>
+                    <Label className="text-muted-foreground">专业</Label>
+                    {isEditing ? (
+                      <Input value={formData.major} onChange={(e) => handleFieldChange('major', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.major}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">毕业时间</Label>
-                    <p className="font-medium">{teacher.graduationDate}</p>
+                    <Label className="text-muted-foreground">毕业时间</Label>
+                    {isEditing ? (
+                      <Input type="month" value={formData.graduationDate} onChange={(e) => handleFieldChange('graduationDate', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.graduationDate}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">职称取得时间</Label>
-                    <p className="font-medium">{teacher.titleDate}</p>
+                    <Label className="text-muted-foreground">职称取得时间</Label>
+                    {isEditing ? (
+                      <Input type="date" value={formData.titleDate} onChange={(e) => handleFieldChange('titleDate', e.target.value)} />
+                    ) : (
+                      <p className="font-medium">{teacher.titleDate}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* 工作信息 */}
-            <Card className="border-0 shadow-md">
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-orange-500" />
+                  <Briefcase className="h-5 w-5 text-primary" />
                   工作信息
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <Label className="text-gray-500">工号</Label>
+                    <Label className="text-muted-foreground">工号</Label>
                     <p className="font-medium">{teacher.employeeId}</p>
                   </div>
                   <div>
-                    <Label className="text-gray-500">教研组</Label>
-                    <p className="font-medium">{teacher.department}</p>
+                    <Label className="text-muted-foreground">教研组</Label>
+                    {isEditing ? (
+                      <Select value={formData.department} onValueChange={(v) => handleFieldChange('department', v)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="语文组">语文组</SelectItem>
+                          <SelectItem value="数学组">数学组</SelectItem>
+                          <SelectItem value="英语组">英语组</SelectItem>
+                          <SelectItem value="科学组">科学组</SelectItem>
+                          <SelectItem value="音乐组">音乐组</SelectItem>
+                          <SelectItem value="体育组">体育组</SelectItem>
+                          <SelectItem value="美术组">美术组</SelectItem>
+                          <SelectItem value="信息组">信息组</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium">{teacher.department}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">任教学科</Label>
-                    <p className="font-medium">{teacher.subjects.join('、')}</p>
+                    <Label className="text-muted-foreground">任教学科</Label>
+                    {isEditing ? (
+                      <Input value={formData.subjects} onChange={(e) => handleFieldChange('subjects', e.target.value)} placeholder="多个学科用顿号分隔" />
+                    ) : (
+                      <p className="font-medium">{teacher.subjects.join('、')}</p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-gray-500">教龄</Label>
+                    <Label className="text-muted-foreground">教龄</Label>
                     <p className="font-medium">{teacher.teachYears} 年</p>
                   </div>
                   <div>
-                    <Label className="text-gray-500">入职时间</Label>
+                    <Label className="text-muted-foreground">入职时间</Label>
                     <p className="font-medium">{teacher.joinDate}</p>
                   </div>
                   <div>
-                    <Label className="text-gray-500">是否班主任</Label>
+                    <Label className="text-muted-foreground">是否班主任</Label>
                     <p className="font-medium">{teacher.isHeadTeacher ? `是（${teacher.className}）` : '否'}</p>
                   </div>
                 </div>
@@ -414,31 +773,31 @@ export default function TeacherDetailPage() {
           </div>
 
           {/* 统计概览 */}
-          <Card className="border-0 shadow-md">
+          <Card className="shadow-md">
             <CardHeader>
               <CardTitle className="text-lg">数据概览</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{teacher.honors.length}</div>
-                  <div className="text-sm text-gray-600 mt-1">荣誉奖项</div>
+                <div className="text-center p-4 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{teacher.honors.length}</div>
+                  <div className="text-sm text-muted-foreground mt-1">荣誉奖项</div>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{teacher.trainings.filter(t => t.status === '已完成').length}</div>
-                  <div className="text-sm text-gray-600 mt-1">培训完成</div>
+                <div className="text-center p-4 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{teacher.trainings.filter(t => t.status === '已完成').length}</div>
+                  <div className="text-sm text-muted-foreground mt-1">培训完成</div>
                 </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">{teacher.achievements.length}</div>
-                  <div className="text-sm text-gray-600 mt-1">教学成果</div>
+                <div className="text-center p-4 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{teacher.achievements.length}</div>
+                  <div className="text-sm text-muted-foreground mt-1">教学成果</div>
                 </div>
-                <div className="text-center p-4 bg-orange-50 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-600">{teacher.trainings.reduce((sum, t) => sum + t.hours, 0)}</div>
-                  <div className="text-sm text-gray-600 mt-1">培训学时</div>
+                <div className="text-center p-4 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{teacher.trainings.reduce((sum, t) => sum + t.hours, 0)}</div>
+                  <div className="text-sm text-muted-foreground mt-1">培训学时</div>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">{teacher.honors.filter(h => h.level === '省级' || h.level === '国家级').length}</div>
-                  <div className="text-sm text-gray-600 mt-1">省级以上荣誉</div>
+                <div className="text-center p-4 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{teacher.honors.filter(h => h.level === '省级' || h.level === '国家级').length}</div>
+                  <div className="text-sm text-muted-foreground mt-1">省级以上荣誉</div>
                 </div>
               </div>
             </CardContent>
@@ -447,11 +806,11 @@ export default function TeacherDetailPage() {
 
         {/* 荣誉奖项 */}
         <TabsContent value="honors" className="space-y-4 mt-4">
-          <Card className="border-0 shadow-md">
+          <Card className="shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  <Trophy className="h-5 w-5 text-primary" />
                   荣誉奖项
                 </CardTitle>
                 <Button variant="outline" size="sm" className="gap-1">
@@ -463,7 +822,7 @@ export default function TeacherDetailPage() {
             <CardContent>
               <div className="space-y-3">
                 {teacher.honors.map(honor => (
-                  <div key={honor.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div key={honor.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
                     <div className={`px-3 py-1 rounded-full text-sm font-medium ${getHonorLevelColor(honor.level)}`}>
                       {honor.level}
                     </div>
@@ -472,13 +831,17 @@ export default function TeacherDetailPage() {
                         <span className="font-medium">{honor.title}</span>
                         <Badge variant="outline">{honor.category}</Badge>
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="text-sm text-muted-foreground mt-1">
                         {honor.issuer && <span>颁发单位：{honor.issuer} · </span>}
                         获得时间：{honor.date}
                       </div>
                       {honor.certificateNo && (
-                        <div className="text-xs text-gray-400 mt-1">证书编号：{honor.certificateNo}</div>
+                        <div className="text-xs text-muted-foreground mt-1">证书编号：{honor.certificateNo}</div>
                       )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">编辑</Button>
+                      <Button variant="ghost" size="sm" className="text-destructive">删除</Button>
                     </div>
                   </div>
                 ))}
@@ -489,11 +852,11 @@ export default function TeacherDetailPage() {
 
         {/* 培训记录 */}
         <TabsContent value="trainings" className="space-y-4 mt-4">
-          <Card className="border-0 shadow-md">
+          <Card className="shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-green-500" />
+                  <BookOpen className="h-5 w-5 text-primary" />
                   培训记录
                 </CardTitle>
                 <Button variant="outline" size="sm" className="gap-1">
@@ -505,7 +868,7 @@ export default function TeacherDetailPage() {
             <CardContent>
               <div className="space-y-3">
                 {teacher.trainings.map(training => (
-                  <div key={training.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div key={training.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{training.name}</span>
@@ -514,10 +877,10 @@ export default function TeacherDetailPage() {
                           {training.status}
                         </Badge>
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="text-sm text-muted-foreground mt-1">
                         主办单位：{training.organizer} · 时间：{training.startDate} 至 {training.endDate}
                       </div>
-                      <div className="text-sm text-gray-400 mt-1">
+                      <div className="text-sm text-muted-foreground mt-1">
                         学时：{training.hours} 小时
                         {training.certificate && <span className="ml-4 text-green-600">已获得证书</span>}
                       </div>
@@ -531,11 +894,11 @@ export default function TeacherDetailPage() {
 
         {/* 教学成果 */}
         <TabsContent value="achievements" className="space-y-4 mt-4">
-          <Card className="border-0 shadow-md">
+          <Card className="shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="h-5 w-5 text-purple-500" />
+                  <Target className="h-5 w-5 text-primary" />
                   教学成果
                 </CardTitle>
                 <Button variant="outline" size="sm" className="gap-1">
@@ -547,7 +910,7 @@ export default function TeacherDetailPage() {
             <CardContent>
               <div className="space-y-3">
                 {teacher.achievements.map(achievement => (
-                  <div key={achievement.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div key={achievement.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <Badge className={
@@ -564,12 +927,12 @@ export default function TeacherDetailPage() {
                           <Badge className="bg-yellow-100 text-yellow-700">{achievement.result}</Badge>
                         )}
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="text-sm text-muted-foreground mt-1">
                         {achievement.level && <span>级别：{achievement.level} · </span>}
                         时间：{achievement.date}
                       </div>
                       {achievement.description && (
-                        <div className="text-sm text-gray-400 mt-1">{achievement.description}</div>
+                        <div className="text-sm text-muted-foreground mt-1">{achievement.description}</div>
                       )}
                     </div>
                   </div>
@@ -581,11 +944,11 @@ export default function TeacherDetailPage() {
 
         {/* 成长档案 */}
         <TabsContent value="records" className="space-y-4 mt-4">
-          <Card className="border-0 shadow-md">
+          <Card className="shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-indigo-500" />
+                  <FileText className="h-5 w-5 text-primary" />
                   成长档案
                 </CardTitle>
                 <Button variant="outline" size="sm" className="gap-1">
@@ -597,7 +960,7 @@ export default function TeacherDetailPage() {
             <CardContent>
               <div className="relative">
                 {/* 时间线 */}
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border"></div>
                 
                 <div className="space-y-4">
                   {teacher.records.sort((a, b) => b.date.localeCompare(a.date)).map(record => {
@@ -606,18 +969,18 @@ export default function TeacherDetailPage() {
                     return (
                       <div key={record.id} className="relative flex items-start gap-4 pl-10">
                         {/* 时间线节点 */}
-                        <div className={`absolute left-2.5 w-3 h-3 rounded-full bg-white border-2 border-gray-300`}></div>
+                        <div className={`absolute left-2.5 w-3 h-3 rounded-full bg-background border-2 border-border`}></div>
                         
-                        <div className="flex-1 p-4 bg-gray-50 rounded-lg">
+                        <div className="flex-1 p-4 bg-muted/30 rounded-lg">
                           <div className="flex items-center gap-2">
                             <Icon className={`h-4 w-4 ${typeInfo.color}`} />
                             <Badge variant="outline" className="text-xs">{typeInfo.label}</Badge>
                             <span className="font-medium">{record.title}</span>
                           </div>
                           {record.description && (
-                            <p className="text-sm text-gray-500 mt-1">{record.description}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{record.description}</p>
                           )}
-                          <p className="text-xs text-gray-400 mt-2">{record.date}</p>
+                          <p className="text-xs text-muted-foreground mt-2">{record.date}</p>
                         </div>
                       </div>
                     );
