@@ -135,9 +135,9 @@ export const roleConfigs: Record<string, RoleConfig> = {
   parent: {
     id: 'parent',
     name: '家长',
-    description: '学生家长',
-    modules: [],
-    permissions: ['view'],
+    description: '学生家长，可查看子女信息、添加习惯养成记录、查看成绩',
+    modules: ['parent'],
+    permissions: ['view', 'edit'],
     avatar: '👨‍👩‍👧',
   },
 };
@@ -207,6 +207,12 @@ export const moduleNames: Record<ModuleType, { name: string; description: string
     description: '课表查看、学校通知、请假调课、班主任工作台',
     color: '#9B59B6',
     icon: 'Users',
+  },
+  parent: {
+    name: '家长端',
+    description: '子女信息、习惯养成、成绩查看、家校沟通',
+    color: '#00BCD4',
+    icon: 'Heart',
   },
   homepage: {
     name: '主页管理',

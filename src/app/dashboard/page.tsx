@@ -50,6 +50,12 @@ export default function DashboardPage() {
     return null;
   }
   
+  // 家长角色重定向到家长端
+  if (user && user.role === 'parent') {
+    router.push('/parent');
+    return null;
+  }
+  
   if (!user) return null;
 
   const roleConfig = roleConfigs[user.role];

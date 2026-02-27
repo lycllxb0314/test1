@@ -101,6 +101,7 @@ const generalNav: NavItem[] = [
 const academicNav: NavItem[] = [
   { name: '教务概览', href: '/academic', icon: LayoutDashboard, description: '教务工作看板' },
   { name: '学生管理', href: '/academic/students', icon: Users, description: '学生信息管理' },
+  { name: '新生注册', href: '/academic/enrollment', icon: UserPlus, description: '新生信息采集与注册', badge: '9月' },
   { name: '教师管理', href: '/academic/teachers', icon: UserCircle, description: '教师信息管理' },
   { name: '班级管理', href: '/academic/classes', icon: School, description: '班级信息管理' },
   { name: '智能排课', href: '/academic/schedule', icon: Calendar, description: '课程表管理' },
@@ -187,6 +188,16 @@ const homepageNav: NavItem[] = [
   { name: '区块设置', href: '/homepage/sections', icon: Edit, description: '内容区块设置' },
 ];
 
+// 家长端导航
+const parentNav: NavItem[] = [
+  { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
+  { name: '子女信息', href: '/parent/children', icon: Users, description: '子女信息管理' },
+  { name: '习惯养成', href: '/parent/habit', icon: Star, description: '添加习惯养成记录', badge: '特色' },
+  { name: '成绩查看', href: '/parent/grades', icon: BookOpen, description: '查看子女成绩' },
+  { name: '通知公告', href: '/parent/announcements', icon: Bell, description: '学校通知公告' },
+  { name: '新生注册', href: '/parent/enrollment', icon: UserPlus, description: '新生入学注册', badge: '9月' },
+];
+
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout, switchRole } = useAuth();
@@ -204,6 +215,8 @@ export function AppSidebar() {
       setActiveModule('moral');
     } else if (pathname.startsWith('/teacher')) {
       setActiveModule('teacher');
+    } else if (pathname.startsWith('/parent')) {
+      setActiveModule('parent');
     } else if (pathname.startsWith('/workflow')) {
       setActiveModule('workflow');
     } else if (pathname.startsWith('/homepage')) {
@@ -239,6 +252,8 @@ export function AppSidebar() {
         }
         // 普通教师只有基础功能
         return teacherBaseNav;
+      case 'parent':
+        return parentNav;
       case 'workflow':
         return workflowNav;
       case 'homepage':
@@ -277,7 +292,7 @@ export function AppSidebar() {
           {/* 模块菜单 */}
           <nav className="flex-1 space-y-1 p-2">
             {/* 领导驾驶舱 / 工作台 - 根据角色跳转不同页面 */}
-            {user.role !== 'teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && (
+            {user.role !== 'teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && user.role !== 'parent' && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -314,8 +329,8 @@ export function AppSidebar() {
               </Tooltip>
             )}
 
-            {/* 分割线 - 教师角色不需要分割线 */}
-            {user.role !== 'teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && (
+            {/* 分割线 - 教师和家长角色不需要分割线 */}
+            {user.role !== 'teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && user.role !== 'parent' && (
               <div className="my-2 border-t border-gray-200" />
             )}
 
@@ -432,6 +447,35 @@ export function AppSidebar() {
                   </button>
                 </TooltipTrigger>
                 {collapsed && <TooltipContent side="right">教师空间</TooltipContent>}
+              </Tooltip>
+            )}
+
+            {/* 家长端 */}
+            {roleConfig.modules.includes('parent') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setActiveModule(activeModule === 'parent' ? null : 'parent')}
+                    className={cn(
+                      'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                      activeModule === 'parent'
+                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                        : 'text-gray-700 hover:bg-cyan-50 hover:text-cyan-600'
+                    )}
+                  >
+                    <Heart className="h-5 w-5" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left">家长端</span>
+                        <ChevronRight className={cn(
+                          'h-4 w-4 transition-transform',
+                          activeModule === 'parent' && 'rotate-90'
+                        )} />
+                      </>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                {collapsed && <TooltipContent side="right">家长端</TooltipContent>}
               </Tooltip>
             )}
 
@@ -575,6 +619,7 @@ export function AppSidebar() {
                 {activeModule === 'academic' && '教务教研'}
                 {activeModule === 'moral' && '德育管理'}
                 {activeModule === 'teacher' && '教师空间'}
+                {activeModule === 'parent' && '家长端'}
                 {activeModule === 'workflow' && '审批中心'}
                 {activeModule === 'homepage' && '主页管理'}
               </span>
