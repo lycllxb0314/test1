@@ -77,7 +77,29 @@
 | `/api/repair-requests` | GET/POST/PUT | 维修申请列表/创建/更新 |
 | `/api/assets` | GET/POST/PUT/DELETE | 资产列表/创建/更新/删除 |
 
-### 8. 主页管理模块 (Homepage)
+### 8. 门禁管理模块 (Access Control)
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/access/statistics` | GET | 门禁统计数据 |
+| `/api/access/devices` | GET/POST/PUT | 门禁设备列表/创建/更新 |
+| `/api/access/records` | GET | 通行记录列表 |
+| `/api/access/visitors` | GET/POST/PUT | 访客列表/预约/审批 |
+
+### 9. 德育管理模块 (Moral Education)
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/moral/activities` | GET/POST/PUT | 德育活动列表/创建/更新 |
+| `/api/moral/alerts` | GET/POST/PUT | 德育预警列表/创建/处理 |
+
+### 10. 通知消息模块 (Communications)
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/communications` | GET/POST/PUT | 通知消息列表/发送/标记已读 |
+
+### 11. 主页管理模块 (Homepage)
 
 | 接口 | 方法 | 描述 |
 |------|------|------|
@@ -101,7 +123,14 @@
 | `/api/migrate` | POST | 全量数据迁移 |
 | `/api/data-link` | GET/POST | 数据关联服务 |
 
-### 11. 文件服务模块 (File Service)
+### 12. 数据迁移模块 (Migration)
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/migrate` | POST | 全量数据迁移 |
+| `/api/data-link` | GET/POST | 数据关联服务 |
+
+### 13. 文件服务模块 (File Service)
 
 | 接口 | 方法 | 描述 |
 |------|------|------|
@@ -154,6 +183,69 @@ useRoomCalendar(roomId, startDate, endDate) // 获取教室日历
 // 预约操作
 createRoomBooking(booking)  // 创建预约
 approveRoomBooking(id, action, ...) // 审批预约
+```
+
+### 4. 习惯养成 Hooks (`useHabitData.ts`)
+
+```typescript
+// 统计数据
+useSchoolHabitStats(month?) // 获取全校习惯统计
+
+// 目标管理
+useHabitGoals(filters?)   // 获取小目标列表
+
+// 习惯之星
+useHabitStars(filters?)   // 获取习惯之星列表
+
+// 评价记录
+useHabitAssessments(filters?) // 获取评价记录
+```
+
+### 5. 门禁管理 Hooks (`useAccessData.ts`)
+
+```typescript
+// 统计数据
+useAccessStatistics(date?) // 获取门禁统计
+
+// 设备管理
+useAccessDevices(filters?) // 获取设备列表
+
+// 通行记录
+useAccessRecords(filters?) // 获取通行记录
+
+// 访客管理
+useVisitors(filters?)     // 获取访客列表
+createVisitor(data)       // 创建访客预约
+approveVisitor(id, action, ...) // 审批访客
+visitorCheckInOut(id, action) // 访客签到/签退
+```
+
+### 6. 德育管理 Hooks (`useMoralData.ts`)
+
+```typescript
+// 德育活动
+useMoralActivities(filters?) // 获取活动列表
+createMoralActivity(data)    // 创建活动
+
+// 德育预警
+useMoralAlerts(filters?)     // 获取预警列表
+createMoralAlert(data)       // 创建预警
+handleMoralAlert(id, ...)    // 处理预警
+```
+
+### 7. 总务管理 Hooks (`useGeneralAffairsData.ts`)
+
+```typescript
+// 维修申请
+useRepairRequests(filters?)  // 获取维修申请列表
+createRepairRequest(data)    // 创建维修申请
+updateRepairRequest(id, data) // 更新维修申请
+
+// 资产管理
+useAssets(filters?)   // 获取资产列表
+createAsset(data)     // 创建资产
+updateAsset(id, data) // 更新资产
+deleteAsset(id)       // 删除资产
 ```
 
 ### 4. 习惯养成 Hooks (`useHabitData.ts`)
