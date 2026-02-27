@@ -49,6 +49,11 @@ import {
   X,
   Paperclip,
   CreditCard,
+  User,
+  Building2,
+  Phone,
+  Calendar,
+  ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useExpenses, useCreateExpense, useUpdateExpense, useSubmitExpense, useDeleteExpense } from '@/hooks/useApi';
@@ -844,112 +849,159 @@ export default function TeacherExpensePage() {
         </DialogContent>
       </Dialog>
 
-      {/* 详情对话框 - 横向大屏幕 */}
+      {/* 详情对话框 - 全屏大屏显示 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-[1200px] w-[95vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Receipt className="h-5 w-5" />
-              报销详情
-            </DialogTitle>
-            <DialogDescription>
-              {selectedExpense?.expenseNo}
-            </DialogDescription>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 gap-0">
+          <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-green-50 to-emerald-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-100">
+                  <Receipt className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl">报销详情</DialogTitle>
+                  <DialogDescription className="text-sm">
+                    {selectedExpense?.expenseNo}
+                  </DialogDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                {selectedExpense && getStatusBadge(selectedExpense.status)}
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">总金额</p>
+                  <p className="text-2xl font-bold text-red-600">¥{selectedExpense?.totalAmount.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
           </DialogHeader>
           
           {selectedExpense && (
-            <div className="space-y-4">
-              {/* 基本信息 - 横向布局 */}
-              <div className="grid grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <Label className="text-gray-500 text-xs">报销标题</Label>
-                  <p className="font-medium">{selectedExpense.title}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500 text-xs">报销类别</Label>
-                  <p>{expenseCategories.find(c => c.id === selectedExpense.category)?.name}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500 text-xs">申请人</Label>
-                  <p>{selectedExpense.applicantName}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500 text-xs">申请部门</Label>
-                  <p>{selectedExpense.department}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500 text-xs">联系电话</Label>
-                  <p>{selectedExpense.phone || '-'}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500 text-xs">当前状态</Label>
-                  {getStatusBadge(selectedExpense.status)}
-                </div>
-                <div>
-                  <Label className="text-gray-500 text-xs">提交时间</Label>
-                  <p>{selectedExpense.submittedAt || selectedExpense.createdAt}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500 text-xs">总金额</Label>
-                  <p className="text-red-600 font-bold text-lg">¥{selectedExpense.totalAmount.toLocaleString()}</p>
-                </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* 第一行：申请信息卡片 - 大卡片 */}
+              <div className="grid grid-cols-2 gap-6">
+                {/* 申请人信息 */}
+                <Card className="shadow-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <User className="h-4 w-4 text-green-600" />
+                      申请人信息
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-400">申请人</Label>
+                      <p className="text-lg font-medium">{selectedExpense.applicantName}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-400">所属部门</Label>
+                      <p className="text-lg font-medium">{selectedExpense.department}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-400">联系电话</Label>
+                      <p className="text-lg font-medium">{selectedExpense.phone || '-'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-400">申请时间</Label>
+                      <p className="text-lg font-medium">{selectedExpense.submittedAt || selectedExpense.createdAt}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 报销信息 */}
+                <Card className="shadow-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-green-600" />
+                      报销信息
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-400">报销标题</Label>
+                      <p className="text-lg font-medium">{selectedExpense.title}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-400">报销类别</Label>
+                      <p className="text-lg font-medium">{expenseCategories.find(c => c.id === selectedExpense.category)?.name}</p>
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs text-gray-400">报销说明</Label>
+                      <p className="text-base">{selectedExpense.description || '无'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-              
-              {/* 报销明细 - 横向表格带附件预览 */}
-              <div>
-                <Label className="text-gray-500 text-xs mb-2 block">报销明细及附件</Label>
-                <div className="border rounded-lg overflow-hidden">
+
+              {/* 第二行：报销明细 - 全宽表格 */}
+              <Card className="shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                    报销明细及附件
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-100">
-                        <TableHead className="w-[200px]">项目名称</TableHead>
-                        <TableHead className="w-[100px]">金额</TableHead>
-                        <TableHead className="w-[120px]">发票号</TableHead>
-                        <TableHead className="w-[150px]">发票附件</TableHead>
-                        <TableHead className="w-[150px]">支付凭证</TableHead>
-                        <TableHead>发生日期</TableHead>
+                        <TableHead className="w-[250px] text-sm">项目名称</TableHead>
+                        <TableHead className="w-[120px] text-sm">金额</TableHead>
+                        <TableHead className="w-[140px] text-sm">发票号</TableHead>
+                        <TableHead className="w-[200px] text-sm">发票附件</TableHead>
+                        <TableHead className="w-[200px] text-sm">支付凭证</TableHead>
+                        <TableHead className="w-[120px] text-sm">发生日期</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedExpense.items.map(item => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell className="text-red-600">¥{item.amount.toLocaleString()}</TableCell>
+                        <TableRow key={item.id} className="hover:bg-gray-50">
+                          <TableCell className="font-medium text-base">{item.name}</TableCell>
+                          <TableCell className="text-red-600 font-bold text-base">¥{item.amount.toLocaleString()}</TableCell>
                           <TableCell>{item.invoiceNo || '-'}</TableCell>
                           <TableCell>
                             {item.invoiceImages && item.invoiceImages.length > 0 ? (
-                              <div className="flex gap-1">
+                              <div className="flex gap-2">
                                 {item.invoiceImages.map((img, i) => (
-                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer">
-                                    <img src={img} alt={`发票${i+1}`} className="w-12 h-12 object-cover rounded border hover:opacity-80 cursor-pointer" />
+                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="group">
+                                    <div className="relative">
+                                      <img src={img} alt={`发票${i+1}`} className="w-16 h-16 object-cover rounded-lg border-2 border-transparent group-hover:border-blue-400 transition-all cursor-pointer" />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-all flex items-center justify-center">
+                                        <Eye className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </div>
+                                    </div>
                                   </a>
                                 ))}
                               </div>
-                            ) : <span className="text-gray-400 text-xs">无</span>}
+                            ) : <span className="text-gray-400">无</span>}
                           </TableCell>
                           <TableCell>
                             {item.paymentProofs && item.paymentProofs.length > 0 ? (
-                              <div className="flex gap-1">
+                              <div className="flex gap-2">
                                 {item.paymentProofs.map((img, i) => (
-                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer">
-                                    <img src={img} alt={`支付凭证${i+1}`} className="w-12 h-12 object-cover rounded border hover:opacity-80 cursor-pointer" />
+                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="group">
+                                    <div className="relative">
+                                      <img src={img} alt={`支付凭证${i+1}`} className="w-16 h-16 object-cover rounded-lg border-2 border-transparent group-hover:border-green-400 transition-all cursor-pointer" />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-all flex items-center justify-center">
+                                        <Eye className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </div>
+                                    </div>
                                   </a>
                                 ))}
                               </div>
-                            ) : <span className="text-gray-400 text-xs">无</span>}
+                            ) : <span className="text-gray-400">无</span>}
                           </TableCell>
                           <TableCell>{item.expenseDate}</TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="bg-green-50">
-                        <TableCell className="font-bold">合计</TableCell>
-                        <TableCell className="text-red-600 font-bold">¥{selectedExpense.totalAmount.toLocaleString()}</TableCell>
+                      <TableRow className="bg-gradient-to-r from-green-50 to-emerald-50">
+                        <TableCell className="font-bold text-lg">合计</TableCell>
+                        <TableCell className="text-red-600 font-bold text-xl">¥{selectedExpense.totalAmount.toLocaleString()}</TableCell>
                         <TableCell colSpan={4}></TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
               
               {selectedExpense.description && (
                 <div className="p-3 bg-blue-50 rounded-lg">
@@ -958,74 +1010,112 @@ export default function TeacherExpensePage() {
                 </div>
               )}
               
-              {/* 审批进度 - 横向步骤条 */}
-              <div>
-                <Label className="text-gray-500 text-xs mb-3 block">审批进度</Label>
-                <div className="flex items-center gap-2 p-4 bg-gray-50 rounded-lg overflow-x-auto">
-                  {selectedExpense.approvalFlow.map((node, index) => {
-                    const record = selectedExpense.approvalRecords.find(r => r.nodeId === node.id);
-                    const isLast = index === selectedExpense.approvalFlow.length - 1;
-                    return (
-                      <React.Fragment key={node.id}>
-                        <div className="flex flex-col items-center min-w-[120px]">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            node.status === 'approved' ? 'bg-green-500 text-white' : 
-                            node.status === 'rejected' ? 'bg-red-500 text-white' : 
-                            index === selectedExpense.currentStep ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-500'
+              {/* 第三行：审批进度 - 全宽 */}
+              <Card className="shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    审批进度
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-stretch gap-0">
+                    {selectedExpense.approvalFlow.map((node, index) => {
+                      const record = selectedExpense.approvalRecords.find(r => r.nodeId === node.id);
+                      const isLast = index === selectedExpense.approvalFlow.length - 1;
+                      return (
+                        <React.Fragment key={node.id}>
+                          <div className={`flex-1 p-4 rounded-lg ${
+                            node.status === 'approved' ? 'bg-green-50 border-2 border-green-200' : 
+                            node.status === 'rejected' ? 'bg-red-50 border-2 border-red-200' : 
+                            index === selectedExpense.currentStep ? 'bg-yellow-50 border-2 border-yellow-200' : 'bg-gray-50 border-2 border-gray-200'
                           }`}>
-                            {node.status === 'approved' ? <CheckCircle className="h-5 w-5" /> :
-                             node.status === 'rejected' ? <XCircle className="h-5 w-5" /> :
-                             index + 1}
+                            <div className="flex items-center gap-3">
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
+                                node.status === 'approved' ? 'bg-green-500 text-white' : 
+                                node.status === 'rejected' ? 'bg-red-500 text-white' : 
+                                index === selectedExpense.currentStep ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-600'
+                              }`}>
+                                {node.status === 'approved' ? <CheckCircle className="h-6 w-6" /> :
+                                 node.status === 'rejected' ? <XCircle className="h-6 w-6" /> :
+                                 index + 1}
+                              </div>
+                              <div>
+                                <p className="font-bold text-base">{node.name}</p>
+                                {record && (
+                                  <>
+                                    <p className="text-sm text-gray-600">{record.approverName}</p>
+                                    <p className="text-xs text-gray-400">{record.approverRole}</p>
+                                    {record.comment && (
+                                      <p className="text-xs text-gray-500 mt-1 bg-white px-2 py-1 rounded">"{record.comment}"</p>
+                                    )}
+                                  </>
+                                )}
+                                {!record && index === selectedExpense.currentStep && (
+                                  <p className="text-sm text-yellow-600">待审批</p>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <span className="mt-2 text-sm font-medium">{node.name}</span>
-                          {record && (
-                            <span className="text-xs text-gray-500">{record.approverName}</span>
+                          {!isLast && (
+                            <div className="flex items-center px-2">
+                              <ArrowRight className={`h-6 w-6 ${
+                                node.status === 'approved' ? 'text-green-400' : 'text-gray-300'
+                              }`} />
+                            </div>
                           )}
-                          {record?.comment && (
-                            <span className="text-xs text-gray-400 max-w-[100px] truncate">({record.comment})</span>
-                          )}
-                        </div>
-                        {!isLast && (
-                          <div className={`h-1 w-12 rounded ${
-                            node.status === 'approved' ? 'bg-green-500' : 'bg-gray-200'
-                          }`} />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
               
               {/* 支付信息 */}
               {selectedExpense.status === 'completed' && (
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 text-green-700 font-medium mb-2">
-                    <CheckCircle className="h-4 w-4" />
-                    已完成支付
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div><span className="text-gray-500">支付单号：</span>{selectedExpense.paymentNo}</div>
-                    <div><span className="text-gray-500">支付时间：</span>{selectedExpense.paymentDate}</div>
-                    <div><span className="text-gray-500">处理人：</span>{selectedExpense.financeHandlerName}</div>
-                  </div>
-                  {selectedExpense.paymentVouchers && selectedExpense.paymentVouchers.length > 0 && (
-                    <div className="mt-3">
-                      <span className="text-gray-500 text-sm">支付凭证：</span>
-                      <div className="flex gap-2 mt-1">
-                        {selectedExpense.paymentVouchers.map((v, i) => (
-                          <a key={i} href={v} target="_blank" rel="noopener noreferrer">
-                            <img src={v} alt={`凭证${i+1}`} className="w-20 h-20 object-cover rounded border hover:opacity-80" />
-                          </a>
-                        ))}
+                <Card className="shadow-md border-green-200 bg-green-50">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-2 text-green-700 font-bold text-lg mb-4">
+                      <CheckCircle className="h-5 w-5" />
+                      已完成支付
+                    </div>
+                    <div className="grid grid-cols-4 gap-6 text-base">
+                      <div>
+                        <Label className="text-xs text-gray-500">支付单号</Label>
+                        <p className="font-medium">{selectedExpense.paymentNo}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">支付时间</Label>
+                        <p className="font-medium">{selectedExpense.paymentDate}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">银行流水号</Label>
+                        <p className="font-medium">{selectedExpense.bankTransactionNo || '-'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">处理人</Label>
+                        <p className="font-medium">{selectedExpense.financeHandlerName}</p>
                       </div>
                     </div>
-                  )}
-                </div>
+                    {selectedExpense.paymentVouchers && selectedExpense.paymentVouchers.length > 0 && (
+                      <div className="mt-4">
+                        <Label className="text-xs text-gray-500">支付凭证</Label>
+                        <div className="flex gap-3 mt-2">
+                          {selectedExpense.paymentVouchers.map((v, i) => (
+                            <a key={i} href={v} target="_blank" rel="noopener noreferrer" className="group">
+                              <img src={v} alt={`凭证${i+1}`} className="w-24 h-24 object-cover rounded-lg border-2 border-transparent group-hover:border-green-400 transition-all" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
             </div>
           )}
           
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t bg-gray-50">
             <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
               关闭
             </Button>
