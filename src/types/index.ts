@@ -2160,3 +2160,40 @@ export interface TeacherResearchProfile {
   
   updatedAt: string;
 }
+
+// ============================================================
+// 班级管理类型定义
+// ============================================================
+
+// 班级信息
+export interface ClassInfo {
+  id: string;
+  name: string;                          // 班级名称，如"一年（1）班"
+  grade: number;                         // 年级，1-6
+  classNumber: number;                   // 班号
+  
+  // 班主任
+  headTeacherId: string;
+  headTeacherName: string;
+  
+  // 学生信息
+  studentCount: number;
+  maleCount: number;
+  femaleCount: number;
+  
+  // 教室
+  classroomId?: string;
+  classroomName?: string;
+  building?: string;
+  
+  // 年段长
+  gradeLeaderId?: string;
+  gradeLeaderName?: string;
+  
+  // 状态
+  status: 'active' | 'graduated';
+  
+  // 时间戳
+  createdAt: string;
+  updatedAt: string;
+}
