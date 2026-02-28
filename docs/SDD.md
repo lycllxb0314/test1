@@ -1,7 +1,7 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v1.1  
+**文档版本**: v1.2  
 **编制日期**: 2024年1月  
 **编制单位**: 智慧校园项目组
 
@@ -219,6 +219,167 @@
 | 家长 | - | - | - | - | edit |
 
 *年段长专属权限: 调课管理、接收请假通知、指派代课教师、查看年级课表
+
+### 2.4 高并发保护机制
+
+#### 2.4.1 高并发场景分析
+
+开学季和特定时段会出现明显的高并发访问：
+
+| 场景 | 高峰时段 | 预估并发量 | 风险等级 |
+|------|----------|------------|----------|
+| 新生注册 | 8月底-9月初 | 500-1000 QPS | 高 |
+| 家长端成绩查询 | 考试成绩发布后1小时 | 800-1500 QPS | 高 |
+| 家长端缴费 | 缴费通知发布后 | 300-500 QPS | 中 |
+| 教师端打卡/请假 | 早8点、下午5点 | 200-400 QPS | 中 |
+| 门禁记录同步 | 上下学时段 | 100-200 QPS | 低 |
+
+#### 2.4.2 限流策略
+
+**基于Redis的分布式限流**，采用滑动窗口算法：
+
+```typescript
+// 限流中间件实现
+interface RateLimitConfig {
+  windowMs: number;      // 时间窗口（毫秒）
+  maxRequests: number;   // 窗口内最大请求数
+  keyPrefix: string;     // Redis key前缀
+}
+
+// API限流配置
+const rateLimitConfigs: Record<string, RateLimitConfig> = {
+  // 新生注册 - 严格限流
+  '/api/enrollment': { windowMs: 60000, maxRequests: 100, keyPrefix: 'enrollment' },
+  
+  // 成绩查询 - 宽松限流
+  '/api/grades': { windowMs: 60000, maxRequests: 200, keyPrefix: 'grades' },
+  
+  // 家长端通用
+  '/api/students': { windowMs: 60000, maxRequests: 300, keyPrefix: 'parent' },
+  
+  // 认证接口 - 防暴力破解
+  '/api/auth/login': { windowMs: 900000, maxRequests: 5, keyPrefix: 'login' },
+  
+  // 默认限流
+  'default': { windowMs: 60000, maxRequests: 500, keyPrefix: 'default' },
+};
+```
+
+**限流级别**:
+
+| 级别 | 策略 | 适用场景 |
+|------|------|----------|
+| IP级别 | 同一IP限流 | 防止恶意攻击 |
+| 用户级别 | 同一用户ID限流 | 防止单用户刷接口 |
+| 接口级别 | 单接口全局限流 | 保护核心接口 |
+| 租户级别 | 全局QPS限制 | 系统整体保护 |
+
+**限流响应**:
+```json
+{
+  "success": false,
+  "error": "请求过于频繁，请稍后再试",
+  "errorCode": "RATE_LIMIT_EXCEEDED",
+  "retryAfter": 60
+}
+```
+
+#### 2.4.3 熔断机制
+
+采用熔断器模式防止级联故障：
+
+```typescript
+// 熔断器状态机
+enum CircuitState {
+  CLOSED,      // 正常状态
+  OPEN,        // 熔断状态
+  HALF_OPEN,   // 半开状态（试探性恢复）
+}
+
+// 熔断器配置
+interface CircuitBreakerConfig {
+  failureThreshold: number;    // 失败次数阈值
+  successThreshold: number;    // 半开状态成功次数阈值
+  timeout: number;             // 熔断超时时间（ms）
+  resetTimeout: number;        // 熔断恢复时间（ms）
+}
+
+// 各服务熔断配置
+const circuitConfigs: Record<string, CircuitBreakerConfig> = {
+  'database': { failureThreshold: 5, successThreshold: 3, timeout: 30000, resetTimeout: 60000 },
+  'storage': { failureThreshold: 3, successThreshold: 2, timeout: 10000, resetTimeout: 30000 },
+  'cache': { failureThreshold: 5, successThreshold: 2, timeout: 5000, resetTimeout: 15000 },
+};
+```
+
+**熔断降级策略**:
+
+| 服务 | 熔断后降级方案 |
+|------|----------------|
+| 数据库 | 返回Mock数据 / 缓存数据 |
+| 对象存储 | 返回默认占位图 / 延迟加载 |
+| 缓存 | 直接查询数据库（有限流保护） |
+| 搜索服务 | 返回空结果 / 简单匹配 |
+
+#### 2.4.4 队列削峰
+
+对于写入密集型操作，采用消息队列削峰：
+
+```
+┌──────────┐     ┌──────────────┐     ┌──────────────┐
+│  客户端   │────▶│  消息队列     │────▶│  后端处理    │
+│(高并发写) │     │ (Redis/RabbitMQ)│   │ (异步消费)   │
+└──────────┘     └──────────────┘     └──────────────┘
+                        │
+                        ▼
+                 ┌──────────────┐
+                 │  持久化存储   │
+                 └──────────────┘
+```
+
+**异步处理场景**:
+
+| 场景 | 队列类型 | 处理方式 |
+|------|----------|----------|
+| 门禁记录同步 | Redis List | 批量写入数据库 |
+| 习惯评价记录 | Redis List | 批量聚合计算 |
+| 通知推送 | Redis Stream | 异步推送 |
+| 数据统计 | Redis List | 定时任务消费 |
+
+#### 2.4.5 缓存策略
+
+**多级缓存架构**:
+
+```
+┌─────────────┐
+│  客户端缓存  │  ← Cache-Control / ETag
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  CDN缓存    │  ← 静态资源 / 公共数据
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Redis缓存  │  ← 热点数据 / 会话数据
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  数据库     │  ← 持久化存储
+└─────────────┘
+```
+
+**缓存规则**:
+
+| 数据类型 | 缓存时间 | 更新策略 |
+|----------|----------|----------|
+| 课表数据 | 5分钟 | 定时刷新 |
+| 用户信息 | 30分钟 | 写时更新 |
+| 统计数据 | 10分钟 | 定时刷新 |
+| 配置数据 | 1小时 | 写时失效 |
+| 公告通知 | 5分钟 | 写时失效 |
 
 ---
 
@@ -535,7 +696,179 @@ NewStudentApplication (待审核)
 | 主键 | id | id (UUID) |
 | 外键 | {表名单数}_id | teacher_id, class_id |
 
-### 4.2 核心数据表设计
+### 4.2 数据安全与加密
+
+#### 4.2.1 敏感数据识别
+
+根据《个人信息保护法》和教育行业数据安全规范，识别以下敏感数据：
+
+| 数据类型 | 敏感级别 | 示例字段 | 保护要求 |
+|----------|----------|----------|----------|
+| 身份证号 | 高 | id_card | 加密存储、脱敏展示 |
+| 手机号码 | 中 | phone, emergency_phone | 加密存储、脱敏展示 |
+| 家庭住址 | 中 | home_address | 加密存储 |
+| 银行账号 | 高 | bank_account | 加密存储、脱敏展示 |
+| 密码 | 高 | password | 哈希存储（不可逆） |
+| 学生照片 | 中 | avatar | 访问控制 |
+| 成绩数据 | 中 | score | 访问控制 |
+
+#### 4.2.2 字段级加密方案
+
+采用AES-256-GCM对称加密算法，配合密钥管理系统：
+
+**加密架构**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      应用层                                  │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                 加密/解密服务                        │    │
+│  │  - encrypt(plaintext, keyId) → ciphertext          │    │
+│  │  - decrypt(ciphertext, keyId) → plaintext          │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    密钥管理系统 (KMS)                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
+│  │  主密钥(MK)  │  │ 数据密钥(DK) │  │  密钥版本   │          │
+│  │  KMS管理    │  │  自动轮换    │  │  版本控制   │          │
+│  └─────────────┘  └─────────────┘  └─────────────┘          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**加密字段存储格式**:
+```json
+{
+  "phone": "enc:AES256-GCM:v1:base64EncodedCiphertext:base64EncodedIV:base64EncodedTag",
+  "phone_masked": "138****8001"
+}
+```
+
+**加密实现示例**:
+```typescript
+import crypto from 'crypto';
+
+interface EncryptedData {
+  algorithm: string;
+  keyVersion: string;
+  ciphertext: string;
+  iv: string;
+  tag: string;
+}
+
+class FieldEncryption {
+  private algorithm = 'aes-256-gcm';
+  private keyVersion = 'v1';
+  
+  // 加密
+  encrypt(plaintext: string): string {
+    const key = this.getDataKey(this.keyVersion);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(this.algorithm, key, iv);
+    
+    let encrypted = cipher.update(plaintext, 'utf8', 'base64');
+    encrypted += cipher.final('base64');
+    const tag = cipher.getAuthTag();
+    
+    return `enc:${this.algorithm}:${this.keyVersion}:${encrypted}:${iv.toString('base64')}:${tag.toString('base64')}`;
+  }
+  
+  // 解密
+  decrypt(encryptedValue: string): string {
+    const parts = encryptedValue.split(':');
+    const [, algorithm, keyVersion, ciphertext, ivBase64, tagBase64] = parts;
+    
+    const key = this.getDataKey(keyVersion);
+    const iv = Buffer.from(ivBase64, 'base64');
+    const tag = Buffer.from(tagBase64, 'base64');
+    
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    decipher.setAuthTag(tag);
+    
+    let decrypted = decipher.update(ciphertext, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
+  }
+}
+```
+
+#### 4.2.3 数据脱敏规则
+
+**展示层脱敏**:
+
+| 字段类型 | 脱敏规则 | 示例 |
+|----------|----------|------|
+| 手机号 | 中间4位替换为* | 138****8001 |
+| 身份证号 | 保留前3后4位 | 350***********001 |
+| 银行账号 | 保留后4位 | ************1234 |
+| 姓名 | 保留姓，名用* | 张** |
+| 地址 | 隐藏门牌号 | xx市xx区xx路**号 |
+
+**权限差异化展示**:
+
+| 角色 | 手机号 | 身份证 | 家庭住址 |
+|------|--------|--------|----------|
+| 校长/书记 | 完整显示 | 完整显示 | 完整显示 |
+| 教务主任 | 完整显示 | 脱敏显示 | 脱敏显示 |
+| 班主任 | 脱敏显示 | 脱敏显示 | 脱敏显示 |
+| 普通教师 | 不显示 | 不显示 | 不显示 |
+| 家长 | 本人完整/他人脱敏 | 本人完整 | 本人完整 |
+
+#### 4.2.4 密钥管理
+
+**密钥生命周期**:
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  密钥生成   │────▶│  密钥使用   │────▶│  密钥轮换   │
+│ (KMS生成)  │     │ (加解密)    │     │ (定期轮换)  │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                                               ▼
+                                        ┌─────────────┐
+                                        │  密钥归档   │
+                                        │ (安全销毁)  │
+                                        └─────────────┘
+```
+
+**密钥轮换策略**:
+
+| 密钥类型 | 轮换周期 | 轮换方式 |
+|----------|----------|----------|
+| 主密钥(MK) | 1年 | 手动轮换 |
+| 数据密钥(DK) | 90天 | 自动轮换 |
+| JWT密钥 | 30天 | 自动轮换 |
+
+**密钥存储**:
+- 主密钥存储于KMS（如AWS KMS、阿里云KMS）
+- 数据密钥加密后存储于数据库
+- 应用内存中缓存解密后的密钥（有效期5分钟）
+
+#### 4.2.5 数据访问审计
+
+**审计日志记录**:
+
+| 审计项 | 记录内容 |
+|--------|----------|
+| 访问者 | 用户ID、角色、IP地址 |
+| 访问时间 | 精确到毫秒 |
+| 访问对象 | 表名、记录ID、字段名 |
+| 操作类型 | 查询/新增/修改/删除/导出 |
+| 数据量 | 涉及记录数 |
+| 敏感数据 | 是否访问敏感字段 |
+
+**敏感操作告警**:
+
+| 场景 | 触发条件 | 告警方式 |
+|------|----------|----------|
+| 批量导出 | 导出记录>100条 | 系统通知+邮件 |
+| 敏感查询 | 查询身份证/手机号 | 系统日志 |
+| 异常访问 | 非工作时间大量查询 | 实时告警 |
+| 权限变更 | 用户角色变更 | 系统通知 |
+
+### 4.3 核心数据表设计
 
 #### 4.2.1 用户表 (users)
 
@@ -1378,6 +1711,7 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 |------|------|--------|----------|
 | v1.0 | 2024-01-15 | 项目组 | 初始版本 |
 | v1.1 | 2024-01-15 | 项目组 | 补充门禁、习惯养成、新生注册、教研活动、安全管理等模块 |
+| v1.2 | 2024-01-16 | 项目组 | 【高并发保护】新增2.4节：限流策略（Redis分布式限流）、熔断机制、队列削峰、多级缓存；【数据安全】新增4.2节：敏感数据识别、字段级加密（AES-256-GCM）、数据脱敏规则、密钥管理、访问审计 |
 
 ---
 
