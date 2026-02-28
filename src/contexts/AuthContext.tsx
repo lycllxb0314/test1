@@ -17,6 +17,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// 导出 AuthContext 供外部使用
+export { AuthContext };
+
 // 角色名称到角色的映射
 const roleNameToRole: Record<string, UserRole> = {
   '校长': 'principal',
