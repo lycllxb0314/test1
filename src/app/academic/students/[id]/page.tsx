@@ -187,6 +187,20 @@ export default function StudentDetailPage({ params }: PageProps) {
     emergencyPhone: '',
     // 家庭信息
     familyType: '' as '' | '核心家庭' | '单亲家庭' | '重组家庭' | '隔代家庭' | '其他',
+    // 家长信息
+    parents: [] as Parent[],
+  });
+  
+  // 家长编辑对话框状态
+  const [parentDialogOpen, setParentDialogOpen] = useState(false);
+  const [editingParent, setEditingParent] = useState<Parent | null>(null);
+  const [parentFormData, setParentFormData] = useState({
+    id: '',
+    name: '',
+    relationship: '父亲' as '父亲' | '母亲' | '爷爷' | '奶奶' | '外公' | '外婆' | '其他',
+    phone: '',
+    isPrimary: false,
+    wechat: '',
   });
 
   // 获取班级列表
@@ -239,6 +253,8 @@ export default function StudentDetailPage({ params }: PageProps) {
         emergencyPhone: profile.emergencyPhone || '',
         // 家庭信息
         familyType: profile.familyType || '',
+        // 家长信息
+        parents: profile.parents || [],
       });
     }
   }, [profile]);
@@ -287,6 +303,7 @@ export default function StudentDetailPage({ params }: PageProps) {
       emergencyContact: formData.emergencyContact || undefined,
       emergencyPhone: formData.emergencyPhone || undefined,
       familyType: formData.familyType || undefined,
+      parents: formData.parents,
     };
     
     const success = await updateProfile(updateData);
@@ -329,9 +346,82 @@ export default function StudentDetailPage({ params }: PageProps) {
         emergencyPhone: profile.emergencyPhone || '',
         // 家庭信息
         familyType: profile.familyType || '',
+        // 家长信息
+        parents: profile.parents || [],
       });
     }
     setIsEditing(false);
+  };
+
+  // 家长编辑相关函数
+  const handleAddParent = () => {
+    setEditingParent(null);
+    setParentFormData({
+      id: `parent-${Date.now()}`,
+      name: '',
+      relationship: '父亲',
+      phone: '',
+      isPrimary: formData.parents.length === 0,
+      wechat: '',
+    });
+    setParentDialogOpen(true);
+  };
+
+  const handleEditParent = (parent: Parent) => {
+    setEditingParent(parent);
+    setParentFormData({
+      id: parent.id,
+      name: parent.name,
+      relationship: parent.relationship,
+      phone: parent.phone,
+      isPrimary: parent.isPrimary,
+      wechat: parent.wechat || '',
+    });
+    setParentDialogOpen(true);
+  };
+
+  const handleDeleteParent = (parentId: string) => {
+    const newParents = formData.parents.filter(p => p.id !== parentId);
+    // 如果删除的是主要联系人，自动设置第一个为主要联系人
+    if (newParents.length > 0 && !newParents.some(p => p.isPrimary)) {
+      newParents[0].isPrimary = true;
+    }
+    setFormData(prev => ({ ...prev, parents: newParents }));
+    toast.success('家长已删除');
+  };
+
+  const handleSaveParent = () => {
+    if (!parentFormData.name.trim()) {
+      toast.error('请输入家长姓名');
+      return;
+    }
+    if (!parentFormData.phone.trim()) {
+      toast.error('请输入联系电话');
+      return;
+    }
+
+    let newParents: Parent[];
+    if (editingParent) {
+      // 编辑模式
+      newParents = formData.parents.map(p => 
+        p.id === editingParent.id ? { ...parentFormData } as Parent : p
+      );
+    } else {
+      // 添加模式
+      newParents = [...formData.parents, { ...parentFormData } as Parent];
+    }
+
+    // 如果设置为主要联系人，取消其他人的主要联系人标记
+    if (parentFormData.isPrimary) {
+      newParents = newParents.map(p => ({
+        ...p,
+        isPrimary: p.id === parentFormData.id,
+      }));
+    }
+
+    setFormData(prev => ({ ...prev, parents: newParents }));
+    setParentDialogOpen(false);
+    toast.success(editingParent ? '家长信息已更新' : '家长已添加');
   };
 
   // 加载状态
@@ -825,15 +915,15 @@ export default function StudentDetailPage({ params }: PageProps) {
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">家长信息</h4>
                   {isEditing && (
-                    <Button size="sm" variant="outline" onClick={() => toast.info('添加家长功能开发中...')}>
+                    <Button size="sm" variant="outline" onClick={handleAddParent}>
                       <Users className="h-4 w-4 mr-1" />
                       添加家长
                     </Button>
                   )}
                 </div>
-                {profile.parents?.length > 0 ? (
+                {(isEditing ? formData.parents : profile.parents)?.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {profile.parents.map((parent) => (
+                    {(isEditing ? formData.parents : profile.parents).map((parent) => (
                       <div key={parent.id} className="p-4 bg-muted/30 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">{parent.name}</span>
@@ -856,10 +946,10 @@ export default function StudentDetailPage({ params }: PageProps) {
                         )}
                         {isEditing && (
                           <div className="flex gap-2 mt-3 pt-3 border-t">
-                            <Button size="sm" variant="ghost" onClick={() => toast.info('编辑家长功能开发中...')}>
+                            <Button size="sm" variant="ghost" onClick={() => handleEditParent(parent)}>
                               编辑
                             </Button>
-                            <Button size="sm" variant="ghost" className="text-red-500" onClick={() => toast.info('删除家长功能开发中...')}>
+                            <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteParent(parent.id)}>
                               删除
                             </Button>
                           </div>
@@ -1074,6 +1164,89 @@ export default function StudentDetailPage({ params }: PageProps) {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* 家长编辑对话框 */}
+      <Dialog open={parentDialogOpen} onOpenChange={setParentDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{editingParent ? '编辑家长信息' : '添加家长'}</DialogTitle>
+            <DialogDescription>
+              {editingParent ? '修改家长的联系方式和其他信息' : '添加新的家长信息'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="parent-name" className="text-right">姓名 *</Label>
+              <Input
+                id="parent-name"
+                value={parentFormData.name}
+                onChange={(e) => setParentFormData(prev => ({ ...prev, name: e.target.value }))}
+                className="col-span-3"
+                placeholder="请输入家长姓名"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="parent-relation" className="text-right">关系</Label>
+              <Select
+                value={parentFormData.relationship}
+                onValueChange={(v) => setParentFormData(prev => ({ ...prev, relationship: v as any }))}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="选择关系" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="父亲">父亲</SelectItem>
+                  <SelectItem value="母亲">母亲</SelectItem>
+                  <SelectItem value="爷爷">爷爷</SelectItem>
+                  <SelectItem value="奶奶">奶奶</SelectItem>
+                  <SelectItem value="外公">外公</SelectItem>
+                  <SelectItem value="外婆">外婆</SelectItem>
+                  <SelectItem value="其他">其他</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="parent-phone" className="text-right">电话 *</Label>
+              <Input
+                id="parent-phone"
+                value={parentFormData.phone}
+                onChange={(e) => setParentFormData(prev => ({ ...prev, phone: e.target.value }))}
+                className="col-span-3"
+                placeholder="请输入联系电话"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="parent-wechat" className="text-right">微信</Label>
+              <Input
+                id="parent-wechat"
+                value={parentFormData.wechat}
+                onChange={(e) => setParentFormData(prev => ({ ...prev, wechat: e.target.value }))}
+                className="col-span-3"
+                placeholder="微信号（选填）"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">主要联系人</Label>
+              <div className="col-span-3 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="parent-primary"
+                  checked={parentFormData.isPrimary}
+                  onChange={(e) => setParentFormData(prev => ({ ...prev, isPrimary: e.target.checked }))}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="parent-primary" className="text-sm text-muted-foreground">
+                  设为主要联系人（将自动取消其他家长的主要联系人标记）
+                </Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setParentDialogOpen(false)}>取消</Button>
+            <Button onClick={handleSaveParent}>{editingParent ? '保存修改' : '添加'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
