@@ -115,6 +115,36 @@ const gradeOptions = [
   { value: 6, label: '六年级' },
 ];
 
+// 学生类型选项
+const studentTypeOptions = [
+  { value: '普通', label: '普通' },
+  { value: '随迁子女', label: '随迁子女' },
+  { value: '留守儿童', label: '留守儿童' },
+  { value: '残疾学生', label: '残疾学生' },
+  { value: '低保家庭', label: '低保家庭' },
+];
+
+// 学生状态选项
+const studentStatusOptions = [
+  { value: '在校', label: '在校' },
+  { value: '请假', label: '请假' },
+  { value: '休学', label: '休学' },
+  { value: '毕业', label: '毕业' },
+  { value: '转学', label: '转学' },
+];
+
+// 家庭类型选项
+const familyTypeOptions = [
+  { value: '核心家庭', label: '核心家庭' },
+  { value: '单亲家庭', label: '单亲家庭' },
+  { value: '重组家庭', label: '重组家庭' },
+  { value: '隔代家庭', label: '隔代家庭' },
+  { value: '其他', label: '其他' },
+];
+
+// 政治面貌选项
+const politicalStatusOptions = ['少先队员', '共青团员', '群众'];
+
 export default function StudentDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
@@ -130,18 +160,33 @@ export default function StudentDetailPage({ params }: PageProps) {
   // 班级列表
   const [classes, setClasses] = useState<{ id: string; name: string; grade: number; headTeacherName: string }[]>([]);
   
-  // 编辑表单数据
+  // 编辑表单数据 - 包含所有可编辑字段
   const [formData, setFormData] = useState({
-    phone: '',
-    address: '',
-    homeAddress: '',
-    emergencyContact: '',
-    emergencyPhone: '',
+    // 个人信息
+    name: '',
+    gender: 'male' as 'male' | 'female',
+    birthDate: '',
+    ethnicity: '',
+    nativePlace: '',
+    politicalStatus: '',
+    // 学籍信息
+    studentNo: '',
     classId: '',
     className: '',
     grade: 1,
     gradeName: '一年级',
     headTeacherName: '',
+    enrollmentDate: '',
+    studentType: '' as '' | '普通' | '随迁子女' | '留守儿童' | '残疾学生' | '低保家庭',
+    status: '在校' as '在校' | '请假' | '休学' | '毕业' | '转学',
+    // 联系信息
+    phone: '',
+    address: '',
+    homeAddress: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    // 家庭信息
+    familyType: '' as '' | '核心家庭' | '单亲家庭' | '重组家庭' | '隔代家庭' | '其他',
   });
 
   // 获取班级列表
@@ -169,16 +214,31 @@ export default function StudentDetailPage({ params }: PageProps) {
   useEffect(() => {
     if (profile) {
       setFormData({
-        phone: profile.phone || '',
-        address: profile.address || '',
-        homeAddress: profile.homeAddress || '',
-        emergencyContact: profile.emergencyContact || '',
-        emergencyPhone: profile.emergencyPhone || '',
+        // 个人信息
+        name: profile.name || '',
+        gender: profile.gender || 'male',
+        birthDate: profile.birthDate || '',
+        ethnicity: profile.ethnicity || '',
+        nativePlace: profile.nativePlace || '',
+        politicalStatus: profile.politicalStatus || '',
+        // 学籍信息
+        studentNo: profile.studentNo || '',
         classId: profile.classId || '',
         className: profile.className || '',
         grade: profile.grade || 1,
         gradeName: profile.gradeName || '一年级',
         headTeacherName: profile.headTeacherName || '',
+        enrollmentDate: profile.enrollmentDate || '',
+        studentType: profile.studentType || '',
+        status: profile.status || '在校',
+        // 联系信息
+        phone: profile.phone || '',
+        address: profile.address || '',
+        homeAddress: profile.homeAddress || '',
+        emergencyContact: profile.emergencyContact || '',
+        emergencyPhone: profile.emergencyPhone || '',
+        // 家庭信息
+        familyType: profile.familyType || '',
       });
     }
   }, [profile]);
@@ -204,7 +264,32 @@ export default function StudentDetailPage({ params }: PageProps) {
     if (!profile) return;
     setIsSaving(true);
     
-    const success = await updateProfile(formData);
+    // 过滤空字符串，转换为正确的类型
+    const updateData: Partial<StudentFullProfile> = {
+      name: formData.name || undefined,
+      gender: formData.gender,
+      birthDate: formData.birthDate || undefined,
+      ethnicity: formData.ethnicity || undefined,
+      nativePlace: formData.nativePlace || undefined,
+      politicalStatus: formData.politicalStatus || undefined,
+      studentNo: formData.studentNo || undefined,
+      classId: formData.classId || undefined,
+      className: formData.className || undefined,
+      grade: formData.grade,
+      gradeName: formData.gradeName || undefined,
+      headTeacherName: formData.headTeacherName || undefined,
+      enrollmentDate: formData.enrollmentDate || undefined,
+      studentType: formData.studentType || undefined,
+      status: formData.status,
+      phone: formData.phone || undefined,
+      address: formData.address || undefined,
+      homeAddress: formData.homeAddress || undefined,
+      emergencyContact: formData.emergencyContact || undefined,
+      emergencyPhone: formData.emergencyPhone || undefined,
+      familyType: formData.familyType || undefined,
+    };
+    
+    const success = await updateProfile(updateData);
     
     if (success) {
       toast.success('信息已保存');
@@ -219,16 +304,31 @@ export default function StudentDetailPage({ params }: PageProps) {
   const handleCancelEdit = () => {
     if (profile) {
       setFormData({
-        phone: profile.phone || '',
-        address: profile.address || '',
-        homeAddress: profile.homeAddress || '',
-        emergencyContact: profile.emergencyContact || '',
-        emergencyPhone: profile.emergencyPhone || '',
+        // 个人信息
+        name: profile.name || '',
+        gender: profile.gender || 'male',
+        birthDate: profile.birthDate || '',
+        ethnicity: profile.ethnicity || '',
+        nativePlace: profile.nativePlace || '',
+        politicalStatus: profile.politicalStatus || '',
+        // 学籍信息
+        studentNo: profile.studentNo || '',
         classId: profile.classId || '',
         className: profile.className || '',
         grade: profile.grade || 1,
         gradeName: profile.gradeName || '一年级',
         headTeacherName: profile.headTeacherName || '',
+        enrollmentDate: profile.enrollmentDate || '',
+        studentType: profile.studentType || '',
+        status: profile.status || '在校',
+        // 联系信息
+        phone: profile.phone || '',
+        address: profile.address || '',
+        homeAddress: profile.homeAddress || '',
+        emergencyContact: profile.emergencyContact || '',
+        emergencyPhone: profile.emergencyPhone || '',
+        // 家庭信息
+        familyType: profile.familyType || '',
       });
     }
     setIsEditing(false);
@@ -404,36 +504,90 @@ export default function StudentDetailPage({ params }: PageProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">姓名</span>
-                  <span className="font-medium">{profile.name}</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.name} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span className="font-medium">{profile.name}</span>
+                  )}
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">性别</span>
-                  <span className={genderDisplay.color}>{genderDisplay.label}</span>
+                  {isEditing ? (
+                    <Select value={formData.gender} onValueChange={(v) => setFormData(prev => ({ ...prev, gender: v as 'male' | 'female' }))}>
+                      <SelectTrigger className="w-[100px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">男</SelectItem>
+                        <SelectItem value="female">女</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className={genderDisplay.color}>{genderDisplay.label}</span>
+                  )}
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">出生日期</span>
-                  <span>{profile.birthDate}</span>
+                  {isEditing ? (
+                    <Input 
+                      type="date"
+                      value={formData.birthDate} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, birthDate: e.target.value }))}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span>{profile.birthDate}</span>
+                  )}
                 </div>
-                {profile.ethnicity && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">民族</span>
-                    <span>{profile.ethnicity}</span>
-                  </div>
-                )}
-                {profile.nativePlace && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">籍贯</span>
-                    <span>{profile.nativePlace}</span>
-                  </div>
-                )}
-                {profile.politicalStatus && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">政治面貌</span>
-                    <span>{profile.politicalStatus}</span>
-                  </div>
-                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">民族</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.ethnicity} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, ethnicity: e.target.value }))}
+                      className="h-8 w-40"
+                      placeholder="如：汉族"
+                    />
+                  ) : (
+                    <span>{profile.ethnicity || '-'}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">籍贯</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.nativePlace} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, nativePlace: e.target.value }))}
+                      className="h-8 w-40"
+                      placeholder="如：福建龙岩"
+                    />
+                  ) : (
+                    <span>{profile.nativePlace || '-'}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">政治面貌</span>
+                  {isEditing ? (
+                    <Select value={formData.politicalStatus} onValueChange={(v) => setFormData(prev => ({ ...prev, politicalStatus: v }))}>
+                      <SelectTrigger className="w-[100px] h-8">
+                        <SelectValue placeholder="选择" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {politicalStatusOptions.map(opt => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span>{profile.politicalStatus || '-'}</span>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -445,9 +599,17 @@ export default function StudentDetailPage({ params }: PageProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">学号</span>
-                  <span className="font-medium">{profile.studentNo}</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.studentNo} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, studentNo: e.target.value }))}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span className="font-medium">{profile.studentNo}</span>
+                  )}
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">年级</span>
@@ -482,16 +644,53 @@ export default function StudentDetailPage({ params }: PageProps) {
                     <span>{formData.headTeacherName || profile.headTeacherName || '-'}</span>
                   )}
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">入学日期</span>
-                  <span>{profile.enrollmentDate}</span>
+                  {isEditing ? (
+                    <Input 
+                      type="date"
+                      value={formData.enrollmentDate} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, enrollmentDate: e.target.value }))}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span>{profile.enrollmentDate || '-'}</span>
+                  )}
                 </div>
-                {profile.studentType && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">学生类型</span>
-                    <span>{profile.studentType}</span>
-                  </div>
-                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">学生类型</span>
+                  {isEditing ? (
+                    <Select value={formData.studentType} onValueChange={(v) => setFormData(prev => ({ ...prev, studentType: v as any }))}>
+                      <SelectTrigger className="w-[120px] h-8">
+                        <SelectValue placeholder="选择" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {studentTypeOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span>{profile.studentType || '普通'}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">状态</span>
+                  {isEditing ? (
+                    <Select value={formData.status} onValueChange={(v) => setFormData(prev => ({ ...prev, status: v as any }))}>
+                      <SelectTrigger className="w-[100px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {studentStatusOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge className={getStatusColor(profile.status)}>{profile.status}</Badge>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -604,15 +803,34 @@ export default function StudentDetailPage({ params }: PageProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {profile.familyType && (
-                <div className="mb-4">
-                  <span className="text-muted-foreground">家庭类型：</span>
-                  <Badge variant="outline" className="ml-2">{profile.familyType}</Badge>
-                </div>
-              )}
+              <div className="mb-4 flex items-center gap-4">
+                <span className="text-muted-foreground">家庭类型：</span>
+                {isEditing ? (
+                  <Select value={formData.familyType} onValueChange={(v) => setFormData(prev => ({ ...prev, familyType: v as any }))}>
+                    <SelectTrigger className="w-[140px] h-8">
+                      <SelectValue placeholder="选择" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {familyTypeOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge variant="outline">{profile.familyType || '未设置'}</Badge>
+                )}
+              </div>
               
               <div className="space-y-4">
-                <h4 className="font-medium">家长信息</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">家长信息</h4>
+                  {isEditing && (
+                    <Button size="sm" variant="outline" onClick={() => toast.info('添加家长功能开发中...')}>
+                      <Users className="h-4 w-4 mr-1" />
+                      添加家长
+                    </Button>
+                  )}
+                </div>
                 {profile.parents?.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {profile.parents.map((parent) => (
@@ -634,6 +852,16 @@ export default function StudentDetailPage({ params }: PageProps) {
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                             <Mail className="h-3 w-3" />
                             微信：{parent.wechat}
+                          </div>
+                        )}
+                        {isEditing && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t">
+                            <Button size="sm" variant="ghost" onClick={() => toast.info('编辑家长功能开发中...')}>
+                              编辑
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-red-500" onClick={() => toast.info('删除家长功能开发中...')}>
+                              删除
+                            </Button>
                           </div>
                         )}
                       </div>
