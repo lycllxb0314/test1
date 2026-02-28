@@ -1,359 +1,590 @@
-import { useState, useEffect, useCallback } from 'react';
-
 /**
- * 习惯养成数据获取 Hook
+ * 习惯养成数据管理 Hook
+ * 基于统一数据架构 v2.0 - 使用 useQuery 和 usePaginatedQuery 实现
+ * 
+ * 提供习惯养成相关的数据获取和管理功能
  */
 
-// 习惯类别类型
-export type HabitCategory = 
-  | 'civilization' | 'writing' | 'reading' | 'sports' 
-  | 'safety' | 'hygiene' | 'aesthetic' | 'labor';
+import { useCallback, useMemo, useState } from 'react';
+import { useQuery, usePaginatedQuery, type QueryParams, type ApiResponse, type Pagination } from './useApi';
+import type {
+  HabitRecord,
+  HabitEvaluation,
+  HabitStatistics,
+  HabitGoal,
+  HabitStar,
+  HabitCategory,
+  HabitTrend,
+  SchoolHabitStatsResponse,
+  HabitGoalTemplate,
+  HabitStarRule,
+  HabitAssessment,
+  SchoolHabitOverview,
+} from '@/types';
 
-// 习惯类别名称映射
-export const habitCategoryNames: Record<HabitCategory, string> = {
-  civilization: '文明',
-  writing: '书写',
-  reading: '阅读',
-  sports: '运动',
-  safety: '安全',
-  hygiene: '卫生',
-  aesthetic: '审美',
-  labor: '劳动',
-};
+// 重新导出习惯分类相关常量（供页面使用）
+export { habitCategoryNames, habitCategoryColors, habitCategoryIcons } from '@/types';
 
-// 习惯类别颜色映射
-export const habitCategoryColors: Record<HabitCategory, string> = {
-  civilization: 'bg-rose-100 text-rose-600',
-  writing: 'bg-blue-100 text-blue-600',
-  reading: 'bg-amber-100 text-amber-600',
-  sports: 'bg-green-100 text-green-600',
-  safety: 'bg-orange-100 text-orange-600',
-  hygiene: 'bg-cyan-100 text-cyan-600',
-  aesthetic: 'bg-purple-100 text-purple-600',
-  labor: 'bg-emerald-100 text-emerald-600',
-};
+// ============================================================
+// 辅助函数：统一 API 调用
+// ============================================================
 
-// 全校统计概览
-export interface SchoolHabitOverview {
-  totalStudents: number;
-  totalClasses: number;
-  totalTeachers: number;
-  averageRate: number;
-  rateChange: number;
-  habitStars: number;
-  starsChange: number;
-  attentionStudents: number;
-  attentionChange: number;
-  monthlyEvaluations: number;
-  goalsCompletion: number;
-}
-
-// 习惯类别统计
-export interface HabitCategoryStat {
-  category: HabitCategory;
-  rate: number;
-  trend: 'up' | 'down' | 'stable';
-  change: number;
-  evaluationCount?: number;
-  topGrade?: string;
-  weakGrade?: string;
-}
-
-// 年级统计
-export interface GradeHabitStat {
-  grade: string;
-  gradeNumber: number;
-  students: number;
-  classes: number;
-  avgRate: number;
-  trend: 'up' | 'down' | 'stable';
-  stars: number;
-  attention: number;
-  topHabit?: string;
-  weakHabit?: string;
-}
-
-// 学校习惯统计响应
-export interface SchoolHabitStatsResponse {
-  overview: SchoolHabitOverview;
-  categoryStats: HabitCategoryStat[];
-  gradeStats: GradeHabitStat[];
-  month: string;
-}
-
-// 小目标数据
-export interface HabitGoal {
-  id: string;
-  title: string;
-  description: string;
-  category: HabitCategory;
-  targetGrades: number[];
-  targetClasses: string[];
-  startDate: string;
-  endDate: string;
-  status: 'active' | 'completed' | 'expired';
-  progress: number;
-  studentCount: number;
-  completedCount: number;
-  createdAt: string;
-}
-
-// 习惯之星
-export interface HabitStar {
-  id: string;
-  studentId: string;
-  studentName: string;
-  studentNumber: string;
-  grade: number;
-  className: string;
-  month: string;
-  categories: HabitCategory[];
-  totalScore: number;
-  avatar?: string;
-  achievements?: string;
-}
-
-// 学生习惯评价记录
-export interface HabitAssessment {
-  id: string;
-  studentId: string;
-  studentName: string;
-  grade: number;
-  className: string;
-  category: HabitCategory;
-  score: number;
-  evaluatorId: string;
-  evaluatorName: string;
-  evaluatorType: 'teacher' | 'classmate' | 'parent' | 'self';
-  context?: string;
-  occurredAt: string;
-  createdAt: string;
-  notes?: string;
-}
-
-/**
- * 获取全校习惯统计
- */
-export function useSchoolHabitStats(month?: string) {
-  const [data, setData] = useState<SchoolHabitStatsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (month) params.append('month', month);
-      
-      const response = await fetch(`/api/habit/stats/school?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        // 使用模拟数据作为fallback
-        setData(getMockSchoolStats());
+async function fetchApi<T>(path: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
+  const url = new URL(`/api${path}`, window.location.origin);
+  
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        url.searchParams.append(key, String(value));
       }
-    } catch (err) {
-      console.error('Failed to fetch school habit stats:', err);
-      setError('网络错误');
-      // 使用模拟数据作为fallback
-      setData(getMockSchoolStats());
-    } finally {
-      setLoading(false);
-    }
-  }, [month]);
+    });
+  }
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.json();
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '网络请求失败',
+    };
+  }
 }
 
+// ============================================================
+// 基础查询 Hook
+// ============================================================
+
 /**
- * 获取习惯养成目标列表
+ * 获取习惯记录列表
  */
-export function useHabitGoals(filters?: {
+export function useHabitRecords(params?: {
+  studentId?: string;
+  classId?: string;
   category?: HabitCategory;
-  status?: 'active' | 'completed' | 'expired';
-  grade?: number;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  pageSize?: number;
 }) {
-  const [data, setData] = useState<HabitGoal[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<HabitRecord[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.category) params.append('category', filters.category);
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.grade) params.append('grade', filters.grade.toString());
-      
-      const response = await fetch(`/api/habit/goals?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
+      const response = await fetchApi<{ data: HabitRecord[]; pagination: Pagination }>(
+        '/moral/habit/records',
+        { ...params, page: params?.page || 1, pageSize: params?.pageSize || 20 }
+      );
+
+      if (response.success && response.data) {
+        setData(response.data.data);
+        setPagination(response.data.pagination);
       } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
+        setError(response.error || '获取数据失败');
       }
     } catch (err) {
-      console.error('Failed to fetch habit goals:', err);
-      setError('网络错误');
-      setData([]);
+      setError(err instanceof Error ? err.message : '网络错误');
     } finally {
       setLoading(false);
     }
-  }, [filters?.category, filters?.status, filters?.grade]);
+  }, [JSON.stringify(params)]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  return {
+    data,
+    loading,
+    error,
+    pagination,
+    refetch: fetchData,
+  };
+}
 
-  return { data, loading, error, refetch: fetchData };
+/**
+ * 获取单个习惯记录详情
+ */
+export function useHabitRecord(id: string | null) {
+  return useQuery<HabitRecord | null>(
+    () => id ? fetchApi<HabitRecord>(`/moral/habit/records/${id}`).then(r => ({
+      success: r.success,
+      data: r.data || null,
+      error: r.error,
+    })) : Promise.resolve({ success: true, data: null }),
+    { enabled: !!id, deps: [id] }
+  );
+}
+
+/**
+ * 获取习惯评价记录
+ */
+export function useHabitEvaluations(params?: {
+  studentId?: string;
+  classId?: string;
+  teacherId?: string;
+  category?: HabitCategory;
+  academicYear?: string;
+  semester?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<HabitEvaluation[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetchApi<{ data: HabitEvaluation[]; pagination: Pagination }>(
+        '/moral/habit/evaluations',
+        { ...params, page: params?.page || 1, pageSize: params?.pageSize || 20 }
+      );
+
+      if (response.success && response.data) {
+        setData(response.data.data);
+        setPagination(response.data.pagination);
+      } else {
+        setError(response.error || '获取数据失败');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+    } finally {
+      setLoading(false);
+    }
+  }, [JSON.stringify(params)]);
+
+  return {
+    data,
+    loading,
+    error,
+    pagination,
+    refetch: fetchData,
+  };
+}
+
+/**
+ * 获取学生习惯统计数据
+ */
+export function useHabitStatistics(studentId: string | null) {
+  return useQuery<HabitStatistics | null>(
+    () => studentId 
+      ? fetchApi<HabitStatistics>(`/moral/habit/statistics/${studentId}`).then(r => ({
+          success: r.success,
+          data: r.data || null,
+          error: r.error,
+        }))
+      : Promise.resolve({ success: true, data: null }),
+    { enabled: !!studentId, deps: [studentId] }
+  );
+}
+
+/**
+ * 获取学生习惯趋势数据
+ */
+export function useHabitTrend(studentId: string | null, months: number = 6) {
+  return useQuery<HabitTrend | null>(
+    () => studentId 
+      ? fetchApi<HabitTrend>(`/moral/habit/trend/${studentId}`, { months }).then(r => ({
+          success: r.success,
+          data: r.data || null,
+          error: r.error,
+        }))
+      : Promise.resolve({ success: true, data: null }),
+    { enabled: !!studentId, deps: [studentId, months] }
+  );
+}
+
+/**
+ * 获取习惯目标列表
+ */
+export function useHabitGoals(params?: {
+  studentId?: string;
+  classId?: string;
+  status?: 'active' | 'completed' | 'all';
+  category?: HabitCategory;
+}) {
+  return useQuery<HabitGoal[]>(
+    () => fetchApi<HabitGoal[]>('/moral/habit/goals', params).then(r => ({
+      success: r.success,
+      data: r.data || [],
+      error: r.error,
+    })),
+    { deps: [JSON.stringify(params)] }
+  );
 }
 
 /**
  * 获取习惯之星列表
  */
-export function useHabitStars(filters?: {
-  month?: string;
-  grade?: number;
+export function useHabitStars(params?: {
+  classId?: string;
+  grade?: string;
   category?: HabitCategory;
+  academicYear?: string;
+  semester?: string;
   limit?: number;
 }) {
-  const [data, setData] = useState<HabitStar[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  return useQuery<HabitStar[]>(
+    () => fetchApi<HabitStar[]>('/moral/habit/stars', params).then(r => ({
+      success: r.success,
+      data: r.data || [],
+      error: r.error,
+    })),
+    { deps: [JSON.stringify(params)] }
+  );
+}
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.month) params.append('month', filters.month);
-      if (filters?.grade) params.append('grade', filters.grade.toString());
-      if (filters?.category) params.append('category', filters.category);
-      if (filters?.limit) params.append('limit', filters.limit.toString());
-      
-      const response = await fetch(`/api/habit/stars?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch habit stars:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.month, filters?.grade, filters?.category, filters?.limit]);
+// ============================================================
+// 全校统计 Hook
+// ============================================================
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+/**
+ * 获取全校习惯养成统计概览
+ */
+export function useSchoolHabitStats(month?: string) {
+  const currentMonth = month || new Date().toISOString().slice(0, 7);
+  
+  return useQuery<SchoolHabitStatsResponse>(
+    () => fetchApi<SchoolHabitStatsResponse>('/moral/habit/school-stats', { month: currentMonth }).then(r => ({
+      success: r.success,
+      data: r.data || {
+        overview: {} as SchoolHabitOverview,
+        categoryStats: [],
+        gradeStats: [],
+        month: currentMonth,
+      },
+      error: r.error,
+    })),
+    { deps: [currentMonth] }
+  );
 }
 
 /**
- * 获取学生习惯评价记录
+ * 获取习惯目标模板
  */
-export function useHabitAssessments(filters?: {
-  studentId?: string;
-  category?: HabitCategory;
-  startDate?: string;
-  endDate?: string;
-  limit?: number;
-}) {
-  const [data, setData] = useState<HabitAssessment[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useHabitGoalTemplates(category?: HabitCategory) {
+  return useQuery<HabitGoalTemplate[]>(
+    () => fetchApi<HabitGoalTemplate[]>('/moral/habit/goal-templates', category ? { category } : undefined).then(r => ({
+      success: r.success,
+      data: r.data || [],
+      error: r.error,
+    })),
+    { deps: [category] }
+  );
+}
+
+/**
+ * 获取习惯之星评选规则
+ */
+export function useHabitStarRules() {
+  return useQuery<HabitStarRule[]>(
+    () => fetchApi<HabitStarRule[]>('/moral/habit/star-rules').then(r => ({
+      success: r.success,
+      data: r.data || [],
+      error: r.error,
+    })),
+    {}
+  );
+}
+
+// ============================================================
+// 数据操作 Hook
+// ============================================================
+
+/**
+ * 习惯评价操作 Hook
+ */
+export function useHabitEvaluationActions() {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const createEvaluation = useCallback(async (data: Partial<HabitEvaluation>) => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.studentId) params.append('studentId', filters.studentId);
-      if (filters?.category) params.append('category', filters.category);
-      if (filters?.startDate) params.append('startDate', filters.startDate);
-      if (filters?.endDate) params.append('endDate', filters.endDate);
-      if (filters?.limit) params.append('limit', filters.limit.toString());
-      
-      const response = await fetch(`/api/habit/assessments?${params.toString()}`);
+      const response = await fetch('/api/moral/habit/evaluations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
       const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch habit assessments:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
       setLoading(false);
+      return result.success ? result.data : null;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return null;
     }
-  }, [filters?.studentId, filters?.category, filters?.startDate, filters?.endDate, filters?.limit]);
+  }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const updateEvaluation = useCallback(async (id: string, data: Partial<HabitEvaluation>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/moral/habit/evaluations/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      setLoading(false);
+      return result.success ? result.data : null;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return null;
+    }
+  }, []);
 
-  return { data, loading, error, refetch: fetchData };
-}
+  const deleteEvaluation = useCallback(async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/moral/habit/evaluations/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      setLoading(false);
+      return result.success;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return false;
+    }
+  }, []);
 
-// 模拟数据（作为fallback）
-function getMockSchoolStats(): SchoolHabitStatsResponse {
-  const now = new Date();
-  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  
   return {
-    overview: {
-      totalStudents: 1896,
-      totalClasses: 42,
-      totalTeachers: 128,
-      averageRate: 86.3,
-      rateChange: 2.1,
-      habitStars: 186,
-      starsChange: 12,
-      attentionStudents: 47,
-      attentionChange: -8,
-      monthlyEvaluations: 3428,
-      goalsCompletion: 78.5,
-    },
-    categoryStats: [
-      { category: 'civilization', rate: 89.2, trend: 'up', change: 2.3, topGrade: '三年级', weakGrade: '六年级' },
-      { category: 'writing', rate: 78.5, trend: 'stable', change: 0.5, topGrade: '五年级', weakGrade: '一年级' },
-      { category: 'reading', rate: 92.1, trend: 'up', change: 3.8, topGrade: '四年级', weakGrade: '二年级' },
-      { category: 'sports', rate: 83.7, trend: 'up', change: 1.2, topGrade: '三年级', weakGrade: '六年级' },
-      { category: 'safety', rate: 91.5, trend: 'stable', change: 0.2, topGrade: '二年级', weakGrade: '五年级' },
-      { category: 'hygiene', rate: 85.8, trend: 'up', change: 1.5, topGrade: '四年级', weakGrade: '一年级' },
-      { category: 'aesthetic', rate: 72.3, trend: 'down', change: -1.2, topGrade: '五年级', weakGrade: '二年级' },
-      { category: 'labor', rate: 87.6, trend: 'up', change: 2.1, topGrade: '三年级', weakGrade: '六年级' },
-    ],
-    gradeStats: [
-      { grade: '一年级', gradeNumber: 1, students: 320, classes: 6, avgRate: 82.1, trend: 'up', stars: 24, attention: 12 },
-      { grade: '二年级', gradeNumber: 2, students: 315, classes: 6, avgRate: 84.5, trend: 'stable', stars: 28, attention: 9 },
-      { grade: '三年级', gradeNumber: 3, students: 328, classes: 6, avgRate: 89.2, trend: 'up', stars: 38, attention: 5 },
-      { grade: '四年级', gradeNumber: 4, students: 324, classes: 6, avgRate: 88.7, trend: 'up', stars: 36, attention: 6 },
-      { grade: '五年级', gradeNumber: 5, students: 308, classes: 6, avgRate: 86.3, trend: 'stable', stars: 32, attention: 8 },
-      { grade: '六年级', gradeNumber: 6, students: 301, classes: 6, avgRate: 85.1, trend: 'down', stars: 28, attention: 7 },
-    ],
-    month,
+    loading,
+    error,
+    createEvaluation,
+    updateEvaluation,
+    deleteEvaluation,
   };
 }
+
+/**
+ * 习惯目标操作 Hook
+ */
+export function useHabitGoalActions() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const createGoal = useCallback(async (data: Partial<HabitGoal>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/moral/habit/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      setLoading(false);
+      return result.success ? result.data : null;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return null;
+    }
+  }, []);
+
+  const updateGoal = useCallback(async (id: string, data: Partial<HabitGoal>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/moral/habit/goals/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      setLoading(false);
+      return result.success ? result.data : null;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return null;
+    }
+  }, []);
+
+  const deleteGoal = useCallback(async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/moral/habit/goals/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      setLoading(false);
+      return result.success;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return false;
+    }
+  }, []);
+
+  return {
+    loading,
+    error,
+    createGoal,
+    updateGoal,
+    deleteGoal,
+  };
+}
+
+/**
+ * 习惯记录操作 Hook
+ */
+export function useHabitRecordActions() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const createRecord = useCallback(async (data: Partial<HabitRecord>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/moral/habit/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      setLoading(false);
+      return result.success ? result.data : null;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return null;
+    }
+  }, []);
+
+  const updateRecord = useCallback(async (id: string, data: Partial<HabitRecord>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/moral/habit/records/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      setLoading(false);
+      return result.success ? result.data : null;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return null;
+    }
+  }, []);
+
+  const deleteRecord = useCallback(async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/moral/habit/records/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      setLoading(false);
+      return result.success;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '网络错误');
+      setLoading(false);
+      return false;
+    }
+  }, []);
+
+  return {
+    loading,
+    error,
+    createRecord,
+    updateRecord,
+    deleteRecord,
+  };
+}
+
+// ============================================================
+// 综合查询 Hook（聚合多个数据源）
+// ============================================================
+
+/**
+ * 学生习惯综合数据 Hook
+ * 聚合学生统计数据、趋势数据、目标列表
+ */
+export function useStudentHabitSummary(studentId: string | null) {
+  const { data: stats, loading: statsLoading, error: statsError } = useHabitStatistics(studentId);
+  const { data: trend, loading: trendLoading, error: trendError } = useHabitTrend(studentId);
+  const { data: goals, loading: goalsLoading, error: goalsError } = useHabitGoals({ 
+    studentId: studentId || undefined, 
+    status: 'active' 
+  });
+
+  const loading = statsLoading || trendLoading || goalsLoading;
+  const error = statsError || trendError || goalsError;
+
+  const summary = useMemo(() => {
+    if (!studentId) return null;
+
+    return {
+      studentId,
+      stats,
+      trend,
+      activeGoals: goals,
+    };
+  }, [studentId, stats, trend, goals]);
+
+  return {
+    data: summary,
+    loading,
+    error,
+  };
+}
+
+/**
+ * 班级习惯数据概览 Hook
+ */
+export function useClassHabitOverview(classId: string | null) {
+  const { data: stars, loading: starsLoading } = useHabitStars({ 
+    classId: classId || undefined,
+    limit: 10,
+  });
+  
+  const { data: goals, loading: goalsLoading } = useHabitGoals({ 
+    classId: classId || undefined,
+    status: 'active',
+  });
+
+  const loading = starsLoading || goalsLoading;
+
+  return {
+    stars,
+    activeGoals: goals,
+    loading,
+  };
+}
+
+// ============================================================
+// 导出类型
+// ============================================================
+
+export type {
+  HabitRecord,
+  HabitEvaluation,
+  HabitStatistics,
+  HabitGoal,
+  HabitStar,
+  HabitCategory,
+  HabitTrend,
+  HabitAssessment,
+};

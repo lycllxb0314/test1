@@ -2262,7 +2262,6 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 ```
 src/hooks/
 ├── useApi.ts              # 基础Hook库（核心）
-├── useDataFetch.ts        # @deprecated 已弃用，迁移中
 ├── useAuth.ts             # 认证相关
 ├── usePermissions.ts      # 权限管理
 ├── useStudentData.ts      # 学生数据
@@ -2273,11 +2272,14 @@ src/hooks/
 ├── useGeneralAffairsData.ts # 总务数据
 ├── useAccessData.ts       # 门禁数据
 ├── useRoomData.ts         # 功能室数据
-├── useData.ts             # 通用数据Hook
-├── useCrudOperations.ts   # CRUD操作Hook
 ├── useBatchOperations.ts  # 批量操作Hook
 └── use-mobile.ts          # 移动端检测
 ```
+
+> **注意**：已删除的废弃文件：
+> - `useDataFetch.ts` - 旧版数据获取Hook
+> - `useData.ts` - 旧版通用数据Hook
+> - `useCrudOperations.ts` - 旧版CRUD操作Hook
 
 ### 5.16.3 核心Hooks说明
 

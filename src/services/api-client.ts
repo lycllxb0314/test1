@@ -20,11 +20,19 @@ import type {
   Room,
   RoomBooking,
   HabitGoal,
+  HabitRecord,
+  HabitEvaluation,
+  HabitStatistics,
+  HabitTrend,
+  HabitCategory,
   StudentMonthlyGoal,
   HabitAssessment,
   HabitStar,
   StudentHabitProfile,
   ClassHabitStats,
+  SchoolHabitStatsResponse,
+  HabitGoalTemplate,
+  HabitStarRule,
   ResearchActivity,
   CollectivePreparation,
   LessonObservation,
@@ -35,6 +43,11 @@ import type {
   ScheduleChange,
   ExpenseReimbursement,
   ExpenseStatistics,
+  MoralActivity,
+  MoralEvaluation,
+  StudentHonor,
+  WarningStudent,
+  MoralStatistics,
 } from '@/types';
 
 // ============================================
@@ -376,29 +389,300 @@ export const workflowApi = {
  * 习惯养成API
  */
 export const habitApi = {
+  // ============================================
+  // 习惯记录管理
+  // ============================================
+  
+  /** 获取习惯记录列表 */
+  getRecords: (params?: QueryParams & {
+    studentId?: string;
+    classId?: string;
+    category?: HabitCategory;
+    startDate?: string;
+    endDate?: string;
+  }) =>
+    apiClient.get<HabitRecord[]>('/moral/habit/records', params),
+  
+  /** 获取单条习惯记录 */
+  getRecord: (id: string) =>
+    apiClient.get<HabitRecord>(`/moral/habit/records/${id}`),
+  
+  /** 创建习惯记录 */
+  createRecord: (data: Partial<HabitRecord>) =>
+    apiClient.post<HabitRecord>('/moral/habit/records', data),
+  
+  /** 更新习惯记录 */
+  updateRecord: (id: string, data: Partial<HabitRecord>) =>
+    apiClient.put<HabitRecord>(`/moral/habit/records/${id}`, data),
+  
+  /** 删除习惯记录 */
+  deleteRecord: (id: string) =>
+    apiClient.delete(`/moral/habit/records/${id}`),
+  
+  // ============================================
+  // 习惯评价管理
+  // ============================================
+  
+  /** 获取习惯评价记录 */
+  getEvaluations: (params?: QueryParams & {
+    studentId?: string;
+    classId?: string;
+    teacherId?: string;
+    category?: HabitCategory;
+    academicYear?: string;
+    semester?: string;
+  }) =>
+    apiClient.get<HabitEvaluation[]>('/moral/habit/evaluations', params),
+  
+  /** 创建习惯评价 */
+  createEvaluation: (data: Partial<HabitEvaluation>) =>
+    apiClient.post<HabitEvaluation>('/moral/habit/evaluations', data),
+  
+  /** 更新习惯评价 */
+  updateEvaluation: (id: string, data: Partial<HabitEvaluation>) =>
+    apiClient.put<HabitEvaluation>(`/moral/habit/evaluations/${id}`, data),
+  
+  /** 删除习惯评价 */
+  deleteEvaluation: (id: string) =>
+    apiClient.delete(`/moral/habit/evaluations/${id}`),
+  
+  // ============================================
+  // 学生习惯统计
+  // ============================================
+  
+  /** 获取学生习惯统计 */
+  getStudentStatistics: (studentId: string) =>
+    apiClient.get<HabitStatistics>(`/moral/habit/statistics/${studentId}`),
+  
+  /** 获取学生习惯趋势 */
+  getStudentTrend: (studentId: string, months?: number) =>
+    apiClient.get<HabitTrend>(`/moral/habit/trend/${studentId}`, { months }),
+  
+  /** 获取学生习惯档案 */
+  getStudentProfile: (studentId: string) =>
+    apiClient.get<StudentHabitProfile>(`/students/${studentId}/habit-profile`),
+  
+  // ============================================
+  // 目标管理
+  // ============================================
+  
   /** 获取习惯目标列表 */
-  getGoals: (params?: QueryParams) =>
-    apiClient.get<HabitGoal[]>('/habit/goals', params),
+  getGoals: (params?: QueryParams & {
+    studentId?: string;
+    classId?: string;
+    status?: 'active' | 'completed' | 'all';
+    category?: HabitCategory;
+  }) =>
+    apiClient.get<HabitGoal[]>('/moral/habit/goals', params),
   
   /** 获取学生月度目标 */
   getMonthlyGoals: (studentId: string, month?: string) =>
-    apiClient.get<StudentMonthlyGoal[]>(`/habit/goals`, { studentId, month }),
+    apiClient.get<StudentMonthlyGoal[]>('/moral/habit/goals', { studentId, month }),
   
-  /** 获取习惯评价记录 */
-  getAssessments: (params?: QueryParams) =>
-    apiClient.get<HabitAssessment[]>('/habit/assessments', params),
+  /** 创建习惯目标 */
+  createGoal: (data: Partial<HabitGoal>) =>
+    apiClient.post<HabitGoal>('/moral/habit/goals', data),
   
-  /** 创建习惯评价 */
-  createAssessment: (data: Partial<HabitAssessment>) =>
-    apiClient.post<HabitAssessment>('/habit/assessments', data),
+  /** 更新习惯目标 */
+  updateGoal: (id: string, data: Partial<HabitGoal>) =>
+    apiClient.put<HabitGoal>(`/moral/habit/goals/${id}`, data),
   
-  /** 获取习惯之星 */
-  getStars: (month?: string) =>
-    apiClient.get<HabitStar[]>('/habit/stars', { month }),
+  /** 更新目标进度 */
+  updateGoalProgress: (id: string, completedDays: number) =>
+    apiClient.patch<HabitGoal>(`/moral/habit/goals/${id}/progress`, { completedDays }),
+  
+  /** 删除习惯目标 */
+  deleteGoal: (id: string) =>
+    apiClient.delete(`/moral/habit/goals/${id}`),
+  
+  /** 获取目标模板 */
+  getGoalTemplates: (category?: HabitCategory) =>
+    apiClient.get<HabitGoalTemplate[]>('/moral/habit/goal-templates', category ? { category } : undefined),
+  
+  // ============================================
+  // 习惯之星
+  // ============================================
+  
+  /** 获取习惯之星列表 */
+  getStars: (params?: QueryParams & {
+    classId?: string;
+    grade?: string;
+    category?: HabitCategory;
+    academicYear?: string;
+    semester?: string;
+  }) =>
+    apiClient.get<HabitStar[]>('/moral/habit/stars', params),
+  
+  /** 创建习惯之星 */
+  createStar: (data: Partial<HabitStar>) =>
+    apiClient.post<HabitStar>('/moral/habit/stars', data),
+  
+  /** 删除习惯之星 */
+  deleteStar: (id: string) =>
+    apiClient.delete(`/moral/habit/stars/${id}`),
+  
+  /** 获取评选规则 */
+  getStarRules: () =>
+    apiClient.get<HabitStarRule[]>('/moral/habit/star-rules'),
+  
+  // ============================================
+  // 全校/年级统计
+  // ============================================
   
   /** 获取学校习惯统计 */
   getSchoolStats: (month: string) =>
-    apiClient.get('/habit/stats/school', { month }),
+    apiClient.get<SchoolHabitStatsResponse>('/moral/habit/school-stats', { month }),
+  
+  /** 获取班级习惯统计 */
+  getClassStats: (classId: string, month?: string) =>
+    apiClient.get<ClassHabitStats>(`/moral/habit/class-stats/${classId}`, { month }),
+  
+  // ============================================
+  // 兼容旧API（保持向后兼容）
+  // ============================================
+  
+  /** @deprecated 使用 getEvaluations 代替 */
+  getAssessments: (params?: QueryParams) =>
+    apiClient.get<HabitAssessment[]>('/habit/assessments', params),
+  
+  /** @deprecated 使用 createEvaluation 代替 */
+  createAssessment: (data: Partial<HabitAssessment>) =>
+    apiClient.post<HabitAssessment>('/habit/assessments', data),
+} as const;
+
+/**
+ * 德育API
+ */
+export const moralApi = {
+  // ============================================
+  // 德育活动管理
+  // ============================================
+  
+  /** 获取德育活动列表 */
+  getActivities: (params?: QueryParams & {
+    type?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }) =>
+    apiClient.get<MoralActivity[]>('/moral/activities', params),
+  
+  /** 获取德育活动详情 */
+  getActivity: (id: string) =>
+    apiClient.get<MoralActivity>(`/moral/activities/${id}`),
+  
+  /** 创建德育活动 */
+  createActivity: (data: Partial<MoralActivity>) =>
+    apiClient.post<MoralActivity>('/moral/activities', data),
+  
+  /** 更新德育活动 */
+  updateActivity: (id: string, data: Partial<MoralActivity>) =>
+    apiClient.put<MoralActivity>(`/moral/activities/${id}`, data),
+  
+  /** 删除德育活动 */
+  deleteActivity: (id: string) =>
+    apiClient.delete(`/moral/activities/${id}`),
+  
+  // ============================================
+  // 德育评价
+  // ============================================
+  
+  /** 获取德育评价列表 */
+  getEvaluations: (params?: QueryParams & {
+    studentId?: string;
+    classId?: string;
+    type?: string;
+    academicYear?: string;
+    semester?: string;
+  }) =>
+    apiClient.get<MoralEvaluation[]>('/moral/evaluations', params),
+  
+  /** 创建德育评价 */
+  createEvaluation: (data: Partial<MoralEvaluation>) =>
+    apiClient.post<MoralEvaluation>('/moral/evaluations', data),
+  
+  /** 更新德育评价 */
+  updateEvaluation: (id: string, data: Partial<MoralEvaluation>) =>
+    apiClient.put<MoralEvaluation>(`/moral/evaluations/${id}`, data),
+  
+  /** 删除德育评价 */
+  deleteEvaluation: (id: string) =>
+    apiClient.delete(`/moral/evaluations/${id}`),
+  
+  // ============================================
+  // 荣誉管理
+  // ============================================
+  
+  /** 获取学生荣誉列表 */
+  getHonors: (params?: QueryParams & {
+    studentId?: string;
+    classId?: string;
+    level?: string;
+    type?: string;
+    academicYear?: string;
+  }) =>
+    apiClient.get<StudentHonor[]>('/moral/honors', params),
+  
+  /** 创建学生荣誉 */
+  createHonor: (data: Partial<StudentHonor>) =>
+    apiClient.post<StudentHonor>('/moral/honors', data),
+  
+  /** 更新学生荣誉 */
+  updateHonor: (id: string, data: Partial<StudentHonor>) =>
+    apiClient.put<StudentHonor>(`/moral/honors/${id}`, data),
+  
+  /** 删除学生荣誉 */
+  deleteHonor: (id: string) =>
+    apiClient.delete(`/moral/honors/${id}`),
+  
+  // ============================================
+  // 预警管理
+  // ============================================
+  
+  /** 获取预警学生列表 */
+  getWarningStudents: (params?: QueryParams & {
+    type?: 'behavior' | 'psychological' | 'academic' | 'attendance';
+    level?: '轻度' | '中度' | '重度';
+    status?: 'active' | 'resolved' | 'all';
+  }) =>
+    apiClient.get<WarningStudent[]>('/moral/warnings', params),
+  
+  /** 获取预警详情 */
+  getWarning: (id: string) =>
+    apiClient.get<WarningStudent>(`/moral/warnings/${id}`),
+  
+  /** 创建预警记录 */
+  createWarning: (data: Partial<WarningStudent>) =>
+    apiClient.post<WarningStudent>('/moral/warnings', data),
+  
+  /** 更新预警记录 */
+  updateWarning: (id: string, data: Partial<WarningStudent>) =>
+    apiClient.put<WarningStudent>(`/moral/warnings/${id}`, data),
+  
+  /** 解决预警 */
+  resolveWarning: (id: string, resolution: string) =>
+    apiClient.patch<WarningStudent>(`/moral/warnings/${id}/resolve`, { resolution }),
+  
+  // ============================================
+  // 统计分析
+  // ============================================
+  
+  /** 获取德育统计数据 */
+  getStatistics: (params?: {
+    classId?: string;
+    grade?: string;
+    academicYear?: string;
+    semester?: string;
+  }) =>
+    apiClient.get<MoralStatistics>('/moral/statistics', params),
+  
+  /** 获取班级德育概览 */
+  getClassOverview: (classId: string) =>
+    apiClient.get(`/moral/classes/${classId}/overview`),
+  
+  /** 获取年级德育概览 */
+  getGradeOverview: (grade: string) =>
+    apiClient.get(`/moral/grades/${grade}/overview`),
 } as const;
 
 /**
@@ -543,6 +827,7 @@ export const api = {
   scheduleChange: scheduleChangeApi,
   workflow: workflowApi,
   habit: habitApi,
+  moral: moralApi,
   research: researchApi,
   room: roomApi,
   access: accessApi,

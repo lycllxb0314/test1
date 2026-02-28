@@ -16,8 +16,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ApiResponse, QueryParams, Pagination } from '@/services/api-client';
 
-// 重新导出QueryParams供其他模块使用
-export type { QueryParams } from '@/services/api-client';
+// 重新导出类型供其他模块使用
+export type { ApiResponse, QueryParams, Pagination } from '@/services/api-client';
 
 // ============================================
 // 核心类型定义

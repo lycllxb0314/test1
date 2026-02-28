@@ -625,6 +625,123 @@ export interface MoralAssessment {
   createdAt: string;
 }
 
+// 德育活动
+export interface MoralActivity {
+  id: string;
+  title: string;
+  type: '主题班会' | '升旗仪式' | '志愿服务' | '社会实践' | '节日活动' | '其他';
+  description: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  organizerId: string;
+  organizerName: string;
+  participantType: 'class' | 'grade' | 'school';
+  participantIds: string[];
+  participantCount: number;
+  status: 'planning' | 'ongoing' | 'completed' | 'cancelled';
+  images?: string[];
+  summary?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 德育评价（综合评价）
+export interface MoralEvaluation {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  type: '日常行为' | '活动表现' | '综合评价';
+  category: string;
+  content: string;
+  score: number;
+  level?: '优秀' | '良好' | '合格' | '待提高';
+  evaluatorId: string;
+  evaluatorName: string;
+  academicYear: string;
+  semester: string;
+  occurredAt: string;
+  createdAt: string;
+}
+
+// 预警学生
+export interface WarningStudent {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  grade: number;
+  type: 'behavior' | 'psychological' | 'academic' | 'attendance';
+  typeLabel: '行为预警' | '心理预警' | '学业预警' | '出勤预警';
+  level: '轻度' | '中度' | '重度';
+  status: 'active' | 'resolved';
+  description: string;
+  triggers: string[];
+  interventions: WarningIntervention[];
+  reporterId: string;
+  reporterName: string;
+  reportedAt: string;
+  resolvedAt?: string;
+  resolution?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 预警干预记录
+export interface WarningIntervention {
+  id: string;
+  warningId: string;
+  type: '谈话' | '家访' | '心理辅导' | '学业帮扶' | '其他';
+  content: string;
+  participantIds: string[];
+  participantNames: string[];
+  result: string;
+  createdAt: string;
+}
+
+// 德育统计数据
+export interface MoralStatistics {
+  period: {
+    academicYear: string;
+    semester?: string;
+    month?: string;
+  };
+  overview: {
+    totalStudents: number;
+    excellentCount: number;
+    goodCount: number;
+    qualifiedCount: number;
+    needImproveCount: number;
+    averageScore: number;
+  };
+  activities: {
+    total: number;
+    completed: number;
+    ongoing: number;
+    participantCount: number;
+  };
+  honors: {
+    total: number;
+    byLevel: Record<string, number>;
+    byType: Record<string, number>;
+  };
+  warnings: {
+    total: number;
+    active: number;
+    resolved: number;
+    byType: Record<string, number>;
+  };
+  behavior: {
+    praiseCount: number;
+    criticismCount: number;
+    avgScore: number;
+    trend: 'up' | 'down' | 'stable';
+  };
+}
+
 // 活动信息
 export interface Activity {
   id: string;
@@ -2179,6 +2296,163 @@ export interface ClassHabitStats {
     studentName: string;
     lowCategories: HabitCategory[];
   }[];
+}
+
+// ============================================================
+// 习惯养成统计类型（全校/年级）
+// ============================================================
+
+/** 全校习惯统计概览 */
+export interface SchoolHabitOverview {
+  totalStudents: number;
+  totalClasses: number;
+  totalTeachers: number;
+  averageRate: number;
+  rateChange: number;
+  habitStars: number;
+  starsChange: number;
+  attentionStudents: number;
+  attentionChange: number;
+  monthlyEvaluations: number;
+  goalsCompletion: number;
+}
+
+/** 习惯类别统计 */
+export interface HabitCategoryStat {
+  category: HabitCategory;
+  rate: number;
+  trend: 'up' | 'down' | 'stable';
+  change: number;
+  evaluationCount?: number;
+  topGrade?: string;
+  weakGrade?: string;
+}
+
+/** 年级习惯统计 */
+export interface GradeHabitStat {
+  grade: string;
+  gradeNumber: number;
+  students: number;
+  classes: number;
+  avgRate: number;
+  trend: 'up' | 'down' | 'stable';
+  stars: number;
+  attention: number;
+  topHabit?: string;
+  weakHabit?: string;
+}
+
+/** 学校习惯统计响应 */
+export interface SchoolHabitStatsResponse {
+  overview: SchoolHabitOverview;
+  categoryStats: HabitCategoryStat[];
+  gradeStats: GradeHabitStat[];
+  month: string;
+}
+
+/** 习惯目标模板 */
+export interface HabitGoalTemplate {
+  id: string;
+  category: HabitCategory;
+  title: string;
+  description: string;
+  targetDays: number;
+  isPublic: boolean;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+}
+
+/** 习惯之星评选规则 */
+export interface HabitStarRule {
+  id: string;
+  category?: HabitCategory;
+  minRate: number;
+  description: string;
+  isActive: boolean;
+}
+
+// 习惯记录（日常记录）
+export interface HabitRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  category: HabitCategory;
+  date: string;
+  achieved: boolean;
+  note?: string;
+  recordedBy: 'student' | 'parent' | 'teacher';
+  recorderId: string;
+  recorderName: string;
+  createdAt: string;
+}
+
+// 习惯评价（综合评价，不同于即时评价）
+export interface HabitEvaluation {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  category: HabitCategory;
+  type: 'praise' | 'improve';
+  title: string;
+  content: string;
+  score: number;
+  scene: 'classroom' | 'campus' | 'home' | 'activity' | 'other';
+  images?: string[];
+  recorderId: string;
+  recorderName: string;
+  recorderRole: 'teacher' | 'parent' | 'student';
+  academicYear: string;
+  semester: string;
+  occurredAt: string;
+  createdAt: string;
+}
+
+// 习惯统计数据
+export interface HabitStatistics {
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
+  overall: {
+    totalRecords: number;
+    achievedRecords: number;
+    achievementRate: number;
+    praiseCount: number;
+    improveCount: number;
+    netScore: number;
+  };
+  byCategory: {
+    category: HabitCategory;
+    totalRecords: number;
+    achievedRecords: number;
+    achievementRate: number;
+    trend: 'up' | 'down' | 'stable';
+  }[];
+  recentRecords: HabitRecord[];
+  recentEvaluations: HabitEvaluation[];
+  monthlyGoals: StudentMonthlyGoal[];
+}
+
+// 习惯趋势数据
+export interface HabitTrend {
+  studentId: string;
+  months: {
+    month: string;
+    achievementRate: number;
+    praiseCount: number;
+    improveCount: number;
+    byCategory: {
+      category: HabitCategory;
+      rate: number;
+    }[];
+  }[];
+  trend: 'up' | 'down' | 'stable';
+  changeRate: number;
 }
 
 // ============================================================
