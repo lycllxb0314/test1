@@ -120,10 +120,9 @@ const academicNav: NavItem[] = [
 
 // 德育管理导航 - 5大模块
 const moralNav: NavItem[] = [
-  { name: '德育概览', href: '/moral', icon: LayoutDashboard, description: '德育工作看板' },
   {
     name: '日常行为',
-    href: '/moral/assessment',
+    href: '/moral/habit/overview',
     icon: Activity,
     description: '行为评价与习惯养成',
     children: [

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -13,6 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Heart,
   Pen,
@@ -29,6 +37,11 @@ import {
   Calendar,
   Download,
   GraduationCap,
+  ChevronRight,
+  TrendingUp,
+  Clock,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import {
   HabitCategory,
@@ -64,6 +77,7 @@ const goalsData = [
     rate: 84.4, 
     status: 'active',
     startDate: '2024-03-15',
+    description: '培养学生每日阅读习惯，要求阅读课外书籍不少于30分钟',
   },
   { 
     id: 'g002', 
@@ -79,6 +93,7 @@ const goalsData = [
     rate: 59.5, 
     status: 'active',
     startDate: '2024-03-01',
+    description: '纠正学生书写姿势，保护视力和脊椎健康',
   },
   { 
     id: 'g003', 
@@ -94,6 +109,7 @@ const goalsData = [
     rate: 90.0, 
     status: 'completed',
     startDate: '2024-03-01',
+    description: '引导学生课间进行文明、安全的游戏活动',
   },
   { 
     id: 'g004', 
@@ -109,6 +125,7 @@ const goalsData = [
     rate: 69.8, 
     status: 'active',
     startDate: '2024-04-01',
+    description: '增强学生体质，每日保证1小时体育活动时间',
   },
   { 
     id: 'g005', 
@@ -124,6 +141,7 @@ const goalsData = [
     rate: 89.9, 
     status: 'active',
     startDate: '2024-03-20',
+    description: '培养学生良好卫生习惯，勤洗手、勤剪指甲',
   },
   { 
     id: 'g006', 
@@ -139,7 +157,18 @@ const goalsData = [
     rate: 70.5, 
     status: 'active',
     startDate: '2024-03-25',
+    description: '培养学生劳动意识，每周参与家务劳动或班级值日',
   },
+];
+
+// 模拟目标详情中的学生列表
+const studentsInGoal = [
+  { id: 's1', name: '张小明', rate: 95, trend: 'up', lastCheck: '2024-04-01', totalChecks: 28 },
+  { id: 's2', name: '李小红', rate: 88, trend: 'up', lastCheck: '2024-04-01', totalChecks: 26 },
+  { id: 's3', name: '王小刚', rate: 72, trend: 'stable', lastCheck: '2024-03-30', totalChecks: 22 },
+  { id: 's4', name: '赵小芳', rate: 85, trend: 'up', lastCheck: '2024-04-01', totalChecks: 25 },
+  { id: 's5', name: '刘小伟', rate: 60, trend: 'down', lastCheck: '2024-03-28', totalChecks: 18 },
+  { id: 's6', name: '陈小丽', rate: 92, trend: 'up', lastCheck: '2024-04-01', totalChecks: 27 },
 ];
 
 // 年级数据
@@ -150,6 +179,8 @@ export default function GoalsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedGrade, setSelectedGrade] = useState<string>('全部');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<typeof goalsData[number] | null>(null);
   
   // 过滤目标
   const filteredGoals = goalsData.filter(goal => {
@@ -175,6 +206,12 @@ export default function GoalsPage() {
     completedGoals: goalsData.filter(g => g.status === 'completed').length,
     totalStudents: goalsData.reduce((sum, g) => sum + g.students, 0),
     avgCompletion: (goalsData.reduce((sum, g) => sum + g.rate, 0) / goalsData.length).toFixed(1),
+  };
+
+  // 查看目标详情
+  const handleViewDetail = (goal: typeof goalsData[number]) => {
+    setSelectedGoal(goal);
+    setShowDetailDialog(true);
   };
 
   return (
@@ -346,7 +383,7 @@ export default function GoalsPage() {
                 </div>
 
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-                  <Button variant="outline" size="sm" className="flex-1 gap-2">
+                  <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={() => handleViewDetail(goal)}>
                     <Eye className="h-4 w-4" />
                     查看详情
                   </Button>
@@ -365,6 +402,162 @@ export default function GoalsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 目标详情弹窗 */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-purple-500" />
+              {selectedGoal?.name}
+            </DialogTitle>
+            <DialogDescription>
+              查看目标详情与学生完成情况
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedGoal && (
+            <div className="space-y-6 py-4">
+              {/* 目标信息 */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${habitCategoryColors[selectedGoal.category]}`}>
+                        {React.createElement(habitIcons[selectedGoal.category], { className: 'h-5 w-5' })}
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">习惯类别</p>
+                        <p className="font-medium">{habitCategoryNames[selectedGoal.category]}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
+                        <Target className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">目标要求</p>
+                        <p className="font-medium">{selectedGoal.target}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">参与学生</p>
+                        <p className="font-medium">{selectedGoal.students} 人</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-green-100 text-green-600">
+                        <CheckCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">达成率</p>
+                        <p className="font-medium text-green-600">{selectedGoal.rate}%</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 目标描述 */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500 mb-1">目标描述</p>
+                <p className="text-gray-700">{selectedGoal.description}</p>
+              </div>
+
+              {/* 时间信息 */}
+              <div className="flex items-center gap-6 text-sm">
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Calendar className="h-4 w-4" />
+                  发布日期: {selectedGoal.startDate}
+                </span>
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Clock className="h-4 w-4" />
+                  截止日期: {selectedGoal.deadline}
+                </span>
+                <span className="flex items-center gap-2 text-gray-500">
+                  <GraduationCap className="h-4 w-4" />
+                  {selectedGoal.grade} · {selectedGoal.className}
+                </span>
+              </div>
+
+              {/* 学生完成情况 */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  学生完成情况
+                </h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {studentsInGoal.map((student, idx) => (
+                    <div key={student.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        idx === 0 ? 'bg-amber-100 text-amber-700' :
+                        idx === 1 ? 'bg-gray-100 text-gray-600' :
+                        'bg-gray-50 text-gray-500'
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-purple-100 text-purple-600 text-xs">
+                          {student.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{student.name}</p>
+                        <p className="text-xs text-gray-500">
+                          打卡 {student.totalChecks} 次 · 最后打卡 {student.lastCheck}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Progress value={student.rate} className="w-20 h-2" />
+                        <span className={`text-sm font-medium w-12 text-right ${
+                          student.rate >= 80 ? 'text-green-600' :
+                          student.rate >= 60 ? 'text-blue-600' : 'text-orange-600'
+                        }`}>
+                          {student.rate}%
+                        </span>
+                        {student.trend === 'up' && <TrendingUp className="h-4 w-4 text-green-500" />}
+                        {student.trend === 'down' && <TrendingUp className="h-4 w-4 text-red-500 rotate-180" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="text-sm text-gray-500">
+                  发布人: {selectedGoal.publisher}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
+                    关闭
+                  </Button>
+                  <Button variant="outline" className="gap-2">
+                    <Download className="h-4 w-4" />
+                    导出详情
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
