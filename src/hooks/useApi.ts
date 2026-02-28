@@ -291,26 +291,121 @@ export function usePaginatedQuery<T>(
   queryFn: (params: QueryParams) => Promise<ApiResponse<T[]>>,
   initialParams: QueryParams = {}
 ): UsePaginatedResult<T> {
-  const [params, setParams] = useState<QueryParams>({
-    page: 1,
-    pageSize: 20,
-    ...initialParams,
-  });
+  // 分页状态单独管理
+  const [page, setPage] = useState(initialParams.page || 1);
+  const [pageSize, setPageSizeState] = useState(initialParams.pageSize || 20);
   
   const [data, setData] = useState<T[] | null>(null);
   const [pagination, setPagination] = useState<Pagination | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<'database' | 'mock' | null>(null);
+  
+  // 使用 ref 存储 queryFn，避免依赖项变化导致无限循环
+  const queryFnRef = useRef(queryFn);
+  queryFnRef.current = queryFn;
+  
+  // 使用 ref 存储初始参数的非分页部分
+  const filterParamsRef = useRef<Omit<QueryParams, 'page' | 'pageSize'>>({});
+  
+  // 更新筛选参数（排除分页参数）
+  const currentFilterParams = { ...initialParams };
+  delete currentFilterParams.page;
+  delete currentFilterParams.pageSize;
+  
+  // 检测筛选参数是否变化
+  const filterParamsStr = JSON.stringify(currentFilterParams);
+  
+  useEffect(() => {
+    const prevStr = JSON.stringify(filterParamsRef.current);
+    if (filterParamsStr !== prevStr) {
+      filterParamsRef.current = currentFilterParams;
+      // 筛选条件变化时重置页码
+      if (page !== 1) {
+        setPage(1);
+        return; // page 变化会触发重新获取
+      }
+    }
+  }, [filterParamsStr, page, currentFilterParams]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  // 数据获取
+  useEffect(() => {
+    const controller = new AbortController();
+    
+    const fetchData = async () => {
+      setLoading(prev => prev ? prev : true);
+      setIsFetching(true);
+      setError(null);
+
+      try {
+        const queryParams: QueryParams = {
+          ...filterParamsRef.current,
+          page,
+          pageSize,
+        };
+        
+        const response = await queryFnRef.current(queryParams);
+        
+        if (controller.signal.aborted) return;
+        
+        if (response.success) {
+          setData(response.data || []);
+          setPagination(response.pagination || null);
+          setSource(response.source || null);
+        } else {
+          setError(response.error || '获取数据失败');
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        const errorMsg = err instanceof Error ? err.message : '未知错误';
+        setError(errorMsg);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setIsFetching(false);
+        }
+      }
+    };
+
+    fetchData();
+    
+    return () => controller.abort();
+  }, [page, pageSize, filterParamsStr]);
+
+  const nextPage = useCallback(() => {
+    if (pagination && page < pagination.totalPages) {
+      setPage(p => p + 1);
+    }
+  }, [pagination, page]);
+
+  const prevPage = useCallback(() => {
+    if (page > 1) {
+      setPage(p => p - 1);
+    }
+  }, [page]);
+
+  const goToPage = useCallback((newPage: number) => {
+    setPage(newPage);
+  }, []);
+
+  const setPageSize = useCallback((newSize: number) => {
+    setPageSizeState(newSize);
+    setPage(1);  // 改变每页数量时重置页码
+  }, []);
+
+  const refetch = useCallback(async () => {
     setIsFetching(true);
     setError(null);
-
+    
     try {
-      const response = await queryFn(params);
+      const queryParams: QueryParams = {
+        ...filterParamsRef.current,
+        page,
+        pageSize,
+      };
+      
+      const response = await queryFnRef.current(queryParams);
       
       if (response.success) {
         setData(response.data || []);
@@ -326,35 +421,7 @@ export function usePaginatedQuery<T>(
       setLoading(false);
       setIsFetching(false);
     }
-  }, [params, queryFn]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const nextPage = useCallback(() => {
-    if (pagination && params.page && params.page < pagination.totalPages) {
-      setParams(prev => ({ ...prev, page: (prev.page || 1) + 1 }));
-    }
-  }, [pagination, params.page]);
-
-  const prevPage = useCallback(() => {
-    if (params.page && params.page > 1) {
-      setParams(prev => ({ ...prev, page: (prev.page || 1) - 1 }));
-    }
-  }, [params.page]);
-
-  const goToPage = useCallback((page: number) => {
-    setParams(prev => ({ ...prev, page }));
-  }, []);
-
-  const setPageSize = useCallback((pageSize: number) => {
-    setParams(prev => ({ ...prev, pageSize, page: 1 }));
-  }, []);
-
-  const refetch = useCallback(async () => {
-    await fetchData();
-  }, [fetchData]);
+  }, [page, pageSize]);
 
   return {
     data,
@@ -368,8 +435,8 @@ export function usePaginatedQuery<T>(
     prevPage,
     goToPage,
     setPageSize,
-    page: params.page || 1,
-    pageSize: params.pageSize || 20,
+    page,
+    pageSize,
     total: pagination?.total || 0,
     totalPages: pagination?.totalPages || 0,
   };
