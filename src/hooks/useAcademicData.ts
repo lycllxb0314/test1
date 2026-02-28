@@ -1,10 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
-
 /**
- * 教务管理数据获取 Hook
+ * 教务管理数据获取Hooks
+ * 
+ * 使用统一的基础Hook库（useApi.ts）实现
+ * 
+ * @module hooks/useAcademicData
  */
 
-// 课程类型
+import { useQuery, usePaginatedQuery, useMutation, type QueryParams } from './useApi';
+import { apiClient } from '@/services/api-client';
+
+// ============================================
+// 类型定义
+// ============================================
+
+/** 课程类型 */
 export interface Course {
   id: string;
   name: string;
@@ -23,7 +32,7 @@ export interface Course {
   status: string;
 }
 
-// 课表项类型
+/** 课表项类型 */
 export interface ScheduleItem {
   id: string;
   classId: string;
@@ -49,7 +58,7 @@ export interface ScheduleItem {
   status: string;
 }
 
-// 考试类型
+/** 考试类型 */
 export interface Exam {
   id: string;
   name: string;
@@ -64,7 +73,7 @@ export interface Exam {
   createdAt: string;
 }
 
-// 成绩类型
+/** 成绩类型 */
 export interface Grade {
   id: string;
   studentId: string;
@@ -85,9 +94,10 @@ export interface Grade {
   createdAt: string;
 }
 
-// 考勤类型
+/** 考勤类型 */
 export type AttendanceType = 'attendance' | 'leave' | 'late' | 'early_leave' | 'absent';
 
+/** 考勤记录 */
 export interface AttendanceRecord {
   id: string;
   studentId: string;
@@ -103,10 +113,11 @@ export interface AttendanceRecord {
   createdAt: string;
 }
 
-// 请假申请类型
+/** 请假类型 */
 export type LeaveType = 'sick' | 'personal' | 'official' | 'maternity' | 'other';
 export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
+/** 请假申请 */
 export interface LeaveRequest {
   id: string;
   applicantId: string;
@@ -127,7 +138,7 @@ export interface LeaveRequest {
   createdAt: string;
 }
 
-// 调课申请类型
+/** 调课申请 */
 export interface ScheduleChange {
   id: string;
   originalScheduleId: string;
@@ -156,6 +167,10 @@ export interface ScheduleChange {
   semester: string;
 }
 
+// ============================================
+// 课程Hooks
+// ============================================
+
 /**
  * 获取课程列表
  */
@@ -164,43 +179,17 @@ export function useCourses(filters?: {
   classId?: string;
   semester?: string;
 }) {
-  const [data, setData] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.teacherId) params.append('teacherId', filters.teacherId);
-      if (filters?.classId) params.append('classId', filters.classId);
-      if (filters?.semester) params.append('semester', filters.semester);
-      
-      const response = await fetch(`/api/courses?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch courses:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.teacherId, filters?.classId, filters?.semester]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+  const params: QueryParams = {};
+  if (filters?.teacherId) params.teacherId = filters.teacherId;
+  if (filters?.classId) params.classId = filters.classId;
+  if (filters?.semester) params.semester = filters.semester;
+  
+  return useQuery<Course[]>(() => apiClient.get('/courses', params), { deps: [params] });
 }
+
+// ============================================
+// 课表Hooks
+// ============================================
 
 /**
  * 获取课表
@@ -210,284 +199,118 @@ export function useSchedules(filters?: {
   teacherId?: string;
   semester?: string;
 }) {
-  const [data, setData] = useState<ScheduleItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.classId) params.append('classId', filters.classId);
-      if (filters?.teacherId) params.append('teacherId', filters.teacherId);
-      if (filters?.semester) params.append('semester', filters.semester);
-      
-      const response = await fetch(`/api/schedules?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch schedules:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.classId, filters?.teacherId, filters?.semester]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+  const params: QueryParams = {};
+  if (filters?.classId) params.classId = filters.classId;
+  if (filters?.teacherId) params.teacherId = filters.teacherId;
+  if (filters?.semester) params.semester = filters.semester;
+  
+  return useQuery<ScheduleItem[]>(() => apiClient.get('/schedules', params), { deps: [params] });
 }
+
+// ============================================
+// 考试Hooks
+// ============================================
 
 /**
  * 获取考试列表
  */
 export function useExams(filters?: {
-  type?: string;
-  semester?: string;
   grade?: number;
+  semester?: string;
+  status?: string;
 }) {
-  const [data, setData] = useState<Exam[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.type) params.append('type', filters.type);
-      if (filters?.semester) params.append('semester', filters.semester);
-      if (filters?.grade) params.append('grade', filters.grade.toString());
-      
-      const response = await fetch(`/api/exams?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch exams:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.type, filters?.semester, filters?.grade]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+  const params: QueryParams = {};
+  if (filters?.grade) params.grade = filters.grade;
+  if (filters?.semester) params.semester = filters.semester;
+  if (filters?.status) params.status = filters.status;
+  
+  return useQuery<Exam[]>(() => apiClient.get('/exams', params), { deps: [params] });
 }
 
 /**
- * 获取学生成绩
+ * 获取成绩列表
  */
 export function useGrades(filters?: {
-  studentId?: string;
-  classId?: string;
   examId?: string;
-  subject?: string;
+  classId?: string;
+  studentId?: string;
 }) {
-  const [data, setData] = useState<Grade[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.studentId) params.append('studentId', filters.studentId);
-      if (filters?.classId) params.append('classId', filters.classId);
-      if (filters?.examId) params.append('examId', filters.examId);
-      if (filters?.subject) params.append('subject', filters.subject);
-      
-      const response = await fetch(`/api/grades?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch grades:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.studentId, filters?.classId, filters?.examId, filters?.subject]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+  const params: QueryParams = {};
+  if (filters?.examId) params.examId = filters.examId;
+  if (filters?.classId) params.classId = filters.classId;
+  if (filters?.studentId) params.studentId = filters.studentId;
+  
+  return useQuery<Grade[]>(() => apiClient.get('/grades', params), { deps: [params] });
 }
+
+// ============================================
+// 考勤Hooks
+// ============================================
 
 /**
  * 获取考勤记录
  */
 export function useAttendance(filters?: {
-  studentId?: string;
   classId?: string;
   date?: string;
-  startDate?: string;
-  endDate?: string;
   type?: AttendanceType;
 }) {
-  const [data, setData] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.studentId) params.append('studentId', filters.studentId);
-      if (filters?.classId) params.append('classId', filters.classId);
-      if (filters?.date) params.append('date', filters.date);
-      if (filters?.startDate) params.append('startDate', filters.startDate);
-      if (filters?.endDate) params.append('endDate', filters.endDate);
-      if (filters?.type) params.append('type', filters.type);
-      
-      const response = await fetch(`/api/attendance?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch attendance:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.studentId, filters?.classId, filters?.date, filters?.startDate, filters?.endDate, filters?.type]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+  const params: QueryParams = {};
+  if (filters?.classId) params.classId = filters.classId;
+  if (filters?.date) params.date = filters.date;
+  if (filters?.type) params.type = filters.type;
+  
+  return useQuery<AttendanceRecord[]>(() => apiClient.get('/attendance', params), { deps: [params] });
 }
+
+// ============================================
+// 请假/调课Hooks
+// ============================================
 
 /**
  * 获取请假申请列表
  */
-export function useLeaveRequests(filters?: {
+export function useLeaveRequestsList(filters?: {
   applicantId?: string;
   status?: LeaveStatus;
   type?: LeaveType;
-  startDate?: string;
-  endDate?: string;
 }) {
-  const [data, setData] = useState<LeaveRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const params: QueryParams = {};
+  if (filters?.applicantId) params.applicantId = filters.applicantId;
+  if (filters?.status) params.status = filters.status;
+  if (filters?.type) params.type = filters.type;
+  
+  return useQuery<LeaveRequest[]>(() => apiClient.get('/leave-requests', params), { deps: [params] });
+}
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.applicantId) params.append('applicantId', filters.applicantId);
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.type) params.append('type', filters.type);
-      if (filters?.startDate) params.append('startDate', filters.startDate);
-      if (filters?.endDate) params.append('endDate', filters.endDate);
-      
-      const response = await fetch(`/api/leave-requests?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch leave requests:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.applicantId, filters?.status, filters?.type, filters?.startDate, filters?.endDate]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+/**
+ * 创建请假申请
+ */
+export function useCreateLeaveRequest() {
+  return useMutation<LeaveRequest, Partial<LeaveRequest>>(
+    (data) => apiClient.post('/leave-requests', data)
+  );
 }
 
 /**
  * 获取调课申请列表
  */
-export function useScheduleChanges(filters?: {
-  teacherId?: string;
-  classId?: string;
+export function useScheduleChangesList(filters?: {
+  requesterId?: string;
   status?: string;
-  semester?: string;
 }) {
-  const [data, setData] = useState<ScheduleChange[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const params: QueryParams = {};
+  if (filters?.requesterId) params.requesterId = filters.requesterId;
+  if (filters?.status) params.status = filters.status;
+  
+  return useQuery<ScheduleChange[]>(() => apiClient.get('/schedule-changes', params), { deps: [params] });
+}
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters?.teacherId) params.append('teacherId', filters.teacherId);
-      if (filters?.classId) params.append('classId', filters.classId);
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.semester) params.append('semester', filters.semester);
-      
-      const response = await fetch(`/api/schedule-changes?${params.toString()}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data || []);
-        setError(null);
-      } else {
-        setError(result.error || '获取数据失败');
-        setData([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch schedule changes:', err);
-      setError('网络错误');
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters?.teacherId, filters?.classId, filters?.status, filters?.semester]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
+/**
+ * 创建调课申请
+ */
+export function useCreateScheduleChange() {
+  return useMutation<ScheduleChange, Partial<ScheduleChange>>(
+    (data) => apiClient.post('/schedule-changes', data)
+  );
 }

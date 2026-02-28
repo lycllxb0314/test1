@@ -145,8 +145,6 @@ export default function ExpenseApprovalPage() {
         id: selectedExpense.id,
         approved: approveAction === 'approve',
         comment: approveComment,
-        approverId: user?.id,
-        approverName: user?.name,
       });
       
       toast.success(approveAction === 'approve' ? '审批通过' : '已拒绝');

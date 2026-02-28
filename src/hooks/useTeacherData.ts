@@ -1,61 +1,25 @@
-import { useDataFetch, useSingleDataFetch, useDataMutation } from './useDataFetch';
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * 教师数据统一管理Hooks
+ * 
+ * 使用统一的基础Hook库（useApi.ts）实现
+ * 
+ * @module hooks/useTeacherData
+ */
 
-// 作业相关类型
-export interface Homework {
-  id: string;
-  title: string;
-  subject: string;
-  teacherId: string;
-  teacherName: string;
-  classId: string;
-  className: string;
-  dueDate: string;
-  content: string;
-  attachments: string[];
-  submissionCount: number;
-  totalStudents: number;
-  status: string;
-  createdAt: string;
-}
+import { useState, useCallback } from 'react';
+import { useQuery, usePaginatedQuery, type QueryParams } from './useApi';
+import { apiClient } from '@/services/api-client';
+import type { Teacher, TeacherProfile } from '@/types';
 
-// 数据采集任务相关类型
-export interface DataCollectionTask {
-  id: string;
-  title: string;
-  type: string;
-  description: string;
-  deadline: string;
-  targetRoles: string[];
-  submittedCount: number;
-  totalCount: number;
-  status: string;
-  createdBy: string;
-  createdAt: string;
-}
+// ============================================
+// 类型定义
+// ============================================
 
-// 通知消息相关类型
-export interface Communication {
-  id: string;
-  title: string;
-  type: string;
-  content: string;
-  senderId: string;
-  senderName: string;
-  recipientType: string;
-  recipientIds: string[];
-  priority: 'low' | 'medium' | 'high';
-  status: string;
-  readCount: number;
-  totalRecipients: number;
-  createdAt: string;
-}
-
-// 教师列表项类型
+/** 教师列表项 */
 export interface TeacherListItem {
   id: string;
   name: string;
-  gender: string;
+  gender: 'male' | 'female';
   subject: string;
   title: string;
   department: string;
@@ -65,25 +29,22 @@ export interface TeacherListItem {
   teachYears: number;
 }
 
-// 教师完整档案类型
+/** 教师完整档案 */
 export interface TeacherFullProfile {
   id: string;
   userId: string;
-  
   name: string;
-  gender: string;
+  gender: '男' | '女';
   birthDate: string;
   idCard: string;
   ethnicity: string;
   politicalStatus: string;
   nativePlace: string;
-  
   phone: string;
   email: string;
   emergencyContact: string;
   emergencyPhone: string;
   address: string;
-  
   employeeId: string;
   subjects: string[];
   title: string;
@@ -95,21 +56,18 @@ export interface TeacherFullProfile {
   teachYears: number;
   joinDate: string;
   department: string;
-  
   isHeadTeacher: boolean;
   className?: string;
   status: string;
-  
   records: TeacherRecord[];
   honors: TeacherHonor[];
   trainings: TeacherTraining[];
   achievements: TeacherAchievement[];
-  
   createdAt: string;
   updatedAt: string;
 }
 
-// 教师成长记录类型
+/** 教师记录 */
 export interface TeacherRecord {
   id: string;
   teacherId: string;
@@ -120,7 +78,7 @@ export interface TeacherRecord {
   createdAt: string;
 }
 
-// 教师荣誉类型
+/** 教师荣誉 */
 export interface TeacherHonor {
   id: string;
   teacherId: string;
@@ -132,7 +90,7 @@ export interface TeacherHonor {
   certificateNo?: string;
 }
 
-// 教师培训类型
+/** 教师培训 */
 export interface TeacherTraining {
   id: string;
   teacherId: string;
@@ -146,7 +104,7 @@ export interface TeacherTraining {
   certificate?: string;
 }
 
-// 教师成果类型
+/** 教师成果 */
 export interface TeacherAchievement {
   id: string;
   teacherId: string;
@@ -158,126 +116,198 @@ export interface TeacherAchievement {
   description?: string;
 }
 
-/**
- * 作业数据Hook
- */
-export function useHomeworks(teacherId?: string, classId?: string, subject?: string) {
-  const params: Record<string, string> = {};
-  if (teacherId) params.teacherId = teacherId;
-  if (classId) params.classId = classId;
-  if (subject) params.subject = subject;
-  return useDataFetch<Homework>('/api/homeworks', params);
+/** 教师列表查询参数 */
+export interface TeacherListParams {
+  search?: string;
+  subject?: string;
+  status?: string;
+  department?: string;
+  page?: number;
+  pageSize?: number;
 }
 
-/**
- * 数据采集任务Hook
- */
-export function useDataCollectionTasks(status?: string, type?: string) {
-  const params: Record<string, string> = {};
-  if (status) params.status = status;
-  if (type) params.type = type;
-  return useDataFetch<DataCollectionTask>('/api/data-collection', params);
+/** 教师列表返回结果 */
+export interface TeacherListResult {
+  data: TeacherListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  loading: boolean;
+  error: string | null;
+  refetch: () => void;
 }
 
-/**
- * 通知消息Hook
- */
-export function useCommunications(type?: string, status?: string) {
-  const params: Record<string, string> = {};
-  if (type) params.type = type;
-  if (status) params.status = status;
-  return useDataFetch<Communication>('/api/communications', params);
+/** 教师详情返回结果 */
+export interface TeacherDetailResult {
+  data: TeacherFullProfile | null;
+  loading: boolean;
+  error: string | null;
+  refetch: () => void;
+  updateProfile: (updates: Partial<TeacherFullProfile>) => Promise<boolean>;
 }
 
-/**
- * 作业操作Hook
- */
-export function useHomeworkMutation() {
-  return useDataMutation<Partial<Homework>, Homework>();
-}
-
-/**
- * 数据采集任务操作Hook
- */
-export function useDataCollectionMutation() {
-  return useDataMutation<Partial<DataCollectionTask>, DataCollectionTask>();
-}
+// ============================================
+// 教师数据Hooks
+// ============================================
 
 /**
  * 教师列表数据Hook
  */
-export function useTeachersList(search?: string, subject?: string, status?: string) {
-  const params: Record<string, string> = {};
-  if (search) params.search = search;
-  if (subject && subject !== 'all') params.subject = subject;
-  if (status) params.status = status;
-  return useDataFetch<TeacherListItem>('/api/teachers', params);
+export function useTeachersList(params: TeacherListParams = {}): TeacherListResult {
+  const queryParams: QueryParams = {
+    search: params.search,
+    subject: params.subject,
+    status: params.status,
+    department: params.department,
+    page: params.page || 1,
+    pageSize: params.pageSize || 20,
+  };
+  
+  const result = usePaginatedQuery<TeacherListItem>(
+    (p) => apiClient.get('/teachers', p),
+    queryParams
+  );
+  
+  return {
+    data: result.data || [],
+    total: result.total,
+    page: result.page,
+    pageSize: result.pageSize,
+    totalPages: result.totalPages,
+    loading: result.loading,
+    error: result.error,
+    refetch: result.refetch,
+  };
 }
 
 /**
  * 教师完整档案Hook
  */
-export function useTeacherFullProfile(teacherId: string | null) {
-  const [data, setData] = useState<TeacherFullProfile | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchProfile = useCallback(async () => {
-    if (!teacherId) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`/api/teachers/${teacherId}/full-profile`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data);
-      } else {
-        setError(result.error || '获取教师档案失败');
-      }
-    } catch (err) {
-      setError('网络错误，请重试');
-    } finally {
-      setLoading(false);
-    }
-  }, [teacherId]);
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
-
-  const updateProfile = useCallback(async (updates: Partial<TeacherFullProfile>) => {
+export function useTeacherFullProfile(teacherId: string | null): TeacherDetailResult {
+  const result = useQuery<TeacherFullProfile>(
+    () => apiClient.get(`/teachers/${teacherId}/full-profile`),
+    { enabled: !!teacherId, deps: [teacherId] }
+  );
+  
+  const updateProfile = useCallback(async (updates: Partial<TeacherFullProfile>): Promise<boolean> => {
     if (!teacherId) return false;
     
-    setLoading(true);
     try {
       const response = await fetch(`/api/teachers/${teacherId}/full-profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
-      const result = await response.json();
+      const res = await response.json();
       
-      if (result.success) {
-        setData(prev => prev ? { ...prev, ...updates } : null);
+      if (res.success) {
+        result.refetch();
         return true;
       }
       return false;
-    } catch (err) {
+    } catch {
       return false;
-    } finally {
-      setLoading(false);
     }
-  }, [teacherId]);
-
-  return { data, loading, error, refetch: fetchProfile, updateProfile };
+  }, [teacherId, result]);
+  
+  return {
+    data: result.data,
+    loading: result.loading,
+    error: result.error,
+    refetch: result.refetch,
+    updateProfile,
+  };
 }
 
 /**
  * 教师操作Hook（增删改）
  */
 export function useTeacherMutation() {
-  return useDataMutation<Partial<TeacherListItem>, TeacherListItem>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const createTeacher = useCallback(async (teacherData: Partial<TeacherListItem>): Promise<TeacherListItem | null> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/teachers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(teacherData),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        return result.data;
+      }
+      setError(result.error || '创建失败');
+      return null;
+    } catch (err) {
+      setError('网络错误，请重试');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateTeacher = useCallback(async (id: string, teacherData: Partial<TeacherListItem>): Promise<TeacherListItem | null> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/teachers/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(teacherData),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        return result.data;
+      }
+      setError(result.error || '更新失败');
+      return null;
+    } catch (err) {
+      setError('网络错误，请重试');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const deleteTeacher = useCallback(async (id: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/teachers/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        return true;
+      }
+      setError(result.error || '删除失败');
+      return false;
+    } catch (err) {
+      setError('网络错误，请重试');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    loading,
+    error,
+    createTeacher,
+    updateTeacher,
+    deleteTeacher,
+  };
 }
+
+// 重新导出统一Hooks以保持兼容
+export { useTeachers, useTeacher, useTeacherProfile, useCreateTeacher, useUpdateTeacher, useDeleteTeacher } from './useApi';

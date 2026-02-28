@@ -1,11 +1,40 @@
+/**
+ * 通用数据获取Hook
+ * 
+ * @deprecated 此文件已废弃，请使用 '@/hooks/useApi' 中的统一Hooks
+ * 
+ * 迁移指南：
+ * - useDataFetch → useQuery
+ * - useSingleDataFetch → useQuery (设置 enabled 条件)
+ * - useDataMutation → useMutation
+ * 
+ * @example
+ * // 旧代码
+ * import { useDataFetch } from '@/hooks/useDataFetch';
+ * const { data, loading, error } = useDataFetch<Teacher>('/api/teachers');
+ * 
+ * // 新代码
+ * import { useQuery } from '@/hooks/useApi';
+ * import { api } from '@/services/api-client';
+ * const { data, loading, error } = useQuery(() => api.teacher.list());
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
 
+// 重新导出统一Hooks以保持向后兼容
+export {
+  useQuery,
+  usePaginatedQuery,
+  useMutation,
+  type UseQueryOptions,
+  type UseQueryResult,
+  type UseMutationResult,
+} from './useApi';
+
 /**
  * 通用数据获取Hook
- * @param endpoint API端点
- * @param params 查询参数
- * @param autoFetch 是否自动获取
+ * @deprecated 使用 useQuery 代替
  */
 export function useDataFetch<T>(
   endpoint: string,
@@ -44,6 +73,7 @@ export function useDataFetch<T>(
 
 /**
  * 单条数据获取Hook
+ * @deprecated 使用 useQuery 配合 enabled 选项代替
  */
 export function useSingleDataFetch<T>(
   endpoint: string,
@@ -83,6 +113,7 @@ export function useSingleDataFetch<T>(
 
 /**
  * 数据操作Hook（创建、更新、删除）
+ * @deprecated 使用 useMutation 代替
  */
 export function useDataMutation<T, R = T>() {
   const [loading, setLoading] = useState(false);

@@ -1,13 +1,21 @@
 /**
  * 学生数据统一管理Hooks
- * 提供学生列表、详情、档案等数据的获取和操作能力
+ * 
+ * 使用统一的基础Hook库（useApi.ts）实现
+ * 
+ * @module hooks/useStudentData
  */
-import { useState, useEffect, useCallback } from 'react';
-import { StudentFullProfile } from '@/types';
 
-/**
- * 学生列表项（简化信息）
- */
+import { useState, useEffect, useCallback } from 'react';
+import { useQuery, usePaginatedQuery, type QueryParams } from './useApi';
+import { apiClient } from '@/services/api-client';
+import type { StudentFullProfile } from '@/types';
+
+// ============================================
+// 类型定义
+// ============================================
+
+/** 学生列表项 */
 export interface StudentListItem {
   id: string;
   studentNo: string;
@@ -21,9 +29,7 @@ export interface StudentListItem {
   status: '在校' | '请假' | '休学' | '毕业' | '转学';
 }
 
-/**
- * 分页信息
- */
+/** 分页信息 */
 export interface Pagination {
   page: number;
   pageSize: number;
@@ -31,9 +37,7 @@ export interface Pagination {
   totalPages: number;
 }
 
-/**
- * 学生列表查询参数
- */
+/** 学生列表查询参数 */
 export interface StudentsListParams {
   search?: string;
   grade?: string;
@@ -43,9 +47,7 @@ export interface StudentsListParams {
   pageSize?: number;
 }
 
-/**
- * 学生列表返回结果
- */
+/** 学生列表返回结果 */
 export interface StudentsListResult {
   data: StudentListItem[];
   pagination: Pagination;
@@ -54,65 +56,44 @@ export interface StudentsListResult {
   refetch: () => Promise<void>;
 }
 
-/**
- * 学生列表数据Hook
- */
-export function useStudentsList(params: StudentsListParams = {}): StudentsListResult {
-  const [data, setData] = useState<StudentListItem[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({
-    page: params.page || 1,
-    pageSize: params.pageSize || 20,
-    total: 0,
-    totalPages: 0,
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchStudents = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const queryParams = new URLSearchParams();
-      if (params.search) queryParams.set('search', params.search);
-      if (params.grade && params.grade !== 'all') queryParams.set('grade', params.grade);
-      if (params.classId && params.classId !== 'all') queryParams.set('classId', params.classId);
-      if (params.status && params.status !== 'all') queryParams.set('status', params.status);
-      queryParams.set('page', String(params.page || 1));
-      queryParams.set('pageSize', String(params.pageSize || 20));
-
-      const response = await fetch(`/api/students?${queryParams.toString()}`);
-      const result = await response.json();
-
-      if (result.success) {
-        setData(result.data);
-        setPagination(result.pagination);
-      } else {
-        setError(result.error || '获取学生列表失败');
-      }
-    } catch (err) {
-      setError('网络错误，请重试');
-    } finally {
-      setLoading(false);
-    }
-  }, [params.search, params.grade, params.classId, params.status, params.page, params.pageSize]);
-
-  useEffect(() => {
-    fetchStudents();
-  }, [fetchStudents]);
-
-  return { data, pagination, loading, error, refetch: fetchStudents };
-}
-
-/**
- * 学生完整档案返回结果
- */
+/** 学生完整档案返回结果 */
 export interface StudentFullProfileResult {
   data: StudentFullProfile | null;
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
   updateProfile: (updates: Partial<StudentFullProfile>) => Promise<boolean>;
+}
+
+// ============================================
+// 学生数据Hooks
+// ============================================
+
+/**
+ * 学生列表数据Hook
+ */
+export function useStudentsList(params: StudentsListParams = {}): StudentsListResult {
+  const queryParams: QueryParams = {
+    search: params.search,
+    grade: params.grade,
+    classId: params.classId,
+    status: params.status,
+    page: params.page || 1,
+    pageSize: params.pageSize || 20,
+  };
+  
+  const result = usePaginatedQuery<StudentListItem>(
+    (p) => apiClient.get('/students', p),
+    queryParams
+  );
+  
+  return {
+    data: result.data || [],
+    pagination: result.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+    loading: result.loading,
+    error: result.error,
+    refetch: result.refetch,
+  };
 }
 
 /**
@@ -198,7 +179,7 @@ export function useStudentMutation() {
       if (result.success) {
         return result.data;
       }
-      setError(result.error || '添加学生失败');
+      setError(result.error || '创建失败');
       return null;
     } catch (err) {
       setError('网络错误，请重试');
@@ -208,7 +189,7 @@ export function useStudentMutation() {
     }
   }, []);
 
-  const updateStudent = useCallback(async (id: string, updates: Partial<StudentListItem>): Promise<boolean> => {
+  const updateStudent = useCallback(async (id: string, studentData: Partial<StudentListItem>): Promise<StudentListItem | null> => {
     setLoading(true);
     setError(null);
 
@@ -216,18 +197,18 @@ export function useStudentMutation() {
       const response = await fetch(`/api/students/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(studentData),
       });
       const result = await response.json();
 
       if (result.success) {
-        return true;
+        return result.data;
       }
-      setError(result.error || '更新学生失败');
-      return false;
+      setError(result.error || '更新失败');
+      return null;
     } catch (err) {
       setError('网络错误，请重试');
-      return false;
+      return null;
     } finally {
       setLoading(false);
     }
@@ -246,7 +227,7 @@ export function useStudentMutation() {
       if (result.success) {
         return true;
       }
-      setError(result.error || '删除学生失败');
+      setError(result.error || '删除失败');
       return false;
     } catch (err) {
       setError('网络错误，请重试');
@@ -256,5 +237,11 @@ export function useStudentMutation() {
     }
   }, []);
 
-  return { createStudent, updateStudent, deleteStudent, loading, error };
+  return {
+    loading,
+    error,
+    createStudent,
+    updateStudent,
+    deleteStudent,
+  };
 }

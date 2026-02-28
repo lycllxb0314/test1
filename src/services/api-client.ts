@@ -93,7 +93,7 @@ export interface QueryParams {
  * 请求配置
  */
 interface RequestConfig {
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   params?: QueryParams;
 }
@@ -165,6 +165,13 @@ class ApiClient {
    */
   async put<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(path, { method: 'PUT', body });
+  }
+
+  /**
+   * PATCH请求
+   */
+  async patch<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(path, { method: 'PATCH', body });
   }
 
   /**

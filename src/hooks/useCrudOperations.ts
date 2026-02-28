@@ -1,13 +1,38 @@
+/**
+ * 通用CRUD操作Hook
+ * 
+ * @deprecated 此文件已废弃，请使用 '@/hooks/useApi' 中的 useCrud 统一Hook
+ * 
+ * 迁移指南：
+ * - useCrudOperations → useCrud
+ * - useConfirmDialog → 自行实现或使用UI组件库的Dialog
+ * 
+ * @example
+ * // 旧代码
+ * import { useCrudOperations } from '@/hooks/useCrudOperations';
+ * const { data, create, update, remove } = useCrudOperations<Teacher>({ endpoint: 'teachers' });
+ * 
+ * // 新代码
+ * import { useCrud } from '@/hooks/useApi';
+ * const { data, create, update, remove } = useCrud<Teacher>({ endpoint: 'teachers' });
+ */
+
 'use client';
 
 import { useState, useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
 
-/**
- * 通用CRUD操作Hook
- * 提供创建、读取、更新、删除的统一封装
- */
+// 重新导出统一Hooks
+export {
+  useCrud,
+  type UseCrudResult,
+  type CrudHookConfig,
+} from './useApi';
 
+/**
+ * 通用CRUD操作Hook（已废弃）
+ * @deprecated 使用 useCrud 代替
+ */
 export interface CrudOptions<T> {
   /** API端点 */
   endpoint: string;
@@ -166,6 +191,7 @@ export function useCrudOperations<T extends { id: string }>(options: CrudOptions
 
 /**
  * 通用确认对话框Hook
+ * @deprecated 建议使用UI组件库的Dialog组件
  */
 export function useConfirmDialog() {
   const [isOpen, setIsOpen] = useState(false);

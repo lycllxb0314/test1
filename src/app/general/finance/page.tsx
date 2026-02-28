@@ -212,8 +212,6 @@ export default function FinancePage() {
         id: selectedExpense.id,
         action: processAction,
         paymentNo: processAction === 'complete' ? paymentNo : undefined,
-        processorId: 'finance-001',
-        processorName: '财务人员',
       });
       
       toast.success(processAction === 'process' ? '已开始处理' : '已标记完成');

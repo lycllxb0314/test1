@@ -266,7 +266,7 @@ export default function TeacherDetailPage() {
       // 调用API更新数据
       const success = await updateProfile({
         name: formData.name,
-        gender: formData.gender,
+        gender: formData.gender as '男' | '女',
         birthDate: formData.birthDate,
         ethnicity: formData.ethnicity,
         politicalStatus: formData.politicalStatus,
