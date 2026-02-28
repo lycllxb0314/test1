@@ -135,11 +135,9 @@ const moralNav: NavItem[] = [
         description: '八大习惯评价与小目标',
         badge: '特色',
         children: [
-          { name: '全校总览', href: '/moral/habit/overview', icon: School, description: '全校习惯养成总览' },
-          { name: '学生档案', href: '/moral/habit/students', icon: Users, description: '学生习惯成长档案' },
-          { name: '小目标管理', href: '/moral/habit/goals', icon: Target, description: '小目标模板与进度' },
+          { name: '全校总览', href: '/moral/habit/overview', icon: School, description: '全校习惯养成总览与预警' },
+          { name: '小目标管理', href: '/moral/habit/goals', icon: Target, description: '小目标实例管理' },
           { name: '习惯之星', href: '/moral/habit/stars', icon: Award, description: '习惯之星评选管理' },
-          { name: '数据报表', href: '/moral/habit/reports', icon: BarChart3, description: '习惯数据统计分析' },
           { name: '习惯设置', href: '/moral/habit/settings', icon: Sliders, description: '目标模板与评选规则' },
         ],
       },

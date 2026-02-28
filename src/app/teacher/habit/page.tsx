@@ -154,10 +154,11 @@ export default function TeacherHabitPage() {
 
       {/* Tab 内容 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 h-11">
+        <TabsList className="grid w-full grid-cols-4 h-11">
           <TabsTrigger value="overview">班级概览</TabsTrigger>
-          <TabsTrigger value="students">学生管理</TabsTrigger>
-          <TabsTrigger value="goals">小目标审核</TabsTrigger>
+          <TabsTrigger value="goals">发布目标</TabsTrigger>
+          <TabsTrigger value="review">打卡审核</TabsTrigger>
+          <TabsTrigger value="students">学生档案</TabsTrigger>
         </TabsList>
 
         {/* 班级概览 */}
@@ -255,7 +256,106 @@ export default function TeacherHabitPage() {
           </Card>
         </TabsContent>
 
-        {/* 学生管理 */}
+        {/* 发布目标 */}
+        <TabsContent value="goals" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-gray-900">本月小目标</h3>
+              <p className="text-sm text-gray-500">选择习惯类别，从模板或自定义发布小目标</p>
+            </div>
+            <Button className="bg-green-600 hover:bg-green-700 text-white gap-2" onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4" />
+              发布新目标
+            </Button>
+          </div>
+          
+          {/* 已发布的目标 */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {[
+              { id: 1, name: '每天阅读30分钟', category: 'reading', students: 45, deadline: '2024-04-30', rate: 78 },
+              { id: 2, name: '规范书写姿势', category: 'writing', students: 45, deadline: '2024-04-30', rate: 65 },
+              { id: 3, name: '课间文明活动', category: 'civilization', students: 45, deadline: '2024-04-30', rate: 82 },
+            ].map((goal) => {
+              const Icon = habitIcons[goal.category as HabitCategory];
+              return (
+                <Card key={goal.id} className="border-0 shadow-md">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${habitCategoryColors[goal.category as HabitCategory]}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium">{goal.name}</h4>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+                          <Users className="h-3 w-3" />
+                          <span>{goal.students}人参与</span>
+                          <span>·</span>
+                          <Calendar className="h-3 w-3" />
+                          <span>截止 {goal.deadline}</span>
+                        </div>
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="text-gray-500">完成进度</span>
+                            <span className="font-medium">{goal.rate}%</span>
+                          </div>
+                          <Progress value={goal.rate} className="h-2" />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </TabsContent>
+
+        {/* 打卡审核 */}
+        <TabsContent value="review" className="mt-4">
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">待审核的打卡记录</CardTitle>
+                <Badge className="bg-orange-100 text-orange-700">{pendingReviews.length}条待处理</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {pendingReviews.map((review) => (
+                  <div key={review.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback>{review.studentName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="font-medium">{review.studentName}</p>
+                      <p className="text-sm text-gray-500">
+                        {review.month} · 达成 {review.achieved}/{review.goals} 项目标
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {review.parentSigned ? (
+                        <Badge className="bg-green-100 text-green-700">家长已签字</Badge>
+                      ) : (
+                        <Badge className="bg-gray-100 text-gray-500">待家长签字</Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <Eye className="h-4 w-4 mr-1" />
+                        查看
+                      </Button>
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        审核
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 学生档案 */}
         <TabsContent value="students" className="mt-4">
           <Card className="border-0 shadow-md">
             <CardHeader className="pb-3">
@@ -300,49 +400,6 @@ export default function TeacherHabitPage() {
                     <Button variant="ghost" size="sm">
                       <Eye className="h-4 w-4" />
                     </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 小目标审核 */}
-        <TabsContent value="goals" className="mt-4">
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">待审核的小目标</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {pendingReviews.map((review) => (
-                  <div key={review.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback>{review.studentName.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{review.studentName}</p>
-                      <p className="text-sm text-gray-500">
-                        {review.month} · 达成 {review.achieved}/{review.goals} 项目标
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {review.parentSigned ? (
-                        <Badge className="bg-green-100 text-green-700">家长已签字</Badge>
-                      ) : (
-                        <Badge className="bg-gray-100 text-gray-500">待家长签字</Badge>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4 mr-1" />
-                        查看
-                      </Button>
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        审核
-                      </Button>
-                    </div>
                   </div>
                 ))}
               </div>

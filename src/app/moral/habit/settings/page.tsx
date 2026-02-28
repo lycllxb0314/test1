@@ -50,7 +50,6 @@ import {
   Bell,
   Users,
   Clock,
-  Sliders,
   TrendingUp,
 } from 'lucide-react';
 import {
@@ -135,15 +134,6 @@ const alertRules = {
   consecutiveDays: 3, // 连续未达标天数
 };
 
-// 评价权限配置
-const evaluationRoles = [
-  { role: 'teacher', name: '任课教师', canPraise: true, canImprove: true, maxScore: 5 },
-  { role: 'head_teacher', name: '班主任', canPraise: true, canImprove: true, maxScore: 10 },
-  { role: 'grade_leader', name: '年段长', canPraise: true, canImprove: true, maxScore: 10 },
-  { role: 'moral_director', name: '德育主任', canPraise: true, canImprove: true, maxScore: 15 },
-  { role: 'parent', name: '家长', canPraise: true, canImprove: false, maxScore: 3 },
-];
-
 export default function HabitSettingsPage() {
   const [activeTab, setActiveTab] = useState('goals');
   const [selectedCategory, setSelectedCategory] = useState<HabitCategory>('civilization');
@@ -180,11 +170,10 @@ export default function HabitSettingsPage() {
 
       {/* Tab 切换 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 h-11">
-          <TabsTrigger value="goals">目标模板</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 h-11">
+          <TabsTrigger value="goals">目标模板库</TabsTrigger>
           <TabsTrigger value="star">习惯之星规则</TabsTrigger>
           <TabsTrigger value="alert">预警规则</TabsTrigger>
-          <TabsTrigger value="permission">评价权限</TabsTrigger>
         </TabsList>
 
         {/* 目标模板设置 */}
@@ -470,68 +459,6 @@ export default function HabitSettingsPage() {
                       <li>• 班级预警：自动推送给班主任和年段长</li>
                       <li>• 年级预警：自动推送给德育主任和分管副校长</li>
                     </ul>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 评价权限设置 */}
-        <TabsContent value="permission" className="mt-4">
-          <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Sliders className="h-5 w-5 text-purple-500" />
-                评价权限配置
-              </CardTitle>
-              <CardDescription>设置各角色的习惯评价权限和分值范围</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">角色</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-700">可表扬</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-700">可待改进</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-700">最高分值</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-700">说明</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {evaluationRoles.map((role) => (
-                      <tr key={role.role} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">{role.name}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <Switch checked={role.canPraise} />
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <Switch checked={role.canImprove} />
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <Input type="number" className="w-20 text-center mx-auto" defaultValue={role.maxScore} />
-                        </td>
-                        <td className="py-3 px-4 text-center text-sm text-gray-500">
-                          {role.role === 'parent' ? '仅可表扬自己的孩子' : '可评价班级学生'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-4 p-4 bg-purple-50 rounded-xl">
-                <div className="flex items-start gap-3">
-                  <Info className="h-5 w-5 text-purple-500 mt-0.5" />
-                  <div className="text-sm text-purple-700">
-                    <p className="font-medium mb-1">分值说明</p>
-                    <p>表扬为正分（+1~+max），待改进为负分（-1~-max）。最终达成率为累计得分与理论满分的比值。</p>
                   </div>
                 </div>
               </div>
