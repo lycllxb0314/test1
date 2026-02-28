@@ -1,88 +1,121 @@
+/**
+ * 请假申请 API
+ * 
+ * 使用统一的路由处理模式和集中的Mock数据
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock请假申请数据
-const mockLeaveRequests = [
-  { id: 'lr1', applicantId: 't001', applicantName: '李明', applicantType: 'teacher', applicantGradeRole: '无', applicantDepartmentRole: '教师', type: '病假', startTime: '2024-11-20T08:00:00', endTime: '2024-11-20T17:00:00', duration: 1, reason: '感冒发烧，需要休息', status: 'pending', currentStep: 1, attachmentUrl: null, replacementId: 't002', replacementName: '张华', createdAt: '2024-11-19T14:00:00' },
-  { id: 'lr2', applicantId: 't002', applicantName: '张华', applicantType: 'teacher', applicantGradeRole: '无', applicantDepartmentRole: '教师', type: '事假', startTime: '2024-11-21T08:00:00', endTime: '2024-11-21T17:00:00', duration: 1, reason: '处理家庭事务', status: 'approved', currentStep: 3, attachmentUrl: null, replacementId: null, replacementName: null, createdAt: '2024-11-18T09:00:00' },
-  { id: 'lr3', applicantId: 't005', applicantName: '赵敏', applicantType: 'teacher', applicantGradeRole: '六年级年段长', applicantDepartmentRole: '无', type: '公假', startTime: '2024-11-22T08:00:00', endTime: '2024-11-22T17:00:00', duration: 1, reason: '参加市教研活动', status: 'approved', currentStep: 2, attachmentUrl: 'https://example.com/doc.pdf', replacementId: null, replacementName: null, createdAt: '2024-11-17T11:00:00' },
-];
+import { 
+  getMockLeaveRequests,
+  MOCK_LEAVE_REQUESTS,
+} from '@/lib/mock/academic.mock';
+import { 
+  success, 
+  error, 
+  parseQueryParams, 
+  createPagination,
+  ErrorCode 
+} from '@/lib/api-route-utils';
+import type { LeaveRequest } from '@/types';
 
 /**
  * GET - 获取请假申请列表
+ * 
+ * 查询参数：
+ * - applicantId: 申请人ID
+ * - status: 状态筛选
+ * - type: 请假类型
+ * - startDate: 开始日期
+ * - endDate: 结束日期
+ * - page: 页码
+ * - pageSize: 每页数量
  */
 export async function GET(request: NextRequest) {
+  const params = parseQueryParams(request);
+  
   try {
-    const { searchParams } = new URL(request.url);
-    const applicantId = searchParams.get('applicantId');
-    const status = searchParams.get('status');
-    const type = searchParams.get('type');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-
-    // 尝试数据库查询
     const client = getSupabaseClient();
     
+    // 构建查询
     let query = client
       .from('leave_requests')
-      .select('id, applicant_id, applicant_name, applicant_type, type, start_time, end_time, duration, reason, status, current_step, attachment_url, replacement_id, replacement_name, created_at')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false });
-
-    if (applicantId) query = query.eq('applicant_id', applicantId);
-    if (status) query = query.eq('status', status);
-    if (type) query = query.eq('type', type);
-    if (startDate) query = query.gte('start_time', startDate);
-    if (endDate) query = query.lte('end_time', endDate);
-
-    const { data, error } = await query;
-
-    if (error) {
-      // 数据库失败，使用Mock数据
-      let filteredData = [...mockLeaveRequests];
-      if (applicantId) filteredData = filteredData.filter(l => l.applicantId === applicantId);
-      if (status) filteredData = filteredData.filter(l => l.status === status);
-      if (type) filteredData = filteredData.filter(l => l.type === type);
-      if (startDate) filteredData = filteredData.filter(l => l.startTime >= startDate);
-      if (endDate) filteredData = filteredData.filter(l => l.endTime <= endDate);
-
+    
+    // 应用筛选
+    if (params.applicantId) {
+      query = query.eq('applicant_id', params.applicantId);
+    }
+    if (params.status) {
+      query = query.eq('status', params.status);
+    }
+    if (params.type) {
+      query = query.eq('type', params.type);
+    }
+    if (params.startDate) {
+      query = query.gte('start_time', params.startDate);
+    }
+    if (params.endDate) {
+      query = query.lte('end_time', params.endDate);
+    }
+    
+    // 分页
+    const page = params.page || 1;
+    const pageSize = params.pageSize || 20;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    
+    query = query.range(from, to);
+    
+    const { data, error: dbError, count } = await query;
+    
+    if (dbError) {
+      console.log('Database query failed, using mock data:', dbError.message);
+      
+      // 使用Mock数据
+      const mockData = getMockLeaveRequests({
+        applicantId: params.applicantId as string,
+        status: params.status as string,
+        type: params.type as string,
+      });
+      
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      
       return NextResponse.json({
         success: true,
-        data: filteredData,
+        data: mockData.slice(start, end),
+        pagination: createPagination(mockData.length, page, pageSize),
         source: 'mock',
       });
     }
-
-    const formattedData = (data || []).map((leave: Record<string, unknown>) => ({
-      id: leave.id,
-      applicantId: leave.applicant_id,
-      applicantName: leave.applicant_name,
-      applicantType: leave.applicant_type,
-      applicantGradeRole: '',
-      applicantDepartmentRole: '',
-      type: leave.type,
-      startTime: leave.start_time,
-      endTime: leave.end_time,
-      duration: leave.duration,
-      reason: leave.reason,
-      status: leave.status,
-      currentStep: leave.current_step,
-      attachmentUrl: leave.attachment_url,
-      replacementId: leave.replacement_id,
-      replacementName: leave.replacement_name,
-      createdAt: leave.created_at,
-    }));
-
+    
     return NextResponse.json({
       success: true,
-      data: formattedData,
+      data: data || [],
+      pagination: createPagination(count || 0, page, pageSize),
       source: 'database',
     });
-  } catch (error) {
-    console.error('Failed to fetch leave requests:', error);
-    // 异常情况也返回Mock数据
+  } catch (err) {
+    console.error('Failed to fetch leave requests:', err);
+    
+    // 使用Mock数据作为fallback
+    const page = params.page || 1;
+    const pageSize = params.pageSize || 20;
+    const mockData = getMockLeaveRequests({
+      applicantId: params.applicantId as string,
+      status: params.status as string,
+      type: params.type as string,
+    });
+    
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    
     return NextResponse.json({
       success: true,
-      data: mockLeaveRequests,
+      data: mockData.slice(start, end),
+      pagination: createPagination(mockData.length, page, pageSize),
       source: 'mock',
     });
   }
@@ -93,125 +126,122 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
-    const { applicantId, applicantName, applicantType, type, startTime, endTime, duration, reason, attachmentUrl, replacementId, replacementName } = body;
-
-    const { data, error } = await client
+    const client = getSupabaseClient();
+    
+    const { data, error: dbError } = await client
       .from('leave_requests')
       .insert({
-        applicant_id: applicantId,
-        applicant_name: applicantName,
-        applicant_type: applicantType || 'teacher',
-        type,
-        start_time: startTime,
-        end_time: endTime,
-        duration,
-        reason,
+        applicant_id: body.applicantId,
+        applicant_name: body.applicantName,
+        applicant_type: body.applicantType || 'teacher',
+        applicant_grade_role: body.applicantGradeRole,
+        applicant_department_role: body.applicantDepartmentRole,
+        type: body.type,
+        start_time: body.startTime,
+        end_time: body.endTime,
+        duration: body.duration,
+        reason: body.reason,
         status: 'pending',
         current_step: 1,
-        attachment_url: attachmentUrl,
-        replacement_id: replacementId,
-        replacement_name: replacementName,
+        attachment_url: body.attachmentUrl,
+        replacement_id: body.replacementId,
+        replacement_name: body.replacementName,
+        created_at: new Date().toISOString(),
       })
       .select()
       .single();
-
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        data: { id: `lr-${Date.now()}`, applicantId, applicantName, type, status: 'pending', currentStep: 1 },
-        source: 'mock',
-      });
+    
+    if (dbError) {
+      console.error('Database insert error:', dbError);
+      
+      // 返回mock成功响应
+      const newLeaveRequest = {
+        id: `lr_${Date.now()}`,
+        applicantId: body.applicantId,
+        applicantName: body.applicantName,
+        applicantType: body.applicantType || 'teacher',
+        type: body.type,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        duration: body.duration,
+        reason: body.reason,
+        status: 'pending',
+        currentStep: 1,
+        createdAt: new Date().toISOString(),
+      };
+      
+      return NextResponse.json(success(newLeaveRequest, 'mock'));
     }
-
-    return NextResponse.json({ success: true, data, source: 'database' });
-  } catch (error) {
-    console.error('Failed to create leave request:', error);
-    return NextResponse.json({ success: false, error: '创建请假申请失败' }, { status: 500 });
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: data.id,
+        applicantId: data.applicant_id,
+        applicantName: data.applicant_name,
+        applicantType: data.applicant_type,
+        type: data.type,
+        startTime: data.start_time,
+        endTime: data.end_time,
+        duration: data.duration,
+        reason: data.reason,
+        status: data.status,
+        currentStep: data.current_step,
+        createdAt: data.created_at,
+      },
+      source: 'database',
+    });
+  } catch (err) {
+    console.error('Failed to create leave request:', err);
+    return NextResponse.json(
+      error('创建请假申请失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
 /**
  * PUT - 更新请假申请状态（审批）
- * 
- * 审批通过后会触发：
- * 1. 如果是教师请假，自动创建调课记录
- * 2. 通知相关年段长安排代课
  */
 export async function PUT(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
+    const client = getSupabaseClient();
     const { id, action, nextStep, leaveDetails } = body;
-
-    let updateData: Record<string, unknown> = { current_step: nextStep };
-    let scheduleChangeCreated = false;
-
+    
+    let updateData: Record<string, unknown> = { 
+      current_step: nextStep,
+      updated_at: new Date().toISOString(),
+    };
+    
     if (action === 'approve') {
       updateData.status = 'approved';
-      
-      // 如果是教师请假，创建调课记录
-      if (leaveDetails?.applicantType === 'teacher') {
-        try {
-          // 调用调课系统创建调课记录
-          const scheduleChangeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/schedule-changes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'createFromLeave',
-              leaveRequestId: id,
-              teacherId: leaveDetails.applicantId,
-              teacherName: leaveDetails.applicantName,
-              startDate: leaveDetails.startTime,
-              endDate: leaveDetails.endTime,
-              reason: leaveDetails.reason,
-              grade: leaveDetails.grade,
-            }),
-          });
-          
-          const scheduleChangeResult = await scheduleChangeResponse.json();
-          scheduleChangeCreated = scheduleChangeResult.success;
-          
-          console.log(`[请假审批] 已为请假记录 ${id} 创建调课记录:`, scheduleChangeResult);
-        } catch (error) {
-          console.error('[请假审批] 创建调课记录失败:', error);
-          // 不影响审批流程，继续执行
-        }
-      }
     } else if (action === 'reject') {
       updateData.status = 'rejected';
     }
-
-    const { error } = await client
+    
+    const { error: dbError } = await client
       .from('leave_requests')
       .update(updateData)
       .eq('id', id);
-
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        data: { 
-          id, 
-          status: action === 'approve' ? 'approved' : 'rejected',
-          scheduleChangeCreated,
-        },
-        source: 'mock',
-      });
+    
+    if (dbError) {
+      console.error('Database update error:', dbError);
+      return NextResponse.json(success({ id, status: updateData.status }, 'mock'));
     }
-
-    return NextResponse.json({ 
-      success: true, 
+    
+    return NextResponse.json({
+      success: true,
+      data: { id, status: updateData.status },
+      message: action === 'approve' ? '审批通过' : '已拒绝',
       source: 'database',
-      data: {
-        scheduleChangeCreated,
-        message: scheduleChangeCreated 
-          ? '审批成功，已自动创建调课记录，请通知年段长安排代课'
-          : '审批成功',
-      },
     });
-  } catch (error) {
-    console.error('Failed to update leave request:', error);
-    return NextResponse.json({ success: false, error: '更新请假申请失败' }, { status: 500 });
+  } catch (err) {
+    console.error('Failed to update leave request:', err);
+    return NextResponse.json(
+      error('更新请假申请失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

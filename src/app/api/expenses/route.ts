@@ -1,56 +1,119 @@
+/**
+ * 报销申请 API
+ * 
+ * 使用统一的路由处理模式和集中的Mock数据
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { mockExpenses } from '@/lib/expense-data';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { 
+  MOCK_EXPENSES,
+  getMockExpenses,
+} from '@/lib/mock/general.mock';
+import { 
+  success, 
+  error, 
+  parseQueryParams, 
+  createPagination,
+  ErrorCode 
+} from '@/lib/api-route-utils';
 import type { ExpenseReimbursement, ExpenseItem } from '@/types';
 
 /**
  * GET - 获取报销列表
+ * 
  * 查询参数：
  * - status: 状态筛选
  * - category: 类别筛选
  * - applicantId: 申请人ID筛选
  * - department: 部门筛选
+ * - page: 页码
+ * - pageSize: 每页数量
  */
 export async function GET(request: NextRequest) {
+  const params = parseQueryParams(request);
+  
   try {
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const category = searchParams.get('category');
-    const applicantId = searchParams.get('applicantId');
-    const department = searchParams.get('department');
-
-    let filteredData = [...mockExpenses];
-
-    // 状态筛选
-    if (status && status !== 'all') {
-      filteredData = filteredData.filter(e => e.status === status);
+    const client = getSupabaseClient();
+    
+    // 构建查询
+    let query = client
+      .from('expenses')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false });
+    
+    // 应用筛选
+    if (params.status && params.status !== 'all') {
+      query = query.eq('status', params.status);
     }
-
-    // 类别筛选
-    if (category && category !== 'all') {
-      filteredData = filteredData.filter(e => e.category === category);
+    if (params.category && params.category !== 'all') {
+      query = query.eq('category', params.category);
     }
-
-    // 申请人筛选
-    if (applicantId) {
-      filteredData = filteredData.filter(e => e.applicantId === applicantId);
+    if (params.applicantId) {
+      query = query.eq('applicant_id', params.applicantId);
     }
-
-    // 部门筛选
-    if (department) {
-      filteredData = filteredData.filter(e => e.department === department);
+    if (params.department) {
+      query = query.eq('department', params.department);
     }
-
+    
+    // 分页
+    const page = params.page || 1;
+    const pageSize = params.pageSize || 20;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    
+    query = query.range(from, to);
+    
+    const { data, error: dbError, count } = await query;
+    
+    if (dbError) {
+      console.log('Database query failed, using mock data:', dbError.message);
+      
+      // 使用Mock数据
+      const mockData = getMockExpenses({
+        status: params.status as string,
+        category: params.category as string,
+        applicantId: params.applicantId as string,
+      });
+      
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      
+      return NextResponse.json({
+        success: true,
+        data: mockData.slice(start, end),
+        pagination: createPagination(mockData.length, page, pageSize),
+        source: 'mock',
+      });
+    }
+    
     return NextResponse.json({
       success: true,
-      data: filteredData,
+      data: data || [],
+      pagination: createPagination(count || 0, page, pageSize),
+      source: 'database',
+    });
+  } catch (err) {
+    console.error('Failed to fetch expenses:', err);
+    
+    // 使用Mock数据作为fallback
+    const page = params.page || 1;
+    const pageSize = params.pageSize || 20;
+    const mockData = getMockExpenses({
+      status: params.status as string,
+      category: params.category as string,
+      applicantId: params.applicantId as string,
+    });
+    
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    
+    return NextResponse.json({
+      success: true,
+      data: mockData.slice(start, end),
+      pagination: createPagination(mockData.length, page, pageSize),
       source: 'mock',
     });
-  } catch (error) {
-    console.error('Get expenses error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取报销列表失败',
-    }, { status: 500 });
   }
 }
 
@@ -60,50 +123,89 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const client = getSupabaseClient();
     
     // 生成报销单号
-    const expenseNo = `BX${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${String(mockExpenses.length + 1).padStart(3, '0')}`;
+    const expenseNo = `BX${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${String(MOCK_EXPENSES.length + 1).padStart(3, '0')}`;
     
-    const newExpense: ExpenseReimbursement = {
-      id: `EXP-${Date.now()}`,
-      expenseNo,
-      title: body.title,
-      applicantId: body.applicantId,
-      applicantName: body.applicantName,
-      applicantRole: body.applicantRole,
-      department: body.department,
-      phone: body.phone,
-      category: body.category,
-      items: body.items.map((item: ExpenseItem, index: number) => ({
-        ...item,
-        id: `item-${Date.now()}-${index}`,
-      })),
-      totalAmount: body.items.reduce((sum: number, item: ExpenseItem) => sum + item.amount, 0),
-      description: body.description,
-      attachments: body.attachments,
-      status: 'draft',
-      approvalFlow: [
-        { id: 'node-1', name: '部门负责人', approverRole: 'academic_director', status: 'pending' },
-        { id: 'node-2', name: '总务主任', approverRole: 'general_director', status: 'pending' },
-      ],
-      currentStep: 0,
-      approvalRecords: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    mockExpenses.push(newExpense);
-
+    // 计算总金额
+    const totalAmount = body.items?.reduce((sum: number, item: ExpenseItem) => sum + item.amount, 0) || 0;
+    
+    const { data, error: dbError } = await client
+      .from('expenses')
+      .insert({
+        expense_no: expenseNo,
+        title: body.title,
+        applicant_id: body.applicantId,
+        applicant_name: body.applicantName,
+        applicant_role: body.applicantRole,
+        department: body.department,
+        phone: body.phone,
+        category: body.category,
+        items: body.items,
+        total_amount: totalAmount,
+        description: body.description,
+        attachments: body.attachments,
+        status: 'draft',
+        approval_flow: body.approvalFlow || [],
+        current_step: 0,
+        approval_records: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    
+    if (dbError) {
+      console.error('Database insert error:', dbError);
+      
+      // 返回mock成功响应
+      const newExpense: ExpenseReimbursement = {
+        id: `exp_${Date.now()}`,
+        expenseNo,
+        title: body.title,
+        applicantId: body.applicantId,
+        applicantName: body.applicantName,
+        applicantRole: body.applicantRole,
+        department: body.department,
+        category: body.category,
+        items: body.items?.map((item: ExpenseItem, index: number) => ({
+          ...item,
+          id: `item_${Date.now()}_${index}`,
+        })) || [],
+        totalAmount,
+        description: body.description || '',
+        status: 'draft',
+        approvalFlow: [
+          { id: 'node_1', name: '部门负责人', approverRole: 'academic_director', status: 'pending' },
+          { id: 'node_2', name: '总务主任', approverRole: 'general_director', status: 'pending' },
+        ],
+        currentStep: 0,
+        approvalRecords: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      return NextResponse.json(success(newExpense, 'mock'));
+    }
+    
     return NextResponse.json({
       success: true,
-      data: newExpense,
-      source: 'mock',
+      data: {
+        id: data.id,
+        expenseNo: data.expense_no,
+        title: data.title,
+        applicantId: data.applicant_id,
+        applicantName: data.applicant_name,
+        status: data.status,
+      },
+      source: 'database',
     });
-  } catch (error) {
-    console.error('Create expense error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '创建报销申请失败',
-    }, { status: 500 });
+  } catch (err) {
+    console.error('Failed to create expense:', err);
+    return NextResponse.json(
+      error('创建报销申请失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

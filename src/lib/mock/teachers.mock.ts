@@ -225,6 +225,7 @@ export function getMockTeachers(filters?: {
   subject?: string;
   status?: string;
   department?: string;
+  isHeadTeacher?: boolean;
 }): Teacher[] {
   let result = [...MOCK_TEACHERS];
   
