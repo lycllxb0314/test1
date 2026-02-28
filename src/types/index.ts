@@ -202,6 +202,56 @@ export interface Class {
   classroom?: string;
 }
 
+/**
+ * 班级教师职位类型
+ */
+export type ClassTeacherPosition = 'head_teacher' | 'subject_teacher';
+
+/**
+ * 班级教师关系状态
+ */
+export type ClassTeacherStatus = 'active' | 'expired';
+
+/**
+ * 班级教师关系
+ * 用于管理班主任和科任教师与班级的关系，支持敏感数据访问权限判断
+ */
+export interface ClassTeacher {
+  id: string;
+  classId: string;                    // 班级ID
+  className: string;                  // 班级名称（冗余，便于展示）
+  grade: number;                      // 年级（冗余）
+  teacherId: string;                  // 教师ID
+  teacherName: string;                // 教师姓名（冗余）
+  position: ClassTeacherPosition;     // 职位类型：班主任/科任
+  subjects?: string[];                // 任教科目数组（科任时填写）
+  semester: string;                   // 学期，如"2024-2025-1"
+  status: ClassTeacherStatus;         // 状态：有效/已失效
+  createdBy?: string;                 // 创建人ID
+  createdByName?: string;             // 创建人姓名
+  createdAt: string;                  // 创建时间
+  updatedAt?: string;                 // 更新时间
+}
+
+/**
+ * 创建班级教师关系请求
+ */
+export interface CreateClassTeacherRequest {
+  classId: string;
+  teacherId: string;
+  position: ClassTeacherPosition;
+  subjects?: string[];
+  semester: string;
+}
+
+/**
+ * 更新班级教师关系请求
+ */
+export interface UpdateClassTeacherRequest {
+  subjects?: string[];
+  status?: ClassTeacherStatus;
+}
+
 // 学生信息
 export interface Student {
   id: string;

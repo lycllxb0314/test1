@@ -44,3 +44,4 @@ export * from './academic.mock';
 export * from './access.mock';
 export * from './moral.mock';
 export * from './general.mock';
+export * from './class-teachers.mock';
