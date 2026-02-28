@@ -79,7 +79,7 @@ export function useStudentsList(params: StudentsListParams = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<StudentListItem[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -93,7 +93,7 @@ export function useStudentsList(params: StudentsListParams = {}) {
 
       if (response.success && response.data) {
         setData(response.data.data);
-        setPagination(response.data.pagination);
+        setPagination(response.data.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 });
       } else {
         setError(response.error || '获取数据失败');
       }

@@ -72,7 +72,7 @@ export function useHabitRecords(params?: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<HabitRecord[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -86,7 +86,7 @@ export function useHabitRecords(params?: {
 
       if (response.success && response.data) {
         setData(response.data.data);
-        setPagination(response.data.pagination);
+        setPagination(response.data.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 });
       } else {
         setError(response.error || '获取数据失败');
       }
@@ -138,7 +138,7 @@ export function useHabitEvaluations(params?: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<HabitEvaluation[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -152,7 +152,7 @@ export function useHabitEvaluations(params?: {
 
       if (response.success && response.data) {
         setData(response.data.data);
-        setPagination(response.data.pagination);
+        setPagination(response.data.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 });
       } else {
         setError(response.error || '获取数据失败');
       }

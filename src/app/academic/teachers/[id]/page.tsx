@@ -183,7 +183,7 @@ interface FormData {
   titleDate: string;
   department: string;
   subjects: string;
-  status: string;
+  status: 'active' | 'on_leave' | 'retired' | 'transferred';
 }
 
 export default function TeacherDetailPage() {
@@ -223,7 +223,7 @@ export default function TeacherDetailPage() {
     titleDate: '',
     department: '',
     subjects: '',
-    status: '',
+    status: 'active',
   });
 
   // 当数据加载完成后初始化表单

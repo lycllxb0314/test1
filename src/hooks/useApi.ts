@@ -958,7 +958,7 @@ export function useHabitGoals(params?: QueryParams) {
 
 /** 习惯之星列表Hook */
 export function useHabitStars(month?: string) {
-  return useQuery(() => api.habit.getStars(month), { deps: [month] });
+  return useQuery(() => api.habit.getStars(month ? { month } : undefined), { deps: [month] });
 }
 
 // ========== 工作流相关 ==========

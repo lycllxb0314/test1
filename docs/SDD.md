@@ -1,9 +1,14 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v1.5  
+**文档版本**: v1.6  
 **编制日期**: 2024年1月  
 **编制单位**: 智慧校园项目组
+
+**版本历史**:
+- v1.6 (2024-01): 完成数据接口与 Hooks 架构整改，统一类型定义，优化 API 客户端
+- v1.5 (2024-01): 补充学生详情页重构方案，完善综合素质 Tab 设计
+- v1.4 (2024-01): 新增德育系统模块重构方案，补充 SDD 文档 5.16 章节 Hooks 说明
 
 ---
 
@@ -2615,6 +2620,124 @@ export function useStudentDetail(studentId: string | null) {
 | 总务 | useGeneralAffairsData.ts | /api/general | useExpenses, useAssets |
 | 门禁 | useAccessData.ts | /api/access | useAccessRecords, useVisitors |
 | 功能室 | useRoomData.ts | /api/rooms | useRooms, useBookings |
+
+### 5.16.7 Hooks架构整改记录（v2.0）
+
+#### 整改背景
+
+原有 Hooks 实现存在以下问题：
+- 使用模式不一致：部分使用旧的 `useState + fetch` 模式，部分使用 `useQuery`
+- 类型定义分散：存在重复定义，未统一到 `types/index.ts`
+- 废弃代码未清理：`useDataFetch.ts`、`useData.ts`、`useCrudOperations.ts` 已弃用但未删除
+- API 客户端模块不完善：`habitApi`、`moralApi` 功能不完整
+
+#### 整改内容
+
+##### 1. 类型定义统一
+
+在 `types/index.ts` 中新增以下类型：
+
+```typescript
+// 习惯养成统计类型
+export interface SchoolHabitStatsResponse { ... }
+export interface HabitCategoryStat { ... }
+export interface GradeHabitStat { ... }
+export interface HabitGoalTemplate { ... }
+export interface HabitStarRule { ... }
+
+// 习惯记录与评价类型
+export interface HabitRecord { ... }
+export interface HabitEvaluation { ... }
+export interface HabitStatistics { ... }
+export interface HabitTrend { ... }
+
+// 德育管理类型
+export interface MoralActivity { ... }
+export interface MoralEvaluation { ... }
+export interface WarningStudent { ... }
+export interface WarningIntervention { ... }
+export interface MoralStatistics { ... }
+```
+
+##### 2. Hooks重构
+
+**useHabitData.ts** - 完全重构：
+- 导出 `habitCategoryNames`、`habitCategoryColors`、`habitCategoryIcons` 常量
+- 新增 `useHabitRecords`、`useHabitEvaluations` 分页查询 Hooks
+- 新增 `useHabitStatistics`、`useHabitTrend` 学生统计 Hooks
+- 新增 `useSchoolHabitStats` 全校统计 Hook
+- 新增 `useHabitGoalActions`、`useHabitEvaluationActions` 操作 Hooks
+- 统一使用 `fetchApi` 辅助函数进行 API 调用
+
+**useStudentData.ts** - 优化重构：
+- 统一使用 `fetchApi` 辅助函数
+- 确保 `pagination` 有默认值，避免 null 问题
+- 新增 `useStudentsByClass`、`useStudentSearch` 查询 Hooks
+- 新增 `useClassStudentsOverview`、`useStudentProfileSummary` 聚合 Hooks
+
+**useTeacherData.ts** - 优化重构：
+- 与 useStudentData.ts 保持相同的实现风格
+- 新增 `useTeacherSearch` 查询 Hook
+- 新增 `useTeacherProfileSummary` 聚合 Hook
+
+##### 3. 废弃文件清理
+
+已删除以下废弃文件：
+- `src/hooks/useDataFetch.ts`
+- `src/hooks/useData.ts`
+- `src/hooks/useCrudOperations.ts`
+
+##### 4. API客户端完善
+
+**habitApi 模块** - 功能完善：
+```typescript
+// 记录管理
+getRecords, getRecord, createRecord, updateRecord, deleteRecord
+
+// 评价管理
+getEvaluations, createEvaluation, updateEvaluation, deleteEvaluation
+
+// 统计分析
+getStudentStatistics, getStudentTrend, getSchoolStats, getClassStats
+
+// 目标管理
+getGoals, createGoal, updateGoal, deleteGoal, getGoalTemplates
+
+// 习惯之星
+getStars, createStar, getStarRules
+```
+
+**moralApi 模块** - 新增：
+```typescript
+// 活动管理
+getActivities, getActivity, createActivity, updateActivity, deleteActivity
+
+// 评价管理
+getEvaluations, createEvaluation, updateEvaluation, deleteEvaluation
+
+// 荣誉管理
+getHonors, createHonor, updateHonor, deleteHonor
+
+// 预警管理
+getWarningStudents, getWarning, createWarning, updateWarning, resolveWarning
+
+// 统计分析
+getStatistics, getClassOverview, getGradeOverview
+```
+
+##### 5. 类型签名优化
+
+- 修复 `useApi.ts` 中 `useHabitStars` 的参数类型问题
+- 统一 `Pagination` 类型导出，确保分页数据有默认值
+- 修复页面组件中 `pagination` 可能为 null 的类型问题
+
+#### 整改效果
+
+- ✅ 类型检查通过，无 TypeScript 错误
+- ✅ Hooks 使用模式统一，基于 `useQuery` 和 `usePaginatedQuery`
+- ✅ API 调用模式一致，使用统一的 `fetchApi` 辅助函数
+- ✅ 分页数据默认值处理，避免 null 引用错误
+- ✅ 文档更新，记录整改内容和规范
 
 ---
 

@@ -121,7 +121,7 @@ export function useTeachersList(params: TeacherListParams = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TeacherListItem[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -135,7 +135,7 @@ export function useTeachersList(params: TeacherListParams = {}) {
 
       if (response.success && response.data) {
         setData(response.data.data);
-        setPagination(response.data.pagination);
+        setPagination(response.data.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 });
       } else {
         setError(response.error || '获取数据失败');
       }
@@ -148,10 +148,10 @@ export function useTeachersList(params: TeacherListParams = {}) {
 
   return {
     data,
-    total: pagination?.total || 0,
-    page: pagination?.page || 1,
-    pageSize: pagination?.pageSize || 20,
-    totalPages: pagination?.totalPages || 0,
+    total: pagination.total,
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+    totalPages: pagination.totalPages,
     loading,
     error,
     refetch: fetchData,
