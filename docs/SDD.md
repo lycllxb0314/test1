@@ -1,11 +1,12 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v1.6  
+**文档版本**: v1.7  
 **编制日期**: 2024年1月  
 **编制单位**: 智慧校园项目组
 
 **版本历史**:
+- v1.7 (2024-01): 深度核对文档与实际系统实现一致性，修正页面数量、目录结构、API接口清单
 - v1.6 (2024-01): 完成数据接口与 Hooks 架构整改，统一类型定义，优化 API 客户端
 - v1.5 (2024-01): 补充学生详情页重构方案，完善综合素质 Tab 设计
 - v1.4 (2024-01): 新增德育系统模块重构方案，补充 SDD 文档 5.16 章节 Hooks 说明
@@ -395,8 +396,8 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 项目采用 Next.js App Router 架构，页面按功能模块组织在 `src/app/` 目录下：
 
 ```
-智慧校园平台 (91个页面)
-├── academic/          教务系统 (21个页面)
+智慧校园平台 (90个页面)
+├── academic/          教务系统 (20个页面)
 │   ├── analysis/      教学分析
 │   ├── attendance/    考勤管理
 │   ├── classes/       班级管理
@@ -417,7 +418,7 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   │   └── [id]/      教师详情
 │   └── workload/      工作量统计
 │
-├── general/           总务系统 (12个页面)
+├── general/           总务系统 (14个页面)
 │   ├── access/        门禁管理
 │   │   ├── devices/   设备管理
 │   │   ├── persons/   人员管理
@@ -438,17 +439,16 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   ├── analytics/     德育分析
 │   ├── assessment/    行为评价
 │   ├── growth/        成长档案
-│   ├── habit/         习惯养成
+│   ├── habit/         习惯养成 (5个子页面)
 │   │   ├── goals/     习惯目标
-│   │   ├── overview/  习惯概览
-│   │   ├── reports/   习惯报告
+│   │   ├── overview/  全校总览
 │   │   ├── settings/  习惯设置
-│   │   ├── stars/     习惯之星
-│   │   └── students/  学生习惯
-│   ├── pioneer/       先锋管理
+│   │   └── stars/     习惯之星
+│   ├── honors/        荣誉管理
+│   ├── pioneer/       少先队工作
 │   └── plans/         德育计划
 │
-├── teacher/           教师空间 (20个页面)
+├── teacher/           教师空间 (18个页面)
 │   ├── adjust/        调课管理
 │   ├── admin/         管理功能
 │   ├── class/         班级管理
@@ -474,7 +474,7 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   ├── grades/        成绩查询
 │   └── habit/         习惯记录
 │
-├── workflow/          工作流 (6个页面)
+├── workflow/          工作流 (7个页面)
 │   ├── config/        流程配置
 │   │   └── edit/      流程编辑
 │   ├── expense/       报销流程
@@ -949,12 +949,11 @@ src/app/moral/
 ├── assessment/                 # 日常行为 - 行为评价
 │   └── page.tsx               # 表扬/待改进记录
 ├── habit/                      # 日常行为 - 习惯养成
-│   ├── page.tsx               # 习惯养成概览
-│   ├── goals/                 # 月度目标
-│   ├── stars/                 # 习惯之星
-│   ├── reports/               # 习惯报表
-│   ├── students/              # 学生习惯详情
-│   └── settings/              # 评价设置
+│   ├── page.tsx               # 习惯养成主页
+│   ├── overview/              # 全校总览（德育主任视角）
+│   ├── goals/                 # 小目标管理
+│   ├── stars/                 # 习惯之星评选
+│   └── settings/              # 习惯设置（目标模板、评选规则）
 ├── activities/                 # 德育活动
 │   └── page.tsx               # 活动管理
 ├── plans/                      # 德育计划
@@ -979,11 +978,10 @@ src/app/moral/
 ├── 日常行为
 │   ├── 行为评价      /moral/assessment
 │   └── 习惯养成      /moral/habit
-│       ├── 概览      /moral/habit
-│       ├── 月度目标  /moral/habit/goals
+│       ├── 全校总览  /moral/habit/overview
+│       ├── 小目标    /moral/habit/goals
 │       ├── 习惯之星  /moral/habit/stars
-│       ├── 习惯报表  /moral/habit/reports
-│       └── 评价设置  /moral/habit/settings
+│       └── 习惯设置  /moral/habit/settings
 ├── 德育活动
 │   ├── 活动管理      /moral/activities
 │   ├── 德育计划      /moral/plans
@@ -1148,30 +1146,32 @@ src/app/moral/
 
 ### 3.10 API接口清单
 
-项目共实现 **78个API接口**，按功能模块组织：
+项目共实现 **80个API路由**，按功能模块组织：
 
 ```
 src/app/api/
-├── access/           门禁管理API
+├── access/           门禁管理API (4个路由)
 │   ├── devices/      设备管理
 │   ├── records/      通行记录
 │   ├── statistics/   数据统计
 │   └── visitors/     访客管理
-├── auth/             认证API
+├── auth/             认证API (4个路由)
 │   ├── current/      当前用户
 │   ├── login/        登录
 │   ├── logout/       登出
 │   └── refresh/      刷新Token
-├── classes/          班级管理API
-├── students/         学生管理API
-├── teachers/         教师管理API
-├── expenses/         报销管理API
+├── teachers/         教师管理API (10个路由)
+├── students/         学生管理API (6个路由)
+├── expenses/         报销管理API (5个路由)
 ├── grades/           成绩管理API
-├── habit/            习惯养成API
-├── moral/            德育管理API
-├── rooms/            功能室API
-├── schedule*/        课表相关API
-├── workflow/         工作流API
+├── habit/            习惯养成API (4个路由)
+├── moral/            德育管理API (4个路由)
+├── rooms/            功能室API (3个路由)
+├── research/         教研活动API (3个路由)
+├── safety/           安全管理API (2个路由)
+├── schedule*/        课表相关API (4个路由)
+├── workflow/         工作流API (3个路由)
+├── homepage/         首页管理API (4个路由)
 └── ...               其他API
 ```
 
@@ -2226,25 +2226,30 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 
 ### 5.15 接口清单汇总
 
-| 模块 | 接口数量 | 主要接口 |
-|------|----------|----------|
-| 认证授权 | 4 | login, logout, current, refresh |
-| 教师管理 | 13 | CRUD, profile, batch, records, honors |
-| 学生管理 | 10 | CRUD, batch, habit-profile |
-| 班级管理 | 5 | CRUD, students |
-| 课表管理 | 12 | base-schedule, actual-schedule, changes |
-| 工作量统计 | 4 | teacher, monthly, batch, mock |
-| 报销管理 | 8 | CRUD, approve, process, statistics |
-| 门禁管理 | 8 | devices, records, visitors, statistics |
-| 习惯养成 | 7 | assessments, goals, stars, stats |
-| 新生注册 | 5 | enrollment CRUD, sync |
-| 功能室预约 | 5 | rooms, bookings, approve |
-| 教研活动 | 6 | activities, observations, preparations |
-| 安全管理 | 4 | drills, inspections |
-| 数据中心 | 3 | collection, link, migrate |
-| 工作流 | 3 | config, instances, migrate |
-| 公共组件 | 2 | upload, search-images |
-| **合计** | **99** | - |
+| 模块 | 路由数量 | 接口数量 | 主要接口 |
+|------|----------|----------|----------|
+| 认证授权 | 4 | 4 | login, logout, current, refresh |
+| 教师管理 | 10 | 13 | CRUD, profile, batch, records, honors |
+| 学生管理 | 6 | 10 | CRUD, batch, habit-profile |
+| 班级管理 | 1 | 5 | CRUD, students |
+| 班级教师 | 2 | 4 | CRUD |
+| 课表管理 | 4 | 12 | base-schedule, actual-schedule, changes |
+| 工作量统计 | 1 | 4 | teacher, monthly, batch, mock |
+| 报销管理 | 5 | 8 | CRUD, approve, process, statistics |
+| 门禁管理 | 4 | 8 | devices, records, visitors, statistics |
+| 习惯养成 | 4 | 7 | assessments, goals, stars, stats |
+| 德育管理 | 4 | 6 | activities, plans, growth, alerts |
+| 新生注册 | 1 | 5 | enrollment CRUD, sync |
+| 功能室预约 | 3 | 5 | rooms, bookings, approve |
+| 教研活动 | 3 | 6 | activities, observations, preparations |
+| 安全管理 | 2 | 4 | drills, inspections |
+| 数据中心 | 2 | 3 | collection, link, migrate |
+| 工作流 | 3 | 3 | config, instances, migrate |
+| 首页管理 | 4 | 4 | honors, news, migrate |
+| 公共组件 | 2 | 2 | upload, search-images |
+| **合计** | **80路由** | **~110接口** | - |
+
+> **说明**：路由数量指API路由文件数量，接口数量按HTTP方法计算（一个路由可能对应GET/POST/PUT/DELETE多个接口）。
 
 ---
 
@@ -2738,6 +2743,50 @@ getStatistics, getClassOverview, getGradeOverview
 - ✅ API 调用模式一致，使用统一的 `fetchApi` 辅助函数
 - ✅ 分页数据默认值处理，避免 null 引用错误
 - ✅ 文档更新，记录整改内容和规范
+
+### 5.16.8 文档一致性修正记录（v1.7）
+
+#### 修正背景
+
+SDD 文档中的页面数量、目录结构、API接口清单等描述与实际系统实现存在偏差，需要核对并修正。
+
+#### 修正内容
+
+##### 1. 页面数量统计修正
+
+| 模块 | 原文档 | 实际数量 | 修正 |
+|------|--------|----------|------|
+| 总页面数 | 91 | 90 | ✓ |
+| 教务系统 | 21 | 20 | ✓ |
+| 总务系统 | 12 | 14 | ✓ |
+| 教师空间 | 20 | 18 | ✓ |
+| 工作流 | 6 | 7 | ✓ |
+
+##### 2. 德育系统目录结构修正
+
+习惯养成模块目录结构修正：
+- 移除不存在的 `habit/reports/` 和 `habit/students/` 目录
+- 添加实际存在的 `habit/overview/` 目录
+- 更新各子目录的功能描述
+
+##### 3. API接口清单修正
+
+- 更新路由数量为实际的80个路由文件
+- 区分"路由数量"和"接口数量"（一个路由可能对应多个HTTP方法）
+- 更新各模块的路由数量统计
+
+##### 4. 导航菜单同步
+
+德育系统导航菜单与实际页面路由保持一致：
+- 更新习惯养成子菜单项
+- 修正路由路径描述
+
+#### 修正效果
+
+- ✅ 页面数量统计与实际系统一致
+- ✅ 目录结构描述与实际文件结构一致
+- ✅ API接口清单与实际路由一致
+- ✅ 导航菜单与实际页面路由一致
 
 ---
 
