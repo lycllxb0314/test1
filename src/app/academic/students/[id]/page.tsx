@@ -60,6 +60,7 @@ import { StudentFullProfile, Parent } from '@/types';
 import { toast } from 'sonner';
 import { HabitTabContent } from '@/components/student/habit-tab-content';
 import { MoralTabContent } from '@/components/student/moral-tab-content';
+import { ComprehensiveTabContent } from '@/components/student/comprehensive-tab-content';
 
 // 获取性别显示
 const getGenderDisplay = (gender: string) => {
@@ -579,11 +580,7 @@ export default function StudentDetailPage({ params }: PageProps) {
         <TabsList className="bg-card border rounded-lg p-1">
           <TabsTrigger value="overview">基本信息</TabsTrigger>
           <TabsTrigger value="family">家庭信息</TabsTrigger>
-          <TabsTrigger value="academic">学业记录</TabsTrigger>
-          <TabsTrigger value="honors">荣誉奖项</TabsTrigger>
-          <TabsTrigger value="growth">成长档案</TabsTrigger>
-          <TabsTrigger value="habit">习惯养成</TabsTrigger>
-          <TabsTrigger value="moral">德育表现</TabsTrigger>
+          <TabsTrigger value="comprehensive">综合素质</TabsTrigger>
         </TabsList>
 
         {/* 基本信息 */}
@@ -968,158 +965,9 @@ export default function StudentDetailPage({ params }: PageProps) {
           </Card>
         </TabsContent>
 
-        {/* 学业记录 */}
-        <TabsContent value="academic" className="space-y-4 mt-4">
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-primary" />
-                学业记录
-              </CardTitle>
-              <CardDescription>考试成绩与学业表现</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {profile.academicRecords?.length > 0 ? (
-                <div className="space-y-4">
-                  {/* 按学期分组 */}
-                  {Object.entries(
-                    profile.academicRecords.reduce((acc, record) => {
-                      if (!acc[record.semester]) acc[record.semester] = [];
-                      acc[record.semester].push(record);
-                      return acc;
-                    }, {} as Record<string, typeof profile.academicRecords>)
-                  ).map(([semester, records]) => (
-                    <div key={semester}>
-                      <h4 className="font-medium mb-3 flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-primary" />
-                        {semester}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {records.map((record) => (
-                          <div key={record.id} className="p-3 bg-muted/30 rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-medium">{record.subject}</span>
-                              <Badge variant="outline">{record.examType}</Badge>
-                            </div>
-                            <div className="flex items-end justify-between">
-                              <div>
-                                {record.score !== undefined && (
-                                  <span className="text-2xl font-bold">{record.score}</span>
-                                )}
-                                {record.level && (
-                                  <span className={`ml-2 ${getGradeColor(record.level)}`}>
-                                    {record.level}
-                                  </span>
-                                )}
-                              </div>
-                              {record.classRank && (
-                                <span className="text-sm text-muted-foreground">
-                                  班级第{record.classRank}名
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">暂无学业记录</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 荣誉奖项 */}
-        <TabsContent value="honors" className="space-y-4 mt-4">
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-primary" />
-                荣誉奖项
-              </CardTitle>
-              <CardDescription>获得的荣誉与表彰</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {profile.honors?.length > 0 ? (
-                <div className="space-y-3">
-                  {profile.honors.map((honor) => (
-                    <div key={honor.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
-                      <div className={`p-2 rounded-lg ${getHonorLevelColor(honor.level)}`}>
-                        <Award className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{honor.title}</span>
-                          <Badge className={getHonorLevelColor(honor.level)}>{honor.level}</Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {honor.issuer && <span>{honor.issuer} · </span>}
-                          {honor.date}
-                          {honor.category && <span> · {honor.category}类</span>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">暂无荣誉记录</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 成长档案 */}
-        <TabsContent value="growth" className="space-y-4 mt-4">
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                成长档案
-              </CardTitle>
-              <CardDescription>重要事件与成长轨迹</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {profile.growthRecords?.length > 0 ? (
-                <div className="relative">
-                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted" />
-                  <div className="space-y-4">
-                    {profile.growthRecords.map((record, index) => (
-                      <div key={record.id} className="relative pl-10">
-                        <div className="absolute left-2 top-1 w-4 h-4 rounded-full bg-primary" />
-                        <div className="p-4 bg-muted/30 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium">{record.title}</span>
-                            <Badge variant="outline">{record.type}</Badge>
-                          </div>
-                          {record.description && (
-                            <p className="text-sm text-muted-foreground mb-2">{record.description}</p>
-                          )}
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>{record.date}</span>
-                            {record.operator && <span>操作人：{record.operator}</span>}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">暂无成长记录</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 习惯养成 */}
-        <TabsContent value="habit" className="space-y-4 mt-4">
-          <HabitTabContent profile={profile} />
-        </TabsContent>
-
-        {/* 德育表现 */}
-        <TabsContent value="moral" className="space-y-4 mt-4">
-          <MoralTabContent 
+        {/* 综合素质 */}
+        <TabsContent value="comprehensive" className="space-y-4 mt-4">
+          <ComprehensiveTabContent 
             profile={profile} 
             canViewWarnings={true}
           />

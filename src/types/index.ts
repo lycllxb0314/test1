@@ -3173,3 +3173,332 @@ export interface ActualScheduleSlot extends BaseScheduleSlot {
   substituteId?: string;                // 关联的代课记录
   adjustRecordId?: string;              // 关联的调课记录
 }
+
+// ============================================================
+// 学年数据结构与综合素质评价类型
+// ============================================================
+
+/**
+ * 学年标识
+ * 格式：YYYY-YYYY，如 "2024-2025"
+ */
+export type AcademicYear = string;
+
+/**
+ * 学期标识
+ * 格式：YYYY-YYYY-N，如 "2024-2025-1" 表示2024-2025学年第一学期
+ */
+export type SemesterCode = string;
+
+/**
+ * 学年学业表现数据
+ */
+export interface YearlyAcademicData {
+  /** 学年 */
+  academicYear: AcademicYear;
+  
+  /** 学期数据 */
+  semesters: {
+    semesterCode: SemesterCode;
+    semesterName: string;              // 如"第一学期"
+    
+    /** 考试成绩列表 */
+    exams: {
+      examId: string;
+      examName: string;
+      examType: '期中考试' | '期末考试' | '单元测试' | '模拟考试';
+      date: string;
+      subjects: {
+        subject: string;
+        score: number;
+        level?: '优秀' | '良好' | '合格' | '待提高';
+        classRank?: number;
+        gradeRank?: number;
+      }[];
+      totalScore?: number;
+      classRank?: number;
+      gradeRank?: number;
+    }[];
+    
+    /** 学期平均分 */
+    avgScore?: number;
+    /** 学期排名 */
+    rank?: number;
+  }[];
+  
+  /** 学年汇总 */
+  summary: {
+    /** 年平均分 */
+    avgScore: number;
+    /** 年级排名 */
+    rank: number;
+    /** 进退步名次 */
+    improvement: number;
+    /** 各科平均分 */
+    subjectAverages: {
+      subject: string;
+      avgScore: number;
+      trend: 'up' | 'down' | 'stable';
+    }[];
+  };
+}
+
+/**
+ * 学年荣誉数据
+ */
+export interface YearlyHonorData {
+  /** 学年 */
+  academicYear: AcademicYear;
+  
+  /** 荣誉列表 */
+  honors: {
+    id: string;
+    title: string;
+    level: '国家级' | '省级' | '市级' | '区级' | '校级' | '班级';
+    category: '综合' | '学习' | '德育' | '体育' | '艺术' | '劳动' | '科技';
+    issuer?: string;
+    date: string;
+    description?: string;
+    certificateUrl?: string;
+  }[];
+  
+  /** 学年统计 */
+  summary: {
+    /** 荣誉总数 */
+    total: number;
+    /** 按级别统计 */
+    byLevel: Record<string, number>;
+    /** 按类别统计 */
+    byCategory: Record<string, number>;
+  };
+}
+
+/**
+ * 学年德育表现数据
+ */
+export interface YearlyMoralData {
+  /** 学年 */
+  academicYear: AcademicYear;
+  
+  /** 学期数据 */
+  semesters: {
+    semesterCode: SemesterCode;
+    semesterName: string;
+    
+    /** 行为评价 */
+    behavior: {
+      /** 表扬次数 */
+      praiseCount: number;
+      /** 待改进次数 */
+      improveCount: number;
+      /** 行为得分 */
+      behaviorScore: number;
+    };
+    
+    /** 习惯养成 */
+    habits: {
+      /** 综合得分 */
+      totalScore: number;
+      /** 等级 */
+      level: '优秀' | '良好' | '合格' | '待提高';
+      /** 习惯之星次数 */
+      starCount: number;
+      /** 各类别得分 */
+      categoryScores: {
+        category: HabitCategory;
+        categoryName: string;
+        score: number;
+        maxScore: number;
+        rate: number;
+      }[];
+    };
+    
+    /** 德育活动参与 */
+    activities: {
+      id: string;
+      title: string;
+      type: string;
+      date: string;
+      role?: string;
+      achievement?: string;
+    }[];
+    
+    /** 志愿服务 */
+    volunteerHours: number;
+    volunteerActivities: {
+      id: string;
+      activity: string;
+      hours: number;
+      date: string;
+    }[];
+  }[];
+  
+  /** 学年汇总 */
+  summary: {
+    /** 年度行为评分 */
+    avgBehaviorScore: number;
+    /** 习惯之星总次数 */
+    totalStarCount: number;
+    /** 参与活动总数 */
+    totalActivityCount: number;
+    /** 志愿服务总时长 */
+    totalVolunteerHours: number;
+    /** 综合评价等级 */
+    overallLevel: '优秀' | '良好' | '合格' | '待提高';
+  };
+}
+
+/**
+ * 成长轨迹事件
+ */
+export interface GrowthTimelineEvent {
+  id: string;
+  date: string;
+  type: 'academic' | 'honor' | 'activity' | 'behavior' | 'milestone';
+  title: string;
+  description?: string;
+  /** 关联的记录ID */
+  relatedId?: string;
+  /** 附件（图片、证书等） */
+  attachments?: string[];
+  /** 学年 */
+  academicYear: AcademicYear;
+}
+
+/**
+ * 学年成长轨迹数据
+ */
+export interface YearlyGrowthTimeline {
+  /** 学年 */
+  academicYear: AcademicYear;
+  
+  /** 时间轴事件 */
+  events: GrowthTimelineEvent[];
+  
+  /** 学年亮点 */
+  highlights: {
+    type: string;
+    title: string;
+    description: string;
+  }[];
+}
+
+/**
+ * 学年综合素质数据
+ * 整合学业、荣誉、德育、成长轨迹
+ */
+export interface YearlyComprehensiveData {
+  /** 学年 */
+  academicYear: AcademicYear;
+  
+  /** 学业表现 */
+  academic: YearlyAcademicData['summary'];
+  
+  /** 荣誉奖项 */
+  honors: YearlyHonorData;
+  
+  /** 德育表现 */
+  moral: YearlyMoralData['summary'];
+  
+  /** 成长轨迹 */
+  timeline: YearlyGrowthTimeline;
+  
+  /** 综合评价 */
+  evaluation: {
+    /** 综合得分 */
+    totalScore: number;
+    /** 综合等级 */
+    level: '优秀' | '良好' | '合格' | '待提高';
+    /** 班主任评语 */
+    teacherComment?: string;
+  };
+}
+
+/**
+ * 全学段综合素质汇总
+ */
+export interface OverallComprehensiveData {
+  /** 学年数据（按学年索引） */
+  byYear: Record<AcademicYear, YearlyComprehensiveData>;
+  
+  /** 全学段汇总 */
+  overall: {
+    /** 荣誉总数 */
+    totalHonors: number;
+    /** 按级别统计 */
+    honorByLevel: Record<string, number>;
+    /** 平均行为评分 */
+    avgBehaviorScore: number;
+    /** 习惯之星总次数 */
+    totalStarCount: number;
+    /** 参与活动总数 */
+    totalActivityCount: number;
+    /** 志愿服务总时长 */
+    totalVolunteerHours: number;
+    /** 各学年学业趋势 */
+    academicTrend: {
+      academicYear: AcademicYear;
+      avgScore: number;
+      rank: number;
+    }[];
+  };
+  
+  /** 可选学年列表 */
+  availableYears: AcademicYear[];
+}
+
+/**
+ * 综合素质Tab查询参数
+ */
+export interface ComprehensiveQueryParams {
+  /** 学生ID */
+  studentId: string;
+  /** 学年（可选，不传则返回全学段数据） */
+  academicYear?: AcademicYear;
+}
+
+/**
+ * 综合素质Tab响应数据
+ */
+export interface ComprehensiveTabData {
+  /** 基础信息 */
+  student: {
+    id: string;
+    name: string;
+    studentNo: string;
+    className: string;
+    grade: number;
+    enrollmentYear: number;
+  };
+  
+  /** 当前查看学年（null表示全学段） */
+  currentYear: AcademicYear | null;
+  
+  /** 学年选择器选项 */
+  yearOptions: {
+    value: AcademicYear;
+    label: string;
+    isCurrent: boolean;
+  }[];
+  
+  /** 素质概览（卡片数据） */
+  overview: {
+    totalHonors: number;
+    avgBehaviorScore: number;
+    totalStars: number;
+    totalActivities: number;
+    overallLevel: '优秀' | '良好' | '合格' | '待提高';
+  };
+  
+  /** 详细数据（根据当前学年返回） */
+  details: YearlyComprehensiveData | OverallComprehensiveData;
+  
+  /** 学年对比（当查看全学段时） */
+  yearComparison?: {
+    academicYear: AcademicYear;
+    avgScore: number;
+    honorCount: number;
+    behaviorScore: number;
+    starCount: number;
+  }[];
+}
