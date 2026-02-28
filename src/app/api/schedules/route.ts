@@ -1,13 +1,14 @@
 /**
  * 课表管理 API
  * 
- * 使用统一的路由处理模式和集中的Mock数据
+ * 使用统一的路由处理模式、集中的Mock数据和认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getMockScheduleViewData, MOCK_SCHEDULE_VIEW_DATA, type ScheduleViewItem } from '@/lib/mock/schedules.mock';
 import { success, error, parseQueryParams, ErrorCode } from '@/lib/api-route-utils';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
  * GET - 获取课表
@@ -16,8 +17,10 @@ import { success, error, parseQueryParams, ErrorCode } from '@/lib/api-route-uti
  * - classId: 班级ID
  * - teacherId: 教师ID
  * - semester: 学期
+ * 
+ * 权限要求：教务模块查看权限
  */
-export async function GET(request: NextRequest) {
+const handleGetSchedules = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const params = parseQueryParams(request);
   
   try {
@@ -83,12 +86,14 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(success(mockData, 'mock'));
   }
-}
+};
 
 /**
  * POST - 创建课表项
+ * 
+ * 权限要求：教务模块编辑权限
  */
-export async function POST(request: NextRequest) {
+const handleCreateSchedule = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const client = getSupabaseClient();
     const body = await request.json();
@@ -145,4 +150,16 @@ export async function POST(request: NextRequest) {
     console.error('Failed to create schedule:', err);
     return NextResponse.json(error('创建课表项失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+};
+
+// 导出受保护的路由处理器
+export const GET = protectedRoute(handleGetSchedules, { 
+  module: 'academic', 
+  permission: 'view',
+  optional: true, // 列表查询允许未登录访问（用于演示）
+});
+
+export const POST = protectedRoute(handleCreateSchedule, { 
+  module: 'academic', 
+  permission: 'edit' 
+});

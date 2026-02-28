@@ -1,73 +1,57 @@
+/**
+ * 获取当前用户信息 API
+ * 
+ * 使用 JWT 验证会话
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { validateSession, extractTokens, setAuthCookies } from '@/lib/auth/session';
 
 /**
  * GET - 获取当前用户信息
- * 通过用户ID查询用户信息
- * 查询参数：
- * - userId: 用户ID
+ * 
+ * 通过 JWT Token 验证用户身份并返回用户信息
  */
 export async function GET(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    // 提取 Token
+    const { accessToken, refreshToken: refreshTokenValue } = extractTokens(request);
 
-    if (!userId) {
+    if (!accessToken) {
       return NextResponse.json({
         success: false,
-        error: '未提供用户ID',
-      }, { status: 400 });
+        error: '未登录',
+      }, { status: 401 });
     }
 
-    const { data: user, error } = await client
-      .from('users')
-      .select(`
-        id,
-        name,
-        role,
-        phone,
-        email,
-        department,
-        position,
-        class_id,
-        class_name,
-        subjects,
-        avatar,
-        children,
-        status
-      `)
-      .eq('id', userId)
-      .eq('status', 'active')
-      .single();
+    // 验证会话
+    const result = await validateSession(accessToken, refreshTokenValue || undefined);
 
-    if (error || !user) {
+    if (!result.success) {
       return NextResponse.json({
         success: false,
-        error: '用户不存在',
-      }, { status: 404 });
+        error: result.error || '会话已过期',
+      }, { status: 401 });
     }
 
-    // 转换字段名以匹配前端类型
-    const userInfo = {
-      id: user.id,
-      name: user.name,
-      role: user.role,
-      phone: user.phone,
-      email: user.email,
-      department: user.department,
-      position: user.position,
-      classId: user.class_id,
-      className: user.class_name,
-      subjects: user.subjects,
-      avatar: user.avatar,
-      children: user.children,
-    };
-
-    return NextResponse.json({
+    // 创建响应
+    const response = NextResponse.json({
       success: true,
-      data: userInfo,
+      data: result.user,
+      shouldRefresh: result.shouldRefresh,
     });
+
+    // 如果需要刷新 Token，生成新的 Token 对
+    if (result.shouldRefresh && result.payload && refreshTokenValue) {
+      const { refreshToken: doRefreshToken } = await import('@/lib/auth/session');
+      const refreshResult = await doRefreshToken(refreshTokenValue, process.env.NODE_ENV === 'production');
+      
+      if (refreshResult.success && refreshResult.tokens) {
+        setAuthCookies(response, refreshResult.tokens, result.payload.userId, process.env.NODE_ENV === 'production');
+      }
+    }
+
+    return response;
   } catch (error) {
     console.error('Get current user error:', error);
     return NextResponse.json({

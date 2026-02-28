@@ -10,7 +10,9 @@ export {
   
   // 函数
   extractUserId,
+  extractUserIdLegacy,
   validateSession,
+  validateSessionLegacy,
   authenticateRequest,
   createAuthErrorResponse,
   checkModuleAccess,
@@ -63,3 +65,39 @@ export {
   selfOnly,
   classAccess,
 } from './route-protection';
+
+// 从 jwt 导出 JWT 相关功能
+export {
+  // 类型
+  type JwtPayload,
+  type TokenPair,
+  
+  // 函数
+  generateAccessToken,
+  generateRefreshToken,
+  generateTokenPair,
+  verifyToken,
+  decodeToken,
+  isTokenExpiringSoon,
+  getCookieOptions,
+  
+  // 常量
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  USER_ID_COOKIE,
+} from './jwt';
+
+// 从 session 导出会话管理功能
+export {
+  // 类型
+  type LoginResult,
+  type SessionResult,
+  
+  // 函数
+  login,
+  refreshToken,
+  validateSession as validateJwtSession,
+  extractTokens,
+  setAuthCookies,
+  clearAuthCookies,
+} from './session';

@@ -1,24 +1,18 @@
 /**
  * 认证中间件核心
  * 提供用户认证、会话验证和权限检查功能
+ * 
+ * 支持 JWT 会话验证
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { User, UserRole, ModuleType, Permission } from '@/types';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { ROLE_PERMISSIONS, getRoleModules, hasPermission, canAccessModule } from './permissions';
+import { validateSession as validateJwtSession, extractTokens } from './session';
 
 // 是否使用 Mock 数据（开发环境）
 const USE_MOCK_DATA = process.env.NODE_ENV !== 'production';
-
-// Mock 用户数据
-const MOCK_USERS: Record<string, User> = {
-  '1': { id: '1', name: '张明华', role: 'principal', phone: '138****1001' },
-  '2': { id: '2', name: '李红梅', role: 'academic_director', phone: '138****1002' },
-  '3': { id: '3', name: '王建国', role: 'head_teacher', phone: '138****1003', classId: 'c001', className: '一年级1班' },
-  '4': { id: '4', name: '陈晓燕', role: 'teacher', phone: '138****1004' },
-  '5': { id: '5', name: '刘洋', role: 'grade_leader', phone: '138****1005' },
-};
 
 // Session 配置
 const SESSION_HEADER = 'x-session-token';
@@ -35,13 +29,53 @@ export interface AuthResult {
 }
 
 /**
- * 从请求中获取用户ID
+ * 认证中间件
+ * 验证请求中的用户身份（支持 JWT 和传统方式）
+ */
+export async function authenticateRequest(request: NextRequest): Promise<AuthResult> {
+  // 1. 优先尝试 JWT 认证
+  const { accessToken, refreshToken } = extractTokens(request);
+  
+  if (accessToken) {
+    const sessionResult = await validateJwtSession(accessToken, refreshToken || undefined);
+    
+    if (sessionResult.success && sessionResult.user) {
+      return {
+        success: true,
+        user: sessionResult.user,
+      };
+    }
+    
+    // JWT 认证失败，返回错误
+    return {
+      success: false,
+      error: sessionResult.error || '会话已过期，请重新登录',
+      statusCode: 401,
+    };
+  }
+
+  // 2. 降级到传统认证方式（向后兼容）
+  const userId = extractUserIdLegacy(request);
+
+  if (!userId) {
+    return {
+      success: false,
+      error: '未登录，请先登录',
+      statusCode: 401,
+    };
+  }
+
+  return validateSessionLegacy(userId);
+}
+
+/**
+ * 从请求中获取用户ID（传统方式，向后兼容）
  * 支持多种方式：
  * 1. Header: x-user-id
  * 2. Query: userId
  * 3. Cookie: smart_campus_user_id
  */
-export function extractUserId(request: NextRequest): string | null {
+export function extractUserIdLegacy(request: NextRequest): string | null {
   // 1. 从 Header 获取
   const headerUserId = request.headers.get(USER_ID_HEADER);
   if (headerUserId) return headerUserId;
@@ -59,12 +93,21 @@ export function extractUserId(request: NextRequest): string | null {
 }
 
 /**
- * 验证用户会话
- * 从数据库获取用户信息并验证状态
+ * 验证用户会话（传统方式）
  */
-export async function validateSession(userId: string): Promise<AuthResult> {
+export async function validateSessionLegacy(userId: string): Promise<AuthResult> {
   // Mock 模式：使用 Mock 数据
   if (USE_MOCK_DATA) {
+    const MOCK_USERS: Record<string, User> = {
+      '1': { id: '1', name: '张明华', role: 'principal', phone: '138****1001' },
+      '2': { id: '2', name: '李红梅', role: 'academic_director', phone: '138****1002' },
+      '3': { id: '3', name: '王建国', role: 'head_teacher', phone: '138****1003', classId: 'c001', className: '一年级1班' },
+      '4': { id: '4', name: '陈晓燕', role: 'teacher', phone: '138****1004' },
+      '5': { id: '5', name: '刘洋', role: 'grade_leader', phone: '138****1005' },
+      '6': { id: '6', name: '张总务', role: 'general_director', phone: '138****1006' },
+      '7': { id: '7', name: '李德育', role: 'moral_director', phone: '138****1007' },
+    };
+    
     const user = MOCK_USERS[userId];
     if (!user) {
       return {
@@ -140,24 +183,6 @@ export async function validateSession(userId: string): Promise<AuthResult> {
 }
 
 /**
- * 认证中间件
- * 验证请求中的用户身份
- */
-export async function authenticateRequest(request: NextRequest): Promise<AuthResult> {
-  const userId = extractUserId(request);
-
-  if (!userId) {
-    return {
-      success: false,
-      error: '未登录，请先登录',
-      statusCode: 401,
-    };
-  }
-
-  return validateSession(userId);
-}
-
-/**
  * 创建认证失败的响应
  */
 export function createAuthErrorResponse(result: AuthResult): NextResponse {
@@ -206,73 +231,95 @@ export function withAuth(
 /**
  * 要求特定角色的高阶函数
  */
-export function withRole(
-  allowedRoles: UserRole | UserRole[],
-  handler: (request: NextRequest, context: { user: User }) => Promise<NextResponse>
-) {
-  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+export function withRole(role: UserRole | UserRole[]) {
+  const roles = Array.isArray(role) ? role : [role];
   
-  return withAuth(async (request, context) => {
-    if (!roles.includes(context.user.role)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '权限不足，无法访问此资源',
-          code: 'FORBIDDEN',
-        },
-        { status: 403 }
-      );
-    }
-    
-    return handler(request, context);
-  });
+  return (
+    handler: (request: NextRequest, context: { user: User }) => Promise<NextResponse>
+  ) => {
+    return async (request: NextRequest) => {
+      const authResult = await authenticateRequest(request);
+      
+      if (!authResult.success || !authResult.user) {
+        return createAuthErrorResponse(authResult);
+      }
+
+      if (!roles.includes(authResult.user.role)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '权限不足',
+            code: 'FORBIDDEN',
+          },
+          { status: 403 }
+        );
+      }
+
+      return handler(request, { user: authResult.user });
+    };
+  };
 }
 
 /**
- * 要求特定模块访问权限的高阶函数
+ * 要求模块访问权限的高阶函数
  */
-export function withModuleAccess(
-  module: ModuleType,
-  handler: (request: NextRequest, context: { user: User }) => Promise<NextResponse>
-) {
-  return withAuth(async (request, context) => {
-    if (!checkModuleAccess(context.user, module)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '您没有访问此模块的权限',
-          code: 'MODULE_FORBIDDEN',
-        },
-        { status: 403 }
-      );
-    }
-    
-    return handler(request, context);
-  });
+export function withModuleAccess(module: ModuleType) {
+  return (
+    handler: (request: NextRequest, context: { user: User }) => Promise<NextResponse>
+  ) => {
+    return async (request: NextRequest) => {
+      const authResult = await authenticateRequest(request);
+      
+      if (!authResult.success || !authResult.user) {
+        return createAuthErrorResponse(authResult);
+      }
+
+      if (!checkModuleAccess(authResult.user, module)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '无权访问此模块',
+            code: 'MODULE_FORBIDDEN',
+          },
+          { status: 403 }
+        );
+      }
+
+      return handler(request, { user: authResult.user });
+    };
+  };
 }
 
 /**
  * 要求特定权限的高阶函数
  */
-export function withPermission(
-  module: ModuleType,
-  permission: Permission,
-  handler: (request: NextRequest, context: { user: User }) => Promise<NextResponse>
-) {
-  return withAuth(async (request, context) => {
-    if (!checkPermission(context.user, module, permission)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '您没有执行此操作的权限',
-          code: 'PERMISSION_DENIED',
-        },
-        { status: 403 }
-      );
-    }
-    
-    return handler(request, context);
-  });
+export function withPermission(module: ModuleType, permission: Permission) {
+  return (
+    handler: (request: NextRequest, context: { user: User }) => Promise<NextResponse>
+  ) => {
+    return async (request: NextRequest) => {
+      const authResult = await authenticateRequest(request);
+      
+      if (!authResult.success || !authResult.user) {
+        return createAuthErrorResponse(authResult);
+      }
+
+      if (!checkPermission(authResult.user, module, permission)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '权限不足',
+            code: 'PERMISSION_DENIED',
+          },
+          { status: 403 }
+        );
+      }
+
+      return handler(request, { user: authResult.user });
+    };
+  };
 }
 
-// 注意：isAdminRole, isTeacherRole, isDirectorRole 函数已在 permissions.ts 中定义
+// 向后兼容的导出
+export const extractUserId = extractUserIdLegacy;
+export const validateSession = validateSessionLegacy;

@@ -1,7 +1,7 @@
 /**
  * 报销申请 API
  * 
- * 使用统一的路由处理模式和集中的Mock数据
+ * 使用统一的路由处理模式、集中的Mock数据和认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,6 +17,7 @@ import {
   createPagination,
   ErrorCode 
 } from '@/lib/api-route-utils';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import type { ExpenseReimbursement, ExpenseItem } from '@/types';
 
 /**
@@ -29,8 +30,10 @@ import type { ExpenseReimbursement, ExpenseItem } from '@/types';
  * - department: 部门筛选
  * - page: 页码
  * - pageSize: 每页数量
+ * 
+ * 权限要求：总务模块查看权限
  */
-export async function GET(request: NextRequest) {
+const handleGetExpenses = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const params = parseQueryParams(request);
   
   try {
@@ -115,12 +118,14 @@ export async function GET(request: NextRequest) {
       source: 'mock',
     });
   }
-}
+};
 
 /**
  * POST - 创建报销申请
+ * 
+ * 权限要求：总务模块编辑权限
  */
-export async function POST(request: NextRequest) {
+const handleCreateExpense = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const body = await request.json();
     const client = getSupabaseClient();
@@ -136,9 +141,9 @@ export async function POST(request: NextRequest) {
       .insert({
         expense_no: expenseNo,
         title: body.title,
-        applicant_id: body.applicantId,
-        applicant_name: body.applicantName,
-        applicant_role: body.applicantRole,
+        applicant_id: body.applicantId || user.id,
+        applicant_name: body.applicantName || user.name,
+        applicant_role: body.applicantRole || user.role,
         department: body.department,
         phone: body.phone,
         category: body.category,
@@ -164,9 +169,9 @@ export async function POST(request: NextRequest) {
         id: `exp_${Date.now()}`,
         expenseNo,
         title: body.title,
-        applicantId: body.applicantId,
-        applicantName: body.applicantName,
-        applicantRole: body.applicantRole,
+        applicantId: body.applicantId || user.id,
+        applicantName: body.applicantName || user.name,
+        applicantRole: body.applicantRole || user.role,
         department: body.department,
         category: body.category,
         items: body.items?.map((item: ExpenseItem, index: number) => ({
@@ -186,7 +191,11 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date().toISOString(),
       };
       
-      return NextResponse.json(success(newExpense, 'mock'));
+      return NextResponse.json({
+        success: true,
+        data: newExpense,
+        source: 'mock',
+      });
     }
     
     return NextResponse.json({
@@ -208,4 +217,16 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+};
+
+// 导出受保护的路由处理器
+export const GET = protectedRoute(handleGetExpenses, { 
+  module: 'general', 
+  permission: 'view',
+  optional: true, // 列表查询允许未登录访问（用于演示）
+});
+
+export const POST = protectedRoute(handleCreateExpense, { 
+  module: 'general', 
+  permission: 'edit' 
+});
