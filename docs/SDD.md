@@ -2243,6 +2243,379 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 
 ---
 
+## 5.16 数据Hooks说明
+
+### 5.16.1 Hooks架构概述
+
+项目采用**统一Hooks架构**，所有数据获取和操作逻辑均通过自定义Hooks实现，遵循以下设计原则：
+
+| 原则 | 说明 |
+|------|------|
+| 单一职责 | 每个Hook专注于单一数据领域或功能 |
+| 统一模式 | 所有Hooks基于 `useApi.ts` 实现，保持一致的API风格 |
+| 类型安全 | 完整的TypeScript类型定义，提供良好的IDE支持 |
+| 自动缓存 | 支持缓存策略，减少重复请求 |
+| 错误处理 | 统一的错误处理和状态管理 |
+
+### 5.16.2 Hooks目录结构
+
+```
+src/hooks/
+├── useApi.ts              # 基础Hook库（核心）
+├── useDataFetch.ts        # @deprecated 已弃用，迁移中
+├── useAuth.ts             # 认证相关
+├── usePermissions.ts      # 权限管理
+├── useStudentData.ts      # 学生数据
+├── useTeacherData.ts      # 教师数据
+├── useHabitData.ts        # 习惯养成数据
+├── useMoralData.ts        # 德育管理数据
+├── useAcademicData.ts     # 教务数据
+├── useGeneralAffairsData.ts # 总务数据
+├── useAccessData.ts       # 门禁数据
+├── useRoomData.ts         # 功能室数据
+├── useData.ts             # 通用数据Hook
+├── useCrudOperations.ts   # CRUD操作Hook
+├── useBatchOperations.ts  # 批量操作Hook
+└── use-mobile.ts          # 移动端检测
+```
+
+### 5.16.3 核心Hooks说明
+
+#### useApi.ts - 统一基础Hook库
+
+这是系统中最核心的Hook文件，提供统一的查询和操作模式。
+
+**导出的Hooks**:
+
+| Hook名称 | 用途 | 返回值 |
+|----------|------|--------|
+| `useQuery<T>` | 单次查询 | `{ data, loading, error, refetch, source, isFetching }` |
+| `usePaginatedQuery<T>` | 分页查询 | `{ data, pagination, loading, error, refetch, nextPage, prevPage, goToPage, setPageSize }` |
+| `useMutation<T, P>` | 数据变更 | `{ mutate, mutateAsync, loading, error, reset, data }` |
+
+**使用示例**:
+
+```typescript
+// 查询示例
+import { useQuery, usePaginatedQuery, useMutation } from '@/hooks/useApi';
+import { teacherApi } from '@/services/api-client';
+
+function TeacherListPage() {
+  // 分页查询教师列表
+  const { data: teachers, loading, pagination, nextPage } = usePaginatedQuery(
+    (params) => teacherApi.list(params),
+    { pageSize: 20 }
+  );
+  
+  // 创建教师
+  const { mutate: createTeacher, loading: creating } = useMutation(
+    (data) => teacherApi.create(data)
+  );
+  
+  return (
+    // ... 组件实现
+  );
+}
+
+// 条件查询示例
+function StudentDetailPage({ studentId }: { studentId: string | null }) {
+  const { data: student, loading } = useQuery(
+    () => studentApi.get(studentId!),
+    { enabled: !!studentId } // 仅在 studentId 存在时查询
+  );
+  
+  return (/* ... */);
+}
+```
+
+#### useAuth.ts - 认证Hook
+
+提供用户登录、登出、获取当前用户等认证相关功能。
+
+**导出内容**:
+
+| Hook/函数 | 用途 | 参数 | 返回值 |
+|-----------|------|------|--------|
+| `useAuth()` | 获取认证状态和用户信息 | - | `{ user, loading, error, login, logout, refetch }` |
+| `useCurrentUser()` | 获取当前登录用户 | - | `User | null` |
+| `useLogin()` | 登录操作 | - | `{ login, loading, error }` |
+| `useLogout()` | 登出操作 | - | `{ logout, loading }` |
+
+**使用示例**:
+
+```typescript
+import { useAuth, useLogin, useLogout } from '@/hooks/useAuth';
+
+function LoginPage() {
+  const { login, loading, error } = useLogin();
+  
+  const handleLogin = async (username: string, password: string) => {
+    const user = await login(username, password);
+    if (user) {
+      router.push('/dashboard');
+    }
+  };
+  
+  return (/* 登录表单 */);
+}
+
+function Header() {
+  const { user, logout } = useAuth();
+  
+  return (
+    <header>
+      <span>{user?.name}</span>
+      <button onClick={logout}>登出</button>
+    </header>
+  );
+}
+```
+
+#### useStudentData.ts - 学生数据Hook
+
+提供学生相关的数据查询和操作。
+
+**导出内容**:
+
+| Hook | 用途 | 参数 | 返回值 |
+|------|------|------|--------|
+| `useStudentsList(params)` | 学生列表查询 | `{ search?, grade?, classId?, status?, page?, pageSize? }` | `{ data, pagination, loading, error, refetch }` |
+| `useStudentFullProfile(id)` | 学生完整档案 | `studentId` | `{ data, loading, error, refetch, updateProfile }` |
+| `useStudentMutation()` | 学生增删改 | - | `{ createStudent, updateStudent, deleteStudent, loading, error }` |
+
+**使用示例**:
+
+```typescript
+import { useStudentsList, useStudentFullProfile } from '@/hooks/useStudentData';
+
+function StudentsPage() {
+  const { data: students, pagination, loading } = useStudentsList({
+    grade: '三年级',
+    pageSize: 20
+  });
+  
+  return (/* 学生列表 */);
+}
+
+function StudentDetailPage({ studentId }: { studentId: string }) {
+  const { data: profile, updateProfile } = useStudentFullProfile(studentId);
+  
+  const handleUpdate = async (updates) => {
+    await updateProfile(updates);
+  };
+  
+  return (/* 学生详情 */);
+}
+```
+
+#### useHabitData.ts - 习惯养成数据Hook
+
+提供习惯养成模块的数据查询和操作。
+
+**导出内容**:
+
+| Hook | 用途 | 参数 | 返回值 |
+|------|------|------|--------|
+| `useSchoolHabitStats(month)` | 全校习惯统计 | `month?: string` | `{ data, loading, error, refetch }` |
+| `useHabitGoals(filters)` | 目标列表查询 | `{ category?, status?, grade? }` | `{ data, loading, error, refetch }` |
+| `useHabitStars(month)` | 习惯之星列表 | `month?: string` | `{ data, loading, error }` |
+| `useHabitAssessments(filters)` | 评价记录查询 | `{ studentId?, classId?, category? }` | `{ data, loading, error }` |
+| `useCreateHabitAssessment()` | 创建评价 | - | `{ mutate, loading, error }` |
+
+**使用示例**:
+
+```typescript
+import { 
+  useSchoolHabitStats, 
+  useHabitGoals, 
+  useHabitStars 
+} from '@/hooks/useHabitData';
+
+function HabitOverviewPage() {
+  const { data: stats, loading } = useSchoolHabitStats('2024-04');
+  const { data: stars } = useHabitStars('2024-04');
+  
+  return (/* 习惯养成总览 */);
+}
+
+function GoalsPage() {
+  const { data: goals, loading } = useHabitGoals({ 
+    status: 'active',
+    category: 'reading' 
+  });
+  
+  return (/* 目标列表 */);
+}
+```
+
+#### useMoralData.ts - 德育数据Hook
+
+提供德育管理模块的数据查询和操作。
+
+**导出内容**:
+
+| Hook | 用途 | 参数 |
+|------|------|------|
+| `useMoralEvaluations(filters)` | 德育评价列表 | `{ studentId?, classId?, grade?, semester? }` |
+| `useCreateMoralEvaluation()` | 创建德育评价 | - |
+| `useStudentRewards(filters)` | 学生奖励列表 | `{ studentId?, classId?, rewardLevel? }` |
+| `useStudentPunishments(filters)` | 学生处分列表 | `{ studentId?, status? }` |
+| `useMoralActivities(filters)` | 德育活动列表 | `{ status?, type?, startDate? }` |
+| `useStudentBehaviorRecords(filters)` | 行为记录列表 | `{ studentId?, type? }` |
+
+**使用示例**:
+
+```typescript
+import { useMoralEvaluations, useStudentRewards } from '@/hooks/useMoralData';
+
+function MoralEvaluationPage() {
+  const { data: evaluations, loading } = useMoralEvaluations({
+    semester: '2023-2024-2'
+  });
+  
+  return (/* 德育评价列表 */);
+}
+
+function HonorsPage() {
+  const { data: rewards } = useStudentRewards({
+    rewardLevel: 'school'
+  });
+  
+  return (/* 荣誉列表 */);
+}
+```
+
+### 5.16.4 API客户端与Hooks关系
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     React 组件层                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │ 页面组件    │  │ 功能组件    │  │ UI组件      │         │
+│  └──────┬──────┘  └──────┬──────┘  └─────────────┘         │
+│         │                │                                  │
+└─────────┼────────────────┼──────────────────────────────────┘
+          │                │
+          ▼                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Hooks 层                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │useStudent   │  │useHabit     │  │useMoral     │  ...    │
+│  │   Data      │  │   Data      │  │   Data      │         │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
+│         │                │                │                 │
+│         └────────────────┼────────────────┘                 │
+│                          │                                  │
+│                          ▼                                  │
+│                 ┌─────────────────┐                         │
+│                 │    useApi.ts    │ (核心基础)              │
+│                 │ useQuery/Mutation│                        │
+│                 └────────┬────────┘                         │
+└──────────────────────────┼──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   API 客户端层                               │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │                   apiClient                          │   │
+│  │     get / post / put / patch / delete               │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  teacherApi │  │  studentApi │  │  habitApi   │  ...    │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
+└─────────┼────────────────┼────────────────┼─────────────────┘
+          │                │                │
+          ▼                ▼                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   API Routes 层                              │
+│  /api/teachers  /api/students  /api/habit  /api/moral  ...  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 5.16.5 Hooks使用规范
+
+#### 1. 查询类操作使用 useQuery
+
+```typescript
+// ✅ 推荐
+export function useXxxData(id: string) {
+  return useQuery(
+    () => apiClient.get('/xxx', { id }),
+    { enabled: !!id }
+  );
+}
+
+// ❌ 不推荐
+export function useXxxData(id: string) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  // ...手动fetch
+}
+```
+
+#### 2. 分页查询使用 usePaginatedQuery
+
+```typescript
+// ✅ 推荐
+export function useXxxList(params) {
+  return usePaginatedQuery(
+    (p) => apiClient.get('/xxx', { ...params, ...p }),
+    params
+  );
+}
+```
+
+#### 3. 变更操作使用 useMutation
+
+```typescript
+// ✅ 推荐
+export function useCreateXxx() {
+  return useMutation(
+    (data) => apiClient.post('/xxx', data)
+  );
+}
+
+// 使用
+const { mutate, loading, error } = useCreateXxx();
+await mutate({ name: 'xxx' });
+```
+
+#### 4. 依赖项正确设置
+
+```typescript
+// ✅ 正确：deps参数确保依赖变化时重新获取
+export function useStudentGrades(studentId: string, semester: string) {
+  return useQuery(
+    () => gradeApi.getByStudent(studentId, semester),
+    { deps: [studentId, semester] }
+  );
+}
+
+// ✅ 正确：enabled参数控制是否执行
+export function useStudentDetail(studentId: string | null) {
+  return useQuery(
+    () => studentApi.get(studentId!),
+    { enabled: !!studentId }
+  );
+}
+```
+
+### 5.16.6 Hooks与API对照表
+
+| 模块 | Hooks文件 | API路径前缀 | 主要Hooks |
+|------|-----------|-------------|-----------|
+| 认证 | useAuth.ts | /api/auth | useAuth, useLogin, useLogout |
+| 学生 | useStudentData.ts | /api/students | useStudentsList, useStudentFullProfile |
+| 教师 | useTeacherData.ts | /api/teachers | useTeachersList, useTeacherProfile |
+| 习惯养成 | useHabitData.ts | /api/habit | useSchoolHabitStats, useHabitGoals, useHabitStars |
+| 德育 | useMoralData.ts | /api/moral | useMoralEvaluations, useStudentRewards |
+| 教务 | useAcademicData.ts | /api/academic | useSchedule, useWorkload |
+| 总务 | useGeneralAffairsData.ts | /api/general | useExpenses, useAssets |
+| 门禁 | useAccessData.ts | /api/access | useAccessRecords, useVisitors |
+| 功能室 | useRoomData.ts | /api/rooms | useRooms, useBookings |
+
+---
+
 ## 6. 部署设计
 
 ### 6.1 部署架构
@@ -2567,6 +2940,7 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 | v1.3 | 2024-01-18 | 项目组 | 【模块设计重构】<br/>1. **模块结构对齐**: 移除M01-M62编号系统，改为与实际项目目录结构一致的模块命名<br/>2. **新增模块**: 补充首页管理(homepage)、仪表盘(dashboard)模块文档<br/>3. **页面统计**: 明确项目共91个页面、78个API接口<br/>4. **模块详情**: 为每个模块补充路由路径、功能说明表格<br/>5. **年段长功能**: 补充年段长专属功能文档 |
 | v1.4 | 2024-01-19 | 项目组 | 【科任权限方案】<br/>1. **数据模型**: 新增班级教师关系表(class_teachers)设计，支持班主任和科任教师与班级的关系管理<br/>2. **敏感数据权限架构**: 采用"角色+关系"双重判断机制，领导层/部门负责人/年段长/班主任/科任均可查看敏感数据，权限差异体现在可见范围<br/>3. **类型定义** (`src/types/index.ts`): 新增ClassTeacher、ClassTeacherPosition、ClassTeacherStatus等类型<br/>4. **Mock数据** (`src/lib/mock/class-teachers.mock.ts`): 班级教师关系模拟数据<br/>5. **权限检查模块** (`src/lib/auth/sensitive-data.ts`): canViewStudentSensitiveData等权限判断函数<br/>6. **API接口** (`src/app/api/class-teachers/`): 班级教师关系CRUD接口<br/>7. **业务规则**: 每班每学科1个科任、学期结束自动失效、教务主任每学年设置 |
 | v1.5 | 2024-01-20 | 项目组 | 【德育数据同步】<br/>1. **类型扩展** (`src/types/index.ts`): 扩展StudentFullProfile类型，新增habitProfile详细字段（categoryScores、recentAssessments、monthlyGoals、habitStarRecords）和moralPerformance字段（behaviorStats、activities、volunteerRecords、warnings、comprehensiveEvaluation）<br/>2. **API扩展** (`src/app/api/students/[id]/full-profile/route.ts`): 扩展学生完整档案接口，返回完整的德育数据（习惯养成+德育表现）<br/>3. **习惯养成Tab组件** (`src/components/student/habit-tab-content.tsx`): 展示综合评价、各类别得分、月度小目标、习惯之星记录、习惯评价记录（全过程）<br/>4. **德育表现Tab组件** (`src/components/student/moral-tab-content.tsx`): 展示行为评价统计、德育活动参与、志愿服务记录、德育预警（权限控制）、综合素质评价<br/>5. **页面集成** (`src/app/academic/students/[id]/page.tsx`): 新增德育表现Tab，习惯养成Tab使用新组件<br/>6. **权限控制**: 德育预警仅限德育主任、班主任、家长可见，通过canViewWarnings参数控制<br/>7. **数据刷新**: 允许一定延迟刷新，实时查询德育系统数据 |
+| v1.6 | 2024-04-01 | 项目组 | 【Hooks架构文档】<br/>1. **新增5.16章节**: 数据Hooks说明，完整记录项目所有数据Hooks的使用规范<br/>2. **Hooks架构图**: 新增Hooks与API客户端的层级关系图<br/>3. **核心Hooks说明**: 详细说明useApi、useAuth、useStudentData、useHabitData、useMoralData等核心Hooks<br/>4. **使用规范**: 提供统一的Hooks使用规范和最佳实践<br/>5. **对照表**: 提供Hooks与API路径的完整对照表<br/>6. **整改方案**: 配套输出《数据接口与钩子统一性整改方案》(DATA_INTERFACE_REFACTOR_PLAN.md) |
 
 ---
 
