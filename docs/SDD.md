@@ -738,10 +738,18 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 
 | 子模块 | 路由 | 功能说明 |
 |--------|------|----------|
-| 行为评价 | /moral/daily/assessment | 学生日常行为表扬/待改进记录 |
-| 习惯养成 | /moral/daily/habit | 八大习惯评价、评分统计 |
-| 月度目标 | /moral/daily/goals | 学生每月习惯养成目标设置 |
-| 习惯之星 | /moral/daily/stars | 月度习惯之星评选与展示 |
+| 行为评价 | /moral/assessment | 学生日常行为表扬/待改进记录 |
+| 习惯养成 | /moral/habit | 八大习惯评价、评分统计（含概览、目标、之星、报表、设置） |
+| 月度目标 | /moral/habit/goals | 学生每月习惯养成目标设置 |
+| 习惯之星 | /moral/habit/stars | 月度习惯之星评选与展示 |
+
+> **说明**：习惯养成模块保持原有路径结构，包含以下子页面：
+> - `/moral/habit` - 习惯养成概览
+> - `/moral/habit/goals` - 月度目标管理
+> - `/moral/habit/stars` - 习惯之星评选
+> - `/moral/habit/reports` - 习惯养成报表
+> - `/moral/habit/students` - 学生习惯详情
+> - `/moral/habit/settings` - 习惯评价设置
 
 **八大习惯评价体系**:
 | 类别 | 习惯项目 | 评价方式 |
@@ -764,15 +772,19 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 
 #### 3.4.2 德育活动
 
-德育活动组织与参与管理，包含活动发布、志愿服务、德育计划等。
+德育活动组织与参与管理，包含活动发布、志愿服务、德育计划、少先队工作等。
 
 | 子模块 | 路由 | 功能说明 |
 |--------|------|----------|
-| 活动管理 | /moral/activities/list | 德育活动发布、报名、记录 |
-| 活动报名 | /moral/activities/registration | 学生活动报名管理 |
+| 活动管理 | /moral/activities | 德育活动发布、报名、记录 |
 | 志愿服务 | /moral/activities/volunteer | 志愿服务时长记录与统计 |
-| 德育计划 | /moral/activities/plans | 学期德育工作计划制定 |
-| 先锋管理 | /moral/activities/pioneer | 少先队相关工作管理 |
+| 德育计划 | /moral/plans | 学期德育工作计划制定 |
+| 少先队工作 | /moral/pioneer | 少先队相关工作管理（入队、队会、队日） |
+
+> **说明**：德育活动模块整合了原有的活动管理、德育计划和少先队工作，保持原有路径：
+> - `/moral/activities` - 德育活动列表与管理
+> - `/moral/plans` - 德育工作计划
+> - `/moral/pioneer` - 少先队工作管理
 
 **活动类型**:
 | 类型 | 说明 | 组织单位 |
@@ -788,9 +800,14 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 
 | 子模块 | 路由 | 功能说明 |
 |--------|------|----------|
-| 荣誉管理 | /moral/honors/awards | 学生荣誉奖项记录与管理 |
-| 成长轨迹 | /moral/honors/trajectory | 学生成长大事记时间线 |
+| 荣誉管理 | /moral/honors | 学生荣誉奖项记录与管理 |
+| 成长轨迹 | /moral/growth | 学生成长大事记时间线 |
 | 综合评价 | /moral/honors/evaluation | 学期综合素质评价生成 |
+
+> **说明**：成长荣誉模块整合了荣誉管理和成长档案功能：
+> - `/moral/honors` - 荣誉奖项管理（新增）
+> - `/moral/growth` - 成长档案轨迹（保留原路径）
+> - `/moral/honors/evaluation` - 综合素质评价（新增）
 
 **荣誉分类**:
 | 类别 | 示例 | 数据来源 |
@@ -821,9 +838,14 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 
 | 子模块 | 路由 | 功能说明 |
 |--------|------|----------|
-| 预警规则 | /moral/warnings/rules | 预警触发条件设置 |
-| 预警列表 | /moral/warnings/list | 当前预警学生列表 |
-| 干预记录 | /moral/warnings/intervention | 干预措施与效果跟踪 |
+| 预警列表 | /moral/alerts | 当前预警学生列表与处理 |
+| 预警规则 | /moral/alerts/rules | 预警触发条件设置 |
+| 干预记录 | /moral/alerts/intervention | 干预措施与效果跟踪 |
+
+> **说明**：预警管理模块保持原有 `/moral/alerts` 路径结构：
+> - `/moral/alerts` - 预警学生列表（含处理功能）
+> - `/moral/alerts/rules` - 预警规则配置（新增）
+> - `/moral/alerts/intervention` - 干预记录跟踪（新增）
 
 **预警类型**:
 | 预警类型 | 触发条件 | 预警级别 |
@@ -847,10 +869,70 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 
 | 子模块 | 路由 | 功能说明 |
 |--------|------|----------|
+| 数据概览 | /moral/analytics | 德育数据总览与关键指标 |
 | 班级对比 | /moral/analytics/comparison | 各班德育表现对比分析 |
 | 趋势分析 | /moral/analytics/trends | 德育数据变化趋势分析 |
-| 预警统计 | /moral/analytics/warnings | 预警情况统计分析 |
 | 报告导出 | /moral/analytics/reports | 德育工作报表导出 |
+
+> **说明**：德育分析模块保持原有 `/moral/analytics` 路径，并扩展功能：
+> - `/moral/analytics` - 德育数据总览（保留）
+> - `/moral/analytics/comparison` - 班级对比分析（新增）
+> - `/moral/analytics/trends` - 趋势分析（新增）
+> - `/moral/analytics/reports` - 报告导出（新增）
+
+#### 3.4.6 德育系统目录结构
+
+```
+src/app/moral/
+├── page.tsx                    # 德育系统首页（总览）
+├── assessment/                 # 日常行为 - 行为评价
+│   └── page.tsx               # 表扬/待改进记录
+├── habit/                      # 日常行为 - 习惯养成
+│   ├── page.tsx               # 习惯养成概览
+│   ├── goals/                 # 月度目标
+│   ├── stars/                 # 习惯之星
+│   ├── reports/               # 习惯报表
+│   ├── students/              # 学生习惯详情
+│   └── settings/              # 评价设置
+├── activities/                 # 德育活动
+│   └── page.tsx               # 活动管理
+├── plans/                      # 德育计划
+│   └── page.tsx               # 工作计划
+├── pioneer/                    # 少先队工作
+│   └── page.tsx               # 少先队管理
+├── honors/                     # 成长荣誉
+│   └── page.tsx               # 荣誉管理
+├── growth/                     # 成长轨迹
+│   └── page.tsx               # 成长档案
+├── alerts/                     # 预警管理
+│   └── page.tsx               # 预警列表
+└── analytics/                  # 德育分析
+    └── page.tsx               # 数据分析
+```
+
+#### 3.4.7 德育系统导航菜单
+
+```
+德育管理
+├── 首页概览          /moral
+├── 日常行为
+│   ├── 行为评价      /moral/assessment
+│   └── 习惯养成      /moral/habit
+│       ├── 概览      /moral/habit
+│       ├── 月度目标  /moral/habit/goals
+│       ├── 习惯之星  /moral/habit/stars
+│       ├── 习惯报表  /moral/habit/reports
+│       └── 评价设置  /moral/habit/settings
+├── 德育活动
+│   ├── 活动管理      /moral/activities
+│   ├── 德育计划      /moral/plans
+│   └── 少先队工作    /moral/pioneer
+├── 成长荣誉
+│   ├── 荣誉管理      /moral/honors
+│   └── 成长轨迹      /moral/growth
+├── 预警管理          /moral/alerts
+└── 德育分析          /moral/analytics
+```
 
 ### 3.5 教师空间 (teacher)
 

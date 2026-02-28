@@ -45,6 +45,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Target,
+  Trophy,
 } from 'lucide-react';
 
 export default function MoralPage() {
@@ -167,6 +168,69 @@ export default function MoralPage() {
             导出报表
           </Button>
         </div>
+      </div>
+
+      {/* 功能模块导航 */}
+      <div className="grid gap-4 md:grid-cols-5">
+        <Link href="/moral/assessment">
+          <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
+            <CardContent className="p-5 text-center">
+              <div className="inline-flex p-3 bg-emerald-100 rounded-xl mb-3">
+                <Activity className="h-6 w-6 text-emerald-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">日常行为</h3>
+              <p className="text-xs text-gray-500 mt-1">行为评价 · 习惯养成</p>
+            </CardContent>
+          </Card>
+        </Link>
+        
+        <Link href="/moral/activities">
+          <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
+            <CardContent className="p-5 text-center">
+              <div className="inline-flex p-3 bg-blue-100 rounded-xl mb-3">
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">德育活动</h3>
+              <p className="text-xs text-gray-500 mt-1">活动管理 · 德育计划</p>
+            </CardContent>
+          </Card>
+        </Link>
+        
+        <Link href="/moral/honors">
+          <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
+            <CardContent className="p-5 text-center">
+              <div className="inline-flex p-3 bg-amber-100 rounded-xl mb-3">
+                <Trophy className="h-6 w-6 text-amber-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">成长荣誉</h3>
+              <p className="text-xs text-gray-500 mt-1">荣誉管理 · 成长轨迹</p>
+            </CardContent>
+          </Card>
+        </Link>
+        
+        <Link href="/moral/alerts">
+          <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
+            <CardContent className="p-5 text-center">
+              <div className="inline-flex p-3 bg-red-100 rounded-xl mb-3">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">预警管理</h3>
+              <p className="text-xs text-gray-500 mt-1">违纪预警 · 行为关注</p>
+            </CardContent>
+          </Card>
+        </Link>
+        
+        <Link href="/moral/analytics">
+          <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
+            <CardContent className="p-5 text-center">
+              <div className="inline-flex p-3 bg-purple-100 rounded-xl mb-3">
+                <Target className="h-6 w-6 text-purple-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">德育分析</h3>
+              <p className="text-xs text-gray-500 mt-1">数据分析 · 趋势报告</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* 核心指标卡片 */}
