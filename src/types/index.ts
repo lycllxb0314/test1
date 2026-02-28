@@ -211,6 +211,10 @@ export interface Student {
   birthDate: string;
   classId: string;
   className: string;
+  grade?: number;                // 年级（1-6）
+  gradeName?: string;            // 年级名称
+  headTeacherId?: string;        // 班主任ID
+  headTeacherName?: string;      // 班主任姓名
   status: '在校' | '请假' | '休学' | '毕业' | '转学';
   parents: Parent[];
   avatar?: string;

@@ -4,6 +4,27 @@
 
 import type { Student, StudentFullProfile, Parent } from '@/types';
 
+// 班级信息映射（用于获取年级和班主任）
+const classInfoMap: Record<string, { grade: number; gradeName: string; headTeacherId: string; headTeacherName: string }> = {
+  'c001': { grade: 1, gradeName: '一年级', headTeacherId: 't001', headTeacherName: '张明华' },
+  'c002': { grade: 1, gradeName: '一年级', headTeacherId: 't002', headTeacherName: '李秀芳' },
+  'c003': { grade: 2, gradeName: '二年级', headTeacherId: 't003', headTeacherName: '王建国' },
+  'c004': { grade: 2, gradeName: '二年级', headTeacherId: 't004', headTeacherName: '赵丽萍' },
+  'c005': { grade: 3, gradeName: '三年级', headTeacherId: 't005', headTeacherName: '刘伟强' },
+  'c006': { grade: 3, gradeName: '三年级', headTeacherId: 't006', headTeacherName: '陈美玲' },
+  'c007': { grade: 4, gradeName: '四年级', headTeacherId: 't007', headTeacherName: '周志明' },
+  'c008': { grade: 4, gradeName: '四年级', headTeacherId: 't008', headTeacherName: '陈思思' },
+  'c009': { grade: 5, gradeName: '五年级', headTeacherId: 't009', headTeacherName: '王强' },
+  'c010': { grade: 5, gradeName: '五年级', headTeacherId: 't010', headTeacherName: '林小燕' },
+  'c011': { grade: 6, gradeName: '六年级', headTeacherId: 't011', headTeacherName: '张明华' },
+  'c012': { grade: 6, gradeName: '六年级', headTeacherId: 't012', headTeacherName: '李秀芳' },
+};
+
+// 辅助函数：根据班级ID获取班级信息
+function getClassInfo(classId: string) {
+  return classInfoMap[classId] || { grade: 1, gradeName: '一年级', headTeacherId: 't001', headTeacherName: '未知' };
+}
+
 // 学生列表Mock数据
 export const MOCK_STUDENTS: Student[] = [
   {
@@ -14,6 +35,10 @@ export const MOCK_STUDENTS: Student[] = [
     birthDate: '2017-03-15',
     classId: 'c001',
     className: '一年级1班',
+    grade: 1,
+    gradeName: '一年级',
+    headTeacherId: 't001',
+    headTeacherName: '张明华',
     status: '在校',
     parents: [],
   },
@@ -25,6 +50,10 @@ export const MOCK_STUDENTS: Student[] = [
     birthDate: '2017-05-20',
     classId: 'c001',
     className: '一年级1班',
+    grade: 1,
+    gradeName: '一年级',
+    headTeacherId: 't001',
+    headTeacherName: '张明华',
     status: '在校',
     parents: [],
   },
@@ -36,6 +65,10 @@ export const MOCK_STUDENTS: Student[] = [
     birthDate: '2016-08-10',
     classId: 'c002',
     className: '一年级2班',
+    grade: 1,
+    gradeName: '一年级',
+    headTeacherId: 't002',
+    headTeacherName: '李秀芳',
     status: '在校',
     parents: [],
   },
@@ -47,6 +80,10 @@ export const MOCK_STUDENTS: Student[] = [
     birthDate: '2016-11-25',
     classId: 'c002',
     className: '一年级2班',
+    grade: 1,
+    gradeName: '一年级',
+    headTeacherId: 't002',
+    headTeacherName: '李秀芳',
     status: '请假',
     parents: [],
   },
@@ -58,6 +95,10 @@ export const MOCK_STUDENTS: Student[] = [
     birthDate: '2015-02-14',
     classId: 'c003',
     className: '二年级1班',
+    grade: 2,
+    gradeName: '二年级',
+    headTeacherId: 't003',
+    headTeacherName: '王建国',
     status: '在校',
     parents: [],
   },
@@ -69,6 +110,10 @@ export const MOCK_STUDENTS: Student[] = [
     birthDate: '2015-04-08',
     classId: 'c003',
     className: '二年级1班',
+    grade: 2,
+    gradeName: '二年级',
+    headTeacherId: 't003',
+    headTeacherName: '王建国',
     status: '在校',
     parents: [],
   },
@@ -78,8 +123,12 @@ export const MOCK_STUDENTS: Student[] = [
     name: '吴九',
     gender: 'male',
     birthDate: '2014-07-22',
-    classId: 'c004',
+    classId: 'c005',
     className: '三年级1班',
+    grade: 3,
+    gradeName: '三年级',
+    headTeacherId: 't005',
+    headTeacherName: '刘伟强',
     status: '在校',
     parents: [],
   },
@@ -89,8 +138,12 @@ export const MOCK_STUDENTS: Student[] = [
     name: '郑十',
     gender: 'female',
     birthDate: '2014-09-30',
-    classId: 'c004',
+    classId: 'c005',
     className: '三年级1班',
+    grade: 3,
+    gradeName: '三年级',
+    headTeacherId: 't005',
+    headTeacherName: '刘伟强',
     status: '休学',
     parents: [],
   },
@@ -100,8 +153,12 @@ export const MOCK_STUDENTS: Student[] = [
     name: '陈小明',
     gender: 'male',
     birthDate: '2013-01-18',
-    classId: 'c005',
+    classId: 'c007',
     className: '四年级1班',
+    grade: 4,
+    gradeName: '四年级',
+    headTeacherId: 't007',
+    headTeacherName: '周志明',
     status: '在校',
     parents: [],
   },
@@ -111,8 +168,12 @@ export const MOCK_STUDENTS: Student[] = [
     name: '林小红',
     gender: 'female',
     birthDate: '2013-03-25',
-    classId: 'c005',
+    classId: 'c007',
     className: '四年级1班',
+    grade: 4,
+    gradeName: '四年级',
+    headTeacherId: 't007',
+    headTeacherName: '周志明',
     status: '在校',
     parents: [],
   },
@@ -122,8 +183,12 @@ export const MOCK_STUDENTS: Student[] = [
     name: '黄小华',
     gender: 'male',
     birthDate: '2012-06-12',
-    classId: 'c006',
+    classId: 'c009',
     className: '五年级1班',
+    grade: 5,
+    gradeName: '五年级',
+    headTeacherId: 't009',
+    headTeacherName: '王强',
     status: '在校',
     parents: [],
   },
@@ -133,8 +198,12 @@ export const MOCK_STUDENTS: Student[] = [
     name: '杨小芳',
     gender: 'female',
     birthDate: '2012-08-28',
-    classId: 'c006',
+    classId: 'c009',
     className: '五年级1班',
+    grade: 5,
+    gradeName: '五年级',
+    headTeacherId: 't009',
+    headTeacherName: '王强',
     status: '在校',
     parents: [],
   },
@@ -308,14 +377,8 @@ export function getMockStudents(filters?: {
   
   if (filters?.grade && filters.grade !== 'all') {
     const grade = parseInt(filters.grade);
-    // 根据班级名判断年级
-    result = result.filter(s => {
-      const gradeNames: Record<number, string> = {
-        1: '一年级', 2: '二年级', 3: '三年级',
-        4: '四年级', 5: '五年级', 6: '六年级',
-      };
-      return s.className.includes(gradeNames[grade] || '');
-    });
+    // 使用 grade 字段过滤
+    result = result.filter(s => s.grade === grade);
   }
   
   if (filters?.classId && filters.classId !== 'all') {

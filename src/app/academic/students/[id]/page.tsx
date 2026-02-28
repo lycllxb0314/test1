@@ -105,6 +105,16 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+// 年级选项
+const gradeOptions = [
+  { value: 1, label: '一年级' },
+  { value: 2, label: '二年级' },
+  { value: 3, label: '三年级' },
+  { value: 4, label: '四年级' },
+  { value: 5, label: '五年级' },
+  { value: 6, label: '六年级' },
+];
+
 export default function StudentDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
@@ -117,6 +127,9 @@ export default function StudentDetailPage({ params }: PageProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   
+  // 班级列表
+  const [classes, setClasses] = useState<{ id: string; name: string; grade: number; headTeacherName: string }[]>([]);
+  
   // 编辑表单数据
   const [formData, setFormData] = useState({
     phone: '',
@@ -124,7 +137,33 @@ export default function StudentDetailPage({ params }: PageProps) {
     homeAddress: '',
     emergencyContact: '',
     emergencyPhone: '',
+    classId: '',
+    className: '',
+    grade: 1,
+    gradeName: '一年级',
+    headTeacherName: '',
   });
+
+  // 获取班级列表
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const response = await fetch('/api/classes?pageSize=100');
+        const result = await response.json();
+        if (result.success) {
+          setClasses(result.data.map((c: { id: string; name: string; grade: number; headTeacherName: string }) => ({
+            id: c.id,
+            name: c.name,
+            grade: c.grade,
+            headTeacherName: c.headTeacherName,
+          })));
+        }
+      } catch (err) {
+        console.error('Failed to fetch classes:', err);
+      }
+    };
+    fetchClasses();
+  }, []);
 
   // 初始化表单数据
   useEffect(() => {
@@ -135,9 +174,30 @@ export default function StudentDetailPage({ params }: PageProps) {
         homeAddress: profile.homeAddress || '',
         emergencyContact: profile.emergencyContact || '',
         emergencyPhone: profile.emergencyPhone || '',
+        classId: profile.classId || '',
+        className: profile.className || '',
+        grade: profile.grade || 1,
+        gradeName: profile.gradeName || '一年级',
+        headTeacherName: profile.headTeacherName || '',
       });
     }
   }, [profile]);
+  
+  // 处理班级变更
+  const handleClassChange = (classId: string) => {
+    const selectedClass = classes.find(c => c.id === classId);
+    if (selectedClass) {
+      const gradeName = gradeOptions.find(g => g.value === selectedClass.grade)?.label || '一年级';
+      setFormData(prev => ({
+        ...prev,
+        classId: selectedClass.id,
+        className: selectedClass.name,
+        grade: selectedClass.grade,
+        gradeName,
+        headTeacherName: selectedClass.headTeacherName,
+      }));
+    }
+  };
 
   // 保存基本信息
   const handleSave = async () => {
@@ -164,6 +224,11 @@ export default function StudentDetailPage({ params }: PageProps) {
         homeAddress: profile.homeAddress || '',
         emergencyContact: profile.emergencyContact || '',
         emergencyPhone: profile.emergencyPhone || '',
+        classId: profile.classId || '',
+        className: profile.className || '',
+        grade: profile.grade || 1,
+        gradeName: profile.gradeName || '一年级',
+        headTeacherName: profile.headTeacherName || '',
       });
     }
     setIsEditing(false);
@@ -384,17 +449,38 @@ export default function StudentDetailPage({ params }: PageProps) {
                   <span className="text-muted-foreground">学号</span>
                   <span className="font-medium">{profile.studentNo}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">年级</span>
-                  <span>{profile.gradeName}</span>
+                  {isEditing ? (
+                    <span className="font-medium text-primary">{formData.gradeName}</span>
+                  ) : (
+                    <span>{formData.gradeName || profile.gradeName}</span>
+                  )}
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">班级</span>
-                  <span>{profile.className}</span>
+                  {isEditing ? (
+                    <Select value={formData.classId} onValueChange={handleClassChange}>
+                      <SelectTrigger className="w-[140px] h-8">
+                        <SelectValue placeholder="选择班级" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span>{formData.className || profile.className}</span>
+                  )}
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">班主任</span>
-                  <span>{profile.headTeacherName || '-'}</span>
+                  {isEditing ? (
+                    <span className="font-medium text-primary">{formData.headTeacherName || '-'}</span>
+                  ) : (
+                    <span>{formData.headTeacherName || profile.headTeacherName || '-'}</span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">入学日期</span>
