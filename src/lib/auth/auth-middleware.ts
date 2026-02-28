@@ -15,7 +15,7 @@ const USE_MOCK_DATA = process.env.NODE_ENV !== 'production';
 const MOCK_USERS: Record<string, User> = {
   '1': { id: '1', name: '张明华', role: 'principal', phone: '138****1001' },
   '2': { id: '2', name: '李红梅', role: 'academic_director', phone: '138****1002' },
-  '3': { id: '3', name: '王建国', role: 'head_teacher', phone: '138****1003', classId: 'c6-1', className: '六年级1班' },
+  '3': { id: '3', name: '王建国', role: 'head_teacher', phone: '138****1003', classId: 'c001', className: '一年级1班' },
   '4': { id: '4', name: '陈晓燕', role: 'teacher', phone: '138****1004' },
   '5': { id: '5', name: '刘洋', role: 'grade_leader', phone: '138****1005' },
 };

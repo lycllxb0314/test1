@@ -30,14 +30,6 @@ export type RouteHandler = (
 ) => Promise<NextResponse>;
 
 /**
- * Next.js 路由处理器类型
- */
-type NextRouteHandler = (
-  request: NextRequest,
-  context?: { params: Promise<Record<string, string>> }
-) => Promise<NextResponse>;
-
-/**
  * 路由保护选项
  */
 export interface ProtectionOptions {
@@ -83,7 +75,7 @@ export interface ProtectionOptions {
 export function protectedRoute(
   handler: RouteHandler,
   options: ProtectionOptions = {}
-): NextRouteHandler {
+) {
   return async (request: NextRequest, context?: { params: Promise<Record<string, string>> }) => {
     // 1. 认证检查
     const authResult = await authenticateRequest(request);
@@ -167,9 +159,7 @@ export function protectedRoute(
 /**
  * 创建仅限管理员的 API 路由
  */
-export function adminOnlyRoute(
-  handler: RouteHandler
-): NextRouteHandler {
+export function adminOnlyRoute(handler: RouteHandler) {
   return protectedRoute(handler, {
     roles: ['principal', 'secretary', 'vice_principal', 'academic_director', 'moral_director', 'general_director'],
   });
@@ -178,9 +168,7 @@ export function adminOnlyRoute(
 /**
  * 创建教师专属的 API 路由
  */
-export function teacherOnlyRoute(
-  handler: RouteHandler
-): NextRouteHandler {
+export function teacherOnlyRoute(handler: RouteHandler) {
   return protectedRoute(handler, {
     customCheck: (user) => isTeacherRole(user.role) || isAdminRole(user.role),
   });
@@ -189,9 +177,7 @@ export function teacherOnlyRoute(
 /**
  * 创建班主任专属的 API 路由
  */
-export function headTeacherOnlyRoute(
-  handler: RouteHandler
-): NextRouteHandler {
+export function headTeacherOnlyRoute(handler: RouteHandler) {
   return protectedRoute(handler, {
     roles: ['head_teacher', 'grade_leader'],
     adminBypass: true,
@@ -201,10 +187,7 @@ export function headTeacherOnlyRoute(
 /**
  * 创建教务相关 API 路由
  */
-export function academicRoute(
-  handler: RouteHandler,
-  permission: Permission = 'view'
-): NextRouteHandler {
+export function academicRoute(handler: RouteHandler, permission: Permission = 'view') {
   return protectedRoute(handler, {
     module: 'academic',
     permission,
@@ -214,10 +197,7 @@ export function academicRoute(
 /**
  * 创建德育相关 API 路由
  */
-export function moralRoute(
-  handler: RouteHandler,
-  permission: Permission = 'view'
-): NextRouteHandler {
+export function moralRoute(handler: RouteHandler, permission: Permission = 'view') {
   return protectedRoute(handler, {
     module: 'moral',
     permission,
@@ -227,10 +207,7 @@ export function moralRoute(
 /**
  * 创建总务相关 API 路由
  */
-export function generalRoute(
-  handler: RouteHandler,
-  permission: Permission = 'view'
-): NextRouteHandler {
+export function generalRoute(handler: RouteHandler, permission: Permission = 'view') {
   return protectedRoute(handler, {
     module: 'general',
     permission,
@@ -253,8 +230,8 @@ export function composeProtection(
  */
 export function selfOnly(
   getResourceUserId: (request: NextRequest, user: User) => Promise<string | null>
-): (handler: RouteHandler) => NextRouteHandler {
-  return (handler: RouteHandler): NextRouteHandler => {
+) {
+  return (handler: RouteHandler) => {
     return protectedRoute(async (request, context) => {
       const resourceUserId = await getResourceUserId(request, context.user);
       
@@ -283,8 +260,8 @@ export function selfOnly(
  */
 export function classAccess(
   getClassId: (request: NextRequest) => Promise<string | null>
-): (handler: RouteHandler) => NextRouteHandler {
-  return (handler: RouteHandler): NextRouteHandler => {
+) {
+  return (handler: RouteHandler) => {
     return protectedRoute(async (request, context) => {
       const targetClassId = await getClassId(request);
       
