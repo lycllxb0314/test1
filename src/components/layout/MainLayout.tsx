@@ -67,6 +67,8 @@ import {
   Star,
   Sliders,
   CalendarDays,
+  ClipboardCheck,
+  Activity,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
@@ -116,30 +118,43 @@ const academicNav: NavItem[] = [
   { name: '质量分析', href: '/academic/analysis', icon: BarChart3, description: '教学质量分析' },
 ];
 
-// 德育管理导航
+// 德育管理导航 - 5大模块
 const moralNav: NavItem[] = [
   { name: '德育概览', href: '/moral', icon: LayoutDashboard, description: '德育工作看板' },
   {
-    name: '习惯养成',
-    href: '/moral/habit',
-    icon: Star,
-    description: '八大习惯评价与小目标',
-    badge: '特色',
+    name: '日常行为',
+    href: '/moral/assessment',
+    icon: Activity,
+    description: '行为评价与习惯养成',
     children: [
-      { name: '全校总览', href: '/moral/habit/overview', icon: School, description: '全校习惯养成总览' },
-      { name: '学生档案', href: '/moral/habit/students', icon: Users, description: '学生习惯成长档案' },
-      { name: '小目标管理', href: '/moral/habit/goals', icon: Target, description: '小目标模板与进度' },
+      { name: '行为评价', href: '/moral/assessment', icon: ClipboardCheck, description: '学生日常行为评价' },
+      { name: '习惯养成', href: '/moral/habit', icon: Star, description: '八大习惯评价与小目标', badge: '特色' },
       { name: '习惯之星', href: '/moral/habit/stars', icon: Award, description: '习惯之星评选管理' },
-      { name: '数据报表', href: '/moral/habit/reports', icon: BarChart3, description: '习惯数据统计分析' },
-      { name: '习惯设置', href: '/moral/habit/settings', icon: Sliders, description: '目标模板与评选规则' },
     ],
   },
-  { name: '少先队管理', href: '/moral/pioneer', icon: Flag, description: '少先队组织管理' },
-  { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '德育活动管理' },
-  { name: '预警管理', href: '/moral/alerts', icon: AlertTriangle, description: '预警任务管理' },
-  { name: '成长档案', href: '/moral/growth', icon: Target, description: '学生成长档案' },
-  { name: '数据分析', href: '/moral/analytics', icon: BarChart3, description: '德育数据分析' },
-  { name: '工作计划', href: '/moral/plans', icon: FileText, description: '德育工作计划' },
+  {
+    name: '德育活动',
+    href: '/moral/activities',
+    icon: Calendar,
+    description: '活动管理与德育计划',
+    children: [
+      { name: '活动管理', href: '/moral/activities', icon: Calendar, description: '德育活动管理' },
+      { name: '少先队工作', href: '/moral/pioneer', icon: Flag, description: '少先队组织管理' },
+      { name: '德育计划', href: '/moral/plans', icon: FileText, description: '德育工作计划' },
+    ],
+  },
+  {
+    name: '成长荣誉',
+    href: '/moral/honors',
+    icon: Trophy,
+    description: '荣誉管理与成长轨迹',
+    children: [
+      { name: '荣誉管理', href: '/moral/honors', icon: Award, description: '学生荣誉奖项管理' },
+      { name: '成长档案', href: '/moral/growth', icon: Target, description: '学生成长档案' },
+    ],
+  },
+  { name: '预警管理', href: '/moral/alerts', icon: AlertTriangle, description: '违纪预警与行为关注' },
+  { name: '德育分析', href: '/moral/analytics', icon: BarChart3, description: '数据分析与趋势报告' },
 ];
 
 // 教师空间导航 - 基础功能（所有教师可见）
