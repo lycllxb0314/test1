@@ -45,8 +45,10 @@ export {
 // 从 route-protection 导出路由保护功能
 export {
   // 类型
-  type RouteContext,
-  type RouteHandler,
+  type AuthContext,
+  type ExtendedRouteContext,
+  type NativeRouteContext,
+  type ProtectedRouteHandler,
   type ProtectionOptions,
   
   // 函数

@@ -1,5 +1,10 @@
 /**
  * 课表相关Mock数据
+ * 
+ * 包含：
+ * 1. 基准课表（学期固定课表）
+ * 2. 实际课表（每周变化的课表）
+ * 3. 简化课表视图数据
  */
 
 import type { BaseScheduleSlot, ActualScheduleSlot, ScheduleSlot } from '@/types';
@@ -16,7 +21,93 @@ export const PERIOD_TIMES = [
   { index: 8, name: '第八节', startTime: '16:35', endTime: '17:15', type: 'afternoon' as const },
 ];
 
-// 生成基准课表Mock数据
+// ============================================
+// 简化课表视图数据（用于API返回）
+// ============================================
+
+/**
+ * 简化课表项（用于列表展示）
+ */
+export interface ScheduleViewItem {
+  id: string;
+  classId: string;
+  className: string;
+  grade: number;
+  teacherId: string;
+  teacherName: string;
+  courseId: string;
+  courseName: string;
+  subject: string;
+  dayOfWeek: number;
+  period: number;
+  startTime: string;
+  endTime: string;
+  roomId?: string;
+  roomName?: string;
+  building?: string;
+  semester: string;
+  status: string;
+}
+
+/**
+ * 六年级1班完整课表Mock数据
+ */
+export const MOCK_SCHEDULE_VIEW_DATA: ScheduleViewItem[] = [
+  // 六年级1班课表 - 周一
+  { id: 'sch-1', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't001', teacherName: '王明华', courseId: 'course-1', courseName: '语文', subject: '语文', dayOfWeek: 1, period: 1, startTime: '08:00', endTime: '08:40', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-2', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't002', teacherName: '李芳', courseId: 'course-2', courseName: '数学', subject: '数学', dayOfWeek: 1, period: 2, startTime: '08:50', endTime: '09:30', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-3', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't003', teacherName: '张强', courseId: 'course-3', courseName: '英语', subject: '英语', dayOfWeek: 1, period: 3, startTime: '09:50', endTime: '10:30', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-4', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't001', teacherName: '王明华', courseId: 'course-1', courseName: '语文', subject: '语文', dayOfWeek: 1, period: 4, startTime: '10:40', endTime: '11:20', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  // 六年级1班课表 - 周二
+  { id: 'sch-5', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't002', teacherName: '李芳', courseId: 'course-2', courseName: '数学', subject: '数学', dayOfWeek: 2, period: 1, startTime: '08:00', endTime: '08:40', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-6', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't001', teacherName: '王明华', courseId: 'course-1', courseName: '语文', subject: '语文', dayOfWeek: 2, period: 2, startTime: '08:50', endTime: '09:30', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-7', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't004', teacherName: '刘洋', courseId: 'course-4', courseName: '科学', subject: '科学', dayOfWeek: 2, period: 3, startTime: '09:50', endTime: '10:30', roomName: '实验室A', building: 'A栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-8', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't006', teacherName: '赵刚', courseId: 'course-6', courseName: '体育', subject: '体育', dayOfWeek: 2, period: 4, startTime: '10:40', endTime: '11:20', roomName: '操场', building: '室外', semester: '2024-2025-1', status: 'active' },
+  // 六年级1班课表 - 周三
+  { id: 'sch-9', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't003', teacherName: '张强', courseId: 'course-3', courseName: '英语', subject: '英语', dayOfWeek: 3, period: 1, startTime: '08:00', endTime: '08:40', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-10', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't002', teacherName: '李芳', courseId: 'course-2', courseName: '数学', subject: '数学', dayOfWeek: 3, period: 2, startTime: '08:50', endTime: '09:30', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-11', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't005', teacherName: '陈红', courseId: 'course-5', courseName: '音乐', subject: '音乐', dayOfWeek: 3, period: 3, startTime: '09:50', endTime: '10:30', roomName: '音乐教室', building: 'B栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-12', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't001', teacherName: '王明华', courseId: 'course-1', courseName: '语文', subject: '语文', dayOfWeek: 3, period: 4, startTime: '10:40', endTime: '11:20', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  // 六年级1班课表 - 周四
+  { id: 'sch-13', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't001', teacherName: '王明华', courseId: 'course-1', courseName: '语文', subject: '语文', dayOfWeek: 4, period: 1, startTime: '08:00', endTime: '08:40', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-14', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't002', teacherName: '李芳', courseId: 'course-2', courseName: '数学', subject: '数学', dayOfWeek: 4, period: 2, startTime: '08:50', endTime: '09:30', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-15', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't006', teacherName: '赵刚', courseId: 'course-6', courseName: '体育', subject: '体育', dayOfWeek: 4, period: 3, startTime: '09:50', endTime: '10:30', roomName: '操场', building: '室外', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-16', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't003', teacherName: '张强', courseId: 'course-3', courseName: '英语', subject: '英语', dayOfWeek: 4, period: 4, startTime: '10:40', endTime: '11:20', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  // 六年级1班课表 - 周五
+  { id: 'sch-17', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't002', teacherName: '李芳', courseId: 'course-2', courseName: '数学', subject: '数学', dayOfWeek: 5, period: 1, startTime: '08:00', endTime: '08:40', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-18', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't004', teacherName: '刘洋', courseId: 'course-4', courseName: '科学', subject: '科学', dayOfWeek: 5, period: 2, startTime: '08:50', endTime: '09:30', roomName: '实验室A', building: 'A栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-19', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't001', teacherName: '王明华', courseId: 'course-1', courseName: '语文', subject: '语文', dayOfWeek: 5, period: 3, startTime: '09:50', endTime: '10:30', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+  { id: 'sch-20', classId: 'c6-1', className: '六年级1班', grade: 6, teacherId: 't003', teacherName: '张强', courseId: 'course-3', courseName: '英语', subject: '英语', dayOfWeek: 5, period: 4, startTime: '10:40', endTime: '11:20', roomName: '教学楼C201', building: 'C栋', semester: '2024-2025-1', status: 'active' },
+];
+
+/**
+ * 获取简化课表视图数据
+ */
+export function getMockScheduleViewData(filters?: {
+  classId?: string;
+  teacherId?: string;
+  semester?: string;
+}): ScheduleViewItem[] {
+  let result = [...MOCK_SCHEDULE_VIEW_DATA];
+  
+  if (filters?.classId) {
+    result = result.filter(s => s.classId === filters.classId);
+  }
+  
+  if (filters?.teacherId) {
+    result = result.filter(s => s.teacherId === filters.teacherId);
+  }
+  
+  if (filters?.semester) {
+    result = result.filter(s => s.semester === filters.semester);
+  }
+  
+  return result;
+}
+
+// ============================================
+// 基准课表数据
+// ============================================
 function generateBaseSchedule(): BaseScheduleSlot[] {
   const slots: BaseScheduleSlot[] = [];
   const subjects = ['语文', '数学', '英语', '科学', '道德与法治', '音乐', '美术', '体育', '劳动'];

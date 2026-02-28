@@ -1,7 +1,19 @@
+/**
+ * 主页内容管理 API
+ * 
+ * 使用统一的路由处理模式和响应格式
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
 
-// GET - 获取主页内容
+/**
+ * GET - 获取主页内容
+ * 
+ * 查询参数：
+ * - section: 区块类型（可选）
+ */
 export async function GET(request: NextRequest) {
   try {
     const client = getSupabaseClient();
@@ -10,39 +22,41 @@ export async function GET(request: NextRequest) {
 
     if (section) {
       // 获取特定区块内容
-      const { data, error } = await client
+      const { data, error: dbError } = await client
         .from('homepage_sections')
         .select('*')
         .eq('section_type', section)
         .eq('is_active', true)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      if (dbError && dbError.code !== 'PGRST116') {
+        return NextResponse.json(error('获取区块内容失败', ErrorCode.DATABASE_ERROR), { status: 500 });
       }
 
-      return NextResponse.json({ data: data || null });
+      return NextResponse.json(success(data, 'database'));
     }
 
     // 获取所有区块内容
-    const { data: sections, error: sectionsError } = await client
+    const { data: sections, error: dbError } = await client
       .from('homepage_sections')
       .select('*')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
 
-    if (sectionsError) {
-      return NextResponse.json({ error: sectionsError.message }, { status: 500 });
+    if (dbError) {
+      return NextResponse.json(error('获取主页内容失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
 
-    return NextResponse.json({ data: sections });
-  } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(success(sections || [], 'database'));
+  } catch (err) {
+    console.error('API Error:', err);
+    return NextResponse.json(error('服务器内部错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }
 
-// POST - 创建或更新主页内容
+/**
+ * POST - 创建或更新主页内容
+ */
 export async function POST(request: NextRequest) {
   try {
     const client = getSupabaseClient();
@@ -50,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { section_type, section_title, section_subtitle, content, sort_order, updated_by } = body;
 
     if (!section_type) {
-      return NextResponse.json({ error: 'section_type is required' }, { status: 400 });
+      return NextResponse.json(error('section_type 参数必填', ErrorCode.BAD_REQUEST), { status: 400 });
     }
 
     // 检查是否已存在
@@ -63,7 +77,7 @@ export async function POST(request: NextRequest) {
     let result;
     if (existing) {
       // 更新
-      const { data, error } = await client
+      const { data, error: dbError } = await client
         .from('homepage_sections')
         .update({
           section_title,
@@ -77,13 +91,13 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      if (dbError) {
+        return NextResponse.json(error('更新内容失败', ErrorCode.DATABASE_ERROR), { status: 500 });
       }
       result = data;
     } else {
       // 创建
-      const { data, error } = await client
+      const { data, error: dbError } = await client
         .from('homepage_sections')
         .insert({
           section_type,
@@ -96,15 +110,15 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      if (dbError) {
+        return NextResponse.json(error('创建内容失败', ErrorCode.DATABASE_ERROR), { status: 500 });
       }
       result = data;
     }
 
-    return NextResponse.json({ data: result });
-  } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(success(result, 'database'));
+  } catch (err) {
+    console.error('API Error:', err);
+    return NextResponse.json(error('服务器内部错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }

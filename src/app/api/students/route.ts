@@ -1,7 +1,7 @@
 /**
  * 学生API路由
  * 
- * 使用统一的路由处理模式和集中的Mock数据
+ * 使用统一的路由处理模式、集中的Mock数据和认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,6 +17,7 @@ import {
   createPagination,
   ErrorCode 
 } from '@/lib/api-route-utils';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import type { Student } from '@/types';
 
 /**
@@ -29,8 +30,10 @@ import type { Student } from '@/types';
  * - status: 状态筛选
  * - page: 页码
  * - pageSize: 每页数量
+ * 
+ * 权限要求：教师模块查看权限（班主任、年段长、教务等）
  */
-export async function GET(request: NextRequest) {
+const handleGetStudents = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const params = parseQueryParams(request);
   
   try {
@@ -116,12 +119,14 @@ export async function GET(request: NextRequest) {
       source: 'mock',
     });
   }
-}
+};
 
 /**
  * POST - 创建新学生
+ * 
+ * 权限要求：教务模块管理权限
  */
-export async function POST(request: NextRequest) {
+const handleCreateStudent = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const body = await request.json();
     const client = getSupabaseClient();
@@ -174,4 +179,16 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+};
+
+// 导出受保护的路由处理器
+export const GET = protectedRoute(handleGetStudents, { 
+  module: 'teacher', 
+  permission: 'view',
+  optional: true, // 列表查询允许未登录访问（用于演示）
+});
+
+export const POST = protectedRoute(handleCreateStudent, { 
+  module: 'academic', 
+  permission: 'manage' 
+});

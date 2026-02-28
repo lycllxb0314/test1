@@ -1,10 +1,177 @@
 /**
  * 教务相关Mock数据
+ * 
+ * 包含：
+ * 1. 请假申请数据
+ * 2. 调课记录数据
+ * 3. 考试数据
+ * 4. 教师考勤数据
  */
 
 import type { LeaveRequest, CourseAdjustment, Exam, TeacherAttendance } from '@/types';
 
-// 请假申请Mock数据
+// ============================================
+// 调课记录数据
+// ============================================
+
+/**
+ * 调课记录类型
+ */
+export interface ScheduleChangeRecord {
+  id: string;
+  leaveRequestId?: string;
+  // 申请人（请假教师）信息
+  applicantId: string;
+  applicantName: string;
+  applicantSubject: string;
+  applicantGrade: number;
+  // 请假信息
+  leaveType: string;
+  leaveStartDate: string;
+  leaveEndDate: string;
+  leaveReason: string;
+  // 原课程信息
+  originalClassId: string;
+  originalClassName: string;
+  originalSubject: string;
+  originalWeekDay: number;
+  originalPeriodIndex: number;
+  originalPeriodName: string;
+  // 调课状态
+  status: 'pending' | 'processing' | 'completed' | 'cancelled';
+  adjustType?: 'substitute' | 'swap' | 'cancel' | 'makeup';
+  // 代课教师
+  substituteTeacherId?: string;
+  substituteTeacherName?: string;
+  // 调换信息
+  swapWithSlot?: {
+    classId: string;
+    className: string;
+    weekDay: number;
+    periodIndex: number;
+  };
+  // 处理人
+  handlerId?: string;
+  handlerName?: string;
+  handledAt?: string;
+  // 备注
+  remark?: string;
+  // 时间
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * 调课记录Mock数据
+ */
+export const MOCK_SCHEDULE_CHANGES: ScheduleChangeRecord[] = [
+  {
+    id: 'sc-001',
+    leaveRequestId: 'lr-001',
+    applicantId: 't001',
+    applicantName: '张明华',
+    applicantSubject: '语文',
+    applicantGrade: 3,
+    leaveType: '病假',
+    leaveStartDate: '2024-11-20',
+    leaveEndDate: '2024-11-20',
+    leaveReason: '身体不适，需就医',
+    originalClassId: 'class-3-1',
+    originalClassName: '三年1班',
+    originalSubject: '语文',
+    originalWeekDay: 1,
+    originalPeriodIndex: 3,
+    originalPeriodName: '第三节',
+    status: 'pending',
+    createdAt: '2024-11-18 08:30:00',
+  },
+  {
+    id: 'sc-002',
+    leaveRequestId: 'lr-002',
+    applicantId: 't002',
+    applicantName: '李小红',
+    applicantSubject: '数学',
+    applicantGrade: 3,
+    leaveType: '事假',
+    leaveStartDate: '2024-11-21',
+    leaveEndDate: '2024-11-21',
+    leaveReason: '家中有事需处理',
+    originalClassId: 'class-3-2',
+    originalClassName: '三年2班',
+    originalSubject: '数学',
+    originalWeekDay: 2,
+    originalPeriodIndex: 1,
+    originalPeriodName: '第一节',
+    status: 'completed',
+    adjustType: 'substitute',
+    substituteTeacherId: 't003',
+    substituteTeacherName: '王建国',
+    handlerId: 'gl-001',
+    handlerName: '林国强',
+    handledAt: '2024-11-19 10:00:00',
+    createdAt: '2024-11-17 14:20:00',
+    remark: '已安排王建国老师代课',
+  },
+  {
+    id: 'sc-003',
+    leaveRequestId: 'lr-003',
+    applicantId: 't003',
+    applicantName: '王建国',
+    applicantSubject: '英语',
+    applicantGrade: 5,
+    leaveType: '公假',
+    leaveStartDate: '2024-11-22',
+    leaveEndDate: '2024-11-22',
+    leaveReason: '参加市级教研活动',
+    originalClassId: 'class-5-1',
+    originalClassName: '五年1班',
+    originalSubject: '英语',
+    originalWeekDay: 3,
+    originalPeriodIndex: 2,
+    originalPeriodName: '第二节',
+    status: 'processing',
+    adjustType: 'swap',
+    swapWithSlot: {
+      classId: 'class-5-2',
+      className: '五年2班',
+      weekDay: 4,
+      periodIndex: 3,
+    },
+    handlerId: 'gl-002',
+    handlerName: '张年段长',
+    createdAt: '2024-11-18 09:15:00',
+    updatedAt: '2024-11-18 11:30:00',
+  },
+];
+
+/**
+ * 获取调课记录列表
+ */
+export function getMockScheduleChanges(filters?: {
+  applicantId?: string;
+  status?: string;
+  grade?: number;
+}): ScheduleChangeRecord[] {
+  let result = [...MOCK_SCHEDULE_CHANGES];
+  
+  if (filters?.applicantId) {
+    result = result.filter(sc => sc.applicantId === filters.applicantId);
+  }
+  
+  if (filters?.status) {
+    result = result.filter(sc => sc.status === filters.status);
+  }
+  
+  if (filters?.grade) {
+    result = result.filter(sc => sc.applicantGrade === filters.grade);
+  }
+  
+  return result;
+}
+
+// ============================================
+// 请假申请数据
+// ============================================
 export const MOCK_LEAVE_REQUESTS: LeaveRequest[] = [
   {
     id: 'lr001',

@@ -1,6 +1,11 @@
 /**
  * API 路由保护工具
  * 提供便捷的路由保护装饰器和工具函数
+ * 
+ * 使用方式：
+ * 1. 使用 protectedRoute 包装器保护整个路由
+ * 2. 使用 withAuth 高阶函数为单个方法添加认证
+ * 3. 在前端使用 ProtectedRoute 组件保护页面
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,19 +19,32 @@ import {
 import { isAdminRole, isTeacherRole, isDirectorRole } from './permissions';
 
 /**
- * API 路由上下文
+ * 认证上下文 - 包含用户信息的扩展上下文
  */
-export interface RouteContext {
+export interface AuthContext {
   user: User;
-  params?: Record<string, string>;
 }
 
 /**
- * API 路由处理器类型
+ * 扩展的路由上下文 - Next.js原生参数 + 用户信息
  */
-export type RouteHandler = (
+export interface ExtendedRouteContext extends AuthContext {
+  params?: Promise<Record<string, string>>;
+}
+
+/**
+ * 原生API路由参数类型
+ */
+export type NativeRouteContext = {
+  params: Promise<Record<string, string>>;
+};
+
+/**
+ * 受保护的路由处理器类型
+ */
+export type ProtectedRouteHandler = (
   request: NextRequest,
-  context: RouteContext
+  context: ExtendedRouteContext
 ) => Promise<NextResponse>;
 
 /**
@@ -43,6 +61,8 @@ export interface ProtectionOptions {
   customCheck?: (user: User) => boolean | Promise<boolean>;
   // 是否允许管理员绕过检查
   adminBypass?: boolean;
+  // 是否可选认证（未登录也可访问，但user可能为null）
+  optional?: boolean;
 }
 
 /**
@@ -70,27 +90,46 @@ export interface ProtectionOptions {
  *   },
  *   { module: 'academic', permission: 'manage' }
  * );
+ * 
+ * // 可选认证（未登录也可访问）
+ * export const GET = protectedRoute(
+ *   async (request, { user }) => {
+ *     // user 可能为 null
+ *     return NextResponse.json({ data: 'public data' });
+ *   },
+ *   { optional: true }
+ * );
  * ```
  */
 export function protectedRoute(
-  handler: RouteHandler,
+  handler: ProtectedRouteHandler,
   options: ProtectionOptions = {}
 ) {
-  return async (request: NextRequest, context?: { params: Promise<Record<string, string>> }) => {
+  // 返回符合Next.js原生签名的函数
+  return async (
+    request: NextRequest,
+    context?: NativeRouteContext
+  ): Promise<NextResponse> => {
     // 1. 认证检查
     const authResult = await authenticateRequest(request);
+    
+    // 可选认证模式：未登录时 user 为 null，但仍可继续
+    if (options.optional && (!authResult.success || !authResult.user)) {
+      return handler(request, { 
+        user: null as unknown as User, 
+        params: context?.params 
+      });
+    }
+    
     if (!authResult.success || !authResult.user) {
       return createAuthErrorResponse(authResult);
     }
 
     const user = authResult.user;
-    
-    // 解析路由参数
-    const params = context?.params ? await context.params : undefined;
 
     // 2. 管理员绕过检查（如果启用）
     if (options.adminBypass !== false && isAdminRole(user.role)) {
-      return handler(request, { user, params });
+      return handler(request, { user, params: context?.params });
     }
 
     // 3. 角色检查
@@ -152,14 +191,14 @@ export function protectedRoute(
     }
 
     // 7. 执行处理器
-    return handler(request, { user, params });
+    return handler(request, { user, params: context?.params });
   };
 }
 
 /**
  * 创建仅限管理员的 API 路由
  */
-export function adminOnlyRoute(handler: RouteHandler) {
+export function adminOnlyRoute(handler: ProtectedRouteHandler) {
   return protectedRoute(handler, {
     roles: ['principal', 'secretary', 'vice_principal', 'academic_director', 'moral_director', 'general_director'],
   });
@@ -168,7 +207,7 @@ export function adminOnlyRoute(handler: RouteHandler) {
 /**
  * 创建教师专属的 API 路由
  */
-export function teacherOnlyRoute(handler: RouteHandler) {
+export function teacherOnlyRoute(handler: ProtectedRouteHandler) {
   return protectedRoute(handler, {
     customCheck: (user) => isTeacherRole(user.role) || isAdminRole(user.role),
   });
@@ -177,7 +216,7 @@ export function teacherOnlyRoute(handler: RouteHandler) {
 /**
  * 创建班主任专属的 API 路由
  */
-export function headTeacherOnlyRoute(handler: RouteHandler) {
+export function headTeacherOnlyRoute(handler: ProtectedRouteHandler) {
   return protectedRoute(handler, {
     roles: ['head_teacher', 'grade_leader'],
     adminBypass: true,
@@ -187,7 +226,7 @@ export function headTeacherOnlyRoute(handler: RouteHandler) {
 /**
  * 创建教务相关 API 路由
  */
-export function academicRoute(handler: RouteHandler, permission: Permission = 'view') {
+export function academicRoute(handler: ProtectedRouteHandler, permission: Permission = 'view') {
   return protectedRoute(handler, {
     module: 'academic',
     permission,
@@ -197,7 +236,7 @@ export function academicRoute(handler: RouteHandler, permission: Permission = 'v
 /**
  * 创建德育相关 API 路由
  */
-export function moralRoute(handler: RouteHandler, permission: Permission = 'view') {
+export function moralRoute(handler: ProtectedRouteHandler, permission: Permission = 'view') {
   return protectedRoute(handler, {
     module: 'moral',
     permission,
@@ -207,7 +246,7 @@ export function moralRoute(handler: RouteHandler, permission: Permission = 'view
 /**
  * 创建总务相关 API 路由
  */
-export function generalRoute(handler: RouteHandler, permission: Permission = 'view') {
+export function generalRoute(handler: ProtectedRouteHandler, permission: Permission = 'view') {
   return protectedRoute(handler, {
     module: 'general',
     permission,
@@ -215,84 +254,54 @@ export function generalRoute(handler: RouteHandler, permission: Permission = 'vi
 }
 
 /**
- * 组合多个路由保护
+ * 组合多个保护条件
  */
 export function composeProtection(
-  ...handlers: ((handler: RouteHandler) => RouteHandler)[]
+  handler: ProtectedRouteHandler,
+  protections: ProtectionOptions[]
 ) {
-  return (handler: RouteHandler): RouteHandler => {
-    return handlers.reduceRight((acc, middleware) => middleware(acc), handler);
-  };
+  let result = handler;
+  for (let i = protections.length - 1; i >= 0; i--) {
+    result = protectedRoute(result, protections[i]) as ProtectedRouteHandler;
+  }
+  return result;
 }
 
 /**
- * 限制只能操作自己的资源
+ * 检查是否为自己的数据（用于自我访问控制）
  */
 export function selfOnly(
-  getResourceUserId: (request: NextRequest, user: User) => Promise<string | null>
-) {
-  return (handler: RouteHandler) => {
-    return protectedRoute(async (request, context) => {
-      const resourceUserId = await getResourceUserId(request, context.user);
-      
-      if (resourceUserId && resourceUserId !== context.user.id) {
-        // 只有管理员可以操作他人资源
-        if (!isAdminRole(context.user.role)) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: '您只能操作自己的资源',
-              code: 'SELF_ONLY',
-            },
-            { status: 403 }
-          );
-        }
-      }
-      
-      return handler(request, context);
-    });
+  getUserId: (context: ExtendedRouteContext) => string
+): (user: User, context: ExtendedRouteContext) => boolean {
+  return (user: User, context: ExtendedRouteContext) => {
+    const targetUserId = getUserId(context);
+    return user.id === targetUserId || isAdminRole(user.role);
   };
 }
 
 /**
- * 检查班级访问权限
- * 班主任只能访问自己班级的数据
+ * 检查班级访问权限（班主任只能访问自己的班级）
  */
 export function classAccess(
-  getClassId: (request: NextRequest) => Promise<string | null>
-) {
-  return (handler: RouteHandler) => {
-    return protectedRoute(async (request, context) => {
-      const targetClassId = await getClassId(request);
-      
-      if (targetClassId) {
-        // 管理员可以访问所有班级
-        if (isAdminRole(context.user.role)) {
-          return handler(request, context);
-        }
-        
-        // 年段长可以访问自己管理的年级
-        if (context.user.role === 'grade_leader') {
-          // TODO: 检查年段长管理的年级
-          return handler(request, context);
-        }
-        
-        // 班主任只能访问自己的班级
-        if (context.user.role === 'head_teacher') {
-          if (context.user.classId !== targetClassId) {
-            return NextResponse.json(
-              {
-                success: false,
-                error: '您没有访问此班级的权限',
-                code: 'CLASS_FORBIDDEN',
-              },
-              { status: 403 }
-            );
-          }
-        }
-      }
-      
-      return handler(request, context);
-    });
+  getClassId: (context: ExtendedRouteContext) => string
+): (user: User, context: ExtendedRouteContext) => boolean {
+  return (user: User, context: ExtendedRouteContext) => {
+    const targetClassId = getClassId(context);
+    return user.classId === targetClassId || isDirectorRole(user.role) || isAdminRole(user.role);
+  };
+}
+
+/**
+ * 创建限制访问自己资源的路由保护器
+ */
+export function createSelfOnlyProtection(
+  getResourceUserId: (request: NextRequest, user: User) => Promise<string | null>
+): ProtectionOptions {
+  return {
+    customCheck: async (user: User) => {
+      // 这个检查需要在实际请求上下文中进行
+      // 这里只是一个占位符，实际使用时需要在handler中调用
+      return true;
+    },
   };
 }
