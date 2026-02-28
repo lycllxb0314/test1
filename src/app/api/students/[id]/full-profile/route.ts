@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { StudentFullProfile, Parent } from '@/types';
+import { StudentFullProfile, Parent, HabitCategory } from '@/types';
 
 /**
  * Mock学生完整档案数据
@@ -68,6 +68,67 @@ const mockStudentProfiles: Record<string, StudentFullProfile> = {
       level: '优秀',
       habitStarCount: 3,
       monthlyStars: ['2024-03', '2024-05', '2024-09'],
+      // 各类别得分
+      categoryScores: [
+        { category: 'civilization' as HabitCategory, categoryName: '文明习惯', score: 95, maxScore: 100, rate: 95, trend: 'stable' },
+        { category: 'writing' as HabitCategory, categoryName: '书写习惯', score: 88, maxScore: 100, rate: 88, trend: 'up' },
+        { category: 'reading' as HabitCategory, categoryName: '阅读习惯', score: 92, maxScore: 100, rate: 92, trend: 'up' },
+        { category: 'sports' as HabitCategory, categoryName: '运动习惯', score: 90, maxScore: 100, rate: 90, trend: 'stable' },
+        { category: 'safety' as HabitCategory, categoryName: '安全习惯', score: 95, maxScore: 100, rate: 95, trend: 'stable' },
+        { category: 'hygiene' as HabitCategory, categoryName: '卫生习惯', score: 93, maxScore: 100, rate: 93, trend: 'up' },
+        { category: 'aesthetic' as HabitCategory, categoryName: '审美习惯', score: 85, maxScore: 100, rate: 85, trend: 'stable' },
+        { category: 'labor' as HabitCategory, categoryName: '劳动习惯', score: 96, maxScore: 100, rate: 96, trend: 'up' },
+      ],
+      // 习惯评价记录（全过程）
+      recentAssessments: [
+        { id: 'ha1', studentId: 's001', studentName: '张三', classId: 'c6-1', className: '六年级1班', category: 'civilization' as HabitCategory, type: 'praise', title: '主动问好', content: '见到老师主动问好，表现文明礼貌', score: 2, scene: 'campus', recorderId: 't001', recorderName: '王明华', recorderRole: 'teacher', occurredAt: '2024-11-18', createdAt: '2024-11-18' },
+        { id: 'ha2', studentId: 's001', studentName: '张三', classId: 'c6-1', className: '六年级1班', category: 'labor' as HabitCategory, type: 'praise', title: '认真打扫教室', content: '值日时认真负责，把教室打扫得干干净净', score: 3, scene: 'classroom', recorderId: 't001', recorderName: '王明华', recorderRole: 'teacher', occurredAt: '2024-11-15', createdAt: '2024-11-15' },
+        { id: 'ha3', studentId: 's001', studentName: '张三', classId: 'c6-1', className: '六年级1班', category: 'writing' as HabitCategory, type: 'improve', title: '书写需加强', content: '作业书写不够工整，需要加强练习', score: -1, scene: 'classroom', recorderId: 't002', recorderName: '李芳', recorderRole: 'teacher', occurredAt: '2024-11-10', createdAt: '2024-11-10' },
+        { id: 'ha4', studentId: 's001', studentName: '张三', classId: 'c6-1', className: '六年级1班', category: 'reading' as HabitCategory, type: 'praise', title: '积极阅读课外书', content: '本学期已阅读10本课外书，阅读习惯良好', score: 5, scene: 'home', recorderId: 'p1', recorderName: '张父', recorderRole: 'parent', occurredAt: '2024-11-05', createdAt: '2024-11-05' },
+      ],
+      // 月度小目标
+      monthlyGoals: [
+        { month: '2024-11', category: 'writing' as HabitCategory, goal: '每天练习钢笔字20分钟', achieved: true },
+        { month: '2024-10', category: 'reading' as HabitCategory, goal: '阅读2本课外书', achieved: true },
+        { month: '2024-09', category: 'sports' as HabitCategory, goal: '每天跳绳100个', achieved: true },
+      ],
+      // 习惯之星记录
+      habitStarRecords: [
+        { month: '2024-03', category: 'labor' as HabitCategory, level: 'class' },
+        { month: '2024-05', level: 'grade' },
+        { month: '2024-09', category: 'civilization' as HabitCategory, level: 'school' },
+      ],
+    },
+    
+    moralPerformance: {
+      // 行为评价统计
+      behaviorStats: {
+        praiseCount: 28,
+        improveCount: 3,
+        behaviorScore: 92,
+      },
+      // 德育活动参与
+      activities: [
+        { id: 'ma1', title: '国庆升旗仪式', type: '德育活动', date: '2024-10-01', role: '护旗手', achievement: '优秀护旗手' },
+        { id: 'ma2', title: '学雷锋志愿服务', type: '少先队活动', date: '2024-03-05', role: '志愿者' },
+        { id: 'ma3', title: '重阳节敬老活动', type: '德育活动', date: '2024-10-11', role: '表演者', achievement: '优秀表演奖' },
+        { id: 'ma4', title: '环保知识竞赛', type: '学校活动', date: '2024-04-22', achievement: '二等奖' },
+      ],
+      // 志愿服务记录
+      volunteerRecords: [
+        { id: 'vr1', activity: '社区环境整治', hours: 2, date: '2024-09-15' },
+        { id: 'vr2', activity: '图书馆志愿服务', hours: 3, date: '2024-08-20' },
+        { id: 'vr3', activity: '敬老院慰问', hours: 2, date: '2024-10-11' },
+      ],
+      // 德育预警（权限控制：德育主任、班主任、家长可见）
+      warnings: [
+        { id: 'mw1', type: '行为关注', level: 'info', content: '近期课堂专注度有所下降，需要关注', createdAt: '2024-11-10' },
+      ],
+      // 综合素质评价
+      comprehensiveEvaluation: [
+        { semester: '2024-2025-1', moralScore: 92, socialScore: 88, volunteerScore: 90, totalScore: 90, level: '优秀', comment: '德育表现优秀，积极参与各类活动，习惯养成良好。' },
+        { semester: '2023-2024-2', moralScore: 90, socialScore: 85, volunteerScore: 88, totalScore: 88, level: '优秀', comment: '德育表现良好，有进步空间。' },
+      ],
     },
     
     moralRecords: [
@@ -136,6 +197,51 @@ const mockStudentProfiles: Record<string, StudentFullProfile> = {
       level: '优秀',
       habitStarCount: 5,
       monthlyStars: ['2024-01', '2024-03', '2024-05', '2024-09', '2024-10'],
+      categoryScores: [
+        { category: 'civilization' as HabitCategory, categoryName: '文明习惯', score: 98, maxScore: 100, rate: 98, trend: 'stable' },
+        { category: 'writing' as HabitCategory, categoryName: '书写习惯', score: 96, maxScore: 100, rate: 96, trend: 'up' },
+        { category: 'reading' as HabitCategory, categoryName: '阅读习惯', score: 97, maxScore: 100, rate: 97, trend: 'up' },
+        { category: 'sports' as HabitCategory, categoryName: '运动习惯', score: 92, maxScore: 100, rate: 92, trend: 'stable' },
+        { category: 'safety' as HabitCategory, categoryName: '安全习惯', score: 98, maxScore: 100, rate: 98, trend: 'stable' },
+        { category: 'hygiene' as HabitCategory, categoryName: '卫生习惯', score: 95, maxScore: 100, rate: 95, trend: 'stable' },
+        { category: 'aesthetic' as HabitCategory, categoryName: '审美习惯', score: 90, maxScore: 100, rate: 90, trend: 'up' },
+        { category: 'labor' as HabitCategory, categoryName: '劳动习惯', score: 94, maxScore: 100, rate: 94, trend: 'stable' },
+      ],
+      recentAssessments: [
+        { id: 'ha5', studentId: 's002', studentName: '李四', classId: 'c6-1', className: '六年级1班', category: 'reading' as HabitCategory, type: 'praise', title: '阅读达人', content: '本学期已阅读15本课外书，阅读量全班第一', score: 5, scene: 'home', recorderId: 'p3', recorderName: '李父', recorderRole: 'parent', occurredAt: '2024-11-18', createdAt: '2024-11-18' },
+      ],
+      monthlyGoals: [
+        { month: '2024-11', category: 'sports' as HabitCategory, goal: '每天跑步1公里', achieved: false },
+        { month: '2024-10', category: 'reading' as HabitCategory, goal: '阅读3本课外书', achieved: true },
+      ],
+      habitStarRecords: [
+        { month: '2024-01', category: 'reading' as HabitCategory, level: 'class' },
+        { month: '2024-03', level: 'grade' },
+        { month: '2024-05', category: 'writing' as HabitCategory, level: 'school' },
+        { month: '2024-09', level: 'school' },
+        { month: '2024-10', category: 'reading' as HabitCategory, level: 'school' },
+      ],
+    },
+    
+    moralPerformance: {
+      behaviorStats: {
+        praiseCount: 35,
+        improveCount: 0,
+        behaviorScore: 98,
+      },
+      activities: [
+        { id: 'ma5', title: '国庆升旗仪式', type: '德育活动', date: '2024-10-01', role: '主持人' },
+        { id: 'ma6', title: '环保知识竞赛', type: '学校活动', date: '2024-04-22', achievement: '一等奖' },
+        { id: 'ma7', title: '读书节活动', type: '学校活动', date: '2024-04-15', achievement: '最佳朗读者' },
+      ],
+      volunteerRecords: [
+        { id: 'vr4', activity: '社区环境整治', hours: 3, date: '2024-09-15' },
+        { id: 'vr5', activity: '图书馆志愿服务', hours: 5, date: '2024-08-20' },
+      ],
+      warnings: [],
+      comprehensiveEvaluation: [
+        { semester: '2024-2025-1', moralScore: 98, socialScore: 95, volunteerScore: 96, totalScore: 96, level: '优秀', comment: '德育表现优秀，是同学们的榜样。' },
+      ],
     },
     
     moralRecords: [],

@@ -321,15 +321,92 @@ export interface StudentFullProfile {
   // === 成长记录 ===
   growthRecords: StudentGrowthRecord[];
   
-  // === 习惯养成 ===
+  // === 习惯养成（德育系统同步） ===
   habitProfile?: {
+    // 综合评价
     overallScore: number;
     level: '优秀' | '良好' | '合格' | '待提高';
     habitStarCount: number;
     monthlyStars: string[];
+    
+    // 各类别得分
+    categoryScores?: {
+      category: HabitCategory;
+      categoryName: string;
+      score: number;
+      maxScore: number;
+      rate: number;
+      trend: 'up' | 'down' | 'stable';
+    }[];
+    
+    // 习惯评价记录（全过程）
+    recentAssessments?: HabitAssessment[];
+    
+    // 月度小目标
+    monthlyGoals?: {
+      month: string;
+      category: HabitCategory;
+      goal: string;
+      achieved: boolean;
+    }[];
+    
+    // 习惯之星记录
+    habitStarRecords?: {
+      month: string;
+      category?: HabitCategory;
+      level: 'class' | 'grade' | 'school';
+    }[];
   };
   
-  // === 德育表现 ===
+  // === 德育表现（德育系统同步） ===
+  moralPerformance?: {
+    // 行为评价统计
+    behaviorStats?: {
+      praiseCount: number;          // 表扬次数
+      improveCount: number;         // 待改进次数
+      behaviorScore: number;        // 行为得分
+    };
+    
+    // 德育活动参与
+    activities?: {
+      id: string;
+      title: string;
+      type: string;
+      date: string;
+      role?: string;               // 参与角色
+      achievement?: string;        // 获得成绩
+    }[];
+    
+    // 志愿服务记录
+    volunteerRecords?: {
+      id: string;
+      activity: string;
+      hours: number;
+      date: string;
+    }[];
+    
+    // 德育预警（权限控制）
+    warnings?: {
+      id: string;
+      type: string;
+      level: 'info' | 'warning' | 'danger';
+      content: string;
+      createdAt: string;
+    }[];
+    
+    // 综合素质评价
+    comprehensiveEvaluation?: {
+      semester: string;
+      moralScore: number;          // 德育分数
+      socialScore: number;         // 社会实践分数
+      volunteerScore: number;      // 志愿服务分数
+      totalScore: number;
+      level: '优秀' | '良好' | '合格' | '待提高';
+      comment?: string;
+    }[];
+  };
+  
+  // === 德育记录（旧字段，保持兼容） ===
   moralRecords: StudentMoralRecord[];
   
   // === 出勤统计 ===

@@ -58,6 +58,8 @@ import {
 import { useStudentFullProfile } from '@/hooks/useStudentData';
 import { StudentFullProfile, Parent } from '@/types';
 import { toast } from 'sonner';
+import { HabitTabContent } from '@/components/student/habit-tab-content';
+import { MoralTabContent } from '@/components/student/moral-tab-content';
 
 // 获取性别显示
 const getGenderDisplay = (gender: string) => {
@@ -581,6 +583,7 @@ export default function StudentDetailPage({ params }: PageProps) {
           <TabsTrigger value="honors">荣誉奖项</TabsTrigger>
           <TabsTrigger value="growth">成长档案</TabsTrigger>
           <TabsTrigger value="habit">习惯养成</TabsTrigger>
+          <TabsTrigger value="moral">德育表现</TabsTrigger>
         </TabsList>
 
         {/* 基本信息 */}
@@ -1111,57 +1114,15 @@ export default function StudentDetailPage({ params }: PageProps) {
 
         {/* 习惯养成 */}
         <TabsContent value="habit" className="space-y-4 mt-4">
-          {profile.habitProfile ? (
-            <>
-              <Card className="shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Star className="h-5 w-5 text-primary" />
-                    习惯养成总评
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="text-3xl font-bold text-primary">{profile.habitProfile.overallScore}</div>
-                      <div className="text-sm text-muted-foreground">综合评分</div>
-                    </div>
-                    <div className="text-right">
-                      <Badge className={
-                        profile.habitProfile.level === '优秀' ? 'bg-green-100 text-green-700' :
-                        profile.habitProfile.level === '良好' ? 'bg-blue-100 text-blue-700' :
-                        profile.habitProfile.level === '合格' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
-                      }>
-                        {profile.habitProfile.level}
-                      </Badge>
-                      <div className="flex items-center gap-1 mt-2 text-primary">
-                        <Star className="h-4 w-4" />
-                        <span className="text-sm">习惯之星 × {profile.habitProfile.habitStarCount}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {profile.habitProfile.monthlyStars.length > 0 && (
-                    <div className="mt-4">
-                      <div className="text-sm text-muted-foreground mb-2">获评月份</div>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.habitProfile.monthlyStars.map(month => (
-                          <Badge key={month} variant="outline">{month}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          ) : (
-            <Card className="shadow-sm">
-              <CardContent className="py-12">
-                <p className="text-muted-foreground text-center">暂无习惯养成数据</p>
-              </CardContent>
-            </Card>
-          )}
+          <HabitTabContent profile={profile} />
+        </TabsContent>
+
+        {/* 德育表现 */}
+        <TabsContent value="moral" className="space-y-4 mt-4">
+          <MoralTabContent 
+            profile={profile} 
+            canViewWarnings={true}
+          />
         </TabsContent>
       </Tabs>
 
