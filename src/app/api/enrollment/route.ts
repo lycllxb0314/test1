@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Parent } from '@/types';
+import { rateLimitMiddleware } from '@/lib/rate-limit';
+import { encryptObject, decryptObject, getEncryptedFields } from '@/lib/encryption';
+import { maskIdCard, maskPhone, maskAddress } from '@/lib/masking';
 
 // 扩展的新生注册申请类型 - 与 StudentFullProfile 对齐
 interface NewStudentApplication {
@@ -62,6 +65,9 @@ interface NewStudentApplication {
     error?: string;
   };
 }
+
+// 需要加密的敏感字段
+const ENCRYPTED_FIELDS = ['idCard', 'homeAddress', 'phone'];
 
 // Mock数据
 let mockApplications: NewStudentApplication[] = [
@@ -257,6 +263,12 @@ export async function GET(request: NextRequest) {
 
 // POST - 创建新生注册申请（家长端提交）
 export async function POST(request: NextRequest) {
+  // 限流检查（高并发保护：开学季家长集中提交）
+  const rateLimitResult = await rateLimitMiddleware(request);
+  if (rateLimitResult) {
+    return rateLimitResult;
+  }
+  
   try {
     const body = await request.json();
     
@@ -305,11 +317,33 @@ export async function POST(request: NextRequest) {
       submittedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
     };
     
-    mockApplications.unshift(newApplication);
+    // 加密敏感字段（身份证、地址、手机号）
+    const encryptedApp = encryptObject(newApplication as unknown as Record<string, unknown>, ENCRYPTED_FIELDS);
+    
+    // 对家长手机号也加密
+    if (Array.isArray(encryptedApp.parents)) {
+      encryptedApp.parents = (encryptedApp.parents as Parent[]).map((p: Parent) => 
+        encryptObject(p as unknown as Record<string, unknown>, ['phone'])
+      );
+    }
+    
+    mockApplications.unshift(encryptedApp as unknown as NewStudentApplication);
+    
+    // 返回时对敏感字段脱敏
+    const maskedResult = {
+      ...newApplication,
+      idCard: newApplication.idCard ? maskIdCard(newApplication.idCard) : undefined,
+      homeAddress: newApplication.homeAddress ? maskAddress(newApplication.homeAddress) : undefined,
+      phone: newApplication.phone ? maskPhone(newApplication.phone) : undefined,
+      parents: newApplication.parents?.map((p: Parent) => ({
+        ...p,
+        phone: p.phone ? maskPhone(p.phone) : undefined,
+      })),
+    };
     
     return NextResponse.json({
       success: true,
-      data: newApplication,
+      data: maskedResult,
       message: '新生注册申请已提交'
     });
   } catch {

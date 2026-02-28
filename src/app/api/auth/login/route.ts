@@ -2,10 +2,12 @@
  * 用户登录 API
  * 
  * 使用 JWT 会话管理
+ * 包含限流保护（防暴力破解）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { login, setAuthCookies, type LoginResult } from '@/lib/auth/session';
+import { rateLimitMiddleware } from '@/lib/rate-limit';
 
 /**
  * POST - 用户登录
@@ -20,6 +22,12 @@ import { login, setAuthCookies, type LoginResult } from '@/lib/auth/session';
  * - message: 提示信息
  */
 export async function POST(request: NextRequest) {
+  // 限流检查（防暴力破解：15分钟内最多5次尝试）
+  const rateLimitResult = await rateLimitMiddleware(request);
+  if (rateLimitResult) {
+    return rateLimitResult;
+  }
+  
   try {
     const body = await request.json();
     const { username, password } = body;
