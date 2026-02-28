@@ -70,12 +70,12 @@ export async function GET(request: NextRequest) {
     if (dbError) {
       console.log('Database query failed, using mock data:', dbError.message);
       
-      // 使用Mock数据
+      // 使用Mock数据 - 只传递有值的参数
       const mockResult = getMockStudents({
         search: params.search,
-        grade: String(params.grade),
-        classId: String(params.classId),
-        status: String(params.status),
+        grade: params.grade ? String(params.grade) : undefined,
+        classId: params.classId ? String(params.classId) : undefined,
+        status: params.status ? String(params.status) : undefined,
         page,
         pageSize,
       });
@@ -97,14 +97,14 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('Failed to fetch students:', err);
     
-    // 使用Mock数据作为fallback
+    // 使用Mock数据作为fallback - 只传递有值的参数
     const page = params.page || 1;
     const pageSize = params.pageSize || 20;
     const mockResult = getMockStudents({
       search: params.search,
-      grade: String(params.grade),
-      classId: String(params.classId),
-      status: String(params.status),
+      grade: params.grade ? String(params.grade) : undefined,
+      classId: params.classId ? String(params.classId) : undefined,
+      status: params.status ? String(params.status) : undefined,
       page,
       pageSize,
     });

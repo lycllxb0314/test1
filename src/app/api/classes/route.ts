@@ -73,9 +73,9 @@ export async function GET(request: NextRequest) {
     if (dbError) {
       console.log('Database query failed, using mock data:', dbError.message);
       
-      // 使用Mock数据
+      // 使用Mock数据 - 只传递有值的参数
       const mockData = getMockClasses({
-        grade: String(params.grade),
+        grade: params.grade ? String(params.grade) : undefined,
         search: params.search,
       });
       
@@ -100,11 +100,11 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('Failed to fetch classes:', err);
     
-    // 使用Mock数据作为fallback
+    // 使用Mock数据作为fallback - 只传递有值的参数
     const page = params.page || 1;
     const pageSize = params.pageSize || 20;
     const mockData = getMockClasses({
-      grade: String(params.grade),
+      grade: params.grade ? String(params.grade) : undefined,
       search: params.search,
     });
     
