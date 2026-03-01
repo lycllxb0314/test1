@@ -125,8 +125,6 @@ export async function POST() {
           total_weekly_hours: isMainSubject ? 15 : 17, // 主科14-16节，技能科16-18节
           main_class_count: isMainSubject ? 2 : 0,
           main_subject_hours: isMainSubject ? 10 : 0,
-          teachable_grades: [1, 2, 3, 4, 5, 6],
-          teachable_subjects: [subject],
         };
         
         teachersData.push(teacher);
