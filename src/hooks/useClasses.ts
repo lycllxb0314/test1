@@ -314,7 +314,16 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             parents: (s.parents as Parent[]) || [],
           }));
           
-          // 聚合家长信息
+          // 先获取班主任详情（在聚合家长之前）
+          const headTeacherId = cls.head_teacher_id as string || '';
+          const headTeacher = headTeacherId ? teachersMap[headTeacherId] : null;
+          const headTeacherName = (headTeacher?.name as string) || (cls.head_teacher_name as string) || '';
+          
+          // 获取科任详情
+          const subTeacherId = cls.sub_teacher_id as string;
+          const subTeacher = subTeacherId ? teachersMap[subTeacherId] : null;
+          
+          // 聚合家长信息（现在可以包含班主任信息了）
           const parents: ParentBasicInfo[] = [];
           students.forEach(student => {
             if (student.parents && student.parents.length > 0) {
@@ -336,18 +345,13 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
                   classId: cls.id as string,
                   className: cls.name as string,
                   grade: cls.grade as number,
+                  // 班主任信息
+                  headTeacherId: headTeacherId,
+                  headTeacherName: headTeacherName,
                 });
               });
             }
           });
-          
-          // 获取班主任详情
-          const headTeacherId = cls.head_teacher_id as string || '';
-          const headTeacher = headTeacherId ? teachersMap[headTeacherId] : null;
-          
-          // 获取科任详情
-          const subTeacherId = cls.sub_teacher_id as string;
-          const subTeacher = subTeacherId ? teachersMap[subTeacherId] : null;
           
           return {
             id: cls.id as string,
@@ -358,7 +362,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             
             // 班主任
             headTeacherId,
-            headTeacherName: (headTeacher?.name as string) || cls.head_teacher_name as string || '',
+            headTeacherName,
             headTeacher: headTeacher ? {
               id: headTeacher.id as string,
               name: headTeacher.name as string,
