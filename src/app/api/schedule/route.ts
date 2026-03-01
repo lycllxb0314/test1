@@ -21,8 +21,10 @@ import {
   MORNING_PERIODS,
   AFTERNOON_PERIODS_LOW,
   AFTERNOON_PERIODS_HIGH,
-} from '@/lib/schedule-service';
-import type { ScheduleSlot, TeachingTask, ScheduleRule, WeekDay } from '@/types';
+  type ScheduleSlot,
+  type WeekDay,
+} from '@/lib/schedule-mcmf';
+import type { TeachingTask, ScheduleRule } from '@/types';
 
 // ==================== 数据模型 ====================
 
@@ -234,15 +236,15 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
     teacherMaxHours[t.id] = t.baseWeeklyHours || 16; // 使用教师的课时配置
   });
   
-  // 辅助函数：找到课时最少的教师（考虑课时上限）
-  const findTeacherWithMinHours = (subject: string, excludeIds: string[] = []): typeof teachersData[0] | undefined => {
+  // 辅助函数：找到课时最少的教师（考虑课时上限和即将分配的课时）
+  const findTeacherWithMinHours = (subject: string, excludeIds: string[] = [], needHours: number = 0): typeof teachersData[0] | undefined => {
     const candidates = teachersBySubject[subject] || [];
     const available = candidates.filter(t => {
       if (excludeIds.includes(t.id)) return false;
-      // 检查是否还有课时余量
+      // 检查分配后是否超过容量
       const currentHours = teacherAssignedHours[t.id] || 0;
       const maxHours = teacherMaxHours[t.id] || 16;
-      return currentHours < maxHours;
+      return currentHours + needHours <= maxHours;
     });
     if (available.length === 0) return undefined;
     return available.sort((a, b) => (teacherAssignedHours[a.id] || 0) - (teacherAssignedHours[b.id] || 0))[0];
@@ -268,12 +270,29 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
     // 根据年级获取标准课时
     const standardHours = getStandardHours(grade);
     
-    // 班主任教的科目：语文、道德与法治、劳动、班会
-    const headTeacherSubjects = ['语文', '道德与法治', '劳动', '班会'];
-    // 科任（副班主任）教的科目：数学、科学
-    const subjectHeadSubjects = ['数学', '科学'];
-    // 技能科（注意：英语只在3-6年级有）
-    const skillSubjects = ['英语', '体育', '音乐', '美术'];
+    // 根据班主任主教学科决定科目分配
+    // 语文班主任的班级：
+    //   - 班主任教：语文、班会
+    //   - 科任（数学老师）教：数学、劳动
+    // 数学班主任的班级：
+    //   - 班主任教：数学、劳动、班会
+    //   - 科任（语文老师）教：语文
+    // 道德与法治、科学由专门老师教（跨班）
+    const headTeacherPrimarySubject = headTeacher?.primarySubject || '';
+    
+    let headTeacherSubjects: string[] = [];
+    let subjectHeadSubjects: string[] = [];
+    
+    if (headTeacherPrimarySubject === '语文') {
+      headTeacherSubjects = ['语文', '班会'];
+      subjectHeadSubjects = ['数学', '劳动'];
+    } else if (headTeacherPrimarySubject === '数学') {
+      headTeacherSubjects = ['数学', '劳动', '班会'];
+      subjectHeadSubjects = ['语文'];
+    }
+    
+    // 技能科（注意：英语只在3-6年级有，道德与法治和科学由专门老师教）
+    const skillSubjects = ['英语', '体育', '音乐', '美术', '道德与法治', '科学'];
     
     for (const subject of Object.keys(standardHours)) {
       const weeklyHours = standardHours[subject];
@@ -282,23 +301,19 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
       
       if (headTeacherSubjects.includes(subject)) {
         // 班主任教的科目
-        if (headTeacher && hasCapacity(headTeacher.id, weeklyHours)) {
+        if (headTeacher) {
           teacherId = headTeacher.id;
           teacherName = headTeacher.name;
         }
       } else if (subjectHeadSubjects.includes(subject)) {
         // 科任教的科目
-        if (subjectHead && hasCapacity(subjectHead.id, weeklyHours)) {
+        if (subjectHead) {
           teacherId = subjectHead.id;
           teacherName = subjectHead.name;
-        } else if (headTeacher && headTeacher.subjects.includes('数学') && hasCapacity(headTeacher.id, weeklyHours)) {
-          // 如果没有科任或科任已满，班主任教数学
-          teacherId = headTeacher.id;
-          teacherName = headTeacher.name;
         }
       } else if (skillSubjects.includes(subject)) {
         // 技能科：找对应学科的教师（排除已满的教师）
-        const skillTeacher = findTeacherWithMinHours(subject, [cls.headTeacherId, cls.subjectHeadId]);
+        const skillTeacher = findTeacherWithMinHours(subject, [cls.headTeacherId, cls.subjectHeadId], weeklyHours);
         if (skillTeacher) {
           teacherId = skillTeacher.id;
           teacherName = skillTeacher.name;
@@ -307,7 +322,7 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
       
       // 如果还是没找到教师，尝试任何能教这门课的教师
       if (!teacherId) {
-        const anyTeacher = findTeacherWithMinHours(subject);
+        const anyTeacher = findTeacherWithMinHours(subject, [], weeklyHours);
         if (anyTeacher) {
           teacherId = anyTeacher.id;
           teacherName = anyTeacher.name;
@@ -528,8 +543,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: result.success,
         data: result,
-        message: result.success 
-          ? `排课完成！共安排${result.statistics.arrangedSlots}节课，覆盖率${(result.statistics.coverageRate * 100).toFixed(1)}%`
+        message: result.success && result.statistics
+          ? `排课完成！共安排${result.statistics.arrangedSlots || result.statistics.totalSlots}节课，覆盖率${((result.statistics.coverageRate || 0)).toFixed(1)}%`
           : '排课完成，但存在冲突，请检查',
       });
       

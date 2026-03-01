@@ -66,17 +66,17 @@ export async function POST() {
     console.log('生成教师数据...');
     
     // 教师科目分配：
-    // - 语文、数学：各45人，其中30人可当班主任，15人为纯科任
-    // - 其他科目：技能科教师
+    // - 语文、数学：各60人，每班一个（班主任）
+    // - 技能科教师：可跨班跨年级教学
     const teacherSubjects = [
-      { subject: '语文', count: 45 },  // 30人班主任 + 15人科任
-      { subject: '数学', count: 45 },  // 30人班主任 + 15人科任
-      { subject: '英语', count: 12 },
-      { subject: '体育', count: 12 },
-      { subject: '音乐', count: 10 },
-      { subject: '美术', count: 10 },
-      { subject: '科学', count: 8 },
-      { subject: '道德与法治', count: 8 },
+      { subject: '语文', count: 60 },  // 每班一个班主任
+      { subject: '数学', count: 60 },  // 每班一个班主任
+      { subject: '道德与法治', count: 8 },  // 每班2节，60班=120节，每教师15节
+      { subject: '科学', count: 7 },   // 100节
+      { subject: '英语', count: 14 },  // 40班×4节=160节，每教师最多12节(3班)
+      { subject: '体育', count: 12 },  // 60班×3节=180节
+      { subject: '音乐', count: 8 },   // 60班×2节=120节
+      { subject: '美术', count: 8 },   // 60班×2节=120节
     ];
     
     const teachersData: any[] = [];
@@ -160,57 +160,53 @@ export async function POST() {
     console.log(`  - 语文老师: ${chineseTeachers.length}人`);
     console.log(`  - 数学老师: ${mathTeachers.length}人`);
 
-    // ==================== 3. 生成班级数据（60个班，分配班主任和科任） ====================
+    // ==================== 3. 生成班级数据（60个班，按年级分配班主任和科任） ====================
     console.log('生成班级数据...');
     
     const classesData: any[] = [];
     const gradeNames = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
     
-    // 用于追踪已分配的教师
-    const assignedHeadTeachers = new Set<string>();
-    const assignedSubTeachers = new Set<string>();
+    // 按年级追踪已分配的教师（确保不跨年级）
+    // 关键：使用全局Set追踪已分配教师，每个教师只在一个年级任教
+    const assignedTeachers = new Set<string>();
     
     for (let grade = 1; grade <= 6; grade++) {
+      // 每个年级需要：
+      // - 5个语文班主任（教单数班语文）- 同时兼任双数班的语文科任
+      // - 5个数学班主任（教双数班数学）- 同时兼任单数班的数学科任
+      
+      // 从语文老师中选5个全局未分配的作为本年级语文老师
+      const gradeChineseTeachers = chineseTeachers.filter(t => !assignedTeachers.has(t.id)).slice(0, 5);
+      // 从数学老师中选5个全局未分配的作为本年级数学老师
+      const gradeMathTeachers = mathTeachers.filter(t => !assignedTeachers.has(t.id)).slice(0, 5);
+      
+      if (gradeChineseTeachers.length < 5 || gradeMathTeachers.length < 5) {
+        errors.push(`${grade}年级教师不足：语文${gradeChineseTeachers.length}人，数学${gradeMathTeachers.length}人`);
+      }
+      
       for (let classNum = 1; classNum <= 10; classNum++) {
         const classId = `c${String((grade - 1) * 10 + classNum).padStart(3, '0')}`;
         const building = grade <= 2 ? '教学楼A栋' : grade <= 4 ? '教学楼B栋' : '教学楼C栋';
         const room = `${grade}${String(classNum).padStart(2, '0')}教室`;
         
-        // 班主任：语文和数学老师交替分配
-        // 单数班级用语文老师，双数班级用数学老师
         let headTeacher: any;
-        if (classNum % 2 === 1) {
-          // 从未分配的语文老师中选
-          headTeacher = chineseTeachers.find(t => !assignedHeadTeachers.has(t.id));
-          if (!headTeacher) {
-            // 如果都用完了，复用第一个
-            headTeacher = chineseTeachers[(grade * 10 + classNum) % chineseTeachers.length];
-          }
-        } else {
-          // 从未分配的数学老师中选
-          headTeacher = mathTeachers.find(t => !assignedHeadTeachers.has(t.id));
-          if (!headTeacher) {
-            headTeacher = mathTeachers[(grade * 10 + classNum) % mathTeachers.length];
-          }
-        }
-        assignedHeadTeachers.add(headTeacher.id);
-        
-        // 科任：从另一个学科中选择未分配的老师
         let subTeacher: any;
+        
         if (classNum % 2 === 1) {
-          // 班主任是语文，科任用数学老师
-          subTeacher = mathTeachers.find(t => !assignedSubTeachers.has(t.id) && t.id !== headTeacher.id);
-          if (!subTeacher) {
-            subTeacher = mathTeachers[(grade * 10 + classNum + 5) % mathTeachers.length];
-          }
+          // 单数班：语文班主任 + 数学科任
+          const chineseIdx = Math.floor(classNum / 2);
+          headTeacher = gradeChineseTeachers[chineseIdx];
+          subTeacher = gradeMathTeachers[chineseIdx];
         } else {
-          // 班主任是数学，科任用语文老师
-          subTeacher = chineseTeachers.find(t => !assignedSubTeachers.has(t.id) && t.id !== headTeacher.id);
-          if (!subTeacher) {
-            subTeacher = chineseTeachers[(grade * 10 + classNum + 5) % chineseTeachers.length];
-          }
+          // 双数班：数学班主任 + 语文科任
+          const mathIdx = Math.floor(classNum / 2) - 1;
+          headTeacher = gradeMathTeachers[mathIdx];
+          subTeacher = gradeChineseTeachers[mathIdx];
         }
-        assignedSubTeachers.add(subTeacher.id);
+        
+        // 全局标记已分配
+        if (headTeacher) assignedTeachers.add(headTeacher.id);
+        if (subTeacher) assignedTeachers.add(subTeacher.id);
         
         classesData.push({
           id: classId,
@@ -218,10 +214,10 @@ export async function POST() {
           grade: grade,
           grade_name: gradeNames[grade],
           class_number: classNum,
-          head_teacher_id: headTeacher.id,
-          head_teacher_name: headTeacher.name,
-          sub_teacher_id: subTeacher.id,
-          sub_teacher_name: subTeacher.name,
+          head_teacher_id: headTeacher?.id,
+          head_teacher_name: headTeacher?.name,
+          sub_teacher_id: subTeacher?.id,
+          sub_teacher_name: subTeacher?.name,
           classroom_id: `room_${classId}`,
           classroom_name: room,
           building: building,
@@ -235,82 +231,66 @@ export async function POST() {
       errors.push(`班级插入失败: ${classesError.message}`);
       return NextResponse.json({ success: false, errors }, { status: 500 });
     }
+    
+    // 统计已分配的教师数量
+    const assignedTeacherCount = new Set(classesData.flatMap(c => [c.head_teacher_id, c.sub_teacher_id].filter(Boolean))).size;
     console.log(`班级数据生成完成: ${classesData.length}个`);
-    console.log(`  - 已分配班主任: ${assignedHeadTeachers.size}人`);
-    console.log(`  - 已分配科任: ${assignedSubTeachers.size}人`);
+    console.log(`  - 涉及教师: ${assignedTeacherCount}人`);
 
-    // ==================== 3.5 更新班主任角色和课时配置 ====================
-    console.log('更新班主任配置...');
+    // ==================== 3.5 更新教师角色和班级配置 ====================
+    console.log('更新教师配置...');
     
-    // 班主任可任教科目（默认值，教务主任可调整）：
-    // - 语文班主任：语文、道德与法治、班会、书法
-    // - 数学班主任：数学、劳动、班会（可能还有科学，由教务主任配置）
+    // 从班级数据中提取班主任和科任信息
+    const headTeacherClasses = new Map<string, string>();  // teacherId -> classId
+    const subjectHeadClasses = new Map<string, string[]>();  // teacherId -> [classId, ...]
     
-    const chineseHeadTeacherIds = chineseTeachers
-      .filter(t => assignedHeadTeachers.has(t.id))
-      .map(t => t.id);
-    const mathHeadTeacherIds = mathTeachers
-      .filter(t => assignedHeadTeachers.has(t.id))
-      .map(t => t.id);
-    
-    // 更新语文班主任
-    if (chineseHeadTeacherIds.length > 0) {
-      const { error: err } = await client
-        .from('teachers')
-        .update({ 
-          role: 'head_teacher',
-          total_weekly_hours: 15,
-          main_class_count: 1,
-          main_subject_hours: 6,
-          // 默认可任教科目，教务主任可调整
-          teachable_subjects: ['语文', '道德与法治', '班会', '书法'],
-        })
-        .in('id', chineseHeadTeacherIds);
-      
-      if (err) errors.push(`语文班主任配置更新失败: ${err.message}`);
-      else console.log(`语文班主任配置更新: ${chineseHeadTeacherIds.length}人`);
-    }
-    
-    // 更新数学班主任
-    if (mathHeadTeacherIds.length > 0) {
-      const { error: err } = await client
-        .from('teachers')
-        .update({ 
-          role: 'head_teacher',
-          total_weekly_hours: 15,
-          main_class_count: 1,
-          main_subject_hours: 6,
-          // 默认可任教科目，教务主任可调整
-          teachable_subjects: ['数学', '劳动', '班会'],
-        })
-        .in('id', mathHeadTeacherIds);
-      
-      if (err) errors.push(`数学班主任配置更新失败: ${err.message}`);
-      else console.log(`数学班主任配置更新: ${mathHeadTeacherIds.length}人`);
-    }
-
-    // 更新科任教师配置（非班主任的语数老师）
-    const subjectTeacherIds = [...chineseTeachers, ...mathTeachers]
-      .filter(t => !assignedHeadTeachers.has(t.id))
-      .map(t => t.id);
-    
-    if (subjectTeacherIds.length > 0) {
-      const { error: subUpdateError } = await client
-        .from('teachers')
-        .update({
-          role: 'subject_teacher',
-          total_weekly_hours: 15,  // 科任基准课时
-          main_class_count: 2,      // 带2个班
-          main_subject_hours: 12,   // 两个班主科约10-12节
-        })
-        .in('id', subjectTeacherIds);
-      
-      if (subUpdateError) {
-        errors.push(`科任教师配置更新失败: ${subUpdateError.message}`);
-      } else {
-        console.log(`科任教师配置更新完成: ${subjectTeacherIds.length}人`);
+    for (const cls of classesData) {
+      if (cls.head_teacher_id) {
+        headTeacherClasses.set(cls.head_teacher_id, cls.id);
+      }
+      if (cls.sub_teacher_id) {
+        if (!subjectHeadClasses.has(cls.sub_teacher_id)) {
+          subjectHeadClasses.set(cls.sub_teacher_id, []);
+        }
+        subjectHeadClasses.get(cls.sub_teacher_id)!.push(cls.id);
       }
     }
+    
+    // 批量更新班主任角色
+    const headTeacherIds = Array.from(headTeacherClasses.keys());
+    if (headTeacherIds.length > 0) {
+      const { error: err } = await client
+        .from('teachers')
+        .update({ 
+          role: 'head_teacher',
+          total_weekly_hours: 15,
+          main_class_count: 1,
+          main_subject_hours: 6,
+        })
+        .in('id', headTeacherIds);
+      
+      if (err) errors.push(`班主任角色更新失败: ${err.message}`);
+      else console.log(`班主任角色更新: ${headTeacherIds.length}人`);
+    }
+    
+    // 批量更新科任角色（语数老师中非班主任的）
+    const subjectHeadIds = Array.from(subjectHeadClasses.keys()).filter(id => !headTeacherClasses.has(id));
+    if (subjectHeadIds.length > 0) {
+      const { error: err } = await client
+        .from('teachers')
+        .update({ 
+          role: 'subject_teacher',
+          total_weekly_hours: 15,
+          main_class_count: 2,
+          main_subject_hours: 12,
+        })
+        .in('id', subjectHeadIds);
+      
+      if (err) errors.push(`科任角色更新失败: ${err.message}`);
+      else console.log(`科任角色更新: ${subjectHeadIds.length}人`);
+    }
+    
+    console.log(`教师配置更新完成`);
 
     // ==================== 4. 生成学生数据（3000人，每班50人，含完整信息） ====================
     console.log('生成学生数据...');
@@ -432,8 +412,8 @@ export async function POST() {
       teachers: teachersData.length,
       classes: classesData.length,
       students: insertedCount,
-      headTeachers: assignedHeadTeachers.size,
-      subTeachers: assignedSubTeachers.size,
+      headTeachers: headTeacherClasses.size,
+      subTeachers: subjectHeadClasses.size,
       errors,
     };
 
