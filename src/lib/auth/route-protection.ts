@@ -101,14 +101,14 @@ export interface ProtectionOptions {
  * );
  * ```
  */
-export function protectedRoute(
+export function protectedRoute<T extends NativeRouteContext = NativeRouteContext>(
   handler: ProtectedRouteHandler,
   options: ProtectionOptions = {}
 ) {
   // 返回符合Next.js原生签名的函数
   return async (
     request: NextRequest,
-    context?: NativeRouteContext
+    context: T
   ): Promise<NextResponse> => {
     // 1. 认证检查
     const authResult = await authenticateRequest(request);
@@ -117,7 +117,7 @@ export function protectedRoute(
     if (options.optional && (!authResult.success || !authResult.user)) {
       return handler(request, { 
         user: null as unknown as User, 
-        params: context?.params 
+        params: context.params 
       });
     }
     
@@ -129,7 +129,7 @@ export function protectedRoute(
 
     // 2. 管理员绕过检查（如果启用）
     if (options.adminBypass !== false && isAdminRole(user.role)) {
-      return handler(request, { user, params: context?.params });
+      return handler(request, { user, params: context.params });
     }
 
     // 3. 角色检查
@@ -191,7 +191,7 @@ export function protectedRoute(
     }
 
     // 7. 执行处理器
-    return handler(request, { user, params: context?.params });
+    return handler(request, { user, params: context.params });
   };
 }
 

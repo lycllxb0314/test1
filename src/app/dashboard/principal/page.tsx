@@ -457,7 +457,8 @@ export default function PrincipalDashboard() {
                 {(stats?.school.awards || []).slice(0, 4).map((award, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-sm">
                     <Star className="h-4 w-4 text-amber-500" />
-                    <span>{award}</span>
+                    <span>{award.name}</span>
+                    <span className="text-xs text-muted-foreground">({award.year})</span>
                   </div>
                 ))}
               </div>

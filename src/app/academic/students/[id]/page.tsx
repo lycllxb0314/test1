@@ -55,7 +55,7 @@ import {
   Trophy,
   Activity,
 } from 'lucide-react';
-import { useStudentFullProfile } from '@/hooks/useStudentData';
+import { useStudents } from '@/hooks';
 import { StudentFullProfile, Parent } from '@/types';
 import { toast } from 'sonner';
 import { HabitTabContent } from '@/components/student/habit-tab-content';
@@ -154,11 +154,37 @@ export default function StudentDetailPage({ params }: PageProps) {
   const searchParams = useSearchParams();
   const isEditMode = searchParams.get('edit') === 'true';
 
-  const { data: profile, loading, error, refetch, updateProfile } = useStudentFullProfile(id);
+  const { fetchStudentProfile, getStudentProfile, profileLoading: loading, updateStudent } = useStudents();
   
+  const [profile, setProfile] = useState<StudentFullProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(isEditMode);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // 加载学生档案
+  useEffect(() => {
+    const loadProfile = async () => {
+      const data = await fetchStudentProfile(id);
+      if (data) {
+        setProfile(data);
+      } else {
+        setError('获取学生档案失败');
+      }
+    };
+    loadProfile();
+  }, [id, fetchStudentProfile]);
+  
+  const refetch = async () => {
+    const data = await fetchStudentProfile(id);
+    if (data) {
+      setProfile(data);
+    }
+  };
+  
+  const updateProfile = async (data: Partial<StudentFullProfile>) => {
+    return updateStudent(id, data);
+  };
   
   // 班级列表
   const [classes, setClasses] = useState<{ id: string; name: string; grade: number; headTeacherName: string }[]>([]);

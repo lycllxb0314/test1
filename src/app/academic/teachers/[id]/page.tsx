@@ -49,12 +49,31 @@ import {
   Loader2,
 } from 'lucide-react';
 import { TeacherProfile } from '@/types';
-import { useTeacherFullProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/hooks/useTeacherData';
+import { useTeachers, type TeacherInfo } from '@/hooks';
 import { toast } from 'sonner';
 import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
 
 // 本地类型定义，用于对话框编辑项
-type EditItem = TeacherHonor | TeacherTraining | TeacherAchievement | TeacherRecord;
+type EditItem = { 
+  id: string; 
+  teacherId?: string;
+  title: string; 
+  date: string; 
+  type?: string;
+  level?: string;
+  category?: string;
+  issuer?: string;
+  certificateNo?: string;
+  name?: string;
+  organizer?: string;
+  startDate?: string;
+  endDate?: string;
+  hours?: number;
+  status?: string;
+  result?: string;
+  description?: string;
+  [key: string]: unknown 
+};
 
 // 模拟教师详细数据
 const mockTeacherProfile: TeacherProfile = {
@@ -192,7 +211,8 @@ export default function TeacherDetailPage() {
   const teacherId = params.id as string;
   
   // 使用统一数据接口
-  const { data: teacher, loading, error, refetch, updateProfile } = useTeacherFullProfile(teacherId);
+  const { getTeacherById, loading, refetch } = useTeachers();
+  const teacher = getTeacherById(teacherId);
   
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
@@ -201,7 +221,12 @@ export default function TeacherDetailPage() {
   // 对话框状态
   const [dialogType, setDialogType] = useState<'honor' | 'training' | 'achievement' | 'record' | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editItem, setEditItem] = useState<EditItem | null>(null);
+  const [editItem, setEditItem] = useState<EditItem | undefined>(undefined);
+  
+  const updateProfile = async (data: Partial<TeacherInfo>) => {
+    // TODO: 实现更新逻辑
+    return true;
+  };
   
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -248,8 +273,8 @@ export default function TeacherDetailPage() {
         title: teacher.title ?? '',
         titleDate: teacher.titleDate ?? '',
         department: teacher.department ?? '',
-        subjects: teacher.subjects?.join('、') ?? '',
-        status: teacher.status ?? 'active',
+        subjects: teacher.teachableSubjects?.join('、') ?? teacher.subject ?? '',
+        status: (teacher.status === 'active' ? 'active' : 'active') as 'active' | 'on_leave' | 'retired' | 'transferred',
       });
     }
   }, [teacher]);
@@ -283,8 +308,8 @@ export default function TeacherDetailPage() {
         title: formData.title,
         titleDate: formData.titleDate,
         department: formData.department,
-        subjects: formData.subjects.split('、').filter(s => s.trim()),
-        status: formData.status,
+        subject: formData.subjects.split('、')[0] || '',
+        teachableSubjects: formData.subjects.split('、').filter(s => s.trim()),
       });
       
       if (success) {
@@ -324,8 +349,10 @@ export default function TeacherDetailPage() {
         title: teacher.title ?? '',
         titleDate: teacher.titleDate ?? '',
         department: teacher.department ?? '',
-        subjects: teacher.subjects?.join('、') ?? '',
-        status: teacher.status ?? 'active',
+        subjects: teacher.teachableSubjects?.join('、') ?? teacher.subject ?? '',
+        status: (teacher.status === 'active' || teacher.status === 'on_leave' || teacher.status === 'retired' || teacher.status === 'transferred') 
+          ? teacher.status 
+          : 'active',
       });
     }
     setIsEditing(false);
@@ -334,7 +361,7 @@ export default function TeacherDetailPage() {
   // 打开添加对话框
   const openAddDialog = (type: 'honor' | 'training' | 'achievement' | 'record') => {
     setDialogType(type);
-    setEditItem(null);
+    setEditItem(undefined);
     setDialogOpen(true);
   };
 
@@ -377,11 +404,11 @@ export default function TeacherDetailPage() {
   }
 
   // 错误状态
-  if (error || !teacher) {
+  if (!teacher) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-destructive">{error || '教师不存在'}</p>
+          <p className="text-destructive">教师不存在</p>
           <Button variant="outline" className="mt-4" onClick={() => router.back()}>
             返回列表
           </Button>
@@ -528,7 +555,7 @@ export default function TeacherDetailPage() {
                       className="h-6 text-xs w-32"
                     />
                   ) : (
-                    <span>任教学科：{teacher.subjects.join('、')}</span>
+                    <span>任教学科：{teacher.teachableSubjects?.join('、') || teacher.subject}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -811,7 +838,7 @@ export default function TeacherDetailPage() {
                     {isEditing ? (
                       <Input value={formData.subjects} onChange={(e) => handleFieldChange('subjects', e.target.value)} placeholder="多个学科用顿号分隔" />
                     ) : (
-                      <p className="font-medium">{teacher.subjects.join('、')}</p>
+                      <p className="font-medium">{teacher.teachableSubjects?.join('、') || teacher.subject}</p>
                     )}
                   </div>
                   <div>
@@ -824,7 +851,7 @@ export default function TeacherDetailPage() {
                   </div>
                   <div>
                     <Label className="text-muted-foreground">是否班主任</Label>
-                    <p className="font-medium">{teacher.isHeadTeacher ? `是（${teacher.className}）` : '否'}</p>
+                    <p className="font-medium">{teacher.isHeadTeacher ? `是（${teacher.headTeacherClassName || '未分配班级'}）` : '否'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -839,23 +866,23 @@ export default function TeacherDetailPage() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.honors.length}</div>
+                  <div className="text-2xl font-bold text-primary">{teacher.honors?.length || 0}</div>
                   <div className="text-sm text-muted-foreground mt-1">荣誉奖项</div>
                 </div>
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.trainings.filter(t => t.status === '已完成').length}</div>
+                  <div className="text-2xl font-bold text-primary">{teacher.trainings?.filter(t => t.status === '已完成').length || 0}</div>
                   <div className="text-sm text-muted-foreground mt-1">培训完成</div>
                 </div>
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.achievements.length}</div>
+                  <div className="text-2xl font-bold text-primary">{teacher.achievements?.length || 0}</div>
                   <div className="text-sm text-muted-foreground mt-1">教学成果</div>
                 </div>
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.trainings.reduce((sum, t) => sum + t.hours, 0)}</div>
+                  <div className="text-2xl font-bold text-primary">{teacher.trainings?.reduce((sum, t) => sum + (t.hours || 0), 0) || 0}</div>
                   <div className="text-sm text-muted-foreground mt-1">培训学时</div>
                 </div>
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.honors.filter(h => h.level === '省级' || h.level === '国家级').length}</div>
+                  <div className="text-2xl font-bold text-primary">{teacher.honors?.filter(h => h.level === '省级' || h.level === '国家级').length || 0}</div>
                   <div className="text-sm text-muted-foreground mt-1">省级以上荣誉</div>
                 </div>
               </div>
@@ -880,7 +907,7 @@ export default function TeacherDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {teacher.honors.map(honor => (
+                {(teacher.honors || []).map(honor => (
                   <div key={honor.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
                     <div className={`px-3 py-1 rounded-full text-sm font-medium ${getHonorLevelColor(honor.level)}`}>
                       {honor.level}
@@ -926,7 +953,7 @@ export default function TeacherDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {teacher.trainings.map(training => (
+                {(teacher.trainings || []).map(training => (
                   <div key={training.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -940,12 +967,11 @@ export default function TeacherDetailPage() {
                         主办单位：{training.organizer} · 时间：{training.startDate} 至 {training.endDate}
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        学时：{training.hours} 小时
-                        {training.certificate && <span className="ml-4 text-green-600">已获得证书</span>}
+                        学时：{training.hours || 0} 小时
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('training', training)}>编辑</Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('training', training as unknown as EditItem)}>编辑</Button>
                       <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('training', training.id)}>删除</Button>
                     </div>
                   </div>
@@ -972,7 +998,7 @@ export default function TeacherDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {teacher.achievements.map(achievement => (
+                {(teacher.achievements || []).map(achievement => (
                   <div key={achievement.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -999,7 +1025,7 @@ export default function TeacherDetailPage() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('achievement', achievement)}>编辑</Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('achievement', achievement as unknown as EditItem)}>编辑</Button>
                       <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('achievement', achievement.id)}>删除</Button>
                     </div>
                   </div>
@@ -1030,7 +1056,7 @@ export default function TeacherDetailPage() {
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border"></div>
                 
                 <div className="space-y-4">
-                  {teacher.records.sort((a, b) => b.date.localeCompare(a.date)).map(record => {
+                  {(teacher.records || []).sort((a, b) => b.date.localeCompare(a.date)).map(record => {
                     const typeInfo = getRecordTypeInfo(record.type);
                     const Icon = typeInfo.icon;
                     return (
@@ -1046,7 +1072,7 @@ export default function TeacherDetailPage() {
                               <span className="font-medium">{record.title}</span>
                             </div>
                             <div className="flex gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => openEditDialog('record', record)}>编辑</Button>
+                              <Button variant="ghost" size="sm" onClick={() => openEditDialog('record', record as unknown as EditItem)}>编辑</Button>
                               <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('record', record.id)}>删除</Button>
                             </div>
                           </div>

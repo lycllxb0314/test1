@@ -73,6 +73,13 @@ export interface ParentInfo {
   // 关联学生
   studentId: string;
   studentName: string;
+  studentNo: string;
+  
+  // 班级信息
+  classId: string;
+  className: string;
+  grade: number;
+  studentStatus?: string;
 }
 
 /** 教师候选人（用于智能推荐） */
@@ -212,6 +219,11 @@ export function useClasses(): UseClassesReturn {
                   ...parent,
                   studentId: student.id,
                   studentName: student.name,
+                  studentNo: student.studentNo,
+                  classId: cls.id as string,
+                  className: cls.name as string,
+                  grade: cls.grade as number,
+                  studentStatus: student.status,
                 });
               });
             }

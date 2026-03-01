@@ -26,18 +26,22 @@ import {
   CheckCircle,
   Loader2,
 } from 'lucide-react';
-import { useSchoolStats } from '@/hooks/useSchoolStats';
+import { useStudents, useTeachers, useClasses } from '@/hooks';
 
 export default function AcademicPage() {
-  const { data: statsData, loading, error } = useSchoolStats();
+  const { students, statistics: studentStats, loading: studentsLoading } = useStudents();
+  const { teachers, statistics: teacherStats, loading: teachersLoading } = useTeachers();
+  const { classes, statistics: classStats, loading: classesLoading } = useClasses();
   
-  // 统计数据（基于API返回）
-  const schoolStats = statsData ? {
-    totalStudents: statsData.students.total,
-    totalTeachers: statsData.teachers.total,
-    totalClasses: statsData.classes.total,
-    name: statsData.school.name,
-  } : { totalStudents: 0, totalTeachers: 0, totalClasses: 0, name: '龙岩师范附属小学' };
+  const loading = studentsLoading || teachersLoading || classesLoading;
+  
+  // 统计数据
+  const schoolStats = {
+    totalStudents: studentStats.total,
+    totalTeachers: teacherStats.total,
+    totalClasses: classStats.totalClasses,
+    name: '龙岩师范附属小学',
+  };
 
   const stats = [
     { title: '学生总数', value: schoolStats.totalStudents, change: '+12', icon: Users, gradient: 'from-blue-500 to-cyan-500' },

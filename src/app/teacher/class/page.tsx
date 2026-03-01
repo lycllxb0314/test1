@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -64,7 +64,7 @@ import {
   Home,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useStudentsList, useStudentMutation, StudentListItem } from '@/hooks/useStudentData';
+import { useStudents, type StudentInfo } from '@/hooks/useStudents';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
 
@@ -102,20 +102,38 @@ export default function ClassManagePage() {
   const className = user?.className || '我的班级';
 
   // 使用统一 Hook 获取学生列表
-  const { data: students, pagination, loading, error, refetch } = useStudentsList({
-    search: searchTerm,
-    classId,
-    status: statusFilter === 'all' ? undefined : statusFilter,
-    page,
-    pageSize: 10,
-  });
+  const { 
+    students: allStudents, 
+    pagination, 
+    loading, 
+    error, 
+    refetch,
+    deleteStudent 
+  } = useStudents();
 
-  // 学生操作 Hook
-  const { deleteStudent, loading: mutationLoading } = useStudentMutation();
+  // 筛选当前班级的学生
+  const students = useMemo(() => {
+    let filtered = allStudents.filter(s => s.classId === classId);
+    
+    if (searchTerm) {
+      filtered = filtered.filter(s => 
+        s.name.includes(searchTerm) || s.studentNo.includes(searchTerm)
+      );
+    }
+    
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(s => s.status === statusFilter);
+    }
+    
+    return filtered;
+  }, [allStudents, classId, searchTerm, statusFilter]);
+
+  // 学生操作状态
+  const [mutationLoading, setMutationLoading] = useState(false);
 
   // 删除确认弹窗
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [studentToDelete, setStudentToDelete] = useState<StudentListItem | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<StudentInfo | null>(null);
 
   // 权限检查 - 只有班主任可以访问
   useEffect(() => {
@@ -136,7 +154,7 @@ export default function ClassManagePage() {
   };
 
   // 确认删除
-  const confirmDelete = (student: StudentListItem) => {
+  const confirmDelete = (student: StudentInfo) => {
     setStudentToDelete(student);
     setDeleteDialogOpen(true);
   };
@@ -145,7 +163,10 @@ export default function ClassManagePage() {
   const handleDelete = async () => {
     if (!studentToDelete) return;
 
+    setMutationLoading(true);
     const success = await deleteStudent(studentToDelete.id);
+    setMutationLoading(false);
+    
     if (success) {
       toast.success('学生已删除');
       refetch();

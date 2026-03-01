@@ -60,6 +60,9 @@ export interface StudentInfo {
   status: '在校' | '请假' | '休学' | '毕业' | '转学';
   avatar?: string;
   
+  // 习惯养成
+  habitStars?: number;
+  
   // 时间戳
   createdAt?: string;
   updatedAt?: string;

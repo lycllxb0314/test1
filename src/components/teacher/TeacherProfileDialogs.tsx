@@ -22,47 +22,47 @@ type DialogType = 'honor' | 'training' | 'achievement' | 'record';
 // 定义本地类型，避免类型冲突
 interface LocalTeacherHonor {
   id: string;
-  teacherId: string;
-  title: string;
-  level: string;
-  category: string;
+  teacherId?: string;
+  title?: string;
+  level?: string;
+  category?: string;
   issuer?: string;
-  date: string;
+  date?: string;
   certificateNo?: string;
 }
 
 interface LocalTeacherTraining {
   id: string;
-  teacherId: string;
-  name: string;
-  type: string;
-  organizer: string;
-  startDate: string;
-  endDate: string;
-  hours: number;
-  status: string;
+  teacherId?: string;
+  name?: string;
+  type?: string;
+  organizer?: string;
+  startDate?: string;
+  endDate?: string;
+  hours?: number;
+  status?: string;
   certificate?: string;
   notes?: string;
 }
 
 interface LocalTeacherAchievement {
   id: string;
-  teacherId: string;
-  type: string;
-  title: string;
+  teacherId?: string;
+  type?: string;
+  title?: string;
   level?: string;
   result?: string;
-  date: string;
+  date?: string;
   description?: string;
 }
 
 interface LocalTeacherRecord {
   id: string;
-  teacherId: string;
-  type: string;
-  title: string;
+  teacherId?: string;
+  type?: string;
+  title?: string;
   description?: string;
-  date: string;
+  date?: string;
 }
 
 type EditItem = LocalTeacherHonor | LocalTeacherTraining | LocalTeacherAchievement | LocalTeacherRecord | null;

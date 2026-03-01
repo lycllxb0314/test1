@@ -57,12 +57,38 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { TeacherProfile } from '@/types';
-import { useTeacherFullProfile, TeacherFullProfile, TeacherRecord, TeacherHonor, TeacherTraining, TeacherAchievement } from '@/hooks/useTeacherData';
+import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
 import { toast } from 'sonner';
 import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
 
-// 本地类型定义，用于对话框编辑项
-type EditItem = TeacherHonor | TeacherTraining | TeacherAchievement | TeacherRecord;
+// 类型别名
+type TeacherFullProfile = TeacherInfo;
+type TeacherRecord = { id: string; type: string; title: string; date: string; description?: string };
+type TeacherHonor = { id: string; name: string; level: string; date: string; type: string };
+type TeacherTraining = { id: string; name: string; type: string; organizer: string; startDate: string; endDate: string; hours: number; status: string };
+type TeacherAchievement = { id: string; type: string; title: string; level?: string; date: string; result?: string; description?: string };
+
+// 本地类型定义，用于对话框编辑项（兼容 TeacherProfileDialogs）
+type EditItem = { 
+  id: string; 
+  teacherId?: string;
+  title: string; 
+  date: string; 
+  type?: string;
+  level?: string;
+  category?: string;
+  issuer?: string;
+  certificateNo?: string;
+  name?: string;
+  organizer?: string;
+  startDate?: string;
+  endDate?: string;
+  hours?: number;
+  status?: string;
+  result?: string;
+  description?: string;
+  [key: string]: unknown 
+};
 
 // 获取记录类型图标和颜色
 const getHonorLevelColor = (level: string) => {
@@ -108,7 +134,31 @@ export default function TeacherProfilePage() {
   const teacherId = user?.id || 'teacher-001'; // 默认使用当前登录用户的ID
   
   // 使用统一数据接口获取教师完整档案
-  const { data: profile, loading: isLoading, error, refetch, updateProfile } = useTeacherFullProfile(teacherId);
+  const { getTeacherById, updateTeacher, loading: hookLoading, refetch } = useTeachers();
+  
+  const [profile, setProfile] = useState<TeacherInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // 加载教师档案
+  useEffect(() => {
+    const loadProfile = async () => {
+      setIsLoading(true);
+      const teacher = getTeacherById(teacherId);
+      if (teacher) {
+        setProfile(teacher);
+      } else {
+        setError('获取教师档案失败');
+      }
+      setIsLoading(false);
+    };
+    loadProfile();
+  }, [teacherId, getTeacherById]);
+  
+  // 更新档案
+  const updateProfile = async (data: Partial<TeacherInfo>) => {
+    return await updateTeacher(teacherId, data);
+  };
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -117,7 +167,7 @@ export default function TeacherProfilePage() {
   // 对话框状态
   const [dialogType, setDialogType] = useState<'honor' | 'training' | 'achievement' | 'record' | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editItem, setEditItem] = useState<EditItem | null>(null);
+  const [editItem, setEditItem] = useState<EditItem | undefined>(undefined);
   
   // 可编辑字段状态
   const [formData, setFormData] = useState<EditableFormData>({
@@ -205,7 +255,7 @@ export default function TeacherProfilePage() {
   // 打开添加对话框
   const openAddDialog = (type: 'honor' | 'training' | 'achievement' | 'record') => {
     setDialogType(type);
-    setEditItem(null);
+    setEditItem(undefined);
     setDialogOpen(true);
   };
 
@@ -353,19 +403,19 @@ export default function TeacherProfilePage() {
               {/* 成长数据概览 */}
               <div className="grid grid-cols-4 gap-4 mt-6">
                 <div className="text-center p-3 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{profile.honors.length}</div>
+                  <div className="text-2xl font-bold text-primary">{(profile.honors || []).length}</div>
                   <div className="text-xs text-muted-foreground">荣誉奖项</div>
                 </div>
                 <div className="text-center p-3 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{profile.trainings.filter(t => t.status === '已完成').length}</div>
+                  <div className="text-2xl font-bold text-primary">{(profile.trainings || []).filter(t => t.status === '已完成').length}</div>
                   <div className="text-xs text-muted-foreground">培训完成</div>
                 </div>
                 <div className="text-center p-3 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{profile.achievements.length}</div>
+                  <div className="text-2xl font-bold text-primary">{(profile.achievements || []).length}</div>
                   <div className="text-xs text-muted-foreground">教学成果</div>
                 </div>
                 <div className="text-center p-3 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{profile.trainings.reduce((sum, t) => sum + t.hours, 0)}</div>
+                  <div className="text-2xl font-bold text-primary">{(profile.trainings || []).reduce((sum, t) => sum + (t.hours || 0), 0)}</div>
                   <div className="text-xs text-muted-foreground">培训学时</div>
                 </div>
               </div>
@@ -593,7 +643,7 @@ export default function TeacherProfilePage() {
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs">任教学科</Label>
-                    <p className="font-medium mt-1">{profile.subjects.join('、')}</p>
+                    <p className="font-medium mt-1">{profile.subject}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs">教龄</Label>
@@ -605,7 +655,7 @@ export default function TeacherProfilePage() {
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs">班主任</Label>
-                    <p className="font-medium mt-1">{profile.isHeadTeacher ? `是（${profile.className}）` : '否'}</p>
+                    <p className="font-medium mt-1">{profile.isHeadTeacher ? `是（${profile.headTeacherClassName || '未分配班级'}）` : '否'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -635,7 +685,7 @@ export default function TeacherProfilePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {profile.honors.map(honor => (
+                {(profile.honors || []).map(honor => (
                   <div key={honor.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
                     <div className={`px-3 py-1 rounded-full text-sm font-medium ${getHonorLevelColor(honor.level)}`}>
                       {honor.level}
@@ -681,7 +731,7 @@ export default function TeacherProfilePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {profile.trainings.map(training => (
+                {(profile.trainings || []).map(training => (
                   <div key={training.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -695,12 +745,11 @@ export default function TeacherProfilePage() {
                         主办单位：{training.organizer} · 时间：{training.startDate} 至 {training.endDate}
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        学时：{training.hours} 小时
-                        {training.certificate && <span className="ml-4 text-green-600">已获得证书</span>}
+                        学时：{training.hours || 0} 小时
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('training', training)}>编辑</Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('training', training as EditItem)}>编辑</Button>
                       <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('training', training.id)}>删除</Button>
                     </div>
                   </div>
@@ -727,7 +776,7 @@ export default function TeacherProfilePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {profile.achievements.map(achievement => (
+                {(profile.achievements || []).map(achievement => (
                   <div key={achievement.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -754,7 +803,7 @@ export default function TeacherProfilePage() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('achievement', achievement)}>编辑</Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('achievement', achievement as EditItem)}>编辑</Button>
                       <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('achievement', achievement.id)}>删除</Button>
                     </div>
                   </div>
@@ -785,7 +834,7 @@ export default function TeacherProfilePage() {
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border"></div>
                 
                 <div className="space-y-4">
-                  {profile.records.sort((a, b) => b.date.localeCompare(a.date)).map(record => {
+                  {(profile.records || []).sort((a, b) => b.date.localeCompare(a.date)).map(record => {
                     const typeInfo = getRecordTypeInfo(record.type);
                     const Icon = typeInfo.icon;
                     return (

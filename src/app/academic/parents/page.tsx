@@ -54,7 +54,7 @@ import {
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import { useParents, type ParentInfo } from '@/hooks/useParents';
+import { useStudents, type ParentInfo } from '@/hooks';
 import { toast } from 'sonner';
 
 // 每页显示数量
@@ -89,17 +89,13 @@ const getRelationshipIcon = (relationship: string) => {
 };
 
 export default function ParentsPage() {
-  // 使用家长数据Hook
+  // 使用学生数据Hook，从中提取家长信息
   const { 
-    parents, 
+    students, 
     loading, 
-    error, 
-    statistics, 
-    gradeOptions, 
-    classOptions,
-    relationshipOptions,
+    error,
     refetch 
-  } = useParents();
+  } = useStudents();
 
   // 搜索和筛选状态
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,6 +107,66 @@ export default function ParentsPage() {
   // 详情弹窗
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedParent, setSelectedParent] = useState<ParentInfo | null>(null);
+
+  // 从学生数据中提取家长列表
+  const parents = useMemo(() => {
+    const parentList: ParentInfo[] = [];
+    students.forEach(student => {
+      if (student.parents && student.parents.length > 0) {
+        student.parents.forEach(parent => {
+          parentList.push({
+            id: parent.id,
+            name: parent.name,
+            relationship: parent.relationship,
+            phone: parent.phone,
+            wechat: parent.wechat,
+            isPrimary: parent.isPrimary,
+            studentId: student.id,
+            studentName: student.name,
+            studentNo: student.studentNo,
+            classId: student.classId,
+            className: student.className,
+            grade: student.grade,
+          });
+        });
+      }
+    });
+    return parentList;
+  }, [students]);
+
+  // 获取筛选选项
+  const gradeOptions = useMemo(() => {
+    const grades = [...new Set(parents.map(p => p.grade))].sort((a, b) => a - b);
+    return grades.map(g => ({ value: g.toString(), label: `${g}年级` }));
+  }, [parents]);
+
+  const classOptions = useMemo(() => {
+    const classMap = new Map<string, string>();
+    parents.forEach(p => {
+      if (!classMap.has(p.classId)) {
+        classMap.set(p.classId, p.className);
+      }
+    });
+    return Array.from(classMap.entries()).map(([value, label]) => ({ value, label }));
+  }, [parents]);
+
+  const relationshipOptions = useMemo(() => {
+    const relationships = [...new Set(parents.map(p => p.relationship))];
+    return relationships.map(r => ({ value: r, label: r }));
+  }, [parents]);
+
+  // 统计数据
+  const statistics = useMemo(() => ({
+    total: parents.length,
+    primaryCount: parents.filter(p => p.isPrimary).length,
+    fathers: parents.filter(p => p.relationship === '父亲').length,
+    mothers: parents.filter(p => p.relationship === '母亲').length,
+    grandparents: parents.filter(p => ['爷爷', '奶奶', '外公', '外婆'].includes(p.relationship)).length,
+    gradeDistribution: parents.reduce((acc, p) => {
+      acc[p.grade] = (acc[p.grade] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>),
+  }), [parents]);
 
   // 筛选后的家长列表
   const filteredParents = useMemo(() => {
@@ -289,7 +345,7 @@ export default function ParentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">主要联系人</p>
-                <p className="text-2xl font-bold text-green-600">{statistics.primaryContacts}</p>
+                <p className="text-2xl font-bold text-green-600">{statistics.primaryCount}</p>
               </div>
               <div className="p-2 rounded-lg bg-green-100">
                 <Phone className="h-5 w-5 text-green-600" />

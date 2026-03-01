@@ -48,7 +48,7 @@ import {
   Trophy,
   Activity,
 } from 'lucide-react';
-import { useStudentFullProfile } from '@/hooks/useStudentData';
+import { useStudents } from '@/hooks/useStudents';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { StudentFullProfile, Parent } from '@/types';
@@ -93,7 +93,45 @@ export default function StudentDetailPage({ params }: PageProps) {
   const { user } = useAuth();
   const { isHeadTeacher } = usePermissions();
 
-  const { data: profile, loading, error, refetch, updateProfile } = useStudentFullProfile(id);
+  // 使用 useStudents hook 获取学生档案
+  const { 
+    fetchStudentProfile, 
+    updateStudent, 
+    getStudentById 
+  } = useStudents();
+  
+  const [profile, setProfile] = useState<StudentFullProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 加载学生档案
+  useEffect(() => {
+    const loadProfile = async () => {
+      setLoading(true);
+      setError(null);
+      const result = await fetchStudentProfile(id);
+      if (result) {
+        setProfile(result);
+      } else {
+        setError('获取学生档案失败');
+      }
+      setLoading(false);
+    };
+    loadProfile();
+  }, [id, fetchStudentProfile]);
+
+  // 刷新数据
+  const refetch = async () => {
+    const result = await fetchStudentProfile(id);
+    if (result) {
+      setProfile(result);
+    }
+  };
+
+  // 更新档案
+  const updateProfile = async (data: Partial<StudentFullProfile>) => {
+    return await updateStudent(id, data);
+  };
 
   const [isEditing, setIsEditing] = useState(isEditMode);
   const [isSaving, setIsSaving] = useState(false);

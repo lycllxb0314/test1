@@ -205,6 +205,7 @@ export interface UseTeachersReturn {
   fetchTeachers: () => Promise<void>;
   refetch: () => Promise<void>; // fetchTeachers 的别名
   getTeacherById: (id: string) => TeacherInfo | undefined;
+  updateTeacher: (id: string, data: Partial<TeacherInfo>) => Promise<boolean>;
   updateTeacherRole: (config: TeacherRoleConfig) => Promise<boolean>;
   batchUpdateRoles: (configs: TeacherRoleConfig[]) => Promise<boolean>;
   
@@ -389,6 +390,27 @@ export function useTeachers(): UseTeachersReturn {
     return roles;
   }, [getRoleLabel]);
   
+  // 更新教师基本信息
+  const updateTeacher = useCallback(async (id: string, data: Partial<TeacherInfo>): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/teachers/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      if (response.ok) {
+        // 更新本地状态
+        setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('更新教师信息失败:', err);
+      return false;
+    }
+  }, []);
+  
   // 初始化加载
   useEffect(() => {
     fetchTeachers();
@@ -404,6 +426,7 @@ export function useTeachers(): UseTeachersReturn {
     fetchTeachers,
     refetch: fetchTeachers, // 别名，方便使用
     getTeacherById,
+    updateTeacher,
     updateTeacherRole,
     batchUpdateRoles,
     getRoleLabel,

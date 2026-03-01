@@ -55,7 +55,7 @@ import {
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import { useStudentsList, useStudentMutation, StudentListItem } from '@/hooks/useStudentData';
+import { useStudents, type StudentInfo } from '@/hooks';
 import { toast } from 'sonner';
 
 // 年级选项
@@ -106,20 +106,18 @@ export default function StudentsPage() {
   const [page, setPage] = useState(1);
   
   // 使用统一Hook获取学生列表
-  const { data: students, pagination, statistics, loading, error, refetch } = useStudentsList({
-    search: searchTerm,
-    grade: gradeFilter,
-    status: statusFilter,
-    page,
-    pageSize: 10,
-  });
-  
-  // 学生操作Hook
-  const { deleteStudent, loading: mutationLoading } = useStudentMutation();
+  const { 
+    students, 
+    statistics, 
+    loading, 
+    error, 
+    refetch,
+    deleteStudent 
+  } = useStudents();
   
   // 删除确认弹窗
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [studentToDelete, setStudentToDelete] = useState<StudentListItem | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<StudentInfo | null>(null);
 
   // 查看详情
   const handleViewDetail = (studentId: string) => {
@@ -188,7 +186,7 @@ export default function StudentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">学生总数</p>
-                <p className="text-2xl font-bold text-primary">{pagination.total}</p>
+                <p className="text-2xl font-bold text-primary">{statistics.total}</p>
               </div>
               <div className="p-2 rounded-lg bg-primary/10">
                 <Users className="h-5 w-5 text-primary" />
@@ -292,7 +290,7 @@ export default function StudentsPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">学生列表</CardTitle>
           <CardDescription>
-            共 {pagination.total} 名学生，当前显示第 {page} 页
+            共 {statistics.total} 名学生
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -325,7 +323,7 @@ export default function StudentsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student) => {
+                  {students.map((student: StudentInfo) => {
                     const genderStyle = getGenderStyle(student.gender);
                     return (
                       <TableRow key={student.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => handleViewDetail(student.id)}>
@@ -388,10 +386,10 @@ export default function StudentsPage() {
               </Table>
 
               {/* 分页 */}
-              {pagination.totalPages > 1 && (
+              {students.length > 10 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t">
                   <div className="text-sm text-muted-foreground">
-                    显示 {(page - 1) * 10 + 1} - {Math.min(page * 10, pagination.total)} 条，共 {pagination.total} 条
+                    显示 1 - {students.length} 条，共 {statistics.total} 条
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -404,13 +402,13 @@ export default function StudentsPage() {
                       上一页
                     </Button>
                     <span className="text-sm">
-                      第 {page} / {pagination.totalPages} 页
+                      第 {page} 页
                     </span>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
-                      disabled={page === pagination.totalPages}
+                      onClick={() => setPage(p => p + 1)}
+                      disabled={students.length < 10}
                     >
                       下一页
                       <ChevronRight className="h-4 w-4" />
@@ -436,8 +434,7 @@ export default function StudentsPage() {
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
               取消
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={mutationLoading}>
-              {mutationLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button variant="destructive" onClick={handleDelete}>
               确认删除
             </Button>
           </DialogFooter>
