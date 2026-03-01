@@ -6,9 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -33,33 +30,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
   School,
   Plus,
   Search,
   Users,
   UserCircle,
-  Building2,
   UserCheck,
-  Edit,
   Eye,
   Loader2,
   BookOpenCheck,
   ChevronLeft,
   ChevronRight,
-  Star,
-  Phone,
-  MessageCircle,
   UserCog,
   Lightbulb,
   CheckCircle,
   AlertCircle,
-  X,
 } from 'lucide-react';
 import { useClasses, type ClassContainer, type TeacherCandidate } from '@/hooks/useClasses';
 import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
@@ -95,8 +80,8 @@ export default function ClassesPage() {
   const pageSize = 10;
   
   // 对话框
-  const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showSubTeacherDialog, setShowSubTeacherDialog] = useState(false);
+  const [showHeadTeacherDialog, setShowHeadTeacherDialog] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassContainer | null>(null);
   
   // 科任（副班主任）配置
@@ -105,7 +90,6 @@ export default function ClassesPage() {
   
   // 班主任选择
   const [selectedHeadTeacherId, setSelectedHeadTeacherId] = useState<string>('');
-  const [showHeadTeacherDialog, setShowHeadTeacherDialog] = useState(false);
 
   // 将教师数据转换为候选人格式
   const teacherCandidates: TeacherCandidate[] = useMemo(() => {
@@ -150,10 +134,9 @@ export default function ClassesPage() {
     setPage(1);
   }, [searchTerm, gradeFilter]);
 
-  // 打开详情
+  // 打开详情（新标签页）
   const handleOpenDetail = (cls: ClassContainer) => {
-    setSelectedClass(cls);
-    setShowDetailDialog(true);
+    window.open(`/academic/classes/${cls.id}`, '_blank');
   };
 
   // 打开科任（副班主任）配置
@@ -461,197 +444,6 @@ export default function ClassesPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* 班级详情对话框（包含学生和家长） */}
-      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <School className="h-5 w-5 text-amber-600" />
-              {selectedClass?.name} 详情
-            </DialogTitle>
-            <DialogDescription>
-              班级容器：班主任、科任、学生、家长
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedClass && (
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">概览</TabsTrigger>
-                <TabsTrigger value="students">学生 ({selectedClass.studentCount})</TabsTrigger>
-                <TabsTrigger value="parents">家长 ({selectedClass.parentCount})</TabsTrigger>
-                <TabsTrigger value="teachers">教师</TabsTrigger>
-              </TabsList>
-              
-              {/* 概览 */}
-              <TabsContent value="overview" className="mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-sm text-gray-500">年级</div>
-                    <div className="font-medium text-lg">{selectedClass.gradeName}</div>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-sm text-gray-500">学生人数</div>
-                    <div className="font-medium text-lg">{selectedClass.studentCount}人</div>
-                  </div>
-                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                    <div className="text-sm text-amber-700">班主任</div>
-                    <div className="font-medium text-lg text-amber-800">{selectedClass.headTeacherName}</div>
-                  </div>
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="text-sm text-blue-700">科任（副班主任）</div>
-                    <div className="font-medium text-lg text-blue-800">
-                      {selectedClass.subTeacherName || '未配置'}
-                    </div>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-sm text-gray-500">家长总数</div>
-                    <div className="font-medium text-lg">{selectedClass.parentCount}人</div>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-sm text-gray-500">教室位置</div>
-                    <div className="font-medium text-lg">{selectedClass.classroomName || '-'}</div>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              {/* 学生列表 */}
-              <TabsContent value="students" className="mt-4">
-                <ScrollArea className="h-[400px]">
-                  {selectedClass.students.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">暂无学生数据</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {selectedClass.students.map((student) => (
-                        <div 
-                          key={student.id} 
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={student.avatar} />
-                              <AvatarFallback className="bg-blue-100 text-blue-700">
-                                {student.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{student.name}</div>
-                              <div className="text-sm text-gray-500">
-                                {student.studentNo} · {student.gender === 'male' ? '男' : '女'}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant={student.status === '在校' ? 'default' : 'secondary'}>
-                            {student.status}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-              
-              {/* 家长列表 */}
-              <TabsContent value="parents" className="mt-4">
-                <ScrollArea className="h-[400px]">
-                  {selectedClass.parents.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">暂无家长数据</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {selectedClass.parents.map((parent, index) => (
-                        <div 
-                          key={`${parent.id}-${index}`} 
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="bg-green-100 text-green-700">
-                                {parent.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium flex items-center gap-2">
-                                {parent.name}
-                                {parent.isPrimary && (
-                                  <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">
-                                    主要联系人
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {parent.relationName} · {parent.studentName}家长
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <a 
-                              href={`tel:${parent.phone}`}
-                              className="p-2 hover:bg-gray-200 rounded-full"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Phone className="h-4 w-4 text-gray-600" />
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-              
-              {/* 教师信息 */}
-              <TabsContent value="teachers" className="mt-4">
-                <div className="space-y-4">
-                  {/* 班主任 */}
-                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm text-amber-700 font-medium">班主任</div>
-                        <div className="text-lg font-bold text-amber-800">{selectedClass.headTeacherName}</div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setShowDetailDialog(false);
-                          handleOpenHeadTeacher(selectedClass);
-                        }}
-                      >
-                        <Edit className="h-3 w-3 mr-1" />
-                        更换
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* 科任（副班主任） */}
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm text-blue-700 font-medium">科任（副班主任）</div>
-                        <div className="text-lg font-bold text-blue-800">
-                          {selectedClass.subTeacherName || '未配置'}
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setShowDetailDialog(false);
-                          handleOpenSubTeacher(selectedClass);
-                        }}
-                      >
-                        <BookOpenCheck className="h-3 w-3 mr-1" />
-                        {selectedClass.subTeacherName ? '更换' : '配置'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* 班主任选择对话框 */}
       <Dialog open={showHeadTeacherDialog} onOpenChange={setShowHeadTeacherDialog}>
