@@ -58,7 +58,7 @@ interface PreviewData {
     totalSlots: number;
     totalTeacherHours: number;
     avgTeacherHours: number;
-    subjectCoverage: Map<string, { teachers: number; hours: number }>;
+    subjectCoverage: Array<{ subject: string; teachers: number; hours: number }>;
   };
   validation: {
     valid: boolean;
@@ -265,14 +265,14 @@ export default function SchedulingPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-5 gap-4">
-                    {Array.from(previewData.preview.subjectCoverage.entries()).map(([subject, data]) => (
-                      <div key={subject} className="border rounded-lg p-3">
-                        <div className="font-medium">{subject}</div>
+                    {previewData.preview.subjectCoverage.map((item) => (
+                      <div key={item.subject} className="border rounded-lg p-3">
+                        <div className="font-medium">{item.subject}</div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          教师: {data.teachers}人
+                          教师: {item.teachers}人
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          需求: {data.hours}节
+                          需求: {item.hours}节
                         </div>
                       </div>
                     ))}

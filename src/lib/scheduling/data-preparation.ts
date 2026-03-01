@@ -259,7 +259,7 @@ export function generateSchedulingPreview(
   totalSlots: number;
   totalTeacherHours: number;
   avgTeacherHours: number;
-  subjectCoverage: Map<CourseCategory, { teachers: number; hours: number }>;
+  subjectCoverage: Array<{ subject: CourseCategory; teachers: number; hours: number }>;
 } {
   // 计算总课时槽
   const totalSlots = classes.reduce((sum, cls) => {
@@ -274,22 +274,22 @@ export function generateSchedulingPreview(
   // 平均课时
   const avgTeacherHours = teachers.length > 0 ? totalTeacherHours / teachers.length : 0;
   
-  // 科目覆盖率
-  const subjectCoverage = new Map<CourseCategory, { teachers: number; hours: number }>();
+  // 科目覆盖率 - 使用普通对象而非 Map
+  const subjectCoverageMap = new Map<CourseCategory, { teachers: number; hours: number }>();
   
   // 初始化所有科目
   STANDARD_SUBJECTS.forEach(subject => {
-    subjectCoverage.set(subject.name, { teachers: 0, hours: 0 });
+    subjectCoverageMap.set(subject.name, { teachers: 0, hours: 0 });
   });
   
   // 统计每个科目的教师数和课时数
   for (const teacher of teachers) {
     for (const subject of teacher.teachableSubjects) {
-      const existing = subjectCoverage.get(subject);
+      const existing = subjectCoverageMap.get(subject);
       if (existing) {
         existing.teachers++;
       } else {
-        subjectCoverage.set(subject, { teachers: 1, hours: 0 });
+        subjectCoverageMap.set(subject, { teachers: 1, hours: 0 });
       }
     }
   }
@@ -299,12 +299,19 @@ export function generateSchedulingPreview(
     const segment = cls.segment;
     for (const subject of STANDARD_SUBJECTS) {
       const hours = subject.weeklyHours[segment];
-      const existing = subjectCoverage.get(subject.name);
+      const existing = subjectCoverageMap.get(subject.name);
       if (existing) {
         existing.hours += hours;
       }
     }
   }
+  
+  // 转换为数组格式，便于 JSON 序列化
+  const subjectCoverage = Array.from(subjectCoverageMap.entries()).map(([subject, data]) => ({
+    subject,
+    teachers: data.teachers,
+    hours: data.hours,
+  }));
   
   return {
     totalSlots,
