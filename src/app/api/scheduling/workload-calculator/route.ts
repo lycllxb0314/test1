@@ -1,10 +1,10 @@
 /**
  * 精确课时分配计算器
  * 
- * 核心原则：
- * 1. 班主任：主科课时 + 班会 = 12-14节
- * 2. 科任教师：14-16节
- * 3. 技能科教师：16-18节
+ * 国家标准课时量：
+ * 1. 语数教师（班主任/科任）：14-16节/周
+ * 2. 英语教师：14-16节/周（特殊技能科，可跨年级段）
+ * 3. 其他技能科教师：16-18节/周
  * 4. 同角色课时尽量均匀
  */
 
@@ -29,9 +29,9 @@ const CURRICULUM = {
 };
 
 const WORKLOAD = {
-  head_teacher: { min: 12, max: 14, ideal: 13 },
-  subject_teacher: { min: 14, max: 16, ideal: 15 },
-  skill_teacher: { min: 16, max: 18, ideal: 17 },
+  head_teacher: { min: 14, max: 16, ideal: 15 },      // 班主任也是语数教师，统一标准
+  subject_teacher: { min: 14, max: 16, ideal: 15 },   // 科任教师（语数）
+  skill_teacher: { min: 16, max: 18, ideal: 17 },     // 技能科教师
 };
 
 export async function GET() {
@@ -72,13 +72,13 @@ export async function GET() {
     // 语文班主任承担：语文 + 班会 + 道德与法治(部分) + 书法
     // 数学班主任承担：数学 + 班会 + 劳动
     
-    // 语文班主任人均课时计算
+    // 语文班主任人均课时计算（国家标准14-16节）
     const chineseHeadChineseHours = Math.round(subjectDemand['语文'] / chineseHeadCount); // 约14节
-    const chineseHeadTotal = Math.min(14, Math.max(12, chineseHeadChineseHours + 1)); // 加班会
+    const chineseHeadTotal = Math.min(16, Math.max(14, chineseHeadChineseHours + 1)); // 加班会，控制在14-16节
     
-    // 数学班主任人均课时计算
+    // 数学班主任人均课时计算（国家标准14-16节）
     const mathHeadMathHours = Math.round(subjectDemand['数学'] / mathHeadCount); // 约9节
-    const mathHeadTotal = Math.min(14, Math.max(12, mathHeadMathHours + 2)); // 加班会+劳动
+    const mathHeadTotal = Math.min(16, Math.max(14, mathHeadMathHours + 2)); // 加班会+劳动，控制在14-16节
     
     // 4. 计算科任教师需求
     // 语文剩余课时
