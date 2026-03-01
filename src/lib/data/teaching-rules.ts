@@ -3,11 +3,9 @@
  * 
  * ⚠️ 重要说明：以下规则仅供参考，教务主任有最终决定权
  * 
- * 核心规则（参考基准）：
- * - 教师周课时量基准：约13节
- * - 班主任：带1个班，主科5-6节
- * - 科任：带2个班，主科10-12节
- * - 技能科教师：跨多个班级，约13节
+ * 国家标准课时量参考：
+ * - 语数英教师（主科教师）：14-16节/周
+ * - 其他技能科教师：16-18节/周
  * - 领导层（校长/书记/副校长）：课时量可适当减少，具体由学校决定
  * 
  * 具体课时由教务主任根据实际情况配置，智能排课结果可手动调整
@@ -88,7 +86,9 @@ export interface TeachingHoursRule {
 /**
  * 课时量标准规则表（仅供参考，教务主任有最终决定权）
  * 
- * 基准：周课时约13节
+ * 国家标准课时量：
+ * - 语数英教师（主科教师）：14-16节/周
+ * - 其他技能科教师：16-18节/周
  */
 export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
   // === 领导层 ===
@@ -120,56 +120,88 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
   },
   
   // === 教师群体 ===
-  // 班主任（带1个班）
+  // 班主任（带1个班，语数英主科教师）
   {
     role: 'head_teacher',
     classCount: 1,
-    mainSubjectHours: [5, 6],
-    totalHours: 13,
-    description: '班主任带1个班：本班主科5-6节 + 本班兼任（道法/劳动/班会）约4节 + 其他班约3节',
+    mainSubjectHours: [6, 8],
+    totalHours: 15,
+    description: '班主任带1个班（语数英教师）：本班主科6-8节 + 兼任科目（道法/劳动/班会/综合实践/校本）约6-8节，总课时14-16节',
   },
   
-  // 科任教师（带2个班）
+  // 科任教师（带2个班，语数英主科教师）
   {
     role: 'subject_teacher',
     classCount: 2,
     mainSubjectHours: [10, 12],
-    totalHours: 13,
-    description: '科任教师带2个班：两个班主科共10-12节 + 兼任1-2节',
+    totalHours: 15,
+    description: '科任教师带2个班（语数英教师）：两个班主科共10-12节 + 兼任科目约2-4节，总课时14-16节',
   },
   
-  // 技能课教师（跨多个班级）
+  // 技能课教师（体育、音乐、美术、科学、信息技术等）
   {
     role: 'skill_teacher',
     classCount: 0,  // 跨多个班级
     mainSubjectHours: [0, 0],
-    totalHours: 13,
-    description: '技能课教师跨多个班级教学，可能跨段，周课时约13节',
+    totalHours: 17,
+    description: '技能课教师（体育/音乐/美术/科学/信息技术等）：跨多个班级教学，周课时16-18节',
+  },
+  
+  // 学科组长（视为技能课教师）
+  {
+    role: 'subject_head',
+    classCount: 0,
+    mainSubjectHours: [0, 0],
+    totalHours: 16,
+    description: '学科组长：跨多个班级教学，周课时16-18节（可能有适当减免）',
   },
 ];
 
 /**
  * 根据角色和带班数计算建议课时量（仅供参考）
  * 教务主任可根据实际情况调整
+ * 
+ * 国家标准：
+ * - 语数英教师：14-16节/周
+ * - 技能科教师：16-18节/周
  */
 export function calculateSuggestedHours(
   role: TeacherRole,
   classCount: number,
   isSkillTeacher: boolean = false
-): { mainSubjectHours: number; totalHours: number } {
-  // 技能科教师特殊处理
-  if (role === 'skill_teacher' || isSkillTeacher) {
-    return { mainSubjectHours: 0, totalHours: 13 };
+): { mainSubjectHours: number; totalHours: number; minHours: number; maxHours: number; description: string } {
+  // 技能科教师：16-18节
+  if (role === 'skill_teacher' || role === 'subject_head' || isSkillTeacher) {
+    return { 
+      mainSubjectHours: 0, 
+      totalHours: 17,
+      minHours: 16,
+      maxHours: 18,
+      description: '技能科教师（体育/音乐/美术/科学/信息技术等）：周课时16-18节'
+    };
   }
   
   // 领导层特殊处理
   if (role === 'principal' || role === 'secretary') {
-    return { mainSubjectHours: 1, totalHours: 4 };
+    return { 
+      mainSubjectHours: 1, 
+      totalHours: 4,
+      minHours: 2,
+      maxHours: 6,
+      description: '校长/书记以行政工作为主，周课时2-6节'
+    };
   }
   if (role === 'vice_principal') {
-    return { mainSubjectHours: 3, totalHours: 6 };
+    return { 
+      mainSubjectHours: 3, 
+      totalHours: 6,
+      minHours: 4,
+      maxHours: 8,
+      description: '副校长以分管工作为主，周课时4-8节'
+    };
   }
   
+  // 语数英教师（班主任/科任）：14-16节
   // 查找匹配的规则
   const rule = TEACHING_HOURS_RULES.find(
     r => r.role === role && r.classCount === classCount
@@ -179,13 +211,19 @@ export function calculateSuggestedHours(
     return {
       mainSubjectHours: Math.round((rule.mainSubjectHours[0] + rule.mainSubjectHours[1]) / 2),
       totalHours: rule.totalHours,
+      minHours: 14,
+      maxHours: 16,
+      description: rule.description,
     };
   }
   
-  // 默认规则
+  // 默认规则（语数英教师）
   return {
     mainSubjectHours: classCount > 0 ? 6 * classCount : 0,
-    totalHours: 13,
+    totalHours: 15,
+    minHours: 14,
+    maxHours: 16,
+    description: '语数英教师：周课时14-16节',
   };
 }
 
@@ -203,47 +241,46 @@ export function validateTeachingHours(
 ): { valid: boolean; message: string; warnings: string[] } {
   const warnings: string[] = [];
   
-  // 技能科教师
-  if (role === 'skill_teacher' || (classCount === 0 && mainSubjectHours === 0)) {
-    if (totalHours >= 10 && totalHours <= 18) {
+  // 技能科教师：16-18节
+  if (role === 'skill_teacher' || role === 'subject_head' || (classCount === 0 && mainSubjectHours === 0)) {
+    if (totalHours >= 16 && totalHours <= 18) {
       return { valid: true, message: '课时量配置合理', warnings: [] };
     }
-    if (totalHours < 10) {
-      warnings.push(`技能科教师周课时建议约13节，当前${totalHours}节偏少`);
+    if (totalHours < 16) {
+      warnings.push(`技能科教师周课时建议16-18节，当前${totalHours}节偏少`);
     } else if (totalHours > 18) {
-      warnings.push(`技能科教师周课时建议约13节，当前${totalHours}节偏多`);
+      warnings.push(`技能科教师周课时建议16-18节，当前${totalHours}节偏多`);
     }
     // 即使有警告也返回 valid: true，因为教务主任有最终决定权
     return { valid: true, message: '课时量已配置', warnings };
   }
   
-  const rule = TEACHING_HOURS_RULES.find(
-    r => r.role === role && r.classCount === classCount
-  );
-  
-  if (!rule) {
-    // 没有匹配规则也允许保存
-    return { 
-      valid: true, 
-      message: '已保存（无匹配规则，请确认课时量）', 
-      warnings: [] 
-    };
+  // 领导层
+  if (role === 'principal' || role === 'secretary') {
+    if (totalHours <= 6) {
+      return { valid: true, message: '课时量配置合理', warnings: [] };
+    }
+    warnings.push(`校长/书记周课时建议2-6节，当前${totalHours}节`);
+    return { valid: true, message: '课时量已配置', warnings };
   }
   
-  // 检查主科课时（仅供参考）
-  if (classCount > 0) {
-    if (mainSubjectHours < rule.mainSubjectHours[0]) {
-      warnings.push(`主科课时${mainSubjectHours}节，建议${rule.mainSubjectHours[0]}-${rule.mainSubjectHours[1]}节（仅供参考）`);
+  if (role === 'vice_principal') {
+    if (totalHours >= 4 && totalHours <= 8) {
+      return { valid: true, message: '课时量配置合理', warnings: [] };
     }
-    if (mainSubjectHours > rule.mainSubjectHours[1]) {
-      warnings.push(`主科课时${mainSubjectHours}节，建议${rule.mainSubjectHours[0]}-${rule.mainSubjectHours[1]}节（仅供参考）`);
-    }
+    warnings.push(`副校长周课时建议4-8节，当前${totalHours}节`);
+    return { valid: true, message: '课时量已配置', warnings };
   }
   
-  // 检查总课时（仅供参考）
-  const totalDiff = Math.abs(totalHours - rule.totalHours);
-  if (totalDiff > 2) {
-    warnings.push(`总课时${totalHours}节，建议约${rule.totalHours}节（仅供参考）`);
+  // 语数英教师（班主任/科任）：14-16节
+  if (totalHours >= 14 && totalHours <= 16) {
+    return { valid: true, message: '课时量配置合理', warnings: [] };
+  }
+  
+  if (totalHours < 14) {
+    warnings.push(`语数英教师周课时建议14-16节，当前${totalHours}节偏少`);
+  } else if (totalHours > 16) {
+    warnings.push(`语数英教师周课时建议14-16节，当前${totalHours}节偏多`);
   }
   
   // 始终返回 valid: true，因为教务主任有最终决定权

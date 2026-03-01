@@ -667,15 +667,44 @@ export function TeacherFullDetailDialog({
               <Alert>
                 <Calculator className="h-4 w-4" />
                 <AlertDescription>
-                  课时配置用于排课系统，系统会根据主教学科和角色自动计算建议课时。
+                  课时配置用于排课系统，教务主任可根据实际情况调整课时量。
                 </AlertDescription>
               </Alert>
+
+              {/* 课时量建议说明 */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2 text-blue-700 font-medium">
+                  <Info className="h-4 w-4" />
+                  <span>课时量标准参考（国家标准）</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-1">
+                    <p className="font-medium text-blue-700">语数英教师：</p>
+                    <p className="text-gray-600">周课时 14-16 节</p>
+                    <p className="text-xs text-gray-500">班主任：本班主科6-8节 + 兼任科目6-8节</p>
+                    <p className="text-xs text-gray-500">科任：两个班主科10-12节 + 兼任2-4节</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium text-blue-700">技能科教师：</p>
+                    <p className="text-gray-600">周课时 16-18 节</p>
+                    <p className="text-xs text-gray-500">跨多个班级教学，可能跨年级</p>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 border-t border-blue-200 pt-2">
+                  兼任职务（年段长、教研组长等）可适当减免课时，具体由学校决定
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>周课时量</Label>
                   <Input type="number" min={0} max={30} value={form.weeklyHours} onChange={(e) => setForm(prev => ({ ...prev, weeklyHours: parseInt(e.target.value) || 0 }))} />
-                  <p className="text-xs text-gray-500">建议课时：{suggestedHours.totalHours} 节/周</p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500">
+                      建议范围：<span className="font-medium text-blue-600">{suggestedHours.minHours}-{suggestedHours.maxHours} 节/周</span>
+                    </p>
+                    <p className="text-xs text-gray-400">{suggestedHours.description}</p>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>已安排课时</Label>

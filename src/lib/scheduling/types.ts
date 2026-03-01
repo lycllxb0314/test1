@@ -10,14 +10,31 @@
  * 2. 班主任/科任教师：
  *    - 有兼任职务：只上1个班的主科目课
  *    - 无兼任职务：带2个班的主科目课
- *    - 兼任本班：德法（语文老师）、劳动（数学老师）
+ *    - 兼任本班：德法（语文老师）、劳动（数学老师）、综合实践、校本课
  *    - 班主任班队课：1课时/周
  * 3. 技能科教师：优先本年级，师资不足跨段上课
+ * 4. 每天必须有语文和数学课
  * 
  * ==================== 时间安排 ====================
  * - 上午3节主科，下午综合科
  * - 第一节语数轮换
  * - 低年级（1-2）下午2节，中高年级（3-6）下午3节
+ * 
+ * ==================== 科目课时标准 ====================
+ * （根据龙岩师范附属小学实际情况配置）
+ * 
+ * 语文：低年级7节，中高年级6节
+ * 数学：低年级6节，中高年级5节
+ * 英语：3-6年级，每周2节
+ * 体育：一二年级4-5节，三至六年级3-4节
+ * 音乐：一到四年级2节，五六年级1节
+ * 美术：一到四年级2节，五六年级1节
+ * 科学：低年级1节，三至六年级2节
+ * 道德与法治：所有年级2节
+ * 劳动：每周1节
+ * 信息技术：三年级开始，每周1节
+ * 校本课：3-6年级，每周1-2节（班主任上）
+ * 综合实践：每周1节（班主任上）
  */
 
 // ==================== 基础类型 ====================
@@ -45,7 +62,9 @@ export type CourseCategory =
   | '道德与法治'
   | '劳动'
   | '班会'
-  | '信息技术';
+  | '信息技术'
+  | '校本课'
+  | '综合实践';
 
 /** 教师主要角色 */
 export type TeacherPrimaryRole = 
@@ -92,13 +111,13 @@ export interface SubjectConfig {
   };
 }
 
-/** 标准科目配置 */
+/** 标准科目配置（根据龙岩师范附属小学实际情况） */
 export const STANDARD_SUBJECTS: SubjectConfig[] = [
   // === 主科 ===
   {
     name: '语文',
     type: 'main',
-    // 班主任主科课5-6节，语文老师兼任德法1节
+    // 低年级略多，每天至少1节
     weeklyHours: { low: 7, middle: 6, high: 6 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'morning',
@@ -106,7 +125,7 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
   {
     name: '数学',
     type: 'main',
-    // 科任主科课5-6节，数学老师兼任劳动1节
+    // 每天至少1节
     weeklyHours: { low: 6, middle: 5, high: 5 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'morning',
@@ -115,7 +134,7 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
   {
     name: '英语',
     type: 'skill',
-    // 只有3-6年级有英语
+    // 只有3-6年级有英语，每周2节
     weeklyHours: { low: 0, middle: 2, high: 2 },
     applicableGrades: [3, 4, 5, 6],
     preferredPeriod: 'afternoon',
@@ -123,15 +142,15 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
   {
     name: '道德与法治',
     type: 'skill',
-    // 语文老师兼任，单独列出用于排课显示
-    weeklyHours: { low: 1, middle: 1, high: 1 },
+    // 所有年级每周2节，语文老师兼任
+    weeklyHours: { low: 2, middle: 2, high: 2 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'afternoon',
   },
   {
     name: '劳动',
     type: 'skill',
-    // 数学老师兼任，单独列出用于排课显示
+    // 每周1节，数学老师兼任
     weeklyHours: { low: 1, middle: 1, high: 1 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'afternoon',
@@ -139,7 +158,7 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
   {
     name: '科学',
     type: 'skill',
-    // 根据专职科学老师配置决定是否由班主任/科任兼任
+    // 低年级1节，三至六年级2节
     weeklyHours: { low: 1, middle: 2, high: 2 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'afternoon',
@@ -147,6 +166,7 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
   {
     name: '班会',
     type: 'skill',
+    // 每周1节
     weeklyHours: { low: 1, middle: 1, high: 1 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'afternoon',
@@ -156,6 +176,7 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
   {
     name: '体育',
     type: 'skill',
+    // 一二年级4-5节，三至六年级3-4节
     weeklyHours: { low: 4, middle: 3, high: 3 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'afternoon',
@@ -163,40 +184,59 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
   {
     name: '音乐',
     type: 'skill',
-    weeklyHours: { low: 2, middle: 2, high: 2 },
+    // 一到四年级2节，五六年级1节
+    weeklyHours: { low: 2, middle: 2, high: 1 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'afternoon',
   },
   {
     name: '美术',
     type: 'skill',
-    weeklyHours: { low: 2, middle: 2, high: 2 },
+    // 一到四年级2节，五六年级1节
+    weeklyHours: { low: 2, middle: 2, high: 1 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'afternoon',
   },
   {
     name: '信息技术',
     type: 'skill',
+    // 三年级开始，每周1节
     weeklyHours: { low: 0, middle: 1, high: 1 },
     applicableGrades: [3, 4, 5, 6],
     preferredPeriod: 'afternoon',
     requiresSpecialRoom: true,
     roomType: 'computer_room',
   },
+  {
+    name: '校本课',
+    type: 'skill',
+    // 3-6年级开设，每周1-2节，班主任上
+    weeklyHours: { low: 0, middle: 1, high: 2 },
+    applicableGrades: [3, 4, 5, 6],
+    preferredPeriod: 'afternoon',
+  },
+  {
+    name: '综合实践',
+    type: 'skill',
+    // 每周1节，班主任上
+    weeklyHours: { low: 1, middle: 1, high: 1 },
+    applicableGrades: [1, 2, 3, 4, 5, 6],
+    preferredPeriod: 'afternoon',
+  },
 ];
 
 /**
- * 每周课时验证：
+ * 每周课时验证（龙岩师范附属小学）：
  * 
  * 低年级（1-2）：5节/天 × 5天 = 25节/周
- * - 语文7 + 数学6 + 德法1 + 劳动1 + 体育4 + 音乐2 + 美术2 + 科学1 + 班会1 = 25 ✓
+ * - 语文7 + 数学6 + 德法2 + 劳动1 + 体育4 + 音乐2 + 美术2 + 科学1 + 班会1 + 综合实践1 = 27
+ * - 注：体育可安排5节，实际可能需要调整
  * 
  * 中年级（3-4）：6节/天 × 5天 = 30节/周
- * - 语文6 + 数学5 + 英语2 + 德法1 + 劳动1 + 体育3 + 音乐2 + 美术2 + 科学2 + 班会1 + 信息技术1 = 26
- * - 缺少4节，需增加：体育+1、科学+1、英语+1、阅读/自习+1
+ * - 语文6 + 数学5 + 英语2 + 德法2 + 劳动1 + 体育3 + 音乐2 + 美术2 + 科学2 + 班会1 + 信息技术1 + 校本课1 + 综合实践1 = 29
  * 
  * 高年级（5-6）：6节/天 × 5天 = 30节/周
- * - 与中年级相同配置
+ * - 语文6 + 数学5 + 英语2 + 德法2 + 劳动1 + 体育3 + 音乐1 + 美术1 + 科学2 + 班会1 + 信息技术1 + 校本课2 + 综合实践1 = 28
  */
 
 // ==================== 节次配置 ====================

@@ -318,6 +318,10 @@ export class SchedulingEngine {
 
   /**
    * 为班级分配科目课时
+   * 
+   * 对于主科（语文、数学）：
+   * - 首先确保每天至少有1节（周一至周五各1节）
+   * - 剩余课时按优先上午原则分配
    */
   private assignSubjectToClass(
     cls: SchedulingClass,
@@ -326,42 +330,92 @@ export class SchedulingEngine {
     weeklyHours: number,
     grade: number
   ) {
-    // 获取该班级可用的上午时间槽（主科优先上午）
-    const morningSlots = this.getAvailableSlots(cls.id, grade, 'morning');
-    
-    // 分配课时
-    let assigned = 0;
-    for (const slot of morningSlots) {
-      if (assigned >= weeklyHours) break;
-      
-      // 检查教师是否可用
-      if (this.isTeacherAvailable(teacher.id, slot.weekDay, slot.periodIndex)) {
-        const slotId = this.generateSlotId(cls.id, slot.weekDay, slot.periodIndex);
+    // 主科需要确保每天至少有1节
+    if (isMainSubject(subject)) {
+      // 第一步：确保每天至少有1节主科（周一至周五）
+      const weekDays: WeekDay[] = [1, 2, 3, 4, 5];
+      for (const weekDay of weekDays) {
+        // 检查该天是否已有该科目的课
+        const dayAssignments = this.assignments.filter(a => 
+          a.classId === cls.id && 
+          a.subject === subject && 
+          a.timeSlot.weekDay === weekDay
+        );
         
-        const assignment: SlotAssignment = {
-          slotId,
-          classId: cls.id,
-          className: cls.name,
-          grade: cls.grade,
-          timeSlot: slot,
-          subject,
-          teacherId: teacher.id,
-          teacherName: teacher.name,
-        };
+        if (dayAssignments.length > 0) continue; // 该天已有该科目
         
-        this.addAssignment(assignment);
-        this.incrementTeacherHours(teacher.id, 1);
-        teacher.assignedClasses.push(cls.id);
-        assigned++;
+        // 获取该天可用的上午时间槽
+        const availableMorningSlots = this.getAvailableSlotsForDay(cls.id, grade, weekDay, 'morning');
+        
+        for (const slot of availableMorningSlots) {
+          // 检查教师是否可用
+          if (this.isTeacherAvailable(teacher.id, slot.weekDay, slot.periodIndex)) {
+            const slotId = this.generateSlotId(cls.id, slot.weekDay, slot.periodIndex);
+            
+            const assignment: SlotAssignment = {
+              slotId,
+              classId: cls.id,
+              className: cls.name,
+              grade: cls.grade,
+              timeSlot: slot,
+              subject,
+              teacherId: teacher.id,
+              teacherName: teacher.name,
+            };
+            
+            this.addAssignment(assignment);
+            this.incrementTeacherHours(teacher.id, 1);
+            teacher.assignedClasses.push(cls.id);
+            break; // 该天已安排，跳出
+          }
+        }
       }
-    }
-    
-    // 如果上午不够，用下午补充
-    if (assigned < weeklyHours) {
-      const afternoonSlots = this.getAvailableSlots(cls.id, grade, 'afternoon');
-      for (const slot of afternoonSlots) {
+      
+      // 统计已分配课时
+      const assignedCount = this.assignments.filter(a => 
+        a.classId === cls.id && a.subject === subject
+      ).length;
+      
+      // 如果还有剩余课时需要分配
+      if (assignedCount < weeklyHours) {
+        const remainingHours = weeklyHours - assignedCount;
+        const allAvailableSlots = this.getAvailableSlots(cls.id, grade, 'morning');
+        
+        let remaining = remainingHours;
+        for (const slot of allAvailableSlots) {
+          if (remaining <= 0) break;
+          
+          // 检查教师是否可用
+          if (this.isTeacherAvailable(teacher.id, slot.weekDay, slot.periodIndex)) {
+            const slotId = this.generateSlotId(cls.id, slot.weekDay, slot.periodIndex);
+            
+            const assignment: SlotAssignment = {
+              slotId,
+              classId: cls.id,
+              className: cls.name,
+              grade: cls.grade,
+              timeSlot: slot,
+              subject,
+              teacherId: teacher.id,
+              teacherName: teacher.name,
+            };
+            
+            this.addAssignment(assignment);
+            this.incrementTeacherHours(teacher.id, 1);
+            remaining--;
+          }
+        }
+      }
+    } else {
+      // 技能科：获取该班级可用的时间槽
+      const availableSlots = this.getAvailableSlots(cls.id, grade, 'afternoon');
+      
+      // 分配课时
+      let assigned = 0;
+      for (const slot of availableSlots) {
         if (assigned >= weeklyHours) break;
         
+        // 检查教师是否可用
         if (this.isTeacherAvailable(teacher.id, slot.weekDay, slot.periodIndex)) {
           const slotId = this.generateSlotId(cls.id, slot.weekDay, slot.periodIndex);
           
@@ -382,26 +436,78 @@ export class SchedulingEngine {
           assigned++;
         }
       }
+      
+      // 如果下午不够，用上午补充
+      if (assigned < weeklyHours) {
+        const morningSlots = this.getAvailableSlots(cls.id, grade, 'morning');
+        for (const slot of morningSlots) {
+          if (assigned >= weeklyHours) break;
+          
+          if (this.isTeacherAvailable(teacher.id, slot.weekDay, slot.periodIndex)) {
+            const slotId = this.generateSlotId(cls.id, slot.weekDay, slot.periodIndex);
+            
+            const assignment: SlotAssignment = {
+              slotId,
+              classId: cls.id,
+              className: cls.name,
+              grade: cls.grade,
+              timeSlot: slot,
+              subject,
+              teacherId: teacher.id,
+              teacherName: teacher.name,
+            };
+            
+            this.addAssignment(assignment);
+            this.incrementTeacherHours(teacher.id, 1);
+            teacher.assignedClasses.push(cls.id);
+            assigned++;
+          }
+        }
+      }
     }
   }
 
   /**
-   * 第三阶段：分配兼任技能科（德法、劳动）
+   * 第三阶段：分配兼任技能科
+   * 
+   * 班主任兼任科目：
+   * - 道德与法治：2节/周（语文老师兼任）
+   * - 劳动：1节/周（数学老师兼任）
+   * - 综合实践：1节/周（班主任兼任）
+   * - 校本课：1-2节/周，3-6年级（班主任兼任）
    */
   private assignSecondarySubjects() {
     console.log('第三阶段：分配兼任技能科...');
     
     for (const cls of this.classes) {
-      // 德法课 - 语文老师兼任
+      // 德法课 - 语文老师兼任，2节/周
       const chineseTeacher = this.findSubjectTeacher(cls.id, '语文');
       if (chineseTeacher) {
-        this.assignSubjectToClass(cls, chineseTeacher, '道德与法治', 1, cls.grade);
+        const moralHours = getSubjectWeeklyHours('道德与法治', cls.grade);
+        this.assignSubjectToClass(cls, chineseTeacher, '道德与法治', moralHours, cls.grade);
       }
       
-      // 劳动课 - 数学老师兼任
+      // 劳动课 - 数学老师兼任，1节/周
       const mathTeacher = this.findSubjectTeacher(cls.id, '数学');
       if (mathTeacher) {
         this.assignSubjectToClass(cls, mathTeacher, '劳动', 1, cls.grade);
+      }
+      
+      // 综合实践 - 班主任兼任，1节/周
+      if (cls.headTeacherId) {
+        const headTeacher = this.teachers.find(t => t.id === cls.headTeacherId);
+        if (headTeacher) {
+          this.assignSubjectToClass(cls, headTeacher, '综合实践', 1, cls.grade);
+        }
+      }
+      
+      // 校本课 - 班主任兼任，3-6年级开设
+      if (cls.grade >= 3 && cls.headTeacherId) {
+        const headTeacher = this.teachers.find(t => t.id === cls.headTeacherId);
+        if (headTeacher) {
+          const schoolBasedHours = getSubjectWeeklyHours('校本课', cls.grade);
+          this.assignSubjectToClass(cls, headTeacher, '校本课', schoolBasedHours, cls.grade);
+        }
       }
     }
   }
@@ -613,6 +719,30 @@ export class SchedulingEngine {
             periodType: period.type,
           });
         }
+      }
+    }
+    
+    return slots;
+  }
+
+  /**
+   * 获取指定日期的可用时间槽
+   */
+  private getAvailableSlotsForDay(classId: string, grade: number, weekDay: WeekDay, periodType: PeriodType): TimeSlot[] {
+    const slots: TimeSlot[] = [];
+    const periods = getPeriodsByGrade(grade);
+    
+    for (const period of periods) {
+      if (period.type !== periodType) continue;
+      
+      const slotId = this.generateSlotId(classId, weekDay, period.index);
+      if (!this.classSlots.get(classId)?.has(slotId)) {
+        slots.push({
+          weekDay,
+          periodIndex: period.index,
+          periodName: period.name,
+          periodType: period.type,
+        });
       }
     }
     
