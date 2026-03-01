@@ -52,6 +52,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  BookOpenCheck,
 } from 'lucide-react';
 
 // ==================== 类型定义 ====================
@@ -64,6 +65,7 @@ interface Teacher {
   classId?: string;
   className?: string;
   department?: string;
+  title?: string;
 }
 
 interface ClassInfo {
@@ -139,7 +141,12 @@ export default function ClassesPage() {
   // 对话框
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCourseConfigDialog, setShowCourseConfigDialog] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
+  
+  // 科任配置状态
+  const [courseConfig, setCourseConfig] = useState<Record<string, { teacherId: string; weeklyHours: number }>>({});
+  const [savingCourseConfig, setSavingCourseConfig] = useState(false);
   
   // 编辑表单
   const [editForm, setEditForm] = useState({
@@ -175,6 +182,87 @@ export default function ClassesPage() {
       classroom: cls.classroomName,
     });
     setShowEditDialog(true);
+  };
+
+  // 打开科任配置
+  const handleOpenCourseConfig = async (cls: ClassInfo) => {
+    setSelectedClass(cls);
+    setShowCourseConfigDialog(true);
+    
+    // 获取该班级已有的科任配置
+    try {
+      const res = await fetch(`/api/teacher-courses?classId=${cls.id}`);
+      const data = await res.json();
+      
+      if (data.success && data.data) {
+        const config: Record<string, { teacherId: string; weeklyHours: number }> = {};
+        data.data.forEach((item: { subject: string; teacherId: string; weeklyHours: number }) => {
+          config[item.subject] = {
+            teacherId: item.teacherId,
+            weeklyHours: item.weeklyHours || SUBJECTS.find(s => s.name === item.subject)?.weeklyHours || 2,
+          };
+        });
+        
+        // 补充未配置的科目
+        SUBJECTS.forEach(subject => {
+          if (!config[subject.name]) {
+            config[subject.name] = { teacherId: '', weeklyHours: subject.weeklyHours };
+          }
+        });
+        
+        setCourseConfig(config);
+      } else {
+        // 初始化所有科目
+        const initialConfig: Record<string, { teacherId: string; weeklyHours: number }> = {};
+        SUBJECTS.forEach(subject => {
+          initialConfig[subject.name] = { teacherId: '', weeklyHours: subject.weeklyHours };
+        });
+        setCourseConfig(initialConfig);
+      }
+    } catch (error) {
+      console.error('获取科任配置失败:', error);
+      // 初始化所有科目
+      const initialConfig: Record<string, { teacherId: string; weeklyHours: number }> = {};
+      SUBJECTS.forEach(subject => {
+        initialConfig[subject.name] = { teacherId: '', weeklyHours: subject.weeklyHours };
+      });
+      setCourseConfig(initialConfig);
+    }
+  };
+
+  // 保存科任配置
+  const handleSaveCourseConfig = async () => {
+    if (!selectedClass) return;
+    
+    setSavingCourseConfig(true);
+    try {
+      const res = await fetch('/api/teacher-courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classId: selectedClass.id,
+          className: selectedClass.name,
+          config: Object.entries(courseConfig).map(([subject, config]) => ({
+            subject,
+            teacherId: config.teacherId,
+            weeklyHours: config.weeklyHours,
+          })).filter(c => c.teacherId), // 只保存已配置教师的科目
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setShowCourseConfigDialog(false);
+        alert('科任配置保存成功！');
+      } else {
+        alert('保存失败：' + (data.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('保存科任配置失败:', error);
+      alert('保存失败，请重试');
+    } finally {
+      setSavingCourseConfig(false);
+    }
   };
 
   // 保存班级编辑
@@ -360,6 +448,7 @@ export default function ClassesPage() {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleOpenDetail(cls)}
+                          title="查看详情"
                         >
                           <Eye className="h-3 w-3" />
                         </Button>
@@ -367,8 +456,19 @@ export default function ClassesPage() {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleOpenEdit(cls)}
+                          title="编辑"
                         >
                           <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-amber-600 border-amber-200 hover:bg-amber-50"
+                          onClick={() => handleOpenCourseConfig(cls)}
+                          title="科任配置"
+                        >
+                          <BookOpenCheck className="h-3 w-3 mr-1" />
+                          科任配置
                         </Button>
                       </div>
                     </TableCell>
@@ -455,6 +555,116 @@ export default function ClassesPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>取消</Button>
             <Button onClick={handleSaveEdit}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 科任配置对话框 */}
+      <Dialog open={showCourseConfigDialog} onOpenChange={setShowCourseConfigDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpenCheck className="h-5 w-5 text-amber-600" />
+              {selectedClass?.name} - 科任配置
+            </DialogTitle>
+            <DialogDescription>
+              为各科目分配任课教师，这是智能排课的前置条件
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="w-32">科目</TableHead>
+                  <TableHead>周课时</TableHead>
+                  <TableHead>任课教师</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {SUBJECTS.map((subject) => {
+                  const config = courseConfig[subject.name] || { teacherId: '', weeklyHours: subject.weeklyHours };
+                  // 筛选能教该科目的教师
+                  const availableTeachers = teachers.filter(t => 
+                    t.subjects?.includes(subject.name)
+                  );
+                  
+                  return (
+                    <TableRow key={subject.name}>
+                      <TableCell>
+                        <Badge className={subject.color}>
+                          {subject.name}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={config.weeklyHours.toString()}
+                          onValueChange={(v) => setCourseConfig(prev => ({
+                            ...prev,
+                            [subject.name]: { ...prev[subject.name], weeklyHours: parseInt(v) }
+                          }))}
+                        >
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1,2,3,4,5,6,7,8].map(h => (
+                              <SelectItem key={h} value={h.toString()}>{h}节</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={config.teacherId}
+                          onValueChange={(v) => setCourseConfig(prev => ({
+                            ...prev,
+                            [subject.name]: { ...prev[subject.name], teacherId: v }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择教师" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableTeachers.length > 0 ? (
+                              availableTeachers.map(t => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {t.name} {t.title ? `(${t.title})` : ''}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="_none" disabled>暂无该科目教师</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                <div className="text-sm text-amber-700">
+                  <p className="font-medium">提示</p>
+                  <p>请确保每个科目都已分配任课教师，未配置的科目将无法参与智能排课。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCourseConfigDialog(false)}>取消</Button>
+            <Button 
+              onClick={handleSaveCourseConfig}
+              disabled={savingCourseConfig}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {savingCourseConfig && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              保存配置
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
