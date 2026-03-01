@@ -1,60 +1,40 @@
 /**
  * 德育活动 API
  * 
- * 使用统一的路由处理模式和认证保护
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { success, error, parseQueryParams, ErrorCode } from '@/lib/api-route-utils';
 
 /**
  * GET - 获取德育活动列表
- * 
- * 查询参数：
- * - type: 活动类型
- * - status: 状态
- * - semester: 学期
- * 
- * 权限要求：德育模块查看权限
  */
 const handleGetActivities = async (request: NextRequest, { user }: ExtendedRouteContext) => {
+  const params = parseQueryParams(request);
+  
   try {
     const client = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const status = searchParams.get('status');
-    const semester = searchParams.get('semester');
 
     let query = client
       .from('moral_activities')
       .select('*')
       .order('date', { ascending: false });
 
-    if (type) {
-      query = query.eq('type', type);
-    }
-
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    if (semester) {
-      query = query.eq('semester', semester);
-    }
+    if (params.type) query = query.eq('type', params.type);
+    if (params.status) query = query.eq('status', params.status);
+    if (params.semester) query = query.eq('semester', params.semester);
 
     const { data, error: dbError } = await query;
 
     if (dbError) {
-      console.log('Database query failed:', dbError.message);
-      
-      // 返回Mock数据
-      return NextResponse.json({
-        success: true,
-        data: [],
-        source: 'mock',
-      });
+      return NextResponse.json(
+        error('数据库查询失败', ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
     const formattedData = (data || []).map((activity: Record<string, unknown>) => ({
@@ -72,45 +52,37 @@ const handleGetActivities = async (request: NextRequest, { user }: ExtendedRoute
       createdAt: activity.created_at,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
-      source: 'database',
-    });
+    return NextResponse.json(success(formattedData));
   } catch (err) {
     console.error('Failed to fetch moral activities:', err);
-    return NextResponse.json({
-      success: true,
-      data: [],
-      source: 'mock',
-    });
+    return NextResponse.json(
+      error('获取德育活动列表失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 };
 
 /**
  * POST - 创建德育活动
- * 
- * 权限要求：德育模块编辑权限
  */
 const handleCreateActivity = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const client = getSupabaseClient();
     const body = await request.json();
 
-    const {
-      title,
-      type,
-      date,
-      location,
-      participants,
-      organizer,
-      description,
-      images,
-    } = body;
+    const { title, type, date, location, participants, organizer, description, images } = body;
+
+    if (!title || !type || !date) {
+      return NextResponse.json(
+        error('缺少必要参数', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
+    }
 
     const { data, error: dbError } = await client
       .from('moral_activities')
       .insert({
+        id: `ma-${Date.now()}`,
         title,
         type,
         date,
@@ -127,33 +99,19 @@ const handleCreateActivity = async (request: NextRequest, { user }: ExtendedRout
       .single();
 
     if (dbError) {
-      console.log('Database insert failed:', dbError.message);
-      
-      // 返回Mock成功响应
-      return NextResponse.json({
-        success: true,
-        data: {
-          id: `ma_${Date.now()}`,
-          title,
-          type,
-          date,
-          location,
-          participants: participants || [],
-          participantCount: participants?.length || 0,
-          organizer: organizer || user.name,
-          status: 'planned',
-          description,
-          images: images || [],
-        },
-        source: 'mock',
-      });
+      return NextResponse.json(
+        error('创建德育活动失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      data,
-      source: 'database',
-    });
+    return NextResponse.json(success({
+      id: data.id,
+      title: data.title,
+      type: data.type,
+      date: data.date,
+      status: data.status,
+    }));
   } catch (err) {
     console.error('Failed to create moral activity:', err);
     return NextResponse.json(
@@ -165,8 +123,6 @@ const handleCreateActivity = async (request: NextRequest, { user }: ExtendedRout
 
 /**
  * PUT - 更新德育活动
- * 
- * 权限要求：德育模块编辑权限
  */
 const handleUpdateActivity = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
@@ -174,6 +130,13 @@ const handleUpdateActivity = async (request: NextRequest, { user }: ExtendedRout
     const body = await request.json();
 
     const { id, ...updates } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        error('缺少活动ID', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
+    }
 
     const updateData: Record<string, unknown> = {};
     if (updates.title !== undefined) updateData.title = updates.title;
@@ -195,20 +158,13 @@ const handleUpdateActivity = async (request: NextRequest, { user }: ExtendedRout
       .single();
 
     if (dbError) {
-      console.log('Database update failed:', dbError.message);
-      
-      return NextResponse.json({
-        success: true,
-        data: { id, ...updates },
-        source: 'mock',
-      });
+      return NextResponse.json(
+        error('更新德育活动失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      data,
-      source: 'database',
-    });
+    return NextResponse.json(success(data));
   } catch (err) {
     console.error('Failed to update moral activity:', err);
     return NextResponse.json(
@@ -222,7 +178,7 @@ const handleUpdateActivity = async (request: NextRequest, { user }: ExtendedRout
 export const GET = protectedRoute(handleGetActivities, { 
   module: 'moral', 
   permission: 'view',
-  optional: true, // 列表查询允许未登录访问（用于演示）
+  optional: true,
 });
 
 export const POST = protectedRoute(handleCreateActivity, { 

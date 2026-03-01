@@ -1,43 +1,43 @@
+/**
+ * 课程管理 API
+ * 
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { getMockCourses } from '@/lib/mock/academic.mock';
+import { 
+  success, 
+  error, 
+  parseQueryParams,
+  ErrorCode 
+} from '@/lib/api-route-utils';
 
 /**
  * GET - 获取课程列表
  */
 export async function GET(request: NextRequest) {
+  const params = parseQueryParams(request);
+  
   try {
-    const { searchParams } = new URL(request.url);
-    const teacherId = searchParams.get('teacherId');
-    const classId = searchParams.get('classId');
-    const semester = searchParams.get('semester');
-
-    // 尝试数据库查询
     const client = getSupabaseClient();
     
     let query = client
       .from('courses')
-      .select(`
-        id, name, code, subject, teacher_id, class_id, semester,
-        hours_per_week, total_hours, description, status
-      `)
+      .select('id, name, code, subject, grade, type, hours_per_week, description, created_at')
       .order('name');
 
-    if (teacherId) query = query.eq('teacher_id', teacherId);
-    if (classId) query = query.eq('class_id', classId);
-    if (semester) query = query.eq('semester', semester);
+    if (params.subject) query = query.eq('subject', params.subject);
+    if (params.grade) query = query.eq('grade', params.grade);
 
-    const { data, error } = await query;
+    const { data, error: dbError } = await query;
 
-    if (error) {
-      // 数据库失败，使用Mock数据
-      const filteredData = getMockCourses({ teacherId: teacherId || undefined, classId: classId || undefined, semester: semester || undefined });
-
-      return NextResponse.json({
-        success: true,
-        data: filteredData,
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('数据库查询失败', ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
     const formattedData = (data || []).map((course: Record<string, unknown>) => ({
@@ -45,31 +45,19 @@ export async function GET(request: NextRequest) {
       name: course.name,
       code: course.code,
       subject: course.subject,
-      teacherId: course.teacher_id,
-      teacherName: '',
-      teacherEmployeeId: '',
-      classId: course.class_id,
-      className: '',
-      grade: 0,
-      semester: course.semester,
+      grade: course.grade,
+      type: course.type,
       hoursPerWeek: course.hours_per_week,
-      totalHours: course.total_hours,
       description: course.description,
-      status: course.status,
+      createdAt: course.created_at,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
-      source: 'database',
-    });
-  } catch (error) {
-    console.error('Failed to fetch courses:', error);
-    // 异常情况也返回Mock数据
-    return NextResponse.json({
-      success: true,
-      data: getMockCourses(),
-      source: 'mock',
-    });
+    return NextResponse.json(success(formattedData));
+  } catch (err) {
+    console.error('Failed to fetch courses:', err);
+    return NextResponse.json(
+      error('获取课程列表失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

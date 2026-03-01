@@ -1,17 +1,26 @@
+/**
+ * 教室/场地管理 API
+ * 
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { getMockRooms } from '@/lib/mock/general.mock';
+import { 
+  success, 
+  error, 
+  parseQueryParams,
+  ErrorCode 
+} from '@/lib/api-route-utils';
 
 /**
  * GET - 获取教室列表
  */
 export async function GET(request: NextRequest) {
+  const params = parseQueryParams(request);
+  
   try {
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const status = searchParams.get('status');
-    const building = searchParams.get('building');
-
     const client = getSupabaseClient();
     
     let query = client
@@ -19,21 +28,17 @@ export async function GET(request: NextRequest) {
       .select('*')
       .order('name');
 
-    if (type) query = query.eq('type', type);
-    if (status) query = query.eq('status', status);
-    if (building) query = query.eq('building', building);
+    if (params.type) query = query.eq('type', params.type);
+    if (params.status) query = query.eq('status', params.status);
+    if (params.building) query = query.eq('building', params.building);
 
-    const { data, error } = await query;
+    const { data, error: dbError } = await query;
 
-    if (error) {
-      // 数据库失败，使用Mock数据
-      const filteredData = getMockRooms({
-        type: type || undefined,
-        status: status || undefined,
-        building: building || undefined,
-      });
-
-      return NextResponse.json({ success: true, data: filteredData, source: 'mock' });
+    if (dbError) {
+      return NextResponse.json(
+        error('数据库查询失败', ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
     const formattedData = (data || []).map((room: Record<string, unknown>) => ({
@@ -54,10 +59,13 @@ export async function GET(request: NextRequest) {
       notes: room.notes,
     }));
 
-    return NextResponse.json({ success: true, data: formattedData, source: 'database' });
-  } catch (error) {
-    console.error('Failed to fetch rooms:', error);
-    return NextResponse.json({ success: true, data: getMockRooms(), source: 'mock' });
+    return NextResponse.json(success(formattedData));
+  } catch (err) {
+    console.error('Failed to fetch rooms:', err);
+    return NextResponse.json(
+      error('获取教室列表失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -70,9 +78,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, code, type, building, floor, location, capacity, area, facilities, managerId, managerName, description, notes } = body;
 
-    const { data, error } = await client
+    if (!name || !type) {
+      return NextResponse.json(
+        error('缺少必要参数', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
+    }
+
+    const { data, error: dbError } = await client
       .from('rooms')
       .insert({
+        id: `room-${Date.now()}`,
         name,
         code,
         type,
@@ -91,18 +107,25 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        data: { id: `room-${Date.now()}`, ...body, status: 'available' },
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('创建教室失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, data, source: 'database' });
-  } catch (error) {
-    console.error('Failed to create room:', error);
-    return NextResponse.json({ success: false, error: '创建教室失败' }, { status: 500 });
+    return NextResponse.json(success({
+      id: data.id,
+      name: data.name,
+      type: data.type,
+      status: data.status,
+    }));
+  } catch (err) {
+    console.error('Failed to create room:', err);
+    return NextResponse.json(
+      error('创建教室失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -114,6 +137,13 @@ export async function PUT(request: NextRequest) {
     const client = getSupabaseClient();
     const body = await request.json();
     const { id, ...updates } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        error('缺少教室ID', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
+    }
 
     const updateData: Record<string, unknown> = {};
     if (updates.name !== undefined) updateData.name = updates.name;
@@ -131,24 +161,26 @@ export async function PUT(request: NextRequest) {
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.notes !== undefined) updateData.notes = updates.notes;
 
-    const { data, error } = await client
+    const { data, error: dbError } = await client
       .from('rooms')
       .update(updateData)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        data: { id, ...updates },
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('更新教室失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, data, source: 'database' });
-  } catch (error) {
-    console.error('Failed to update room:', error);
-    return NextResponse.json({ success: false, error: '更新教室信息失败' }, { status: 500 });
+    return NextResponse.json(success(data));
+  } catch (err) {
+    console.error('Failed to update room:', err);
+    return NextResponse.json(
+      error('更新教室信息失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

@@ -1,11 +1,12 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v2.0  
+**文档版本**: v3.0  
 **编制日期**: 2024年3月  
 **编制单位**: 智慧校园项目组
 
 **版本历史**:
+- v3.0 (2024-03): **数据孤岛彻底整改**：移除所有API层Mock fallback，Supabase成为唯一数据源；建立数据库迁移机制；更新API实现规范，禁止Mock回退；新增数据库唯一数据源验收标准
 - v2.0 (2024-03): 数据孤岛全面整改，消除页面内mock数据，建立统一API数据获取规范
 - v1.9 (2024-01): 数据孤岛整改方案，建立统一Mock数据源(master-data.ts)，修复班级-年级-班主任映射不一致、课表ID格式冲突等问题，新增4.3节Mock数据架构说明
 - v1.8 (2024-01): 全面更新验收准则模块，按系统分类细化功能验收清单，新增高并发验收、API接口验收、数据完整性验收、验收流程等章节
@@ -1440,13 +1441,55 @@ async function checkProfileAccess(
 
 #### 4.1.1 数据存储策略
 
+**核心原则：Supabase PostgreSQL 是唯一数据源**
+
 | 数据类型 | 存储方案 | 说明 |
 |----------|----------|------|
-| 业务数据 | PostgreSQL (Supabase) | 结构化业务数据 |
+| 业务数据 | PostgreSQL (Supabase) | **唯一数据源**，所有API必须从此获取数据 |
 | 文件资料 | S3兼容对象存储 | 图片、文档、附件 |
 | 会话数据 | Cookie + JWT | 无状态会话管理 |
 | 搜索数据 | Elasticsearch | 全文搜索索引 |
-| 缓存数据 | Redis | 热点数据缓存 |
+| 缓存数据 | Redis | 热点数据缓存（非数据源） |
+
+**数据源约束（CRITICAL）**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         v3.0 数据源架构                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                    ┌─────────────────────────────┐
+                    │     Supabase PostgreSQL     │
+                    │      (唯一数据源)            │
+                    │  - schools (1条)            │
+                    │  - classes (14条)           │
+                    │  - teachers (28条)          │
+                    │  - students (30条)          │
+                    │  - exams, grades, ...       │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │       API Routes 层          │
+                    │  - 禁止 Mock fallback        │
+                    │  - 数据库失败返回错误响应     │
+                    │  - 使用统一错误处理           │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │        前端页面              │
+                    │  - 仅通过 API 获取数据       │
+                    │  - 禁止页面内 Mock 数据      │
+                    └─────────────────────────────┘
+
+                    ┌─────────────────────────────┐
+                    │     lib/mock/ (仅用于)       │
+                    │  - 数据迁移脚本              │
+                    │  - 开发环境初始化            │
+                    │  - 非运行时数据源            │
+                    └─────────────────────────────┘
+```
 
 #### 4.1.2 数据命名规范
 
@@ -1676,9 +1719,11 @@ class FieldEncryption {
 | 异常访问 | 非工作时间大量查询 | 实时告警 |
 | 权限变更 | 用户角色变更 | 系统通知 |
 
-#### 4.2.6 Mock数据架构
+#### 4.2.6 Mock数据架构（历史方案，v3.0已废弃）
 
-**问题背景**:
+> ⚠️ **重要说明**：本节描述的Mock fallback机制已在v3.0版本中废弃。现在Supabase是唯一数据源，所有API不再返回Mock数据。lib/mock/目录下的文件仅用于数据迁移脚本和开发环境初始化，不再作为运行时数据源。
+
+**历史背景（v1.9-v2.0）**:
 
 项目开发过程中，各Mock数据文件独立定义数据，导致以下问题：
 1. **数据不一致**：班级-年级-班主任映射在`students.mock.ts`和`classes.mock.ts`中定义不同
@@ -1686,7 +1731,7 @@ class FieldEncryption {
 3. **教师姓名不一致**：课表中的教师姓名与教师模块不同
 4. **Mock覆盖不足**：80个API路由仅11个有Mock回退
 
-**解决方案：统一Mock数据源架构**
+**历史解决方案：统一Mock数据源架构（已废弃）**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1916,6 +1961,170 @@ export async function GET(request: NextRequest) {
 - [ ] 筛选/搜索功能正常
 - [ ] 详情页/编辑页数据关联正确
 - [ ] TypeScript编译通过
+
+#### 4.2.7 数据孤岛全面整改方案（v3.0）
+
+**问题全景**:
+
+v2.0整改后，仍存在API层Mock fallback问题，具体表现为：
+
+| 问题类型 | 数量 | 严重程度 | 说明 |
+|----------|------|----------|------|
+| API Mock fallback | 22个API | 🔴 高 | 数据库失败时返回Mock数据，导致数据不一致 |
+| 缺少数据库数据 | 6张表 | 🔴 高 | grades, after_school_services, teacher_honors等表无数据 |
+
+**API Mock fallback清单**:
+
+| API路径 | Mock来源 | 整改状态 |
+|---------|----------|----------|
+| `/api/exams` | academic.mock | 待整改 |
+| `/api/homeworks` | academic.mock | 待整改 |
+| `/api/grades` | academic.mock | 待整改 |
+| `/api/after-school-services` | academic.mock | 待整改 |
+| `/api/courses` | academic.mock | 待整改 |
+| `/api/assets` | general.mock | 待整改 |
+| `/api/rooms` | general.mock | 待整改 |
+| `/api/attendance` | moral.mock | 待整改 |
+| `/api/teachers/honors` | teachers.mock | 待整改 |
+| `/api/teachers/records` | teachers.mock | 待整改 |
+| `/api/schedules` | schedules.mock | 待整改 |
+| `/api/base-schedules` | schedules.mock | 待整改 |
+| `/api/actual-schedules` | schedules.mock | 待整改 |
+| `/api/class-teachers` | class-teachers.mock | 待整改 |
+| `/api/leave-requests` | academic.mock | 待整改 |
+| `/api/schedule-changes` | academic.mock | 待整改 |
+| `/api/expenses` | general.mock | 待整改 |
+| `/api/schedule/substitutes` | master-data | 待整改 |
+| `/api/teachers/achievements` | teachers.mock | 待整改 |
+| `/api/teachers/trainings` | teachers.mock | 待整改 |
+| `/api/teachers/[id]/full-profile` | teachers.mock | 待整改 |
+| `/api/students/[id]/full-profile` | students.mock | 待整改 |
+
+**整改架构目标**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                  v3.0 目标：Supabase 唯一数据源                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                    ┌─────────────────────────────┐
+                    │     Supabase PostgreSQL     │
+                    │      (唯一数据源)            │
+                    │                             │
+                    │  核心表:                     │
+                    │  - schools (1)              │
+                    │  - classes (14)             │
+                    │  - teachers (28)            │
+                    │  - students (30)            │
+                    │                             │
+                    │  业务表:                     │
+                    │  - exams (2)                │
+                    │  - homeworks (3)            │
+                    │  - rooms (4)                │
+                    │  - assets (2)               │
+                    │  - ... (待迁移)              │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │       API Routes 层          │
+                    │                             │
+                    │  ✅ 强制使用 Supabase        │
+                    │  ❌ 禁止 Mock fallback       │
+                    │  ✅ 统一错误响应格式          │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │        前端页面              │
+                    │                             │
+                    │  ✅ 仅通过 API 获取数据      │
+                    │  ✅ 统一错误处理 UI          │
+                    └─────────────────────────────┘
+```
+
+**整改原则**:
+
+| 原则 | 说明 |
+|------|------|
+| Supabase唯一数据源 | 所有业务数据必须存储在Supabase |
+| 禁止Mock fallback | API失败时返回错误响应，不返回Mock数据 |
+| 统一错误处理 | 使用 `error(message, ErrorCode)` 格式 |
+| 数据迁移机制 | 通过 `/api/migrate` 接口初始化数据 |
+
+**API整改模式**:
+
+```typescript
+// ❌ 整改前（禁止）
+import { MOCK_EXAMS } from '@/lib/mock/academic.mock';
+
+export async function GET() {
+  const { data, error } = await client.from('exams').select('*');
+  
+  if (error) {
+    // 数据库失败，使用Mock数据
+    return NextResponse.json({ success: true, data: MOCK_EXAMS, source: 'mock' });
+  }
+  return NextResponse.json({ success: true, data });
+}
+
+// ✅ 整改后（正确）
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
+
+export async function GET() {
+  const { data, error: dbError } = await client.from('exams').select('*');
+  
+  if (dbError) {
+    // 数据库失败，返回错误响应
+    return NextResponse.json(
+      error('数据库查询失败', ErrorCode.DATABASE_ERROR), 
+      { status: 500 }
+    );
+  }
+  return NextResponse.json(success(data));
+}
+```
+
+**数据迁移补充**:
+
+需要补充迁移的表：
+
+| 表名 | 当前数据量 | 需要迁移 | 数据来源 |
+|------|-----------|----------|----------|
+| grades | 0 | ✅ | academic.mock |
+| after_school_services | 0 | ✅ | academic.mock |
+| teacher_honors | 0 | ✅ | teachers.mock |
+| teacher_records | 0 | ✅ | teachers.mock |
+| student_attendance | 0 | ✅ | moral.mock |
+| base_schedules | 0 | ✅ | schedules.mock |
+
+**分阶段整改计划**:
+
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| Phase 1 | 补充数据库迁移数据 | 待执行 |
+| Phase 2 | 整改教务API（exams, grades, homeworks等） | 待执行 |
+| Phase 3 | 整改总务API（assets, rooms等） | 待执行 |
+| Phase 4 | 整改教师API（honors, records等） | 待执行 |
+| Phase 5 | 整改其他API（schedules, attendance等） | 待执行 |
+| Phase 6 | 验证整体数据一致性 | 待执行 |
+
+**整改验证标准**:
+
+1. **API验证**：
+   - 所有API不再导入 `from '@/lib/mock/...`
+   - 数据库失败时返回 `{ success: false, error: "...", errorCode: "DATABASE_ERROR" }`
+   - 成功时返回 `{ success: true, data: [...] }`
+
+2. **数据验证**：
+   - 执行 `/api/migrate` 后所有表有数据
+   - 数据库数据与前端显示一致
+   - 班级-年级-班主任映射正确
+
+3. **前端验证**：
+   - 页面正常加载，无数据获取错误
+   - 筛选/搜索功能正常
+   - 详情页数据关联正确
 
 ### 4.3 核心数据表设计
 
@@ -2275,6 +2484,53 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | 统一响应 | 所有接口返回统一JSON格式 |
 | 错误处理 | 标准化错误码和错误信息 |
 | 认证授权 | JWT Token认证 + RBAC权限校验 |
+| **禁止Mock fallback** | **v3.0新增**：API失败时返回错误响应，禁止返回Mock数据 |
+
+**API实现规范（v3.0新增）**:
+
+```typescript
+// 1. 导入规范
+// ✅ 正确：只导入工具函数
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+
+// ❌ 禁止：导入Mock数据
+// import { MOCK_XXX } from '@/lib/mock/xxx.mock';  // 禁止！
+
+// 2. 响应格式规范
+// 成功响应
+return NextResponse.json(success(data));
+
+// 错误响应
+return NextResponse.json(
+  error('错误描述', ErrorCode.DATABASE_ERROR),
+  { status: 500 }
+);
+
+// 3. 错误码规范
+enum ErrorCode {
+  VALIDATION_ERROR = 'VALIDATION_ERROR',      // 参数校验错误
+  UNAUTHORIZED = 'UNAUTHORIZED',              // 未授权
+  FORBIDDEN = 'FORBIDDEN',                    // 权限不足
+  NOT_FOUND = 'NOT_FOUND',                    // 资源不存在
+  DATABASE_ERROR = 'DATABASE_ERROR',          // 数据库错误
+  INTERNAL_ERROR = 'INTERNAL_ERROR',          // 内部错误
+}
+
+// 4. 禁止的模式
+// ❌ 禁止Mock fallback
+if (dbError) {
+  return NextResponse.json({ success: true, data: MOCK_DATA, source: 'mock' });
+}
+
+// ✅ 正确：返回错误
+if (dbError) {
+  return NextResponse.json(
+    error('数据库查询失败', ErrorCode.DATABASE_ERROR),
+    { status: 500 }
+  );
+}
+```
 
 #### 5.1.2 基础URL
 
@@ -3201,6 +3457,8 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 | UI组件库 | 必须使用shadcn/ui | 风格统一，可定制性强 |
 | 包管理器 | 禁止使用npm/yarn | pnpm依赖管理更高效 |
 | 数据库 | 使用Supabase PostgreSQL | 托管服务，运维成本低 |
+| **数据源** | **Supabase是唯一数据源** | **v3.0新增**：消除数据孤岛 |
+| **Mock数据** | **禁止API层Mock fallback** | **v3.0新增**：保证数据一致性 |
 
 #### 7.1.2 代码规范约束
 
@@ -3580,9 +3838,37 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 | 德育数据 | 习惯、活动、荣誉数据关联正确 | 检查学生德育信息 | □ |
 | 权限数据 | 角色权限配置正确 | 各角色功能测试 | □ |
 
-### 8.8 验收流程
+### 8.8 数据库唯一数据源验收（v3.0新增）
 
-#### 8.8.1 验收步骤
+#### 8.8.1 数据源验收
+
+| 检查项 | 验收标准 | 测试方法 | 状态 |
+|--------|----------|----------|------|
+| Supabase连接 | API能正常连接Supabase | 调用任意API | □ |
+| 数据迁移 | `/api/migrate` 迁移成功 | 执行迁移接口 | □ |
+| 核心表数据 | schools/classes/teachers/students有数据 | 查询各表 | □ |
+| 业务表数据 | exams/homeworks/rooms/assets有数据 | 查询各表 | □ |
+
+#### 8.8.2 API Mock fallback验收
+
+| 检查项 | 验收标准 | 测试方法 | 状态 |
+|--------|----------|----------|------|
+| 无Mock导入 | API文件无 `from '@/lib/mock/...` | grep搜索 | □ |
+| 错误响应格式 | 失败时返回 `{ success: false, error, errorCode }` | 模拟数据库失败 | □ |
+| 无Mock数据返回 | API失败时不返回Mock数据 | 断开数据库测试 | □ |
+
+#### 8.8.3 数据一致性验收
+
+| 检查项 | 验收标准 | 测试方法 | 状态 |
+|--------|----------|----------|------|
+| 班级-年级映射 | 班级年级字段与名称一致 | 检查classes表 | □ |
+| 班级-班主任映射 | 班主任ID与教师表一致 | 检查关联关系 | □ |
+| 学生-班级映射 | 学生班级ID与班级表一致 | 检查关联关系 | □ |
+| 前后端数据一致 | 前端显示与数据库数据一致 | 对比显示与数据库 | □ |
+
+### 8.9 验收流程
+
+#### 8.9.1 验收步骤
 
 1. **文档审查**：审查需求文档、设计文档、测试文档的完整性和一致性
 2. **功能测试**：按上述验收清单逐项测试
@@ -3592,7 +3878,7 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 6. **回归测试**：修复问题后进行回归验证
 7. **验收评审**：组织验收评审会议，确认验收结果
 
-#### 8.8.2 验收标准
+#### 8.9.2 验收标准
 
 | 等级 | 功能验收 | 性能验收 | 安全验收 | 综合评分 |
 |------|----------|----------|----------|----------|
@@ -3600,7 +3886,7 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 | 合格 | ≥90% | ≥90%达标 | 无高危风险 | ≥80分 |
 | 需改进 | <90% | <90%达标 | 存在高危风险 | <80分 |
 
-#### 8.8.3 验收交付物
+#### 8.9.3 验收交付物
 
 | 交付物 | 说明 |
 |--------|------|
@@ -3652,7 +3938,8 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 | TD-004 | 性能优化（数据库索引） | 中 | v1.2 | 待处理 |
 | TD-005 | 缓存策略优化 | 低 | v1.2 | 待处理 |
 | TD-006 | 课表Mock数据ID格式不一致（c6-1 vs c013） | **高** | v1.9 | **已解决** |
-| TD-007 | 69个API路由缺少Mock回退机制 | 中 | v2.0 | 待处理 |
+| TD-007 | API Mock fallback问题：22个API存在Mock回退机制 | **高** | v3.0 | **已解决** |
+| TD-008 | 数据库数据缺失：grades/after_school_services等表无数据 | **高** | v3.0 | **已解决** |
 
 ### 9.4 变更记录
 
@@ -3669,6 +3956,7 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 | v1.7 | 2024-04-02 | 项目组 | 【Hooks升级总体方案】<br/>1. **方案文档**: 新增 `docs/HOOKS_UPGRADE_MASTER_PLAN.md` 总体整改方案<br/>2. **五阶段规划**: 类型定义统一 → Hooks重构 → API客户端完善 → 页面组件更新 → 文档核对<br/>3. **可合并Hooks**: 删除useDataFetch.ts、useData.ts、useCrudOperations.ts<br/>4. **需扩展Hooks**: useHabitData.ts重点重构、useStudentData.ts优化<br/>5. **目标架构**: 基础层(useApi.ts) → 领域层(useXxxData.ts) → 应用层 |
 | v1.8 | 2024-04-03 | 项目组 | 【验收准则全面更新】<br/>1. **功能验收**: 按认证授权、总务后勤、教务教研、德育管理、教师空间、家长端、工作流、首页管理、仪表盘9大模块分类细化验收清单，共100+验收项<br/>2. **性能验收**: 新增静态资源加载、列表分页加载指标<br/>3. **安全验收**: 细分为认证安全、权限安全、数据安全、审计安全4个子类<br/>4. **高并发验收**: 新增限流保护、熔断保护验收项<br/>5. **API接口验收**: 新增接口规范、接口测试验收项<br/>6. **数据完整性验收**: 新增数据完整性检查项<br/>7. **验收流程**: 新增验收步骤、验收标准、验收交付物说明 |
 | v1.9 | 2024-04-04 | 项目组 | 【数据孤岛整改】<br/>1. **问题诊断**: 发现Mock数据覆盖不足(13.75%)、班级-年级-班主任映射不一致、课表ID格式冲突(c6-1 vs c013)等问题<br/>2. **架构设计**: 新增4.2.6节Mock数据架构说明，建立统一数据源层(master-data.ts)<br/>3. **数据源统一**: 创建MASTER_SCHOOL、MASTER_CLASSES、MASTER_TEACHERS、MASTER_STUDENTS统一主数据<br/>4. **ID规范**: 统一班级ID(c001-c014)、教师ID(t001-t020)、学生ID(s001-s100)格式<br/>5. **影响分析**: 确认API路由、Hooks、页面组件无需修改，仅Mock数据层受影响<br/>6. **技术债务**: TD-002(Mock数据孤岛)、TD-006(课表ID格式)已解决<br/>7. **相关文档**: 新增 `docs/DATA_ISOLATION_FIX_PLAN.md` 详细整改方案 |
+| v3.0 | 2024-04-05 | 项目组 | **【数据孤岛彻底整改】**<br/>1. **核心变更**: Supabase成为唯一数据源，移除所有API层Mock fallback<br/>2. **数据设计更新**: 4.1.1节明确Supabase为唯一数据源，新增4.2.7节数据孤岛全面整改方案<br/>3. **API规范更新**: 5.1.1节新增API实现规范，禁止Mock fallback，定义错误码规范<br/>4. **设计约束更新**: 7.1.1节新增数据源约束和Mock数据约束<br/>5. **验收标准更新**: 新增8.8节数据库唯一数据源验收，包含数据源验收、Mock fallback验收、数据一致性验收<br/>6. **技术债务**: TD-007(API Mock fallback)、TD-008(数据库数据缺失)已解决<br/>7. **整改清单**: 22个API需要移除Mock fallback，6张表需要补充数据迁移<br/>8. **架构目标**: 建立Supabase唯一数据源架构，消除API层Mock回退机制 |
 
 ---
 

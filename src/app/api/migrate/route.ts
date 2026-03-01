@@ -173,17 +173,22 @@ export async function POST() {
     console.log('Migrating grades data...');
     const { count: gradesCount } = await client.from('grades').select('*', { count: 'exact', head: true });
     if ((!gradesCount || gradesCount === 0) && MOCK_GRADES.length > 0) {
-      const gradesData = MOCK_GRADES.map(g => ({
-        id: g.id || `g${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        exam_id: g.examId,
-        student_id: g.studentId,
-        student_name: g.studentName,
-        class_name: g.className,
-        grade: g.studentGrade,
-        subject: g.subject,
-        score: g.score,
-        class_rank: g.classRank,
-      }));
+      const gradesData = MOCK_GRADES.map(g => {
+        // 从学生数据中查找班级ID
+        const student = MASTER_STUDENTS.find(s => s.id === g.studentId);
+        return {
+          id: g.id || `g${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          exam_id: g.examId,
+          student_id: g.studentId,
+          student_name: g.studentName,
+          class_id: student?.classId || '',
+          class_name: g.className,
+          grade: g.studentGrade,
+          subject: g.subject,
+          score: g.score,
+          class_rank: g.classRank,
+        };
+      });
 
       const { error: gradesError } = await client.from('grades').insert(gradesData);
       
@@ -320,6 +325,11 @@ export async function POST() {
       const honorsData = MOCK_TEACHER_HONORS.map(h => {
         // 从教师数据中查找教师姓名
         const teacher = MASTER_TEACHERS.find(t => t.id === h.teacherId);
+        // 处理日期格式：如果是 "2023-09" 格式，转换为 "2023-09-01"
+        let dateValue = h.date || '';
+        if (dateValue && dateValue.length === 7 && dateValue.includes('-')) {
+          dateValue = `${dateValue}-01`;
+        }
         return {
           id: h.id,
           teacher_id: h.teacherId,
@@ -327,7 +337,7 @@ export async function POST() {
           title: h.title,
           level: h.level,
           organization: h.issuer || '',
-          date: h.date,
+          date: dateValue,
           certificate_no: h.certificateNo || '',
         };
       });
@@ -350,14 +360,19 @@ export async function POST() {
       const recordsData = MOCK_TEACHER_RECORDS.map(r => {
         // 从教师数据中查找教师姓名
         const teacher = MASTER_TEACHERS.find(t => t.id === r.teacherId);
+        // 处理日期格式
+        let startDate = r.date || '';
+        if (startDate && startDate.length === 7 && startDate.includes('-')) {
+          startDate = `${startDate}-01`;
+        }
         return {
           id: r.id,
           teacher_id: r.teacherId,
           teacher_name: teacher?.name || '',
           type: r.type,
           title: r.title,
-          start_date: r.date,
-          end_date: '',
+          start_date: startDate,
+          end_date: null,  // 使用null而不是空字符串
           description: r.description || '',
         };
       });
@@ -388,8 +403,8 @@ export async function POST() {
           class_name: a.className,
           date: a.date,
           status: a.type || 'attendance',
-          reason: a.reason || '',
-          recorder_id: a.recorderId || '',
+          reason: a.reason || null,
+          // 注意：recorder_id字段可能尚未在数据库中同步，暂时跳过
         };
       });
 

@@ -1,81 +1,71 @@
+/**
+ * 成绩管理 API
+ * 
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { getMockGrades } from '@/lib/mock/academic.mock';
+import { 
+  success, 
+  error, 
+  parseQueryParams,
+  ErrorCode 
+} from '@/lib/api-route-utils';
 
 /**
  * GET - 获取学生成绩
  */
 export async function GET(request: NextRequest) {
+  const params = parseQueryParams(request);
+  
   try {
-    const { searchParams } = new URL(request.url);
-    const studentId = searchParams.get('studentId');
-    const classId = searchParams.get('classId');
-    const examId = searchParams.get('examId');
-    const subject = searchParams.get('subject');
-
-    // 尝试数据库查询
     const client = getSupabaseClient();
     
     let query = client
       .from('grades')
-      .select('id, student_id, exam_id, subject, score, rank, class_rank, grade_rank, comments, created_at')
+      .select('id, student_id, student_name, exam_id, class_id, class_name, grade, subject, score, level, rank, class_rank, remark, created_at')
       .order('created_at', { ascending: false });
 
-    if (studentId) query = query.eq('student_id', studentId);
-    if (examId) query = query.eq('exam_id', examId);
-    if (subject) query = query.eq('subject', subject);
+    if (params.studentId) query = query.eq('student_id', params.studentId);
+    if (params.classId) query = query.eq('class_id', params.classId);
+    if (params.examId) query = query.eq('exam_id', params.examId);
+    if (params.subject) query = query.eq('subject', params.subject);
 
-    const { data, error } = await query;
+    const { data, error: dbError } = await query;
 
-    if (error) {
-      // 数据库失败，使用Mock数据
-      const filteredData = getMockGrades({ 
-        studentId: studentId || undefined, 
-        classId: classId || undefined,
-        examId: examId || undefined,
-        subject: subject || undefined
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: filteredData,
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('数据库查询失败', ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
     const formattedData = (data || []).map((grade: Record<string, unknown>) => ({
       id: grade.id,
       studentId: grade.student_id,
-      studentName: '',
-      studentNumber: '',
-      studentGrade: 0,
-      className: '',
+      studentName: grade.student_name,
+      classId: grade.class_id,
+      className: grade.class_name,
+      grade: grade.grade,
       examId: grade.exam_id,
-      examName: '',
-      examType: '',
-      examDate: '',
       subject: grade.subject,
       score: grade.score,
+      level: grade.level,
       rank: grade.rank,
       classRank: grade.class_rank,
-      gradeRank: grade.grade_rank,
-      comments: grade.comments,
+      remark: grade.remark,
       createdAt: grade.created_at,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
-      source: 'database',
-    });
-  } catch (error) {
-    console.error('Failed to fetch grades:', error);
-    // 异常情况也返回Mock数据
-    return NextResponse.json({
-      success: true,
-      data: getMockGrades(),
-      source: 'mock',
-    });
+    return NextResponse.json(success(formattedData));
+  } catch (err) {
+    console.error('Failed to fetch grades:', err);
+    return NextResponse.json(
+      error('获取成绩列表失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -86,25 +76,50 @@ export async function POST(request: NextRequest) {
   try {
     const client = getSupabaseClient();
     const body = await request.json();
-    const { studentId, examId, subject, score, comments } = body;
+    const { studentId, classId, examId, subject, score, comments } = body;
 
-    const { data, error } = await client
+    if (!studentId || !examId || !subject || score === undefined) {
+      return NextResponse.json(
+        error('缺少必要参数', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
+    }
+
+    const { data, error: dbError } = await client
       .from('grades')
-      .insert({ student_id: studentId, exam_id: examId, subject, score, comments })
+      .insert({ 
+        id: `g-${Date.now()}`,
+        student_id: studentId, 
+        class_id: classId,
+        exam_id: examId, 
+        subject, 
+        score,
+        comments 
+      })
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        data: { id: `g-${Date.now()}`, studentId, examId, subject, score, comments },
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('录入成绩失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, data, source: 'database' });
-  } catch (error) {
-    console.error('Failed to create grade:', error);
-    return NextResponse.json({ success: false, error: '录入学生成绩失败' }, { status: 500 });
+    return NextResponse.json(success({
+      id: data.id,
+      studentId: data.student_id,
+      classId: data.class_id,
+      examId: data.exam_id,
+      subject: data.subject,
+      score: data.score,
+      comments: data.comments,
+    }));
+  } catch (err) {
+    console.error('Failed to create grade:', err);
+    return NextResponse.json(
+      error('录入成绩失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

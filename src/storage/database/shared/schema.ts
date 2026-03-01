@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, integer, boolean, timestamp, text, jsonb, index, foreignKey, check, uuid, unique, date, numeric } from "drizzle-orm/pg-core"
+import { pgTable, serial, varchar, integer, boolean, timestamp, text, jsonb, index, date, foreignKey, check, uuid, unique, numeric } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -79,6 +79,40 @@ export const workflowConfigs = pgTable("workflow_configs", {
 	index("idx_workflow_configs_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
 ]);
 
+export const studentAttendance = pgTable("student_attendance", {
+	id: varchar({ length: 50 }).primaryKey().notNull(),
+	studentId: varchar("student_id", { length: 50 }).notNull(),
+	studentName: varchar("student_name", { length: 50 }).notNull(),
+	classId: varchar("class_id", { length: 50 }).notNull(),
+	className: varchar("class_name", { length: 50 }),
+	date: date().notNull(),
+	status: varchar({ length: 20 }).notNull(),
+	reason: text(),
+	recordedBy: varchar("recorded_by", { length: 50 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_student_attendance_class").using("btree", table.classId.asc().nullsLast().op("text_ops")),
+	index("idx_student_attendance_date").using("btree", table.date.asc().nullsLast().op("date_ops")),
+	index("idx_student_attendance_student").using("btree", table.studentId.asc().nullsLast().op("text_ops")),
+]);
+
+export const teacherHonors = pgTable("teacher_honors", {
+	id: varchar({ length: 50 }).primaryKey().notNull(),
+	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
+	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
+	title: varchar({ length: 200 }).notNull(),
+	level: varchar({ length: 50 }),
+	organization: varchar({ length: 200 }),
+	date: date(),
+	description: text(),
+	certificateNo: varchar("certificate_no", { length: 100 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_teacher_honors_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
+]);
+
 export const workflowInstances = pgTable("workflow_instances", {
 	id: serial().primaryKey().notNull(),
 	type: varchar({ length: 50 }).notNull(),
@@ -130,6 +164,24 @@ export const approvalRecords = pgTable("approval_records", {
 			foreignColumns: [workflowInstances.id],
 			name: "approval_records_instance_id_fkey"
 		}),
+]);
+
+export const teacherRecords = pgTable("teacher_records", {
+	id: varchar({ length: 50 }).primaryKey().notNull(),
+	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
+	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
+	type: varchar({ length: 50 }).notNull(),
+	title: varchar({ length: 200 }).notNull(),
+	startDate: date("start_date"),
+	endDate: date("end_date"),
+	hours: integer(),
+	location: varchar({ length: 200 }),
+	description: text(),
+	result: varchar({ length: 50 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_teacher_records_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const courses = pgTable("courses", {
@@ -314,6 +366,23 @@ export const electronicBoardSchedules = pgTable("electronic_board_schedules", {
 	unique("electronic_board_schedules_class_id_date_key").on(table.classId, table.date),
 ]);
 
+export const rooms = pgTable("rooms", {
+	id: varchar({ length: 50 }).primaryKey().notNull(),
+	name: varchar({ length: 100 }).notNull(),
+	building: varchar({ length: 100 }),
+	floor: integer(),
+	capacity: integer().default(50),
+	type: varchar({ length: 50 }).notNull(),
+	facilities: jsonb(),
+	status: varchar({ length: 20 }).default('available'),
+	description: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_rooms_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("idx_rooms_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
+]);
+
 export const classes = pgTable("classes", {
 	id: varchar({ length: 50 }).primaryKey().notNull(),
 	name: varchar({ length: 50 }).notNull(),
@@ -393,23 +462,44 @@ export const teachers = pgTable("teachers", {
 	index("idx_teachers_is_head_teacher").using("btree", table.isHeadTeacher.asc().nullsLast().op("bool_ops")),
 ]);
 
-
-// ============================================
-// 业务表定义
-// ============================================
+export const assets = pgTable("assets", {
+	id: varchar({ length: 50 }).primaryKey().notNull(),
+	assetNo: varchar("asset_no", { length: 50 }).notNull(),
+	name: varchar({ length: 200 }).notNull(),
+	category: varchar({ length: 50 }).notNull(),
+	specification: varchar({ length: 200 }),
+	quantity: integer().default(1),
+	unit: varchar({ length: 20 }),
+	value: numeric({ precision: 12, scale:  2 }),
+	purchaseDate: date("purchase_date"),
+	warrantyExpiry: date("warranty_expiry"),
+	location: varchar({ length: 200 }),
+	department: varchar({ length: 100 }),
+	status: varchar({ length: 20 }).default('在用'),
+	responsiblePerson: varchar("responsible_person", { length: 50 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_assets_category").using("btree", table.category.asc().nullsLast().op("text_ops")),
+	index("idx_assets_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	unique("assets_asset_no_key").on(table.assetNo),
+]);
 
 export const exams = pgTable("exams", {
 	id: varchar({ length: 50 }).primaryKey().notNull(),
 	name: varchar({ length: 200 }).notNull(),
-	type: varchar({ length: 50 }).default('期中考试'),
-	subjects: jsonb().default([]),
-	grades: jsonb().default([]),
-	startDate: varchar("start_date", { length: 20 }),
-	endDate: varchar("end_date", { length: 20 }),
-	status: varchar({ length: 20 }).default('completed'),
+	type: varchar({ length: 50 }).notNull(),
+	grade: integer(),
+	subject: varchar({ length: 50 }),
+	startDate: date("start_date"),
+	endDate: date("end_date"),
+	status: varchar({ length: 20 }).default('draft'),
+	totalStudents: integer("total_students").default(0),
+	submittedCount: integer("submitted_count").default(0),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("idx_exams_grade").using("btree", table.grade.asc().nullsLast().op("int4_ops")),
 	index("idx_exams_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
 ]);
 
@@ -418,51 +508,54 @@ export const grades = pgTable("grades", {
 	examId: varchar("exam_id", { length: 50 }).notNull(),
 	studentId: varchar("student_id", { length: 50 }).notNull(),
 	studentName: varchar("student_name", { length: 50 }).notNull(),
-	classId: varchar("class_id", { length: 50 }),
+	classId: varchar("class_id", { length: 50 }).notNull(),
 	className: varchar("class_name", { length: 50 }),
 	grade: integer(),
-	subject: varchar({ length: 50 }),
-	score: numeric({ precision: 5, scale: 2 }),
-	level: varchar({ length: 10 }),
+	subject: varchar({ length: 50 }).notNull(),
+	score: numeric({ precision: 5, scale:  2 }),
+	level: varchar({ length: 20 }),
 	rank: integer(),
 	classRank: integer("class_rank"),
 	remark: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("idx_grades_class").using("btree", table.classId.asc().nullsLast().op("text_ops")),
 	index("idx_grades_exam").using("btree", table.examId.asc().nullsLast().op("text_ops")),
 	index("idx_grades_student").using("btree", table.studentId.asc().nullsLast().op("text_ops")),
-	index("idx_grades_class").using("btree", table.classId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const afterSchoolServices = pgTable("after_school_services", {
 	id: varchar({ length: 50 }).primaryKey().notNull(),
 	name: varchar({ length: 200 }).notNull(),
-	type: varchar({ length: 50 }),
-	teacherId: varchar("teacher_id", { length: 50 }),
-	teacherName: varchar("teacher_name", { length: 50 }),
+	type: varchar({ length: 50 }).notNull(),
+	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
+	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
 	classroom: varchar({ length: 100 }),
 	dayOfWeek: integer("day_of_week"),
 	startTime: varchar("start_time", { length: 10 }),
 	endTime: varchar("end_time", { length: 10 }),
-	maxStudents: integer("max_students"),
+	maxStudents: integer("max_students").default(30),
 	currentStudents: integer("current_students").default(0),
-	fee: numeric({ precision: 10, scale: 2 }),
+	fee: numeric({ precision: 10, scale:  2 }),
 	status: varchar({ length: 20 }).default('active'),
 	description: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-});
+}, (table) => [
+	index("idx_after_school_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
+]);
 
 export const homeworks = pgTable("homeworks", {
 	id: varchar({ length: 50 }).primaryKey().notNull(),
 	title: varchar({ length: 200 }).notNull(),
 	subject: varchar({ length: 50 }).notNull(),
 	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
-	teacherName: varchar("teacher_name", { length: 50 }),
+	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
 	classId: varchar("class_id", { length: 50 }).notNull(),
 	className: varchar("class_name", { length: 50 }),
-	content: text(),
-	dueDate: varchar("due_date", { length: 20 }),
+	content: text().notNull(),
+	dueDate: date("due_date"),
 	status: varchar({ length: 20 }).default('published'),
 	submittedCount: integer("submitted_count").default(0),
 	totalStudents: integer("total_students").default(0),
@@ -472,107 +565,3 @@ export const homeworks = pgTable("homeworks", {
 	index("idx_homeworks_class").using("btree", table.classId.asc().nullsLast().op("text_ops")),
 	index("idx_homeworks_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
 ]);
-
-export const rooms = pgTable("rooms", {
-	id: varchar({ length: 50 }).primaryKey().notNull(),
-	name: varchar({ length: 100 }).notNull(),
-	building: varchar({ length: 50 }),
-	floor: integer(),
-	capacity: integer(),
-	type: varchar({ length: 50 }),
-	facilities: jsonb(),
-	status: varchar({ length: 20 }).default('available'),
-	description: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_rooms_building").using("btree", table.building.asc().nullsLast().op("text_ops")),
-	index("idx_rooms_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
-]);
-
-export const assets = pgTable("assets", {
-	id: varchar({ length: 50 }).primaryKey().notNull(),
-	assetNo: varchar("asset_no", { length: 50 }).notNull(),
-	name: varchar({ length: 200 }).notNull(),
-	category: varchar({ length: 50 }),
-	specification: varchar({ length: 200 }),
-	quantity: integer().default(1),
-	unit: varchar({ length: 20 }),
-	value: numeric({ precision: 12, scale: 2 }),
-	purchaseDate: varchar("purchase_date", { length: 20 }),
-	warrantyExpiry: varchar("warranty_expiry", { length: 20 }),
-	location: varchar({ length: 100 }),
-	department: varchar({ length: 50 }),
-	status: varchar({ length: 20 }).default('在用'),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_assets_category").using("btree", table.category.asc().nullsLast().op("text_ops")),
-	index("idx_assets_department").using("btree", table.department.asc().nullsLast().op("text_ops")),
-	index("idx_assets_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
-]);
-
-export const teacherHonors = pgTable("teacher_honors", {
-	id: varchar({ length: 50 }).primaryKey().notNull(),
-	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
-	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
-	title: varchar({ length: 200 }).notNull(),
-	level: varchar({ length: 50 }),
-	organization: varchar({ length: 200 }),
-	date: varchar({ length: 20 }),
-	description: text(),
-	certificateNo: varchar("certificate_no", { length: 100 }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_teacher_honors_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
-]);
-
-export const teacherRecords = pgTable("teacher_records", {
-	id: varchar({ length: 50 }).primaryKey().notNull(),
-	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
-	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
-	type: varchar({ length: 50 }).notNull(),
-	title: varchar({ length: 200 }).notNull(),
-	startDate: varchar("start_date", { length: 20 }),
-	endDate: varchar("end_date", { length: 20 }),
-	hours: integer(),
-	location: varchar({ length: 100 }),
-	description: text(),
-	result: varchar({ length: 200 }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_teacher_records_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
-	index("idx_teacher_records_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
-]);
-
-export const studentAttendance = pgTable("student_attendance", {
-	id: varchar({ length: 50 }).primaryKey().notNull(),
-	studentId: varchar("student_id", { length: 50 }).notNull(),
-	studentName: varchar("student_name", { length: 50 }).notNull(),
-	classId: varchar("class_id", { length: 50 }).notNull(),
-	className: varchar("class_name", { length: 50 }),
-	date: varchar({ length: 20 }).notNull(),
-	status: varchar({ length: 20 }).notNull(),
-	reason: text(),
-	recorderId: varchar("recorder_id", { length: 50 }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_student_attendance_student").using("btree", table.studentId.asc().nullsLast().op("text_ops")),
-	index("idx_student_attendance_class").using("btree", table.classId.asc().nullsLast().op("text_ops")),
-	index("idx_student_attendance_date").using("btree", table.date.asc().nullsLast().op("text_ops")),
-]);
-
-// 类型导出
-export type Exam = typeof exams.$inferSelect;
-export type Grade = typeof grades.$inferSelect;
-export type AfterSchoolService = typeof afterSchoolServices.$inferSelect;
-export type Homework = typeof homeworks.$inferSelect;
-export type Room = typeof rooms.$inferSelect;
-export type Asset = typeof assets.$inferSelect;
-export type TeacherHonor = typeof teacherHonors.$inferSelect;
-export type TeacherRecord = typeof teacherRecords.$inferSelect;
-export type StudentAttendanceRecord = typeof studentAttendance.$inferSelect;
-export type School = typeof schools.$inferSelect;
-export type Class = typeof classes.$inferSelect;
-export type Student = typeof students.$inferSelect;
-export type Teacher = typeof teachers.$inferSelect;
