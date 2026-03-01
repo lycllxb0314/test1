@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock教师成长记录数据
-const mockRecords = [
-  { id: 'r1', teacherId: 'teacher-001', type: 'education', title: '本科学历', description: '福建师范大学 汉语言文学专业', date: '2007-06', createdAt: '2020-01-01' },
-  { id: 'r2', teacherId: 'teacher-001', type: 'title', title: '二级教师', date: '2010-09', createdAt: '2020-01-01' },
-  { id: 'r3', teacherId: 'teacher-001', type: 'title', title: '一级教师', date: '2014-09', createdAt: '2020-01-01' },
-  { id: 'r4', teacherId: 'teacher-001', type: 'title', title: '高级教师', date: '2018-09', createdAt: '2020-01-01' },
-  { id: 'r5', teacherId: 'teacher-001', type: 'position', title: '担任语文教研组长', date: '2019-09', createdAt: '2020-01-01' },
-];
+import { getMockTeacherRecords } from '@/lib/mock/teachers.mock';
 
 /**
  * GET - 获取教师成长记录列表
@@ -30,8 +22,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      let filteredData = [...mockRecords];
-      if (teacherId) filteredData = filteredData.filter(r => r.teacherId === teacherId);
+      const filteredData = getMockTeacherRecords({ teacherId: teacherId || undefined });
 
       return NextResponse.json({ success: true, data: filteredData, source: 'mock' });
     }
@@ -50,7 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: formattedData, source: 'database' });
   } catch (error) {
     console.error('Failed to fetch teacher records:', error);
-    return NextResponse.json({ success: true, data: mockRecords, source: 'mock' });
+    return NextResponse.json({ success: true, data: getMockTeacherRecords(), source: 'mock' });
   }
 }
 

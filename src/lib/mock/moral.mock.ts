@@ -210,3 +210,73 @@ export function getMockStudentHabitProfile(studentId: string): StudentHabitProfi
   }
   return undefined;
 }
+
+// ============================================
+// 学生考勤数据
+// ============================================
+
+/**
+ * 学生考勤记录类型
+ */
+export interface StudentAttendanceRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNumber: string;
+  grade: number;
+  className: string;
+  date: string;
+  type: 'attendance' | 'leave' | 'late' | 'absent';
+  reason: string | null;
+  recorderId: string;
+  recorderName: string;
+  createdAt: string;
+}
+
+export const MOCK_STUDENT_ATTENDANCE: StudentAttendanceRecord[] = [
+  { id: 'a1', studentId: 's001', studentName: '张三', studentNumber: '2024001', grade: 1, className: '一年级1班', date: '2024-11-18', type: 'attendance', reason: null, recorderId: 't001', recorderName: '张明华', createdAt: '2024-11-18' },
+  { id: 'a2', studentId: 's002', studentName: '李四', studentNumber: '2024002', grade: 1, className: '一年级1班', date: '2024-11-18', type: 'attendance', reason: null, recorderId: 't001', recorderName: '张明华', createdAt: '2024-11-18' },
+  { id: 'a3', studentId: 's003', studentName: '王五', studentNumber: '2024003', grade: 1, className: '一年级1班', date: '2024-11-18', type: 'leave', reason: '病假', recorderId: 't001', recorderName: '张明华', createdAt: '2024-11-18' },
+  { id: 'a4', studentId: 's004', studentName: '赵六', studentNumber: '2024004', grade: 1, className: '一年级1班', date: '2024-11-18', type: 'late', reason: '交通堵塞', recorderId: 't001', recorderName: '张明华', createdAt: '2024-11-18' },
+  { id: 'a5', studentId: 's001', studentName: '张三', studentNumber: '2024001', grade: 1, className: '一年级1班', date: '2024-11-19', type: 'attendance', reason: null, recorderId: 't001', recorderName: '张明华', createdAt: '2024-11-19' },
+];
+
+/**
+ * 获取学生考勤记录
+ */
+export function getMockStudentAttendance(filters?: {
+  studentId?: string;
+  classId?: string;
+  date?: string;
+  startDate?: string;
+  endDate?: string;
+  type?: string;
+}): StudentAttendanceRecord[] {
+  let result = [...MOCK_STUDENT_ATTENDANCE];
+  
+  if (filters?.studentId) {
+    result = result.filter(a => a.studentId === filters.studentId);
+  }
+  
+  if (filters?.classId) {
+    result = result.filter(a => a.className.includes(filters.classId!));
+  }
+  
+  if (filters?.date) {
+    result = result.filter(a => a.date === filters.date);
+  }
+  
+  if (filters?.startDate) {
+    result = result.filter(a => a.date >= filters.startDate!);
+  }
+  
+  if (filters?.endDate) {
+    result = result.filter(a => a.date <= filters.endDate!);
+  }
+  
+  if (filters?.type) {
+    result = result.filter(a => a.type === filters.type);
+  }
+  
+  return result;
+}

@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock教师荣誉数据
-const mockHonors = [
-  { id: 'h1', teacherId: 'teacher-001', title: '龙岩市优秀教师', level: '市级', category: '综合', issuer: '龙岩市教育局', date: '2023-09', certificateNo: 'LY202309001' },
-  { id: 'h2', teacherId: 'teacher-001', title: '区级教学能手', level: '区级', category: '教学', issuer: '新罗区教育局', date: '2022-06' },
-  { id: 'h3', teacherId: 'teacher-001', title: '校级优秀班主任', level: '校级', category: '德育', issuer: '学校', date: '2020-09' },
-  { id: 'h4', teacherId: 'teacher-001', title: '福建省骨干教师', level: '省级', category: '综合', issuer: '福建省教育厅', date: '2021-12' },
-];
+import { getMockTeacherHonors } from '@/lib/mock/teachers.mock';
 
 /**
  * GET - 获取教师荣誉列表
@@ -30,8 +23,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 数据库失败，使用Mock数据
-      let filteredData = [...mockHonors];
-      if (teacherId) filteredData = filteredData.filter(h => h.teacherId === teacherId);
+      const filteredData = getMockTeacherHonors({ teacherId: teacherId || undefined });
 
       return NextResponse.json({ success: true, data: filteredData, source: 'mock' });
     }
@@ -51,7 +43,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: formattedData, source: 'database' });
   } catch (error) {
     console.error('Failed to fetch teacher honors:', error);
-    return NextResponse.json({ success: true, data: mockHonors, source: 'mock' });
+    return NextResponse.json({ success: true, data: getMockTeacherHonors(), source: 'mock' });
   }
 }
 

@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock成绩数据
-const mockGrades = [
-  { id: 'g1', studentId: 's001', studentName: '张三', studentNumber: '2024001', studentGrade: 6, className: '六年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '语文', score: 92, classRank: 5, gradeRank: 28, createdAt: '2024-11-12' },
-  { id: 'g2', studentId: 's001', studentName: '张三', studentNumber: '2024001', studentGrade: 6, className: '六年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '数学', score: 88, classRank: 8, gradeRank: 45, createdAt: '2024-11-12' },
-  { id: 'g3', studentId: 's001', studentName: '张三', studentNumber: '2024001', studentGrade: 6, className: '六年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '英语', score: 95, classRank: 3, gradeRank: 15, createdAt: '2024-11-12' },
-  { id: 'g4', studentId: 's002', studentName: '李四', studentNumber: '2024002', studentGrade: 6, className: '六年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '语文', score: 95, classRank: 2, gradeRank: 12, createdAt: '2024-11-12' },
-  { id: 'g5', studentId: 's002', studentName: '李四', studentNumber: '2024002', studentGrade: 6, className: '六年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '数学', score: 98, classRank: 1, gradeRank: 5, createdAt: '2024-11-12' },
-];
+import { getMockGrades } from '@/lib/mock/academic.mock';
 
 /**
  * GET - 获取学生成绩
@@ -37,11 +29,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 数据库失败，使用Mock数据
-      let filteredData = [...mockGrades];
-      if (studentId) filteredData = filteredData.filter(g => g.studentId === studentId);
-      if (examId) filteredData = filteredData.filter(g => g.examId === examId);
-      if (subject) filteredData = filteredData.filter(g => g.subject === subject);
-      if (classId) filteredData = filteredData.filter(g => g.className.includes(classId));
+      const filteredData = getMockGrades({ 
+        studentId: studentId || undefined, 
+        classId: classId || undefined,
+        examId: examId || undefined,
+        subject: subject || undefined
+      });
 
       return NextResponse.json({
         success: true,
@@ -80,7 +73,7 @@ export async function GET(request: NextRequest) {
     // 异常情况也返回Mock数据
     return NextResponse.json({
       success: true,
-      data: mockGrades,
+      data: getMockGrades(),
       source: 'mock',
     });
   }

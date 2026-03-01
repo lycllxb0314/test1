@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock教室数据
-const mockRooms = [
-  { id: 'room1', name: '一年级1班教室', code: '101', type: 'classroom', building: '教学楼A', floor: 1, location: '教学楼A一楼', capacity: 45, area: 60, facilities: { projector: true, airConditioner: true, computer: true }, status: 'available', managerId: 't001', managerName: '王芳', description: '标准教室', notes: '' },
-  { id: 'room2', name: '一年级2班教室', code: '102', type: 'classroom', building: '教学楼A', floor: 1, location: '教学楼A一楼', capacity: 45, area: 60, facilities: { projector: true, airConditioner: true, computer: true }, status: 'available', managerId: 't002', managerName: '张华', description: '标准教室', notes: '' },
-  { id: 'room3', name: '科学实验室', code: 'Lab1', type: 'lab', building: '实验楼', floor: 2, location: '实验楼二楼', capacity: 30, area: 80, facilities: { projector: true, airConditioner: true, labEquipment: true }, status: 'available', managerId: 't003', managerName: '李强', description: '科学实验专用教室', notes: '需提前预约' },
-  { id: 'room4', name: '多媒体教室', code: 'Media1', type: 'multimedia', building: '综合楼', floor: 3, location: '综合楼三楼', capacity: 100, area: 120, facilities: { projector: true, airConditioner: true, computer: true, soundSystem: true }, status: 'available', managerId: 't004', managerName: '陈丽', description: '大型多媒体教室', notes: '适合公开课、讲座' },
-  { id: 'room5', name: '音乐教室', code: 'Music1', type: 'special', building: '艺术楼', floor: 1, location: '艺术楼一楼', capacity: 40, area: 70, facilities: { piano: true, soundSystem: true, airConditioner: true }, status: 'available', managerId: 't005', managerName: '赵敏', description: '音乐专用教室', notes: '' },
-];
+import { getMockRooms } from '@/lib/mock/general.mock';
 
 /**
  * GET - 获取教室列表
@@ -35,10 +27,11 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 数据库失败，使用Mock数据
-      let filteredData = [...mockRooms];
-      if (type) filteredData = filteredData.filter(r => r.type === type);
-      if (status) filteredData = filteredData.filter(r => r.status === status);
-      if (building) filteredData = filteredData.filter(r => r.building === building);
+      const filteredData = getMockRooms({
+        type: type || undefined,
+        status: status || undefined,
+        building: building || undefined,
+      });
 
       return NextResponse.json({ success: true, data: filteredData, source: 'mock' });
     }
@@ -64,7 +57,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: formattedData, source: 'database' });
   } catch (error) {
     console.error('Failed to fetch rooms:', error);
-    return NextResponse.json({ success: true, data: mockRooms, source: 'mock' });
+    return NextResponse.json({ success: true, data: getMockRooms(), source: 'mock' });
   }
 }
 

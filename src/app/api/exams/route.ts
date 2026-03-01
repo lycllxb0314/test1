@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { MOCK_EXAMS } from '@/lib/mock/academic.mock';
 
-// Mock考试数据
-const mockExams = [
-  { id: 'exam-1', name: '2024-2025学年第一学期期中考试', examType: '期中', semester: '2024-2025-1', examDate: '2024-11-11', grades: [1,2,3,4,5,6], subjects: ['语文', '数学', '英语'], totalScore: 300, status: 'completed', description: '全校统一期中考试' },
-  { id: 'exam-2', name: '2024-2025学年第一学期期末考试', examType: '期末', semester: '2024-2025-1', examDate: '2025-01-15', grades: [1,2,3,4,5,6], subjects: ['语文', '数学', '英语', '科学'], totalScore: 400, status: 'pending', description: '全校统一期末考试' },
-  { id: 'exam-3', name: '六年级月考', examType: '月考', semester: '2024-2025-1', examDate: '2024-10-15', grades: [6], subjects: ['语文', '数学', '英语'], totalScore: 300, status: 'completed', description: '六年级月度检测' },
-  { id: 'exam-4', name: '五年级单元测试', examType: '单元测试', semester: '2024-2025-1', examDate: '2024-09-28', grades: [5], subjects: ['语文', '数学'], totalScore: 200, status: 'completed', description: '五年级第一单元测试' },
-];
+// 格式化考试数据以匹配 API 响应格式
+function formatExamData(exam: typeof MOCK_EXAMS[0]) {
+  return {
+    id: exam.id,
+    name: exam.name,
+    examType: exam.type,
+    semester: '2024-2025-1',
+    examDate: exam.startDate,
+    grades: exam.grades,
+    subjects: exam.subjects,
+    totalScore: exam.subjects.length * 100,
+    status: exam.status,
+    description: exam.name,
+    createdAt: exam.createdAt,
+  };
+}
 
 /**
  * GET - 获取考试列表
@@ -35,9 +45,8 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 数据库失败，使用Mock数据
-      let filteredData = [...mockExams];
-      if (type) filteredData = filteredData.filter(e => e.examType === type);
-      if (semester) filteredData = filteredData.filter(e => e.semester === semester);
+      let filteredData = MOCK_EXAMS.map(formatExamData);
+      if (type) filteredData = filteredData.filter(e => e.examType.includes(type));
       if (grade) filteredData = filteredData.filter(e => e.grades.includes(parseInt(grade)));
 
       return NextResponse.json({
@@ -71,7 +80,7 @@ export async function GET(request: NextRequest) {
     // 异常情况也返回Mock数据
     return NextResponse.json({
       success: true,
-      data: mockExams,
+      data: MOCK_EXAMS.map(formatExamData),
       source: 'mock',
     });
   }

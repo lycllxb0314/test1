@@ -324,3 +324,287 @@ export function getMockExams(filters?: {
   
   return result;
 }
+
+// ============================================
+// 课程数据 (Course)
+// ============================================
+
+/**
+ * 课程Mock数据
+ */
+export const MOCK_COURSES = [
+  { id: 'course-1', name: '语文', code: 'YW001', subject: '语文', teacherId: 't001', teacherName: '王明华', teacherEmployeeId: 'T001', classId: 'c001', className: '一年级1班', grade: 1, semester: '2024-2025-1', hoursPerWeek: 6, totalHours: 216, status: 'active' },
+  { id: 'course-2', name: '数学', code: 'SX001', subject: '数学', teacherId: 't002', teacherName: '李芳', teacherEmployeeId: 'T002', classId: 'c001', className: '一年级1班', grade: 1, semester: '2024-2025-1', hoursPerWeek: 5, totalHours: 180, status: 'active' },
+  { id: 'course-3', name: '英语', code: 'YY001', subject: '英语', teacherId: 't003', teacherName: '张强', teacherEmployeeId: 'T003', classId: 'c001', className: '一年级1班', grade: 1, semester: '2024-2025-1', hoursPerWeek: 3, totalHours: 108, status: 'active' },
+  { id: 'course-4', name: '科学', code: 'KX001', subject: '科学', teacherId: 't004', teacherName: '刘洋', teacherEmployeeId: 'T004', classId: 'c001', className: '一年级1班', grade: 1, semester: '2024-2025-1', hoursPerWeek: 2, totalHours: 72, status: 'active' },
+  { id: 'course-5', name: '音乐', code: 'YY002', subject: '音乐', teacherId: 't005', teacherName: '陈红', teacherEmployeeId: 'T005', classId: 'c001', className: '一年级1班', grade: 1, semester: '2024-2025-1', hoursPerWeek: 1, totalHours: 36, status: 'active' },
+  { id: 'course-6', name: '体育', code: 'TY001', subject: '体育', teacherId: 't006', teacherName: '赵刚', teacherEmployeeId: 'T006', classId: 'c001', className: '一年级1班', grade: 1, semester: '2024-2025-1', hoursPerWeek: 3, totalHours: 108, status: 'active' },
+  { id: 'course-7', name: '美术', code: 'MS001', subject: '美术', teacherId: 't007', teacherName: '孙丽', teacherEmployeeId: 'T007', classId: 'c002', className: '一年级2班', grade: 1, semester: '2024-2025-1', hoursPerWeek: 1, totalHours: 36, status: 'active' },
+  { id: 'course-8', name: '信息技术', code: 'XX001', subject: '信息技术', teacherId: 't008', teacherName: '周伟', teacherEmployeeId: 'T008', classId: 'c002', className: '一年级2班', grade: 1, semester: '2024-2025-1', hoursPerWeek: 1, totalHours: 36, status: 'active' },
+];
+
+/**
+ * 获取课程列表
+ */
+export function getMockCourses(filters?: {
+  teacherId?: string;
+  classId?: string;
+  semester?: string;
+}): typeof MOCK_COURSES {
+  let result = [...MOCK_COURSES];
+  
+  if (filters?.teacherId) {
+    result = result.filter(c => c.teacherId === filters.teacherId);
+  }
+  
+  if (filters?.classId) {
+    result = result.filter(c => c.classId === filters.classId);
+  }
+  
+  if (filters?.semester) {
+    result = result.filter(c => c.semester === filters.semester);
+  }
+  
+  return result;
+}
+
+// ============================================
+// 成绩数据 (Grade)
+// ============================================
+
+/**
+ * 成绩Mock数据
+ */
+export const MOCK_GRADES = [
+  { id: 'g1', studentId: 's001', studentName: '张三', studentNumber: '2024001', studentGrade: 1, className: '一年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '语文', score: 92, classRank: 5, gradeRank: 28, createdAt: '2024-11-12' },
+  { id: 'g2', studentId: 's001', studentName: '张三', studentNumber: '2024001', studentGrade: 1, className: '一年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '数学', score: 88, classRank: 8, gradeRank: 45, createdAt: '2024-11-12' },
+  { id: 'g3', studentId: 's001', studentName: '张三', studentNumber: '2024001', studentGrade: 1, className: '一年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '英语', score: 95, classRank: 3, gradeRank: 15, createdAt: '2024-11-12' },
+  { id: 'g4', studentId: 's002', studentName: '李四', studentNumber: '2024002', studentGrade: 1, className: '一年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '语文', score: 95, classRank: 2, gradeRank: 12, createdAt: '2024-11-12' },
+  { id: 'g5', studentId: 's002', studentName: '李四', studentNumber: '2024002', studentGrade: 1, className: '一年级1班', examId: 'exam-1', examName: '期中考试', examType: '期中', examDate: '2024-11-11', subject: '数学', score: 98, classRank: 1, gradeRank: 5, createdAt: '2024-11-12' },
+];
+
+/**
+ * 获取成绩列表
+ */
+export function getMockGrades(filters?: {
+  studentId?: string;
+  classId?: string;
+  examId?: string;
+  subject?: string;
+}): typeof MOCK_GRADES {
+  let result = [...MOCK_GRADES];
+  
+  if (filters?.studentId) {
+    result = result.filter(g => g.studentId === filters.studentId);
+  }
+  
+  if (filters?.examId) {
+    result = result.filter(g => g.examId === filters.examId);
+  }
+  
+  if (filters?.subject) {
+    result = result.filter(g => g.subject === filters.subject);
+  }
+  
+  if (filters?.classId) {
+    result = result.filter(g => g.className.includes(filters.classId!));
+  }
+  
+  return result;
+}
+
+// ============================================
+// 课后服务数据
+// ============================================
+
+/**
+ * 课后服务记录类型
+ */
+export interface AfterSchoolService {
+  id: string;
+  semester: string;
+  weekNumber: number;
+  date: string;
+  serviceType: string;
+  classId: string;
+  className: string;
+  grade: number;
+  teacherId: string;
+  teacherName: string;
+  periodIndex: number;
+  startTime: string;
+  endTime: string;
+  hours: number;
+  status: string;
+  studentCount: number;
+  remark?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const MOCK_AFTER_SCHOOL_SERVICES: AfterSchoolService[] = [
+  {
+    id: 'as001',
+    semester: '2024-2025-1',
+    weekNumber: 12,
+    date: '2024-11-18',
+    serviceType: '课后托管',
+    classId: 'c001',
+    className: '一年级1班',
+    grade: 1,
+    teacherId: 't001',
+    teacherName: '张明华',
+    periodIndex: 8,
+    startTime: '16:30',
+    endTime: '17:30',
+    hours: 1,
+    status: 'completed',
+    studentCount: 25,
+    createdAt: '2024-11-18T00:00:00Z',
+    updatedAt: '2024-11-18T00:00:00Z',
+  },
+  {
+    id: 'as002',
+    semester: '2024-2025-1',
+    weekNumber: 12,
+    date: '2024-11-18',
+    serviceType: '兴趣班',
+    classId: 'c002',
+    className: '一年级2班',
+    grade: 1,
+    teacherId: 't008',
+    teacherName: '吴晓燕',
+    periodIndex: 8,
+    startTime: '16:30',
+    endTime: '17:30',
+    hours: 1,
+    status: 'completed',
+    studentCount: 20,
+    remark: '羽毛球兴趣班',
+    createdAt: '2024-11-18T00:00:00Z',
+    updatedAt: '2024-11-18T00:00:00Z',
+  },
+  {
+    id: 'as003',
+    semester: '2024-2025-1',
+    weekNumber: 12,
+    date: '2024-11-19',
+    serviceType: '课后托管',
+    classId: 'c003',
+    className: '二年级1班',
+    grade: 2,
+    teacherId: 't003',
+    teacherName: '王建国',
+    periodIndex: 8,
+    startTime: '16:30',
+    endTime: '17:30',
+    hours: 1,
+    status: 'scheduled',
+    studentCount: 28,
+    createdAt: '2024-11-19T00:00:00Z',
+    updatedAt: '2024-11-19T00:00:00Z',
+  },
+];
+
+/**
+ * 获取课后服务列表
+ */
+export function getMockAfterSchoolServices(filters?: {
+  teacherId?: string;
+  classId?: string;
+  date?: string;
+  semester?: string;
+  serviceType?: string;
+  status?: string;
+}): AfterSchoolService[] {
+  let result = [...MOCK_AFTER_SCHOOL_SERVICES];
+  
+  if (filters?.teacherId) {
+    result = result.filter(s => s.teacherId === filters.teacherId);
+  }
+  
+  if (filters?.classId) {
+    result = result.filter(s => s.classId === filters.classId);
+  }
+  
+  if (filters?.date) {
+    result = result.filter(s => s.date === filters.date);
+  }
+  
+  if (filters?.semester) {
+    result = result.filter(s => s.semester === filters.semester);
+  }
+  
+  if (filters?.serviceType) {
+    result = result.filter(s => s.serviceType === filters.serviceType);
+  }
+  
+  if (filters?.status) {
+    result = result.filter(s => s.status === filters.status);
+  }
+  
+  return result;
+}
+
+// ============================================
+// 作业数据
+// ============================================
+
+/**
+ * 作业记录类型
+ */
+export interface HomeworkRecord {
+  id: string;
+  title: string;
+  subject: string;
+  classId: string;
+  className: string;
+  grade: number;
+  teacherId: string;
+  teacherName: string;
+  semester: string;
+  assignedDate: string;
+  dueDate: string;
+  status: string;
+  content: string;
+  attachments: string[];
+  submissionCount: number;
+  totalStudents: number;
+  createdAt: string;
+}
+
+export const MOCK_HOMEWORKS: HomeworkRecord[] = [
+  { id: 'hw1', title: '语文第一课练习', subject: '语文', classId: 'c001', className: '一年级1班', grade: 1, teacherId: 't001', teacherName: '张明华', semester: '2024-2025-1', assignedDate: '2024-11-18', dueDate: '2024-11-19', status: 'active', content: '完成课后练习题1-5题', attachments: [], submissionCount: 20, totalStudents: 25, createdAt: '2024-11-18' },
+  { id: 'hw2', title: '数学加减法练习', subject: '数学', classId: 'c001', className: '一年级1班', grade: 1, teacherId: 't002', teacherName: '李秀芳', semester: '2024-2025-1', assignedDate: '2024-11-18', dueDate: '2024-11-20', status: 'active', content: '完成练习册第10页', attachments: [], submissionCount: 15, totalStudents: 25, createdAt: '2024-11-18' },
+  { id: 'hw3', title: '英语单词抄写', subject: '英语', classId: 'c001', className: '一年级1班', grade: 1, teacherId: 't003', teacherName: '王建国', semester: '2024-2025-1', assignedDate: '2024-11-17', dueDate: '2024-11-18', status: 'completed', content: '抄写Unit1单词各5遍', attachments: [], submissionCount: 25, totalStudents: 25, createdAt: '2024-11-17' },
+];
+
+/**
+ * 获取作业列表
+ */
+export function getMockHomeworks(filters?: {
+  teacherId?: string;
+  classId?: string;
+  subject?: string;
+  status?: string;
+}): HomeworkRecord[] {
+  let result = [...MOCK_HOMEWORKS];
+  
+  if (filters?.teacherId) {
+    result = result.filter(h => h.teacherId === filters.teacherId);
+  }
+  
+  if (filters?.classId) {
+    result = result.filter(h => h.classId === filters.classId);
+  }
+  
+  if (filters?.subject) {
+    result = result.filter(h => h.subject === filters.subject);
+  }
+  
+  if (filters?.status) {
+    result = result.filter(h => h.status === filters.status);
+  }
+  
+  return result;
+}

@@ -1,17 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock课程数据
-const mockCourses = [
-  { id: 'course-1', name: '语文', code: 'YW001', subject: '语文', teacherId: 't001', teacherName: '王明华', teacherEmployeeId: 'T001', classId: 'c6-1', className: '六年级1班', grade: 6, semester: '2024-2025-1', hoursPerWeek: 6, totalHours: 216, status: 'active' },
-  { id: 'course-2', name: '数学', code: 'SX001', subject: '数学', teacherId: 't002', teacherName: '李芳', teacherEmployeeId: 'T002', classId: 'c6-1', className: '六年级1班', grade: 6, semester: '2024-2025-1', hoursPerWeek: 5, totalHours: 180, status: 'active' },
-  { id: 'course-3', name: '英语', code: 'YY001', subject: '英语', teacherId: 't003', teacherName: '张强', teacherEmployeeId: 'T003', classId: 'c6-1', className: '六年级1班', grade: 6, semester: '2024-2025-1', hoursPerWeek: 3, totalHours: 108, status: 'active' },
-  { id: 'course-4', name: '科学', code: 'KX001', subject: '科学', teacherId: 't004', teacherName: '刘洋', teacherEmployeeId: 'T004', classId: 'c6-1', className: '六年级1班', grade: 6, semester: '2024-2025-1', hoursPerWeek: 2, totalHours: 72, status: 'active' },
-  { id: 'course-5', name: '音乐', code: 'YY002', subject: '音乐', teacherId: 't005', teacherName: '陈红', teacherEmployeeId: 'T005', classId: 'c6-1', className: '六年级1班', grade: 6, semester: '2024-2025-1', hoursPerWeek: 1, totalHours: 36, status: 'active' },
-  { id: 'course-6', name: '体育', code: 'TY001', subject: '体育', teacherId: 't006', teacherName: '赵刚', teacherEmployeeId: 'T006', classId: 'c6-1', className: '六年级1班', grade: 6, semester: '2024-2025-1', hoursPerWeek: 3, totalHours: 108, status: 'active' },
-  { id: 'course-7', name: '美术', code: 'MS001', subject: '美术', teacherId: 't007', teacherName: '孙丽', teacherEmployeeId: 'T007', classId: 'c5-1', className: '五年级1班', grade: 5, semester: '2024-2025-1', hoursPerWeek: 1, totalHours: 36, status: 'active' },
-  { id: 'course-8', name: '信息技术', code: 'XX001', subject: '信息技术', teacherId: 't008', teacherName: '周伟', teacherEmployeeId: 'T008', classId: 'c5-1', className: '五年级1班', grade: 5, semester: '2024-2025-1', hoursPerWeek: 1, totalHours: 36, status: 'active' },
-];
+import { getMockCourses } from '@/lib/mock/academic.mock';
 
 /**
  * GET - 获取课程列表
@@ -42,10 +31,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 数据库失败，使用Mock数据
-      let filteredData = [...mockCourses];
-      if (teacherId) filteredData = filteredData.filter(c => c.teacherId === teacherId);
-      if (classId) filteredData = filteredData.filter(c => c.classId === classId);
-      if (semester) filteredData = filteredData.filter(c => c.semester === semester);
+      const filteredData = getMockCourses({ teacherId: teacherId || undefined, classId: classId || undefined, semester: semester || undefined });
 
       return NextResponse.json({
         success: true,
@@ -82,7 +68,7 @@ export async function GET(request: NextRequest) {
     // 异常情况也返回Mock数据
     return NextResponse.json({
       success: true,
-      data: mockCourses,
+      data: getMockCourses(),
       source: 'mock',
     });
   }

@@ -256,3 +256,74 @@ export function getMockTeacherTrainings(filters?: {
   
   return result.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 }
+
+// ============================================
+// 教师荣誉数据（独立导出）
+// ============================================
+export const MOCK_TEACHER_HONORS: TeacherHonor[] = [
+  { id: 'h1', teacherId: 't001', title: '龙岩市优秀教师', level: '市级', category: '综合', issuer: '龙岩市教育局', date: '2023-09', certificateNo: 'LY202309001' },
+  { id: 'h2', teacherId: 't001', title: '区级教学能手', level: '区级', category: '教学', issuer: '新罗区教育局', date: '2022-06' },
+  { id: 'h3', teacherId: 't001', title: '校级优秀班主任', level: '校级', category: '德育', issuer: '学校', date: '2020-09' },
+  { id: 'h4', teacherId: 't001', title: '福建省骨干教师', level: '省级', category: '综合', issuer: '福建省教育厅', date: '2021-12' },
+  { id: 'h5', teacherId: 't002', title: '市级优秀班主任', level: '市级', category: '德育', issuer: '龙岩市教育局', date: '2022-09' },
+  { id: 'h6', teacherId: 't003', title: '区级优秀教师', level: '区级', category: '综合', issuer: '新罗区教育局', date: '2023-09' },
+];
+
+/**
+ * 获取教师荣誉Mock数据
+ */
+export function getMockTeacherHonors(filters?: {
+  teacherId?: string;
+  level?: string;
+  category?: string;
+}): TeacherHonor[] {
+  let result = [...MOCK_TEACHER_HONORS];
+  
+  if (filters?.teacherId) {
+    result = result.filter(h => h.teacherId === filters.teacherId);
+  }
+  
+  if (filters?.level) {
+    result = result.filter(h => h.level === filters.level);
+  }
+  
+  if (filters?.category) {
+    result = result.filter(h => h.category === filters.category);
+  }
+  
+  return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+// ============================================
+// 教师成长记录数据（独立导出）
+// ============================================
+export const MOCK_TEACHER_RECORDS: TeacherRecord[] = [
+  { id: 'r1', teacherId: 't001', type: 'education', title: '本科学历', description: '福建师范大学 汉语言文学专业', date: '2007-06', createdAt: '2020-01-01' },
+  { id: 'r2', teacherId: 't001', type: 'title', title: '二级教师', date: '2010-09', createdAt: '2020-01-01' },
+  { id: 'r3', teacherId: 't001', type: 'title', title: '一级教师', date: '2014-09', createdAt: '2020-01-01' },
+  { id: 'r4', teacherId: 't001', type: 'title', title: '高级教师', date: '2018-09', createdAt: '2020-01-01' },
+  { id: 'r5', teacherId: 't001', type: 'position', title: '担任语文教研组长', date: '2019-09', createdAt: '2020-01-01' },
+  { id: 'r6', teacherId: 't002', type: 'education', title: '本科学历', description: '福建师范大学 数学与应用数学专业', date: '2008-06', createdAt: '2020-01-01' },
+  { id: 'r7', teacherId: 't002', type: 'title', title: '一级教师', date: '2016-09', createdAt: '2020-01-01' },
+  { id: 'r8', teacherId: 't003', type: 'education', title: '本科学历', description: '闽南师范大学 英语教育专业', date: '2009-06', createdAt: '2020-01-01' },
+];
+
+/**
+ * 获取教师成长记录Mock数据
+ */
+export function getMockTeacherRecords(filters?: {
+  teacherId?: string;
+  type?: string;
+}): TeacherRecord[] {
+  let result = [...MOCK_TEACHER_RECORDS];
+  
+  if (filters?.teacherId) {
+    result = result.filter(r => r.teacherId === filters.teacherId);
+  }
+  
+  if (filters?.type) {
+    result = result.filter(r => r.type === filters.type);
+  }
+  
+  return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}

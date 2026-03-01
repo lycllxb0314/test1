@@ -9,72 +9,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { AfterSchoolService } from '@/types';
-
-// Mock课后服务数据
-const mockAfterSchoolServices: AfterSchoolService[] = [
-  {
-    id: 'as001',
-    semester: '2024-2025-1',
-    weekNumber: 12,
-    date: '2024-11-18',
-    serviceType: '课后托管',
-    classId: 'c001',
-    className: '一年级1班',
-    grade: 1,
-    teacherId: 't001',
-    teacherName: '张明华',
-    periodIndex: 8,
-    startTime: '16:30',
-    endTime: '17:30',
-    hours: 1,
-    status: 'completed',
-    studentCount: 25,
-    createdAt: '2024-11-18T00:00:00Z',
-    updatedAt: '2024-11-18T00:00:00Z',
-  },
-  {
-    id: 'as002',
-    semester: '2024-2025-1',
-    weekNumber: 12,
-    date: '2024-11-18',
-    serviceType: '兴趣班',
-    classId: 'c002',
-    className: '一年级2班',
-    grade: 1,
-    teacherId: 't008',
-    teacherName: '吴晓燕',
-    periodIndex: 8,
-    startTime: '16:30',
-    endTime: '17:30',
-    hours: 1,
-    status: 'completed',
-    studentCount: 20,
-    remark: '羽毛球兴趣班',
-    createdAt: '2024-11-18T00:00:00Z',
-    updatedAt: '2024-11-18T00:00:00Z',
-  },
-  {
-    id: 'as003',
-    semester: '2024-2025-1',
-    weekNumber: 12,
-    date: '2024-11-19',
-    serviceType: '课后托管',
-    classId: 'c003',
-    className: '二年级1班',
-    grade: 2,
-    teacherId: 't003',
-    teacherName: '王建国',
-    periodIndex: 8,
-    startTime: '16:30',
-    endTime: '17:30',
-    hours: 1,
-    status: 'scheduled',
-    studentCount: 28,
-    createdAt: '2024-11-19T00:00:00Z',
-    updatedAt: '2024-11-19T00:00:00Z',
-  },
-];
+import { getMockAfterSchoolServices } from '@/lib/mock/academic.mock';
+import type { AfterSchoolService } from '@/lib/mock/academic.mock';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -107,14 +43,14 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 数据库失败，使用Mock数据
-      let filteredData = [...mockAfterSchoolServices];
-      if (teacherId) filteredData = filteredData.filter(s => s.teacherId === teacherId);
-      if (classId) filteredData = filteredData.filter(s => s.classId === classId);
-      if (date) filteredData = filteredData.filter(s => s.date === date);
-      if (semester) filteredData = filteredData.filter(s => s.semester === semester);
-      if (weekNumber) filteredData = filteredData.filter(s => s.weekNumber === parseInt(weekNumber));
-      if (serviceType) filteredData = filteredData.filter(s => s.serviceType === serviceType);
-      if (status) filteredData = filteredData.filter(s => s.status === status);
+      const filteredData = getMockAfterSchoolServices({
+        teacherId: teacherId || undefined,
+        classId: classId || undefined,
+        date: date || undefined,
+        semester: semester || undefined,
+        serviceType: serviceType || undefined,
+        status: status || undefined,
+      });
 
       return NextResponse.json({
         success: true,
@@ -154,7 +90,7 @@ export async function GET(request: NextRequest) {
     console.error('获取课后服务失败:', error);
     return NextResponse.json({
       success: true,
-      data: mockAfterSchoolServices,
+      data: getMockAfterSchoolServices(),
       source: 'mock',
     });
   }

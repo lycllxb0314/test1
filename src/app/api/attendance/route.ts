@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock考勤数据
-const mockAttendance = [
-  { id: 'a1', studentId: 's001', studentName: '张三', studentNumber: '2024001', grade: 6, className: '六年级1班', date: '2024-11-18', type: 'attendance', reason: null, recorderId: 't001', recorderName: '王芳', createdAt: '2024-11-18' },
-  { id: 'a2', studentId: 's002', studentName: '李四', studentNumber: '2024002', grade: 6, className: '六年级1班', date: '2024-11-18', type: 'attendance', reason: null, recorderId: 't001', recorderName: '王芳', createdAt: '2024-11-18' },
-  { id: 'a3', studentId: 's003', studentName: '王五', studentNumber: '2024003', grade: 6, className: '六年级1班', date: '2024-11-18', type: 'leave', reason: '病假', recorderId: 't001', recorderName: '王芳', createdAt: '2024-11-18' },
-  { id: 'a4', studentId: 's004', studentName: '赵六', studentNumber: '2024004', grade: 6, className: '六年级1班', date: '2024-11-18', type: 'late', reason: '交通堵塞', recorderId: 't001', recorderName: '王芳', createdAt: '2024-11-18' },
-  { id: 'a5', studentId: 's001', studentName: '张三', studentNumber: '2024001', grade: 6, className: '六年级1班', date: '2024-11-19', type: 'attendance', reason: null, recorderId: 't001', recorderName: '王芳', createdAt: '2024-11-19' },
-];
+import { getMockStudentAttendance } from '@/lib/mock/moral.mock';
 
 /**
  * GET - 获取考勤记录
@@ -41,13 +33,14 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 数据库失败，使用Mock数据
-      let filteredData = [...mockAttendance];
-      if (studentId) filteredData = filteredData.filter(a => a.studentId === studentId);
-      if (classId) filteredData = filteredData.filter(a => a.className.includes(classId));
-      if (date) filteredData = filteredData.filter(a => a.date === date);
-      if (startDate) filteredData = filteredData.filter(a => a.date >= startDate);
-      if (endDate) filteredData = filteredData.filter(a => a.date <= endDate);
-      if (type) filteredData = filteredData.filter(a => a.type === type);
+      const filteredData = getMockStudentAttendance({
+        studentId: studentId || undefined,
+        classId: classId || undefined,
+        date: date || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        type: type || undefined,
+      });
 
       return NextResponse.json({
         success: true,
@@ -81,7 +74,7 @@ export async function GET(request: NextRequest) {
     // 异常情况也返回Mock数据
     return NextResponse.json({
       success: true,
-      data: mockAttendance,
+      data: getMockStudentAttendance(),
       source: 'mock',
     });
   }

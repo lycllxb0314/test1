@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock资产数据
-const mockAssets = [
-  { id: 'asset1', name: '教师办公电脑', assetNumber: 'ZC-2024-001', category: '办公设备', brand: '联想', model: 'ThinkCentre M720', purchaseDate: '2024-01-15', purchasePrice: 5000, location: '办公室201', manager: '李明', status: 'active', lastMaintenance: '2024-06-01', nextMaintenance: '2024-12-01', createdAt: '2024-01-15' },
-  { id: 'asset2', name: '多媒体投影仪', assetNumber: 'ZC-2024-002', category: '教学设备', brand: '爱普生', model: 'CB-X50', purchaseDate: '2024-02-20', purchasePrice: 8000, location: '多媒体教室1', manager: '王芳', status: 'active', lastMaintenance: '2024-07-15', nextMaintenance: '2025-01-15', createdAt: '2024-02-20' },
-  { id: 'asset3', name: '空调', assetNumber: 'ZC-2023-015', category: '电器设备', brand: '格力', model: 'KFR-35GW', purchaseDate: '2023-08-10', purchasePrice: 3500, location: '六年级1班', manager: '张华', status: 'active', lastMaintenance: '2024-05-20', nextMaintenance: '2025-05-20', createdAt: '2023-08-10' },
-  { id: 'asset4', name: '打印机', assetNumber: 'ZC-2024-003', category: '办公设备', brand: '惠普', model: 'LaserJet Pro', purchaseDate: '2024-03-01', purchasePrice: 2800, location: '教务处', manager: '李强', status: 'maintenance', lastMaintenance: '2024-09-01', nextMaintenance: '2024-11-01', createdAt: '2024-03-01' },
-];
+import { getMockAssets } from '@/lib/mock/general.mock';
 
 /**
  * GET - 获取资产列表
@@ -34,10 +27,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 数据库失败，使用Mock数据
-      let filteredData = [...mockAssets];
-      if (category) filteredData = filteredData.filter(a => a.category === category);
-      if (status) filteredData = filteredData.filter(a => a.status === status);
-      if (location) filteredData = filteredData.filter(a => a.location.includes(location));
+      const filteredData = getMockAssets({
+        category: category || undefined,
+        status: status || undefined,
+      });
 
       return NextResponse.json({ success: true, data: filteredData, source: 'mock' });
     }
@@ -64,7 +57,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to fetch assets:', error);
-    return NextResponse.json({ success: true, data: mockAssets, source: 'mock' });
+    return NextResponse.json({ success: true, data: getMockAssets(), source: 'mock' });
   }
 }
 

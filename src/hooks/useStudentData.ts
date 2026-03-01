@@ -5,7 +5,7 @@
  * 提供学生相关的数据获取和管理功能
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useQuery, type ApiResponse, type Pagination } from './useApi';
 import type {
   Student,
@@ -86,16 +86,24 @@ export function useStudentsList(params: StudentsListParams = {}) {
     setError(null);
 
     try {
-      const response = await fetchApi<{ data: StudentListItem[]; pagination: Pagination }>(
-        '/students',
-        { ...params, page: params?.page || 1, pageSize: params?.pageSize || 20 }
-      );
+      const url = new URL('/api/students', window.location.origin);
+      Object.entries({ ...params, page: params?.page || 1, pageSize: params?.pageSize || 20 }).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          url.searchParams.append(key, String(value));
+        }
+      });
 
-      if (response.success && response.data) {
-        setData(response.data.data);
-        setPagination(response.data.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 });
+      const response = await fetch(url.toString(), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        // API 返回格式: { success, data: [...], pagination: {...} }
+        setData(result.data || []);
+        setPagination(result.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 });
       } else {
-        setError(response.error || '获取数据失败');
+        setError(result.error || '获取数据失败');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '网络错误');
@@ -103,6 +111,11 @@ export function useStudentsList(params: StudentsListParams = {}) {
       setLoading(false);
     }
   }, [JSON.stringify(params)]);
+
+  // 初始化时自动获取数据
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return {
     data,
