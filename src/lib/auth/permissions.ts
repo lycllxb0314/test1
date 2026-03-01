@@ -147,6 +147,15 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
       academic: ['view', 'edit'], // 可以协助管理教研活动
     },
   },
+  young_pioneer_counselor: {
+    name: '少先队大队辅导员',
+    description: '少先队大队辅导员，通常由教师兼任，负责少先队活动组织与管理',
+    modules: {
+      teacher: ['manage'],
+      parent: ['view'],
+      moral: ['view', 'edit'], // 可以管理少先队活动
+    },
+  },
 
   // === 其他人员 ===
   staff: {

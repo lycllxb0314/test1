@@ -6,7 +6,7 @@ export type UserRole =
   | 'principal'        // 校长
   | 'secretary'        // 书记
   | 'vice_principal'   // 分管副校长
-  // === 部门负责人 ===
+  // === 部门负责人（可由教师兼任）===
   | 'academic_director' // 教务主任
   | 'moral_director'    // 德育主任
   | 'general_director'  // 总务主任
@@ -15,15 +15,27 @@ export type UserRole =
   | 'moral_staff'       // 德育员
   // === 教师群体 ===
   | 'head_teacher'      // 班主任
-  | 'grade_leader'      // 年段长
+  | 'grade_leader'      // 年段长（可由科任教师兼任）
   | 'subject_teacher'   // 科任教师（语文、数学、英语等主科教师）
   | 'skill_teacher'     // 技能课教师（音乐、美术、体育、科学等）
   | 'research_group_leader'       // 教研组组长（通常由班主任或科任兼任）
   | 'research_group_deputy_leader' // 教研组副组长（通常由班主任或科任兼任）
+  | 'young_pioneer_counselor'     // 少先队大队辅导员（通常由教师兼任）
   // === 其他人员 ===
   | 'staff'            // 后勤人员
   | 'student'          // 学生
   | 'parent';          // 家长
+
+/** 行政职务类型（可兼任，存储在 additional_roles 字段中） */
+export type AdministrativeRole = 
+  | 'principal'                 // 校长
+  | 'secretary'                 // 书记
+  | 'vice_principal'            // 副校长
+  | 'academic_director'         // 教务主任
+  | 'moral_director'            // 德育主任
+  | 'general_director'          // 总务主任
+  | 'grade_leader'              // 年段长
+  | 'young_pioneer_counselor';  // 少先队大队辅导员
 
 // 角色配置
 export interface RoleConfig {

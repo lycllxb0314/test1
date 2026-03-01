@@ -283,6 +283,7 @@ function getRoleDisplayName(role: UserRole): string {
     skill_teacher: '技能课教师',
     research_group_leader: '教研组组长',
     research_group_deputy_leader: '教研组副组长',
+    young_pioneer_counselor: '少先队大队辅导员',
     staff: '后勤人员',
     student: '学生',
     parent: '家长',

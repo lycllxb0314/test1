@@ -20,7 +20,8 @@ export type TeacherRole =
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
   | 'skill_teacher'             // 技能课教师（体育、音乐、美术等）
   | 'research_group_leader'     // 教研组组长（通常由班主任或科任兼任）
-  | 'research_group_deputy_leader'; // 教研组副组长（通常由班主任或科任兼任）
+  | 'research_group_deputy_leader' // 教研组副组长（通常由班主任或科任兼任）
+  | 'young_pioneer_counselor';  // 少先队大队辅导员
 
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   head_teacher: '班主任',
@@ -29,6 +30,7 @@ export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   skill_teacher: '技能课教师',
   research_group_leader: '教研组组长',
   research_group_deputy_leader: '教研组副组长',
+  young_pioneer_counselor: '少先队大队辅导员',
 };
 
 // ==================== 主科定义 ====================
