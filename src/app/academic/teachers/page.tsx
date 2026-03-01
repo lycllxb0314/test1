@@ -295,7 +295,9 @@ export default function TeachersPage() {
           primary_role: detail.primaryRole,
           additional_roles: detail.additionalRoles,
           weekly_hours: detail.weeklyHours,
-          teachable_subjects: detail.teachableSubjects,
+          // 将 teachableSubjects 拆分为 primary_subject 和 secondary_subjects
+          primary_subject: detail.teachableSubjects?.[0] || detail.subject,
+          secondary_subjects: detail.teachableSubjects?.slice(1) || [],
           teachable_grades: detail.teachableGrades,
           is_head_teacher: detail.isHeadTeacher,
           head_teacher_class_id: detail.headTeacherClassId,
