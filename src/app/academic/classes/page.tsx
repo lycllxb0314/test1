@@ -59,32 +59,24 @@ import {
 interface Teacher {
   id: string;
   name: string;
-  subjects: string[];        // 可任教科目
-  grades: number[];          // 可任教年级
-  weeklyHours: number;       // 周课时量
-  currentHours: number;      // 已安排课时
-  isHeadTeacher: boolean;    // 是否班主任
-  headTeacherClassId?: string;
-}
-
-interface SubjectTeacher {
-  subject: string;
-  teacherId: string;
-  teacherName: string;
-  weeklyHours: number;
+  subjects: string[];
+  isHeadTeacher: boolean;
+  classId?: string;
+  className?: string;
+  department?: string;
 }
 
 interface ClassInfo {
   id: string;
   name: string;
   grade: number;
-  classNum: number;
-  students: number;
-  headTeacherId: string;        // 班主任
+  classNumber: number;
+  headTeacherId: string;
   headTeacherName: string;
-  subjectHeadId?: string;       // 科任（副班主任）
-  subjectHeadName?: string;
-  classroom: string;
+  studentCount: number;
+  classroomId: string;
+  classroomName: string;
+  building: string;
   status: 'active' | 'inactive';
   createdAt: string;
   updatedAt: string;
@@ -104,92 +96,41 @@ const SUBJECTS = [
 
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
 
-// ==================== Mock数据 ====================
-
-const mockTeachers: Teacher[] = [
-  { id: 't001', name: '张明华', subjects: ['语文', '道德与法治'], grades: [1, 2, 3], weeklyHours: 14, currentHours: 0, isHeadTeacher: true },
-  { id: 't002', name: '李秀芳', subjects: ['数学', '科学'], grades: [1, 2, 3], weeklyHours: 14, currentHours: 0, isHeadTeacher: true },
-  { id: 't003', name: '王建国', subjects: ['语文', '道德与法治'], grades: [1, 2, 3], weeklyHours: 14, currentHours: 0, isHeadTeacher: false },
-  { id: 't004', name: '赵丽萍', subjects: ['数学', '科学'], grades: [2, 3, 4], weeklyHours: 14, currentHours: 0, isHeadTeacher: true },
-  { id: 't005', name: '刘伟强', subjects: ['语文'], grades: [3, 4], weeklyHours: 12, currentHours: 0, isHeadTeacher: false },
-  { id: 't006', name: '陈美玲', subjects: ['数学'], grades: [3, 4], weeklyHours: 12, currentHours: 0, isHeadTeacher: true },
-  { id: 't007', name: '周志明', subjects: ['英语'], grades: [3, 4, 5, 6], weeklyHours: 16, currentHours: 0, isHeadTeacher: false },
-  { id: 't008', name: '吴晓燕', subjects: ['体育'], grades: [1, 2, 3, 4, 5, 6], weeklyHours: 18, currentHours: 0, isHeadTeacher: false },
-  { id: 't009', name: '郑文博', subjects: ['音乐'], grades: [1, 2, 3, 4, 5, 6], weeklyHours: 16, currentHours: 0, isHeadTeacher: false },
-  { id: 't010', name: '孙艺华', subjects: ['美术'], grades: [1, 2, 3, 4, 5, 6], weeklyHours: 16, currentHours: 0, isHeadTeacher: false },
-  { id: 't011', name: '黄志强', subjects: ['科学'], grades: [3, 4, 5, 6], weeklyHours: 14, currentHours: 0, isHeadTeacher: false },
-  { id: 't012', name: '林小红', subjects: ['道德与法治'], grades: [1, 2, 3, 4, 5, 6], weeklyHours: 12, currentHours: 0, isHeadTeacher: false },
-];
-
-// 存储状态
-let classesStore: ClassInfo[] = [
-  {
-    id: 'c001',
-    name: '一年级1班',
-    grade: 1,
-    classNum: 1,
-    students: 50,
-    headTeacherId: 't001',
-    headTeacherName: '张明华',
-    subjectHeadId: 't002',
-    subjectHeadName: '李秀芳',
-    classroom: '教学楼A101',
-    status: 'active',
-    createdAt: '2024-09-01',
-    updatedAt: '2024-09-01',
-  },
-  {
-    id: 'c002',
-    name: '一年级2班',
-    grade: 1,
-    classNum: 2,
-    students: 49,
-    headTeacherId: 't002',
-    headTeacherName: '李秀芳',
-    subjectHeadId: 't003',
-    subjectHeadName: '王建国',
-    classroom: '教学楼A102',
-    status: 'active',
-    createdAt: '2024-09-01',
-    updatedAt: '2024-09-01',
-  },
-  {
-    id: 'c003',
-    name: '二年级1班',
-    grade: 2,
-    classNum: 1,
-    students: 48,
-    headTeacherId: 't003',
-    headTeacherName: '王建国',
-    subjectHeadId: 't004',
-    subjectHeadName: '赵丽萍',
-    classroom: '教学楼A201',
-    status: 'active',
-    createdAt: '2024-09-01',
-    updatedAt: '2024-09-01',
-  },
-  {
-    id: 'c004',
-    name: '三年级1班',
-    grade: 3,
-    classNum: 1,
-    students: 52,
-    headTeacherId: 't006',
-    headTeacherName: '陈美玲',
-    subjectHeadId: 't005',
-    subjectHeadName: '刘伟强',
-    classroom: '教学楼A301',
-    status: 'active',
-    createdAt: '2024-09-01',
-    updatedAt: '2024-09-01',
-  },
-];
-
 export default function ClassesPage() {
   // 状态
-  const [loading, setLoading] = useState(false);
-  const [classes, setClasses] = useState<ClassInfo[]>(classesStore);
-  const [teachers] = useState<Teacher[]>(mockTeachers);
+  const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  
+  // 从 API 获取数据
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // 并行获取班级和教师数据
+        const [classesRes, teachersRes] = await Promise.all([
+          fetch('/api/classes'),
+          fetch('/api/teachers'),
+        ]);
+        
+        const classesData = await classesRes.json();
+        const teachersData = await teachersRes.json();
+        
+        if (classesData.success) {
+          setClasses(classesData.data);
+        }
+        if (teachersData.success) {
+          setTeachers(teachersData.data);
+        }
+      } catch (error) {
+        console.error('获取数据失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
   
   // 筛选
   const [searchTerm, setSearchTerm] = useState('');
@@ -203,7 +144,6 @@ export default function ClassesPage() {
   // 编辑表单
   const [editForm, setEditForm] = useState({
     headTeacherId: '',
-    subjectHeadId: '',
     classroom: '',
   });
 
@@ -215,7 +155,7 @@ export default function ClassesPage() {
   });
 
   // 统计
-  const totalStudents = classes.reduce((sum, c) => sum + c.students, 0);
+  const totalStudents = classes.reduce((sum, c) => sum + c.studentCount, 0);
   const gradeStats = classes.reduce((acc, c) => {
     acc[c.grade] = (acc[c.grade] || 0) + 1;
     return acc;
@@ -232,30 +172,9 @@ export default function ClassesPage() {
     setSelectedClass(cls);
     setEditForm({
       headTeacherId: cls.headTeacherId,
-      subjectHeadId: cls.subjectHeadId || '',
-      classroom: cls.classroom,
+      classroom: cls.classroomName,
     });
     setShowEditDialog(true);
-  };
-
-  // 自动推荐科任（副班主任）
-  const getRecommendedSubjectHead = (headTeacherId: string, grade: number): Teacher | undefined => {
-    const headTeacher = teachers.find(t => t.id === headTeacherId);
-    if (!headTeacher) return undefined;
-    
-    // 语文班主任 → 推荐数学老师当科任
-    // 数学班主任 → 推荐语文老师当科任
-    const targetSubject = headTeacher.subjects.includes('语文') ? '数学' : 
-                         headTeacher.subjects.includes('数学') ? '语文' : null;
-    
-    if (!targetSubject) return undefined;
-    
-    // 找同年级、教目标科目的老师
-    return teachers.find(t => 
-      t.subjects.includes(targetSubject) && 
-      t.grades.includes(grade) &&
-      t.id !== headTeacherId
-    );
   };
 
   // 保存班级编辑
@@ -263,7 +182,6 @@ export default function ClassesPage() {
     if (!selectedClass) return;
     
     const teacher = teachers.find(t => t.id === editForm.headTeacherId);
-    const subjectHead = teachers.find(t => t.id === editForm.subjectHeadId);
     
     setClasses(prev => prev.map(c => {
       if (c.id === selectedClass.id) {
@@ -271,9 +189,7 @@ export default function ClassesPage() {
           ...c,
           headTeacherId: editForm.headTeacherId,
           headTeacherName: teacher?.name || c.headTeacherName,
-          subjectHeadId: editForm.subjectHeadId,
-          subjectHeadName: subjectHead?.name,
-          classroom: editForm.classroom,
+          classroomName: editForm.classroom,
           updatedAt: new Date().toISOString(),
         };
       }
@@ -403,19 +319,32 @@ export default function ClassesPage() {
                 <TableHead>年级</TableHead>
                 <TableHead>学生人数</TableHead>
                 <TableHead>班主任</TableHead>
-                <TableHead>科任</TableHead>
                 <TableHead>教室位置</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredClasses.map((cls) => (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-600" />
+                    <p className="mt-2 text-gray-500">加载中...</p>
+                  </TableCell>
+                </TableRow>
+              ) : filteredClasses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                    暂无班级数据
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredClasses.map((cls) => (
                 <TableRow key={cls.id} className="hover:bg-gray-50">
                   <TableCell className="font-medium">{cls.name}</TableCell>
                   <TableCell>{GRADE_NAMES[cls.grade]}</TableCell>
                   <TableCell>
                       <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                        {cls.students}人
+                        {cls.studentCount}人
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -424,17 +353,7 @@ export default function ClassesPage() {
                         {cls.headTeacherName}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {cls.subjectHeadName ? (
-                        <div className="flex items-center gap-1">
-                          <UserCircle className="h-4 w-4 text-blue-600" />
-                          {cls.subjectHeadName}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">未设置</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{cls.classroom}</TableCell>
+                    <TableCell>{cls.classroomName}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button 
@@ -454,7 +373,8 @@ export default function ClassesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -476,7 +396,7 @@ export default function ClassesPage() {
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500">学生人数</div>
-                  <div className="font-medium">{selectedClass.students}人</div>
+                  <div className="font-medium">{selectedClass.studentCount}人</div>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500">班主任</div>
@@ -484,13 +404,8 @@ export default function ClassesPage() {
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500">教室</div>
-                  <div className="font-medium">{selectedClass.classroom}</div>
+                  <div className="font-medium">{selectedClass.classroomName}</div>
                 </div>
-              </div>
-              
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500">科任（副班主任）</div>
-                <div className="font-medium">{selectedClass.subjectHeadName || '未设置'}</div>
               </div>
             </div>
           )}
@@ -503,7 +418,7 @@ export default function ClassesPage() {
           <DialogHeader>
             <DialogTitle>编辑班级信息</DialogTitle>
             <DialogDescription>
-              设置班主任和科任（副班主任）。科任自动推荐规则：语文班主任→数学科任，数学班主任→语文科任
+              设置班主任和教室位置
             </DialogDescription>
           </DialogHeader>
           
@@ -512,62 +427,19 @@ export default function ClassesPage() {
               <Label>班主任</Label>
               <Select 
                 value={editForm.headTeacherId} 
-                onValueChange={(v) => {
-                  // 自动推荐科任
-                  const recommended = selectedClass ? getRecommendedSubjectHead(v, selectedClass.grade) : undefined;
-                  setEditForm({ 
-                    ...editForm, 
-                    headTeacherId: v,
-                    subjectHeadId: recommended?.id || editForm.subjectHeadId,
-                  });
-                }}
+                onValueChange={(v) => setEditForm({ ...editForm, headTeacherId: v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="选择班主任" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teachers.filter(t => t.isHeadTeacher || t.weeklyHours >= 12).map(t => (
+                  {teachers.filter(t => t.isHeadTeacher).map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name} ({t.subjects.join('/')})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>科任（副班主任）</Label>
-              <Select 
-                value={editForm.subjectHeadId} 
-                onValueChange={(v) => setEditForm({ ...editForm, subjectHeadId: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择科任" />
-                </SelectTrigger>
-                <SelectContent>
-                  {selectedClass && (() => {
-                    const headTeacher = teachers.find(t => t.id === editForm.headTeacherId);
-                    // 只显示与班主任学科互补的老师（语文或数学）
-                    const targetSubject = headTeacher?.subjects.includes('语文') ? '数学' : 
-                                         headTeacher?.subjects.includes('数学') ? '语文' : null;
-                    
-                    return teachers
-                      .filter(t => 
-                        t.grades.includes(selectedClass.grade) &&
-                        t.id !== editForm.headTeacherId &&
-                        (!targetSubject || t.subjects.includes(targetSubject))
-                      )
-                      .map(t => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.name} ({t.subjects.join('/')})
-                        </SelectItem>
-                      ));
-                  })()}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500">
-                科任由班主任学科自动推荐，也可手动选择
-              </p>
             </div>
             
             <div className="space-y-2">
