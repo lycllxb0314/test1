@@ -16,3 +16,16 @@ export {
   ADMINISTRATIVE_ROLE_LABELS,
   TEACHER_ROLE_COLORS,
 } from './useTeachers';
+
+export {
+  useParents,
+  useParentData,
+  // 类型
+  type ParentRelationship,
+  type ParentInfo,
+  type ParentFilterParams,
+  type UseParentsReturn,
+  // 常量
+  PARENT_RELATIONSHIP_LABELS,
+  PARENT_RELATIONSHIP_OPTIONS,
+} from './useParents';

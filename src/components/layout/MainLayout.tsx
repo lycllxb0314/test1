@@ -104,6 +104,7 @@ const generalNav: NavItem[] = [
 const academicNav: NavItem[] = [
   { name: '教务概览', href: '/academic', icon: LayoutDashboard, description: '教务工作看板' },
   { name: '学生管理', href: '/academic/students', icon: Users, description: '学生信息管理' },
+  { name: '家长管理', href: '/academic/parents', icon: Heart, description: '学生家长信息管理' },
   { name: '新生注册', href: '/academic/enrollment', icon: UserPlus, description: '新生信息采集与注册', badge: '9月' },
   { name: '教师管理', href: '/academic/teachers', icon: UserCircle, description: '教师信息管理' },
   { name: '班级管理', href: '/academic/classes', icon: School, description: '班级信息管理' },
