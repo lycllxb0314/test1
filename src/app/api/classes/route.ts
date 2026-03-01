@@ -87,9 +87,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(error('数据库查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
+    // 转换下划线格式为驼峰格式
+    const formattedData = (data || []).map(cls => ({
+      id: cls.id,
+      name: cls.name,
+      grade: cls.grade,
+      gradeName: cls.grade_name,
+      classNumber: cls.class_number,
+      headTeacherId: cls.head_teacher_id,
+      headTeacherName: cls.head_teacher_name,
+      classroomId: cls.classroom_id,
+      classroomName: cls.classroom_name,
+      building: cls.building,
+      studentCount: cls.student_count || 0,
+      status: cls.status,
+      createdAt: cls.created_at,
+      updatedAt: cls.updated_at,
+    }));
+    
     return NextResponse.json({
       success: true,
-      data: data || [],
+      data: formattedData,
       pagination: createPagination(count || 0, page, pageSize),
     });
   } catch (err) {

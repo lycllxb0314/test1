@@ -67,9 +67,28 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
       return NextResponse.json(error('数据库查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
+    // 转换下划线格式为驼峰格式
+    const formattedData = (data || []).map(t => ({
+      id: t.id,
+      name: t.name,
+      gender: t.gender,
+      subjects: t.subjects || [],
+      isHeadTeacher: t.is_head_teacher,
+      headTeacherClassIds: t.head_teacher_class_ids || [],
+      classId: t.head_teacher_class_ids?.[0], // 兼容旧格式
+      className: t.class_name,
+      department: t.department,
+      title: t.title,
+      phone: t.phone,
+      email: t.email,
+      status: t.status,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+    }));
+    
     return NextResponse.json({
       success: true,
-      data: data || [],
+      data: formattedData,
       pagination: createPagination(count || 0, page, pageSize),
     });
   } catch (err) {
