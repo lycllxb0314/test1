@@ -67,7 +67,7 @@ import { MAIN_SUBJECTS, calculateSuggestedHours, validateTeachingHours } from '@
 const SUBJECTS_CONFIG = [
   { name: '语文', isMain: true },
   { name: '数学', isMain: true },
-  { name: '英语', isMain: true },
+  { name: '英语', isMain: false },
   { name: '体育', isMain: false },
   { name: '音乐', isMain: false },
   { name: '美术', isMain: false },

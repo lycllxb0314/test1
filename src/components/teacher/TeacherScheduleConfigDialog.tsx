@@ -60,7 +60,7 @@ import {
 const SUBJECTS_CONFIG = [
   { name: '语文', color: 'bg-red-100 text-red-700 border-red-200', isMain: true },
   { name: '数学', color: 'bg-blue-100 text-blue-700 border-blue-200', isMain: true },
-  { name: '英语', color: 'bg-green-100 text-green-700 border-green-200', isMain: true },
+  { name: '英语', color: 'bg-green-100 text-green-700 border-green-200', isMain: false },
   { name: '体育', color: 'bg-orange-100 text-orange-700 border-orange-200', isMain: false },
   { name: '音乐', color: 'bg-purple-100 text-purple-700 border-purple-200', isMain: false },
   { name: '美术', color: 'bg-pink-100 text-pink-700 border-pink-200', isMain: false },

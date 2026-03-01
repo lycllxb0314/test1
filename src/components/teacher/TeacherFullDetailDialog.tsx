@@ -82,7 +82,7 @@ import { MAIN_SUBJECTS, calculateSuggestedHours } from '@/lib/data/teaching-rule
 const SUBJECTS_CONFIG = [
   { name: '语文', isMain: true },
   { name: '数学', isMain: true },
-  { name: '英语', isMain: true },
+  { name: '英语', isMain: false },
   { name: '体育', isMain: false },
   { name: '音乐', isMain: false },
   { name: '美术', isMain: false },
@@ -677,16 +677,23 @@ export function TeacherFullDetailDialog({
                   <Info className="h-4 w-4" />
                   <span>课时量标准参考（国家标准）</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-3 gap-4 text-sm">
                   <div className="space-y-1">
-                    <p className="font-medium text-blue-700">语数英教师：</p>
+                    <p className="font-medium text-blue-700">语数教师：</p>
                     <p className="text-gray-600">周课时 14-16 节</p>
                     <p className="text-xs text-gray-500">班主任：本班主科6-8节 + 兼任科目6-8节</p>
                     <p className="text-xs text-gray-500">科任：两个班主科10-12节 + 兼任2-4节</p>
                   </div>
                   <div className="space-y-1">
+                    <p className="font-medium text-blue-700">英语教师：</p>
+                    <p className="text-gray-600">周课时 14-16 节</p>
+                    <p className="text-xs text-gray-500">虽属技能科，但课时标准同主科</p>
+                    <p className="text-xs text-gray-500">跨班级教学</p>
+                  </div>
+                  <div className="space-y-1">
                     <p className="font-medium text-blue-700">技能科教师：</p>
                     <p className="text-gray-600">周课时 16-18 节</p>
+                    <p className="text-xs text-gray-500">体育/音乐/美术/科学等</p>
                     <p className="text-xs text-gray-500">跨多个班级教学，可能跨年级</p>
                   </div>
                 </div>
