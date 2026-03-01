@@ -2,6 +2,108 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { StudentFullProfile, Parent, HabitCategory } from '@/types';
 
+// 习惯类别配置
+const HABIT_CATEGORIES: { category: HabitCategory; categoryName: string }[] = [
+  { category: 'civilization', categoryName: '文明习惯' },
+  { category: 'writing', categoryName: '书写习惯' },
+  { category: 'reading', categoryName: '阅读习惯' },
+  { category: 'sports', categoryName: '运动习惯' },
+  { category: 'safety', categoryName: '安全习惯' },
+  { category: 'hygiene', categoryName: '卫生习惯' },
+  { category: 'aesthetic', categoryName: '审美习惯' },
+  { category: 'labor', categoryName: '劳动习惯' },
+];
+
+/**
+ * 根据习惯评价记录构建习惯档案
+ */
+function buildHabitProfile(assessments: Array<{
+  id: string;
+  student_id: string;
+  student_name?: string;
+  class_id?: string;
+  class_name?: string;
+  category: string;
+  type: string;
+  title: string;
+  content?: string;
+  score: number;
+  scene?: string;
+  occurred_at?: string;
+  created_at: string;
+}>): StudentFullProfile['habitProfile'] {
+  // 计算各类别的分数
+  const categoryScores: Record<string, number> = {};
+  const categoryCounts: Record<string, number> = {};
+  
+  // 初始化
+  HABIT_CATEGORIES.forEach(c => {
+    categoryScores[c.category] = 0;
+    categoryCounts[c.category] = 0;
+  });
+  
+  // 累计分数
+  assessments.forEach(a => {
+    if (categoryScores[a.category] !== undefined) {
+      categoryScores[a.category] += a.score;
+      categoryCounts[a.category]++;
+    }
+  });
+  
+  // 计算星级数量（总分>=20为班级级，>=50为校级，>=80为年级级）
+  const totalPositiveScore = assessments
+    .filter(a => a.score > 0)
+    .reduce((sum, a) => sum + a.score, 0);
+  const habitStarCount = Math.min(5, Math.floor(totalPositiveScore / 15));
+  
+  // 构建各类别评价
+  const habitEvaluations = HABIT_CATEGORIES.map(c => {
+    const baseScore = 80;
+    const earnedScore = categoryScores[c.category];
+    const count = categoryCounts[c.category];
+    const bonusScore = Math.min(20, earnedScore * 2);
+    const finalScore = Math.min(100, Math.max(0, baseScore + bonusScore));
+    
+    return {
+      category: c.category,
+      categoryName: c.categoryName,
+      score: finalScore,
+      maxScore: 100,
+      rate: finalScore,
+      trend: (earnedScore > 0 ? 'up' : 'stable') as 'up' | 'stable' | 'down',
+    };
+  });
+  
+  // 构建最近评价记录
+  const recentAssessments = assessments.slice(0, 10).map(a => ({
+    id: a.id,
+    studentId: a.student_id,
+    studentName: a.student_name || '',
+    classId: a.class_id || '',
+    className: a.class_name || '',
+    category: a.category as HabitCategory,
+    type: a.type as 'praise' | 'improve',
+    title: a.title,
+    content: a.content || '',
+    score: a.score,
+    scene: (a.scene || 'campus') as 'campus' | 'classroom' | 'home' | 'activity' | 'other',
+    recorderId: '',
+    recorderName: '',
+    recorderRole: 'teacher' as const,
+    occurredAt: a.occurred_at || a.created_at,
+    createdAt: a.created_at,
+  }));
+  
+  return {
+    overallScore: Math.round(habitEvaluations.reduce((sum, e) => sum + e.rate, 0) / habitEvaluations.length),
+    level: (habitStarCount >= 4 ? '优秀' : habitStarCount >= 3 ? '良好' : habitStarCount >= 2 ? '合格' : '待提高') as '优秀' | '良好' | '合格' | '待提高',
+    habitStarCount,
+    monthlyStars: [],
+    categoryScores: habitEvaluations,
+    recentAssessments,
+  };
+}
+
 /**
  * Mock学生完整档案数据
  */
@@ -337,6 +439,13 @@ export async function GET(
       .eq('student_id', id)
       .order('date', { ascending: false });
 
+    // 获取习惯评价记录
+    const { data: habitAssessments } = await client
+      .from('student_habit_assessments')
+      .select('*')
+      .eq('student_id', id)
+      .order('occurred_at', { ascending: false });
+
     // 获取班主任信息（从班级表）
     let headTeacherId: string | undefined;
     let headTeacherName: string | undefined;
@@ -445,6 +554,9 @@ export async function GET(
         recorder: mr.recorder,
         createdAt: mr.created_at,
       })),
+      
+      // 习惯评价数据
+      habitProfile: buildHabitProfile(habitAssessments || []),
       
       createdAt: student.created_at,
       updatedAt: student.updated_at,
