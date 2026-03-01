@@ -196,7 +196,14 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   const [profiles, setProfiles] = useState<Record<string, StudentFullProfile>>({});
   const [profileLoading, setProfileLoading] = useState(false);
   
-  // 统计数据
+  // API返回的统计数据
+  const [apiStatistics, setApiStatistics] = useState<{
+    maleCount: number;
+    femaleCount: number;
+    classCount: number;
+  } | null>(null);
+  
+  // 统计数据（优先使用API返回的全局统计）
   const statistics = useMemo<StudentStatistics>(() => {
     const gradeDistribution: Record<number, number> = {};
     const statusDistribution: Record<string, number> = {};
@@ -216,15 +223,15 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     });
     
     return {
-      total: students.length,
-      maleCount: students.filter(s => s.gender === 'male').length,
-      femaleCount: students.filter(s => s.gender === 'female').length,
-      classCount: new Set(students.map(s => s.classId)).size,
+      total: pagination.total, // 使用分页的total作为全局总数
+      maleCount: apiStatistics?.maleCount ?? students.filter(s => s.gender === 'male').length,
+      femaleCount: apiStatistics?.femaleCount ?? students.filter(s => s.gender === 'female').length,
+      classCount: apiStatistics?.classCount ?? new Set(students.map(s => s.classId)).size,
       gradeDistribution,
       statusDistribution,
       familyTypeDistribution,
     };
-  }, [students]);
+  }, [students, pagination.total, apiStatistics]);
   
   // 获取学生列表
   const fetchStudents = useCallback(async () => {
@@ -296,6 +303,11 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
             total: result.pagination.total,
             totalPages: result.pagination.totalPages,
           }));
+        }
+        
+        // 保存API返回的统计数据
+        if (result.statistics) {
+          setApiStatistics(result.statistics);
         }
       }
     } catch (err) {
