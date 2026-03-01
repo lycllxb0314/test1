@@ -54,21 +54,15 @@ import {
   Trash2,
   Loader2,
   Clock,
-  Settings,
   ChevronLeft,
   ChevronRight,
-  UserCog,
 } from 'lucide-react';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { BatchToolbar, SelectColumn, type BatchAction } from '@/components/common/BatchToolbar';
 import { 
-  TeacherScheduleConfigDialog, 
-  type TeacherScheduleConfig 
-} from '@/components/teacher/TeacherScheduleConfigDialog';
-import {
-  TeacherRoleConfigDialog,
-  type TeacherRoleConfig,
-} from '@/components/teacher/TeacherRoleConfigDialog';
+  TeacherDetailDialog,
+  type TeacherDetail,
+} from '@/components/teacher/TeacherDetailDialog';
 // 使用统一的 hook
 import {
   useTeachers,
@@ -163,17 +157,13 @@ export default function TeachersPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // 对话框状态
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [scheduleConfigOpen, setScheduleConfigOpen] = useState(false);
-  const [roleConfigOpen, setRoleConfigOpen] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   
   // 当前编辑/删除的教师
   const [currentTeacher, setCurrentTeacher] = useState<TeacherInfo | null>(null);
-  const [scheduleConfig, setScheduleConfig] = useState<TeacherScheduleConfig | null>(null);
-  const [roleConfig, setRoleConfig] = useState<TeacherRoleConfig | null>(null);
   
   // 表单数据
   const [formData, setFormData] = useState<Partial<TeacherInfo>>({});
@@ -260,94 +250,50 @@ export default function TeachersPage() {
     setSelectedIds(new Set());
   }, []);
 
-  // 打开编辑对话框
-  const openEditDialog = useCallback((teacher: TeacherInfo) => {
-    setCurrentTeacher(teacher);
-    setFormData({ ...teacher });
-    setEditDialogOpen(true);
-  }, []);
-
   // 打开删除对话框
   const openDeleteDialog = useCallback((teacher: TeacherInfo) => {
     setCurrentTeacher(teacher);
     setDeleteDialogOpen(true);
   }, []);
 
-  // 打开角色配置对话框
-  const openRoleConfigDialog = useCallback((teacher: TeacherInfo) => {
-    setRoleConfig({
-      teacherId: teacher.id,
-      teacherName: teacher.name,
-      primaryRole: teacher.primaryRole,
-      additionalRoles: teacher.additionalRoles || [],
-    });
-    setRoleConfigOpen(true);
+  // 打开详情编辑对话框（统一整合基本信息、角色、课时配置）
+  const openDetailDialog = useCallback((teacher: TeacherInfo) => {
+    setCurrentTeacher(teacher);
+    setDetailDialogOpen(true);
   }, []);
 
-  // 保存角色配置
-  const handleSaveRoleConfig = useCallback(async (config: TeacherRoleConfig) => {
-    const success = await updateTeacherRole({
-      teacherId: config.teacherId,
-      primaryRole: config.primaryRole,
-      additionalRoles: config.additionalRoles,
-      primarySubject: '', // 保持原有科目
-      secondarySubjects: [],
-      totalWeeklyHours: 13,
-      teachableGrades: [1, 2, 3, 4, 5, 6],
-    });
-    if (!success) {
-      console.error('保存角色配置失败');
-    }
-  }, [updateTeacherRole]);
-
-  // 打开课时配置对话框
-  const openScheduleConfigDialog = useCallback((teacher: TeacherInfo) => {
-    const isSkillTeacher = !['语文', '数学', '英语'].includes(teacher.subject);
-    setScheduleConfig({
-      teacherId: teacher.id,
-      teacherName: teacher.name,
-      role: teacher.primaryRole,
-      primarySubject: teacher.subject,
-      secondarySubjects: teacher.teachableSubjects?.filter(s => s !== teacher.subject) || [],
-      mainClassCount: teacher.weeklyHours > 8 ? 2 : 1,
-      mainSubjectHours: teacher.weeklyHours,
-      totalWeeklyHours: teacher.weeklyHours,
-      currentHours: teacher.currentHours,
-      teachableGrades: teacher.teachableGrades,
-      headTeacherClassId: teacher.headTeacherClassId,
-    });
-    setScheduleConfigOpen(true);
-  }, []);
-
-  // 保存课时配置（保存到数据库）
-  const handleSaveScheduleConfig = useCallback(async (config: TeacherScheduleConfig) => {
+  // 保存教师详情（统一保存）
+  const handleSaveDetail = useCallback(async (detail: TeacherDetail) => {
     try {
       // 调用API保存到数据库
-      const response = await fetch(`/api/teachers/${config.teacherId}`, {
+      const response = await fetch(`/api/teachers/${detail.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          role: config.role,
-          primary_subject: config.primarySubject,
-          secondary_subjects: config.secondarySubjects,
-          main_class_count: config.mainClassCount,
-          main_subject_hours: config.mainSubjectHours,
-          total_weekly_hours: config.totalWeeklyHours,
-          teachable_grades: config.teachableGrades,
-          head_teacher_class_id: config.headTeacherClassId,
-          subject_head_class_id: config.subjectHeadClassId,
-          is_head_teacher: config.role === 'head_teacher',
+          name: detail.name,
+          gender: detail.gender,
+          subject: detail.subject,
+          title: detail.title,
+          phone: detail.phone,
+          department: detail.department,
+          status: detail.status,
+          primary_role: detail.primaryRole,
+          additional_roles: detail.additionalRoles,
+          weekly_hours: detail.weeklyHours,
+          teachable_subjects: detail.teachableSubjects,
+          teachable_grades: detail.teachableGrades,
+          is_head_teacher: detail.isHeadTeacher,
+          head_teacher_class_id: detail.headTeacherClassId,
         }),
       });
       
       if (response.ok) {
-        // 刷新教师数据
         await refetch();
       } else {
-        console.error('保存课时配置失败');
+        console.error('保存教师信息失败');
       }
     } catch (error) {
-      console.error('保存课时配置失败:', error);
+      console.error('保存教师信息失败:', error);
     }
   }, [refetch]);
 
@@ -364,58 +310,35 @@ export default function TeachersPage() {
     setAddDialogOpen(true);
   }, []);
 
-  // 保存教师（新增/编辑）
+  // 保存教师（新增）
   const handleSave = useCallback(async () => {
     try {
-      if (currentTeacher) {
-        // 编辑 - 调用API
-        const response = await fetch(`/api/teachers/${currentTeacher.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formData.name,
-            gender: formData.gender,
-            subject: formData.subject,
-            title: formData.title,
-            phone: formData.phone,
-            email: formData.email,
-            status: formData.status,
-            teach_years: formData.teachYears,
-          }),
-        });
-        
-        if (response.ok) {
-          await refetch();
-        }
-      } else {
-        // 新增 - 调用API
-        const response = await fetch('/api/teachers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formData.name || '',
-            gender: formData.gender || '男',
-            subject: formData.subject || '语文',
-            title: formData.title || '二级教师',
-            phone: formData.phone || '',
-            email: formData.email || '',
-            status: formData.status || 'active',
-            teach_years: formData.teachYears || 0,
-          }),
-        });
-        
-        if (response.ok) {
-          await refetch();
-        }
+      // 新增 - 调用API
+      const response = await fetch('/api/teachers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name || '',
+          gender: formData.gender || '男',
+          subject: formData.subject || '语文',
+          title: formData.title || '二级教师',
+          phone: formData.phone || '',
+          email: formData.email || '',
+          status: formData.status || 'active',
+          teach_years: formData.teachYears || 0,
+        }),
+      });
+      
+      if (response.ok) {
+        await refetch();
       }
     } catch (error) {
       console.error('保存教师失败:', error);
     } finally {
-      setEditDialogOpen(false);
       setAddDialogOpen(false);
       setFormData({});
     }
-  }, [currentTeacher, formData, refetch]);
+  }, [formData, refetch]);
 
   // 删除教师
   const handleDelete = useCallback(async () => {
@@ -795,23 +718,11 @@ export default function TeachersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          查看详情
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openRoleConfigDialog(teacher)}>
-                          <UserCog className="h-4 w-4 mr-2" />
-                          角色配置
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openScheduleConfigDialog(teacher)}>
-                          <Settings className="h-4 w-4 mr-2" />
-                          课时配置
+                        <DropdownMenuItem onClick={() => openDetailDialog(teacher)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          查看/编辑
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          编辑
-                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => openDeleteDialog(teacher)}
                           className="text-red-600 focus:text-red-600"
@@ -861,19 +772,13 @@ export default function TeachersPage() {
         </CardContent>
       </Card>
 
-      {/* 新增/编辑对话框 */}
-      <Dialog open={addDialogOpen || editDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setAddDialogOpen(false);
-          setEditDialogOpen(false);
-          setFormData({});
-        }
-      }}>
+      {/* 新增教师对话框 */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{currentTeacher ? '编辑教师' : '新增教师'}</DialogTitle>
+            <DialogTitle>新增教师</DialogTitle>
             <DialogDescription>
-              {currentTeacher ? '修改教师信息' : '填写新教师信息'}
+              填写新教师基本信息
             </DialogDescription>
           </DialogHeader>
           
@@ -994,10 +899,7 @@ export default function TeachersPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setAddDialogOpen(false);
-              setEditDialogOpen(false);
-            }}>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
               取消
             </Button>
             <Button onClick={handleSave} disabled={loading || !formData.name}>
@@ -1013,6 +915,35 @@ export default function TeachersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 统一详情编辑对话框 */}
+      <TeacherDetailDialog
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        teacher={currentTeacher ? {
+          id: currentTeacher.id,
+          name: currentTeacher.name,
+          gender: currentTeacher.gender,
+          phone: currentTeacher.phone,
+          email: currentTeacher.email,
+          subject: currentTeacher.subject,
+          title: currentTeacher.title,
+          department: currentTeacher.department,
+          status: currentTeacher.status,
+          teachYears: currentTeacher.teachYears,
+          primaryRole: currentTeacher.primaryRole,
+          additionalRoles: currentTeacher.additionalRoles || [],
+          weeklyHours: currentTeacher.weeklyHours,
+          currentHours: currentTeacher.currentHours,
+          teachableSubjects: currentTeacher.teachableSubjects || [currentTeacher.subject],
+          teachableGrades: currentTeacher.teachableGrades || [1, 2, 3, 4, 5, 6],
+          isHeadTeacher: currentTeacher.isHeadTeacher,
+          headTeacherClassId: currentTeacher.headTeacherClassId,
+          headTeacherClassName: currentTeacher.headTeacherClassName,
+        } : null}
+        classes={classes}
+        onSave={handleSaveDetail}
+      />
 
       {/* 删除确认对话框 */}
       <DeleteConfirmDialog
@@ -1032,23 +963,6 @@ export default function TeachersPage() {
         title="确认批量删除"
         description={`确定要删除选中的 ${selectedIds.size} 名教师吗？此操作不可撤销。`}
         loading={loading}
-      />
-
-      {/* 课时配置对话框 */}
-      <TeacherScheduleConfigDialog
-        open={scheduleConfigOpen}
-        onOpenChange={setScheduleConfigOpen}
-        config={scheduleConfig}
-        onSave={handleSaveScheduleConfig}
-        classes={classes}
-      />
-
-      {/* 角色配置对话框 */}
-      <TeacherRoleConfigDialog
-        open={roleConfigOpen}
-        onOpenChange={setRoleConfigOpen}
-        config={roleConfig}
-        onSave={handleSaveRoleConfig}
       />
     </div>
   );
