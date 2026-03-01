@@ -1,16 +1,16 @@
 /**
  * 重新生成最优教师配置
  * 
- * 根据分析结果，生成符合国家标准的教师配置：
- * - 语文班主任：30人，14节/周
- * - 数学班主任：30人，12节/周  
- * - 数学科任：4人，15节/周
- * - 英语：5人，16节/周
- * - 体育：12人，17节/周
- * - 音乐：8人，16节/周
- * - 美术：8人，16节/周
- * - 科学：6人，17节/周
- * - 道德与法治：4人，16节/周
+ * 根据国家标准课时量配置：
+ * - 语文班主任：30人，14-16节/周（国家标准）
+ * - 数学班主任：30人，14-16节/周（国家标准）
+ * - 数学科任：4人，14-16节/周
+ * - 英语：5人，14-16节/周（特殊技能科，可跨年级段）
+ * - 体育：12人，16-18节/周
+ * - 音乐：8人，16-18节/周
+ * - 美术：8人，16-18节/周
+ * - 科学：6人，16-18节/周
+ * - 道德与法治：4人，16-18节/周
  * 总计：107人
  */
 
@@ -38,17 +38,17 @@ function randomPhone(): string {
   return randomChoice(prefixes) + String(Math.floor(10000000 + Math.random() * 90000000));
 }
 
-// 最优配置
+// 最优配置（基于国家标准课时量）
 const OPTIMAL_CONFIG = {
-  chinese_head: { count: 30, role: 'head_teacher', primary: '语文', secondary: ['道德与法治', '班会', '书法'], hours: 14 },
-  math_head: { count: 30, role: 'head_teacher', primary: '数学', secondary: ['劳动', '班会'], hours: 12 },
-  math_sub: { count: 4, role: 'subject_teacher', primary: '数学', secondary: ['科学', '劳动'], hours: 15 },
-  english: { count: 5, role: 'skill_teacher', primary: '英语', secondary: [], hours: 16, grades: [3,4,5,6] },
-  pe: { count: 12, role: 'skill_teacher', primary: '体育', secondary: [], hours: 17 },
-  music: { count: 8, role: 'skill_teacher', primary: '音乐', secondary: [], hours: 16 },
-  art: { count: 8, role: 'skill_teacher', primary: '美术', secondary: [], hours: 16 },
-  science: { count: 6, role: 'skill_teacher', primary: '科学', secondary: [], hours: 17 },
-  moral: { count: 4, role: 'skill_teacher', primary: '道德与法治', secondary: [], hours: 16 },
+  chinese_head: { count: 30, role: 'head_teacher', primary: '语文', secondary: ['道德与法治', '班会', '书法'], hours: 15 },  // 14-16节
+  math_head: { count: 30, role: 'head_teacher', primary: '数学', secondary: ['劳动', '班会'], hours: 15 },  // 14-16节
+  math_sub: { count: 4, role: 'subject_teacher', primary: '数学', secondary: ['科学', '劳动'], hours: 15 },  // 14-16节
+  english: { count: 5, role: 'skill_teacher', primary: '英语', secondary: [], hours: 15, grades: [3,4,5,6] },  // 14-16节
+  pe: { count: 12, role: 'skill_teacher', primary: '体育', secondary: [], hours: 17 },  // 16-18节
+  music: { count: 8, role: 'skill_teacher', primary: '音乐', secondary: [], hours: 17 },  // 16-18节
+  art: { count: 8, role: 'skill_teacher', primary: '美术', secondary: [], hours: 17 },  // 16-18节
+  science: { count: 6, role: 'skill_teacher', primary: '科学', secondary: [], hours: 17 },  // 16-18节
+  moral: { count: 4, role: 'skill_teacher', primary: '道德与法治', secondary: [], hours: 17 },  // 16-18节
 };
 
 const TITLES = ['二级教师', '一级教师', '高级教师'];

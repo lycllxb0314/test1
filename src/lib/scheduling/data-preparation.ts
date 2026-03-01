@@ -129,17 +129,40 @@ export function prepareSchedulingTeacher(teacher: TeacherInfo): SchedulingTeache
   // 获取教务主任配置的周课时
   const baseWeeklyHours = teacher.weeklyHours || 14;
   
-  // 计算浮动范围 ±2
-  const minWeeklyHours = Math.max(0, baseWeeklyHours - 2);
-  const maxWeeklyHours = baseWeeklyHours + 2;
+  // 根据教师类型确定课时范围（国家标准）
+  // 语数教师（班主任/科任）：14-16节
+  // 英语教师：14-16节（特殊技能科）
+  // 其他技能科教师：16-18节
+  const primaryRole = mapToSchedulingRole(teacher.primaryRole);
+  const primarySubject = teacher.teachableSubjects?.[0] || teacher.subject || '语文';
+  
+  let minWeeklyHours: number;
+  let maxWeeklyHours: number;
+  
+  // 判断是否为语数教师或英语教师
+  const isMainSubjectTeacher = primarySubject === '语文' || primarySubject === '数学';
+  const isEnglishTeacher = primarySubject === '英语';
+  
+  if (isMainSubjectTeacher || isEnglishTeacher) {
+    // 语数教师、英语教师：国家标准 14-16 节
+    minWeeklyHours = 14;
+    maxWeeklyHours = 16;
+  } else if (primaryRole === 'skill_teacher') {
+    // 技能科教师：国家标准 16-18 节
+    minWeeklyHours = 16;
+    maxWeeklyHours = 18;
+  } else {
+    // 领导层：课时较少
+    minWeeklyHours = 2;
+    maxWeeklyHours = 8;
+  }
   
   // 转换角色
-  const primaryRole = mapToSchedulingRole(teacher.primaryRole);
   const additionalRoles = (teacher.additionalRoles || []).map(mapToAdministrativeRole);
   const hasAdministrativeRole = additionalRoles.length > 0;
   
   // 转换任课科目（包含兜底逻辑）
-  const primarySubject = teacher.teachableSubjects?.[0] || teacher.subject || '语文';
+  const primarySubjectCourse: CourseCategory = mapToCourseCategory(primarySubject);
   
   // 获取兼任科目：优先使用配置的，否则使用规则建议
   let secondarySubjectsList: string[] = [];
@@ -154,11 +177,10 @@ export function prepareSchedulingTeacher(teacher: TeacherInfo): SchedulingTeache
   
   // 构建完整的可任教科目列表
   const teachableSubjects: CourseCategory[] = [
-    mapToCourseCategory(primarySubject),
+    primarySubjectCourse,
     ...secondarySubjectsList.map(mapToCourseCategory)
   ];
   const secondarySubjects = teachableSubjects.slice(1);
-  const primarySubjectCourse: CourseCategory = teachableSubjects[0];
   
   return {
     id: teacher.id,
@@ -179,7 +201,7 @@ export function prepareSchedulingTeacher(teacher: TeacherInfo): SchedulingTeache
     // 学段设置
     teachableGrades: teacher.teachableGrades || [1, 2, 3, 4, 5, 6],
     
-    // 课时配置
+    // 课时配置（基于国家标准）
     baseWeeklyHours,
     minWeeklyHours,
     maxWeeklyHours,
