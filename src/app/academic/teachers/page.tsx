@@ -81,7 +81,9 @@ interface Teacher {
   teachableSubjects: string[]; // 可任教科目
   teachableGrades: number[];   // 可任教年级
   isHeadTeacher: boolean;      // 是否班主任
-  headTeacherClassId?: string; // 班主任班级
+  headTeacherClassId?: string; // 班主任班级ID
+  headTeacherClassName?: string; // 班主任班级名称
+  subTeacherClasses?: Array<{ classId: string; className: string }>; // 科任班级列表
 }
 
 // 性别选项
@@ -150,8 +152,9 @@ export default function TeachersPage() {
             status?: string;
             teachYears?: number;
             isHeadTeacher?: boolean;
-            classId?: string;
-            className?: string;
+            headTeacherClassId?: string;
+            headTeacherClassName?: string;
+            subTeacherClasses?: Array<{ classId: string; className: string }>;
           }) => ({
             id: t.id,
             name: t.name,
@@ -168,7 +171,9 @@ export default function TeachersPage() {
             teachableSubjects: t.subjects || ['语文'],
             teachableGrades: [1, 2, 3, 4, 5, 6],
             isHeadTeacher: t.isHeadTeacher || false,
-            headTeacherClassId: t.classId,
+            headTeacherClassId: t.headTeacherClassId,
+            headTeacherClassName: t.headTeacherClassName,
+            subTeacherClasses: t.subTeacherClasses || [],
           }));
           setTeachers(formattedTeachers);
         }

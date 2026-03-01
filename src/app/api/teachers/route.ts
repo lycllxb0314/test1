@@ -67,24 +67,50 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
       return NextResponse.json(error('数据库查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
+    // 从classes表获取班主任和科任信息
+    const { data: classesData } = await client
+      .from('classes')
+      .select('id, name, head_teacher_id, sub_teacher_id');
+    
+    // 构建班主任和科任映射
+    const headTeacherClassMap: Record<string, { classId: string; className: string }> = {};
+    const subTeacherClassesMap: Record<string, Array<{ classId: string; className: string }>> = {};
+    
+    (classesData || []).forEach(c => {
+      if (c.head_teacher_id) {
+        headTeacherClassMap[c.head_teacher_id] = { classId: c.id, className: c.name };
+      }
+      if (c.sub_teacher_id) {
+        if (!subTeacherClassesMap[c.sub_teacher_id]) {
+          subTeacherClassesMap[c.sub_teacher_id] = [];
+        }
+        subTeacherClassesMap[c.sub_teacher_id].push({ classId: c.id, className: c.name });
+      }
+    });
+    
     // 转换下划线格式为驼峰格式
-    const formattedData = (data || []).map(t => ({
-      id: t.id,
-      name: t.name,
-      gender: t.gender,
-      subjects: t.subjects || [],
-      isHeadTeacher: t.is_head_teacher,
-      headTeacherClassIds: t.head_teacher_class_ids || [],
-      classId: t.head_teacher_class_ids?.[0], // 兼容旧格式
-      className: t.class_name,
-      department: t.department,
-      title: t.title,
-      phone: t.phone,
-      email: t.email,
-      status: t.status,
-      createdAt: t.created_at,
-      updatedAt: t.updated_at,
-    }));
+    const formattedData = (data || []).map(t => {
+      const headTeacherInfo = headTeacherClassMap[t.id];
+      const subTeacherClasses = subTeacherClassesMap[t.id] || [];
+      
+      return {
+        id: t.id,
+        name: t.name,
+        gender: t.gender,
+        subjects: t.subjects || [],
+        isHeadTeacher: !!headTeacherInfo,
+        headTeacherClassId: headTeacherInfo?.classId,
+        headTeacherClassName: headTeacherInfo?.className,
+        subTeacherClasses: subTeacherClasses,
+        department: t.department,
+        title: t.title,
+        phone: t.phone,
+        email: t.email,
+        status: t.status,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+      };
+    });
     
     return NextResponse.json({
       success: true,
