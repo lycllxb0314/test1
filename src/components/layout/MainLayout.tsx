@@ -260,7 +260,7 @@ export function AppSidebar() {
 
   if (!user) return null;
 
-  const roleConfig = roleConfigs[user.role];
+  const roleConfig = roleConfigs[user.role] || roleConfigs.subject_teacher; // 默认使用科任教师配置
   const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
   
   const isHeadTeacher = user.role === 'head_teacher';
