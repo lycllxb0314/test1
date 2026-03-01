@@ -25,6 +25,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Calendar,
   Clock,
   BookOpen,
@@ -47,6 +53,9 @@ import {
   Play,
   ChevronRight,
   Layers,
+  FileText,
+  Save,
+  Trash2,
 } from 'lucide-react';
 import type { ScheduleSlot, ScheduleResult, SubstituteRecord } from '@/types';
 
@@ -126,11 +135,84 @@ export default function SchedulePage() {
   // 排课结果
   const [scheduleResult, setScheduleResult] = useState<ScheduleResult | null>(null);
   const [showResultDialog, setShowResultDialog] = useState(false);
+  
+  // 草稿管理
+  const [drafts, setDrafts] = useState<Array<{ id: string; name: string; created_at: string }>>([]);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [showSaveDraftDialog, setShowSaveDraftDialog] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [draftDescription, setDraftDescription] = useState('');
 
   // 初始化数据
   useEffect(() => {
     fetchInitialData();
+    loadDrafts();
   }, []);
+  
+  // 加载草稿列表
+  const loadDrafts = async () => {
+    try {
+      const res = await fetch('/api/scheduling/drafts');
+      const data = await res.json();
+      if (data.success) {
+        setDrafts(data.data || []);
+      }
+    } catch (e) {
+      console.error('加载草稿失败', e);
+    }
+  };
+  
+  // 保存草稿
+  const saveDraft = async () => {
+    if (!scheduleResult) return;
+    try {
+      const res = await fetch('/api/scheduling/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: currentDraftId,
+          name: draftName || `排课草稿 ${new Date().toLocaleString('zh-CN')}`,
+          description: draftDescription,
+          result: scheduleResult,
+          statistics: scheduleResult.statistics,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentDraftId(data.data.id);
+        setShowSaveDraftDialog(false);
+        loadDrafts();
+        alert('草稿保存成功');
+      }
+    } catch (e) {
+      console.error('保存草稿失败', e);
+    }
+  };
+  
+  // 加载草稿
+  const loadDraft = async (draftId: string) => {
+    try {
+      const res = await fetch(`/api/scheduling/drafts?id=${draftId}`);
+      const data = await res.json();
+      if (data.success) {
+        setScheduleResult(data.data.result);
+        setCurrentDraftId(draftId);
+        setShowResultDialog(true);
+      }
+    } catch (e) {
+      console.error('加载草稿失败', e);
+    }
+  };
+  
+  // 删除草稿
+  const deleteDraft = async (draftId: string) => {
+    try {
+      await fetch(`/api/scheduling/drafts?id=${draftId}`, { method: 'DELETE' });
+      loadDrafts();
+    } catch (e) {
+      console.error('删除草稿失败', e);
+    }
+  };
 
   // 根据年级动态获取节次配置
   const getPeriodsByGrade = (grade: number) => {
@@ -384,6 +466,51 @@ export default function SchedulePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* 草稿管理 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <FileText className="h-4 w-4" />
+                草稿管理
+                {drafts.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">{drafts.length}</Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              {drafts.length === 0 ? (
+                <div className="px-3 py-4 text-center text-sm text-gray-500">
+                  暂无保存的草稿
+                </div>
+              ) : (
+                drafts.map(draft => (
+                  <div key={draft.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-100 rounded">
+                    <div 
+                      className="flex-1 cursor-pointer" 
+                      onClick={() => loadDraft(draft.id)}
+                    >
+                      <div className="text-sm font-medium">{draft.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(draft.created_at).toLocaleString('zh-CN')}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteDraft(draft.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-gray-400 hover:text-red-500" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Button variant="outline" className="gap-2">
             <Download className="h-4 w-4" />
             导出课表
@@ -998,8 +1125,52 @@ export default function SchedulePage() {
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowResultDialog(false);
+                setDraftName('');
+                setDraftDescription('');
+                setShowSaveDraftDialog(true);
+              }}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              保存草稿
+            </Button>
             <Button onClick={() => setShowResultDialog(false)}>确定</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 保存草稿对话框 */}
+      <Dialog open={showSaveDraftDialog} onOpenChange={setShowSaveDraftDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>保存排课草稿</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>草稿名称</Label>
+              <Input
+                placeholder="排课草稿（自动生成时间戳）"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>备注说明</Label>
+              <Textarea
+                placeholder="可选：添加备注说明..."
+                value={draftDescription}
+                onChange={(e) => setDraftDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDraftDialog(false)}>取消</Button>
+            <Button onClick={saveDraft}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
