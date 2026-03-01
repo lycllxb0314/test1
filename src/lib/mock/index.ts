@@ -6,6 +6,7 @@
  * 2. 类型安全 - 使用统一的类型定义
  * 3. 可切换 - 通过环境变量控制是否使用Mock数据
  * 4. 与API分离 - Mock数据独立于API路由
+ * 5. 数据源统一 - 所有主数据从 master-data.ts 导出
  */
 
 // 环境变量控制是否启用Mock
@@ -34,6 +35,9 @@ export async function withMockFallback<T>(
     return { data: mockData, source: 'mock' };
   }
 }
+
+// 导出主数据（统一数据源）
+export * from './master-data';
 
 // 导出各领域Mock数据
 export * from './teachers.mock';

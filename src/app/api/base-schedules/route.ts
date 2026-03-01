@@ -55,10 +55,10 @@ export async function GET(request: NextRequest) {
       console.log('Database query failed, using mock data:', dbError.message);
       
       // 使用Mock数据
-      const mockData = getMockBaseSchedule(
-        params.classId as string,
-        params.semester as string
-      );
+      const mockData = getMockBaseSchedule({
+        classId: params.classId as string,
+        semester: params.semester as string
+      });
       
       return NextResponse.json(success(mockData, 'mock'));
     }
@@ -68,10 +68,10 @@ export async function GET(request: NextRequest) {
     console.error('Failed to fetch base schedules:', err);
     
     // 使用Mock数据作为fallback
-    const mockData = getMockBaseSchedule(
-      params.classId as string,
-      params.semester as string
-    );
+    const mockData = getMockBaseSchedule({
+      classId: params.classId as string,
+      semester: params.semester as string
+    });
     
     return NextResponse.json(success(mockData, 'mock'));
   }

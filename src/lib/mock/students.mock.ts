@@ -1,213 +1,54 @@
 /**
  * 学生相关Mock数据
+ * 
+ * 数据来源：从 master-data.ts 导入统一主数据
  */
 
 import type { Student, StudentFullProfile, Parent } from '@/types';
-
-// 班级信息映射（用于获取年级和班主任）
-const classInfoMap: Record<string, { grade: number; gradeName: string; headTeacherId: string; headTeacherName: string }> = {
-  'c001': { grade: 1, gradeName: '一年级', headTeacherId: 't001', headTeacherName: '张明华' },
-  'c002': { grade: 1, gradeName: '一年级', headTeacherId: 't002', headTeacherName: '李秀芳' },
-  'c003': { grade: 2, gradeName: '二年级', headTeacherId: 't003', headTeacherName: '王建国' },
-  'c004': { grade: 2, gradeName: '二年级', headTeacherId: 't004', headTeacherName: '赵丽萍' },
-  'c005': { grade: 3, gradeName: '三年级', headTeacherId: 't005', headTeacherName: '刘伟强' },
-  'c006': { grade: 3, gradeName: '三年级', headTeacherId: 't006', headTeacherName: '陈美玲' },
-  'c007': { grade: 4, gradeName: '四年级', headTeacherId: 't007', headTeacherName: '周志明' },
-  'c008': { grade: 4, gradeName: '四年级', headTeacherId: 't008', headTeacherName: '陈思思' },
-  'c009': { grade: 5, gradeName: '五年级', headTeacherId: 't009', headTeacherName: '王强' },
-  'c010': { grade: 5, gradeName: '五年级', headTeacherId: 't010', headTeacherName: '林小燕' },
-  'c011': { grade: 6, gradeName: '六年级', headTeacherId: 't011', headTeacherName: '张明华' },
-  'c012': { grade: 6, gradeName: '六年级', headTeacherId: 't012', headTeacherName: '李秀芳' },
-};
+import { 
+  MASTER_STUDENTS, 
+  MASTER_CLASSES, 
+  MASTER_TEACHERS,
+  getMasterClassById,
+  getMasterTeacherById,
+  getGradeName,
+} from './master-data';
 
 // 辅助函数：根据班级ID获取班级信息
 function getClassInfo(classId: string) {
-  return classInfoMap[classId] || { grade: 1, gradeName: '一年级', headTeacherId: 't001', headTeacherName: '未知' };
+  const cls = getMasterClassById(classId);
+  if (!cls) {
+    return { grade: 1, gradeName: '一年级', headTeacherId: 't001', headTeacherName: '未知' };
+  }
+  return {
+    grade: cls.grade,
+    gradeName: cls.gradeName,
+    headTeacherId: cls.headTeacherId,
+    headTeacherName: cls.headTeacherName,
+  };
 }
 
-// 学生列表Mock数据
-export const MOCK_STUDENTS: Student[] = [
-  {
-    id: 's001',
-    studentNo: '2024001',
-    name: '张三',
-    gender: 'male',
-    birthDate: '2017-03-15',
-    classId: 'c001',
-    className: '一年级1班',
-    grade: 1,
-    gradeName: '一年级',
-    headTeacherId: 't001',
-    headTeacherName: '张明华',
-    status: '在校',
+// 学生列表Mock数据（基于 master-data.ts）
+export const MOCK_STUDENTS: Student[] = MASTER_STUDENTS.map(s => {
+  const cls = getMasterClassById(s.classId);
+  const teacher = cls ? getMasterTeacherById(cls.headTeacherId) : undefined;
+  
+  return {
+    id: s.id,
+    studentNo: s.studentNo,
+    name: s.name,
+    gender: s.gender,
+    birthDate: s.birthDate,
+    classId: s.classId,
+    className: cls?.name || '未知班级',
+    grade: cls?.grade || 1,
+    gradeName: cls?.gradeName || '一年级',
+    headTeacherId: cls?.headTeacherId || '',
+    headTeacherName: cls?.headTeacherName || '未知',
+    status: s.status,
     parents: [],
-  },
-  {
-    id: 's002',
-    studentNo: '2024002',
-    name: '李四',
-    gender: 'female',
-    birthDate: '2017-05-20',
-    classId: 'c001',
-    className: '一年级1班',
-    grade: 1,
-    gradeName: '一年级',
-    headTeacherId: 't001',
-    headTeacherName: '张明华',
-    status: '在校',
-    parents: [],
-  },
-  {
-    id: 's003',
-    studentNo: '2024003',
-    name: '王五',
-    gender: 'male',
-    birthDate: '2016-08-10',
-    classId: 'c002',
-    className: '一年级2班',
-    grade: 1,
-    gradeName: '一年级',
-    headTeacherId: 't002',
-    headTeacherName: '李秀芳',
-    status: '在校',
-    parents: [],
-  },
-  {
-    id: 's004',
-    studentNo: '2024004',
-    name: '赵六',
-    gender: 'female',
-    birthDate: '2016-11-25',
-    classId: 'c002',
-    className: '一年级2班',
-    grade: 1,
-    gradeName: '一年级',
-    headTeacherId: 't002',
-    headTeacherName: '李秀芳',
-    status: '请假',
-    parents: [],
-  },
-  {
-    id: 's005',
-    studentNo: '2024005',
-    name: '孙七',
-    gender: 'male',
-    birthDate: '2015-02-14',
-    classId: 'c003',
-    className: '二年级1班',
-    grade: 2,
-    gradeName: '二年级',
-    headTeacherId: 't003',
-    headTeacherName: '王建国',
-    status: '在校',
-    parents: [],
-  },
-  {
-    id: 's006',
-    studentNo: '2024006',
-    name: '周八',
-    gender: 'female',
-    birthDate: '2015-04-08',
-    classId: 'c003',
-    className: '二年级1班',
-    grade: 2,
-    gradeName: '二年级',
-    headTeacherId: 't003',
-    headTeacherName: '王建国',
-    status: '在校',
-    parents: [],
-  },
-  {
-    id: 's007',
-    studentNo: '2024007',
-    name: '吴九',
-    gender: 'male',
-    birthDate: '2014-07-22',
-    classId: 'c005',
-    className: '三年级1班',
-    grade: 3,
-    gradeName: '三年级',
-    headTeacherId: 't005',
-    headTeacherName: '刘伟强',
-    status: '在校',
-    parents: [],
-  },
-  {
-    id: 's008',
-    studentNo: '2024008',
-    name: '郑十',
-    gender: 'female',
-    birthDate: '2014-09-30',
-    classId: 'c005',
-    className: '三年级1班',
-    grade: 3,
-    gradeName: '三年级',
-    headTeacherId: 't005',
-    headTeacherName: '刘伟强',
-    status: '休学',
-    parents: [],
-  },
-  {
-    id: 's009',
-    studentNo: '2023001',
-    name: '陈小明',
-    gender: 'male',
-    birthDate: '2013-01-18',
-    classId: 'c007',
-    className: '四年级1班',
-    grade: 4,
-    gradeName: '四年级',
-    headTeacherId: 't007',
-    headTeacherName: '周志明',
-    status: '在校',
-    parents: [],
-  },
-  {
-    id: 's010',
-    studentNo: '2023002',
-    name: '林小红',
-    gender: 'female',
-    birthDate: '2013-03-25',
-    classId: 'c007',
-    className: '四年级1班',
-    grade: 4,
-    gradeName: '四年级',
-    headTeacherId: 't007',
-    headTeacherName: '周志明',
-    status: '在校',
-    parents: [],
-  },
-  {
-    id: 's011',
-    studentNo: '2022001',
-    name: '黄小华',
-    gender: 'male',
-    birthDate: '2012-06-12',
-    classId: 'c009',
-    className: '五年级1班',
-    grade: 5,
-    gradeName: '五年级',
-    headTeacherId: 't009',
-    headTeacherName: '王强',
-    status: '在校',
-    parents: [],
-  },
-  {
-    id: 's012',
-    studentNo: '2022002',
-    name: '杨小芳',
-    gender: 'female',
-    birthDate: '2012-08-28',
-    classId: 'c009',
-    className: '五年级1班',
-    grade: 5,
-    gradeName: '五年级',
-    headTeacherId: 't009',
-    headTeacherName: '王强',
-    status: '在校',
-    parents: [],
-  },
-];
+  };
+});
 
 // 学生完整档案Mock数据
 export const MOCK_STUDENT_PROFILE: StudentFullProfile = {

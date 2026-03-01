@@ -1,11 +1,12 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v1.8  
+**文档版本**: v1.9  
 **编制日期**: 2024年1月  
 **编制单位**: 智慧校园项目组
 
 **版本历史**:
+- v1.9 (2024-01): 数据孤岛整改方案，建立统一Mock数据源(master-data.ts)，修复班级-年级-班主任映射不一致、课表ID格式冲突等问题，新增4.3节Mock数据架构说明
 - v1.8 (2024-01): 全面更新验收准则模块，按系统分类细化功能验收清单，新增高并发验收、API接口验收、数据完整性验收、验收流程等章节
 - v1.7 (2024-01): 深度核对文档与实际系统实现一致性，修正页面数量、目录结构、API接口清单
 - v1.6 (2024-01): 完成数据接口与 Hooks 架构整改，统一类型定义，优化 API 客户端
@@ -1673,6 +1674,137 @@ class FieldEncryption {
 | 敏感查询 | 查询身份证/手机号 | 系统日志 |
 | 异常访问 | 非工作时间大量查询 | 实时告警 |
 | 权限变更 | 用户角色变更 | 系统通知 |
+
+#### 4.2.6 Mock数据架构
+
+**问题背景**:
+
+项目开发过程中，各Mock数据文件独立定义数据，导致以下问题：
+1. **数据不一致**：班级-年级-班主任映射在`students.mock.ts`和`classes.mock.ts`中定义不同
+2. **ID格式冲突**：课表Mock使用`c6-1`格式，其他模块使用`c001-c014`格式
+3. **教师姓名不一致**：课表中的教师姓名与教师模块不同
+4. **Mock覆盖不足**：80个API路由仅11个有Mock回退
+
+**解决方案：统一Mock数据源架构**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      统一数据源层                                │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                    src/lib/mock/master-data.ts              ││
+│  │           (统一的主数据定义 - 学校、班级、教师、学生)         ││
+│  │                                                              ││
+│  │  MASTER_SCHOOL    - 学校基础信息                             ││
+│  │  MASTER_CLASSES   - 14个班级定义（年级、班主任映射）          ││
+│  │  MASTER_TEACHERS  - 教师定义（姓名、学科、班级关联）          ││
+│  │  MASTER_STUDENTS  - 学生基础数据                             ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                              ↓                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │     各领域Mock数据文件（引用主数据，扩展领域数据）            ││
+│  │  students.mock.ts | teachers.mock.ts | classes.mock.ts      ││
+│  │  schedules.mock.ts | moral.mock.ts | access.mock.ts | ...   ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                              ↓                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                 src/lib/mock/index.ts                       ││
+│  │              (统一导出，提供数据一致性检查)                   ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**主数据定义规范**:
+
+```typescript
+// src/lib/mock/master-data.ts
+
+// 学校基础信息
+export const MASTER_SCHOOL = {
+  id: 'lysf-fx',
+  name: '龙岩师范附属小学',
+  totalGrades: 6,
+  classesPerGrade: 2,
+  currentSemester: '2024-2025-1',
+};
+
+// 统一的班级定义（14个班级）
+export const MASTER_CLASSES = [
+  { id: 'c001', name: '一年级1班', grade: 1, classNumber: 1, headTeacherId: 't001' },
+  { id: 'c002', name: '一年级2班', grade: 1, classNumber: 2, headTeacherId: 't002' },
+  { id: 'c003', name: '一年级3班', grade: 1, classNumber: 3, headTeacherId: 't003' },
+  { id: 'c004', name: '二年级1班', grade: 2, classNumber: 1, headTeacherId: 't004' },
+  // ... 共14个班级
+];
+
+// 统一的教师定义
+export const MASTER_TEACHERS = [
+  { id: 't001', name: '张明华', gender: 'male', subjects: ['语文'], isHeadTeacher: true },
+  { id: 't002', name: '李秀芳', gender: 'female', subjects: ['数学'], isHeadTeacher: true },
+  // ... 共12位班主任 + 若干科任教师
+];
+```
+
+**ID命名规范**:
+
+| 实体类型 | ID前缀 | 格式示例 | 说明 |
+|----------|--------|----------|------|
+| 学校 | school | school-001 | 多校支持预留 |
+| 班级 | c | c001-c014 | 3位数字，范围对应14个班级 |
+| 教师 | t | t001-t020 | 3位数字 |
+| 学生 | s | s001-s100 | 3位数字 |
+| 课程 | course | course-001 | - |
+| 课表项 | sch | sch-001 | - |
+
+**数据关联关系**:
+
+```
+班级(c001) ─────┬───── 班主任(t001)
+               │
+               ├─── 学生(s001, s002, ...)
+               │
+               └─── 科任教师(通过class_teachers表关联)
+
+学生(s001) ─────┬───── 班级(c001)
+               │
+               ├─── 习惯评价记录(ha001, ...)
+               │
+               ├─── 德育评价记录(me001, ...)
+               │
+               └─── 成绩记录(gr001, ...)
+```
+
+**API Mock回退机制**:
+
+所有API路由应实现统一的Mock回退模式：
+
+```typescript
+export async function GET(request: NextRequest) {
+  try {
+    const client = getSupabaseClient();
+    const { data, error } = await client.from('xxx').select('*');
+    
+    if (error) throw error;
+    return NextResponse.json({ success: true, data, source: 'database' });
+  } catch (error) {
+    console.log('Database failed, using mock data');
+    const mockData = getMockXxx(); // 从统一Mock源获取
+    return NextResponse.json({ success: true, data: mockData, source: 'mock' });
+  }
+}
+```
+
+**整改影响分析**:
+
+| 影响范围 | 是否需要修改 | 说明 |
+|----------|-------------|------|
+| API路由 | ❌ 不修改 | Mock函数签名不变 |
+| Hooks | ❌ 不修改 | API返回格式不变 |
+| 页面组件 | ❌ 不修改 | 数据字段名不变 |
+| Mock数据 | ✅ 需修改 | 统一数据源，修正不一致值 |
+
+**相关文档**:
+- 详细整改方案：`docs/DATA_ISOLATION_FIX_PLAN.md`
+- 影响分析：第0章和第4章
 
 ### 4.3 核心数据表设计
 
@@ -3401,13 +3533,15 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 
 ### 9.3 技术债务清单
 
-| ID | 描述 | 优先级 | 计划解决时间 |
-|----|------|--------|--------------|
-| TD-001 | 部分API缺少单元测试 | 中 | v1.1 |
-| TD-002 | Mock数据需迁移到统一目录 | 低 | v1.1 |
-| TD-003 | 错误处理需要更细化 | 中 | v1.1 |
-| TD-004 | 性能优化（数据库索引） | 中 | v1.2 |
-| TD-005 | 缓存策略优化 | 低 | v1.2 |
+| ID | 描述 | 优先级 | 计划解决时间 | 状态 |
+|----|------|--------|--------------|------|
+| TD-001 | 部分API缺少单元测试 | 中 | v1.1 | 待处理 |
+| TD-002 | Mock数据孤岛问题：各Mock文件独立定义数据，导致班级-年级-班主任映射不一致 | **高** | v1.9 | **已解决** |
+| TD-003 | 错误处理需要更细化 | 中 | v1.1 | 待处理 |
+| TD-004 | 性能优化（数据库索引） | 中 | v1.2 | 待处理 |
+| TD-005 | 缓存策略优化 | 低 | v1.2 | 待处理 |
+| TD-006 | 课表Mock数据ID格式不一致（c6-1 vs c013） | **高** | v1.9 | **已解决** |
+| TD-007 | 69个API路由缺少Mock回退机制 | 中 | v2.0 | 待处理 |
 
 ### 9.4 变更记录
 
@@ -3423,6 +3557,7 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 | v1.6 | 2024-04-01 | 项目组 | 【Hooks架构文档】<br/>1. **新增5.16章节**: 数据Hooks说明，完整记录项目所有数据Hooks的使用规范<br/>2. **Hooks架构图**: 新增Hooks与API客户端的层级关系图<br/>3. **核心Hooks说明**: 详细说明useApi、useAuth、useStudentData、useHabitData、useMoralData等核心Hooks<br/>4. **使用规范**: 提供统一的Hooks使用规范和最佳实践<br/>5. **对照表**: 提供Hooks与API路径的完整对照表 |
 | v1.7 | 2024-04-02 | 项目组 | 【Hooks升级总体方案】<br/>1. **方案文档**: 新增 `docs/HOOKS_UPGRADE_MASTER_PLAN.md` 总体整改方案<br/>2. **五阶段规划**: 类型定义统一 → Hooks重构 → API客户端完善 → 页面组件更新 → 文档核对<br/>3. **可合并Hooks**: 删除useDataFetch.ts、useData.ts、useCrudOperations.ts<br/>4. **需扩展Hooks**: useHabitData.ts重点重构、useStudentData.ts优化<br/>5. **目标架构**: 基础层(useApi.ts) → 领域层(useXxxData.ts) → 应用层 |
 | v1.8 | 2024-04-03 | 项目组 | 【验收准则全面更新】<br/>1. **功能验收**: 按认证授权、总务后勤、教务教研、德育管理、教师空间、家长端、工作流、首页管理、仪表盘9大模块分类细化验收清单，共100+验收项<br/>2. **性能验收**: 新增静态资源加载、列表分页加载指标<br/>3. **安全验收**: 细分为认证安全、权限安全、数据安全、审计安全4个子类<br/>4. **高并发验收**: 新增限流保护、熔断保护验收项<br/>5. **API接口验收**: 新增接口规范、接口测试验收项<br/>6. **数据完整性验收**: 新增数据完整性检查项<br/>7. **验收流程**: 新增验收步骤、验收标准、验收交付物说明 |
+| v1.9 | 2024-04-04 | 项目组 | 【数据孤岛整改】<br/>1. **问题诊断**: 发现Mock数据覆盖不足(13.75%)、班级-年级-班主任映射不一致、课表ID格式冲突(c6-1 vs c013)等问题<br/>2. **架构设计**: 新增4.2.6节Mock数据架构说明，建立统一数据源层(master-data.ts)<br/>3. **数据源统一**: 创建MASTER_SCHOOL、MASTER_CLASSES、MASTER_TEACHERS、MASTER_STUDENTS统一主数据<br/>4. **ID规范**: 统一班级ID(c001-c014)、教师ID(t001-t020)、学生ID(s001-s100)格式<br/>5. **影响分析**: 确认API路由、Hooks、页面组件无需修改，仅Mock数据层受影响<br/>6. **技术债务**: TD-002(Mock数据孤岛)、TD-006(课表ID格式)已解决<br/>7. **相关文档**: 新增 `docs/DATA_ISOLATION_FIX_PLAN.md` 详细整改方案 |
 
 ---
 
