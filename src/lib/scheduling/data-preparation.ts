@@ -16,6 +16,7 @@ import {
   getWeeklyPeriods,
   STANDARD_SUBJECTS,
 } from './types';
+import { PRIORITY_SECONDARY_SUBJECTS } from '@/lib/data/teaching-rules';
 
 /**
  * 将教师角色转换为排课角色
@@ -137,10 +138,27 @@ export function prepareSchedulingTeacher(teacher: TeacherInfo): SchedulingTeache
   const additionalRoles = (teacher.additionalRoles || []).map(mapToAdministrativeRole);
   const hasAdministrativeRole = additionalRoles.length > 0;
   
-  // 转换任课科目
-  const teachableSubjects = (teacher.teachableSubjects || []).map(mapToCourseCategory);
-  const primarySubject = teachableSubjects[0] || '语文';
+  // 转换任课科目（包含兜底逻辑）
+  const primarySubject = teacher.teachableSubjects?.[0] || teacher.subject || '语文';
+  
+  // 获取兼任科目：优先使用配置的，否则使用规则建议
+  let secondarySubjectsList: string[] = [];
+  if (teacher.teachableSubjects && teacher.teachableSubjects.length > 1) {
+    // 有配置的兼任科目
+    secondarySubjectsList = teacher.teachableSubjects.slice(1);
+  } else {
+    // 兜底：使用规则建议的兼任科目
+    const suggestedSecondary = PRIORITY_SECONDARY_SUBJECTS[primarySubject] || [];
+    secondarySubjectsList = suggestedSecondary;
+  }
+  
+  // 构建完整的可任教科目列表
+  const teachableSubjects: CourseCategory[] = [
+    mapToCourseCategory(primarySubject),
+    ...secondarySubjectsList.map(mapToCourseCategory)
+  ];
   const secondarySubjects = teachableSubjects.slice(1);
+  const primarySubjectCourse: CourseCategory = teachableSubjects[0];
   
   return {
     id: teacher.id,
@@ -154,7 +172,7 @@ export function prepareSchedulingTeacher(teacher: TeacherInfo): SchedulingTeache
     hasAdministrativeRole,
     
     // 任课设置
-    primarySubject,
+    primarySubject: primarySubjectCourse,
     secondarySubjects,
     teachableSubjects,
     
