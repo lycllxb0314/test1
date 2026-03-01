@@ -140,8 +140,13 @@ interface SchedulingContext {
  * 
  * 核心保证：
  * 1. 所有时间槽必须填满
- * 2. 教师课时配置自动微调（±2节内）
+ * 2. 教师课时配置在国家标准的框架内微调
  * 3. 第一节语文数学均衡交替
+ * 
+ * 国家标准课时量：
+ * - 语数教师（班主任/科任）：14-16节/周
+ * - 英语教师：14-16节/周
+ * - 技能科教师：16-18节/周
  */
 export function generateSchedule(context: SchedulingContext): ScheduleResult {
   const startTime = Date.now();
@@ -154,19 +159,46 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
   
   // 从教师数据初始化工作量
   for (const teacher of teachers) {
+    // 根据教师类型确定课时范围（国家标准）
+    const primarySubject = teacher.primarySubject || '';
+    const role = teacher.role || 'subject_head';
+    
+    let minHours: number;
+    let maxHours: number;
+    
+    // 判断是否为语数教师或英语教师
+    const isMainSubjectTeacher = primarySubject === '语文' || primarySubject === '数学';
+    const isEnglishTeacher = primarySubject === '英语';
+    
+    if (isMainSubjectTeacher || isEnglishTeacher) {
+      // 语数教师、英语教师：国家标准 14-16 节
+      minHours = 14;
+      maxHours = 16;
+    } else if (role === 'skill_teacher' || role === 'subject_head') {
+      // 技能科教师：国家标准 16-18 节
+      minHours = 16;
+      maxHours = 18;
+    } else {
+      // 领导层：课时较少
+      minHours = 2;
+      maxHours = 8;
+    }
+    
+    const baseHours = teacher.totalWeeklyHours || Math.round((minHours + maxHours) / 2);
+    
     teacherWorkloads.set(teacher.id, {
       teacherId: teacher.id,
       teacherName: teacher.name,
-      subject: teacher.primarySubject || '',
-      originalHours: teacher.totalWeeklyHours || 16,
+      subject: primarySubject,
+      originalHours: baseHours,
       currentHours: 0,
-      adjustedHours: teacher.totalWeeklyHours || 16,
-      capacity: (teacher.totalWeeklyHours || 16) + 2, // 允许最多增加2节
+      adjustedHours: baseHours,
+      capacity: maxHours, // 使用国家标准的最大课时，而不是 base+2
       classes: new Set(),
-      role: teacher.role || 'subject_head',
+      role: role,
       mainClassCount: teacher.mainClassCount || 1,
       mainSubjectHours: teacher.mainSubjectHours || 12,
-      totalWeeklyHours: teacher.totalWeeklyHours || 16,
+      totalWeeklyHours: baseHours,
       secondarySubjects: teacher.secondarySubjects || [],
       teachableGrades: teacher.teachableGrades || [1, 2, 3, 4, 5, 6],
       headTeacherClassId: teacher.headTeacherClassId,
@@ -510,8 +542,8 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
           continue;
         }
         
-        // 检查容量（允许超配）
-        if (workload.currentHours >= workload.capacity + 1) {
+        // 检查容量（严格不超过国家标准的最大课时）
+        if (workload.currentHours >= workload.capacity) {
           continue;
         }
         
@@ -539,19 +571,49 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
 
   // ==================== 第六阶段：生成调整报告 ====================
   
+  // 国家标准课时范围
+  const getStandardRange = (subject: string, role: string): { min: number; max: number } => {
+    const isMainSubject = subject === '语文' || subject === '数学';
+    const isEnglish = subject === '英语';
+    
+    if (isMainSubject || isEnglish) {
+      return { min: 14, max: 16 };
+    } else if (role === 'skill_teacher' || role === 'subject_head') {
+      return { min: 16, max: 18 };
+    }
+    return { min: 2, max: 8 };
+  };
+  
   for (const [teacherId, workload] of teacherWorkloads) {
+    const standardRange = getStandardRange(workload.subject, workload.role);
+    
     if (workload.currentHours !== workload.originalHours) {
       const adjustment = workload.currentHours - workload.originalHours;
-      adjustments.push({
-        teacherId,
-        teacherName: workload.teacherName,
-        subject: workload.subject,
-        originalHours: workload.originalHours,
-        suggestedHours: workload.currentHours,
-        reason: adjustment > 0 
-          ? `需增加${adjustment}节课时以满足课表填满要求`
-          : `课时配置冗余${Math.abs(adjustment)}节，已自动调整`,
-      });
+      
+      // 只有建议课时在国家标准的范围内才生成调整建议
+      if (workload.currentHours >= standardRange.min && workload.currentHours <= standardRange.max) {
+        adjustments.push({
+          teacherId,
+          teacherName: workload.teacherName,
+          subject: workload.subject,
+          originalHours: workload.originalHours,
+          suggestedHours: workload.currentHours,
+          reason: adjustment > 0 
+            ? `需增加${adjustment}节课时以满足课表填满要求（国家标准：${standardRange.min}-${standardRange.max}节）`
+            : `课时配置冗余${Math.abs(adjustment)}节，已自动调整`,
+        });
+      }
+      // 如果超过国家标准，在 conflicts 中记录资源不足
+      else if (workload.currentHours > standardRange.max) {
+        conflicts.push({
+          id: `resource-shortage-${teacherId}`,
+          type: 'rule_violation',
+          description: `${workload.teacherName}（${workload.subject}）课时已达国家标准上限${standardRange.max}节，无法继续分配，建议增加该学科教师`,
+          relatedSlots: [],
+          severity: 'warning',
+          suggestions: [`增加${workload.subject}教师编制`, '调整课程结构'],
+        });
+      }
     }
   }
 
