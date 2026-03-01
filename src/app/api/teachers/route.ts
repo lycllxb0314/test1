@@ -93,6 +93,12 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
       const headTeacherInfo = headTeacherClassMap[t.id];
       const subTeacherClasses = subTeacherClassesMap[t.id] || [];
       
+      // 计算 teachable_subjects = primary_subject + secondary_subjects
+      const teachable_subjects = [
+        t.primary_subject,
+        ...(t.secondary_subjects || [])
+      ].filter(Boolean);
+      
       return {
         id: t.id,
         name: t.name,
@@ -109,16 +115,17 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         status: t.status,
         createdAt: t.created_at,
         updatedAt: t.updated_at,
-        // 角色和课时配置字段（从数据库读取）
+        // 角色和课时配置字段
         role: t.role,
         additional_roles: t.additional_roles || [],
         primary_subject: t.primary_subject,
-        secondary_subjects: t.secondary_subjects,
+        secondary_subjects: t.secondary_subjects || [],
+        // 计算字段：可任教科目 = 主教学科 + 兼教学科
+        teachable_subjects,
         total_weekly_hours: t.total_weekly_hours,
         main_class_count: t.main_class_count,
         main_subject_hours: t.main_subject_hours,
         teachable_grades: t.teachable_grades,
-        teachable_subjects: t.teachable_subjects || [],
         head_teacher_class_id: t.head_teacher_class_ids?.[0],
         subject_head_class_id: t.subject_head_class_id,
       };
