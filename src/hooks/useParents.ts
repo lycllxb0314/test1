@@ -204,6 +204,7 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
       
       // 构建查询参数
       const params = new URLSearchParams();
+      params.append('pageSize', '5000'); // 获取全部家长
       
       if (filters.search) {
         params.append('search', filters.search);

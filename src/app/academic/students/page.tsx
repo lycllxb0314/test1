@@ -28,6 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useStudents, type StudentStatus, type StudentInfo } from '@/hooks/useStudents';
 import {
   Dialog,
   DialogContent,
@@ -55,7 +56,6 @@ import {
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import { useStudents, type StudentInfo } from '@/hooks';
 import { toast } from 'sonner';
 
 // 年级选项
@@ -99,25 +99,46 @@ const getGenderStyle = (gender: string) => {
 export default function StudentsPage() {
   const router = useRouter();
   
-  // 搜索和筛选状态
-  const [searchTerm, setSearchTerm] = useState('');
-  const [gradeFilter, setGradeFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [page, setPage] = useState(1);
-  
   // 使用统一Hook获取学生列表
   const { 
     students, 
     statistics, 
+    pagination,
     loading, 
     error, 
     refetch,
-    deleteStudent 
+    deleteStudent,
+    setPage,
+    setPageSize,
+    setFilters,
   } = useStudents();
+  
+  // 搜索和筛选状态
+  const [searchTerm, setSearchTerm] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   // 删除确认弹窗
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<StudentInfo | null>(null);
+  
+  // 筛选变化时更新Hook
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setFilters({ search: value || undefined });
+  };
+  
+  const handleGradeChange = (value: string) => {
+    setGradeFilter(value);
+    setFilters({ grade: value === 'all' ? undefined : parseInt(value) });
+  };
+  
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    setFilters({ 
+      status: value === 'all' ? 'all' : value as StudentStatus 
+    });
+  };
 
   // 查看详情
   const handleViewDetail = (studentId: string) => {
@@ -251,14 +272,11 @@ export default function StudentsPage() {
               <Input
                 placeholder="搜索学生姓名或学号..."
                 value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setPage(1); }}>
+            <Select value={gradeFilter} onValueChange={handleGradeChange}>
               <SelectTrigger className="w-[120px]">
                 <SelectValue placeholder="年级" />
               </SelectTrigger>
@@ -268,7 +286,7 @@ export default function StudentsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <Select value={statusFilter} onValueChange={handleStatusChange}>
               <SelectTrigger className="w-[120px]">
                 <SelectValue placeholder="状态" />
               </SelectTrigger>
@@ -386,29 +404,29 @@ export default function StudentsPage() {
               </Table>
 
               {/* 分页 */}
-              {students.length > 10 && (
+              {pagination && pagination.total > 0 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t">
                   <div className="text-sm text-muted-foreground">
-                    显示 1 - {students.length} 条，共 {statistics.total} 条
+                    显示 {(pagination.page - 1) * pagination.pageSize + 1} - {Math.min(pagination.page * pagination.pageSize, pagination.total)} 条，共 {pagination.total} 条
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page === 1}
+                      onClick={() => setPage(pagination.page - 1)}
+                      disabled={pagination.page === 1}
                     >
                       <ChevronLeft className="h-4 w-4" />
                       上一页
                     </Button>
                     <span className="text-sm">
-                      第 {page} 页
+                      第 {pagination.page} / {pagination.totalPages} 页
                     </span>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPage(p => p + 1)}
-                      disabled={students.length < 10}
+                      onClick={() => setPage(pagination.page + 1)}
+                      disabled={pagination.page >= pagination.totalPages}
                     >
                       下一页
                       <ChevronRight className="h-4 w-4" />

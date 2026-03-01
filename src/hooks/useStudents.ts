@@ -128,6 +128,10 @@ export interface UseStudentsReturn {
   filters: StudentFilters;
   setFilters: (filters: StudentFilters) => void;
   
+  // === 分页控制 ===
+  setPage: (page: number) => void;
+  setPageSize: (pageSize: number) => void;
+  
   // === 查询方法 ===
   fetchStudents: () => Promise<void>;
   refetch: () => Promise<void>;
@@ -183,7 +187,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   const [filters, setFilters] = useState<StudentFilters>(initialFilters || {});
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
-    pageSize: 2000, // 默认获取全部
+    pageSize: 50, // 默认每页50条
     total: 0,
     totalPages: 0,
   });
@@ -230,7 +234,8 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       
       // 构建查询参数
       const params = new URLSearchParams();
-      params.append('pageSize', '2000'); // 获取全部学生
+      params.append('page', pagination.page.toString());
+      params.append('pageSize', pagination.pageSize.toString());
       
       if (filters.search) {
         params.append('search', filters.search);
@@ -299,7 +304,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, pagination.page, pagination.pageSize]);
   
   // 根据ID获取学生
   const getStudentById = useCallback((id: string) => 
@@ -620,6 +625,15 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     fetchStudents();
   }, [fetchStudents]);
   
+  // 分页控制方法
+  const setPage = useCallback((newPage: number) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  }, []);
+  
+  const setPageSize = useCallback((newPageSize: number) => {
+    setPagination(prev => ({ ...prev, page: 1, pageSize: newPageSize }));
+  }, []);
+  
   return {
     // 数据
     students,
@@ -631,6 +645,10 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     // 筛选
     filters,
     setFilters,
+    
+    // 分页控制
+    setPage,
+    setPageSize,
     
     // 查询方法
     fetchStudents,
