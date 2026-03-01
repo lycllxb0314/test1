@@ -59,7 +59,7 @@ async function getClassesData() {
   }));
 }
 
-// 动态获取教师数据
+// 动态获取教师数据（包含完整课时配置）
 async function getTeachersData() {
   const client = getSupabaseClient();
   const { data, error } = await client
@@ -71,11 +71,10 @@ async function getTeachersData() {
   
   return data.map(t => {
     // 从部门推断主教学科
-    let primarySubject = t.subjects?.[0] || '';
+    let primarySubject = t.primary_subject || t.subjects?.[0] || '';
     const dept = t.department || '';
     
     if (!primarySubject) {
-      // 根据部门推断学科
       if (dept.includes('语文')) primarySubject = '语文';
       else if (dept.includes('数学')) primarySubject = '数学';
       else if (dept.includes('英语')) primarySubject = '英语';
@@ -92,31 +91,52 @@ async function getTeachersData() {
     return {
       id: t.id,
       name: t.name,
-      role: t.is_head_teacher ? 'head_teacher' : 'subject_head',
+      role: t.role || (t.is_head_teacher ? 'head_teacher' : 'subject_head'),
       primarySubject,
       subjects,
       department: dept,
       isHeadTeacher: t.is_head_teacher,
-      headTeacherClassId: t.head_teacher_class_id,
+      headTeacherClassId: t.head_teacher_class_ids?.[0],
+      subjectHeadClassId: t.subject_head_class_id,
+      // 完整课时配置
+      baseWeeklyHours: t.total_weekly_hours || t.base_weekly_hours || 16,
+      mainClassCount: t.main_class_count || 1,
+      mainSubjectHours: t.main_subject_hours || 12,
+      totalWeeklyHours: t.total_weekly_hours || 16,
+      secondarySubjects: t.secondary_subjects || [],
+      teachableGrades: t.teachable_grades || [1, 2, 3, 4, 5, 6],
     };
   });
 }
 
 // 获取班级的科目教师分配（从数据库或默认配置）
 async function getClassSubjectTeachers(classId: string, grade: number) {
-  // 标准课时配置
-  const standardHours: Record<string, number> = {
-    '语文': 6,
-    '数学': 5,
-    '英语': 4,
-    '体育': 3,
-    '音乐': 2,
-    '美术': 2,
-    '科学': 2,
-    '道德与法治': 2,
-    '劳动': 1,
-    '班会': 1,
+  // 标准课时配置（根据年级区分）
+  // 1-2年级：无英语，科学1节
+  // 3-6年级：英语4节，科学2节
+  const getStandardHours = (grade: number): Record<string, number> => {
+    const base: Record<string, number> = {
+      '语文': 6,
+      '数学': 5,
+      '体育': 3,
+      '音乐': 2,
+      '美术': 2,
+      '道德与法治': 2,
+      '劳动': 1,
+      '班会': 1,
+    };
+    
+    if (grade <= 2) {
+      // 1-2年级：无英语，科学1节
+      return { ...base, '科学': 1 };
+    } else {
+      // 3-6年级：英语4节，科学2节
+      return { ...base, '英语': 4, '科学': 2 };
+    }
   };
+  
+  // 所有可能的科目
+  const allSubjects = ['语文', '数学', '英语', '体育', '音乐', '美术', '科学', '道德与法治', '劳动', '班会'];
   
   // TODO: 从数据库获取真实的科目教师分配
   // 目前返回空数组，由排课算法自动分配
@@ -171,18 +191,24 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
   const classesData = await getClassesData();
   const teachersData = await getTeachersData();
   
-  // 标准课时配置
-  const standardHours: Record<string, number> = {
-    '语文': 6,
-    '数学': 5,
-    '英语': 4,
-    '体育': 3,
-    '音乐': 2,
-    '美术': 2,
-    '科学': 2,
-    '道德与法治': 2,
-    '劳动': 1,
-    '班会': 1,
+  // 标准课时配置（根据年级区分）
+  const getStandardHours = (grade: number): Record<string, number> => {
+    const base: Record<string, number> = {
+      '语文': 6,
+      '数学': 5,
+      '体育': 3,
+      '音乐': 2,
+      '美术': 2,
+      '道德与法治': 2,
+      '劳动': 1,
+      '班会': 1,
+    };
+    
+    if (grade <= 2) {
+      return { ...base, '科学': 1 };
+    } else {
+      return { ...base, '英语': 4, '科学': 2 };
+    }
   };
   
   // 构建教师索引（按学科分组）
@@ -192,7 +218,6 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
       if (!teachersBySubject[subj]) teachersBySubject[subj] = [];
       teachersBySubject[subj].push(t);
     }
-    // 也按 primarySubject 索引
     if (t.primarySubject) {
       if (!teachersBySubject[t.primarySubject]) teachersBySubject[t.primarySubject] = [];
       if (!teachersBySubject[t.primarySubject].find(x => x.id === t.id)) {
@@ -201,27 +226,53 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
     }
   }
   
-  // 用于跟踪每个教师已分配的课时
+  // 用于跟踪每个教师已分配的课时（使用教师的实际课时配置）
   const teacherAssignedHours: Record<string, number> = {};
-  teachersData.forEach(t => teacherAssignedHours[t.id] = 0);
+  const teacherMaxHours: Record<string, number> = {};
+  teachersData.forEach(t => {
+    teacherAssignedHours[t.id] = 0;
+    teacherMaxHours[t.id] = t.baseWeeklyHours || 16; // 使用教师的课时配置
+  });
   
-  // 辅助函数：找到课时最少的教师
+  // 辅助函数：找到课时最少的教师（考虑课时上限）
   const findTeacherWithMinHours = (subject: string, excludeIds: string[] = []): typeof teachersData[0] | undefined => {
     const candidates = teachersBySubject[subject] || [];
-    const available = candidates.filter(t => !excludeIds.includes(t.id));
+    const available = candidates.filter(t => {
+      if (excludeIds.includes(t.id)) return false;
+      // 检查是否还有课时余量
+      const currentHours = teacherAssignedHours[t.id] || 0;
+      const maxHours = teacherMaxHours[t.id] || 16;
+      return currentHours < maxHours;
+    });
     if (available.length === 0) return undefined;
     return available.sort((a, b) => (teacherAssignedHours[a.id] || 0) - (teacherAssignedHours[b.id] || 0))[0];
+  };
+  
+  // 辅助函数：检查教师是否有余量
+  const hasCapacity = (teacherId: string, additionalHours: number): boolean => {
+    const current = teacherAssignedHours[teacherId] || 0;
+    const max = teacherMaxHours[teacherId] || 16;
+    return current + additionalHours <= max;
+  };
+  
+  // 辅助函数：分配课时并更新跟踪
+  const assignHours = (teacherId: string, hours: number) => {
+    teacherAssignedHours[teacherId] = (teacherAssignedHours[teacherId] || 0) + hours;
   };
   
   for (const cls of classesData) {
     const headTeacher = teachersData.find(t => t.id === cls.headTeacherId);
     const subjectHead = teachersData.find(t => t.id === cls.subjectHeadId);
+    const grade = cls.grade || 1;
+    
+    // 根据年级获取标准课时
+    const standardHours = getStandardHours(grade);
     
     // 班主任教的科目：语文、道德与法治、劳动、班会
     const headTeacherSubjects = ['语文', '道德与法治', '劳动', '班会'];
     // 科任（副班主任）教的科目：数学、科学
     const subjectHeadSubjects = ['数学', '科学'];
-    // 技能科
+    // 技能科（注意：英语只在3-6年级有）
     const skillSubjects = ['英语', '体育', '音乐', '美术'];
     
     for (const subject of Object.keys(standardHours)) {
@@ -231,22 +282,22 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
       
       if (headTeacherSubjects.includes(subject)) {
         // 班主任教的科目
-        if (headTeacher) {
+        if (headTeacher && hasCapacity(headTeacher.id, weeklyHours)) {
           teacherId = headTeacher.id;
           teacherName = headTeacher.name;
         }
       } else if (subjectHeadSubjects.includes(subject)) {
         // 科任教的科目
-        if (subjectHead) {
+        if (subjectHead && hasCapacity(subjectHead.id, weeklyHours)) {
           teacherId = subjectHead.id;
           teacherName = subjectHead.name;
-        } else if (headTeacher && headTeacher.subjects.includes('数学')) {
-          // 如果没有科任，班主任教数学
+        } else if (headTeacher && headTeacher.subjects.includes('数学') && hasCapacity(headTeacher.id, weeklyHours)) {
+          // 如果没有科任或科任已满，班主任教数学
           teacherId = headTeacher.id;
           teacherName = headTeacher.name;
         }
       } else if (skillSubjects.includes(subject)) {
-        // 技能科：找对应学科的教师
+        // 技能科：找对应学科的教师（排除已满的教师）
         const skillTeacher = findTeacherWithMinHours(subject, [cls.headTeacherId, cls.subjectHeadId]);
         if (skillTeacher) {
           teacherId = skillTeacher.id;
@@ -282,7 +333,7 @@ async function generateTeachingTasksFromAssignments(): Promise<TeachingTask[]> {
         });
         
         // 更新教师已分配课时
-        teacherAssignedHours[teacherId] = (teacherAssignedHours[teacherId] || 0) + weeklyHours;
+        assignHours(teacherId, weeklyHours);
       }
     }
   }
@@ -306,7 +357,7 @@ export async function GET(request: NextRequest) {
         data: {
           slots: classSlots,
           table: formatScheduleAsTable(classSlots, DEFAULT_PERIODS, WEEK_DAYS),
-          subjectHours: classId ? calculateClassSubjectHours(scheduleSlots.filter(s => s.classId === classId)) : {},
+          subjectHours: classId ? calculateClassSubjectHours(scheduleSlots, classId) : {},
         },
       });
       
@@ -441,6 +492,14 @@ export async function POST(request: NextRequest) {
           name: t.name,
           role: t.role,
           primarySubject: t.primarySubject || '',
+          baseWeeklyHours: t.baseWeeklyHours || 16,
+          totalWeeklyHours: t.totalWeeklyHours || 16,
+          mainClassCount: t.mainClassCount || 1,
+          mainSubjectHours: t.mainSubjectHours || 12,
+          secondarySubjects: t.secondarySubjects || [],
+          teachableGrades: t.teachableGrades || [1, 2, 3, 4, 5, 6],
+          headTeacherClassId: t.headTeacherClassId,
+          subjectHeadClassId: t.subjectHeadClassId,
         })),
       });
       
@@ -453,6 +512,17 @@ export async function POST(request: NextRequest) {
           ).length;
           task.status = task.arrangedHours >= task.weeklyHours ? 'completed' : 'partial';
         });
+        
+        // 如果有课时调整建议，更新数据库中教师的课时配置
+        if (result.adjustments && result.adjustments.length > 0) {
+          const client = getSupabaseClient();
+          for (const adj of result.adjustments) {
+            await client
+              .from('teachers')
+              .update({ base_weekly_hours: adj.suggestedHours })
+              .eq('id', adj.teacherId);
+          }
+        }
       }
       
       return NextResponse.json({

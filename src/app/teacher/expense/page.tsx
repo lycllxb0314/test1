@@ -294,7 +294,7 @@ export default function TeacherExpensePage() {
         totalAmount,
         applicantId: user?.id || 'teacher-001',
         applicantName: user?.name || '教师',
-        applicantRole: user?.role || 'teacher',
+        applicantRole: user?.role || 'subject_teacher',
         department: user?.department || '语文教研组',
         phone: user?.phone,
       };

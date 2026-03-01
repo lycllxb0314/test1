@@ -55,7 +55,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b001', roomId: 'room-001', roomName: '2号楼教研室', roomType: 'seminar_room',
       building: '2号楼', location: '2号楼3层东侧',
-      applicantId: 't001', applicantName: '张明华', applicantRole: 'teacher', department: '语文组',
+      applicantId: 't001', applicantName: '张明华', applicantRole: 'subject_teacher', department: '语文组',
       purpose: 'meeting', title: '语文教研组备课',
       bookingDate: '2024-03-18', startTime: '14:00', endTime: '16:00', duration: 120,
       expectedAttendees: 15, attendeeType: 'teacher',
@@ -65,7 +65,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b009', roomId: 'room-003', roomName: '1号楼阶梯教室', roomType: 'lecture_hall',
       building: '1号楼', location: '1号楼1层大厅',
-      applicantId: 't002', applicantName: '李晓红', applicantRole: 'teacher', department: '数学组',
+      applicantId: 't002', applicantName: '李晓红', applicantRole: 'subject_teacher', department: '数学组',
       purpose: 'training', title: '数学思维训练讲座',
       bookingDate: '2024-03-18', startTime: '09:00', endTime: '11:00', duration: 120,
       expectedAttendees: 150, attendeeType: 'student',
@@ -75,7 +75,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b010', roomId: 'room-005', roomName: '综合楼会议室', roomType: 'meeting_room',
       building: '综合楼', location: '综合楼5层',
-      applicantId: 't003', applicantName: '王建国', applicantRole: 'teacher', department: '科学组',
+      applicantId: 't003', applicantName: '王建国', applicantRole: 'subject_teacher', department: '科学组',
       purpose: 'meeting', title: '科学组教研活动',
       bookingDate: '2024-03-18', startTime: '15:00', endTime: '17:00', duration: 120,
       expectedAttendees: 10, attendeeType: 'teacher',
@@ -87,7 +87,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b005', roomId: 'room-005', roomName: '综合楼会议室', roomType: 'meeting_room',
       building: '综合楼', location: '综合楼5层',
-      applicantId: 't003', applicantName: '王建国', applicantRole: 'teacher', department: '科学组',
+      applicantId: 't003', applicantName: '王建国', applicantRole: 'subject_teacher', department: '科学组',
       purpose: 'meeting', title: '科学教研组期中研讨会',
       bookingDate: '2024-03-19', startTime: '14:00', endTime: '16:30', duration: 150,
       expectedAttendees: 12, attendeeType: 'teacher',
@@ -97,7 +97,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b011', roomId: 'room-001', roomName: '2号楼教研室', roomType: 'seminar_room',
       building: '2号楼', location: '2号楼3层东侧',
-      applicantId: 't004', applicantName: '赵明华', applicantRole: 'teacher', department: '语文组',
+      applicantId: 't004', applicantName: '赵明华', applicantRole: 'subject_teacher', department: '语文组',
       purpose: 'meeting', title: '语文组青年教师磨课',
       bookingDate: '2024-03-19', startTime: '09:00', endTime: '11:30', duration: 150,
       expectedAttendees: 8, attendeeType: 'teacher',
@@ -109,7 +109,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b006', roomId: 'room-001', roomName: '2号楼教研室', roomType: 'seminar_room',
       building: '2号楼', location: '2号楼3层东侧',
-      applicantId: 't004', applicantName: '赵明华', applicantRole: 'teacher', department: '语文组',
+      applicantId: 't004', applicantName: '赵明华', applicantRole: 'subject_teacher', department: '语文组',
       purpose: 'activity', title: '学生经典诵读比赛彩排',
       bookingDate: '2024-03-20', startTime: '15:30', endTime: '17:30', duration: 120,
       expectedAttendees: 28, attendeeType: 'student',
@@ -119,7 +119,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b012', roomId: 'room-002', roomName: '4号楼教研室', roomType: 'seminar_room',
       building: '4号楼', location: '4号楼2层西侧',
-      applicantId: 't005', applicantName: '陈雨婷', applicantRole: 'teacher', department: '英语组',
+      applicantId: 't005', applicantName: '陈雨婷', applicantRole: 'subject_teacher', department: '英语组',
       purpose: 'meeting', title: '英语组教材研讨',
       bookingDate: '2024-03-20', startTime: '14:00', endTime: '16:00', duration: 120,
       expectedAttendees: 12, attendeeType: 'teacher',
@@ -131,7 +131,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b013', roomId: 'room-003', roomName: '1号楼阶梯教室', roomType: 'lecture_hall',
       building: '1号楼', location: '1号楼1层大厅',
-      applicantId: 't006', applicantName: '刘志强', applicantRole: 'teacher', department: '体育组',
+      applicantId: 't006', applicantName: '刘志强', applicantRole: 'subject_teacher', department: '体育组',
       purpose: 'training', title: '学生安全教育讲座',
       bookingDate: '2024-03-21', startTime: '10:00', endTime: '11:30', duration: 90,
       expectedAttendees: 200, attendeeType: 'student',
@@ -143,7 +143,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b004', roomId: 'room-003', roomName: '1号楼阶梯教室', roomType: 'lecture_hall',
       building: '1号楼', location: '1号楼1层大厅',
-      applicantId: 't002', applicantName: '李晓红', applicantRole: 'teacher', department: '数学组',
+      applicantId: 't002', applicantName: '李晓红', applicantRole: 'subject_teacher', department: '数学组',
       purpose: 'training', title: '数学思维训练公开课',
       bookingDate: '2024-03-22', startTime: '09:00', endTime: '11:00', duration: 120,
       expectedAttendees: 120, attendeeType: 'student',
@@ -153,7 +153,7 @@ const mockScheduleData: Record<string, RoomBooking[]> = {
     {
       id: 'b014', roomId: 'room-001', roomName: '2号楼教研室', roomType: 'seminar_room',
       building: '2号楼', location: '2号楼3层东侧',
-      applicantId: 't001', applicantName: '张明华', applicantRole: 'teacher', department: '语文组',
+      applicantId: 't001', applicantName: '张明华', applicantRole: 'subject_teacher', department: '语文组',
       purpose: 'meeting', title: '语文组教学研讨',
       bookingDate: '2024-03-22', startTime: '14:00', endTime: '16:00', duration: 120,
       expectedAttendees: 15, attendeeType: 'teacher',

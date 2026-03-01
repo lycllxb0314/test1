@@ -114,11 +114,37 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
       academic: ['view', 'edit'], // 可以管理调课
     },
   },
-  teacher: {
-    name: '教师',
-    description: '普通教师，查看个人信息和课表',
+  subject_teacher: {
+    name: '科任教师',
+    description: '语文、数学、英语等主科教师，享有与班主任同等权限',
+    modules: {
+      teacher: ['manage'],
+      parent: ['view'],
+    },
+  },
+  skill_teacher: {
+    name: '技能课教师',
+    description: '音乐、美术、体育、科学等技能课教师，查看个人信息和课表',
     modules: {
       teacher: ['view'],
+    },
+  },
+  research_group_leader: {
+    name: '教研组组长',
+    description: '教研组负责人，通常由班主任或科任教师兼任，负责教研活动组织与管理',
+    modules: {
+      teacher: ['manage'],
+      parent: ['view'],
+      academic: ['view', 'edit'], // 可以管理教研活动
+    },
+  },
+  research_group_deputy_leader: {
+    name: '教研组副组长',
+    description: '教研组副负责人，通常由班主任或科任教师兼任，协助组长开展教研活动',
+    modules: {
+      teacher: ['manage'],
+      parent: ['view'],
+      academic: ['view', 'edit'], // 可以协助管理教研活动
     },
   },
 
@@ -222,7 +248,10 @@ export function isTeacherRole(role: UserRole): boolean {
   const teacherRoles: UserRole[] = [
     'head_teacher',
     'grade_leader',
-    'teacher',
+    'subject_teacher',
+    'skill_teacher',
+    'research_group_leader',
+    'research_group_deputy_leader',
   ];
   return teacherRoles.includes(role);
 }

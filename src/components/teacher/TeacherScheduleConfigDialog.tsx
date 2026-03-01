@@ -106,7 +106,7 @@ export function TeacherScheduleConfigDialog({
   const [form, setForm] = useState<TeacherScheduleConfig>({
     teacherId: '',
     teacherName: '',
-    role: 'subject_head',
+    role: 'subject_teacher',
     primarySubject: '',
     secondarySubjects: [],
     mainClassCount: 2,
@@ -311,11 +311,10 @@ export function TeacherScheduleConfigDialog({
                 </Select>
                 <p className="text-xs text-gray-500">
                   {form.role === 'head_teacher' && '班主任只能带1个班'}
-                  {form.role === 'subject_leader' && '教研组长通常带1个班'}
-                  {form.role === 'admin' && '中层行政通常带1个班'}
                   {form.role === 'grade_leader' && '年段长通常带1个班'}
-                  {form.role === 'subject_head' && '科任通常带2个班'}
-                  {form.role === 'skill_teacher' && '技能科教师跨多个班级'}
+                  {form.role === 'subject_teacher' && '科任教师通常带2个班'}
+                  {form.role === 'skill_teacher' && '技能课教师跨多个班级'}
+                  {(form.role === 'research_group_leader' || form.role === 'research_group_deputy_leader') && '教研组组长/副组长通常由班主任或科任兼任'}
                 </p>
               </div>
 

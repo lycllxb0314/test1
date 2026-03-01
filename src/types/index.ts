@@ -14,9 +14,12 @@ export type UserRole =
   | 'academic_staff'    // 教务员
   | 'moral_staff'       // 德育员
   // === 教师群体 ===
-  | 'head_teacher'     // 班主任
-  | 'grade_leader'     // 年段长
-  | 'teacher'          // 普通教师
+  | 'head_teacher'      // 班主任
+  | 'grade_leader'      // 年段长
+  | 'subject_teacher'   // 科任教师（语文、数学、英语等主科教师）
+  | 'skill_teacher'     // 技能课教师（音乐、美术、体育、科学等）
+  | 'research_group_leader'       // 教研组组长（通常由班主任或科任兼任）
+  | 'research_group_deputy_leader' // 教研组副组长（通常由班主任或科任兼任）
   // === 其他人员 ===
   | 'staff'            // 后勤人员
   | 'student'          // 学生
@@ -3124,6 +3127,15 @@ export interface ScheduleResult {
   slots: ScheduleSlot[];
   /** 冲突列表 */
   conflicts: ScheduleConflict[];
+  /** 自动调整建议 */
+  adjustments?: ScheduleAdjustment[];
+  /** 未填满的课表槽位 */
+  unfilledSlots?: Array<{
+    classId: string;
+    className: string;
+    weekDay: number;
+    periodIndex: number;
+  }>;
   /** 统计信息 */
   statistics: {
     totalSlots: number;
@@ -3133,6 +3145,18 @@ export interface ScheduleResult {
   };
   /** 排课耗时（毫秒） */
   duration: number;
+}
+
+/**
+ * 排课调整建议
+ */
+export interface ScheduleAdjustment {
+  teacherId: string;
+  teacherName: string;
+  subject: string;
+  originalHours: number;
+  suggestedHours: number;
+  reason: string;
 }
 
 /**

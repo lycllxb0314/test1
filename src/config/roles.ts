@@ -106,11 +106,35 @@ export const roleConfigs: Record<string, RoleConfig> = {
     // 管理的年级
     managedGrades: [],                    // 如 [1, 2] 表示管理一、二年级
   },
-  teacher: {
-    id: 'teacher',
-    name: '教师',
-    description: '普通教师，可访问教师空间（课表、通知、请假调课）',
+  subject_teacher: {
+    id: 'subject_teacher',
+    name: '科任教师',
+    description: '语文、数学、英语等主科教师，享有与班主任同等权限',
     modules: ['teacher'],
+    permissions: ['view', 'edit'],
+    avatar: '👨‍🏫',
+  },
+  skill_teacher: {
+    id: 'skill_teacher',
+    name: '技能课教师',
+    description: '音乐、美术、体育、科学等技能课教师',
+    modules: ['teacher'],
+    permissions: ['view'],
+    avatar: '👨‍🏫',
+  },
+  research_group_leader: {
+    id: 'research_group_leader',
+    name: '教研组组长',
+    description: '教研组负责人，通常由班主任或科任教师兼任',
+    modules: ['teacher', 'academic'],
+    permissions: ['view', 'edit'],
+    avatar: '👨‍🏫',
+  },
+  research_group_deputy_leader: {
+    id: 'research_group_deputy_leader',
+    name: '教研组副组长',
+    description: '教研组副负责人，通常由班主任或科任教师兼任',
+    modules: ['teacher', 'academic'],
     permissions: ['view', 'edit'],
     avatar: '👨‍🏫',
   },

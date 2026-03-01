@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Calendar,
   Clock,
@@ -44,6 +45,8 @@ import {
   Zap,
   Settings,
   Play,
+  ChevronRight,
+  Layers,
 } from 'lucide-react';
 import type { ScheduleSlot, TeachingTask, ScheduleResult, SubstituteRecord } from '@/types';
 
@@ -93,10 +96,27 @@ export default function SchedulePage() {
   const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [activeTab, setActiveTab] = useState('schedule');
+  const [selectedGrade, setSelectedGrade] = useState<string>('all'); // 年级筛选
   
   // 教师课表筛选
   const [teacherGradeFilter, setTeacherGradeFilter] = useState<string>('all');
   const [teacherSubjectFilter, setTeacherSubjectFilter] = useState<string>('all');
+  
+  // 按年级分组班级
+  const classesByGrade = useCallback(() => {
+    const grouped: Record<number, typeof classes> = {};
+    for (const cls of classes) {
+      const grade = cls.grade || 1;
+      if (!grouped[grade]) grouped[grade] = [];
+      grouped[grade].push(cls);
+    }
+    return grouped;
+  }, [classes]);
+  
+  // 筛选后的班级列表
+  const filteredClasses = selectedGrade === 'all' 
+    ? classes 
+    : classes.filter(c => String(c.grade) === selectedGrade);
   
   // 对话框控制
   const [showSlotDialog, setShowSlotDialog] = useState(false);
@@ -372,7 +392,9 @@ export default function SchedulePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">智能排课</h1>
-          <p className="text-gray-500 mt-1">AI智能排课 · 与请假系统联动 · 代课自动管理</p>
+          <p className="text-gray-500 mt-1">
+            全校统一排课 · 支持{classes.length}个班级 · {teachers.length}位教师 · 跨年级教学自动安排
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2">
@@ -488,17 +510,53 @@ export default function SchedulePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>班级课程表</CardTitle>
-                  <CardDescription>查看和管理各班级的课程安排</CardDescription>
+                  <CardDescription>查看和管理各班级的课程安排（全校统一排课）</CardDescription>
                 </div>
                 <div className="flex items-center gap-4">
+                  {/* 年级筛选 */}
+                  <Select value={selectedGrade} onValueChange={(val) => {
+                    setSelectedGrade(val);
+                    // 自动选择该年级第一个班级
+                    const gradeClasses = val === 'all' ? classes : classes.filter(c => String(c.grade) === val);
+                    if (gradeClasses.length > 0) {
+                      setSelectedClassId(gradeClasses[0].id);
+                    }
+                  }}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="选择年级" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部年级</SelectItem>
+                      {[1, 2, 3, 4, 5, 6].map(g => (
+                        <SelectItem key={g} value={String(g)}>{g}年级</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* 班级选择（根据年级筛选显示） */}
                   <Select value={selectedClassId} onValueChange={setSelectedClassId}>
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="选择班级" />
                     </SelectTrigger>
                     <SelectContent>
-                      {classes.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
+                      {selectedGrade === 'all' ? (
+                        // 全部年级：按年级分组显示
+                        Object.entries(classesByGrade()).map(([grade, gradeClasses]) => (
+                          <div key={grade}>
+                            <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted/50">
+                              {grade}年级
+                            </div>
+                            {gradeClasses.map(c => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </div>
+                        ))
+                      ) : (
+                        // 特定年级：只显示该年级班级
+                        filteredClasses.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -916,7 +974,7 @@ export default function SchedulePage() {
 
       {/* 排课结果对话框 */}
       <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {scheduleResult?.success ? (
@@ -927,14 +985,15 @@ export default function SchedulePage() {
               ) : (
                 <>
                   <AlertCircle className="h-5 w-5 text-orange-500" />
-                  排课完成（存在冲突）
+                  排课完成（存在需调整项）
                 </>
               )}
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            {/* 统计信息 */}
+            <div className="grid grid-cols-3 gap-4">
               <div className="p-3 bg-blue-50 rounded-lg text-center">
                 <div className="text-2xl font-bold text-blue-600">
                   {scheduleResult?.statistics.arrangedSlots || 0}
@@ -947,12 +1006,67 @@ export default function SchedulePage() {
                 </div>
                 <div className="text-sm text-gray-600">覆盖率</div>
               </div>
+              <div className="p-3 bg-amber-50 rounded-lg text-center">
+                <div className="text-2xl font-bold text-amber-600">
+                  {scheduleResult?.conflicts?.length || 0}
+                </div>
+                <div className="text-sm text-gray-600">需关注</div>
+              </div>
             </div>
             
-            {scheduleResult?.conflicts && scheduleResult.conflicts.length > 0 && (
-              <div className="p-3 bg-orange-50 rounded-lg">
+            {/* 调整建议 */}
+            {scheduleResult?.adjustments && scheduleResult.adjustments.length > 0 && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="font-medium text-amber-700 mb-3 flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  建议调整教师课时配置
+                </div>
+                <div className="space-y-2 text-sm">
+                  {scheduleResult.adjustments.map((adj, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-white rounded">
+                      <div>
+                        <span className="font-medium">{adj.teacherName}</span>
+                        <span className="text-gray-500 mx-2">·</span>
+                        <span className="text-gray-600">{adj.subject}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">{adj.originalHours}节</span>
+                        <ArrowRightLeft className="h-4 w-4 text-amber-500" />
+                        <span className="font-medium text-amber-600">{adj.suggestedHours}节</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 text-xs text-gray-500">
+                  * 系统检测到部分教师的课时配置与实际可排课时存在差异，建议在教师管理界面调整配置
+                </div>
+              </div>
+            )}
+            
+            {/* 未填满的槽位 */}
+            {scheduleResult?.unfilledSlots && scheduleResult.unfilledSlots.length > 0 && (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
                 <div className="font-medium text-orange-700 mb-2">
-                  发现 {scheduleResult.conflicts.length} 个冲突
+                  有 {scheduleResult.unfilledSlots.length} 个时段未安排课程
+                </div>
+                <div className="text-sm text-gray-600 max-h-24 overflow-y-auto">
+                  {scheduleResult.unfilledSlots.slice(0, 10).map((slot, idx) => (
+                    <div key={idx} className="py-1">
+                      {slot.className} · {weekDays.find(d => d.key === slot.weekDay)?.label}第{slot.periodIndex}节
+                    </div>
+                  ))}
+                  {scheduleResult.unfilledSlots.length > 10 && (
+                    <div className="text-gray-400">...还有 {scheduleResult.unfilledSlots.length - 10} 个</div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* 冲突信息 */}
+            {scheduleResult?.conflicts && scheduleResult.conflicts.length > 0 && (
+              <div className="p-3 bg-red-50 rounded-lg">
+                <div className="font-medium text-red-700 mb-2">
+                  排课提示
                 </div>
                 <div className="text-sm text-gray-600 max-h-32 overflow-y-auto">
                   {scheduleResult.conflicts.map(c => (
@@ -962,10 +1076,15 @@ export default function SchedulePage() {
               </div>
             )}
             
-            <div className="text-sm text-gray-500">
-              耗时：{scheduleResult?.duration || 0}ms
+            <div className="text-sm text-gray-500 flex justify-between">
+              <span>排课耗时：{scheduleResult?.duration || 0}ms</span>
+              <span>全校统一排课 · 自动均衡分配</span>
             </div>
           </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setShowResultDialog(false)}>确定</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

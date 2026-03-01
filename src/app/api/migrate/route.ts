@@ -92,19 +92,36 @@ export async function POST() {
     const { count: teachersCount } = await client.from('teachers').select('*', { count: 'exact', head: true });
     if (teachersCount === 0) {
       const phonePrefixes = ['138', '139', '136', '135', '134', '133', '132', '131', '130', '150'];
-      const teachersData = MASTER_TEACHERS.map((t, index) => ({
-        id: t.id,
-        name: t.name,
-        gender: t.gender,
-        subjects: t.subjects,
-        is_head_teacher: t.isHeadTeacher,
-        head_teacher_class_ids: t.headTeacherClassIds,
-        department: t.department,
-        title: t.title,
-        // 生成模拟电话和邮箱
-        phone: `${phonePrefixes[index % phonePrefixes.length]}****${String(1000 + index).slice(1)}`,
-        email: `${t.name.toLowerCase().replace(/\s/g, '')}@lysf.fx.edu.cn`,
-      }));
+      const teachersData = MASTER_TEACHERS.map((t, index) => {
+        // 根据教师信息推断角色
+        let role: string;
+        if (t.isHeadTeacher) {
+          role = 'head_teacher'; // 班主任
+        } else if (t.subjects.some(s => ['语文', '数学', '英语'].includes(s))) {
+          role = 'subject_teacher'; // 科任教师
+        } else {
+          role = 'skill_teacher'; // 技能课教师
+        }
+        
+        return {
+          id: t.id,
+          name: t.name,
+          gender: t.gender,
+          subjects: t.subjects,
+          is_head_teacher: t.isHeadTeacher,
+          head_teacher_class_ids: t.headTeacherClassIds,
+          department: t.department,
+          title: t.title,
+          // 新增角色字段
+          role: t.role || role,
+          primary_subject: t.subjects[0],
+          total_weekly_hours: 13, // 默认周课时量
+          teachable_grades: [1, 2, 3, 4, 5, 6], // 默认可任教年级
+          // 生成模拟电话和邮箱
+          phone: `${phonePrefixes[index % phonePrefixes.length]}****${String(1000 + index).slice(1)}`,
+          email: `${t.name.toLowerCase().replace(/\s/g, '')}@lysf.fx.edu.cn`,
+        };
+      });
 
       const { error: teachersError } = await client.from('teachers').insert(teachersData);
       

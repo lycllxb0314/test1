@@ -88,7 +88,7 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
       }
     });
     
-    // 转换下划线格式为驼峰格式
+    // 转换下划线格式为驼峰格式（包含课时配置字段）
     const formattedData = (data || []).map(t => {
       const headTeacherInfo = headTeacherClassMap[t.id];
       const subTeacherClasses = subTeacherClassesMap[t.id] || [];
@@ -109,6 +109,16 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         status: t.status,
         createdAt: t.created_at,
         updatedAt: t.updated_at,
+        // 课时配置字段（从数据库读取）
+        role: t.role,
+        primary_subject: t.primary_subject,
+        secondary_subjects: t.secondary_subjects,
+        total_weekly_hours: t.total_weekly_hours,
+        main_class_count: t.main_class_count,
+        main_subject_hours: t.main_subject_hours,
+        teachable_grades: t.teachable_grades,
+        head_teacher_class_id: t.head_teacher_class_ids?.[0],
+        subject_head_class_id: t.subject_head_class_id,
       };
     });
     

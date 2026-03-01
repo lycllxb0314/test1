@@ -64,6 +64,10 @@ import {
   TeacherScheduleConfigDialog, 
   type TeacherScheduleConfig 
 } from '@/components/teacher/TeacherScheduleConfigDialog';
+import {
+  TeacherRole,
+  TEACHER_ROLE_LABELS,
+} from '@/lib/data/teaching-rules';
 
 // 教师数据类型
 interface Teacher {
@@ -86,7 +90,20 @@ interface Teacher {
   headTeacherClassId?: string; // 班主任班级ID
   headTeacherClassName?: string; // 班主任班级名称
   subTeacherClasses?: Array<{ classId: string; className: string }>; // 科任班级列表
+  // 角色
+  role?: TeacherRole;         // 教师角色
 }
+
+// 角色筛选选项
+const roleOptions = [
+  { value: 'all', label: '全部角色' },
+  { value: 'head_teacher', label: '班主任' },
+  { value: 'subject_teacher', label: '科任教师' },
+  { value: 'skill_teacher', label: '技能课教师' },
+  { value: 'grade_leader', label: '年段长' },
+  { value: 'research_group_leader', label: '教研组组长' },
+  { value: 'research_group_deputy_leader', label: '教研组副组长' },
+];
 
 // 性别选项
 const genderOptions = ['男', '女'];
@@ -115,6 +132,7 @@ export default function TeachersPage() {
   // 搜索和筛选
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
   
   // 选择状态
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -145,7 +163,7 @@ export default function TeachersPage() {
         const result = await response.json();
         
         if (result.success && result.data) {
-          // 转换API数据到页面格式
+          // 转换API数据到页面格式（从数据库读取课时配置）
           const formattedTeachers: Teacher[] = result.data.map((t: {
             id: string;
             name: string;
@@ -161,21 +179,32 @@ export default function TeachersPage() {
             headTeacherClassId?: string;
             headTeacherClassName?: string;
             subTeacherClasses?: Array<{ classId: string; className: string }>;
+            // 数据库课时配置字段
+            role?: string;
+            primary_subject?: string;
+            secondary_subjects?: string[];
+            total_weekly_hours?: number;
+            main_class_count?: number;
+            main_subject_hours?: number;
+            teachable_grades?: number[];
           }) => ({
             id: t.id,
             name: t.name,
             gender: t.gender === 'male' ? '男' : t.gender === 'female' ? '女' : t.gender || '男',
-            subject: t.subjects?.[0] || '语文',
+            subject: t.primary_subject || t.subjects?.[0] || '语文',
             title: t.title || '二级教师',
             department: t.department || `${t.subjects?.[0] || '语文'}组`,
             phone: t.phone || '',
             email: t.email || '',
             status: t.status || 'active',
             teachYears: t.teachYears || 0,
-            weeklyHours: 14,
+            // 从数据库读取角色
+            role: t.role as TeacherRole,
+            // 从数据库读取课时配置
+            weeklyHours: t.total_weekly_hours || 14,
             currentHours: 0,
-            teachableSubjects: t.subjects || ['语文'],
-            teachableGrades: [1, 2, 3, 4, 5, 6],
+            teachableSubjects: [t.primary_subject, ...(t.secondary_subjects || [])].filter(Boolean),
+            teachableGrades: t.teachable_grades || [1, 2, 3, 4, 5, 6],
             isHeadTeacher: t.isHeadTeacher || false,
             headTeacherClassId: t.headTeacherClassId,
             headTeacherClassName: t.headTeacherClassName,
@@ -226,7 +255,8 @@ export default function TeachersPage() {
   const filteredTeachers = teachers.filter(t => {
     const matchesSearch = t.name.includes(searchTerm) || t.email.includes(searchTerm);
     const matchesSubject = subjectFilter === 'all' || t.subject === subjectFilter;
-    return matchesSearch && matchesSubject;
+    const matchesRole = roleFilter === 'all' || t.role === roleFilter;
+    return matchesSearch && matchesSubject && matchesRole;
   });
 
   // 分页后的教师列表
@@ -236,7 +266,7 @@ export default function TeachersPage() {
   // 筛选条件变化时重置页码
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, subjectFilter]);
+  }, [searchTerm, subjectFilter, roleFilter]);
 
   // 获取状态标签
   const getStatusBadge = (status: string) => {
@@ -293,7 +323,7 @@ export default function TeachersPage() {
     setScheduleConfig({
       teacherId: teacher.id,
       teacherName: teacher.name,
-      role: teacher.isHeadTeacher ? 'head_teacher' : (isSkillTeacher ? 'skill_teacher' : 'subject_head'),
+      role: teacher.isHeadTeacher ? 'head_teacher' : (isSkillTeacher ? 'skill_teacher' : 'subject_teacher'),
       primarySubject: teacher.subject,
       secondarySubjects: teacher.teachableSubjects?.filter(s => s !== teacher.subject) || [],
       mainClassCount: teacher.weeklyHours > 8 ? 2 : 1,
@@ -306,20 +336,51 @@ export default function TeachersPage() {
     setScheduleConfigOpen(true);
   }, []);
 
-  // 保存课时配置
-  const handleSaveScheduleConfig = useCallback((config: TeacherScheduleConfig) => {
-    setTeachers(prev => prev.map(t => 
-      t.id === config.teacherId 
-        ? {
-            ...t,
-            weeklyHours: config.totalWeeklyHours,
-            teachableSubjects: [config.primarySubject, ...config.secondarySubjects],
-            teachableGrades: config.teachableGrades,
-            isHeadTeacher: config.role === 'head_teacher',
-            headTeacherClassId: config.headTeacherClassId,
-          }
-        : t
-    ));
+  // 保存课时配置（保存到数据库）
+  const handleSaveScheduleConfig = useCallback(async (config: TeacherScheduleConfig) => {
+    try {
+      setLoading(true);
+      
+      // 调用API保存到数据库
+      const response = await fetch(`/api/teachers/${config.teacherId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: config.role,
+          primary_subject: config.primarySubject,
+          secondary_subjects: config.secondarySubjects,
+          main_class_count: config.mainClassCount,
+          main_subject_hours: config.mainSubjectHours,
+          total_weekly_hours: config.totalWeeklyHours,
+          teachable_grades: config.teachableGrades,
+          head_teacher_class_id: config.headTeacherClassId,
+          subject_head_class_id: config.subjectHeadClassId,
+          is_head_teacher: config.role === 'head_teacher',
+        }),
+      });
+      
+      if (response.ok) {
+        // 更新前端状态
+        setTeachers(prev => prev.map(t => 
+          t.id === config.teacherId 
+            ? {
+                ...t,
+                weeklyHours: config.totalWeeklyHours,
+                teachableSubjects: [config.primarySubject, ...config.secondarySubjects],
+                teachableGrades: config.teachableGrades,
+                isHeadTeacher: config.role === 'head_teacher',
+                headTeacherClassId: config.headTeacherClassId,
+              }
+            : t
+        ));
+      } else {
+        console.error('保存课时配置失败');
+      }
+    } catch (error) {
+      console.error('保存课时配置失败:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // 打开新增对话框
@@ -554,6 +615,16 @@ export default function TeachersPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="角色" />
+              </SelectTrigger>
+              <SelectContent>
+                {roleOptions.map(r => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -582,6 +653,7 @@ export default function TeachersPage() {
                   />
                 </TableHead>
                 <TableHead>姓名</TableHead>
+                <TableHead>角色</TableHead>
                 <TableHead>性别</TableHead>
                 <TableHead>学科</TableHead>
                 <TableHead>职称</TableHead>
@@ -614,6 +686,19 @@ export default function TeachersPage() {
                       {teacher.name}
                       <Eye className="h-3 w-3 text-gray-400" />
                     </div>
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Badge className={`text-[10px] px-1 py-0 h-4 ${
+                      teacher.role === 'head_teacher' ? 'bg-amber-100 text-amber-700' :
+                      teacher.role === 'subject_teacher' ? 'bg-blue-100 text-blue-700' :
+                      teacher.role === 'skill_teacher' ? 'bg-green-100 text-green-700' :
+                      teacher.role === 'grade_leader' ? 'bg-purple-100 text-purple-700' :
+                      teacher.role === 'research_group_leader' ? 'bg-orange-100 text-orange-700' :
+                      teacher.role === 'research_group_deputy_leader' ? 'bg-cyan-100 text-cyan-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {teacher.role ? TEACHER_ROLE_LABELS[teacher.role] : '未设置'}
+                    </Badge>
                   </TableCell>
                   <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
                     <Badge variant="outline" className={teacher.gender === '男' ? 'text-blue-600' : 'text-pink-600'}>

@@ -141,7 +141,7 @@ export const TEACHERS_DATA: Teacher[] = [
   { 
     id: 't004', 
     name: '赵丽萍', 
-    role: 'subject_head',
+    role: 'subject_teacher',
     primarySubject: '数学',
     secondarySubjects: ['科学'],
     grades: [2, 3, 4],
@@ -151,14 +151,14 @@ export const TEACHERS_DATA: Teacher[] = [
     currentHours: 0,
   },
   
-  // ==================== 科任 - 语文老师（带2个班）====================
+  // ==================== 科任教师 - 语文老师（带2个班）====================
   // 刘伟强：三年级1班 + 其他班
   // 三年级1班：语文6 + 道法2 = 8节
   // 其他班：语文5节
   { 
     id: 't005', 
     name: '刘伟强', 
-    role: 'subject_head',
+    role: 'subject_teacher',
     primarySubject: '语文',
     secondarySubjects: ['道德与法治'],
     grades: [3, 4],

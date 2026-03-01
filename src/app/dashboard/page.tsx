@@ -45,7 +45,7 @@ export default function DashboardPage() {
   const router = useRouter();
   
   // 教师角色重定向到教师空间
-  if (user && (user.role === 'teacher' || user.role === 'head_teacher' || user.role === 'grade_leader')) {
+  if (user && (user.role === 'subject_teacher' || user.role === 'head_teacher' || user.role === 'grade_leader' || user.role === 'skill_teacher')) {
     router.push('/teacher');
     return null;
   }

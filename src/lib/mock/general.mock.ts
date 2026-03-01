@@ -119,7 +119,7 @@ export const MOCK_ROOM_BOOKINGS: RoomBooking[] = [
     location: '教学楼B一层中部',
     applicantId: 't001',
     applicantName: '张明华',
-    applicantRole: 'teacher',
+    applicantRole: 'subject_teacher',
     department: '语文组',
     purpose: 'teaching',
     title: '语文教学研讨会',
@@ -194,7 +194,7 @@ export const MOCK_EXPENSES: ExpenseReimbursement[] = [
     title: '购买教学参考资料',
     applicantId: 't001',
     applicantName: '张明华',
-    applicantRole: 'teacher',
+    applicantRole: 'subject_teacher',
     department: '语文组',
     category: 'teaching_materials',
     items: [
@@ -220,7 +220,7 @@ export const MOCK_EXPENSES: ExpenseReimbursement[] = [
     title: '购买办公文具',
     applicantId: 't002',
     applicantName: '李秀芳',
-    applicantRole: 'teacher',
+    applicantRole: 'subject_teacher',
     department: '数学组',
     category: 'office_supplies',
     items: [

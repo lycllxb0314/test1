@@ -15,20 +15,20 @@
 // ==================== 教师角色类型 ====================
 
 export type TeacherRole = 
-  | 'head_teacher'    // 班主任
-  | 'subject_leader'  // 教研组长
-  | 'admin'           // 中层行政（教导主任、德育主任等）
-  | 'grade_leader'    // 年段长
-  | 'subject_head'    // 科任
-  | 'skill_teacher';  // 技能科教师（体育、音乐、美术等）
+  | 'head_teacher'              // 班主任
+  | 'grade_leader'              // 年段长
+  | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
+  | 'skill_teacher'             // 技能课教师（体育、音乐、美术等）
+  | 'research_group_leader'     // 教研组组长（通常由班主任或科任兼任）
+  | 'research_group_deputy_leader'; // 教研组副组长（通常由班主任或科任兼任）
 
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   head_teacher: '班主任',
-  subject_leader: '教研组长',
-  admin: '中层行政',
   grade_leader: '年段长',
-  subject_head: '科任',
-  skill_teacher: '技能科教师',
+  subject_teacher: '科任教师',
+  skill_teacher: '技能课教师',
+  research_group_leader: '教研组组长',
+  research_group_deputy_leader: '教研组副组长',
 };
 
 // ==================== 主科定义 ====================
@@ -74,24 +74,6 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     description: '班主任带1个班：本班主科5-6节 + 本班兼任（道法/劳动/班会）约4节 + 其他班约3节',
   },
   
-  // 教研组长（带1个班）
-  {
-    role: 'subject_leader',
-    classCount: 1,
-    mainSubjectHours: [5, 6],
-    totalHours: 13,
-    description: '教研组长带1个班：本班主科5-6节 + 本班兼任约4节 + 其他班约3节',
-  },
-  
-  // 中层行政（带1个班）
-  {
-    role: 'admin',
-    classCount: 1,
-    mainSubjectHours: [5, 6],
-    totalHours: 13,
-    description: '中层行政带1个班：本班主科5-6节 + 本班兼任约4节 + 其他班约3节',
-  },
-  
   // 年段长（带1个班）
   {
     role: 'grade_leader',
@@ -101,22 +83,40 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     description: '年段长带1个班：本班主科5-6节 + 本班兼任约4节 + 其他班约3节',
   },
   
-  // 科任（带2个班）
+  // 科任教师（带2个班）
   {
-    role: 'subject_head',
+    role: 'subject_teacher',
     classCount: 2,
     mainSubjectHours: [10, 12],
     totalHours: 13,
-    description: '科任带2个班：两个班主科共10-12节 + 兼任1-2节',
+    description: '科任教师带2个班：两个班主科共10-12节 + 兼任1-2节',
   },
   
-  // 技能科教师（跨多个班级）
+  // 技能课教师（跨多个班级）
   {
     role: 'skill_teacher',
     classCount: 0,  // 跨多个班级
     mainSubjectHours: [0, 0],
     totalHours: 13,
-    description: '技能科教师跨多个班级教学，可能跨段，周课时约13节',
+    description: '技能课教师跨多个班级教学，可能跨段，周课时约13节',
+  },
+  
+  // 教研组组长（通常由班主任或科任兼任）
+  {
+    role: 'research_group_leader',
+    classCount: 1,
+    mainSubjectHours: [5, 6],
+    totalHours: 13,
+    description: '教研组组长通常由班主任或科任兼任，课时量与原角色相同',
+  },
+  
+  // 教研组副组长（通常由班主任或科任兼任）
+  {
+    role: 'research_group_deputy_leader',
+    classCount: 1,
+    mainSubjectHours: [5, 6],
+    totalHours: 13,
+    description: '教研组副组长通常由班主任或科任兼任，课时量与原角色相同',
   },
 ];
 

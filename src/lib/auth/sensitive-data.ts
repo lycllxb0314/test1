@@ -79,7 +79,10 @@ const GLOBAL_ACCESS_ROLES: UserRole[] = [
 const CONDITIONAL_ACCESS_ROLES: UserRole[] = [
   'grade_leader',       // 年段长
   'head_teacher',       // 班主任
-  'teacher',            // 教师（可能是科任）
+  'subject_teacher',    // 科任教师
+  'skill_teacher',      // 技能课教师
+  'research_group_leader',       // 教研组组长
+  'research_group_deputy_leader', // 教研组副组长
   'parent',             // 家长
 ];
 
@@ -138,8 +141,8 @@ export async function canViewStudentSensitiveData(
     };
   }
   
-  // 4. 班主任/教师：检查班级教师关系
-  if (user.role === 'head_teacher' || user.role === 'teacher') {
+  // 4. 班主任/科任教师/技能课教师：检查班级教师关系
+  if (user.role === 'head_teacher' || user.role === 'subject_teacher' || user.role === 'skill_teacher') {
     // 检查是否是该学生的班主任或科任
     const relation = getMockTeacherClassRelation(student.classId, user.id);
     
@@ -237,8 +240,8 @@ export function getUserAccessibleClassIds(user: UserContext): string[] {
     return [];
   }
   
-  // 班主任/教师：返回任教班级
-  if (user.role === 'head_teacher' || user.role === 'teacher') {
+  // 班主任/科任教师/技能课教师：返回任教班级
+  if (user.role === 'head_teacher' || user.role === 'subject_teacher' || user.role === 'skill_teacher') {
     return getMockClassTeachersByTeacherId(user.id).map(ct => ct.classId);
   }
   
@@ -276,7 +279,10 @@ function getRoleDisplayName(role: UserRole): string {
     moral_staff: '德育员',
     head_teacher: '班主任',
     grade_leader: '年段长',
-    teacher: '教师',
+    subject_teacher: '科任教师',
+    skill_teacher: '技能课教师',
+    research_group_leader: '教研组组长',
+    research_group_deputy_leader: '教研组副组长',
     staff: '后勤人员',
     student: '学生',
     parent: '家长',

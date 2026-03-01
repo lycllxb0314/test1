@@ -35,6 +35,7 @@ export interface MasterTeacher {
   headTeacherClassIds: string[]; // 担任班主任的班级ID
   department: string;
   title: string;
+  role?: 'head_teacher' | 'subject_teacher' | 'skill_teacher' | 'grade_leader' | 'research_group_leader' | 'research_group_deputy_leader';
 }
 
 /** 学生主数据 */

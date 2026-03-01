@@ -322,7 +322,7 @@ export function AppSidebar() {
           {/* 模块菜单 */}
           <nav className="flex-1 space-y-1 p-2">
             {/* 领导驾驶舱 / 工作台 - 根据角色跳转不同页面 */}
-            {user.role !== 'teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && user.role !== 'parent' && (
+            {user.role !== 'subject_teacher' && user.role !== 'skill_teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && user.role !== 'parent' && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -360,7 +360,7 @@ export function AppSidebar() {
             )}
 
             {/* 分割线 - 教师和家长角色不需要分割线 */}
-            {user.role !== 'teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && user.role !== 'parent' && (
+            {user.role !== 'subject_teacher' && user.role !== 'skill_teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && user.role !== 'parent' && (
               <div className="my-2 border-t border-gray-200" />
             )}
 

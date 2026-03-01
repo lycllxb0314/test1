@@ -227,7 +227,7 @@ export const roleFieldPermissions: RoleMaskPermission[] = [
     permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
   },
   {
-    role: 'teacher',
+    role: 'subject_teacher',
     permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
   },
   {
