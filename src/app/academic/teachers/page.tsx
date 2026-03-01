@@ -135,7 +135,7 @@ export default function TeachersPage() {
     const fetchTeachers = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/teachers');
+        const response = await fetch('/api/teachers?pageSize=100');
         const result = await response.json();
         
         if (result.success && result.data) {
