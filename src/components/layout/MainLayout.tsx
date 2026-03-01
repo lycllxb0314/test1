@@ -607,13 +607,13 @@ export function AppSidebar() {
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.avatar} />
                     <AvatarFallback className="bg-primary text-white text-sm">
-                      {user.name.charAt(0)}
+                      {user.name?.charAt(0) || 'U'}
                     </AvatarFallback>
                   </Avatar>
                   {!collapsed && (
                     <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-500">{roleConfig.name}</p>
+                      <p className="text-sm font-medium text-gray-900">{user.name || '用户'}</p>
+                      <p className="text-xs text-gray-500">{roleConfig?.name || '未知角色'}</p>
                     </div>
                   )}
                 </button>
@@ -621,7 +621,7 @@ export function AppSidebar() {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col">
-                    <span>{user.name}</span>
+                    <span>{user.name || '用户'}</span>
                     <span className="text-xs font-normal text-gray-500">{user.department || ''}</span>
                   </div>
                 </DropdownMenuLabel>

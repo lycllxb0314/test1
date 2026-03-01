@@ -53,10 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const parsedUser = JSON.parse(savedUser);
           
+          // 兼容旧数据结构（如果存的是 { user: {...} }，提取内部 user）
+          const userData = parsedUser.user || parsedUser;
+          
           // 验证用户是否仍然有效
-          if (parsedUser.id) {
+          if (userData.id) {
             try {
-              const response = await fetch(`/api/auth/current?userId=${parsedUser.id}`);
+              const response = await fetch(`/api/auth/current?userId=${userData.id}`);
               const result = await response.json();
               
               if (result.success && result.data) {
@@ -68,10 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
             } catch {
               // API调用失败，使用本地存储的用户信息（离线模式）
-              setUser(parsedUser);
+              setUser(userData);
             }
           } else {
-            setUser(parsedUser);
+            // 无效数据，清除
+            localStorage.removeItem('smart_campus_user');
           }
         } catch {
           localStorage.removeItem('smart_campus_user');
@@ -97,9 +101,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const result = await response.json();
       
-      if (result.success && result.data) {
-        setUser(result.data);
-        localStorage.setItem('smart_campus_user', JSON.stringify(result.data));
+      if (result.success && result.data?.user) {
+        const userData = result.data.user;
+        setUser(userData);
+        localStorage.setItem('smart_campus_user', JSON.stringify(userData));
         setIsLoading(false);
         return true;
       }
