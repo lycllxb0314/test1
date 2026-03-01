@@ -80,6 +80,10 @@ export interface ParentBasicInfo {
   classId: string;
   className: string;
   grade: number;
+  
+  // 班主任信息（来自班级聚合根）
+  headTeacherId?: string;
+  headTeacherName?: string;
 }
 
 /** 教师候选人（用于智能推荐） */
