@@ -78,6 +78,7 @@ interface TeacherWorkload {
   teachableGrades: number[];   // 可任教年级
   headTeacherClassId?: string; // 班主任班级ID
   subjectHeadClassId?: string; // 科任班级ID
+  mainSubjectGrade?: number;   // 主教学科对应年级（主科老师只教一个年级）
 }
 
 interface SlotRequirement {
@@ -203,6 +204,10 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
       teachableGrades: teacher.teachableGrades || [1, 2, 3, 4, 5, 6],
       headTeacherClassId: teacher.headTeacherClassId,
       subjectHeadClassId: teacher.subjectHeadClassId,
+      // 主科老师确定主教学科年级：通过班主任班级或科任班级
+      mainSubjectGrade: isMainSubjectTeacher 
+        ? (classes.find(c => c.id === teacher.headTeacherClassId || c.id === teacher.subjectHeadClassId)?.grade)
+        : undefined,
     });
   }
   
@@ -248,6 +253,51 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
     }
   }
   
+  // ==================== 第一.五阶段：固定班队课（周五下午最后一节） ====================
+  
+  for (const cls of classes) {
+    const grade = cls.grade || 3;
+    const lastPeriod = grade <= 2 ? 5 : 6;  // 低年级5节，中高年级6节
+    
+    // 周五下午最后一节固定为班队课
+    const banDuiTask = tasks.find(t => t.classId === cls.id && t.subject === '班会');
+    if (!banDuiTask) continue;
+    
+    const banDuiWorkload = teacherWorkloads.get(banDuiTask.teacherId);
+    if (!banDuiWorkload) continue;
+    
+    const timeKey = `5-${lastPeriod}`;
+    
+    // 创建班队课槽
+    const slot = createSlot(
+      cls.id, cls.name, grade,
+      5, lastPeriod,  // 周五，最后一节
+      '班会', banDuiTask.teacherId, banDuiTask.teacherName, semester
+    );
+    
+    newSlots.push(slot);
+    updateOccupancy(cls.id, banDuiTask.teacherId, 5, lastPeriod, classTimeMap, teacherTimeMap);
+    
+    // 更新任务状态
+    const status = taskStatus.get(banDuiTask.id);
+    if (status) {
+      status.arranged++;
+      status.remaining--;
+    }
+    banDuiWorkload.currentHours++;
+    banDuiWorkload.classes.add(cls.id);
+    
+    // 标记时间槽已填充
+    const req = allSlotRequirements.find(r => 
+      r.classId === cls.id && r.weekDay === 5 && r.periodIndex === lastPeriod
+    );
+    if (req) {
+      req.filled = true;
+      req.subject = '班会';
+      req.teacherId = banDuiTask.teacherId;
+    }
+  }
+  
   // ==================== 第二阶段：第一节语文数学交替分配 ====================
   
   for (const cls of classes) {
@@ -276,19 +326,36 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
       let selectedTask = isChineseDay ? chineseTask : mathTask;
       let selectedWorkload = selectedTask ? teacherWorkloads.get(selectedTask.teacherId) : null;
       
+      // 检查主科老师年级限制
+      if (selectedWorkload && selectedWorkload.mainSubjectGrade !== undefined && grade !== selectedWorkload.mainSubjectGrade) {
+        // 该教师主科不能跨年级，尝试另一个科目
+        selectedTask = isChineseDay ? mathTask : chineseTask;
+        selectedWorkload = selectedTask ? teacherWorkloads.get(selectedTask.teacherId) : null;
+      }
+      
       // 检查是否还有剩余课时
       const taskStat = selectedTask ? taskStatus.get(selectedTask.id) : null;
       if (!selectedTask || !taskStat || taskStat.remaining <= 0) {
         // 尝试另一个科目
         selectedTask = isChineseDay ? mathTask : chineseTask;
+        // 再次检查主科年级限制
+        const altWorkload = selectedTask ? teacherWorkloads.get(selectedTask.teacherId) : null;
+        if (altWorkload && altWorkload.mainSubjectGrade !== undefined && grade !== altWorkload.mainSubjectGrade) {
+          continue;  // 两个主科老师都跨年级，跳过
+        }
         const altStat = selectedTask ? taskStatus.get(selectedTask.id) : null;
         if (!selectedTask || !altStat || altStat.remaining <= 0) {
           continue;
         }
-        selectedWorkload = teacherWorkloads.get(selectedTask!.teacherId);
+        selectedWorkload = altWorkload;
       }
       
       if (!selectedWorkload || !selectedTask) continue;
+      
+      // 再次检查主科年级限制（兜底）
+      if (selectedWorkload.mainSubjectGrade !== undefined && grade !== selectedWorkload.mainSubjectGrade) {
+        continue;
+      }
       
       // 检查教师是否可用
       if (teacherTimeMap.has(selectedTask.teacherId) && 
@@ -301,6 +368,11 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
         }
         const fallbackWorkload = teacherWorkloads.get(selectedTask!.teacherId);
         if (!fallbackWorkload) continue;
+        
+        // 检查主科年级限制
+        if (fallbackWorkload.mainSubjectGrade !== undefined && grade !== fallbackWorkload.mainSubjectGrade) {
+          continue;
+        }
         
         if (teacherTimeMap.has(selectedTask.teacherId) && 
             teacherTimeMap.get(selectedTask.teacherId)!.has(timeKey)) {
@@ -370,7 +442,8 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
     // 找到可用的时间槽
     for (let i = 0; i < status.remaining; i++) {
       const bestSlot = findBestSlotForTask(
-        task, grade, periods, classTimeMap, teacherTimeMap, allSlotRequirements, newSlots
+        task, grade, periods, classTimeMap, teacherTimeMap, allSlotRequirements, newSlots,
+        workload.mainSubjectGrade  // 传入主科年级限制
       );
       
       if (bestSlot) {
@@ -764,10 +837,17 @@ function findBestSlotForTask(
   classTimeMap: Map<string, Set<string>>,
   teacherTimeMap: Map<string, Set<string>>,
   allSlotRequirements: SlotRequirement[],
-  newSlots: ScheduleSlot[]  // 已安排的课表，用于检查当天科目重复
+  newSlots: ScheduleSlot[],  // 已安排的课表，用于检查当天科目重复
+  teacherMainSubjectGrade?: number  // 主科老师的主教学科年级限制
 ): SlotRequirement | null {
   // 判断是否为主科（语文、数学）
   const isMainSubject = task.subject === '语文' || task.subject === '数学';
+  
+  // 主科老师教主科时检查年级限制：主科只教一个年级
+  // 但兼任科目（道德与法治、班会等）可以跨年级
+  if (isMainSubject && teacherMainSubjectGrade !== undefined && grade !== teacherMainSubjectGrade) {
+    return null;  // 该班级年级与教师主教学科年级不符，跳过
+  }
   
   // 统计该班级该科目已经使用过的时段
   const usedPeriods = new Set<number>();
