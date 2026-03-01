@@ -269,7 +269,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       // 并行获取班级、学生、教师数据
       const [classesRes, studentsRes, teachersRes] = await Promise.all([
         fetch('/api/classes?pageSize=200'),
-        fetch('/api/students?pageSize=2000'),
+        fetch('/api/students?pageSize=5000'),
         fetch('/api/teachers?pageSize=500'),
       ]);
       
