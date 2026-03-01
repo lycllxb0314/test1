@@ -2,9 +2,9 @@
  * 批量数据生成API
  * 
  * 生成数据：
- * - 教师：110人
+ * - 教师：150人（班主任60人、科任30人、技能科教师60人）
  * - 班级：60个（每年级10个），每个班分配班主任和科任
- * - 学生：3000人（每班50人）
+ * - 学生：2700人（每班45人）
  */
 
 import { NextResponse } from 'next/server';
@@ -62,19 +62,21 @@ export async function POST() {
     await client.from('classes').delete().neq('id', 'xxx');
     await client.from('teachers').delete().neq('id', 'xxx');
 
-    // ==================== 2. 生成教师数据（110人） ====================
+    // ==================== 2. 生成教师数据（140人） ====================
     console.log('生成教师数据...');
     
-    // 教师科目分配：语文30人、数学30人可当班主任，其他科目不能
+    // 教师科目分配：
+    // - 语文、数学：各45人，其中30人可当班主任，15人为纯科任
+    // - 其他科目：技能科教师
     const teacherSubjects = [
-      { subject: '语文', count: 30 },  // 可当班主任
-      { subject: '数学', count: 30 },  // 可当班主任
+      { subject: '语文', count: 45 },  // 30人班主任 + 15人科任
+      { subject: '数学', count: 45 },  // 30人班主任 + 15人科任
       { subject: '英语', count: 12 },
-      { subject: '体育', count: 10 },
-      { subject: '音乐', count: 8 },
-      { subject: '美术', count: 8 },
-      { subject: '科学', count: 6 },
-      { subject: '道德与法治', count: 6 },
+      { subject: '体育', count: 12 },
+      { subject: '音乐', count: 10 },
+      { subject: '美术', count: 10 },
+      { subject: '科学', count: 8 },
+      { subject: '道德与法治', count: 8 },
     ];
     
     const teachersData: any[] = [];
@@ -214,7 +216,7 @@ export async function POST() {
           classroom_id: `room_${classId}`,
           classroom_name: room,
           building: building,
-          student_count: 50,
+          student_count: 45,
         });
       }
     }
@@ -227,6 +229,21 @@ export async function POST() {
     console.log(`班级数据生成完成: ${classesData.length}个`);
     console.log(`  - 已分配班主任: ${assignedHeadTeachers.size}人`);
     console.log(`  - 已分配科任: ${assignedSubTeachers.size}人`);
+
+    // ==================== 3.5 更新班主任角色 ====================
+    console.log('更新班主任角色...');
+    
+    // 将被分配为班主任的教师的角色更新为 head_teacher
+    const { error: updateError } = await client
+      .from('teachers')
+      .update({ role: 'head_teacher' })
+      .in('id', Array.from(assignedHeadTeachers));
+    
+    if (updateError) {
+      errors.push(`班主任角色更新失败: ${updateError.message}`);
+    } else {
+      console.log(`班主任角色更新完成: ${assignedHeadTeachers.size}人`);
+    }
 
     // ==================== 4. 生成学生数据（3000人，每班50人，含完整信息） ====================
     console.log('生成学生数据...');
@@ -250,7 +267,7 @@ export async function POST() {
       const admissionYear = 2026 - classItem.grade;
       const enrollmentDate = `${admissionYear}-09-01`;
       
-      for (let num = 1; num <= 50; num++) {
+      for (let num = 1; num <= 45; num++) {
         const gender = Math.random() > 0.48 ? 'male' : 'female';
         const name = generateName(gender);
         
