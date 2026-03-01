@@ -306,6 +306,8 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
     // 获取该班级的语文和数学任务
     const chineseTask = tasks.find(t => t.classId === cls.id && t.subject === '语文');
     const mathTask = tasks.find(t => t.classId === cls.id && t.subject === '数学');
+    const chineseWorkload = chineseTask ? teacherWorkloads.get(chineseTask.teacherId) : null;
+    const mathWorkload = mathTask ? teacherWorkloads.get(mathTask.teacherId) : null;
     
     if (!chineseTask && !mathTask) continue;
     
@@ -323,63 +325,39 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
       
       // 决定排语文还是数学（交替策略）
       const isChineseDay = startWithChinese ? (dayIndex % 2 === 0) : (dayIndex % 2 === 1);
-      let selectedTask = isChineseDay ? chineseTask : mathTask;
-      let selectedWorkload = selectedTask ? teacherWorkloads.get(selectedTask.teacherId) : null;
       
-      // 检查主科老师年级限制
-      if (selectedWorkload && selectedWorkload.mainSubjectGrade !== undefined && grade !== selectedWorkload.mainSubjectGrade) {
-        // 该教师主科不能跨年级，尝试另一个科目
-        selectedTask = isChineseDay ? mathTask : chineseTask;
-        selectedWorkload = selectedTask ? teacherWorkloads.get(selectedTask.teacherId) : null;
+      // 按轮换顺序选择科目，但需要检查可用性
+      let selectedTask: TeachingTask | null = null;
+      let selectedWorkload: TeacherWorkload | null = null;
+      
+      // 第一选择：按轮换规则
+      const firstChoice = isChineseDay ? chineseTask : mathTask;
+      const firstWorkload = isChineseDay ? chineseWorkload : mathWorkload;
+      const firstStat = firstChoice ? taskStatus.get(firstChoice.id) : null;
+      
+      // 第二选择：备选科目
+      const secondChoice = isChineseDay ? mathTask : chineseTask;
+      const secondWorkload = isChineseDay ? mathWorkload : chineseWorkload;
+      const secondStat = secondChoice ? taskStatus.get(secondChoice.id) : null;
+      
+      // 尝试第一选择
+      if (firstChoice && firstStat && firstStat.remaining > 0 && firstWorkload) {
+        // 检查教师时间是否可用
+        if (!teacherTimeMap.has(firstChoice.teacherId) || !teacherTimeMap.get(firstChoice.teacherId)!.has(timeKey)) {
+          selectedTask = firstChoice;
+          selectedWorkload = firstWorkload;
+        }
       }
       
-      // 检查是否还有剩余课时
-      const taskStat = selectedTask ? taskStatus.get(selectedTask.id) : null;
-      if (!selectedTask || !taskStat || taskStat.remaining <= 0) {
-        // 尝试另一个科目
-        selectedTask = isChineseDay ? mathTask : chineseTask;
-        // 再次检查主科年级限制
-        const altWorkload = selectedTask ? teacherWorkloads.get(selectedTask.teacherId) : null;
-        if (altWorkload && altWorkload.mainSubjectGrade !== undefined && grade !== altWorkload.mainSubjectGrade) {
-          continue;  // 两个主科老师都跨年级，跳过
+      // 如果第一选择不可用，尝试第二选择
+      if (!selectedTask && secondChoice && secondStat && secondStat.remaining > 0 && secondWorkload) {
+        if (!teacherTimeMap.has(secondChoice.teacherId) || !teacherTimeMap.get(secondChoice.teacherId)!.has(timeKey)) {
+          selectedTask = secondChoice;
+          selectedWorkload = secondWorkload;
         }
-        const altStat = selectedTask ? taskStatus.get(selectedTask.id) : null;
-        if (!selectedTask || !altStat || altStat.remaining <= 0) {
-          continue;
-        }
-        selectedWorkload = altWorkload;
       }
       
-      if (!selectedWorkload || !selectedTask) continue;
-      
-      // 再次检查主科年级限制（兜底）
-      if (selectedWorkload.mainSubjectGrade !== undefined && grade !== selectedWorkload.mainSubjectGrade) {
-        continue;
-      }
-      
-      // 检查教师是否可用
-      if (teacherTimeMap.has(selectedTask.teacherId) && 
-          teacherTimeMap.get(selectedTask.teacherId)!.has(timeKey)) {
-        // 教师冲突，尝试另一个科目
-        selectedTask = isChineseDay ? mathTask : chineseTask;
-        const fallbackStat = selectedTask ? taskStatus.get(selectedTask.id) : null;
-        if (!selectedTask || !fallbackStat || fallbackStat.remaining <= 0) {
-          continue;
-        }
-        const fallbackWorkload = teacherWorkloads.get(selectedTask!.teacherId);
-        if (!fallbackWorkload) continue;
-        
-        // 检查主科年级限制
-        if (fallbackWorkload.mainSubjectGrade !== undefined && grade !== fallbackWorkload.mainSubjectGrade) {
-          continue;
-        }
-        
-        if (teacherTimeMap.has(selectedTask.teacherId) && 
-            teacherTimeMap.get(selectedTask.teacherId)!.has(timeKey)) {
-          continue;
-        }
-        selectedWorkload = fallbackWorkload;
-      }
+      if (!selectedTask || !selectedWorkload) continue;
       
       // 创建课表槽
       const slot = createSlot(
@@ -388,8 +366,6 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
       );
       
       newSlots.push(slot);
-      
-      // 更新状态
       updateOccupancy(cls.id, selectedTask.teacherId, day, 1, classTimeMap, teacherTimeMap);
       
       const status = taskStatus.get(selectedTask.id)!;
