@@ -455,11 +455,22 @@ export const teachers = pgTable("teachers", {
 	phone: varchar({ length: 20 }),
 	email: varchar({ length: 100 }),
 	status: varchar({ length: 20 }).default('active'),
+	// 角色和课时配置
+	role: varchar({ length: 30 }),                    // 教师角色：head_teacher, subject_teacher, skill_teacher
+	primarySubject: varchar("primary_subject", { length: 20 }),  // 主教学科
+	secondarySubjects: jsonb("secondary_subjects"),   // 兼任科目
+	totalWeeklyHours: integer("total_weekly_hours"),  // 总周课时
+	mainClassCount: integer("main_class_count"),      // 主科带班数
+	mainSubjectHours: integer("main_subject_hours"),  // 主科课时
+	teachableGrades: jsonb("teachable_grades"),       // 可任教年级
+	teachableSubjects: jsonb("teachable_subjects"),   // 可任教科目
+	additionalRoles: jsonb("additional_roles"),       // 兼任职务
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
 	index("idx_teachers_department").using("btree", table.department.asc().nullsLast().op("text_ops")),
 	index("idx_teachers_is_head_teacher").using("btree", table.isHeadTeacher.asc().nullsLast().op("bool_ops")),
+	index("idx_teachers_role").using("btree", table.role.asc().nullsLast().op("text_ops")),
 ]);
 
 export const assets = pgTable("assets", {

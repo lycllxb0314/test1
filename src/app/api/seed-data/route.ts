@@ -104,11 +104,19 @@ export async function POST() {
           }
         }
         
-        // 根据科目确定教师角色
-        // 主科（语文、数学）：subject_teacher
-        // 技能科（英语、体育、音乐、美术、科学、道德与法治）：skill_teacher
+        // 根据科目确定教师角色和课时
+        // 主科（语文、数学）：subject_teacher，课时14-16节
+        // 英语：skill_teacher，但课时同主科14-16节（可跨段教学）
+        // 其他技能科：skill_teacher，课时16-18节
         const isMainSubject = subject === '语文' || subject === '数学';
+        const isEnglish = subject === '英语';
         const teacherRole = isMainSubject ? 'subject_teacher' : 'skill_teacher';
+        
+        // 课时量标准：
+        // - 语文/数学：15节（后续会根据是否班主任调整）
+        // - 英语：15节（特殊技能科，同主科标准）
+        // - 其他技能科：17节
+        const weeklyHours = isMainSubject || isEnglish ? 15 : 17;
         
         const teacher = {
           id: `t${String(teacherIndex).padStart(3, '0')}`,
@@ -123,10 +131,11 @@ export async function POST() {
           // 新增：角色和主教学科
           role: teacherRole,
           primary_subject: subject,
-          secondary_subjects: [],
-          total_weekly_hours: isMainSubject ? 15 : 17, // 主科14-16节，技能科16-18节
+          secondary_subjects: isEnglish ? [] : (isMainSubject ? ['道德与法治', '劳动'] : []),
+          total_weekly_hours: weeklyHours,
           main_class_count: isMainSubject ? 2 : 0,
           main_subject_hours: isMainSubject ? 10 : 0,
+          teachable_grades: isEnglish ? [3, 4, 5, 6] : [1, 2, 3, 4, 5, 6], // 英语只教3-6年级
         };
         
         teachersData.push(teacher);
@@ -230,19 +239,77 @@ export async function POST() {
     console.log(`  - 已分配班主任: ${assignedHeadTeachers.size}人`);
     console.log(`  - 已分配科任: ${assignedSubTeachers.size}人`);
 
-    // ==================== 3.5 更新班主任角色 ====================
-    console.log('更新班主任角色...');
+    // ==================== 3.5 更新班主任角色和课时配置 ====================
+    console.log('更新班主任配置...');
     
-    // 将被分配为班主任的教师的角色更新为 head_teacher
-    const { error: updateError } = await client
-      .from('teachers')
-      .update({ role: 'head_teacher' })
-      .in('id', Array.from(assignedHeadTeachers));
+    // 班主任可任教科目（默认值，教务主任可调整）：
+    // - 语文班主任：语文、道德与法治、班会、书法
+    // - 数学班主任：数学、劳动、班会（可能还有科学，由教务主任配置）
     
-    if (updateError) {
-      errors.push(`班主任角色更新失败: ${updateError.message}`);
-    } else {
-      console.log(`班主任角色更新完成: ${assignedHeadTeachers.size}人`);
+    const chineseHeadTeacherIds = chineseTeachers
+      .filter(t => assignedHeadTeachers.has(t.id))
+      .map(t => t.id);
+    const mathHeadTeacherIds = mathTeachers
+      .filter(t => assignedHeadTeachers.has(t.id))
+      .map(t => t.id);
+    
+    // 更新语文班主任
+    if (chineseHeadTeacherIds.length > 0) {
+      const { error: err } = await client
+        .from('teachers')
+        .update({ 
+          role: 'head_teacher',
+          total_weekly_hours: 15,
+          main_class_count: 1,
+          main_subject_hours: 6,
+          // 默认可任教科目，教务主任可调整
+          teachable_subjects: ['语文', '道德与法治', '班会', '书法'],
+        })
+        .in('id', chineseHeadTeacherIds);
+      
+      if (err) errors.push(`语文班主任配置更新失败: ${err.message}`);
+      else console.log(`语文班主任配置更新: ${chineseHeadTeacherIds.length}人`);
+    }
+    
+    // 更新数学班主任
+    if (mathHeadTeacherIds.length > 0) {
+      const { error: err } = await client
+        .from('teachers')
+        .update({ 
+          role: 'head_teacher',
+          total_weekly_hours: 15,
+          main_class_count: 1,
+          main_subject_hours: 6,
+          // 默认可任教科目，教务主任可调整
+          teachable_subjects: ['数学', '劳动', '班会'],
+        })
+        .in('id', mathHeadTeacherIds);
+      
+      if (err) errors.push(`数学班主任配置更新失败: ${err.message}`);
+      else console.log(`数学班主任配置更新: ${mathHeadTeacherIds.length}人`);
+    }
+
+    // 更新科任教师配置（非班主任的语数老师）
+    const subjectTeacherIds = [...chineseTeachers, ...mathTeachers]
+      .filter(t => !assignedHeadTeachers.has(t.id))
+      .map(t => t.id);
+    
+    if (subjectTeacherIds.length > 0) {
+      const { error: subUpdateError } = await client
+        .from('teachers')
+        .update({
+          role: 'subject_teacher',
+          total_weekly_hours: 15,  // 科任基准课时
+          main_class_count: 2,      // 带2个班
+          main_subject_hours: 12,   // 两个班主科约10-12节
+        })
+        .in('id', subjectTeacherIds);
+      
+      if (subUpdateError) {
+        errors.push(`科任教师配置更新失败: ${subUpdateError.message}`);
+      } else {
+        console.log(`科任教师配置更新完成: ${subjectTeacherIds.length}人`);
+      }
     }
 
     // ==================== 4. 生成学生数据（3000人，每班50人，含完整信息） ====================
