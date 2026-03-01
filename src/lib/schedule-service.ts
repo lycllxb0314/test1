@@ -370,7 +370,7 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
     // 找到可用的时间槽
     for (let i = 0; i < status.remaining; i++) {
       const bestSlot = findBestSlotForTask(
-        task, grade, periods, classTimeMap, teacherTimeMap, allSlotRequirements
+        task, grade, periods, classTimeMap, teacherTimeMap, allSlotRequirements, newSlots
       );
       
       if (bestSlot) {
@@ -469,6 +469,19 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
           continue;
         }
         
+        // 非主科检查：该班级当天是否已有该科目
+        const isMainSubject = task.subject === '语文' || task.subject === '数学';
+        if (!isMainSubject) {
+          const hasSubjectToday = newSlots.some(s => 
+            s.classId === cls.id && 
+            s.weekDay === emptySlot.weekDay && 
+            s.subject === task.subject
+          );
+          if (hasSubjectToday) {
+            continue;  // 当天已有该科目，跳过
+          }
+        }
+        
         // 计算调整量
         const adjustment = workload.currentHours - workload.originalHours;
         
@@ -545,6 +558,19 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
         // 检查容量（严格不超过国家标准的最大课时）
         if (workload.currentHours >= workload.capacity) {
           continue;
+        }
+        
+        // 非主科检查：该班级当天是否已有该科目
+        const isMainSubject = workload.subject === '语文' || workload.subject === '数学';
+        if (!isMainSubject) {
+          const hasSubjectToday = newSlots.some(s => 
+            s.classId === cls.id && 
+            s.weekDay === emptySlot.weekDay && 
+            s.subject === workload.subject
+          );
+          if (hasSubjectToday) {
+            continue;  // 当天已有该科目，跳过
+          }
         }
         
         // 使用该教师填充
@@ -721,10 +747,14 @@ function findBestSlotForTask(
   periods: PeriodConfig[],
   classTimeMap: Map<string, Set<string>>,
   teacherTimeMap: Map<string, Set<string>>,
-  allSlotRequirements: SlotRequirement[]
+  allSlotRequirements: SlotRequirement[],
+  newSlots: ScheduleSlot[]  // 已安排的课表，用于检查当天科目重复
 ): SlotRequirement | null {
   // 优先级：上午第2、3节 > 下午第1节 > 其他
   const periodPriority = [2, 3, 4, 5, 6, 1];
+  
+  // 判断是否为主科（语文、数学）- 主科允许一天内多次
+  const isMainSubject = task.subject === '语文' || task.subject === '数学';
   
   for (const periodIndex of periodPriority) {
     if (!periods.find(p => p.index === periodIndex)) continue;
@@ -740,6 +770,18 @@ function findBestSlotForTask(
       // 检查教师是否可用
       if (teacherTimeMap.has(task.teacherId) && teacherTimeMap.get(task.teacherId)!.has(timeKey)) {
         continue;
+      }
+      
+      // 非主科检查：该班级当天是否已有该科目
+      if (!isMainSubject) {
+        const hasSubjectToday = newSlots.some(s => 
+          s.classId === task.classId && 
+          s.weekDay === day && 
+          s.subject === task.subject
+        );
+        if (hasSubjectToday) {
+          continue;  // 当天已有该科目，跳过
+        }
       }
       
       // 检查时间槽是否可用
