@@ -102,6 +102,12 @@ export async function POST() {
           }
         }
         
+        // 根据科目确定教师角色
+        // 主科（语文、数学）：subject_teacher
+        // 技能科（英语、体育、音乐、美术、科学、道德与法治）：skill_teacher
+        const isMainSubject = subject === '语文' || subject === '数学';
+        const teacherRole = isMainSubject ? 'subject_teacher' : 'skill_teacher';
+        
         const teacher = {
           id: `t${String(teacherIndex).padStart(3, '0')}`,
           name: name,
@@ -112,6 +118,15 @@ export async function POST() {
           phone: `138****${randomPhoneSuffix()}`,
           email: `${teacherIndex}@lysf.fx.edu.cn`,
           status: 'active',
+          // 新增：角色和主教学科
+          role: teacherRole,
+          primary_subject: subject,
+          secondary_subjects: [],
+          total_weekly_hours: isMainSubject ? 15 : 17, // 主科14-16节，技能科16-18节
+          main_class_count: isMainSubject ? 2 : 0,
+          main_subject_hours: isMainSubject ? 10 : 0,
+          teachable_grades: [1, 2, 3, 4, 5, 6],
+          teachable_subjects: [subject],
         };
         
         teachersData.push(teacher);

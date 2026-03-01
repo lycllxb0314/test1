@@ -371,8 +371,23 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           status: (t.status as string) || 'active',
           teachYears: (t.teachYears as number) || 0,
           avatar: t.avatar as string,
-          // 角色映射：subject_head 视为 skill_teacher
-          primaryRole: (t.role === 'subject_head' ? 'skill_teacher' : t.role as TeacherRole) || 'subject_teacher',
+          // 角色映射逻辑：
+          // 1. 如果 role === 'subject_head'，视为 skill_teacher
+          // 2. 如果 role 有值，直接使用
+          // 3. 如果 role 为空，根据 primary_subject 判断：
+          //    - 语文、数学 → subject_teacher（主科教师）
+          //    - 其他科目 → skill_teacher（技能科教师）
+          primaryRole: (() => {
+            const role = t.role as TeacherRole | undefined;
+            if (role === 'subject_head') return 'skill_teacher';
+            if (role) return role;
+            // role 为空时，根据主教学科判断
+            const primarySubject = (t.primary_subject as string) || (t.subjects as string[])?.[0] || '';
+            if (primarySubject === '语文' || primarySubject === '数学') {
+              return 'subject_teacher';
+            }
+            return 'skill_teacher';
+          })() as TeacherRole,
           additionalRoles: (t.additional_roles as AdministrativeRole[]) || [],
           weeklyHours: (t.total_weekly_hours as number) || 13,
           currentHours: 0,
