@@ -161,7 +161,7 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
  * 教务主任可根据实际情况调整
  * 
  * 国家标准：
- * - 语数教师：14-16节/周
+ * - 语数教师（班主任/科任）：14-16节/周
  * - 英语教师：14-16节/周（特殊技能科，可跨年级段教学）
  * - 其他技能科教师：16-18节/周
  */
@@ -213,23 +213,35 @@ export function calculateSuggestedHours(
     };
   }
   
-  // 语数教师（班主任/科任）：14-16节
-  // 查找匹配的规则
-  const rule = TEACHING_HOURS_RULES.find(
-    r => r.role === role && r.classCount === classCount
-  );
+  // 语数教师（班主任/科任）：统一标准 14-16节
+  // 班主任带班，主科课时会少一些，但需要兼任科目补齐到14-16节
+  // 科任教师不带班，可以带更多班级的主科
   
-  if (rule) {
+  if (role === 'head_teacher') {
+    // 班主任：主科约10节 + 班会1节 + 兼任科目（道法/劳动/书法等）约3-4节 = 总计14-15节
+    const mainHours = classCount > 0 ? 10 : 0;
     return {
-      mainSubjectHours: Math.round((rule.mainSubjectHours[0] + rule.mainSubjectHours[1]) / 2),
-      totalHours: rule.totalHours,
+      mainSubjectHours: mainHours,
+      totalHours: 15,
       minHours: 14,
       maxHours: 16,
-      description: rule.description,
+      description: '班主任：主科约10节 + 班会1节 + 兼任科目3-4节，总课时14-16节',
     };
   }
   
-  // 默认规则（语数教师）
+  if (role === 'subject_teacher') {
+    // 科任教师：主科约12-14节 + 兼任科目1-2节 = 总计14-16节
+    const mainHours = classCount > 0 ? 6 * classCount : 12;
+    return {
+      mainSubjectHours: Math.min(mainHours, 14),
+      totalHours: 15,
+      minHours: 14,
+      maxHours: 16,
+      description: '科任教师：主科约12节 + 兼任科目2-3节，总课时14-16节',
+    };
+  }
+  
+  // 默认规则
   return {
     mainSubjectHours: classCount > 0 ? 6 * classCount : 0,
     totalHours: 15,
