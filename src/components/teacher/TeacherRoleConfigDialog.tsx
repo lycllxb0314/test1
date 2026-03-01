@@ -60,18 +60,19 @@ interface TeacherRoleConfigDialogProps {
   onSave: (config: TeacherRoleConfig) => Promise<void>;
 }
 
-// 主要角色选项
+// 主要角色选项（教师的本职角色）
 const PRIMARY_ROLE_OPTIONS: TeacherRole[] = [
   'head_teacher',
+  'grade_leader',
   'subject_teacher',
   'skill_teacher',
-  'research_group_leader',
-  'research_group_deputy_leader',
 ];
 
-// 可兼任的行政职务选项
+// 可兼任的行政职务选项（教研组长、行政职务等）
 const ADMINISTRATIVE_ROLE_OPTIONS: AdministrativeRole[] = [
   'grade_leader',
+  'research_group_leader',
+  'research_group_deputy_leader',
   'academic_director',
   'moral_director',
   'general_director',

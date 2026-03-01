@@ -14,13 +14,24 @@
 
 // ==================== 教师角色类型 ====================
 
+/** 教师主要角色类型 */
 export type TeacherRole = 
   | 'head_teacher'              // 班主任
   | 'grade_leader'              // 年段长
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
-  | 'skill_teacher'             // 技能课教师（体育、音乐、美术等）
-  | 'research_group_leader'     // 教研组组长（通常由班主任或科任兼任）
-  | 'research_group_deputy_leader' // 教研组副组长（通常由班主任或科任兼任）
+  | 'skill_teacher';            // 技能课教师（体育、音乐、美术等）
+
+/** 行政职务类型（可兼任） */
+export type AdministrativeRole = 
+  | 'principal'                 // 校长
+  | 'secretary'                 // 书记
+  | 'vice_principal'            // 副校长
+  | 'academic_director'         // 教务主任
+  | 'moral_director'            // 德育主任
+  | 'general_director'          // 总务主任
+  | 'grade_leader'              // 年段长
+  | 'research_group_leader'     // 教研组组长
+  | 'research_group_deputy_leader' // 教研组副组长
   | 'young_pioneer_counselor';  // 少先队大队辅导员
 
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
@@ -28,6 +39,16 @@ export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   grade_leader: '年段长',
   subject_teacher: '科任教师',
   skill_teacher: '技能课教师',
+};
+
+export const ADMINISTRATIVE_ROLE_LABELS: Record<AdministrativeRole, string> = {
+  principal: '校长',
+  secretary: '书记',
+  vice_principal: '副校长',
+  academic_director: '教务主任',
+  moral_director: '德育主任',
+  general_director: '总务主任',
+  grade_leader: '年段长',
   research_group_leader: '教研组组长',
   research_group_deputy_leader: '教研组副组长',
   young_pioneer_counselor: '少先队大队辅导员',
@@ -101,24 +122,6 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     mainSubjectHours: [0, 0],
     totalHours: 13,
     description: '技能课教师跨多个班级教学，可能跨段，周课时约13节',
-  },
-  
-  // 教研组组长（通常由班主任或科任兼任）
-  {
-    role: 'research_group_leader',
-    classCount: 1,
-    mainSubjectHours: [5, 6],
-    totalHours: 13,
-    description: '教研组组长通常由班主任或科任兼任，课时量与原角色相同',
-  },
-  
-  // 教研组副组长（通常由班主任或科任兼任）
-  {
-    role: 'research_group_deputy_leader',
-    classCount: 1,
-    mainSubjectHours: [5, 6],
-    totalHours: 13,
-    description: '教研组副组长通常由班主任或科任兼任，课时量与原角色相同',
   },
 ];
 

@@ -9,15 +9,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 
 // ==================== 类型定义 ====================
 
-/** 教师角色类型 */
+/** 教师角色类型（主要角色） */
 export type TeacherRole = 
   | 'head_teacher'              // 班主任
   | 'grade_leader'              // 年段长
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
-  | 'skill_teacher'             // 技能课教师（体育、音乐、美术等）
-  | 'research_group_leader'     // 教研组组长
-  | 'research_group_deputy_leader' // 教研组副组长
-  | 'young_pioneer_counselor';  // 少先队大队辅导员
+  | 'skill_teacher';            // 技能课教师（体育、音乐、美术等）
 
 /** 行政职务类型（可兼任） */
 export type AdministrativeRole = 
@@ -28,6 +25,8 @@ export type AdministrativeRole =
   | 'moral_director'            // 德育主任
   | 'general_director'          // 总务主任
   | 'grade_leader'              // 年段长
+  | 'research_group_leader'     // 教研组组长
+  | 'research_group_deputy_leader' // 教研组副组长
   | 'young_pioneer_counselor';  // 少先队大队辅导员
 
 /** 角色标签映射 */
@@ -36,9 +35,6 @@ export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   grade_leader: '年段长',
   subject_teacher: '科任教师',
   skill_teacher: '技能课教师',
-  research_group_leader: '教研组组长',
-  research_group_deputy_leader: '教研组副组长',
-  young_pioneer_counselor: '少先队大队辅导员',
 };
 
 /** 行政职务标签映射 */
@@ -50,6 +46,8 @@ export const ADMINISTRATIVE_ROLE_LABELS: Record<AdministrativeRole, string> = {
   moral_director: '德育主任',
   general_director: '总务主任',
   grade_leader: '年段长',
+  research_group_leader: '教研组组长',
+  research_group_deputy_leader: '教研组副组长',
   young_pioneer_counselor: '少先队大队辅导员',
 };
 
@@ -59,9 +57,20 @@ export const TEACHER_ROLE_COLORS: Record<TeacherRole, { bg: string; text: string
   grade_leader: { bg: 'bg-purple-100', text: 'text-purple-700' },
   subject_teacher: { bg: 'bg-blue-100', text: 'text-blue-700' },
   skill_teacher: { bg: 'bg-green-100', text: 'text-green-700' },
+};
+
+/** 行政职务颜色映射 */
+export const ADMINISTRATIVE_ROLE_COLORS: Record<AdministrativeRole, { bg: string; text: string }> = {
+  principal: { bg: 'bg-red-100', text: 'text-red-700' },
+  secretary: { bg: 'bg-red-100', text: 'text-red-700' },
+  vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  academic_director: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  moral_director: { bg: 'bg-pink-100', text: 'text-pink-700' },
+  general_director: { bg: 'bg-slate-100', text: 'text-slate-700' },
+  grade_leader: { bg: 'bg-purple-100', text: 'text-purple-700' },
   research_group_leader: { bg: 'bg-orange-100', text: 'text-orange-700' },
   research_group_deputy_leader: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
-  young_pioneer_counselor: { bg: 'bg-red-100', text: 'text-red-700' },
+  young_pioneer_counselor: { bg: 'bg-rose-100', text: 'text-rose-700' },
 };
 
 /** 教师完整信息 */
@@ -137,7 +146,7 @@ export interface UseTeachersReturn {
   
   // 工具方法
   getRoleLabel: (role: TeacherRole | AdministrativeRole) => string;
-  getRoleColor: (role: TeacherRole) => { bg: string; text: string };
+  getRoleColor: (role: TeacherRole | AdministrativeRole) => { bg: string; text: string };
   getTeacherRolesDisplay: (teacher: TeacherInfo) => string[];
 }
 
@@ -173,7 +182,7 @@ export function useTeachers(): UseTeachersReturn {
       t.primaryRole === 'grade_leader' || t.additionalRoles.includes('grade_leader')
     ).length,
     researchGroupLeaders: teachers.filter(t => 
-      t.primaryRole === 'research_group_leader' || t.primaryRole === 'research_group_deputy_leader'
+      t.additionalRoles.includes('research_group_leader') || t.additionalRoles.includes('research_group_deputy_leader')
     ).length,
     youngPioneerCounselors: teachers.filter(t => 
       t.additionalRoles.includes('young_pioneer_counselor')
@@ -293,9 +302,15 @@ export function useTeachers(): UseTeachersReturn {
   }, []);
   
   // 获取角色颜色
-  const getRoleColor = useCallback((role: TeacherRole) => 
-    TEACHER_ROLE_COLORS[role] || { bg: 'bg-gray-100', text: 'text-gray-700' },
-  []);
+  const getRoleColor = useCallback((role: TeacherRole | AdministrativeRole): { bg: string; text: string } => {
+    if (role in TEACHER_ROLE_COLORS) {
+      return TEACHER_ROLE_COLORS[role as TeacherRole];
+    }
+    if (role in ADMINISTRATIVE_ROLE_COLORS) {
+      return ADMINISTRATIVE_ROLE_COLORS[role as AdministrativeRole];
+    }
+    return { bg: 'bg-gray-100', text: 'text-gray-700' };
+  }, []);
   
   // 获取教师角色显示列表
   const getTeacherRolesDisplay = useCallback((teacher: TeacherInfo): string[] => {

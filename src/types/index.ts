@@ -35,6 +35,8 @@ export type AdministrativeRole =
   | 'moral_director'            // 德育主任
   | 'general_director'          // 总务主任
   | 'grade_leader'              // 年段长
+  | 'research_group_leader'     // 教研组组长
+  | 'research_group_deputy_leader' // 教研组副组长
   | 'young_pioneer_counselor';  // 少先队大队辅导员
 
 // 角色配置
