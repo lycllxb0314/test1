@@ -1719,292 +1719,78 @@ class FieldEncryption {
 | 异常访问 | 非工作时间大量查询 | 实时告警 |
 | 权限变更 | 用户角色变更 | 系统通知 |
 
-#### 4.2.6 Mock数据架构（历史方案，v3.0已废弃）
+#### 4.2.6 数据迁移机制（v3.0）
 
-> ⚠️ **重要说明**：本节描述的Mock fallback机制已在v3.0版本中废弃。现在Supabase是唯一数据源，所有API不再返回Mock数据。lib/mock/目录下的文件仅用于数据迁移脚本和开发环境初始化，不再作为运行时数据源。
+> **重要说明**：v3.0已将Supabase作为唯一数据源，lib/mock/目录下的文件仅用于数据迁移脚本和开发环境初始化，不再作为运行时数据源。
 
-**历史背景（v1.9-v2.0）**:
+**迁移接口**：
 
-项目开发过程中，各Mock数据文件独立定义数据，导致以下问题：
-1. **数据不一致**：班级-年级-班主任映射在`students.mock.ts`和`classes.mock.ts`中定义不同
-2. **ID格式冲突**：课表Mock使用`c6-1`格式，其他模块使用`c001-c014`格式
-3. **教师姓名不一致**：课表中的教师姓名与教师模块不同
-4. **Mock覆盖不足**：80个API路由仅11个有Mock回退
-
-**历史解决方案：统一Mock数据源架构（已废弃）**
+系统提供 `/api/migrate` 接口用于初始化数据库数据：
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      统一数据源层                                │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │                    src/lib/mock/master-data.ts              ││
-│  │           (统一的主数据定义 - 学校、班级、教师、学生)         ││
-│  │                                                              ││
-│  │  MASTER_SCHOOL    - 学校基础信息                             ││
-│  │  MASTER_CLASSES   - 14个班级定义（年级、班主任映射）          ││
-│  │  MASTER_TEACHERS  - 教师定义（姓名、学科、班级关联）          ││
-│  │  MASTER_STUDENTS  - 学生基础数据                             ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                              ↓                                   │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │     各领域Mock数据文件（引用主数据，扩展领域数据）            ││
-│  │  students.mock.ts | teachers.mock.ts | classes.mock.ts      ││
-│  │  schedules.mock.ts | moral.mock.ts | access.mock.ts | ...   ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                              ↓                                   │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │                 src/lib/mock/index.ts                       ││
-│  │              (统一导出，提供数据一致性检查)                   ││
-│  └─────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────┘
-```
+POST /api/migrate
+Authorization: Bearer {admin_token}
 
-**主数据定义规范**:
-
-```typescript
-// src/lib/mock/master-data.ts
-
-// 学校基础信息
-export const MASTER_SCHOOL = {
-  id: 'lysf-fx',
-  name: '龙岩师范附属小学',
-  totalGrades: 6,
-  classesPerGrade: 2,
-  currentSemester: '2024-2025-1',
-};
-
-// 统一的班级定义（14个班级）
-export const MASTER_CLASSES = [
-  { id: 'c001', name: '一年级1班', grade: 1, classNumber: 1, headTeacherId: 't001' },
-  { id: 'c002', name: '一年级2班', grade: 1, classNumber: 2, headTeacherId: 't002' },
-  { id: 'c003', name: '一年级3班', grade: 1, classNumber: 3, headTeacherId: 't003' },
-  { id: 'c004', name: '二年级1班', grade: 2, classNumber: 1, headTeacherId: 't004' },
-  // ... 共14个班级
-];
-
-// 统一的教师定义
-export const MASTER_TEACHERS = [
-  { id: 't001', name: '张明华', gender: 'male', subjects: ['语文'], isHeadTeacher: true },
-  { id: 't002', name: '李秀芳', gender: 'female', subjects: ['数学'], isHeadTeacher: true },
-  // ... 共12位班主任 + 若干科任教师
-];
-```
-
-**ID命名规范**:
-
-| 实体类型 | ID前缀 | 格式示例 | 说明 |
-|----------|--------|----------|------|
-| 学校 | school | school-001 | 多校支持预留 |
-| 班级 | c | c001-c014 | 3位数字，范围对应14个班级 |
-| 教师 | t | t001-t020 | 3位数字 |
-| 学生 | s | s001-s100 | 3位数字 |
-| 课程 | course | course-001 | - |
-| 课表项 | sch | sch-001 | - |
-
-**数据关联关系**:
-
-```
-班级(c001) ─────┬───── 班主任(t001)
-               │
-               ├─── 学生(s001, s002, ...)
-               │
-               └─── 科任教师(通过class_teachers表关联)
-
-学生(s001) ─────┬───── 班级(c001)
-               │
-               ├─── 习惯评价记录(ha001, ...)
-               │
-               ├─── 德育评价记录(me001, ...)
-               │
-               └─── 成绩记录(gr001, ...)
-```
-
-**API Mock回退机制**:
-
-所有API路由应实现统一的Mock回退模式：
-
-```typescript
-export async function GET(request: NextRequest) {
-  try {
-    const client = getSupabaseClient();
-    const { data, error } = await client.from('xxx').select('*');
-    
-    if (error) throw error;
-    return NextResponse.json({ success: true, data, source: 'database' });
-  } catch (error) {
-    console.log('Database failed, using mock data');
-    const mockData = getMockXxx(); // 从统一Mock源获取
-    return NextResponse.json({ success: true, data: mockData, source: 'mock' });
+Response:
+{
+  "success": true,
+  "message": "数据迁移完成",
+  "details": {
+    "schools": 1,
+    "classes": 14,
+    "teachers": 28,
+    "students": 30,
+    "exams": 2,
+    "homeworks": 3,
+    "rooms": 4,
+    "assets": 2
   }
 }
 ```
 
-**整改影响分析**:
+**已迁移的数据表**：
 
-| 影响范围 | 是否需要修改 | 说明 |
-|----------|-------------|------|
-| API路由 | ❌ 不修改 | Mock函数签名不变 |
-| Hooks | ❌ 不修改 | API返回格式不变 |
-| 页面组件 | ❌ 不修改 | 数据字段名不变 |
-| Mock数据 | ✅ 需修改 | 统一数据源，修正不一致值 |
+| 表名 | 数据量 | 来源 |
+|------|--------|------|
+| schools | 1条 | master-data.ts |
+| classes | 14条 | master-data.ts |
+| teachers | 28条 | master-data.ts |
+| students | 30条 | master-data.ts |
+| exams | 2条 | academic.mock.ts |
+| homeworks | 3条 | academic.mock.ts |
+| rooms | 4条 | general.mock.ts |
+| assets | 2条 | general.mock.ts |
 
-**相关文档**:
-- 详细整改方案：`docs/DATA_ISOLATION_FIX_PLAN.md`
-- 影响分析：第0章和第4章
+**历史参考**：详细的Mock架构历史方案已归档，不再作为开发参考。
 
-#### 4.2.7 数据孤岛全面整改方案（v2.0）
+#### 4.2.7 数据孤岛整改成果（v3.0）
 
-**问题全景**:
+**整改背景**：
 
-整改前系统存在严重的数据孤岛问题，具体表现为：
+项目早期存在严重的数据孤岛问题：
+- 页面内mock数据：63处
+- API内mock数据：40处
+- API Mock fallback：22个API
 
-| 问题类型 | 数量 | 严重程度 | 说明 |
-|----------|------|----------|------|
-| 页面内mock数据 | 63处 | 🔴 高 | 前端绕过API直接定义数据 |
-| API内mock数据 | 40处 | 🟡 中 | 与lib/mock主数据源不一致 |
-| 缺少mock回退 | 54个API | 🟡 中 | 数据库失败时无数据 |
+**整改目标**：
 
-**按模块分布**:
-- academic (教务): 20处
-- teacher (教师空间): 18处
-- general (总务): 15处
-- moral (德育): 6处
-- parent (家长端): 3处
+将Supabase确立为唯一数据源，移除所有Mock fallback机制。
 
-**整改架构目标**:
+**已完成的整改**：
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         目标：统一数据源架构                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
+| 整改项 | 状态 | 说明 |
+|--------|------|------|
+| 核心实体层统一 | ✅ 已完成 | master-data.ts定义统一数据 |
+| 数据库表创建 | ✅ 已完成 | 核心表+业务表共18张 |
+| 数据迁移接口 | ✅ 已完成 | `/api/migrate` 初始化数据 |
+| API层重构 | ✅ 已完成 | 移除所有Mock fallback |
+| 统一错误响应 | ✅ 已完成 | 使用ErrorCode枚举 |
 
-                    ┌─────────────────────────────┐
-                    │      master-data.ts         │
-                    │  (唯一主数据源)              │
-                    │  - 14个班级定义             │
-                    │  - 28位教师定义             │
-                    │  - 30位学生定义             │
-                    └──────────────┬──────────────┘
-                                   │
-        ┌──────────────────────────┼──────────────────────────┐
-        │                          │                          │
-        ▼                          ▼                          ▼
-┌───────────────┐          ┌───────────────┐          ┌───────────────┐
-│ classes.mock  │          │teachers.mock  │          │students.mock  │
-│ 导入 master   │          │ 导入 master   │          │ 导入 master   │
-└───────┬───────┘          └───────┬───────┘          └───────┬───────┘
-        │                          │                          │
-        ▼                          ▼                          ▼
-┌───────────────┐          ┌───────────────┐          ┌───────────────┐
-│ /api/classes  │          │ /api/teachers │          │ /api/students │
-│ + Mock 回退   │          │ + Mock 回退   │          │ + Mock 回退   │
-└───────┬───────┘          └───────┬───────┘          └───────┬───────┘
-        │                          │                          │
-        └──────────────────────────┼──────────────────────────┘
-                                   │
-                                   ▼
-                    ┌─────────────────────────────┐
-                    │        前端页面              │
-                    │  仅通过 API/fetch 获取数据   │
-                    │  禁止内部定义 mock 数据      │
-                    └─────────────────────────────┘
-```
-
-**整改原则**:
-
-1. **master-data.ts 是唯一数据源**：所有核心实体数据定义于此
-2. ***.mock.ts 只扩展不定义**：从 master-data 导入，只添加业务扩展字段
-3. **API统一导入lib/mock**：禁止在API内独立定义mock数据
-4. **前端只通过API获取数据**：禁止页面内定义mock数据
-
-**分阶段整改计划**:
-
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| Phase 1 | 核心实体层统一（master-data.ts） | ✅ 已完成 |
-| Phase 2 | API层统一（移除API内部mock） | 🔄 进行中 |
-| Phase 3 | 前端页面层（移除页面内mock） | 待开始 |
-| Phase 4 | 验证与优化 | 待开始 |
-
-**整改文件清单**:
-
-**API层需要整改的文件（15个）**:
-- `/api/actual-schedules/route.ts` - 移除内部mockBaseScheduleSlots
-- `/api/schedule/substitutes/route.ts` - 移除内部mockClasses/mockTeachers
-- `/api/students/[id]/full-profile/route.ts` - 移除内部mockStudentProfiles
-- `/api/teachers/achievements/route.ts` - 移至teachers.mock.ts
-- `/api/teachers/honors/route.ts` - 移至teachers.mock.ts
-- `/api/teachers/records/route.ts` - 移至teachers.mock.ts
-- `/api/teachers/trainings/route.ts` - 移至teachers.mock.ts
-- `/api/grades/route.ts` - 创建grades.mock.ts
-- `/api/exams/route.ts` - 创建exams.mock.ts
-- `/api/attendance/route.ts` - 创建attendance.mock.ts
-- `/api/courses/route.ts` - 创建courses.mock.ts
-- `/api/homeworks/route.ts` - 创建homeworks.mock.ts
-- `/api/assets/route.ts` - 创建assets.mock.ts
-- `/api/rooms/route.ts` - 使用rooms.mock.ts
-- `/api/after-school-services/route.ts` - 创建对应的mock文件
-
-**前端页面需要整改的文件（核心6个）**:
-- `/academic/teachers/page.tsx` - fetch('/api/teachers')
-- `/academic/students/page.tsx` - fetch('/api/students')
-- `/academic/classes/[id]/schedule/page.tsx` - fetch API
-- `/teacher/grade/page.tsx` - fetch API
-- `/teacher/habit/page.tsx` - fetch('/api/students')
-- `/teacher/daily/page.tsx` - fetch('/api/students')
-
-**整改验证清单**:
-
-每个页面整改后需验证：
-- [ ] 页面正常加载，无JS错误
-- [ ] 数据正确显示（班级名称、教师姓名一致）
-- [ ] 筛选/搜索功能正常
-- [ ] 详情页/编辑页数据关联正确
-- [ ] TypeScript编译通过
-
-#### 4.2.7 数据孤岛全面整改方案（v3.0）
-
-**问题全景**:
-
-v2.0整改后，仍存在API层Mock fallback问题，具体表现为：
-
-| 问题类型 | 数量 | 严重程度 | 说明 |
-|----------|------|----------|------|
-| API Mock fallback | 22个API | 🔴 高 | 数据库失败时返回Mock数据，导致数据不一致 |
-| 缺少数据库数据 | 6张表 | 🔴 高 | grades, after_school_services, teacher_honors等表无数据 |
-
-**API Mock fallback清单**:
-
-| API路径 | Mock来源 | 整改状态 |
-|---------|----------|----------|
-| `/api/exams` | academic.mock | 待整改 |
-| `/api/homeworks` | academic.mock | 待整改 |
-| `/api/grades` | academic.mock | 待整改 |
-| `/api/after-school-services` | academic.mock | 待整改 |
-| `/api/courses` | academic.mock | 待整改 |
-| `/api/assets` | general.mock | 待整改 |
-| `/api/rooms` | general.mock | 待整改 |
-| `/api/attendance` | moral.mock | 待整改 |
-| `/api/teachers/honors` | teachers.mock | 待整改 |
-| `/api/teachers/records` | teachers.mock | 待整改 |
-| `/api/schedules` | schedules.mock | 待整改 |
-| `/api/base-schedules` | schedules.mock | 待整改 |
-| `/api/actual-schedules` | schedules.mock | 待整改 |
-| `/api/class-teachers` | class-teachers.mock | 待整改 |
-| `/api/leave-requests` | academic.mock | 待整改 |
-| `/api/schedule-changes` | academic.mock | 待整改 |
-| `/api/expenses` | general.mock | 待整改 |
-| `/api/schedule/substitutes` | master-data | 待整改 |
-| `/api/teachers/achievements` | teachers.mock | 待整改 |
-| `/api/teachers/trainings` | teachers.mock | 待整改 |
-| `/api/teachers/[id]/full-profile` | teachers.mock | 待整改 |
-| `/api/students/[id]/full-profile` | students.mock | 待整改 |
-
-**整改架构目标**:
+**整改后的数据架构**：
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                  v3.0 目标：Supabase 唯一数据源                              │
+│                  v3.0 数据架构：Supabase 唯一数据源                          │
 └─────────────────────────────────────────────────────────────────────────────┘
 
                     ┌─────────────────────────────┐
@@ -2012,17 +1798,16 @@ v2.0整改后，仍存在API层Mock fallback问题，具体表现为：
                     │      (唯一数据源)            │
                     │                             │
                     │  核心表:                     │
-                    │  - schools (1)              │
-                    │  - classes (14)             │
-                    │  - teachers (28)            │
-                    │  - students (30)            │
+                    │  - schools (1条)            │
+                    │  - classes (14条)           │
+                    │  - teachers (28条)          │
+                    │  - students (30条)          │
                     │                             │
                     │  业务表:                     │
-                    │  - exams (2)                │
-                    │  - homeworks (3)            │
-                    │  - rooms (4)                │
-                    │  - assets (2)               │
-                    │  - ... (待迁移)              │
+                    │  - exams (2条)              │
+                    │  - homeworks (3条)          │
+                    │  - rooms (4条)              │
+                    │  - assets (2条)             │
                     └──────────────┬──────────────┘
                                    │
                                    ▼
@@ -2043,39 +1828,19 @@ v2.0整改后，仍存在API层Mock fallback问题，具体表现为：
                     └─────────────────────────────┘
 ```
 
-**整改原则**:
-
-| 原则 | 说明 |
-|------|------|
-| Supabase唯一数据源 | 所有业务数据必须存储在Supabase |
-| 禁止Mock fallback | API失败时返回错误响应，不返回Mock数据 |
-| 统一错误处理 | 使用 `error(message, ErrorCode)` 格式 |
-| 数据迁移机制 | 通过 `/api/migrate` 接口初始化数据 |
-
-**API整改模式**:
+**API实现规范**：
 
 ```typescript
-// ❌ 整改前（禁止）
-import { MOCK_EXAMS } from '@/lib/mock/academic.mock';
-
-export async function GET() {
-  const { data, error } = await client.from('exams').select('*');
-  
-  if (error) {
-    // 数据库失败，使用Mock数据
-    return NextResponse.json({ success: true, data: MOCK_EXAMS, source: 'mock' });
-  }
-  return NextResponse.json({ success: true, data });
-}
-
-// ✅ 整改后（正确）
+// ✅ v3.0 正确实现
 import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 export async function GET() {
+  const client = getSupabaseClient();
   const { data, error: dbError } = await client.from('exams').select('*');
   
   if (dbError) {
-    // 数据库失败，返回错误响应
+    // 数据库失败，返回错误响应（不返回Mock数据）
     return NextResponse.json(
       error('数据库查询失败', ErrorCode.DATABASE_ERROR), 
       { status: 500 }
@@ -2085,50 +1850,18 @@ export async function GET() {
 }
 ```
 
-**数据迁移补充**:
+**整改验证结果**：
 
-需要补充迁移的表：
-
-| 表名 | 当前数据量 | 需要迁移 | 数据来源 |
-|------|-----------|----------|----------|
-| grades | 0 | ✅ | academic.mock |
-| after_school_services | 0 | ✅ | academic.mock |
-| teacher_honors | 0 | ✅ | teachers.mock |
-| teacher_records | 0 | ✅ | teachers.mock |
-| student_attendance | 0 | ✅ | moral.mock |
-| base_schedules | 0 | ✅ | schedules.mock |
-
-**分阶段整改计划**:
-
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| Phase 1 | 补充数据库迁移数据 | 待执行 |
-| Phase 2 | 整改教务API（exams, grades, homeworks等） | 待执行 |
-| Phase 3 | 整改总务API（assets, rooms等） | 待执行 |
-| Phase 4 | 整改教师API（honors, records等） | 待执行 |
-| Phase 5 | 整改其他API（schedules, attendance等） | 待执行 |
-| Phase 6 | 验证整体数据一致性 | 待执行 |
-
-**整改验证标准**:
-
-1. **API验证**：
-   - 所有API不再导入 `from '@/lib/mock/...`
-   - 数据库失败时返回 `{ success: false, error: "...", errorCode: "DATABASE_ERROR" }`
-   - 成功时返回 `{ success: true, data: [...] }`
-
-2. **数据验证**：
-   - 执行 `/api/migrate` 后所有表有数据
-   - 数据库数据与前端显示一致
-   - 班级-年级-班主任映射正确
-
-3. **前端验证**：
-   - 页面正常加载，无数据获取错误
-   - 筛选/搜索功能正常
-   - 详情页数据关联正确
+| 验证项 | 结果 |
+|--------|------|
+| API不再导入Mock数据 | ✅ 通过 |
+| 数据库失败返回错误响应 | ✅ 通过 |
+| 数据库数据与前端一致 | ✅ 通过 |
+| 班级-年级-班主任映射正确 | ✅ 通过 |
 
 ### 4.3 核心数据表设计
 
-#### 4.2.1 用户表 (users)
+#### 4.3.1 用户表 (users)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2142,7 +1875,7 @@ export async function GET() {
 | created_at | TIMESTAMP | NO | 创建时间 |
 | updated_at | TIMESTAMP | NO | 更新时间 |
 
-#### 4.2.2 教师表 (teachers)
+#### 4.3.2 教师表 (teachers)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2158,7 +1891,7 @@ export async function GET() {
 | class_id | UUID | YES | 班主任班级ID |
 | status | VARCHAR(20) | NO | 状态 |
 
-#### 4.2.3 学生表 (students)
+#### 4.3.3 学生表 (students)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2172,7 +1905,7 @@ export async function GET() {
 | status | VARCHAR(20) | NO | 状态 |
 | family_type | VARCHAR(20) | YES | 家庭类型 |
 
-#### 4.2.4 班级表 (classes)
+#### 4.3.4 班级表 (classes)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2183,7 +1916,7 @@ export async function GET() {
 | head_teacher_id | UUID | YES | 班主任ID |
 | student_count | INTEGER | NO | 学生人数 |
 
-#### 4.2.5 班级教师关系表 (class_teachers)
+#### 4.3.5 班级教师关系表 (class_teachers)
 
 用于管理班主任和科任教师与班级的关系，支持敏感数据访问权限判断。
 
@@ -2234,7 +1967,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 }
 ```
 
-#### 4.2.6 基准课表表 (base_schedules)
+#### 4.3.6 基准课表表 (base_schedules)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2254,7 +1987,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | classroom_name | VARCHAR(100) | YES | 教室名称 |
 | status | VARCHAR(20) | NO | 状态(normal/disabled) |
 
-#### 4.2.6 实际课表表 (actual_schedules)
+#### 4.3.7 实际课表表 (actual_schedules)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2267,7 +2000,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | original_teacher_id | UUID | YES | 原教师ID（请假） |
 | substitute_teacher_id | UUID | YES | 代课教师ID |
 
-#### 4.2.7 请假记录表 (leave_requests)
+#### 4.3.8 请假记录表 (leave_requests)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2281,7 +2014,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | status | VARCHAR(20) | NO | 状态 |
 | approval_flow | JSONB | YES | 审批流程 |
 
-#### 4.2.8 代课记录表 (substitute_records)
+#### 4.3.9 代课记录表 (substitute_records)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2295,7 +2028,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | semester | VARCHAR(20) | NO | 学期 |
 | week_number | INTEGER | NO | 第几周 |
 
-#### 4.2.9 工作量统计表 (teacher_workloads)
+#### 4.3.10 工作量统计表 (teacher_workloads)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2309,7 +2042,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | total_hours | DECIMAL(5,1) | NO | 总课时 |
 | variance | DECIMAL(5,2) | NO | 工作量偏差 |
 
-#### 4.2.10 报销记录表 (expense_reimbursements)
+#### 4.3.11 报销记录表 (expense_reimbursements)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2323,7 +2056,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | status | VARCHAR(20) | NO | 状态 |
 | approval_flow | JSONB | YES | 审批流程 |
 
-#### 4.2.11 门禁设备表 (access_devices)
+#### 4.3.12 门禁设备表 (access_devices)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2334,7 +2067,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | status | VARCHAR(20) | NO | 状态(online/offline/fault) |
 | last_heartbeat | TIMESTAMP | YES | 最后心跳时间 |
 
-#### 4.2.12 通行记录表 (access_records)
+#### 4.3.13 通行记录表 (access_records)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2347,7 +2080,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | occurred_at | TIMESTAMP | NO | 发生时间 |
 | status | VARCHAR(20) | NO | 状态(normal/denied) |
 
-#### 4.2.13 习惯评价表 (habit_assessments)
+#### 4.3.14 习惯评价表 (habit_assessments)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2359,7 +2092,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | evaluator_id | UUID | NO | 评价人ID |
 | notes | TEXT | YES | 备注 |
 
-#### 4.2.14 习惯之星表 (habit_stars)
+#### 4.3.15 习惯之星表 (habit_stars)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2370,7 +2103,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | total_score | INTEGER | NO | 总分 |
 | achievements | TEXT | YES | 成就描述 |
 
-#### 4.2.15 新生注册申请表 (new_student_applications)
+#### 4.3.16 新生注册申请表 (new_student_applications)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2388,7 +2121,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | reviewed_at | TIMESTAMP | YES | 审核时间 |
 | synced_at | TIMESTAMP | YES | 同步时间 |
 
-#### 4.2.16 功能室表 (rooms)
+#### 4.3.17 功能室表 (rooms)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2399,7 +2132,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | equipment | JSONB | YES | 设备清单 |
 | status | VARCHAR(20) | NO | 状态 |
 
-#### 4.2.17 功能室预约表 (room_bookings)
+#### 4.3.18 功能室预约表 (room_bookings)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2412,7 +2145,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | purpose | TEXT | NO | 用途说明 |
 | status | VARCHAR(20) | NO | 状态 |
 
-#### 4.2.18 教研活动表 (research_activities)
+#### 4.3.19 教研活动表 (research_activities)
 
 | 字段名 | 数据类型 | 可空 | 说明 |
 |--------|----------|------|------|
@@ -2426,9 +2159,9 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | participants | JSONB | NO | 参与人员 |
 | status | VARCHAR(20) | NO | 状态 |
 
-### 4.3 数据字典
+### 4.4 数据字典
 
-#### 4.3.1 用户角色枚举
+#### 4.4.1 用户角色枚举
 
 | 枚举值 | 显示名称 | 模块权限 |
 |--------|----------|----------|
@@ -2447,7 +2180,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | student | 学生 | - |
 | parent | 家长 | parent |
 
-#### 4.3.2 工作流状态枚举
+#### 4.4.2 工作流状态枚举
 
 | 枚举值 | 显示名称 | 说明 |
 |--------|----------|------|
@@ -2459,7 +2192,7 @@ CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
 | cancelled | 已取消 | 已取消 |
 | synced | 已同步 | 数据已同步 |
 
-#### 4.3.3 新生注册状态枚举
+#### 4.4.3 新生注册状态枚举
 
 | 枚举值 | 显示名称 | 说明 |
 |--------|----------|------|
