@@ -117,6 +117,7 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         main_class_count: t.main_class_count,
         main_subject_hours: t.main_subject_hours,
         teachable_grades: t.teachable_grades,
+        teachable_subjects: t.teachable_subjects || [],
         head_teacher_class_id: t.head_teacher_class_ids?.[0],
         subject_head_class_id: t.subject_head_class_id,
       };

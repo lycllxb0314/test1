@@ -372,7 +372,10 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           additionalRoles: (t.additional_roles as AdministrativeRole[]) || [],
           weeklyHours: (t.total_weekly_hours as number) || 13,
           currentHours: 0,
-          teachableSubjects: [t.primary_subject, ...(t.secondary_subjects as string[] || [])].filter(Boolean) as string[],
+          // 优先使用 teachable_subjects，否则从 primary_subject + secondary_subjects 构建
+          teachableSubjects: (t.teachable_subjects as string[] && (t.teachable_subjects as string[]).length > 0)
+            ? (t.teachable_subjects as string[])
+            : [t.primary_subject, ...(t.secondary_subjects as string[] || [])].filter(Boolean) as string[],
           teachableGrades: (t.teachable_grades as number[]) || [1, 2, 3, 4, 5, 6],
           isHeadTeacher: t.isHeadTeacher as boolean || false,
           headTeacherClassId: t.headTeacherClassId as string,

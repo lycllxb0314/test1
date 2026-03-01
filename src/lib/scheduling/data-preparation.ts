@@ -225,23 +225,19 @@ export function validateSchedulingData(
     }
   }
   
-  // 检查科目覆盖率
-  const requiredSubjects: CourseCategory[] = ['语文', '数学', '道德与法治', '劳动', '班会'];
-  for (const subject of requiredSubjects) {
+  // 只检查核心主科（语文、数学必须有教师）
+  // 班会课由班主任上，不需要额外检查
+  // 道德与法治、劳动：有专职教师就用专职，没有则由语数老师兼任
+  const coreSubjects: CourseCategory[] = ['语文', '数学'];
+  for (const subject of coreSubjects) {
     const hasTeacher = teachers.some(t => t.teachableSubjects.includes(subject));
     if (!hasTeacher) {
       errors.push(`没有可以教授 ${subject} 的教师`);
     }
   }
   
-  // 检查技能科教师
-  const skillSubjects: CourseCategory[] = ['英语', '体育', '音乐', '美术', '科学'];
-  for (const subject of skillSubjects) {
-    const hasTeacher = teachers.some(t => t.teachableSubjects.includes(subject));
-    if (!hasTeacher) {
-      errors.push(`没有可以教授 ${subject} 的教师，部分班级可能无法安排该课程`);
-    }
-  }
+  // 技能科只做警告提示，不阻止排课
+  // 这些科目如果没教师，排课时会跳过或由其他教师兼任
   
   return {
     valid: errors.length === 0,

@@ -1,21 +1,11 @@
 /**
  * 智能排课系统 - API 路由
  * 
- * POST /api/academic/scheduling/execute
- * 执行智能排课，返回排课结果
- * 
- * POST /api/academic/scheduling/draft
- * 保存排课草稿
- * 
- * GET /api/academic/scheduling/draft
- * 获取排课草稿
- * 
- * POST /api/academic/scheduling/confirm
- * 确认并同步排课结果
+ * GET /api/academic/scheduling?action=preview - 获取排课预览数据
+ * POST /api/academic/scheduling - 执行排课/保存草稿
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import SchedulingEngine from '@/lib/scheduling/engine';
 import {
   prepareSchedulingTeachers,
@@ -27,10 +17,8 @@ import type { TeacherInfo } from '@/hooks/useTeachers';
 import type { ClassContainer } from '@/hooks/useClasses';
 import type { SchedulingResult, ScheduleDraft } from '@/lib/scheduling/types';
 
-// Supabase 客户端
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// 草稿存储（内存缓存，实际应存数据库）
+const drafts: Map<string, ScheduleDraft> = new Map();
 
 /**
  * GET /api/academic/scheduling
@@ -42,7 +30,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action');
     
     if (action === 'preview') {
-      // 获取预览数据
+      // 调用已有API获取真实数据
       const teachers = await fetchTeachers();
       const classes = await fetchClasses();
       
@@ -64,23 +52,11 @@ export async function GET(request: NextRequest) {
     }
     
     if (action === 'draft') {
-      // 获取草稿
       const semester = searchParams.get('semester') || getCurrentSemester();
-      const { data, error } = await supabase
-        .from('scheduling_drafts')
-        .select('*')
-        .eq('semester', semester)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      
+      const draft = Array.from(drafts.values()).find(d => d.semester === semester);
       return NextResponse.json({
         success: true,
-        data: data || null,
+        data: draft || null,
       });
     }
     
@@ -105,16 +81,21 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, semester, draftId } = body;
+    const { action, semester, draftId, teachers: inputTeachers, classes: inputClasses } = body;
     
     if (action === 'execute') {
       // 执行排课
-      return await executeScheduling(semester || getCurrentSemester());
+      return await executeScheduling(semester || getCurrentSemester(), inputTeachers, inputClasses);
     }
     
     if (action === 'save-draft') {
       // 保存草稿
-      return await saveDraft(body as ScheduleDraft);
+      const draft = body as ScheduleDraft;
+      drafts.set(draft.id, draft);
+      return NextResponse.json({
+        success: true,
+        data: { draftId: draft.id },
+      });
     }
     
     if (action === 'confirm') {
@@ -139,10 +120,14 @@ export async function POST(request: NextRequest) {
 /**
  * 执行智能排课
  */
-async function executeScheduling(semester: string): Promise<NextResponse> {
+async function executeScheduling(
+  semester: string,
+  inputTeachers?: TeacherInfo[],
+  inputClasses?: ClassContainer[]
+): Promise<NextResponse> {
   // 获取教师和班级数据
-  const teachers = await fetchTeachers();
-  const classes = await fetchClasses();
+  const teachers = inputTeachers || await fetchTeachers();
+  const classes = inputClasses || await fetchClasses();
   
   // 准备排课数据
   const schedulingTeachers = prepareSchedulingTeachers(teachers);
@@ -175,14 +160,14 @@ async function executeScheduling(semester: string): Promise<NextResponse> {
     status: 'draft',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    createdBy: 'system', // TODO: 从认证获取用户
+    createdBy: 'system',
     teachers: schedulingTeachers,
     classes: schedulingClasses,
     result,
     manualAdjustments: [],
   };
   
-  await saveDraft(draft);
+  drafts.set(draft.id, draft);
   
   return NextResponse.json({
     success: true,
@@ -194,52 +179,19 @@ async function executeScheduling(semester: string): Promise<NextResponse> {
 }
 
 /**
- * 保存排课草稿
- */
-async function saveDraft(draft: ScheduleDraft): Promise<NextResponse> {
-  const { error } = await supabase
-    .from('scheduling_drafts')
-    .upsert({
-      id: draft.id,
-      semester: draft.semester,
-      status: draft.status,
-      created_at: draft.createdAt,
-      updated_at: draft.updatedAt,
-      created_by: draft.createdBy,
-      teachers: draft.teachers,
-      classes: draft.classes,
-      result: draft.result,
-    });
-  
-  if (error) {
-    throw error;
-  }
-  
-  return NextResponse.json({
-    success: true,
-    data: { draftId: draft.id },
-  });
-}
-
-/**
  * 确认并同步排课结果
  */
 async function confirmScheduling(draftId: string): Promise<NextResponse> {
-  // 获取草稿
-  const { data: draft, error: fetchError } = await supabase
-    .from('scheduling_drafts')
-    .select('*')
-    .eq('id', draftId)
-    .single();
+  const draft = drafts.get(draftId);
   
-  if (fetchError || !draft) {
+  if (!draft) {
     return NextResponse.json({
       success: false,
       error: '草稿不存在',
     }, { status: 404 });
   }
   
-  const result = draft.result as SchedulingResult;
+  const result = draft.result;
   
   if (!result.success) {
     return NextResponse.json({
@@ -249,159 +201,109 @@ async function confirmScheduling(draftId: string): Promise<NextResponse> {
     }, { status: 400 });
   }
   
-  // 同步到正式课表
-  // 1. 清除该学期的旧课表
-  await supabase
-    .from('class_schedules')
-    .delete()
-    .eq('semester', draft.semester);
-  
-  // 2. 插入新课表
-  const scheduleRecords = result.assignments.map(a => ({
-    id: crypto.randomUUID(),
-    semester: draft.semester,
-    class_id: a.classId,
-    class_name: a.className,
-    grade: a.grade,
-    week_day: a.timeSlot.weekDay,
-    period_index: a.timeSlot.periodIndex,
-    period_name: a.timeSlot.periodName,
-    period_type: a.timeSlot.periodType,
-    subject: a.subject,
-    teacher_id: a.teacherId,
-    teacher_name: a.teacherName,
-    created_at: new Date().toISOString(),
-  }));
-  
-  // 批量插入
-  const batchSize = 100;
-  for (let i = 0; i < scheduleRecords.length; i += batchSize) {
-    const batch = scheduleRecords.slice(i, i + batchSize);
-    const { error: insertError } = await supabase
-      .from('class_schedules')
-      .insert(batch);
-    
-    if (insertError) {
-      console.error('插入课表失败:', insertError);
-      throw insertError;
-    }
-  }
-  
-  // 3. 更新草稿状态为已确认
-  await supabase
-    .from('scheduling_drafts')
-    .update({ status: 'confirmed', updated_at: new Date().toISOString() })
-    .eq('id', draftId);
-  
-  // 4. 更新教师课时统计
-  for (const teacherWorkload of result.teacherWorkloads) {
-    await supabase
-      .from('teachers')
-      .update({
-        current_hours: teacherWorkload.actualHours,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', teacherWorkload.teacherId);
-  }
+  // 更新草稿状态
+  draft.status = 'confirmed';
+  draft.updatedAt = new Date().toISOString();
   
   return NextResponse.json({
     success: true,
     data: {
-      message: '排课结果已确认并同步',
+      message: '排课结果已确认',
       statistics: result.statistics,
     },
   });
 }
 
 /**
- * 从数据库获取教师数据
+ * 从教师API获取教师数据
  */
 async function fetchTeachers(): Promise<TeacherInfo[]> {
-  const { data, error } = await supabase
-    .from('teachers')
-    .select(`
-      *,
-      class_relations:class_teacher_relations(
-        class_id,
-        class_name,
-        role
-      )
-    `)
-    .eq('status', '在编');
+  const baseUrl = process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : 'http://localhost:5000';
   
-  if (error) {
-    throw error;
+  const response = await fetch(`${baseUrl}/api/teachers?pageSize=1000`);
+  const result = await response.json();
+  
+  if (!result.success || !result.data) {
+    throw new Error('获取教师数据失败');
   }
   
   // 转换数据格式
-  return (data || []).map(t => ({
-    id: t.id,
-    name: t.name,
-    gender: t.gender || '男',
-    subject: t.subject || '语文',
-    title: t.title || '教师',
-    department: t.department || '',
-    phone: t.phone || '',
-    email: t.email || '',
-    status: t.status,
-    teachYears: t.teach_years || 0,
-    primaryRole: t.primary_role,
-    additionalRoles: t.additional_roles || [],
-    weeklyHours: t.weekly_hours || 14,
-    currentHours: t.current_hours || 0,
-    teachableSubjects: t.teachable_subjects || [],
-    teachableGrades: t.teachable_grades || [1, 2, 3, 4, 5, 6],
-    isHeadTeacher: t.is_head_teacher,
-    headTeacherClassId: t.head_teacher_class_id,
-    headTeacherClassName: t.head_teacher_class_name,
-    subTeacherClasses: t.class_relations
-      ?.filter((r: any) => r.role === 'sub_teacher')
-      .map((r: any) => ({ classId: r.class_id, className: r.class_name })),
-    createdAt: t.created_at,
-    updatedAt: t.updated_at,
-  }));
+  return result.data.map((t: Record<string, unknown>) => {
+    // 优先使用 teachable_subjects，否则从 primary_subject + secondary_subjects 构建
+    let teachableSubjects: string[];
+    if (t.teachable_subjects && Array.isArray(t.teachable_subjects) && t.teachable_subjects.length > 0) {
+      teachableSubjects = t.teachable_subjects as string[];
+    } else {
+      teachableSubjects = [
+        t.primary_subject as string,
+        ...(t.secondary_subjects as string[] || [])
+      ].filter(Boolean) as string[];
+    }
+    
+    return {
+      id: t.id as string,
+      name: t.name as string,
+      gender: t.gender === 'male' ? '男' : t.gender === 'female' ? '女' : '男',
+      subject: (t.primary_subject as string) || (t.subjects as string[])?.[0] || '语文',
+      title: (t.title as string) || '二级教师',
+      department: (t.department as string) || `${(t.subjects as string[])?.[0] || '语文'}组`,
+      phone: (t.phone as string) || '',
+      email: (t.email as string) || '',
+      status: (t.status as string) || 'active',
+      teachYears: (t.teachYears as number) || 0,
+      avatar: t.avatar as string,
+      primaryRole: (t.role as TeacherInfo['primaryRole']) || 'subject_teacher',
+      additionalRoles: (t.additional_roles as TeacherInfo['additionalRoles']) || [],
+      weeklyHours: (t.total_weekly_hours as number) || 13,
+      currentHours: 0,
+      teachableSubjects,
+      teachableGrades: (t.teachable_grades as number[]) || [1, 2, 3, 4, 5, 6],
+      isHeadTeacher: (t.isHeadTeacher as boolean) || false,
+      headTeacherClassId: t.headTeacherClassId as string,
+      headTeacherClassName: t.headTeacherClassName as string,
+      createdAt: t.created_at as string,
+      updatedAt: t.updated_at as string,
+    };
+  });
 }
 
 /**
- * 从数据库获取班级数据
+ * 从班级API获取班级数据
  */
 async function fetchClasses(): Promise<ClassContainer[]> {
-  const { data, error } = await supabase
-    .from('classes')
-    .select(`
-      *,
-      students:students(count),
-      head_teacher:teachers!head_teacher_id(id, name),
-      sub_teacher:teachers!sub_teacher_id(id, name)
-    `)
-    .eq('status', 'active')
-    .order('grade', { ascending: true })
-    .order('name', { ascending: true });
+  const baseUrl = process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : 'http://localhost:5000';
   
-  if (error) {
-    throw error;
+  const response = await fetch(`${baseUrl}/api/classes?pageSize=100`);
+  const result = await response.json();
+  
+  if (!result.success || !result.data) {
+    throw new Error('获取班级数据失败');
   }
   
   // 转换数据格式
-  return (data || []).map(c => ({
-    id: c.id,
-    name: c.name,
-    grade: c.grade,
+  return result.data.map((c: Record<string, unknown>) => ({
+    id: c.id as string,
+    name: c.name as string,
+    grade: c.grade as number,
     gradeName: `${c.grade}年级`,
-    classNumber: parseInt(c.name.replace(/[^0-9]/g, '') || '1'),
-    headTeacherId: c.head_teacher_id,
-    headTeacherName: c.head_teacher?.name || '',
-    subTeacherId: c.sub_teacher_id,
-    subTeacherName: c.sub_teacher?.name,
+    classNumber: parseInt((c.name as string).replace(/[^0-9]/g, '') || '1'),
+    headTeacherId: c.head_teacher_id as string || c.headTeacherId as string,
+    headTeacherName: c.head_teacher_name as string || c.headTeacherName as string || '',
+    subTeacherId: c.sub_teacher_id as string || c.subTeacherId as string,
+    subTeacherName: c.sub_teacher_name as string || c.subTeacherName as string,
     students: [],
-    studentCount: c.students?.[0]?.count || 0,
+    studentCount: (c.student_count as number) || (c.students as unknown[])?.length || 0,
     maleStudentCount: 0,
     femaleStudentCount: 0,
     parents: [],
     parentCount: 0,
-    status: c.status,
-    createdAt: c.created_at,
-    updatedAt: c.updated_at,
+    status: (c.status as ClassContainer['status']) || 'active',
+    createdAt: c.created_at as string,
+    updatedAt: c.updated_at as string,
   }));
 }
 
