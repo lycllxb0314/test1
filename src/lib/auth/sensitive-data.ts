@@ -54,6 +54,8 @@ export interface UserContext {
   id: string;
   role: UserRole;
   name?: string;
+  /** 兼任职务 */
+  additionalRoles?: AdministrativeRole[];
   /** 年段长管理的年级 */
   managedGrades?: number[];
 }
@@ -62,28 +64,44 @@ export interface UserContext {
 // 角色权限常量
 // ============================================
 
+import { AdministrativeRole } from '@/types';
+
 /**
- * 拥有全校访问权限的角色
+ * 拥有全校访问权限的主要角色
  */
 const GLOBAL_ACCESS_ROLES: UserRole[] = [
   'principal',          // 校长
   'secretary',          // 书记
   'vice_principal',     // 副校长
+];
+
+/**
+ * 拥有全校访问权限的兼任职务
+ */
+const GLOBAL_ACCESS_ADMIN_ROLES: AdministrativeRole[] = [
   'academic_director',  // 教务主任
   'moral_director',     // 德育主任
+  'general_director',   // 总务主任
 ];
 
 /**
  * 有条件访问权限的角色（需要进一步判断关系）
  */
 const CONDITIONAL_ACCESS_ROLES: UserRole[] = [
-  'grade_leader',       // 年段长
   'head_teacher',       // 班主任
   'subject_teacher',    // 科任教师
   'skill_teacher',      // 技能课教师
+  'parent',             // 家长
+];
+
+/**
+ * 有条件访问权限的兼任职务
+ */
+const CONDITIONAL_ACCESS_ADMIN_ROLES: AdministrativeRole[] = [
+  'grade_leader',       // 年段长
   'research_group_leader',       // 教研组组长
   'research_group_deputy_leader', // 教研组副组长
-  'parent',             // 家长
+  'young_pioneer_counselor',      // 少先队大队辅导员
 ];
 
 // ============================================
@@ -125,7 +143,7 @@ export async function canViewStudentSensitiveData(
   }
   
   // 3. 年段长：检查是否管理该学生所在年级
-  if (user.role === 'grade_leader') {
+  if (user.additionalRoles?.includes('grade_leader')) {
     if (user.managedGrades?.includes(student.grade || 0)) {
       return {
         allowed: true,
@@ -246,7 +264,7 @@ export function getUserAccessibleClassIds(user: UserContext): string[] {
   }
   
   // 年段长：返回管理的年级的所有班级
-  if (user.role === 'grade_leader' && user.managedGrades) {
+  if (user.additionalRoles?.includes('grade_leader') && user.managedGrades) {
     // 需要根据年级查询班级，这里简化处理
     return [];
   }
@@ -257,36 +275,37 @@ export function getUserAccessibleClassIds(user: UserContext): string[] {
 /**
  * 判断用户是否有全局访问权限
  * 
- * @param role 用户角色
+ * @param role 用户主要角色
+ * @param additionalRoles 兼任职务
  * @returns 是否有全局权限
  */
-export function hasGlobalAccess(role: UserRole): boolean {
-  return GLOBAL_ACCESS_ROLES.includes(role);
+export function hasGlobalAccess(role: UserRole, additionalRoles?: AdministrativeRole[]): boolean {
+  if (GLOBAL_ACCESS_ROLES.includes(role)) return true;
+  if (additionalRoles?.some(r => GLOBAL_ACCESS_ADMIN_ROLES.includes(r))) return true;
+  return false;
 }
 
 /**
  * 获取角色显示名称
  */
-function getRoleDisplayName(role: UserRole): string {
-  const roleNames: Record<UserRole, string> = {
+function getRoleDisplayName(role: UserRole | AdministrativeRole): string {
+  const roleNames: Record<UserRole | AdministrativeRole, string> = {
+    // 主要角色
     principal: '校长',
     secretary: '书记',
     vice_principal: '副校长',
+    head_teacher: '班主任',
+    subject_teacher: '科任教师',
+    skill_teacher: '技能课教师',
+    parent: '家长',
+    // 兼任职务
     academic_director: '教务主任',
     moral_director: '德育主任',
     general_director: '总务主任',
-    academic_staff: '教务员',
-    moral_staff: '德育员',
-    head_teacher: '班主任',
     grade_leader: '年段长',
-    subject_teacher: '科任教师',
-    skill_teacher: '技能课教师',
     research_group_leader: '教研组组长',
     research_group_deputy_leader: '教研组副组长',
     young_pioneer_counselor: '少先队大队辅导员',
-    staff: '后勤人员',
-    student: '学生',
-    parent: '家长',
   };
   return roleNames[role] || role;
 }

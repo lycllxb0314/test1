@@ -96,32 +96,6 @@ export function extractUserIdLegacy(request: NextRequest): string | null {
  * 验证用户会话（传统方式）
  */
 export async function validateSessionLegacy(userId: string): Promise<AuthResult> {
-  // Mock 模式：使用 Mock 数据
-  if (USE_MOCK_DATA) {
-    const MOCK_USERS: Record<string, User> = {
-      '1': { id: '1', name: '张明华', role: 'principal', phone: '138****1001' },
-      '2': { id: '2', name: '李红梅', role: 'academic_director', phone: '138****1002' },
-      '3': { id: '3', name: '王建国', role: 'head_teacher', phone: '138****1003', classId: 'c001', className: '一年级1班' },
-      '4': { id: '4', name: '陈晓燕', role: 'subject_teacher', phone: '138****1004' },
-      '5': { id: '5', name: '刘洋', role: 'grade_leader', phone: '138****1005' },
-      '6': { id: '6', name: '张总务', role: 'general_director', phone: '138****1006' },
-      '7': { id: '7', name: '李德育', role: 'moral_director', phone: '138****1007' },
-    };
-    
-    const user = MOCK_USERS[userId];
-    if (!user) {
-      return {
-        success: false,
-        error: '用户不存在或已被禁用',
-        statusCode: 401,
-      };
-    }
-    return {
-      success: true,
-      user,
-    };
-  }
-
   // 生产模式：从数据库验证
   try {
     const client = getSupabaseClient();

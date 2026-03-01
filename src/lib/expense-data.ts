@@ -160,7 +160,7 @@ export const mockExpenses: ExpenseReimbursement[] = [
     title: '教研活动材料费',
     applicantId: 'teacher-005',
     applicantName: '赵老师',
-    applicantRole: 'grade_leader',
+    applicantRole: 'head_teacher',  // 年段长通常是班主任兼任
     department: '语文教研组',
     phone: '13800138005',
     category: 'training',

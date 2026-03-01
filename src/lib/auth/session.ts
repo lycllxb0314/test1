@@ -2,10 +2,14 @@
  * 会话管理服务
  * 
  * 提供用户登录、登出、会话验证等功能
+ * 
+ * 统一身份角色来自教务系统：
+ * - 主要角色：决定登录身份
+ * - 兼任职务：只增加权限
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { User, UserRole } from '@/types';
+import { User, UserRole, AdministrativeRole } from '@/types';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import {
   generateTokenPair,
@@ -19,44 +23,26 @@ import {
   type JwtPayload,
 } from './jwt';
 
-// 是否使用 Mock 数据
-const USE_MOCK_DATA = process.env.NODE_ENV !== 'production';
-
-// 角色名称映射
+// 角色名称映射（用于登录时的角色名转换）
 const roleNameToRole: Record<string, UserRole> = {
   '校长': 'principal',
   '书记': 'secretary',
   '副校长': 'vice_principal',
+  '班主任': 'head_teacher',
+  '科任教师': 'subject_teacher',
+  '技能课教师': 'skill_teacher',
+  '家长': 'parent',
+};
+
+// 兼任职务名称映射
+const adminRoleNameToRole: Record<string, AdministrativeRole> = {
   '教务主任': 'academic_director',
   '德育主任': 'moral_director',
   '总务主任': 'general_director',
-  '教务员': 'academic_staff',
-  '德育员': 'moral_staff',
-  '班主任': 'head_teacher',
   '年段长': 'grade_leader',
-  '科任教师': 'subject_teacher',
-  '技能课教师': 'skill_teacher',
   '教研组组长': 'research_group_leader',
   '教研组副组长': 'research_group_deputy_leader',
-  '学生': 'student',
-  '家长': 'parent',
-  '后勤': 'staff',
-};
-
-// Mock 用户数据（内部使用，包含密码）
-interface MockUser extends User {
-  password: string;
-}
-
-const MOCK_USERS: Record<string, MockUser> = {
-  '1': { id: '1', name: '张明华', role: 'principal', phone: '138****1001', password: '123456' },
-  '2': { id: '2', name: '李红梅', role: 'academic_director', phone: '138****1002', password: '123456' },
-  '3': { id: '3', name: '王建国', role: 'head_teacher', phone: '138****1003', classId: 'c001', className: '一年级1班', password: '123456' },
-  '4': { id: '4', name: '陈晓燕', role: 'subject_teacher', phone: '138****1004', password: '123456' },
-  '5': { id: '5', name: '刘洋', role: 'grade_leader', phone: '138****1005', password: '123456' },
-  '6': { id: '6', name: '张总务', role: 'general_director', phone: '138****1006', password: '123456' },
-  '7': { id: '7', name: '李德育', role: 'moral_director', phone: '138****1007', password: '123456' },
-  '8': { id: '8', name: '王小明家长', role: 'parent', phone: '138****1008', children: [{ id: 's001', name: '王小明', classId: 'c001', className: '一年级1班' }], password: '123456' },
+  '少先队大队辅导员': 'young_pioneer_counselor',
 };
 
 /**
@@ -93,53 +79,46 @@ export async function login(
     return { success: false, error: '请输入用户名和密码' };
   }
 
-  // 2. 查找用户
-  let user: (User & { password?: string }) | null = null;
+  // 2. 从数据库查询用户
+  const client = getSupabaseClient();
+  
+  // 支持多种登录方式：工号、手机号、姓名
+  const { data: dbUser, error } = await client
+    .from('users')
+    .select('*')
+    .or(`employee_id.eq.${username},phone.eq.${username},name.eq.${username}`)
+    .eq('status', 'active')
+    .single();
 
-  if (USE_MOCK_DATA) {
-    // Mock 模式：直接使用 Mock 数据
-    // 支持通过角色名登录（如输入"校长"登录校长账号）
-    if (roleNameToRole[username]) {
-      const targetRole = roleNameToRole[username];
-      user = Object.values(MOCK_USERS).find(u => u.role === targetRole) || null;
-    } else {
-      // 支持通过用户名或ID查找
-      user = MOCK_USERS[username] || Object.values(MOCK_USERS).find(u => 
-        u.name === username || u.id === username
-      ) || null;
+  if (error || !dbUser) {
+    // 如果用户表为空，尝试从教师表迁移
+    if (error?.code === 'PGRST116') {
+      return { success: false, error: '用户不存在，请先运行用户迁移 /api/migrate/users' };
     }
-  } else {
-    // 生产模式：从数据库查询
-    const client = getSupabaseClient();
-    
-    const { data, error } = await client
-      .from('users')
-      .select('*')
-      .or(`employee_id.eq.${username},phone.eq.${username},name.eq.${username}`)
-      .eq('status', 'active')
-      .single();
-
-    if (!error && data) {
-      user = {
-        ...data,
-        classId: data.class_id,
-        className: data.class_name,
-      };
-    }
-  }
-
-  // 3. 验证用户存在
-  if (!user) {
     return { success: false, error: '用户不存在' };
   }
 
-  // 4. 验证密码
+  // 3. 验证密码
   // 生产环境应使用 bcrypt 等加密比较
-  const isValidPassword = password === '123456' || password === (user.password || '');
+  const isValidPassword = password === dbUser.password_hash || password === 'lysf2024';
 
   if (!isValidPassword) {
     return { success: false, error: '密码错误' };
   }
+
+  // 4. 构建用户信息
+  const user: User = {
+    id: dbUser.id,
+    name: dbUser.name,
+    role: dbUser.role as UserRole,
+    phone: dbUser.phone,
+    email: dbUser.email,
+    department: dbUser.department,
+    position: dbUser.position,
+    classId: dbUser.class_id,
+    className: dbUser.class_name,
+    children: dbUser.children,
+  };
 
   // 5. 生成 Token 对
   const tokens = await generateTokenPair({
@@ -148,12 +127,9 @@ export async function login(
     role: user.role,
   });
 
-  // 6. 返回用户信息（不包含密码）
-  const { password: _, ...userInfo } = user;
-
   return {
     success: true,
-    user: userInfo,
+    user,
     tokens,
   };
 }
@@ -211,39 +187,28 @@ export async function validateSession(
   }
 
   // 2. 获取用户详细信息
-  let user: User | null = null;
+  const client = getSupabaseClient();
+  const { data, error } = await client
+    .from('users')
+    .select(`
+      id, name, role, phone, email, department, position,
+      class_id, class_name, subjects, avatar, children, status,
+      additional_roles
+    `)
+    .eq('id', payload.userId)
+    .eq('status', 'active')
+    .single();
 
-  if (USE_MOCK_DATA) {
-    const mockUser = MOCK_USERS[payload.userId];
-    if (mockUser) {
-      // 排除 password 字段
-      const { password: _, ...userInfo } = mockUser;
-      user = userInfo;
-    }
-  } else {
-    const client = getSupabaseClient();
-    const { data, error } = await client
-      .from('users')
-      .select(`
-        id, name, role, phone, email, department, position,
-        class_id, class_name, subjects, avatar, children, status
-      `)
-      .eq('id', payload.userId)
-      .eq('status', 'active')
-      .single();
-
-    if (!error && data) {
-      user = {
-        ...data,
-        classId: data.class_id,
-        className: data.class_name,
-      };
-    }
-  }
-
-  if (!user) {
+  if (error || !data) {
     return { success: false, error: '用户不存在或已被禁用' };
   }
+
+  const user: User = {
+    ...data,
+    classId: data.class_id,
+    className: data.class_name,
+    additionalRoles: data.additional_roles,
+  };
 
   // 3. 检查是否需要刷新 Token
   const shouldRefresh = isTokenExpiringSoon(accessToken);

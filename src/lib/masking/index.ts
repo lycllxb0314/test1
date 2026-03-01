@@ -184,8 +184,11 @@ const maskFunctions: Record<MaskType, (value: string) => string> = {
  * 角色字段权限配置
  * true: 完整显示
  * false: 脱敏显示
+ * 
+ * 注意：兼任职务的权限通过主要角色 + 兼任职务合并计算
  */
 export const roleFieldPermissions: RoleMaskPermission[] = [
+  // 学校领导层
   {
     role: 'principal',
     permissions: { phone: true, id_card: true, home_address: true, bank_account: true },
@@ -198,32 +201,9 @@ export const roleFieldPermissions: RoleMaskPermission[] = [
     role: 'vice_principal',
     permissions: { phone: true, id_card: true, home_address: true, bank_account: false },
   },
-  {
-    role: 'academic_director',
-    permissions: { phone: true, id_card: false, home_address: false, bank_account: false },
-  },
-  {
-    role: 'moral_director',
-    permissions: { phone: true, id_card: false, home_address: false, bank_account: false },
-  },
-  {
-    role: 'general_director',
-    permissions: { phone: true, id_card: true, home_address: true, bank_account: true },
-  },
-  {
-    role: 'academic_staff',
-    permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
-  },
-  {
-    role: 'moral_staff',
-    permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
-  },
+  // 教师群体
   {
     role: 'head_teacher',
-    permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
-  },
-  {
-    role: 'grade_leader',
     permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
   },
   {
@@ -231,16 +211,13 @@ export const roleFieldPermissions: RoleMaskPermission[] = [
     permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
   },
   {
-    role: 'staff',
+    role: 'skill_teacher',
     permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
   },
+  // 家长
   {
     role: 'parent',
     permissions: { phone: true, id_card: true, home_address: true, bank_account: false }, // 本人完整
-  },
-  {
-    role: 'student',
-    permissions: { phone: false, id_card: false, home_address: false, bank_account: false },
   },
 ];
 

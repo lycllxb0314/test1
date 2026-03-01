@@ -198,8 +198,10 @@ export default function HomePage() {
     if (mounted && user) {
       const timer = setTimeout(() => {
         // 教师角色直接跳转到教师空间
-        if (user.role === 'subject_teacher' || user.role === 'skill_teacher' || user.role === 'head_teacher' || user.role === 'grade_leader') {
+        if (user.role === 'subject_teacher' || user.role === 'skill_teacher' || user.role === 'head_teacher') {
           router.push('/teacher');
+        } else if (user.role === 'parent') {
+          router.push('/parent');
         } else {
           router.push('/dashboard');
         }
@@ -215,13 +217,13 @@ export default function HomePage() {
   if (!mounted) return null;
 
   if (user) {
-    const isTeacher = user.role === 'subject_teacher' || user.role === 'skill_teacher' || user.role === 'head_teacher' || user.role === 'grade_leader';
+    const isTeacher = user.role === 'subject_teacher' || user.role === 'skill_teacher' || user.role === 'head_teacher';
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="h-10 w-10 animate-spin rounded-full border-3 border-amber-700 border-t-transparent mx-auto" />
           <p className="mt-4 text-gray-600">
-            正在跳转到{isTeacher ? '教师空间' : '工作台'}...
+            正在跳转到{isTeacher ? '教师空间' : user.role === 'parent' ? '家长端' : '工作台'}...
           </p>
         </div>
       </div>

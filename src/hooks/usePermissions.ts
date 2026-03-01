@@ -2,16 +2,29 @@
 
 import { useMemo } from 'react';
 import { useAuth } from './useAuth';
-import { UserRole, ModuleType, Permission } from '@/types';
+import { UserRole, AdministrativeRole, ModuleType, Permission } from '@/types';
 import {
   canAccessModule as checkModuleAccess,
   hasPermission as checkPermission,
+  getMergedPermissions,
   getRoleModules,
-  getModulePermissions,
   isAdminRole,
   isTeacherRole,
   isDirectorRole,
 } from '@/lib/auth/permissions';
+
+/**
+ * 扩展的用户类型（包含兼任职务）
+ */
+interface UserWithAdditionalRoles {
+  id: string;
+  name: string;
+  role: UserRole;
+  additionalRoles?: AdministrativeRole[];
+  classId?: string;
+  className?: string;
+  children?: { id: string; name: string; classId: string; className: string }[];
+}
 
 /**
  * 权限检查 Hook
@@ -20,17 +33,20 @@ import {
 export function usePermissions() {
   const { user } = useAuth();
 
-  const role = user?.role;
+  // 获取兼任职务
+  const additionalRoles = (user as UserWithAdditionalRoles)?.additionalRoles;
 
   return useMemo(() => {
-    const currentRole = role;
+    const currentRole = user?.role;
+    const currentAdditionalRoles = additionalRoles;
 
     /**
      * 检查是否有指定模块的访问权限
      */
     const canAccessModule = (module: ModuleType): boolean => {
       if (!currentRole) return false;
-      return checkModuleAccess(currentRole, module);
+      const permissions = getMergedPermissions(currentRole, currentAdditionalRoles);
+      return module in permissions;
     };
 
     /**
@@ -38,7 +54,8 @@ export function usePermissions() {
      */
     const hasPermission = (module: ModuleType, permission: Permission): boolean => {
       if (!currentRole) return false;
-      return checkPermission(currentRole, module, permission);
+      const permissions = getMergedPermissions(currentRole, currentAdditionalRoles);
+      return permissions[module]?.includes(permission) ?? false;
     };
 
     /**
@@ -48,6 +65,15 @@ export function usePermissions() {
       if (!currentRole) return false;
       const roleList = Array.isArray(roles) ? roles : [roles];
       return roleList.includes(currentRole);
+    };
+
+    /**
+     * 检查是否有任一指定兼任职务
+     */
+    const hasAdditionalRole = (roles: AdministrativeRole | AdministrativeRole[]): boolean => {
+      if (!currentAdditionalRoles || currentAdditionalRoles.length === 0) return false;
+      const roleList = Array.isArray(roles) ? roles : [roles];
+      return roleList.some(r => currentAdditionalRoles.includes(r));
     };
 
     /**
@@ -63,15 +89,16 @@ export function usePermissions() {
      */
     const getPermissions = (module: ModuleType): Permission[] => {
       if (!currentRole) return [];
-      return getModulePermissions(currentRole, module);
+      const permissions = getMergedPermissions(currentRole, currentAdditionalRoles);
+      return permissions[module] || [];
     };
 
     /**
-     * 检查是否为管理员
+     * 检查是否为管理员（领导层或兼任主任）
      */
     const isAdmin = (): boolean => {
       if (!currentRole) return false;
-      return isAdminRole(currentRole);
+      return isAdminRole(currentRole, currentAdditionalRoles);
     };
 
     /**
@@ -83,25 +110,24 @@ export function usePermissions() {
     };
 
     /**
-     * 检查是否为部门负责人
+     * 检查是否为部门负责人（兼任主任职务）
      */
     const isDirector = (): boolean => {
-      if (!currentRole) return false;
-      return isDirectorRole(currentRole);
+      return isDirectorRole(currentAdditionalRoles);
     };
 
     /**
      * 检查是否为班主任
      */
     const isHeadTeacher = (): boolean => {
-      return currentRole === 'head_teacher' || currentRole === 'grade_leader';
+      return currentRole === 'head_teacher';
     };
 
     /**
-     * 检查是否为年段长
+     * 检查是否为年段长（兼任职务）
      */
     const isGradeLeader = (): boolean => {
-      return currentRole === 'grade_leader';
+      return hasAdditionalRole('grade_leader');
     };
 
     /**
@@ -119,7 +145,7 @@ export function usePermissions() {
       }
       
       // 年段长可以查看管理的年级的班级
-      if (currentRole === 'grade_leader') {
+      if (isGradeLeader()) {
         // TODO: 实现年级检查
         return true;
       }
@@ -133,10 +159,11 @@ export function usePermissions() {
     const canEditStudent = (studentClassId: string): boolean => {
       if (!currentRole) return false;
       
-      // 管理员和教务人员可以编辑
-      if (isAdmin() || currentRole === 'academic_director' || currentRole === 'academic_staff') {
-        return true;
-      }
+      // 管理员可以编辑
+      if (isAdmin()) return true;
+      
+      // 教务主任可以编辑
+      if (hasAdditionalRole('academic_director')) return true;
       
       // 班主任只能编辑自己班级的学生
       if (currentRole === 'head_teacher' && user?.classId === studentClassId) {
@@ -156,32 +183,29 @@ export function usePermissions() {
     return {
       // 基础信息
       role: currentRole,
+      additionalRoles: currentAdditionalRoles,
       user,
       isAuthenticated: !!currentRole,
-      
+
       // 权限检查方法
       canAccessModule,
       hasPermission,
       hasRole,
+      hasAdditionalRole,
       getAccessibleModules,
       getPermissions,
-      
+
       // 角色检查方法
       isAdmin,
       isTeacher,
       isDirector,
       isHeadTeacher,
       isGradeLeader,
-      
-      // 业务检查方法
+
+      // 业务权限检查
       canViewClass,
       canEditStudent,
       canApprove,
     };
-  }, [role, user]);
+  }, [user, additionalRoles]);
 }
-
-/**
- * 导出类型
- */
-export type PermissionsHook = ReturnType<typeof usePermissions>;

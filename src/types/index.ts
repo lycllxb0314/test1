@@ -1,32 +1,27 @@
 // 智慧校园系统 - 统一类型定义
 
-// 用户角色枚举
+/**
+ * 用户角色枚举（用于登录身份）
+ * 
+ * 统一身份角色来自教务系统：
+ * - 教师角色：从教务系统的教师主要角色获取
+ * - 家长角色：从学生关联的家长信息获取
+ * 
+ * 兼任职务（AdministrativeRole）只增加权限，不作为登录身份
+ */
 export type UserRole = 
-  // === 学校领导层 ===
+  // === 学校领导层（主要角色就是领导职务）===
   | 'principal'        // 校长
   | 'secretary'        // 书记
   | 'vice_principal'   // 分管副校长
-  // === 部门负责人（可由教师兼任）===
-  | 'academic_director' // 教务主任
-  | 'moral_director'    // 德育主任
-  | 'general_director'  // 总务主任
-  // === 普通职员 ===
-  | 'academic_staff'    // 教务员
-  | 'moral_staff'       // 德育员
   // === 教师群体 ===
-  | 'head_teacher'      // 班主任
-  | 'grade_leader'      // 年段长（可由科任教师兼任）
-  | 'subject_teacher'   // 科任教师（语文、数学、英语等主科教师）
-  | 'skill_teacher'     // 技能课教师（音乐、美术、体育、科学等）
-  | 'research_group_leader'       // 教研组组长（通常由班主任或科任兼任）
-  | 'research_group_deputy_leader' // 教研组副组长（通常由班主任或科任兼任）
-  | 'young_pioneer_counselor'     // 少先队大队辅导员（通常由教师兼任）
-  // === 其他人员 ===
-  | 'staff'            // 后勤人员
-  | 'student'          // 学生
+  | 'head_teacher'     // 班主任
+  | 'subject_teacher'  // 科任教师（语文、数学、英语等主科教师）
+  | 'skill_teacher'    // 技能课教师（音乐、美术、体育、科学等）
+  // === 家长 ===
   | 'parent';          // 家长
 
-/** 行政职务类型（可兼任，存储在 additional_roles 字段中） */
+/** 行政职务类型（可兼任，只增加权限，不作为登录身份） */
 export type AdministrativeRole = 
   | 'academic_director'         // 教务主任
   | 'moral_director'            // 德育主任
@@ -52,6 +47,17 @@ export interface RoleConfig {
     viewGradeSchedule?: boolean;           // 查看年级课表
   };
   managedGrades?: number[];                // 管理的年级（年段长专用）
+}
+
+// 兼任职务配置
+export interface AdministrativeRoleConfig {
+  id: AdministrativeRole;
+  name: string;
+  description: string;
+  modules: ModuleType[];
+  permissions: Permission[];
+  avatar: string;
+  specialPermissions?: RoleConfig['specialPermissions'];
 }
 
 // 模块类型
@@ -84,6 +90,7 @@ export interface User {
   classId?: string;       // 班主任/学生所属班级
   className?: string;
   subjects?: string[];    // 教师任教学科
+  additionalRoles?: AdministrativeRole[];  // 兼任职务
   children?: {            // 家长关联的学生
     id: string;
     name: string;
@@ -535,7 +542,7 @@ export type WorkflowStatus =
 export interface ApprovalNode {
   id: string;
   name: string;
-  approverRole: UserRole | UserRole[];
+  approverRole: UserRole | AdministrativeRole | (UserRole | AdministrativeRole)[];
   approverId?: string;
   approverName?: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -929,7 +936,7 @@ export interface WorkflowNode {
   
   // 审批节点配置
   approverType?: 'role' | 'specific' | 'applicant_leader';  // 审批人类型
-  approverRole?: UserRole;               // 按角色审批
+  approverRole?: UserRole | AdministrativeRole;  // 按角色审批（支持主要角色和兼任职务）
   approverId?: string;                   // 指定人员ID
   approverName?: string;                 // 指定人员姓名
   
@@ -1098,7 +1105,7 @@ export interface ApprovalRecord {
   nodeName: string;
   approverId: string;
   approverName: string;
-  approverRole: UserRole;
+  approverRole: UserRole | AdministrativeRole;  // 支持主要角色和兼任职务
   action: 'approve' | 'reject' | 'withdraw' | 'transfer' | 'return';
   comment?: string;
   returnToNodeId?: string;               // 退回到的节点ID

@@ -1,7 +1,15 @@
-import { User, Class, Student, Teacher, Announcement, LeaveRequest, RepairRequest, Asset } from '@/types';
+import { User, Class, Student, Teacher, Announcement, LeaveRequest, RepairRequest, Asset, AdministrativeRole } from '@/types';
+
+/**
+ * 扩展的用户类型（包含兼任职务）
+ */
+interface MockUser extends User {
+  additionalRoles?: AdministrativeRole[];
+}
 
 // 模拟用户数据
-export const mockUsers: User[] = [
+// 注意：兼任职务已迁移到 additionalRoles 字段
+export const mockUsers: MockUser[] = [
   {
     id: '1',
     name: '张明华',
@@ -30,6 +38,7 @@ export const mockUsers: User[] = [
     email: 'wangxf@lysf.fx.edu.cn',
     department: '副校长室',
     position: '教学副校长',
+    additionalRoles: ['academic_director'] as AdministrativeRole[],
     avatar: '/avatars/default.svg',
   },
   {
@@ -40,56 +49,49 @@ export const mockUsers: User[] = [
     email: 'chenzq@lysf.fx.edu.cn',
     department: '副校长室',
     position: '德育副校长',
+    additionalRoles: ['moral_director'] as AdministrativeRole[],
     avatar: '/avatars/default.svg',
   },
   {
     id: '5',
     name: '刘婷婷',
-    role: 'academic_director',
+    role: 'head_teacher',
     phone: '138****1005',
     email: 'liutt@lysf.fx.edu.cn',
     department: '教务处',
     position: '教务主任',
+    additionalRoles: ['academic_director'] as AdministrativeRole[],
+    classId: '3-1',
+    className: '三年级1班',
+    subjects: ['数学'],
     avatar: '/avatars/default.svg',
   },
   {
     id: '6',
     name: '黄伟明',
-    role: 'moral_director',
+    role: 'head_teacher',
     phone: '138****1006',
     email: 'huangwm@lysf.fx.edu.cn',
     department: '德育处',
     position: '德育主任',
+    additionalRoles: ['moral_director'] as AdministrativeRole[],
+    classId: '4-1',
+    className: '四年级1班',
+    subjects: ['语文'],
     avatar: '/avatars/default.svg',
   },
   {
     id: '6-1',
-    name: '周小明',
-    role: 'academic_staff',
-    phone: '138****1006',
-    email: 'zhouxm@lysf.fx.edu.cn',
-    department: '教务处',
-    position: '教务员',
-    avatar: '/avatars/default.svg',
-  },
-  {
-    id: '6-2',
-    name: '吴秀英',
-    role: 'moral_staff',
-    phone: '138****1062',
-    email: 'wuxy@lysf.fx.edu.cn',
-    department: '德育处',
-    position: '德育员',
-    avatar: '/avatars/default.svg',
-  },
-  {
-    id: '6-3',
     name: '陈大发',
-    role: 'general_director',
+    role: 'head_teacher',
     phone: '138****1063',
     email: 'chendf@lysf.fx.edu.cn',
     department: '总务处',
     position: '总务主任',
+    additionalRoles: ['general_director'] as AdministrativeRole[],
+    classId: '5-1',
+    className: '五年级1班',
+    subjects: ['体育'],
     avatar: '/avatars/default.svg',
   },
   {
@@ -121,11 +123,14 @@ export const mockUsers: User[] = [
   {
     id: '8-1',
     name: '林国强',
-    role: 'grade_leader',
+    role: 'head_teacher',
     phone: '138****1081',
     email: 'lingq@lysf.fx.edu.cn',
     department: '三年级',
     position: '年段长',
+    additionalRoles: ['grade_leader'] as AdministrativeRole[],
+    classId: '3-2',
+    className: '三年级2班',
     subjects: ['数学'],
     avatar: '/avatars/default.svg',
   },
@@ -141,31 +146,24 @@ export const mockUsers: User[] = [
     avatar: '/avatars/default.svg',
   },
   {
-    id: '10',
-    name: '学生张三',
-    role: 'student',
-    phone: '138****1010',
-    classId: '3-1',
-    className: '三年级1班',
+    id: '9-1',
+    name: '赵音乐',
+    role: 'skill_teacher',
+    phone: '138****1091',
+    email: 'zhaoyy@lysf.fx.edu.cn',
+    department: '音乐组',
+    position: '教师',
+    subjects: ['音乐'],
     avatar: '/avatars/default.svg',
   },
   {
     id: '11',
-    name: '家长张父',
+    name: '张父',
     role: 'parent',
     phone: '138****1011',
     children: [
-      { id: '10', name: '学生张三', classId: '3-1', className: '三年级1班' }
+      { id: '10', name: '张小明', classId: '3-1', className: '三年级1班' }
     ],
-    avatar: '/avatars/default.svg',
-  },
-  {
-    id: '12',
-    name: '赵师傅',
-    role: 'staff',
-    phone: '138****1012',
-    department: '后勤处',
-    position: '维修工',
     avatar: '/avatars/default.svg',
   },
 ];
@@ -270,8 +268,8 @@ export const mockLeaveRequests: LeaveRequest[] = [
     reason: '家中有急事需要处理',
     status: 'pending',
     approvalFlow: [
-      { id: '1', name: '年级组长审批', approverRole: 'academic_staff', status: 'approved', approverName: '王年级组长', comment: '同意', approvedAt: '2024-03-18 10:00:00' },
-      { id: '2', name: '教务处审批', approverRole: 'academic_director', status: 'pending' },
+      { id: '1', name: '年级组长审批', approverRole: 'head_teacher', status: 'approved', approverName: '王年级组长', comment: '同意', approvedAt: '2024-03-18 10:00:00' },
+      { id: '2', name: '教务处审批', approverRole: 'academic_director' as AdministrativeRole, status: 'pending' },
     ],
     currentStep: 1,
     createdAt: '2024-03-18 08:00:00',

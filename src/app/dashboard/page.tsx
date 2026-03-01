@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AdministrativeRole } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,8 +45,12 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
   
+  // 获取兼任职务
+  const additionalRoles = (user as any)?.additionalRoles as AdministrativeRole[] | undefined;
+  const isGradeLeader = additionalRoles?.includes('grade_leader');
+  
   // 教师角色重定向到教师空间
-  if (user && (user.role === 'subject_teacher' || user.role === 'head_teacher' || user.role === 'grade_leader' || user.role === 'skill_teacher')) {
+  if (user && (user.role === 'subject_teacher' || user.role === 'head_teacher' || user.role === 'skill_teacher')) {
     router.push('/teacher');
     return null;
   }
@@ -60,7 +65,6 @@ export default function DashboardPage() {
 
   const roleConfig = roleConfigs[user.role];
   const isHeadTeacher = user.role === 'head_teacher';
-  const isGradeLeader = user.role === 'grade_leader';
   const isLeader = ['principal', 'secretary', 'vice_principal'].includes(user.role);
   const isAdmin = ['principal', 'secretary', 'vice_principal', 'admin'].includes(user.role);
 

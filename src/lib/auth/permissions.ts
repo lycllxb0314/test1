@@ -1,13 +1,18 @@
 /**
  * 角色权限配置
- * 定义每个角色对各模块的访问权限
+ * 
+ * 统一身份角色来自教务系统：
+ * - 主要角色（UserRole）：决定登录身份和基础权限
+ * - 兼任职务（AdministrativeRole）：只增加权限，不作为登录身份
+ * 
+ * 系统会自动合并主要角色和兼任职务的权限
  */
 
-import { UserRole, ModuleType, Permission, RoleConfig } from '@/types';
+import { UserRole, ModuleType, Permission, AdministrativeRole, RoleConfig } from '@/types';
 
 /**
- * 角色权限映射
- * 定义每个角色可以访问的模块及对应权限
+ * 主要角色权限映射
+ * 定义每个主要角色对各模块的基础权限
  */
 export const ROLE_PERMISSIONS: Record<UserRole, {
   name: string;
@@ -50,75 +55,21 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     },
   },
 
-  // === 部门负责人 ===
-  academic_director: {
-    name: '教务主任',
-    description: '教务部门负责人，管理教务相关所有事务',
-    modules: {
-      academic: ['admin'],
-      teacher: ['manage'],
-      homepage: ['edit'],
-    },
-  },
-  moral_director: {
-    name: '德育主任',
-    description: '德育部门负责人，管理德育相关所有事务',
-    modules: {
-      moral: ['admin'],
-      teacher: ['view', 'edit'],
-      parent: ['manage'],
-      homepage: ['edit'],
-    },
-  },
-  general_director: {
-    name: '总务主任',
-    description: '总务部门负责人，管理后勤相关所有事务',
-    modules: {
-      general: ['admin'],
-      homepage: ['edit'],
-    },
-  },
-
-  // === 普通职员 ===
-  academic_staff: {
-    name: '教务员',
-    description: '教务处工作人员，负责日常教务管理',
-    modules: {
-      academic: ['manage'],
-    },
-  },
-  moral_staff: {
-    name: '德育员',
-    description: '德育处工作人员，负责日常德育管理',
-    modules: {
-      moral: ['manage'],
-      parent: ['view'],
-    },
-  },
-
   // === 教师群体 ===
   head_teacher: {
     name: '班主任',
-    description: '班级管理者，管理本班学生和家长',
+    description: '班级管理者，管理本班学生和家长，享有教师空间全部权限',
     modules: {
-      teacher: ['manage'],
+      teacher: ['admin'],
       parent: ['view'],
-    },
-  },
-  grade_leader: {
-    name: '年段长',
-    description: '年级管理者，管理本年级教师和学生',
-    modules: {
-      teacher: ['manage'],
-      parent: ['view'],
-      academic: ['view', 'edit'], // 可以管理调课
+      moral: ['view', 'edit'], // 可以管理班级德育
     },
   },
   subject_teacher: {
     name: '科任教师',
-    description: '语文、数学、英语等主科教师，享有与班主任同等权限',
+    description: '语文、数学、英语等主科教师，享有教师空间全部权限',
     modules: {
-      teacher: ['manage'],
+      teacher: ['admin'],
       parent: ['view'],
     },
   },
@@ -129,57 +80,118 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
       teacher: ['view'],
     },
   },
+
+  // === 家长 ===
+  parent: {
+    name: '家长',
+    description: '家长用户，查看子女信息、成绩和通知',
+    modules: {
+      parent: ['admin'],
+    },
+  },
+};
+
+/**
+ * 兼任职务权限映射
+ * 兼任职务只增加权限，不作为登录身份
+ */
+export const ADMINISTRATIVE_ROLE_PERMISSIONS: Record<AdministrativeRole, {
+  name: string;
+  additionalModules: Partial<Record<ModuleType, Permission[]>>;
+  description: string;
+}> = {
+  academic_director: {
+    name: '教务主任',
+    description: '教务部门负责人，管理教务相关所有事务',
+    additionalModules: {
+      academic: ['admin'],
+      homepage: ['edit'],
+    },
+  },
+  moral_director: {
+    name: '德育主任',
+    description: '德育部门负责人，管理德育相关所有事务',
+    additionalModules: {
+      moral: ['admin'],
+      parent: ['manage'],
+      homepage: ['edit'],
+    },
+  },
+  general_director: {
+    name: '总务主任',
+    description: '总务部门负责人，管理后勤相关所有事务',
+    additionalModules: {
+      general: ['admin'],
+      homepage: ['edit'],
+    },
+  },
+  grade_leader: {
+    name: '年段长',
+    description: '年级管理者，管理本年级教师和学生',
+    additionalModules: {
+      teacher: ['manage'],
+      academic: ['view', 'edit'], // 可以管理调课
+    },
+  },
   research_group_leader: {
     name: '教研组组长',
-    description: '教研组负责人，通常由班主任或科任教师兼任，负责教研活动组织与管理',
-    modules: {
-      teacher: ['manage'],
-      parent: ['view'],
+    description: '教研组负责人，负责教研活动组织与管理',
+    additionalModules: {
       academic: ['view', 'edit'], // 可以管理教研活动
     },
   },
   research_group_deputy_leader: {
     name: '教研组副组长',
-    description: '教研组副负责人，通常由班主任或科任教师兼任，协助组长开展教研活动',
-    modules: {
-      teacher: ['manage'],
-      parent: ['view'],
-      academic: ['view', 'edit'], // 可以协助管理教研活动
+    description: '教研组副负责人，协助组长开展教研活动',
+    additionalModules: {
+      academic: ['view', 'edit'],
     },
   },
   young_pioneer_counselor: {
     name: '少先队大队辅导员',
-    description: '少先队大队辅导员，通常由教师兼任，负责少先队活动组织与管理',
-    modules: {
-      teacher: ['manage'],
-      parent: ['view'],
+    description: '负责少先队活动组织与管理',
+    additionalModules: {
       moral: ['view', 'edit'], // 可以管理少先队活动
     },
   },
-
-  // === 其他人员 ===
-  staff: {
-    name: '后勤人员',
-    description: '后勤工作人员',
-    modules: {
-      general: ['view', 'edit'],
-    },
-  },
-  student: {
-    name: '学生',
-    description: '学生用户，查看个人信息和成绩',
-    modules: {
-      parent: ['view'], // 通过家长端查看
-    },
-  },
-  parent: {
-    name: '家长',
-    description: '家长用户，查看子女信息和成绩',
-    modules: {
-      parent: ['view'],
-    },
-  },
 };
+
+/**
+ * 合并主要角色和兼任职务的权限
+ */
+export function getMergedPermissions(
+  primaryRole: UserRole,
+  additionalRoles: AdministrativeRole[] = []
+): Partial<Record<ModuleType, Permission[]>> {
+  // 获取主要角色权限
+  const primaryPermissions = ROLE_PERMISSIONS[primaryRole]?.modules || {};
+  
+  // 合并兼任职务权限
+  const mergedPermissions = { ...primaryPermissions };
+  
+  for (const adminRole of additionalRoles) {
+    const additionalPermissions = ADMINISTRATIVE_ROLE_PERMISSIONS[adminRole]?.additionalModules || {};
+    
+    for (const [module, permissions] of Object.entries(additionalPermissions)) {
+      const moduleKey = module as ModuleType;
+      const existingPermissions = mergedPermissions[moduleKey] || [];
+      
+      // 合并权限（去重，取最高权限）
+      const mergedModulePermissions = [...new Set([...existingPermissions, ...(permissions || [])])];
+      
+      // 权限级别排序：admin > manage > edit > view
+      if (mergedModulePermissions.includes('admin')) {
+        mergedPermissions[moduleKey] = ['admin'];
+      } else if (mergedModulePermissions.includes('manage')) {
+        mergedPermissions[moduleKey] = ['manage'];
+      } else {
+        mergedPermissions[moduleKey] = mergedModulePermissions as Permission[];
+      }
+    }
+  }
+  
+  return mergedPermissions;
+}
 
 /**
  * 获取角色的所有可访问模块
@@ -193,10 +205,13 @@ export function getRoleModules(role: UserRole): ModuleType[] {
 /**
  * 检查角色是否有指定模块的访问权限
  */
-export function canAccessModule(role: UserRole, module: ModuleType): boolean {
-  const roleConfig = ROLE_PERMISSIONS[role];
-  if (!roleConfig) return false;
-  return module in roleConfig.modules;
+export function canAccessModule(
+  role: UserRole,
+  module: ModuleType,
+  additionalRoles?: AdministrativeRole[]
+): boolean {
+  const permissions = getMergedPermissions(role, additionalRoles);
+  return module in permissions;
 }
 
 /**
@@ -236,45 +251,41 @@ export function hasPermission(role: UserRole, module: ModuleType, permission: Pe
 }
 
 /**
- * 检查是否为管理员角色
+ * 检查是否为管理员角色（学校领导层）
  */
-export function isAdminRole(role: UserRole): boolean {
-  const adminRoles: UserRole[] = [
-    'principal',
-    'secretary',
-    'vice_principal',
-    'academic_director',
-    'moral_director',
-    'general_director',
-  ];
-  return adminRoles.includes(role);
+export function isAdminRole(role: UserRole, additionalRoles?: AdministrativeRole[]): boolean {
+  // 学校领导层
+  if (['principal', 'secretary', 'vice_principal'].includes(role)) {
+    return true;
+  }
+  // 兼任主任职务
+  if (additionalRoles && (
+    additionalRoles.includes('academic_director') ||
+    additionalRoles.includes('moral_director') ||
+    additionalRoles.includes('general_director')
+  )) {
+    return true;
+  }
+  return false;
 }
 
 /**
  * 检查是否为教师角色
  */
 export function isTeacherRole(role: UserRole): boolean {
-  const teacherRoles: UserRole[] = [
-    'head_teacher',
-    'grade_leader',
-    'subject_teacher',
-    'skill_teacher',
-    'research_group_leader',
-    'research_group_deputy_leader',
-  ];
-  return teacherRoles.includes(role);
+  return ['head_teacher', 'subject_teacher', 'skill_teacher'].includes(role);
 }
 
 /**
- * 检查是否为部门负责人
+ * 检查是否为部门负责人（兼任职务）
  */
-export function isDirectorRole(role: UserRole): boolean {
-  const directorRoles: UserRole[] = [
-    'academic_director',
-    'moral_director',
-    'general_director',
-  ];
-  return directorRoles.includes(role);
+export function isDirectorRole(additionalRoles?: AdministrativeRole[]): boolean {
+  if (!additionalRoles) return false;
+  return (
+    additionalRoles.includes('academic_director') ||
+    additionalRoles.includes('moral_director') ||
+    additionalRoles.includes('general_director')
+  );
 }
 
 /**

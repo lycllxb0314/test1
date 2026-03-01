@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { AdministrativeRole } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -260,8 +261,10 @@ export function AppSidebar() {
   if (!user) return null;
 
   const roleConfig = roleConfigs[user.role];
+  const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
+  
   const isHeadTeacher = user.role === 'head_teacher';
-  const isGradeLeader = user.role === 'grade_leader';
+  const isGradeLeader = additionalRoles?.includes('grade_leader');
 
   // 获取当前模块的导航
   const getCurrentNav = (): NavItem[] => {
@@ -323,7 +326,7 @@ export function AppSidebar() {
           {/* 模块菜单 */}
           <nav className="flex-1 space-y-1 p-2">
             {/* 领导驾驶舱 / 工作台 - 根据角色跳转不同页面 */}
-            {user.role !== 'subject_teacher' && user.role !== 'skill_teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && user.role !== 'parent' && (
+            {user.role !== 'subject_teacher' && user.role !== 'skill_teacher' && user.role !== 'head_teacher' && user.role !== 'parent' && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -361,7 +364,7 @@ export function AppSidebar() {
             )}
 
             {/* 分割线 - 教师和家长角色不需要分割线 */}
-            {user.role !== 'subject_teacher' && user.role !== 'skill_teacher' && user.role !== 'head_teacher' && user.role !== 'grade_leader' && user.role !== 'parent' && (
+            {user.role !== 'subject_teacher' && user.role !== 'skill_teacher' && user.role !== 'head_teacher' && user.role !== 'parent' && (
               <div className="my-2 border-t border-gray-200" />
             )}
 
@@ -510,8 +513,11 @@ export function AppSidebar() {
               </Tooltip>
             )}
 
-            {/* 审批中心 */}
-            {(user.role === 'principal' || user.role === 'secretary' || user.role === 'vice_principal' || user.role === 'academic_director' || user.role === 'moral_director' || user.role === 'general_director') && (
+            {/* 审批中心 - 学校领导层和兼任主任职务的人 */}
+            {(user.role === 'principal' || user.role === 'secretary' || user.role === 'vice_principal' || 
+              additionalRoles?.includes('academic_director') || 
+              additionalRoles?.includes('moral_director') || 
+              additionalRoles?.includes('general_director')) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button

@@ -3,8 +3,8 @@
 import React, { ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { UserRole, ModuleType, Permission } from '@/types';
-import { canAccessModule, hasPermission } from '@/lib/auth/permissions';
+import { UserRole, ModuleType, Permission, AdministrativeRole } from '@/types';
+import { canAccessModule, hasPermission, getMergedPermissions } from '@/lib/auth/permissions';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
  */
 interface ProtectedRouteProps {
   children: ReactNode;
-  // 允许的角色列表
+  // 允许的主要角色列表
   roles?: UserRole[];
   // 需要的模块访问权限
   module?: ModuleType;
@@ -40,7 +40,7 @@ interface ProtectedRouteProps {
  * </ProtectedRoute>
  * 
  * // 角色限制
- * <ProtectedRoute roles={['principal', 'academic_director']}>
+ * <ProtectedRoute roles={['principal', 'vice_principal']}>
  *   <AdminPanel />
  * </ProtectedRoute>
  * 
@@ -97,13 +97,17 @@ export function ProtectedRoute({
 
   // 模块访问检查
   if (module) {
-    if (!canAccessModule(user.role, module)) {
+    // 获取合并后的权限（主要角色 + 兼任职务）
+    const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
+    const modulePermissions = getMergedPermissions(user.role, additionalRoles);
+    
+    if (!modulePermissions[module]) {
       return fallbackComponent || <NoPermission />;
     }
 
     // 具体权限检查
     if (permission) {
-      if (!hasPermission(user.role, module, permission)) {
+      if (!modulePermissions[module]?.includes(permission)) {
         return fallbackComponent || <NoPermission />;
       }
     }
@@ -178,12 +182,12 @@ export function RequireRole({
 }
 
 /**
- * 管理员保护组件
+ * 管理员保护组件（学校领导层）
  */
 export function RequireAdmin({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute
-      roles={['principal', 'secretary', 'vice_principal', 'academic_director', 'moral_director', 'general_director']}
+      roles={['principal', 'secretary', 'vice_principal']}
     >
       {children}
     </ProtectedRoute>
@@ -191,15 +195,12 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
 }
 
 /**
- * 教师保护组件
+ * 教师保护组件（包括班主任、科任教师、技能课教师）
  */
 export function RequireTeacher({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute
-      customCheck={(user) => 
-        ['head_teacher', 'grade_leader', 'teacher'].includes(user.role) ||
-        ['principal', 'secretary', 'vice_principal', 'academic_director', 'moral_director', 'general_director'].includes(user.role)
-      }
+      roles={['head_teacher', 'subject_teacher', 'skill_teacher']}
     >
       {children}
     </ProtectedRoute>
@@ -207,12 +208,58 @@ export function RequireTeacher({ children }: { children: ReactNode }) {
 }
 
 /**
- * 班主任保护组件
+ * 德育相关人员保护组件
  */
-export function RequireHeadTeacher({ children }: { children: ReactNode }) {
+export function RequireMoral({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute
-      roles={['head_teacher', 'grade_leader']}
+      roles={['principal', 'secretary', 'vice_principal', 'head_teacher']}
+      customCheck={(user) => {
+        // 检查是否有兼任德育相关职务
+        const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
+        if (additionalRoles?.includes('moral_director') || 
+            additionalRoles?.includes('young_pioneer_counselor')) {
+          return true;
+        }
+        return ['principal', 'secretary', 'vice_principal', 'head_teacher'].includes(user.role);
+      }}
+    >
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+/**
+ * 教务相关人员保护组件
+ */
+export function RequireAcademic({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedRoute
+      roles={['principal', 'vice_principal']}
+      customCheck={(user) => {
+        // 检查是否有任教务相关职务
+        const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
+        if (additionalRoles?.includes('academic_director') || 
+            additionalRoles?.includes('grade_leader') ||
+            additionalRoles?.includes('research_group_leader') ||
+            additionalRoles?.includes('research_group_deputy_leader')) {
+          return true;
+        }
+        return ['principal', 'vice_principal'].includes(user.role);
+      }}
+    >
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+/**
+ * 家长保护组件
+ */
+export function RequireParent({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedRoute
+      roles={['parent']}
     >
       {children}
     </ProtectedRoute>

@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { User, UserRole, ModuleType, Permission } from '@/types';
+import { User, UserRole, ModuleType, Permission, AdministrativeRole } from '@/types';
 import {
   authenticateRequest,
   createAuthErrorResponse,
@@ -196,11 +196,18 @@ export function protectedRoute(
 }
 
 /**
- * 创建仅限管理员的 API 路由
+ * 创建仅限管理员的 API 路由（领导层）
  */
 export function adminOnlyRoute(handler: ProtectedRouteHandler) {
   return protectedRoute(handler, {
-    roles: ['principal', 'secretary', 'vice_principal', 'academic_director', 'moral_director', 'general_director'],
+    roles: ['principal', 'secretary', 'vice_principal'],
+    // 兼任主任职务的管理员也允许
+    customCheck: (user) => {
+      const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
+      return additionalRoles?.includes('academic_director') || 
+             additionalRoles?.includes('moral_director') || 
+             additionalRoles?.includes('general_director') || false;
+    },
   });
 }
 
@@ -209,7 +216,7 @@ export function adminOnlyRoute(handler: ProtectedRouteHandler) {
  */
 export function teacherOnlyRoute(handler: ProtectedRouteHandler) {
   return protectedRoute(handler, {
-    customCheck: (user) => isTeacherRole(user.role) || isAdminRole(user.role),
+    customCheck: (user) => isTeacherRole(user.role) || isAdminRole(user.role, (user as any).additionalRoles),
   });
 }
 
@@ -218,7 +225,7 @@ export function teacherOnlyRoute(handler: ProtectedRouteHandler) {
  */
 export function headTeacherOnlyRoute(handler: ProtectedRouteHandler) {
   return protectedRoute(handler, {
-    roles: ['head_teacher', 'grade_leader'],
+    roles: ['head_teacher'],
     adminBypass: true,
   });
 }
@@ -275,7 +282,8 @@ export function selfOnly(
 ): (user: User, context: ExtendedRouteContext) => boolean {
   return (user: User, context: ExtendedRouteContext) => {
     const targetUserId = getUserId(context);
-    return user.id === targetUserId || isAdminRole(user.role);
+    const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
+    return user.id === targetUserId || isAdminRole(user.role, additionalRoles);
   };
 }
 
@@ -287,7 +295,8 @@ export function classAccess(
 ): (user: User, context: ExtendedRouteContext) => boolean {
   return (user: User, context: ExtendedRouteContext) => {
     const targetClassId = getClassId(context);
-    return user.classId === targetClassId || isDirectorRole(user.role) || isAdminRole(user.role);
+    const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
+    return user.classId === targetClassId || isDirectorRole(additionalRoles) || isAdminRole(user.role, additionalRoles);
   };
 }
 
