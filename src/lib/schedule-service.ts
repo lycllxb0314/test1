@@ -469,8 +469,16 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
           continue;
         }
         
-        // 非主科检查：该班级当天是否已有该科目
+        // 判断是否为主科
         const isMainSubject = task.subject === '语文' || task.subject === '数学';
+        
+        // 下午时段不安排主科
+        const isAfternoon = emptySlot.periodIndex >= 4;
+        if (isAfternoon && isMainSubject) {
+          continue;
+        }
+        
+        // 非主科检查：该班级当天是否已有该科目
         if (!isMainSubject) {
           const hasSubjectToday = newSlots.some(s => 
             s.classId === cls.id && 
@@ -560,8 +568,16 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
           continue;
         }
         
-        // 非主科检查：该班级当天是否已有该科目
+        // 判断是否为主科
         const isMainSubject = workload.subject === '语文' || workload.subject === '数学';
+        
+        // 下午时段不安排主科
+        const isAfternoon = emptySlot.periodIndex >= 4;
+        if (isAfternoon && isMainSubject) {
+          continue;
+        }
+        
+        // 非主科检查：该班级当天是否已有该科目
         if (!isMainSubject) {
           const hasSubjectToday = newSlots.some(s => 
             s.classId === cls.id && 
@@ -750,7 +766,7 @@ function findBestSlotForTask(
   allSlotRequirements: SlotRequirement[],
   newSlots: ScheduleSlot[]  // 已安排的课表，用于检查当天科目重复
 ): SlotRequirement | null {
-  // 判断是否为主科（语文、数学）- 主科允许一天内多次
+  // 判断是否为主科（语文、数学）
   const isMainSubject = task.subject === '语文' || task.subject === '数学';
   
   // 统计该班级该科目已经使用过的时段
@@ -761,9 +777,11 @@ function findBestSlotForTask(
     }
   });
   
-  // 优先级：优先选择未使用过的时段
-  // 时段优先级：上午第2、3节 > 下午第1节 > 其他
-  const periodPriority = [2, 3, 4, 5, 6, 1];
+  // 优先级：上午第2、3节 > 上午第1节 > 下午
+  // 主科（语文、数学）只在上午排课（第1、2、3节）
+  const periodPriority = isMainSubject 
+    ? [2, 3, 1]  // 主科只在上午
+    : [2, 3, 4, 5, 6, 1];  // 其他科目优先上午2、3节，其次下午，最后上午第1节
   
   // 第一轮：优先选择未使用过的时段
   for (const periodIndex of periodPriority) {

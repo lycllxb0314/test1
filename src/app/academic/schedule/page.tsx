@@ -720,55 +720,72 @@ export default function SchedulePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {periods.map(period => (
-                          <tr key={period.index}>
-                            <td className="p-3 border bg-gray-50">
-                              <div className="font-medium text-gray-700">{period.name}</div>
-                              <div className="text-xs text-gray-500">{period.startTime}-{period.endTime}</div>
-                            </td>
-                            {weekDays.map(day => {
-                              const slot = getSlot(day.key, period.index, classScheduleSlots);
-                              if (!slot) {
-                                return (
-                                  <td key={day.key} className="p-2 border text-center">
-                                    <div className="p-2 rounded-lg border-2 border-dashed border-gray-200 text-gray-400 text-sm">
-                                      未安排
+                        {periods.map((period, idx) => {
+                          // 在第3节后添加上午/下午分界线
+                          const showDivider = idx === 3;
+                          const isAfternoon = period.index >= 4;
+                          
+                          return (
+                            <React.Fragment key={period.index}>
+                              {showDivider && (
+                                <tr>
+                                  <td colSpan={6} className="p-0">
+                                    <div className="bg-gradient-to-r from-amber-100 via-amber-200 to-amber-100 py-1.5 px-4 text-center">
+                                      <span className="text-xs font-medium text-amber-700 tracking-wider">——— 午休 ———</span>
                                     </div>
                                   </td>
-                                );
-                              }
-                              
-                              const isAdjusted = slot.status === 'substituted' || slot.status === 'swapped';
-                              
-                              return (
-                                <td key={day.key} className="p-2 border text-center">
-                                  <div 
-                                    className={`p-2 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${
-                                      subjectColors[slot.subject] || 'bg-gray-50'
-                                    } ${isAdjusted ? 'ring-2 ring-orange-400' : ''}`}
-                                    onClick={() => {
-                                      setSelectedSlot(slot);
-                                      setShowSlotDialog(true);
-                                    }}
-                                  >
-                                    <div className="font-medium">{slot.courseName}</div>
-                                    <div className="text-xs mt-1 flex items-center justify-center gap-1">
-                                      <User className="h-3 w-3" />
-                                      {slot.teacherName || '待定'}
-                                    </div>
-                                    {isAdjusted && (
-                                      <div className="mt-1">
-                                        <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-600 border-orange-200">
-                                          {slot.status === 'substituted' ? '已代课' : '已调换'}
-                                        </Badge>
-                                      </div>
-                                    )}
-                                  </div>
+                                </tr>
+                              )}
+                              <tr className={isAfternoon ? 'bg-amber-50/30' : ''}>
+                                <td className="p-3 border bg-gray-50">
+                                  <div className="font-medium text-gray-700">{period.name}</div>
+                                  <div className="text-xs text-gray-500">{period.startTime}-{period.endTime}</div>
                                 </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                                {weekDays.map(day => {
+                                  const slot = getSlot(day.key, period.index, classScheduleSlots);
+                                  if (!slot) {
+                                    return (
+                                      <td key={day.key} className="p-2 border text-center">
+                                        <div className="p-2 rounded-lg border-2 border-dashed border-gray-200 text-gray-400 text-sm">
+                                          未安排
+                                        </div>
+                                      </td>
+                                    );
+                                  }
+                                  
+                                  const isAdjusted = slot.status === 'substituted' || slot.status === 'swapped';
+                                  
+                                  return (
+                                    <td key={day.key} className="p-2 border text-center">
+                                      <div 
+                                        className={`p-2 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${
+                                          subjectColors[slot.subject] || 'bg-gray-50'
+                                        } ${isAdjusted ? 'ring-2 ring-orange-400' : ''}`}
+                                        onClick={() => {
+                                          setSelectedSlot(slot);
+                                          setShowSlotDialog(true);
+                                        }}
+                                      >
+                                        <div className="font-medium">{slot.courseName}</div>
+                                        <div className="text-xs mt-1 flex items-center justify-center gap-1">
+                                          <User className="h-3 w-3" />
+                                          {slot.teacherName || '待定'}
+                                        </div>
+                                        {isAdjusted && (
+                                          <div className="mt-1">
+                                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-600 border-orange-200">
+                                              {slot.status === 'substituted' ? '已代课' : '已调换'}
+                                            </Badge>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -869,39 +886,55 @@ export default function SchedulePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {periods.map(period => (
-                          <tr key={period.index}>
-                            <td className="p-3 border bg-gray-50">
-                              <div className="font-medium text-gray-700">{period.name}</div>
-                              <div className="text-xs text-gray-500">{period.startTime}-{period.endTime}</div>
-                            </td>
-                            {weekDays.map(day => {
-                              const slot = getSlot(day.key, period.index, teacherScheduleSlots);
-                              if (!slot) {
-                                return (
-                                  <td key={day.key} className="p-2 border text-center">
-                                    <div className="p-2 rounded-lg border-2 border-dashed border-gray-200 text-gray-400 text-sm">
-                                      -
+                        {periods.map((period, idx) => {
+                          const showDivider = idx === 3;
+                          const isAfternoon = period.index >= 4;
+                          
+                          return (
+                            <React.Fragment key={period.index}>
+                              {showDivider && (
+                                <tr>
+                                  <td colSpan={6} className="p-0">
+                                    <div className="bg-gradient-to-r from-amber-100 via-amber-200 to-amber-100 py-1.5 px-4 text-center">
+                                      <span className="text-xs font-medium text-amber-700 tracking-wider">——— 午休 ———</span>
                                     </div>
                                   </td>
-                                );
-                              }
-                              
-                              return (
-                                <td key={day.key} className="p-2 border text-center">
-                                  <div 
-                                    className={`p-2 rounded-lg border ${
-                                      subjectColors[slot.subject] || 'bg-gray-50'
-                                    }`}
-                                  >
-                                    <div className="font-medium">{slot.courseName}</div>
-                                    <div className="text-xs mt-1">{slot.className}</div>
-                                  </div>
+                                </tr>
+                              )}
+                              <tr className={isAfternoon ? 'bg-amber-50/30' : ''}>
+                                <td className="p-3 border bg-gray-50">
+                                  <div className="font-medium text-gray-700">{period.name}</div>
+                                  <div className="text-xs text-gray-500">{period.startTime}-{period.endTime}</div>
                                 </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                                {weekDays.map(day => {
+                                  const slot = getSlot(day.key, period.index, teacherScheduleSlots);
+                                  if (!slot) {
+                                    return (
+                                      <td key={day.key} className="p-2 border text-center">
+                                        <div className="p-2 rounded-lg border-2 border-dashed border-gray-200 text-gray-400 text-sm">
+                                          -
+                                        </div>
+                                      </td>
+                                    );
+                                  }
+                                  
+                                  return (
+                                    <td key={day.key} className="p-2 border text-center">
+                                      <div 
+                                        className={`p-2 rounded-lg border ${
+                                          subjectColors[slot.subject] || 'bg-gray-50'
+                                        }`}
+                                      >
+                                        <div className="font-medium">{slot.courseName}</div>
+                                        <div className="text-xs mt-1">{slot.className}</div>
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
