@@ -266,24 +266,46 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       setLoading(true);
       setError(null);
       
-      // 并行获取班级、学生、教师数据
-      const [classesRes, studentsRes, teachersRes] = await Promise.all([
+      // 并行获取班级和教师数据
+      const [classesRes, teachersRes] = await Promise.all([
         fetch('/api/classes?pageSize=200'),
-        fetch('/api/students?pageSize=5000'),
         fetch('/api/teachers?pageSize=500'),
       ]);
       
       const classesData = await classesRes.json();
-      const studentsData = await studentsRes.json();
       const teachersData = await teachersRes.json();
       
       if (!classesData.success) {
         throw new Error('获取班级数据失败');
       }
       
+      // 分批获取学生数据（Supabase 限制每次最多 1000 条）
+      const allStudents: Record<string, unknown>[] = [];
+      let page = 1;
+      const batchSize = 1000;
+      
+      while (true) {
+        const studentsRes = await fetch(`/api/students?page=${page}&pageSize=${batchSize}`);
+        const studentsData = await studentsRes.json();
+        
+        if (!studentsData.success || !studentsData.data || studentsData.data.length === 0) {
+          break;
+        }
+        
+        allStudents.push(...studentsData.data);
+        
+        // 如果返回的数据少于 batchSize，说明已经获取完所有数据
+        if (studentsData.data.length < batchSize) {
+          break;
+        }
+        page++;
+      }
+      
+      console.log(`获取学生数据完成: ${allStudents.length}人`);
+      
       // 构建学生映射（按班级分组）
       const studentsByClass: Record<string, unknown[]> = {};
-      (studentsData.data || []).forEach((student: Record<string, unknown>) => {
+      allStudents.forEach((student: Record<string, unknown>) => {
         const classId = student.class_id as string;
         if (!studentsByClass[classId]) {
           studentsByClass[classId] = [];
