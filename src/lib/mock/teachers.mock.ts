@@ -179,3 +179,80 @@ export function getMockTeacherProfile(id: string): TeacherProfile | undefined {
   }
   return undefined;
 }
+
+// ============================================
+// 教师成果数据（独立导出）
+// ============================================
+export const MOCK_TEACHER_ACHIEVEMENTS: TeacherAchievement[] = [
+  { id: 'a1', teacherId: 't001', type: '公开课', title: '《背影》区级公开课', level: '区级', result: '优秀', date: '2023-11-20', description: '面向全区语文教师的示范课' },
+  { id: 'a2', teacherId: 't001', type: '教学比赛', title: '龙岩市语文教学技能大赛', level: '市级', result: '一等奖', date: '2023-05-10' },
+  { id: 'a3', teacherId: 't001', type: '论文发表', title: '小学语文阅读教学策略研究', level: '省级', date: '2022-08', description: '发表于《福建教育》2022年第8期' },
+  { id: 'a4', teacherId: 't001', type: '课题研究', title: '小学语文核心素养培养研究', level: '市级', result: '结题', date: '2023-06', description: '市级课题主持人' },
+  { id: 'a5', teacherId: 't001', type: '指导学生获奖', title: '指导学生参加征文比赛', level: '省级', result: '一等奖2人', date: '2023-12' },
+  // 更多教师成果
+  { id: 'a6', teacherId: 't002', type: '公开课', title: '《圆的认识》区级公开课', level: '区级', result: '优秀', date: '2023-10-15', description: '数学示范课' },
+  { id: 'a7', teacherId: 't002', type: '教学比赛', title: '龙岩市数学教学技能大赛', level: '市级', result: '二等奖', date: '2023-04-20' },
+  { id: 'a8', teacherId: 't003', type: '论文发表', title: '小学语文作文教学探索', level: '市级', date: '2023-03', description: '发表于《龙岩教育》' },
+];
+
+/**
+ * 获取教师成果Mock数据
+ */
+export function getMockTeacherAchievements(filters?: {
+  teacherId?: string;
+  type?: string;
+  level?: string;
+}): TeacherAchievement[] {
+  let result = [...MOCK_TEACHER_ACHIEVEMENTS];
+  
+  if (filters?.teacherId) {
+    result = result.filter(a => a.teacherId === filters.teacherId);
+  }
+  
+  if (filters?.type) {
+    result = result.filter(a => a.type === filters.type);
+  }
+  
+  if (filters?.level) {
+    result = result.filter(a => a.level === filters.level);
+  }
+  
+  return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+// ============================================
+// 教师培训数据（独立导出）
+// ============================================
+export const MOCK_TEACHER_TRAININGS: TeacherTraining[] = [
+  { id: 't1', teacherId: 't001', name: '新课标解读培训', type: '市级培训', organizer: '龙岩市教育局', startDate: '2024-01-15', endDate: '2024-01-17', hours: 24, status: '已完成', certificate: 'cert-001' },
+  { id: 't2', teacherId: 't001', name: '信息技术应用能力提升', type: '省级培训', organizer: '福建省教育厅', startDate: '2023-11-01', endDate: '2023-11-30', hours: 48, status: '已完成' },
+  { id: 't3', teacherId: 't001', name: '班主任工作培训', type: '校内培训', organizer: '学校教务处', startDate: '2023-09-01', endDate: '2023-09-03', hours: 16, status: '已完成' },
+  { id: 't4', teacherId: 't002', name: '数学新教材培训', type: '市级培训', organizer: '龙岩市教育局', startDate: '2024-02-20', endDate: '2024-02-22', hours: 24, status: '已完成' },
+  { id: 't5', teacherId: 't003', name: '语文核心素养培训', type: '市级培训', organizer: '龙岩市教育局', startDate: '2023-10-10', endDate: '2023-10-12', hours: 20, status: '已完成' },
+  { id: 't6', teacherId: 't001', name: '人工智能与教学融合', type: '省级培训', organizer: '福建省教育厅', startDate: '2024-03-01', endDate: '2024-03-15', hours: 40, status: '进行中' },
+];
+
+/**
+ * 获取教师培训Mock数据
+ */
+export function getMockTeacherTrainings(filters?: {
+  teacherId?: string;
+  type?: string;
+  status?: string;
+}): TeacherTraining[] {
+  let result = [...MOCK_TEACHER_TRAININGS];
+  
+  if (filters?.teacherId) {
+    result = result.filter(t => t.teacherId === filters.teacherId);
+  }
+  
+  if (filters?.type) {
+    result = result.filter(t => t.type === filters.type);
+  }
+  
+  if (filters?.status) {
+    result = result.filter(t => t.status === filters.status);
+  }
+  
+  return result.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+}

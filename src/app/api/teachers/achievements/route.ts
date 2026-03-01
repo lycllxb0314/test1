@@ -1,14 +1,21 @@
+/**
+ * 教师成果 API
+ * 
+ * GET: 获取教师成果列表
+ * POST: 添加教师成果
+ * PUT: 更新教师成果
+ * DELETE: 删除教师成果
+ * 
+ * 数据来源：使用 lib/mock/teachers.mock.ts 统一数据源
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// Mock教师成果数据
-const mockAchievements = [
-  { id: 'a1', teacherId: 'teacher-001', type: '公开课', title: '《背影》区级公开课', level: '区级', result: '优秀', date: '2023-11-20', description: '面向全区语文教师的示范课' },
-  { id: 'a2', teacherId: 'teacher-001', type: '教学比赛', title: '龙岩市语文教学技能大赛', level: '市级', result: '一等奖', date: '2023-05-10' },
-  { id: 'a3', teacherId: 'teacher-001', type: '论文发表', title: '小学语文阅读教学策略研究', level: '省级', date: '2022-08', description: '发表于《福建教育》2022年第8期' },
-  { id: 'a4', teacherId: 'teacher-001', type: '课题研究', title: '小学语文核心素养培养研究', level: '市级', result: '结题', date: '2023-06', description: '市级课题主持人' },
-  { id: 'a5', teacherId: 'teacher-001', type: '指导学生获奖', title: '指导学生参加征文比赛', level: '省级', result: '一等奖2人', date: '2023-12' },
-];
+import { 
+  MOCK_TEACHER_ACHIEVEMENTS, 
+  getMockTeacherAchievements 
+} from '@/lib/mock/teachers.mock';
+import type { TeacherAchievement } from '@/types';
 
 /**
  * GET - 获取教师成果列表
@@ -17,6 +24,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const teacherId = searchParams.get('teacherId');
+    const type = searchParams.get('type');
+    const level = searchParams.get('level');
 
     const client = getSupabaseClient();
     
@@ -26,32 +35,51 @@ export async function GET(request: NextRequest) {
       .order('date', { ascending: false });
 
     if (teacherId) query = query.eq('teacher_id', teacherId);
+    if (type) query = query.eq('type', type);
+    if (level) query = query.eq('level', level);
 
     const { data, error } = await query;
 
-    if (error) {
-      let filteredData = [...mockAchievements];
-      if (teacherId) filteredData = filteredData.filter(a => a.teacherId === teacherId);
+    if (error || !data || data.length === 0) {
+      // 使用统一 Mock 数据
+      const mockData = getMockTeacherAchievements({
+        teacherId: teacherId || undefined,
+        type: type || undefined,
+        level: level || undefined,
+      });
 
-      return NextResponse.json({ success: true, data: filteredData, source: 'mock' });
+      return NextResponse.json({ 
+        success: true, 
+        data: mockData, 
+        source: 'mock' 
+      });
     }
 
-    const formattedData = (data || []).map((achievement: Record<string, unknown>) => ({
-      id: achievement.id,
-      teacherId: achievement.teacher_id,
-      type: achievement.type,
-      title: achievement.title,
-      level: achievement.level,
-      result: achievement.result,
-      date: achievement.date,
-      description: achievement.description,
-      attachments: achievement.attachments || [],
+    const formattedData: TeacherAchievement[] = (data || []).map((achievement: Record<string, unknown>) => ({
+      id: achievement.id as string,
+      teacherId: achievement.teacher_id as string,
+      type: achievement.type as '公开课' | '教学比赛' | '论文发表' | '课题研究' | '指导学生获奖',
+      title: achievement.title as string,
+      level: achievement.level as string,
+      result: achievement.result as string,
+      date: achievement.date as string,
+      description: achievement.description as string,
+      attachments: (achievement.attachments as string[]) || [],
     }));
 
-    return NextResponse.json({ success: true, data: formattedData, source: 'database' });
+    return NextResponse.json({ 
+      success: true, 
+      data: formattedData, 
+      source: 'database' 
+    });
   } catch (error) {
     console.error('Failed to fetch teacher achievements:', error);
-    return NextResponse.json({ success: true, data: mockAchievements, source: 'mock' });
+    // 兜底：返回统一 Mock 数据
+    return NextResponse.json({ 
+      success: true, 
+      data: getMockTeacherAchievements(), 
+      source: 'mock' 
+    });
   }
 }
 
@@ -63,6 +91,20 @@ export async function POST(request: NextRequest) {
     const client = getSupabaseClient();
     const body = await request.json();
     const { teacherId, type, title, level, result, date, description, attachments } = body;
+
+    // 验证教师是否存在
+    const teacher = await client
+      .from('teachers')
+      .select('id, name')
+      .eq('id', teacherId)
+      .single();
+
+    if (!teacher.data) {
+      return NextResponse.json({
+        success: false,
+        error: '教师不存在',
+      }, { status: 400 });
+    }
 
     const { data, error } = await client
       .from('teacher_achievements')
@@ -80,9 +122,20 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      // 返回 Mock 创建结果
       return NextResponse.json({
         success: true,
-        data: { id: `a-${Date.now()}`, teacherId, type, title, level, result, date, description, attachments: attachments || [] },
+        data: { 
+          id: `a-${Date.now()}`, 
+          teacherId, 
+          type, 
+          title, 
+          level, 
+          result, 
+          date, 
+          description, 
+          attachments: attachments || [] 
+        },
         source: 'mock',
       });
     }
@@ -104,7 +157,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to create teacher achievement:', error);
-    return NextResponse.json({ success: false, error: '添加成果失败' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      error: '添加成果失败' 
+    }, { status: 500 });
   }
 }
 
@@ -140,10 +196,17 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, data, source: 'database' });
+    return NextResponse.json({ 
+      success: true, 
+      data, 
+      source: 'database' 
+    });
   } catch (error) {
     console.error('Failed to update teacher achievement:', error);
-    return NextResponse.json({ success: false, error: '更新成果失败' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      error: '更新成果失败' 
+    }, { status: 500 });
   }
 }
 
@@ -157,18 +220,35 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ success: false, error: '缺少成果ID' }, { status: 400 });
+      return NextResponse.json({
+        success: false,
+        error: '缺少成果ID',
+      }, { status: 400 });
     }
 
-    const { error } = await client.from('teacher_achievements').delete().eq('id', id);
+    const { error } = await client
+      .from('teacher_achievements')
+      .delete()
+      .eq('id', id);
 
     if (error) {
-      return NextResponse.json({ success: true, source: 'mock' });
+      return NextResponse.json({
+        success: true,
+        message: '成果已删除（mock模式）',
+        source: 'mock',
+      });
     }
 
-    return NextResponse.json({ success: true, source: 'database' });
+    return NextResponse.json({
+      success: true,
+      message: '成果已删除',
+      source: 'database',
+    });
   } catch (error) {
     console.error('Failed to delete teacher achievement:', error);
-    return NextResponse.json({ success: false, error: '删除成果失败' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      error: '删除成果失败' 
+    }, { status: 500 });
   }
 }

@@ -84,20 +84,6 @@ interface Teacher {
   headTeacherClassId?: string; // 班主任班级
 }
 
-// 模拟教师数据（ID与API Mock数据一致）
-const mockTeachers: Teacher[] = [
-  { id: 't001', name: '张明华', gender: '男', subject: '语文', title: '高级教师', department: '语文组', phone: '138****1001', email: 'zhangmh@lysf.fx.edu.cn', status: 'active', teachYears: 17, weeklyHours: 14, currentHours: 8, teachableSubjects: ['语文', '道德与法治'], teachableGrades: [1, 2, 3], isHeadTeacher: true, headTeacherClassId: 'c001' },
-  { id: 't002', name: '李秀芳', gender: '女', subject: '数学', title: '一级教师', department: '数学组', phone: '139****2002', email: 'lixf@lysf.fx.edu.cn', status: 'active', teachYears: 14, weeklyHours: 14, currentHours: 6, teachableSubjects: ['数学', '科学'], teachableGrades: [1, 2, 3], isHeadTeacher: true, headTeacherClassId: 'c002' },
-  { id: 't003', name: '王建国', gender: '男', subject: '语文', title: '高级教师', department: '语文组', phone: '137****3003', email: 'wangjg@lysf.fx.edu.cn', status: 'active', teachYears: 12, weeklyHours: 16, currentHours: 12, teachableSubjects: ['语文'], teachableGrades: [3, 4, 5, 6], isHeadTeacher: false },
-  { id: 't004', name: '赵丽萍', gender: '女', subject: '数学', title: '一级教师', department: '数学组', phone: '136****4004', email: 'zhaolp@lysf.fx.edu.cn', status: 'active', teachYears: 10, weeklyHours: 14, currentHours: 10, teachableSubjects: ['数学', '科学'], teachableGrades: [3, 4, 5, 6], isHeadTeacher: false },
-  { id: 't005', name: '刘伟强', gender: '男', subject: '语文', title: '二级教师', department: '语文组', phone: '135****5005', email: 'liuwq@lysf.fx.edu.cn', status: 'active', teachYears: 6, weeklyHours: 16, currentHours: 16, teachableSubjects: ['语文'], teachableGrades: [1, 2, 3, 4, 5, 6], isHeadTeacher: false },
-  { id: 't006', name: '陈美玲', gender: '女', subject: '数学', title: '二级教师', department: '数学组', phone: '134****6006', email: 'chenml@lysf.fx.edu.cn', status: 'active', teachYears: 8, weeklyHours: 18, currentHours: 18, teachableSubjects: ['数学'], teachableGrades: [1, 2, 3, 4, 5, 6], isHeadTeacher: false },
-  { id: 't007', name: '周志明', gender: '男', subject: '英语', title: '一级教师', department: '英语组', phone: '133****7007', email: 'zhouzm@lysf.fx.edu.cn', status: 'active', teachYears: 11, weeklyHours: 16, currentHours: 14, teachableSubjects: ['英语'], teachableGrades: [3, 4, 5, 6], isHeadTeacher: false },
-  { id: 't008', name: '陈思思', gender: '女', subject: '英语', title: '二级教师', department: '英语组', phone: '132****8008', email: 'chenss@lysf.fx.edu.cn', status: 'active', teachYears: 5, weeklyHours: 16, currentHours: 8, teachableSubjects: ['英语', '科学'], teachableGrades: [3, 4, 5, 6], isHeadTeacher: false },
-  { id: 't009', name: '王强', gender: '男', subject: '体育', title: '一级教师', department: '体育组', phone: '131****9009', email: 'wangq@lysf.fx.edu.cn', status: 'active', teachYears: 9, weeklyHours: 18, currentHours: 16, teachableSubjects: ['体育'], teachableGrades: [1, 2, 3, 4, 5, 6], isHeadTeacher: false },
-  { id: 't010', name: '林小燕', gender: '女', subject: '音乐', title: '二级教师', department: '艺术组', phone: '130****1010', email: 'linxy@lysf.fx.edu.cn', status: 'active', teachYears: 4, weeklyHours: 16, currentHours: 12, teachableSubjects: ['音乐'], teachableGrades: [1, 2, 3, 4, 5, 6], isHeadTeacher: false },
-];
-
 // 性别选项
 const genderOptions = ['男', '女'];
 // 学科选项
@@ -115,8 +101,8 @@ export default function TeachersPage() {
   const router = useRouter();
   
   // 数据状态
-  const [teachers, setTeachers] = useState<Teacher[]>(mockTeachers);
-  const [loading, setLoading] = useState(false);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // 搜索和筛选
   const [searchTerm, setSearchTerm] = useState('');
@@ -139,13 +125,80 @@ export default function TeachersPage() {
   // 表单数据
   const [formData, setFormData] = useState<Partial<Teacher>>({});
   
-  // 班级列表（用于班主任选择）
-  const [classes] = useState([
-    { id: 'c001', name: '一年1班', grade: 1 },
-    { id: 'c002', name: '一年2班', grade: 1 },
-    { id: 'c003', name: '二年1班', grade: 2 },
-    { id: 'c004', name: '二年2班', grade: 2 },
-  ]);
+  // 班级列表（从API获取）
+  const [classes, setClasses] = useState<{ id: string; name: string; grade: number }[]>([]);
+
+  // 从API获取教师数据
+  useEffect(() => {
+    const fetchTeachers = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/teachers');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          // 转换API数据到页面格式
+          const formattedTeachers: Teacher[] = result.data.map((t: {
+            id: string;
+            name: string;
+            gender?: string;
+            subjects?: string[];
+            title?: string;
+            department?: string;
+            phone?: string;
+            email?: string;
+            status?: string;
+            teachYears?: number;
+            isHeadTeacher?: boolean;
+            classId?: string;
+            className?: string;
+          }) => ({
+            id: t.id,
+            name: t.name,
+            gender: t.gender === 'male' ? '男' : t.gender === 'female' ? '女' : t.gender || '男',
+            subject: t.subjects?.[0] || '语文',
+            title: t.title || '二级教师',
+            department: t.department || `${t.subjects?.[0] || '语文'}组`,
+            phone: t.phone || '',
+            email: t.email || '',
+            status: t.status || 'active',
+            teachYears: t.teachYears || 0,
+            weeklyHours: 14,
+            currentHours: 0,
+            teachableSubjects: t.subjects || ['语文'],
+            teachableGrades: [1, 2, 3, 4, 5, 6],
+            isHeadTeacher: t.isHeadTeacher || false,
+            headTeacherClassId: t.classId,
+          }));
+          setTeachers(formattedTeachers);
+        }
+      } catch (error) {
+        console.error('获取教师数据失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchClasses = async () => {
+      try {
+        const response = await fetch('/api/classes');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          setClasses(result.data.map((c: { id: string; name: string; grade: number }) => ({
+            id: c.id,
+            name: c.name,
+            grade: c.grade,
+          })));
+        }
+      } catch (error) {
+        console.error('获取班级数据失败:', error);
+      }
+    };
+
+    fetchTeachers();
+    fetchClasses();
+  }, []);
 
   // 统计数据
   const stats = {

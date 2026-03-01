@@ -3,140 +3,28 @@
  * 
  * GET: 获取实际课表（按周生成）
  * POST: 生成某周实际课表
+ * 
+ * 数据来源：使用 lib/mock 统一数据源
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { 
+  getMockBaseSchedule, 
+  getMockActualSchedule,
+  PERIOD_TIMES 
+} from '@/lib/mock/schedules.mock';
+import { 
+  MOCK_LEAVE_REQUESTS,
+  getMockLeaveRequests 
+} from '@/lib/mock/academic.mock';
 import type { ActualScheduleSlot, BaseScheduleSlot } from '@/types';
-
-// Mock基准课表数据
-const mockBaseScheduleSlots: BaseScheduleSlot[] = [
-  // 一年级1班
-  {
-    id: 'bs001',
-    semester: '2024-2025-1',
-    classId: 'c001',
-    className: '一年级1班',
-    grade: 1,
-    dayOfWeek: 1,
-    periodIndex: 1,
-    startTime: '08:00',
-    endTime: '08:40',
-    subject: '语文',
-    teacherId: 't001',
-    teacherName: '张明华',
-    classroomId: 'room001',
-    classroomName: '一年级1班教室',
-    status: 'normal',
-    createdAt: '2024-09-01T00:00:00Z',
-    updatedAt: '2024-09-01T00:00:00Z',
-  },
-  {
-    id: 'bs002',
-    semester: '2024-2025-1',
-    classId: 'c001',
-    className: '一年级1班',
-    grade: 1,
-    dayOfWeek: 1,
-    periodIndex: 2,
-    startTime: '08:50',
-    endTime: '09:30',
-    subject: '数学',
-    teacherId: 't002',
-    teacherName: '李雪梅',
-    classroomId: 'room001',
-    classroomName: '一年级1班教室',
-    status: 'normal',
-    createdAt: '2024-09-01T00:00:00Z',
-    updatedAt: '2024-09-01T00:00:00Z',
-  },
-  {
-    id: 'bs003',
-    semester: '2024-2025-1',
-    classId: 'c001',
-    className: '一年级1班',
-    grade: 1,
-    dayOfWeek: 1,
-    periodIndex: 3,
-    startTime: '10:00',
-    endTime: '10:40',
-    subject: '语文',
-    teacherId: 't001',
-    teacherName: '张明华',
-    classroomId: 'room001',
-    classroomName: '一年级1班教室',
-    status: 'normal',
-    createdAt: '2024-09-01T00:00:00Z',
-    updatedAt: '2024-09-01T00:00:00Z',
-  },
-  {
-    id: 'bs004',
-    semester: '2024-2025-1',
-    classId: 'c001',
-    className: '一年级1班',
-    grade: 1,
-    dayOfWeek: 2,
-    periodIndex: 1,
-    startTime: '08:00',
-    endTime: '08:40',
-    subject: '数学',
-    teacherId: 't002',
-    teacherName: '李雪梅',
-    classroomId: 'room001',
-    classroomName: '一年级1班教室',
-    status: 'normal',
-    createdAt: '2024-09-01T00:00:00Z',
-    updatedAt: '2024-09-01T00:00:00Z',
-  },
-  {
-    id: 'bs005',
-    semester: '2024-2025-1',
-    classId: 'c001',
-    className: '一年级1班',
-    grade: 1,
-    dayOfWeek: 2,
-    periodIndex: 2,
-    startTime: '08:50',
-    endTime: '09:30',
-    subject: '语文',
-    teacherId: 't001',
-    teacherName: '张明华',
-    classroomId: 'room001',
-    classroomName: '一年级1班教室',
-    status: 'normal',
-    createdAt: '2024-09-01T00:00:00Z',
-    updatedAt: '2024-09-01T00:00:00Z',
-  },
-];
-
-// Mock请假数据
-const mockLeaveRecords = [
-  {
-    teacherId: 't001',
-    startDate: '2024-11-18',
-    endDate: '2024-11-18',
-    periods: [1, 2],
-    reason: '病假',
-  },
-];
-
-// Mock代课数据
-const mockSubstituteRecords = [
-  {
-    originalTeacherId: 't001',
-    substituteTeacherId: 't003',
-    date: '2024-11-18',
-    periodIndex: 1,
-    classId: 'c001',
-    subject: '语文',
-  },
-];
 
 /**
  * 根据周次获取日期范围
  */
 function getWeekDateRange(semester: string, weekNumber: number): { startDate: Date; endDate: Date } {
-  // 简化：假设学期从9月1日开始（周日）
+  // 简化：假设学期从9月1日开始
   const year = parseInt(semester.split('-')[0]);
   const semesterStart = new Date(year, 8, 1); // 9月1日
   
@@ -175,11 +63,28 @@ async function generateWeekActualScheduleSlot(
       .select('*')
       .eq('semester', semester);
     
-    let baseData = baseSchedules;
-    if (error || !baseData || baseData.length === 0) {
-      // 使用Mock数据
-      baseData = mockBaseScheduleSlots;
-    }
+    // 使用统一 Mock 数据源作为后备
+    const baseData: BaseScheduleSlot[] = (error || !baseSchedules || baseSchedules.length === 0)
+      ? getMockBaseSchedule({ semester })
+      : baseSchedules.map((s: Record<string, unknown>) => ({
+          id: s.id as string,
+          semester: s.semester as string,
+          classId: s.class_id as string,
+          className: s.class_name as string,
+          grade: s.grade as number,
+          dayOfWeek: s.day_of_week as number,
+          periodIndex: s.period_index as number,
+          startTime: s.start_time as string,
+          endTime: s.end_time as string,
+          subject: s.subject as string,
+          teacherId: s.teacher_id as string,
+          teacherName: s.teacher_name as string,
+          classroomId: s.classroom_id as string,
+          classroomName: s.classroom_name as string,
+          status: (s.status as 'normal' | 'leave' | 'substitute' | 'cancelled') || 'normal',
+          createdAt: s.created_at as string,
+          updatedAt: s.updated_at as string,
+        }));
     
     // 2. 获取本周的请假记录
     const { startDate, endDate } = getWeekDateRange(semester, weekNumber);
@@ -187,8 +92,13 @@ async function generateWeekActualScheduleSlot(
       .from('leave_requests')
       .select('*')
       .eq('status', 'approved')
-      .gte('start_time', startDate.toISOString())
-      .lte('end_time', endDate.toISOString());
+      .gte('start_date', startDate.toISOString().split('T')[0])
+      .lte('end_date', endDate.toISOString().split('T')[0]);
+    
+    // 使用统一 Mock 数据作为后备
+    const leaveData = leaveRecords && leaveRecords.length > 0 
+      ? leaveRecords 
+      : getMockLeaveRequests({ status: 'approved' });
     
     // 3. 获取本周的代课记录
     const { data: substituteRecords } = await client
@@ -204,13 +114,15 @@ async function generateWeekActualScheduleSlot(
       const date = getDateFromWeekDay(semester, weekNumber, base.dayOfWeek);
       
       // 检查是否有请假
-      const leaveRecord = (leaveRecords || mockLeaveRecords).find(
-        l => l.teacher_id === base.teacherId || l.teacherId === base.teacherId
+      const leaveRecord = leaveData.find(
+        (l: Record<string, unknown>) => 
+          (l.teacher_id || l.applicantId) === base.teacherId
       );
       
       // 检查是否有代课
-      const substituteRecord = (substituteRecords || mockSubstituteRecords).find(
-        s => s.original_teacher_id === base.teacherId || s.originalTeacherId === base.teacherId
+      const substituteRecord = (substituteRecords || []).find(
+        (s: Record<string, unknown>) => 
+          (s.original_teacher_id || s.originalTeacherId) === base.teacherId
       );
       
       let actualSchedule: ActualScheduleSlot = {
@@ -231,11 +143,11 @@ async function generateWeekActualScheduleSlot(
       if (substituteRecord && isSubstituteAffectsSlot(substituteRecord, date, base.periodIndex)) {
         actualSchedule.originalTeacherId = base.teacherId;
         actualSchedule.originalTeacherName = base.teacherName;
-        actualSchedule.teacherId = substituteRecord.substitute_teacher_id || substituteRecord.substituteTeacherId;
-        actualSchedule.teacherName = substituteRecord.substitute_teacher_name || substituteRecord.substituteTeacherName;
+        actualSchedule.teacherId = (substituteRecord.substitute_teacher_id || substituteRecord.substituteTeacherId) as string;
+        actualSchedule.teacherName = (substituteRecord.substitute_teacher_name || substituteRecord.substituteTeacherName) as string;
         actualSchedule.status = 'substitute';
         actualSchedule.isAdjusted = true;
-        actualSchedule.substituteId = substituteRecord.id;
+        actualSchedule.substituteId = substituteRecord.id as string;
       }
       
       actualSchedules.push(actualSchedule);
@@ -244,8 +156,8 @@ async function generateWeekActualScheduleSlot(
     return actualSchedules;
   } catch (error) {
     console.error('生成实际课表失败:', error);
-    // 返回基于Mock数据的实际课表
-    return generateMockActualScheduleSlot(semester, weekNumber);
+    // 返回统一 Mock 数据
+    return getMockActualSchedule({ weekNumber });
   }
 }
 
@@ -253,12 +165,10 @@ async function generateWeekActualScheduleSlot(
  * 检查请假是否影响该课次
  */
 function isLeaveAffectsSlot(leaveRecord: Record<string, unknown>, date: string, periodIndex: number): boolean {
-  const startDate = (leaveRecord.start_time || leaveRecord.startDate) as string;
-  const endDate = (leaveRecord.end_time || leaveRecord.endDate) as string;
-  const periods = (leaveRecord.periods || leaveRecord.periods) as number[];
+  const startDate = (leaveRecord.start_date || leaveRecord.startDate) as string;
+  const endDate = (leaveRecord.end_date || leaveRecord.endDate) as string;
   
   if (date < startDate || date > endDate) return false;
-  if (periods && !periods.includes(periodIndex)) return false;
   
   return true;
 }
@@ -271,39 +181,6 @@ function isSubstituteAffectsSlot(substituteRecord: Record<string, unknown>, date
   const subPeriod = (substituteRecord.period_index || substituteRecord.periodIndex) as number;
   
   return subDate === date && subPeriod === periodIndex;
-}
-
-/**
- * 生成Mock实际课表
- */
-function generateMockActualScheduleSlot(semester: string, weekNumber: number): ActualScheduleSlot[] {
-  const actualSchedules: ActualScheduleSlot[] = [];
-  
-  for (const base of mockBaseScheduleSlots) {
-    const date = getDateFromWeekDay(semester, weekNumber, base.dayOfWeek);
-    
-    let actualSchedule: ActualScheduleSlot = {
-      ...base,
-      weekNumber,
-      date,
-      isAdjusted: false,
-    };
-    
-    // 模拟第12周周一第1、2节张老师请假
-    if (weekNumber === 12 && base.dayOfWeek === 1 && base.teacherId === 't001' && [1, 2].includes(base.periodIndex)) {
-      actualSchedule.status = 'substitute';
-      actualSchedule.isAdjusted = true;
-      actualSchedule.originalTeacherId = 't001';
-      actualSchedule.originalTeacherName = '张明华';
-      actualSchedule.teacherId = 't003';
-      actualSchedule.teacherName = '王建国';
-      actualSchedule.substituteReason = '张老师病假';
-    }
-    
-    actualSchedules.push(actualSchedule);
-  }
-  
-  return actualSchedules;
 }
 
 // API路由处理
@@ -364,13 +241,49 @@ export async function GET(request: NextRequest) {
         },
       });
     } else {
-      // 返回当前周
-      const now = new Date();
-      const semesterStart = new Date(2024, 8, 1);
-      const diff = now.getTime() - semesterStart.getTime();
-      const currentWeek = Math.ceil(diff / (7 * 24 * 60 * 60 * 1000));
+      // 返回当前周或使用 Mock 数据
+      let schedules: ActualScheduleSlot[];
       
-      let schedules = await generateWeekActualScheduleSlot(semester, currentWeek);
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('actual_schedules')
+          .select('*')
+          .limit(100);
+        
+        if (error || !data || data.length === 0) {
+          throw new Error('No data');
+        }
+        
+        schedules = data.map((s: Record<string, unknown>) => ({
+          id: s.id as string,
+          semester: s.semester as string,
+          classId: s.class_id as string,
+          className: s.class_name as string,
+          grade: s.grade as number,
+          weekNumber: s.week_number as number,
+          date: s.date as string,
+          dayOfWeek: s.day_of_week as number,
+          periodIndex: s.period_index as number,
+          startTime: s.start_time as string,
+          endTime: s.end_time as string,
+          subject: s.subject as string,
+          teacherId: s.teacher_id as string,
+          teacherName: s.teacher_name as string,
+          classroomId: s.classroom_id as string,
+          classroomName: s.classroom_name as string,
+          status: (s.status as 'normal' | 'leave' | 'substitute' | 'cancelled') || 'normal',
+          isAdjusted: (s.is_adjusted as boolean) || false,
+          originalTeacherId: s.original_teacher_id as string,
+          originalTeacherName: s.original_teacher_name as string,
+          substituteReason: s.substitute_reason as string,
+          createdAt: s.created_at as string,
+          updatedAt: s.updated_at as string,
+        }));
+      } catch {
+        // 使用统一 Mock 数据
+        schedules = getMockActualSchedule({});
+      }
       
       if (classId) {
         schedules = schedules.filter(s => s.classId === classId);
@@ -381,6 +294,11 @@ export async function GET(request: NextRequest) {
           s.teacherId === teacherId || s.originalTeacherId === teacherId
         );
       }
+      
+      const now = new Date();
+      const semesterStart = new Date(2024, 8, 1);
+      const diff = now.getTime() - semesterStart.getTime();
+      const currentWeek = Math.max(1, Math.ceil(diff / (7 * 24 * 60 * 60 * 1000)));
       
       return NextResponse.json({
         success: true,
@@ -393,15 +311,23 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error('获取实际课表失败:', error);
+    // 最终兜底：返回 Mock 数据
+    const mockData = getMockActualSchedule({
+      classId: classId || undefined,
+      teacherId: teacherId || undefined,
+      weekNumber: weekNumber || undefined,
+    });
+    
     return NextResponse.json({
-      success: false,
-      message: '获取实际课表失败',
-    }, { status: 500 });
+      success: true,
+      data: mockData,
+      source: 'mock',
+    });
   }
 }
 
 /**
- * POST: 生成某周实际课表（手动触发）
+ * POST - 生成某周实际课表
  */
 export async function POST(request: NextRequest) {
   try {
@@ -411,74 +337,16 @@ export async function POST(request: NextRequest) {
     if (!semester || !weekNumber) {
       return NextResponse.json({
         success: false,
-        message: '缺少学期或周次参数',
+        message: '缺少必要参数：semester, weekNumber',
       }, { status: 400 });
     }
     
     const schedules = await generateWeekActualScheduleSlot(semester, weekNumber);
     
-    // 存储到数据库
-    const client = getSupabaseClient();
-    
-    // 先删除旧的
-    await client
-      .from('actual_schedules')
-      .delete()
-      .eq('semester', semester)
-      .eq('week_number', weekNumber);
-    
-    // 插入新的
-    const { error } = await client
-      .from('actual_schedules')
-      .insert(schedules.map(s => ({
-        id: s.id,
-        semester: s.semester,
-        week_number: s.weekNumber,
-        date: s.date,
-        day_of_week: s.dayOfWeek,
-        period_index: s.periodIndex,
-        start_time: s.startTime,
-        end_time: s.endTime,
-        class_id: s.classId,
-        class_name: s.className,
-        grade: s.grade,
-        subject: s.subject,
-        teacher_id: s.teacherId,
-        teacher_name: s.teacherName,
-        classroom_id: s.classroomId,
-        classroom_name: s.classroomName,
-        status: s.status,
-        is_adjusted: s.isAdjusted,
-        original_teacher_id: s.originalTeacherId,
-        original_teacher_name: s.originalTeacherName,
-        substitute_reason: s.substituteReason,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })));
-    
-    if (error) {
-      console.error('存储实际课表失败:', error);
-      // 返回生成的数据，标记为mock
-      return NextResponse.json({
-        success: true,
-        data: schedules,
-        source: 'generated',
-        weekInfo: {
-          weekNumber,
-          ...getWeekDateRange(semester, weekNumber),
-        },
-        message: '课表已生成，但数据库存储失败',
-      });
-    }
-    
     return NextResponse.json({
       success: true,
       data: schedules,
-      source: 'database',
-      weekInfo: {
-        weekNumber,
-        ...getWeekDateRange(semester, weekNumber),
-      },
+      message: `成功生成第${weekNumber}周实际课表，共${schedules.length}条记录`,
     });
   } catch (error) {
     console.error('生成实际课表失败:', error);

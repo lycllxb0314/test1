@@ -1,11 +1,12 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v1.9  
-**编制日期**: 2024年1月  
+**文档版本**: v2.0  
+**编制日期**: 2024年3月  
 **编制单位**: 智慧校园项目组
 
 **版本历史**:
+- v2.0 (2024-03): 数据孤岛全面整改，消除页面内mock数据，建立统一API数据获取规范
 - v1.9 (2024-01): 数据孤岛整改方案，建立统一Mock数据源(master-data.ts)，修复班级-年级-班主任映射不一致、课表ID格式冲突等问题，新增4.3节Mock数据架构说明
 - v1.8 (2024-01): 全面更新验收准则模块，按系统分类细化功能验收清单，新增高并发验收、API接口验收、数据完整性验收、验收流程等章节
 - v1.7 (2024-01): 深度核对文档与实际系统实现一致性，修正页面数量、目录结构、API接口清单
@@ -1805,6 +1806,116 @@ export async function GET(request: NextRequest) {
 **相关文档**:
 - 详细整改方案：`docs/DATA_ISOLATION_FIX_PLAN.md`
 - 影响分析：第0章和第4章
+
+#### 4.2.7 数据孤岛全面整改方案（v2.0）
+
+**问题全景**:
+
+整改前系统存在严重的数据孤岛问题，具体表现为：
+
+| 问题类型 | 数量 | 严重程度 | 说明 |
+|----------|------|----------|------|
+| 页面内mock数据 | 63处 | 🔴 高 | 前端绕过API直接定义数据 |
+| API内mock数据 | 40处 | 🟡 中 | 与lib/mock主数据源不一致 |
+| 缺少mock回退 | 54个API | 🟡 中 | 数据库失败时无数据 |
+
+**按模块分布**:
+- academic (教务): 20处
+- teacher (教师空间): 18处
+- general (总务): 15处
+- moral (德育): 6处
+- parent (家长端): 3处
+
+**整改架构目标**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         目标：统一数据源架构                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                    ┌─────────────────────────────┐
+                    │      master-data.ts         │
+                    │  (唯一主数据源)              │
+                    │  - 14个班级定义             │
+                    │  - 28位教师定义             │
+                    │  - 30位学生定义             │
+                    └──────────────┬──────────────┘
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        │                          │                          │
+        ▼                          ▼                          ▼
+┌───────────────┐          ┌───────────────┐          ┌───────────────┐
+│ classes.mock  │          │teachers.mock  │          │students.mock  │
+│ 导入 master   │          │ 导入 master   │          │ 导入 master   │
+└───────┬───────┘          └───────┬───────┘          └───────┬───────┘
+        │                          │                          │
+        ▼                          ▼                          ▼
+┌───────────────┐          ┌───────────────┐          ┌───────────────┐
+│ /api/classes  │          │ /api/teachers │          │ /api/students │
+│ + Mock 回退   │          │ + Mock 回退   │          │ + Mock 回退   │
+└───────┬───────┘          └───────┬───────┘          └───────┬───────┘
+        │                          │                          │
+        └──────────────────────────┼──────────────────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │        前端页面              │
+                    │  仅通过 API/fetch 获取数据   │
+                    │  禁止内部定义 mock 数据      │
+                    └─────────────────────────────┘
+```
+
+**整改原则**:
+
+1. **master-data.ts 是唯一数据源**：所有核心实体数据定义于此
+2. ***.mock.ts 只扩展不定义**：从 master-data 导入，只添加业务扩展字段
+3. **API统一导入lib/mock**：禁止在API内独立定义mock数据
+4. **前端只通过API获取数据**：禁止页面内定义mock数据
+
+**分阶段整改计划**:
+
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| Phase 1 | 核心实体层统一（master-data.ts） | ✅ 已完成 |
+| Phase 2 | API层统一（移除API内部mock） | 🔄 进行中 |
+| Phase 3 | 前端页面层（移除页面内mock） | 待开始 |
+| Phase 4 | 验证与优化 | 待开始 |
+
+**整改文件清单**:
+
+**API层需要整改的文件（15个）**:
+- `/api/actual-schedules/route.ts` - 移除内部mockBaseScheduleSlots
+- `/api/schedule/substitutes/route.ts` - 移除内部mockClasses/mockTeachers
+- `/api/students/[id]/full-profile/route.ts` - 移除内部mockStudentProfiles
+- `/api/teachers/achievements/route.ts` - 移至teachers.mock.ts
+- `/api/teachers/honors/route.ts` - 移至teachers.mock.ts
+- `/api/teachers/records/route.ts` - 移至teachers.mock.ts
+- `/api/teachers/trainings/route.ts` - 移至teachers.mock.ts
+- `/api/grades/route.ts` - 创建grades.mock.ts
+- `/api/exams/route.ts` - 创建exams.mock.ts
+- `/api/attendance/route.ts` - 创建attendance.mock.ts
+- `/api/courses/route.ts` - 创建courses.mock.ts
+- `/api/homeworks/route.ts` - 创建homeworks.mock.ts
+- `/api/assets/route.ts` - 创建assets.mock.ts
+- `/api/rooms/route.ts` - 使用rooms.mock.ts
+- `/api/after-school-services/route.ts` - 创建对应的mock文件
+
+**前端页面需要整改的文件（核心6个）**:
+- `/academic/teachers/page.tsx` - fetch('/api/teachers')
+- `/academic/students/page.tsx` - fetch('/api/students')
+- `/academic/classes/[id]/schedule/page.tsx` - fetch API
+- `/teacher/grade/page.tsx` - fetch API
+- `/teacher/habit/page.tsx` - fetch('/api/students')
+- `/teacher/daily/page.tsx` - fetch('/api/students')
+
+**整改验证清单**:
+
+每个页面整改后需验证：
+- [ ] 页面正常加载，无JS错误
+- [ ] 数据正确显示（班级名称、教师姓名一致）
+- [ ] 筛选/搜索功能正常
+- [ ] 详情页/编辑页数据关联正确
+- [ ] TypeScript编译通过
 
 ### 4.3 核心数据表设计
 

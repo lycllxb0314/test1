@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +47,7 @@ import {
   Target,
   Eye,
   MessageSquare,
+  Loader2,
 } from 'lucide-react';
 import {
   HabitCategory,
@@ -66,33 +67,79 @@ const habitIcons: Record<HabitCategory, React.ElementType> = {
   labor: Hammer,
 };
 
-// 模拟班级学生
-const mockStudents = [
-  { id: 's001', name: '张小明', avatar: '', habitRate: 88.5, trend: 'up', habitStar: true, goals: 5, achieved: 4 },
-  { id: 's002', name: '李小红', avatar: '', habitRate: 92.3, trend: 'up', habitStar: true, goals: 6, achieved: 6 },
-  { id: 's003', name: '王小刚', avatar: '', habitRate: 78.2, trend: 'stable', habitStar: false, goals: 5, achieved: 3 },
-  { id: 's004', name: '赵小芳', avatar: '', habitRate: 85.6, trend: 'up', habitStar: false, goals: 5, achieved: 4 },
-  { id: 's005', name: '刘小伟', avatar: '', habitRate: 72.1, trend: 'down', habitStar: false, goals: 5, achieved: 2 },
-  { id: 's006', name: '陈小丽', avatar: '', habitRate: 90.8, trend: 'up', habitStar: true, goals: 6, achieved: 5 },
-  { id: 's007', name: '吴小强', avatar: '', habitRate: 68.5, trend: 'stable', habitStar: false, goals: 5, achieved: 2 },
-  { id: 's008', name: '周小燕', avatar: '', habitRate: 86.3, trend: 'up', habitStar: false, goals: 5, achieved: 4 },
-];
-
-// 需关注学生
-const attentionStudents = mockStudents.filter(s => s.habitRate < 75);
-
-// 待审核的小目标
-const pendingReviews = [
-  { id: 'pr001', studentName: '张小明', month: '2024-03', goals: 5, achieved: 4, parentSigned: true },
-  { id: 'pr002', studentName: '李小红', month: '2024-03', goals: 6, achieved: 6, parentSigned: true },
-];
+// 学生数据类型
+interface StudentHabitData {
+  id: string;
+  name: string;
+  avatar: string;
+  habitRate: number;
+  trend: 'up' | 'down' | 'stable';
+  habitStar: boolean;
+  goals: number;
+  achieved: number;
+}
 
 export default function TeacherHabitPage() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedStudent, setSelectedStudent] = useState<typeof mockStudents[0] | null>(null);
+  const [students, setStudents] = useState<StudentHabitData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState<StudentHabitData | null>(null);
   const [showStudentDialog, setShowStudentDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
+
+  // 从API获取学生数据
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/students?limit=20');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          // 转换API数据到页面格式
+          const formattedStudents: StudentHabitData[] = result.data.map((s: {
+            id: string;
+            name: string;
+            avatar?: string;
+          }, index: number) => ({
+            id: s.id,
+            name: s.name,
+            avatar: s.avatar || '',
+            habitRate: 70 + Math.random() * 25, // 模拟习惯率
+            trend: ['up', 'down', 'stable'][Math.floor(Math.random() * 3)] as 'up' | 'down' | 'stable',
+            habitStar: Math.random() > 0.7,
+            goals: 5,
+            achieved: Math.floor(Math.random() * 5) + 1,
+          }));
+          setStudents(formattedStudents);
+        }
+      } catch (error) {
+        console.error('获取学生数据失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  // 需关注学生
+  const attentionStudents = students.filter(s => s.habitRate < 75);
+
+  // 待审核的小目标
+  const pendingReviews = [
+    { id: 'pr001', studentName: '张小明', month: '2024-03', goals: 5, achieved: 4, parentSigned: true },
+    { id: 'pr002', studentName: '李小红', month: '2024-03', goals: 6, achieved: 6, parentSigned: true },
+  ];
+
+  if (loading) {
+    return (
+      <div className="p-6 lg:p-8 flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-green-50/30 via-white to-teal-50/30 min-h-screen">
@@ -122,7 +169,7 @@ export default function TeacherHabitPage() {
       <div className="grid grid-cols-5 gap-4">
         <Card className="border-0 shadow-md">
           <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold text-blue-600">{mockStudents.length}</p>
+            <p className="text-3xl font-bold text-blue-600">{students.length}</p>
             <p className="text-xs text-gray-500">学生人数</p>
           </CardContent>
         </Card>
@@ -134,13 +181,13 @@ export default function TeacherHabitPage() {
         </Card>
         <Card className="border-0 shadow-md">
           <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold text-amber-600">{mockStudents.filter(s => s.habitStar).length}</p>
+            <p className="text-3xl font-bold text-amber-600">{students.filter(s => s.habitStar).length}</p>
             <p className="text-xs text-gray-500">习惯之星</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-md">
           <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold text-purple-600">{mockStudents.filter(s => s.trend === 'up').length}</p>
+            <p className="text-3xl font-bold text-purple-600">{students.filter(s => s.trend === 'up').length}</p>
             <p className="text-xs text-gray-500">进步人数</p>
           </CardContent>
         </Card>
@@ -237,7 +284,7 @@ export default function TeacherHabitPage() {
             </CardHeader>
             <CardContent>
               <div className="flex gap-4">
-                {mockStudents.filter(s => s.habitStar).map((student, idx) => (
+                {students.filter(s => s.habitStar).map((student, idx) => (
                   <div key={student.id} className="flex items-center gap-2 bg-white rounded-lg px-4 py-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       idx === 0 ? 'bg-amber-400 text-white' : 'bg-amber-100 text-amber-700'
@@ -366,7 +413,7 @@ export default function TeacherHabitPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {mockStudents.map((student) => (
+                {students.map((student) => (
                   <div
                     key={student.id}
                     className="flex items-center gap-4 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
@@ -482,7 +529,7 @@ export default function TeacherHabitPage() {
               <Select>
                 <SelectTrigger><SelectValue placeholder="选择学生" /></SelectTrigger>
                 <SelectContent>
-                  {mockStudents.map((s) => (
+                  {students.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>

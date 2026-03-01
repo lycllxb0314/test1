@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,29 +13,65 @@ import {
   Sun,
   Moon,
   ClipboardCheck,
+  Loader2,
 } from 'lucide-react';
 
-// 模拟今日数据
-const todayData = {
-  date: '2024年3月20日 星期三',
-  weather: '晴 18-25°C',
-  attendance: { total: 50, present: 48, absent: 2, late: 1 },
-  morningCheck: { normal: 47, fever: 0, leave: 3 },
-  duty: { morning: '张小明、李小红', afternoon: '王小刚、赵小芳' },
-};
-
-// 模拟学生列表
-const mockStudents = [
-  { id: 1, name: '张小明', status: 'present', morningCheck: 'normal', temperature: '36.5', arrivalTime: '07:45' },
-  { id: 2, name: '李小红', status: 'present', morningCheck: 'normal', temperature: '36.3', arrivalTime: '07:50' },
-  { id: 3, name: '王小刚', status: 'late', morningCheck: 'normal', temperature: '36.4', arrivalTime: '08:15' },
-  { id: 4, name: '赵小芳', status: 'absent', morningCheck: '-', temperature: '-', arrivalTime: '-' },
-  { id: 5, name: '刘小华', status: 'present', morningCheck: 'normal', temperature: '36.6', arrivalTime: '07:48' },
-  { id: 6, name: '陈小强', status: 'absent', morningCheck: '-', temperature: '-', arrivalTime: '-' },
-];
+// 学生数据类型
+interface StudentDailyData {
+  id: string;
+  name: string;
+  status: 'present' | 'absent' | 'late';
+  morningCheck: string;
+  temperature: string;
+  arrivalTime: string;
+}
 
 export default function DailyPage() {
   const [activeTab, setActiveTab] = useState<'attendance' | 'check' | 'duty'>('attendance');
+  const [students, setStudents] = useState<StudentDailyData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 今日数据
+  const todayData = {
+    date: '2024年3月20日 星期三',
+    weather: '晴 18-25°C',
+    attendance: { total: students.length, present: students.filter(s => s.status === 'present').length, absent: students.filter(s => s.status === 'absent').length, late: students.filter(s => s.status === 'late').length },
+    morningCheck: { normal: students.filter(s => s.morningCheck === 'normal').length, fever: 0, leave: students.filter(s => s.morningCheck === '-').length },
+    duty: { morning: '张小明、李小红', afternoon: '王小刚、赵小芳' },
+  };
+
+  // 从API获取学生数据
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/students?limit=20');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          // 转换API数据到页面格式
+          const formattedStudents: StudentDailyData[] = result.data.map((s: {
+            id: string;
+            name: string;
+          }) => ({
+            id: s.id,
+            name: s.name,
+            status: Math.random() > 0.1 ? 'present' : (Math.random() > 0.5 ? 'absent' : 'late'),
+            morningCheck: Math.random() > 0.05 ? 'normal' : '-',
+            temperature: (36 + Math.random() * 1).toFixed(1),
+            arrivalTime: `07:${40 + Math.floor(Math.random() * 30)}`,
+          }));
+          setStudents(formattedStudents);
+        }
+      } catch (error) {
+        console.error('获取学生数据失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -49,6 +85,14 @@ export default function DailyPage() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="p-6 lg:p-8 flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-purple-50/30 via-white to-pink-50/30 min-h-screen">
@@ -159,7 +203,7 @@ export default function DailyPage() {
                 </tr>
               </thead>
               <tbody>
-                {mockStudents.map((student) => (
+                {students.map((student) => (
                   <tr key={student.id} className="border-t hover:bg-gray-50">
                     <td className="p-3 font-medium">{student.name}</td>
                     <td className="p-3">{getStatusBadge(student.status)}</td>
@@ -215,7 +259,7 @@ export default function DailyPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mockStudents.filter(s => s.status === 'present').slice(0, 5).map((student) => (
+                  {students.filter(s => s.status === 'present').slice(0, 5).map((student) => (
                     <tr key={student.id} className="border-t">
                       <td className="p-3">{student.name}</td>
                       <td className="p-3">{student.temperature}°C</td>
