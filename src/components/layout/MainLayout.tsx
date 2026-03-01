@@ -109,8 +109,6 @@ const academicNav: NavItem[] = [
   { name: '新生注册', href: '/academic/enrollment', icon: UserPlus, description: '新生信息采集与注册', badge: '9月' },
   { name: '教师管理', href: '/academic/teachers', icon: UserCircle, description: '教师信息管理' },
   { name: '班级管理', href: '/academic/classes', icon: School, description: '班级信息管理' },
-  { name: '智能排课', href: '/academic/schedule', icon: Calendar, description: '课程表管理' },
-  { name: '实际课表', href: '/academic/schedule/actual', icon: CalendarDays, description: '每周实际课表' },
   { name: '工作量统计', href: '/academic/workload', icon: BarChart3, description: '教师工作量统计', badge: '新' },
   { name: '考试管理', href: '/academic/exams', icon: ClipboardList, description: '考试安排管理' },
   { name: '成绩管理', href: '/academic/grades', icon: BookOpen, description: '成绩录入查询' },
