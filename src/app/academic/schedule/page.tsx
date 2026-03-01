@@ -48,7 +48,7 @@ import {
   ChevronRight,
   Layers,
 } from 'lucide-react';
-import type { ScheduleSlot, TeachingTask, ScheduleResult, SubstituteRecord } from '@/types';
+import type { ScheduleSlot, ScheduleResult, SubstituteRecord } from '@/types';
 
 // 科目颜色配置
 const subjectColors: Record<string, string> = {
@@ -89,7 +89,6 @@ export default function SchedulePage() {
     { index: 6, name: '第六节', startTime: '15:40', endTime: '16:20' },
   ]);
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
-  const [teachingTasks, setTeachingTasks] = useState<TeachingTask[]>([]);
   const [substitutes, setSubstitutes] = useState<SubstituteRecord[]>([]);
   
   // 视图控制
@@ -172,20 +171,18 @@ export default function SchedulePage() {
       setLoading(true);
       
       // 并行获取基础数据（periods使用前端默认配置）
-      const [classesRes, teachersRes, slotsRes, tasksRes, subsRes, statsRes] = await Promise.all([
+      const [classesRes, teachersRes, slotsRes, subsRes, statsRes] = await Promise.all([
         fetch('/api/schedule?action=classes'),
         fetch('/api/schedule?action=teachers'),
         fetch('/api/schedule'),
-        fetch('/api/schedule?action=tasks'),
         fetch('/api/schedule/substitutes'),
         fetch('/api/schedule?action=statistics'),
       ]);
       
-      const [classesData, teachersData, slotsData, tasksData, subsData, statsData] = await Promise.all([
+      const [classesData, teachersData, slotsData, subsData, statsData] = await Promise.all([
         classesRes.json(),
         teachersRes.json(),
         slotsRes.json(),
-        tasksRes.json(),
         subsRes.json(),
         statsRes.json(),
       ]);
@@ -194,7 +191,6 @@ export default function SchedulePage() {
       if (teachersData.success) setTeachers(teachersData.data);
       // periods使用前端默认配置，根据班级年级动态调整
       if (slotsData.success) setScheduleSlots(slotsData.data.slots || []);
-      if (tasksData.success) setTeachingTasks(tasksData.data);
       if (subsData.success) setSubstitutes(subsData.data);
       
       // 设置默认选中
@@ -230,13 +226,6 @@ export default function SchedulePage() {
         setScheduleResult(result.data);
         setScheduleSlots(result.data.slots || []);
         setShowResultDialog(true);
-        
-        // 刷新教学任务
-        const tasksRes = await fetch('/api/schedule?action=tasks');
-        const tasksData = await tasksRes.json();
-        if (tasksData.success) {
-          setTeachingTasks(tasksData.data);
-        }
       }
       
     } catch (error) {
@@ -374,8 +363,6 @@ export default function SchedulePage() {
   // 统计数据
   const pendingSubstitutes = substitutes.filter(s => s.status === 'pending');
   const arrangedSubstitutes = substitutes.filter(s => s.status === 'arranged');
-  const completedTasks = teachingTasks.filter(t => t.status === 'completed');
-  const pendingTasks = teachingTasks.filter(t => t.status === 'pending');
 
   if (loading) {
     return (
@@ -472,25 +459,6 @@ export default function SchedulePage() {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">排课覆盖率</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {teachingTasks.length > 0 
-                    ? `${((completedTasks.length / teachingTasks.length) * 100).toFixed(0)}%`
-                    : '0%'
-                  }
-                </p>
-              </div>
-              <div className="p-2 rounded-lg bg-blue-100">
-                <CheckCircle className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* 主内容区 */}
@@ -498,7 +466,6 @@ export default function SchedulePage() {
         <TabsList className="bg-white border">
           <TabsTrigger value="schedule">班级课表</TabsTrigger>
           <TabsTrigger value="teacher">教师课表</TabsTrigger>
-          <TabsTrigger value="tasks">教学任务</TabsTrigger>
           <TabsTrigger value="substitutes">代课管理</TabsTrigger>
           <TabsTrigger value="settings">排课设置</TabsTrigger>
         </TabsList>
@@ -777,57 +744,6 @@ export default function SchedulePage() {
                     </div>
                   </div>
                 </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 教学任务 */}
-        <TabsContent value="tasks">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle>教学任务管理</CardTitle>
-              <CardDescription>
-                共 {teachingTasks.length} 个教学任务，
-                已完成 {completedTasks.length} 个，
-                待排课 {pendingTasks.length} 个
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {teachingTasks.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>暂无教学任务数据</p>
-                  <p className="text-sm mt-2">请先配置班级和教师信息</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {teachingTasks.slice(0, 20).map(task => (
-                    <div 
-                      key={task.id} 
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-                    >
-                      <div className="flex items-center gap-4">
-                        <span className={`px-2 py-1 rounded text-xs ${subjectColors[task.subject] || 'bg-gray-100'}`}>
-                          {task.subject}
-                        </span>
-                        <div>
-                          <span className="font-medium">{task.className}</span>
-                          <span className="text-gray-500 mx-2">·</span>
-                          <span className="text-gray-600">{task.teacherName}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-sm text-gray-500">
-                          {task.arrangedHours}/{task.weeklyHours}节
-                        </div>
-                        <Badge variant={task.status === 'completed' ? 'default' : 'secondary'}>
-                          {task.status === 'completed' ? '已完成' : task.status === 'partial' ? '部分' : '待排课'}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               )}
             </CardContent>
           </Card>
