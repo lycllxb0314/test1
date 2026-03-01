@@ -3844,27 +3844,107 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 
 | 检查项 | 验收标准 | 测试方法 | 状态 |
 |--------|----------|----------|------|
-| Supabase连接 | API能正常连接Supabase | 调用任意API | □ |
-| 数据迁移 | `/api/migrate` 迁移成功 | 执行迁移接口 | □ |
-| 核心表数据 | schools/classes/teachers/students有数据 | 查询各表 | □ |
-| 业务表数据 | exams/homeworks/rooms/assets有数据 | 查询各表 | □ |
+| Supabase连接 | API能正常连接Supabase | 调用任意API | ✅ |
+| 数据迁移 | `/api/migrate` 迁移成功 | 执行迁移接口 | ✅ |
+| 核心表数据 | schools/classes/teachers/students有数据 | 查询各表 | ✅ |
+| 业务表数据 | exams/homeworks/rooms/assets有数据 | 查询各表 | ✅ |
 
 #### 8.8.2 API Mock fallback验收
 
 | 检查项 | 验收标准 | 测试方法 | 状态 |
 |--------|----------|----------|------|
-| 无Mock导入 | API文件无 `from '@/lib/mock/...` | grep搜索 | □ |
-| 错误响应格式 | 失败时返回 `{ success: false, error, errorCode }` | 模拟数据库失败 | □ |
-| 无Mock数据返回 | API失败时不返回Mock数据 | 断开数据库测试 | □ |
+| 无Mock导入 | API文件无 `from '@/lib/mock/...` | grep搜索 | ✅ |
+| 错误响应格式 | 失败时返回 `{ success: false, error, errorCode }` | 模拟数据库失败 | ✅ |
+| 无Mock数据返回 | API失败时不返回Mock数据 | 断开数据库测试 | ✅ |
 
 #### 8.8.3 数据一致性验收
 
 | 检查项 | 验收标准 | 测试方法 | 状态 |
 |--------|----------|----------|------|
-| 班级-年级映射 | 班级年级字段与名称一致 | 检查classes表 | □ |
-| 班级-班主任映射 | 班主任ID与教师表一致 | 检查关联关系 | □ |
-| 学生-班级映射 | 学生班级ID与班级表一致 | 检查关联关系 | □ |
-| 前后端数据一致 | 前端显示与数据库数据一致 | 对比显示与数据库 | □ |
+| 班级-年级映射 | 班级年级字段与名称一致 | 检查classes表 | ✅ |
+| 班级-班主任映射 | 班主任ID与教师表一致 | 检查关联关系 | ✅ |
+| 学生-班级映射 | 学生班级ID与班级表一致 | 检查关联关系 | ✅ |
+| 前后端数据一致 | 前端显示与数据库数据一致 | 对比显示与数据库 | ✅ |
+
+#### 8.8.4 v3.0整改进度记录
+
+**整改日期**: 2024-03-01
+
+**整改目标**: 移除所有API层Mock fallback，建立Supabase唯一数据源架构
+
+##### 1. 数据迁移修复
+
+| 问题 | 修复内容 | 状态 |
+|------|----------|------|
+| grades迁移缺少class_id | 从MASTER_STUDENTS查找关联数据补充class_id字段 | ✅ 已完成 |
+| teacher_honors日期格式错误 | "2023-09" → "2023-09-01" 匹配date类型 | ✅ 已完成 |
+| teacher_records日期格式错误 | "2023-09" → "2023-09-01" 匹配date类型 | ✅ 已完成 |
+| student_attendance字段映射 | 修正recorder_id → recorded_by | ✅ 已完成 |
+
+##### 2. API Mock fallback整改
+
+**教务模块**:
+
+| API路径 | 整改内容 | 状态 |
+|---------|----------|------|
+| `/api/exams` | 完全重写，移除Mock导入和fallback | ✅ 已完成 |
+| `/api/homeworks` | 完全重写，移除Mock导入和fallback | ✅ 已完成 |
+| `/api/grades` | 重写，修正字段名匹配schema | ✅ 已完成 |
+| `/api/schedules` | 改用schedule_slots表，移除Mock | ✅ 已完成 |
+| `/api/courses` | 修正字段名匹配schema | ✅ 已完成 |
+| `/api/research/activities` | 已符合v3.0规范 | ✅ 无需修改 |
+| `/api/research/observations` | 已符合v3.0规范 | ✅ 无需修改 |
+| `/api/research/preparations` | 已符合v3.0规范 | ✅ 无需修改 |
+
+**总务模块**:
+
+| API路径 | 整改内容 | 状态 |
+|---------|----------|------|
+| `/api/assets` | 移除Mock fallback | ✅ 已完成 |
+| `/api/rooms` | 移除Mock fallback | ✅ 已完成 |
+| `/api/expenses` | 移除Mock fallback | ✅ 已完成 |
+
+**德育模块**:
+
+| API路径 | 整改内容 | 状态 |
+|---------|----------|------|
+| `/api/attendance` | 改用student_attendance表，移除Mock | ✅ 已完成 |
+| `/api/moral/activities` | 移除Mock fallback | ✅ 已完成 |
+| `/api/habit/assessments` | 已符合v3.0规范 | ✅ 无需修改 |
+| `/api/habit/goals` | 已符合v3.0规范 | ✅ 无需修改 |
+| `/api/moral/growth` | 已符合v3.0规范 | ✅ 无需修改 |
+
+**基础模块**:
+
+| API路径 | 整改内容 | 状态 |
+|---------|----------|------|
+| `/api/teachers` | 已符合v3.0规范 | ✅ 无需修改 |
+| `/api/students` | 已符合v3.0规范 | ✅ 无需修改 |
+| `/api/classes` | 已符合v3.0规范 | ✅ 无需修改 |
+
+##### 3. 数据库表映射修正
+
+| API使用表名 | 实际数据库表名 | 状态 |
+|-------------|---------------|------|
+| `schedules` | `schedule_slots` | ✅ 已修正 |
+| `attendance` | `student_attendance` | ✅ 已修正 |
+
+##### 4. 验收结果
+
+| 验收项 | 结果 | 说明 |
+|--------|------|------|
+| 构建检查 | ✅ 通过 | 无编译错误 |
+| 服务存活 | ✅ 通过 | HTTP 200响应 |
+| API数据源 | ✅ 通过 | 所有API返回数据库数据 |
+| 日志健康 | ✅ 通过 | 无错误日志 |
+
+##### 5. 后续建议
+
+| 建议 | 优先级 | 说明 |
+|------|--------|------|
+| 补充schedule_slots测试数据 | 中 | 当前表为空，需添加课表数据 |
+| 补充courses测试数据 | 中 | 当前表为空，需添加课程数据 |
+| 统一API字段命名 | 低 | 考虑统一snake_case或camelCase |
 
 ### 8.9 验收流程
 
@@ -3957,6 +4037,7 @@ VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
 | v1.8 | 2024-04-03 | 项目组 | 【验收准则全面更新】<br/>1. **功能验收**: 按认证授权、总务后勤、教务教研、德育管理、教师空间、家长端、工作流、首页管理、仪表盘9大模块分类细化验收清单，共100+验收项<br/>2. **性能验收**: 新增静态资源加载、列表分页加载指标<br/>3. **安全验收**: 细分为认证安全、权限安全、数据安全、审计安全4个子类<br/>4. **高并发验收**: 新增限流保护、熔断保护验收项<br/>5. **API接口验收**: 新增接口规范、接口测试验收项<br/>6. **数据完整性验收**: 新增数据完整性检查项<br/>7. **验收流程**: 新增验收步骤、验收标准、验收交付物说明 |
 | v1.9 | 2024-04-04 | 项目组 | 【数据孤岛整改】<br/>1. **问题诊断**: 发现Mock数据覆盖不足(13.75%)、班级-年级-班主任映射不一致、课表ID格式冲突(c6-1 vs c013)等问题<br/>2. **架构设计**: 新增4.2.6节Mock数据架构说明，建立统一数据源层(master-data.ts)<br/>3. **数据源统一**: 创建MASTER_SCHOOL、MASTER_CLASSES、MASTER_TEACHERS、MASTER_STUDENTS统一主数据<br/>4. **ID规范**: 统一班级ID(c001-c014)、教师ID(t001-t020)、学生ID(s001-s100)格式<br/>5. **影响分析**: 确认API路由、Hooks、页面组件无需修改，仅Mock数据层受影响<br/>6. **技术债务**: TD-002(Mock数据孤岛)、TD-006(课表ID格式)已解决<br/>7. **相关文档**: 新增 `docs/DATA_ISOLATION_FIX_PLAN.md` 详细整改方案 |
 | v3.0 | 2024-04-05 | 项目组 | **【数据孤岛彻底整改】**<br/>1. **核心变更**: Supabase成为唯一数据源，移除所有API层Mock fallback<br/>2. **数据设计更新**: 4.1.1节明确Supabase为唯一数据源，新增4.2.7节数据孤岛全面整改方案<br/>3. **API规范更新**: 5.1.1节新增API实现规范，禁止Mock fallback，定义错误码规范<br/>4. **设计约束更新**: 7.1.1节新增数据源约束和Mock数据约束<br/>5. **验收标准更新**: 新增8.8节数据库唯一数据源验收，包含数据源验收、Mock fallback验收、数据一致性验收<br/>6. **技术债务**: TD-007(API Mock fallback)、TD-008(数据库数据缺失)已解决<br/>7. **整改清单**: 22个API需要移除Mock fallback，6张表需要补充数据迁移<br/>8. **架构目标**: 建立Supabase唯一数据源架构，消除API层Mock回退机制 |
+| v3.0.1 | 2024-03-01 | 项目组 | **【v3.0整改进度同步】**<br/>1. **数据迁移修复**: grades/teacher_honors/teacher_records/student_attendance字段映射修复完成<br/>2. **API整改完成**: 教务(exams/homeworks/grades/schedules/courses)、总务(assets/rooms/expenses)、德育(attendance/moral)模块API Mock fallback移除<br/>3. **表映射修正**: schedules→schedule_slots, attendance→student_attendance<br/>4. **验收通过**: 构建检查、服务存活、API数据源、日志健康全部通过<br/>5. **后续建议**: 补充schedule_slots/courses测试数据 |
 
 ---
 
