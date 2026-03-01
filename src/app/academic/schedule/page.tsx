@@ -205,9 +205,10 @@ export default function SchedulePage() {
       
       const result = await response.json();
       
-      if (result.success) {
+      // 即使有冲突也显示排课结果（success 可能为 false 表示有冲突）
+      if (result.data) {
         setScheduleResult(result.data);
-        setScheduleSlots(result.data.slots);
+        setScheduleSlots(result.data.slots || []);
         setShowResultDialog(true);
         
         // 刷新教学任务
