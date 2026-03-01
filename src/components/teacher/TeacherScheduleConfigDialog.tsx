@@ -68,6 +68,10 @@ const SUBJECTS_CONFIG = [
   { name: '道德与法治', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', isMain: false },
   { name: '信息技术', color: 'bg-teal-100 text-teal-700 border-teal-200', isMain: false },
   { name: '劳动', color: 'bg-amber-100 text-amber-700 border-amber-200', isMain: false },
+  { name: '书法', color: 'bg-stone-100 text-stone-700 border-stone-200', isMain: false },
+  { name: '综合实践', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', isMain: false },
+  { name: '校本课', color: 'bg-rose-100 text-rose-700 border-rose-200', isMain: false },
+  { name: '班会', color: 'bg-slate-100 text-slate-700 border-slate-200', isMain: false },
 ];
 
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];

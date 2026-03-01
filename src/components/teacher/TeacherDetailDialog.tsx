@@ -75,6 +75,10 @@ const SUBJECTS_CONFIG = [
   { name: '道德与法治', isMain: false },
   { name: '信息技术', isMain: false },
   { name: '劳动', isMain: false },
+  { name: '书法', isMain: false },
+  { name: '综合实践', isMain: false },
+  { name: '校本课', isMain: false },
+  { name: '班会', isMain: false },
 ];
 
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
