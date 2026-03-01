@@ -306,50 +306,60 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
         continue;
       }
       
-      // 检查该班语数课时是否已满
+      // 实时获取该班语数课时（每次循环都重新获取）
       const chineseCount = classSubjectCount.get(cls.id)!.get('语文') || 0;
       const mathCount = classSubjectCount.get(cls.id)!.get('数学') || 0;
       const standardHours = getStandardHours(grade);
       
-      // 选择科目（轮换策略）
+      // 选择科目（严格轮换策略）
+      // 周一、三、五：起始科目；周二、四：另一科目
+      const isOddDay = dayIndex % 2 === 0;  // 周一(0)、周三(2)、周五(4)
+      const preferChinese = startWithChinese ? isOddDay : !isOddDay;
+      
+      // 选择科目（严格按轮换）
       let subject: string;
       let teacherId: string;
       let teacherName: string;
       
-      const preferChinese = startWithChinese ? (dayIndex % 2 === 0) : (dayIndex % 2 === 1);
-      
-      // 优先按轮换规则，但要考虑课时是否已满
-      if (preferChinese && chineseCount < standardHours['语文'] && chineseTask) {
-        subject = '语文';
-        teacherId = chineseTask.teacherId;
-        teacherName = chineseTask.teacherName;
-      } else if (!preferChinese && mathCount < standardHours['数学'] && mathTask) {
-        subject = '数学';
-        teacherId = mathTask.teacherId;
-        teacherName = mathTask.teacherName;
-      } else if (chineseCount < standardHours['语文'] && chineseTask) {
-        subject = '语文';
-        teacherId = chineseTask.teacherId;
-        teacherName = chineseTask.teacherName;
-      } else if (mathCount < standardHours['数学'] && mathTask) {
-        subject = '数学';
-        teacherId = mathTask.teacherId;
-        teacherName = mathTask.teacherName;
+      // 按轮换规则选择，如果该科目已满则选另一个
+      if (preferChinese) {
+        if (chineseCount < standardHours['语文'] && chineseTask) {
+          subject = '语文';
+          teacherId = chineseTask.teacherId;
+          teacherName = chineseTask.teacherName;
+        } else if (mathCount < standardHours['数学'] && mathTask) {
+          subject = '数学';
+          teacherId = mathTask.teacherId;
+          teacherName = mathTask.teacherName;
+        } else {
+          continue;
+        }
       } else {
-        continue;  // 语数都已排满
+        if (mathCount < standardHours['数学'] && mathTask) {
+          subject = '数学';
+          teacherId = mathTask.teacherId;
+          teacherName = mathTask.teacherName;
+        } else if (chineseCount < standardHours['语文'] && chineseTask) {
+          subject = '语文';
+          teacherId = chineseTask.teacherId;
+          teacherName = chineseTask.teacherName;
+        } else {
+          continue;
+        }
       }
       
       // 检查教师是否可用
       if (teacherTimeMap.has(teacherId) && teacherTimeMap.get(teacherId)!.has(timeKey)) {
         // 教师冲突，尝试另一个科目
-        if (subject === '语文' && mathTask && mathCount < standardHours['数学']) {
-          subject = '数学';
-          teacherId = mathTask.teacherId;
-          teacherName = mathTask.teacherName;
-        } else if (subject === '数学' && chineseTask && chineseCount < standardHours['语文']) {
-          subject = '语文';
-          teacherId = chineseTask.teacherId;
-          teacherName = chineseTask.teacherName;
+        const altSubject = subject === '语文' ? '数学' : '语文';
+        const altTask = subject === '语文' ? mathTask : chineseTask;
+        const altCount = subject === '语文' ? mathCount : chineseCount;
+        const altStandard = subject === '语文' ? standardHours['数学'] : standardHours['语文'];
+        
+        if (altTask && altCount < altStandard) {
+          subject = altSubject;
+          teacherId = altTask.teacherId;
+          teacherName = altTask.teacherName;
         } else {
           continue;
         }
@@ -424,15 +434,27 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
       // 其他：优先上午2,3节，其次下午，最后上午第1节
       const periodPriority = isMainSubject 
         ? [2, 3, 1]  // 主科只在上午
-        : [2, 3, 4, 5, 6, 1];  // 其他科目优先上午2,3节
+        : [2, 3, 4, 5, 6, 1];  // 其他科目
       
-      // 第一轮：优先选择未使用过的时段
-      for (const periodIndex of periodPriority) {
+      // 关键改进：先遍历天，再选择时段
+      // 这样可以确保同一科目在不同天排在不同的时段
+      
+      // 第一轮：遍历每一天，严格选择未使用过的时段
+      for (const day of WEEK_DAYS) {
         if (arranged >= remaining) break;
-        if (usedPeriods.has(periodIndex)) continue;  // 时段错开
         
-        for (const day of WEEK_DAYS) {
-          if (arranged >= remaining) break;
+        // 检查当天是否已有该科目（非主科）
+        if (!isMainSubject) {
+          const hasSubjectToday = slots.some(s => 
+            s.classId === cls.id && s.weekDay === day && s.subject === subject
+          );
+          if (hasSubjectToday) continue;
+        }
+        
+        // 在这一天找一个可用的时段（严格使用未使用的时段）
+        for (const periodIndex of periodPriority) {
+          // 严格跳过已使用的时段
+          if (usedPeriods.has(periodIndex)) continue;
           
           const timeKey = `${day}-${periodIndex}`;
           
@@ -449,14 +471,6 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
           // 主科只在上午
           if (isMainSubject && periodIndex >= 4) {
             continue;
-          }
-          
-          // 非主科：检查当天是否已有该科目
-          if (!isMainSubject) {
-            const hasSubjectToday = slots.some(s => 
-              s.classId === cls.id && s.weekDay === day && s.subject === subject
-            );
-            if (hasSubjectToday) continue;
           }
           
           // 检查教师课时是否已满
@@ -477,17 +491,24 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
           updateMaps(cls.id, task.teacherId, day, periodIndex, classTimeMap, teacherTimeMap);
           arranged++;
           usedPeriods.add(periodIndex);
+          break;  // 这一天排好了，继续下一天
         }
       }
       
-      // 第二轮：允许重复时段（兜底）
+      // 第二轮：如果还没排满，允许重复时段（兜底）
       if (arranged < remaining) {
-        for (const periodIndex of periodPriority) {
+        for (const day of WEEK_DAYS) {
           if (arranged >= remaining) break;
           
-          for (const day of WEEK_DAYS) {
-            if (arranged >= remaining) break;
-            
+          // 检查当天是否已有该科目（非主科）
+          if (!isMainSubject) {
+            const hasSubjectToday = slots.some(s => 
+              s.classId === cls.id && s.weekDay === day && s.subject === subject
+            );
+            if (hasSubjectToday) continue;
+          }
+          
+          for (const periodIndex of periodPriority) {
             const timeKey = `${day}-${periodIndex}`;
             
             if (classTimeMap.has(cls.id) && classTimeMap.get(cls.id)!.has(timeKey)) {
@@ -500,13 +521,6 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
             
             if (isMainSubject && periodIndex >= 4) {
               continue;
-            }
-            
-            if (!isMainSubject) {
-              const hasSubjectToday = slots.some(s => 
-                s.classId === cls.id && s.weekDay === day && s.subject === subject
-              );
-              if (hasSubjectToday) continue;
             }
             
             if (teacherHours.get(task.teacherId)! >= teacher.capacity) {
@@ -524,6 +538,7 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
             
             updateMaps(cls.id, task.teacherId, day, periodIndex, classTimeMap, teacherTimeMap);
             arranged++;
+            break;  // 这一天排好了，继续下一天
           }
         }
       }
