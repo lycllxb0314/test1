@@ -34,12 +34,11 @@ export async function GET(request: NextRequest) {
       if (!groupedUsers[role]) {
         groupedUsers[role] = [];
       }
-      groupedUsers[role].push({
-        ...user,
-        // 默认密码提示
-        defaultPassword: 'lysf2024',
-      });
+      groupedUsers[role].push(user);
     }
+
+    // 默认密码
+    const defaultPassword = 'lysf2024';
 
     // 角色名称映射
     const roleNames: Record<string, string> = {
@@ -58,7 +57,7 @@ export async function GET(request: NextRequest) {
         users: users || [],
         groupedUsers,
         roleNames,
-        defaultPassword: 'lysf2024',
+        defaultPassword,
         note: '所有用户默认密码为 lysf2024，请在首次登录后修改密码',
       },
     });

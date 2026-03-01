@@ -7,16 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useAuth, roleOptions } from '@/contexts/AuthContext';
-import {
-  GraduationCap,
   Lock,
   User,
   Eye,
@@ -31,7 +23,6 @@ export default function LoginPage() {
   const { login, isLoading } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState('head_teacher');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -39,17 +30,25 @@ export default function LoginPage() {
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    if (!username.trim()) {
+      setError('请输入用户名');
+      return;
+    }
+    if (!password) {
+      setError('请输入密码');
+      return;
+    }
+    
     setIsLoggingIn(true);
 
     try {
-      // 使用选定的角色自动填充用户名
-      const loginName = username || roleOptions.find(r => r.value === selectedRole)?.label || '';
-      const success = await login(loginName, password);
+      const success = await login(username.trim(), password);
       
       if (success) {
         // 使用 setTimeout 确保状态更新后再跳转
         setTimeout(() => {
-          router.push('/dashboard');
+          router.push('/');
           router.refresh();
         }, 100);
       } else {
@@ -60,32 +59,7 @@ export default function LoginPage() {
       setError('登录失败，请稍后重试');
       setIsLoggingIn(false);
     }
-  }, [username, password, selectedRole, login, router]);
-
-  // 快速登录（演示用）
-  const quickLogin = useCallback(async (role: string) => {
-    setIsLoggingIn(true);
-    setError('');
-    
-    try {
-      const roleName = roleOptions.find(r => r.value === role)?.label || '';
-      const success = await login(roleName, '123456');
-      
-      if (success) {
-        // 使用 setTimeout 确保状态更新后再跳转
-        setTimeout(() => {
-          router.push('/dashboard');
-          router.refresh();
-        }, 100);
-      } else {
-        setError('快速登录失败，请重试');
-        setIsLoggingIn(false);
-      }
-    } catch (err) {
-      setError('登录失败，请稍后重试');
-      setIsLoggingIn(false);
-    }
-  }, [login, router]);
+  }, [username, password, login, router]);
 
   return (
     <div className="min-h-screen flex">
@@ -152,40 +126,20 @@ export default function LoginPage() {
             <CardHeader className="space-y-1 pb-4">
               <CardTitle className="text-2xl font-bold text-center">欢迎登录</CardTitle>
               <CardDescription className="text-center">
-                请选择角色并输入账号密码
+                请输入您的账号和密码
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-4">
-                {/* 角色选择 */}
-                <div className="space-y-2">
-                  <Label htmlFor="role">登录角色</Label>
-                  <Select value={selectedRole} onValueChange={setSelectedRole}>
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="选择角色" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleOptions.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{role.label}</span>
-                            <span className="text-gray-500 text-xs">({role.description})</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* 用户名 */}
                 <div className="space-y-2">
-                  <Label htmlFor="username">用户名</Label>
+                  <Label htmlFor="username">账号</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
                       id="username"
                       type="text"
-                      placeholder="可留空使用角色快速登录"
+                      placeholder="请输入工号或手机号"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       className="pl-10 h-12"
@@ -240,89 +194,15 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              {/* 分割线 */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-500">演示账号快速登录</span>
-                </div>
+              {/* 提示信息 */}
+              <div className="mt-6 p-4 bg-orange-50 rounded-lg">
+                <p className="text-sm text-gray-600 text-center">
+                  首次登录默认密码为 <span className="font-medium text-primary">lysf2024</span>
+                </p>
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  如有账号问题，请联系教务处或年级组长
+                </p>
               </div>
-
-              {/* 快速登录按钮 */}
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => quickLogin('principal')}
-                  disabled={isLoggingIn}
-                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
-                >
-                  <GraduationCap className="h-5 w-5 mb-1" />
-                  <span className="text-xs font-medium">校长</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => quickLogin('admin')}
-                  disabled={isLoggingIn}
-                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
-                >
-                  <User className="h-5 w-5 mb-1" />
-                  <span className="text-xs font-medium">行政</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => quickLogin('head_teacher')}
-                  disabled={isLoggingIn}
-                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
-                >
-                  <GraduationCap className="h-5 w-5 mb-1" />
-                  <span className="text-xs font-medium">班主任</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => quickLogin('teacher')}
-                  disabled={isLoggingIn}
-                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
-                >
-                  <User className="h-5 w-5 mb-1" />
-                  <span className="text-xs font-medium">教师</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => quickLogin('student')}
-                  disabled={isLoggingIn}
-                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
-                >
-                  <User className="h-5 w-5 mb-1" />
-                  <span className="text-xs font-medium">学生</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => quickLogin('staff')}
-                  disabled={isLoggingIn}
-                  className="h-auto py-3 flex-col hover:bg-orange-50 hover:border-primary hover:text-primary transition-all"
-                >
-                  <User className="h-5 w-5 mb-1" />
-                  <span className="text-xs font-medium">后勤</span>
-                </Button>
-              </div>
-
-              <p className="text-center text-xs text-gray-500 mt-4">
-                演示密码：123456
-              </p>
             </CardContent>
           </Card>
         </div>
