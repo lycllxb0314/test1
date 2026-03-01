@@ -2751,11 +2751,9 @@ if (dbError) {
 
 > **说明**：路由数量指API路由文件数量，接口数量按HTTP方法计算（一个路由可能对应GET/POST/PUT/DELETE多个接口）。
 
----
+### 5.16 数据Hooks说明
 
-## 5.16 数据Hooks说明
-
-### 5.16.1 Hooks架构概述
+#### 5.16.1 Hooks架构概述
 
 项目采用**统一Hooks架构**，所有数据获取和操作逻辑均通过自定义Hooks实现，遵循以下设计原则：
 
@@ -2767,7 +2765,7 @@ if (dbError) {
 | 自动缓存 | 支持缓存策略，减少重复请求 |
 | 错误处理 | 统一的错误处理和状态管理 |
 
-### 5.16.2 Hooks目录结构
+#### 5.16.2 Hooks目录结构
 
 ```
 src/hooks/
@@ -2791,7 +2789,7 @@ src/hooks/
 > - `useData.ts` - 旧版通用数据Hook
 > - `useCrudOperations.ts` - 旧版CRUD操作Hook
 
-### 5.16.3 核心Hooks说明
+#### 5.16.3 核心Hooks说明
 
 #### useApi.ts - 统一基础Hook库
 
@@ -2997,7 +2995,7 @@ function HonorsPage() {
 }
 ```
 
-### 5.16.4 API客户端与Hooks关系
+#### 5.16.4 API客户端与Hooks关系
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -3044,7 +3042,7 @@ function HonorsPage() {
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 5.16.5 Hooks使用规范
+#### 5.16.5 Hooks使用规范
 
 #### 1. 查询类操作使用 useQuery
 
@@ -3112,7 +3110,7 @@ export function useStudentDetail(studentId: string | null) {
 }
 ```
 
-### 5.16.6 Hooks与API对照表
+#### 5.16.6 Hooks与API对照表
 
 | 模块 | Hooks文件 | API路径前缀 | 主要Hooks |
 |------|-----------|-------------|-----------|
@@ -3126,7 +3124,7 @@ export function useStudentDetail(studentId: string | null) {
 | 门禁 | useAccessData.ts | /api/access | useAccessRecords, useVisitors |
 | 功能室 | useRoomData.ts | /api/rooms | useRooms, useBookings |
 
-### 5.16.7 Hooks架构整改记录（v2.0）
+#### 5.16.7 Hooks架构整改记录（v2.0）
 
 #### 整改背景
 
@@ -3244,7 +3242,7 @@ getStatistics, getClassOverview, getGradeOverview
 - ✅ 分页数据默认值处理，避免 null 引用错误
 - ✅ 文档更新，记录整改内容和规范
 
-### 5.16.8 文档一致性修正记录（v1.7）
+#### 5.16.8 文档一致性修正记录（v1.7）
 
 #### 修正背景
 
