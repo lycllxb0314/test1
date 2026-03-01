@@ -320,7 +320,8 @@ export class SchedulingEngine {
    * 为班级分配科目课时
    * 
    * 对于主科（语文、数学）：
-   * - 首先确保每天至少有1节（周一至周五各1节）
+   * - 语文：所有年级确保每天至少有1节
+   * - 数学：中高年级（3-6）确保每天至少有1节，低年级不强制
    * - 剩余课时按优先上午原则分配
    */
   private assignSubjectToClass(
@@ -330,43 +331,50 @@ export class SchedulingEngine {
     weeklyHours: number,
     grade: number
   ) {
-    // 主科需要确保每天至少有1节
+    // 主科分配逻辑
     if (isMainSubject(subject)) {
-      // 第一步：确保每天至少有1节主科（周一至周五）
-      const weekDays: WeekDay[] = [1, 2, 3, 4, 5];
-      for (const weekDay of weekDays) {
-        // 检查该天是否已有该科目的课
-        const dayAssignments = this.assignments.filter(a => 
-          a.classId === cls.id && 
-          a.subject === subject && 
-          a.timeSlot.weekDay === weekDay
-        );
-        
-        if (dayAssignments.length > 0) continue; // 该天已有该科目
-        
-        // 获取该天可用的上午时间槽
-        const availableMorningSlots = this.getAvailableSlotsForDay(cls.id, grade, weekDay, 'morning');
-        
-        for (const slot of availableMorningSlots) {
-          // 检查教师是否可用
-          if (this.isTeacherAvailable(teacher.id, slot.weekDay, slot.periodIndex)) {
-            const slotId = this.generateSlotId(cls.id, slot.weekDay, slot.periodIndex);
-            
-            const assignment: SlotAssignment = {
-              slotId,
-              classId: cls.id,
-              className: cls.name,
-              grade: cls.grade,
-              timeSlot: slot,
-              subject,
-              teacherId: teacher.id,
-              teacherName: teacher.name,
-            };
-            
-            this.addAssignment(assignment);
-            this.incrementTeacherHours(teacher.id, 1);
-            teacher.assignedClasses.push(cls.id);
-            break; // 该天已安排，跳出
+      // 判断是否需要确保每天都有该科目
+      // 语文：所有年级都需要每天都有
+      // 数学：只有中高年级（3-6）需要每天都有
+      const needDailySubject = subject === '语文' || (subject === '数学' && grade >= 3);
+      
+      if (needDailySubject) {
+        // 第一步：确保每天至少有1节（周一至周五）
+        const weekDays: WeekDay[] = [1, 2, 3, 4, 5];
+        for (const weekDay of weekDays) {
+          // 检查该天是否已有该科目的课
+          const dayAssignments = this.assignments.filter(a => 
+            a.classId === cls.id && 
+            a.subject === subject && 
+            a.timeSlot.weekDay === weekDay
+          );
+          
+          if (dayAssignments.length > 0) continue; // 该天已有该科目
+          
+          // 获取该天可用的上午时间槽
+          const availableMorningSlots = this.getAvailableSlotsForDay(cls.id, grade, weekDay, 'morning');
+          
+          for (const slot of availableMorningSlots) {
+            // 检查教师是否可用
+            if (this.isTeacherAvailable(teacher.id, slot.weekDay, slot.periodIndex)) {
+              const slotId = this.generateSlotId(cls.id, slot.weekDay, slot.periodIndex);
+              
+              const assignment: SlotAssignment = {
+                slotId,
+                classId: cls.id,
+                className: cls.name,
+                grade: cls.grade,
+                timeSlot: slot,
+                subject,
+                teacherId: teacher.id,
+                teacherName: teacher.name,
+              };
+              
+              this.addAssignment(assignment);
+              this.incrementTeacherHours(teacher.id, 1);
+              teacher.assignedClasses.push(cls.id);
+              break; // 该天已安排，跳出
+            }
           }
         }
       }
@@ -471,6 +479,7 @@ export class SchedulingEngine {
    * 第三阶段：分配兼任技能科
    * 
    * 班主任兼任科目：
+   * - 书法：低年级2节，中高年级1节（语文老师兼任）
    * - 道德与法治：2节/周（语文老师兼任）
    * - 劳动：1节/周（数学老师兼任）
    * - 综合实践：1节/周（班主任兼任）
@@ -480,8 +489,14 @@ export class SchedulingEngine {
     console.log('第三阶段：分配兼任技能科...');
     
     for (const cls of this.classes) {
-      // 德法课 - 语文老师兼任，2节/周
+      // 书法课 - 语文老师兼任，低年级2节，中高年级1节
       const chineseTeacher = this.findSubjectTeacher(cls.id, '语文');
+      if (chineseTeacher) {
+        const calligraphyHours = getSubjectWeeklyHours('书法', cls.grade);
+        this.assignSubjectToClass(cls, chineseTeacher, '书法', calligraphyHours, cls.grade);
+      }
+      
+      // 德法课 - 语文老师兼任，2节/周
       if (chineseTeacher) {
         const moralHours = getSubjectWeeklyHours('道德与法治', cls.grade);
         this.assignSubjectToClass(cls, chineseTeacher, '道德与法治', moralHours, cls.grade);

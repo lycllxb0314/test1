@@ -64,7 +64,8 @@ export type CourseCategory =
   | '班会'
   | '信息技术'
   | '校本课'
-  | '综合实践';
+  | '综合实践'
+  | '书法';
 
 /** 教师主要角色 */
 export type TeacherPrimaryRole = 
@@ -117,20 +118,28 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
   {
     name: '语文',
     type: 'main',
-    // 低年级略多，每天至少1节
-    weeklyHours: { low: 7, middle: 6, high: 6 },
+    // 低年级5节，中高年级6节（不含书法）
+    weeklyHours: { low: 5, middle: 6, high: 6 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'morning',
   },
   {
     name: '数学',
     type: 'main',
-    // 每天至少1节
-    weeklyHours: { low: 6, middle: 5, high: 5 },
+    // 低年级4节，中高年级5节
+    weeklyHours: { low: 4, middle: 5, high: 5 },
     applicableGrades: [1, 2, 3, 4, 5, 6],
     preferredPeriod: 'morning',
   },
   // === 技能科 ===
+  {
+    name: '书法',
+    type: 'skill',
+    // 低年级2节，中高年级1节，语文老师兼任
+    weeklyHours: { low: 2, middle: 1, high: 1 },
+    applicableGrades: [1, 2, 3, 4, 5, 6],
+    preferredPeriod: 'afternoon',
+  },
   {
     name: '英语',
     type: 'skill',
@@ -229,14 +238,13 @@ export const STANDARD_SUBJECTS: SubjectConfig[] = [
  * 每周课时验证（龙岩师范附属小学）：
  * 
  * 低年级（1-2）：5节/天 × 5天 = 25节/周
- * - 语文7 + 数学6 + 德法2 + 劳动1 + 体育4 + 音乐2 + 美术2 + 科学1 + 班会1 + 综合实践1 = 27
- * - 注：体育可安排5节，实际可能需要调整
+ * - 语文5 + 数学4 + 书法2 + 德法2 + 劳动1 + 体育4 + 音乐2 + 美术2 + 科学1 + 班会1 + 综合实践1 = 25 ✓
  * 
  * 中年级（3-4）：6节/天 × 5天 = 30节/周
- * - 语文6 + 数学5 + 英语2 + 德法2 + 劳动1 + 体育3 + 音乐2 + 美术2 + 科学2 + 班会1 + 信息技术1 + 校本课1 + 综合实践1 = 29
+ * - 语文6 + 数学5 + 书法1 + 英语2 + 德法2 + 劳动1 + 体育3 + 音乐2 + 美术2 + 科学2 + 班会1 + 信息技术1 + 校本课1 + 综合实践1 = 30 ✓
  * 
  * 高年级（5-6）：6节/天 × 5天 = 30节/周
- * - 语文6 + 数学5 + 英语2 + 德法2 + 劳动1 + 体育3 + 音乐1 + 美术1 + 科学2 + 班会1 + 信息技术1 + 校本课2 + 综合实践1 = 28
+ * - 语文6 + 数学5 + 书法1 + 英语2 + 德法2 + 劳动1 + 体育3 + 音乐1 + 美术1 + 科学2 + 班会1 + 信息技术1 + 校本课2 + 综合实践1 = 29
  */
 
 // ==================== 节次配置 ====================
