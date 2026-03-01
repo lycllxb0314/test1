@@ -139,9 +139,7 @@ export default function SchedulePage() {
   // 草稿管理
   const [drafts, setDrafts] = useState<Array<{ id: string; name: string; created_at: string }>>([]);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
-  const [showSaveDraftDialog, setShowSaveDraftDialog] = useState(false);
   const [draftName, setDraftName] = useState('');
-  const [draftDescription, setDraftDescription] = useState('');
 
   // 初始化数据
   useEffect(() => {
@@ -172,7 +170,6 @@ export default function SchedulePage() {
         body: JSON.stringify({
           id: currentDraftId,
           name: draftName || `排课草稿 ${new Date().toLocaleString('zh-CN')}`,
-          description: draftDescription,
           result: scheduleResult,
           statistics: scheduleResult.statistics,
         }),
@@ -180,12 +177,16 @@ export default function SchedulePage() {
       const data = await res.json();
       if (data.success) {
         setCurrentDraftId(data.data.id);
-        setShowSaveDraftDialog(false);
+        setDraftName('');  // 清空输入
         loadDrafts();
-        alert('草稿保存成功');
+        // 显示成功提示
+        alert('✅ 草稿保存成功！\n\n草稿名称：' + data.data.name);
+      } else {
+        alert('❌ 保存失败：' + (data.error || '未知错误'));
       }
     } catch (e) {
       console.error('保存草稿失败', e);
+      alert('❌ 保存失败，请检查网络连接');
     }
   };
   
@@ -542,6 +543,47 @@ export default function SchedulePage() {
           </Button>
         </div>
       </div>
+
+      {/* 保存草稿区域 - 有排课结果时显示 */}
+      {scheduleResult && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="font-medium text-gray-900">
+                  排课完成：{scheduleResult.statistics?.arrangedSlots || 0} 课时已安排
+                  {scheduleResult.conflicts && scheduleResult.conflicts.length > 0 && (
+                    <span className="text-amber-600 ml-2">
+                      （{scheduleResult.conflicts.length} 个冲突需处理）
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex-1 flex items-center gap-2">
+                <Input
+                  placeholder="输入草稿名称（可选）"
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button 
+                  onClick={saveDraft}
+                  className="bg-amber-600 hover:bg-amber-700 text-white gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  保存草稿
+                </Button>
+              </div>
+              {currentDraftId && (
+                <span className="text-sm text-gray-500">
+                  当前草稿ID: {currentDraftId.slice(0, 8)}...
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -1125,52 +1167,8 @@ export default function SchedulePage() {
             </div>
           </div>
           
-          <DialogFooter className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowResultDialog(false);
-                setDraftName('');
-                setDraftDescription('');
-                setShowSaveDraftDialog(true);
-              }}
-            >
-              <Save className="h-4 w-4 mr-2" />
-              保存草稿
-            </Button>
-            <Button onClick={() => setShowResultDialog(false)}>确定</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 保存草稿对话框 */}
-      <Dialog open={showSaveDraftDialog} onOpenChange={setShowSaveDraftDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>保存排课草稿</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>草稿名称</Label>
-              <Input
-                placeholder="排课草稿（自动生成时间戳）"
-                value={draftName}
-                onChange={(e) => setDraftName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>备注说明</Label>
-              <Textarea
-                placeholder="可选：添加备注说明..."
-                value={draftDescription}
-                onChange={(e) => setDraftDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSaveDraftDialog(false)}>取消</Button>
-            <Button onClick={saveDraft}>保存</Button>
+            <Button onClick={() => setShowResultDialog(false)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
