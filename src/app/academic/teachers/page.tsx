@@ -210,6 +210,7 @@ export default function TeachersPage() {
     total: teachers.length,
     senior: teachers.filter(t => t.title === '高级教师' || t.title === '正高级教师').length,
     headTeachers: teachers.filter(t => t.isHeadTeacher).length,
+    subTeachers: teachers.filter(t => t.subTeacherClasses && t.subTeacherClasses.length > 0).length,
     departments: new Set(teachers.map(t => t.department)).size,
     unconfigured: teachers.filter(t => t.teachableSubjects.length === 0).length,
     overHours: teachers.filter(t => t.currentHours > t.weeklyHours).length,
@@ -442,7 +443,7 @@ export default function TeachersPage() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -480,6 +481,20 @@ export default function TeachersPage() {
               </div>
               <div className="p-2 rounded-lg bg-green-100">
                 <UserCircle className="h-5 w-5 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">科任</p>
+                <p className="text-2xl font-bold text-cyan-600">{stats.subTeachers}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-cyan-100">
+                <UserCircle className="h-5 w-5 text-cyan-600" />
               </div>
             </div>
           </CardContent>
@@ -557,6 +572,7 @@ export default function TeachersPage() {
                 <TableHead>职称</TableHead>
                 <TableHead>教研组</TableHead>
                 <TableHead>课时配置</TableHead>
+                <TableHead>任职班级</TableHead>
                 <TableHead>联系电话</TableHead>
                 <TableHead>教龄</TableHead>
                 <TableHead>状态</TableHead>
@@ -610,10 +626,26 @@ export default function TeachersPage() {
                             {s}
                           </Badge>
                         ))}
-                        {teacher.isHeadTeacher && (
-                          <Badge className="text-[10px] px-1 py-0 h-4 bg-amber-100 text-amber-700">班主任</Badge>
-                        )}
                       </div>
+                    </div>
+                  </TableCell>
+                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
+                    <div className="flex flex-col gap-1 min-w-[100px]">
+                      {teacher.isHeadTeacher && teacher.headTeacherClassName ? (
+                        <div className="flex items-center gap-1">
+                          <Badge className="text-[10px] px-1 py-0 h-4 bg-amber-100 text-amber-700">班主任</Badge>
+                          <span className="text-xs text-gray-600">{teacher.headTeacherClassName}</span>
+                        </div>
+                      ) : null}
+                      {teacher.subTeacherClasses && teacher.subTeacherClasses.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <Badge className="text-[10px] px-1 py-0 h-4 bg-blue-100 text-blue-700">科任</Badge>
+                          <span className="text-xs text-gray-600">{teacher.subTeacherClasses.map(c => c.className).join('、')}</span>
+                        </div>
+                      ) : null}
+                      {!teacher.isHeadTeacher && (!teacher.subTeacherClasses || teacher.subTeacherClasses.length === 0) ? (
+                        <span className="text-xs text-gray-400">-</span>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
