@@ -5,9 +5,10 @@
  * 
  * 核心规则（参考基准）：
  * - 教师周课时量基准：约13节
- * - 班主任/教研组长/中层行政/年段长：带1个班，主科5-6节
+ * - 班主任：带1个班，主科5-6节
  * - 科任：带2个班，主科10-12节
  * - 技能科教师：跨多个班级，约13节
+ * - 领导层（校长/书记/副校长）：课时量可适当减少，具体由学校决定
  * 
  * 具体课时由教务主任根据实际情况配置，智能排课结果可手动调整
  */
@@ -16,16 +17,17 @@
 
 /** 教师主要角色类型 */
 export type TeacherRole = 
+  // === 领导层（主要角色就是领导职务）===
+  | 'principal'                 // 校长
+  | 'secretary'                 // 书记
+  | 'vice_principal'            // 副校长
+  // === 教师群体 ===
   | 'head_teacher'              // 班主任
-  | 'grade_leader'              // 年段长
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
   | 'skill_teacher';            // 技能课教师（体育、音乐、美术等）
 
 /** 行政职务类型（可兼任） */
 export type AdministrativeRole = 
-  | 'principal'                 // 校长
-  | 'secretary'                 // 书记
-  | 'vice_principal'            // 副校长
   | 'academic_director'         // 教务主任
   | 'moral_director'            // 德育主任
   | 'general_director'          // 总务主任
@@ -35,16 +37,15 @@ export type AdministrativeRole =
   | 'young_pioneer_counselor';  // 少先队大队辅导员
 
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
+  principal: '校长',
+  secretary: '书记',
+  vice_principal: '副校长',
   head_teacher: '班主任',
-  grade_leader: '年段长',
   subject_teacher: '科任教师',
   skill_teacher: '技能课教师',
 };
 
 export const ADMINISTRATIVE_ROLE_LABELS: Record<AdministrativeRole, string> = {
-  principal: '校长',
-  secretary: '书记',
-  vice_principal: '副校长',
   academic_director: '教务主任',
   moral_director: '德育主任',
   general_director: '总务主任',
@@ -88,6 +89,35 @@ export interface TeachingHoursRule {
  * 基准：周课时约13节
  */
 export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
+  // === 领导层 ===
+  // 校长（行政工作为主，课时可适当减少）
+  {
+    role: 'principal',
+    classCount: 0,
+    mainSubjectHours: [0, 2],
+    totalHours: 4,
+    description: '校长以行政工作为主，可承担少量教学任务，周课时约2-4节',
+  },
+  
+  // 书记（党务工作为主，课时可适当减少）
+  {
+    role: 'secretary',
+    classCount: 0,
+    mainSubjectHours: [0, 2],
+    totalHours: 4,
+    description: '书记以党务工作为主，可承担少量教学任务，周课时约2-4节',
+  },
+  
+  // 副校长（分管工作为主，课时可适当减少）
+  {
+    role: 'vice_principal',
+    classCount: 1,
+    mainSubjectHours: [2, 4],
+    totalHours: 6,
+    description: '副校长以分管工作为主，可承担部分教学任务，周课时约4-6节',
+  },
+  
+  // === 教师群体 ===
   // 班主任（带1个班）
   {
     role: 'head_teacher',
@@ -95,15 +125,6 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     mainSubjectHours: [5, 6],
     totalHours: 13,
     description: '班主任带1个班：本班主科5-6节 + 本班兼任（道法/劳动/班会）约4节 + 其他班约3节',
-  },
-  
-  // 年段长（带1个班）
-  {
-    role: 'grade_leader',
-    classCount: 1,
-    mainSubjectHours: [5, 6],
-    totalHours: 13,
-    description: '年段长带1个班：本班主科5-6节 + 本班兼任约4节 + 其他班约3节',
   },
   
   // 科任教师（带2个班）
@@ -137,6 +158,14 @@ export function calculateSuggestedHours(
   // 技能科教师特殊处理
   if (role === 'skill_teacher' || isSkillTeacher) {
     return { mainSubjectHours: 0, totalHours: 13 };
+  }
+  
+  // 领导层特殊处理
+  if (role === 'principal' || role === 'secretary') {
+    return { mainSubjectHours: 1, totalHours: 4 };
+  }
+  if (role === 'vice_principal') {
+    return { mainSubjectHours: 3, totalHours: 6 };
   }
   
   // 查找匹配的规则

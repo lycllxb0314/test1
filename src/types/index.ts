@@ -28,9 +28,6 @@ export type UserRole =
 
 /** 行政职务类型（可兼任，存储在 additional_roles 字段中） */
 export type AdministrativeRole = 
-  | 'principal'                 // 校长
-  | 'secretary'                 // 书记
-  | 'vice_principal'            // 副校长
   | 'academic_director'         // 教务主任
   | 'moral_director'            // 德育主任
   | 'general_director'          // 总务主任

@@ -9,18 +9,19 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 
 // ==================== 类型定义 ====================
 
-/** 教师角色类型（主要角色） */
+/** 教师主要角色类型 */
 export type TeacherRole = 
+  // === 领导层（主要角色就是领导职务）===
+  | 'principal'                 // 校长
+  | 'secretary'                 // 书记
+  | 'vice_principal'            // 副校长
+  // === 教师群体 ===
   | 'head_teacher'              // 班主任
-  | 'grade_leader'              // 年段长
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
   | 'skill_teacher';            // 技能课教师（体育、音乐、美术等）
 
 /** 行政职务类型（可兼任） */
 export type AdministrativeRole = 
-  | 'principal'                 // 校长
-  | 'secretary'                 // 书记
-  | 'vice_principal'            // 副校长
   | 'academic_director'         // 教务主任
   | 'moral_director'            // 德育主任
   | 'general_director'          // 总务主任
@@ -31,17 +32,16 @@ export type AdministrativeRole =
 
 /** 角色标签映射 */
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
+  principal: '校长',
+  secretary: '书记',
+  vice_principal: '副校长',
   head_teacher: '班主任',
-  grade_leader: '年段长',
   subject_teacher: '科任教师',
   skill_teacher: '技能课教师',
 };
 
 /** 行政职务标签映射 */
 export const ADMINISTRATIVE_ROLE_LABELS: Record<AdministrativeRole, string> = {
-  principal: '校长',
-  secretary: '书记',
-  vice_principal: '副校长',
   academic_director: '教务主任',
   moral_director: '德育主任',
   general_director: '总务主任',
@@ -53,17 +53,16 @@ export const ADMINISTRATIVE_ROLE_LABELS: Record<AdministrativeRole, string> = {
 
 /** 角色颜色映射 */
 export const TEACHER_ROLE_COLORS: Record<TeacherRole, { bg: string; text: string }> = {
+  principal: { bg: 'bg-red-100', text: 'text-red-700' },
+  secretary: { bg: 'bg-red-100', text: 'text-red-700' },
+  vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
   head_teacher: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  grade_leader: { bg: 'bg-purple-100', text: 'text-purple-700' },
   subject_teacher: { bg: 'bg-blue-100', text: 'text-blue-700' },
   skill_teacher: { bg: 'bg-green-100', text: 'text-green-700' },
 };
 
 /** 行政职务颜色映射 */
 export const ADMINISTRATIVE_ROLE_COLORS: Record<AdministrativeRole, { bg: string; text: string }> = {
-  principal: { bg: 'bg-red-100', text: 'text-red-700' },
-  secretary: { bg: 'bg-red-100', text: 'text-red-700' },
-  vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
   academic_director: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
   moral_director: { bg: 'bg-pink-100', text: 'text-pink-700' },
   general_director: { bg: 'bg-slate-100', text: 'text-slate-700' },
@@ -124,6 +123,7 @@ export interface UseTeachersReturn {
   // 统计
   statistics: {
     total: number;
+    leaders: number;
     headTeachers: number;
     subjectTeachers: number;
     skillTeachers: number;
@@ -175,12 +175,16 @@ export function useTeachers(): UseTeachersReturn {
   // 统计数据
   const statistics = useMemo(() => ({
     total: teachers.length,
+    // 领导层
+    leaders: teachers.filter(t => 
+      t.primaryRole === 'principal' || t.primaryRole === 'secretary' || t.primaryRole === 'vice_principal'
+    ).length,
+    // 教师群体
     headTeachers: teachers.filter(t => t.primaryRole === 'head_teacher').length,
     subjectTeachers: teachers.filter(t => t.primaryRole === 'subject_teacher').length,
     skillTeachers: teachers.filter(t => t.primaryRole === 'skill_teacher').length,
-    gradeLeaders: teachers.filter(t => 
-      t.primaryRole === 'grade_leader' || t.additionalRoles.includes('grade_leader')
-    ).length,
+    // 兼任职务统计
+    gradeLeaders: teachers.filter(t => t.additionalRoles.includes('grade_leader')).length,
     researchGroupLeaders: teachers.filter(t => 
       t.additionalRoles.includes('research_group_leader') || t.additionalRoles.includes('research_group_deputy_leader')
     ).length,

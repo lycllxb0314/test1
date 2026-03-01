@@ -311,9 +311,9 @@ export function TeacherScheduleConfigDialog({
                 </Select>
                 <p className="text-xs text-gray-500">
                   {form.role === 'head_teacher' && '班主任只能带1个班'}
-                  {form.role === 'grade_leader' && '年段长通常带1个班'}
                   {form.role === 'subject_teacher' && '科任教师通常带2个班'}
                   {form.role === 'skill_teacher' && '技能课教师跨多个班级'}
+                  {(form.role === 'principal' || form.role === 'secretary' || form.role === 'vice_principal') && '领导层课时可适当减少'}
                 </p>
               </div>
 

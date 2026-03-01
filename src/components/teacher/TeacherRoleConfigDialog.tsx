@@ -60,10 +60,14 @@ interface TeacherRoleConfigDialogProps {
   onSave: (config: TeacherRoleConfig) => Promise<void>;
 }
 
-// 主要角色选项（教师的本职角色）
+// 主要角色选项（领导层 + 教师本职角色）
 const PRIMARY_ROLE_OPTIONS: TeacherRole[] = [
+  // 领导层
+  'principal',
+  'secretary',
+  'vice_principal',
+  // 教师群体
   'head_teacher',
-  'grade_leader',
   'subject_teacher',
   'skill_teacher',
 ];

@@ -103,16 +103,22 @@ interface Teacher {
   role?: TeacherRole;         // 教师角色
 }
 
-// 角色筛选选项（从 hook 导出）
+// 角色筛选选项（领导层 + 教师角色 + 兼任职务）
 const roleFilterOptions = [
   { value: 'all', label: '全部角色' },
+  // 领导层
+  { value: 'principal', label: '校长' },
+  { value: 'secretary', label: '书记' },
+  { value: 'vice_principal', label: '副校长' },
+  // 教师角色
   { value: 'head_teacher', label: '班主任' },
   { value: 'subject_teacher', label: '科任教师' },
   { value: 'skill_teacher', label: '技能课教师' },
-  { value: 'grade_leader', label: '年段长' },
-  { value: 'research_group_leader', label: '教研组组长' },
-  { value: 'research_group_deputy_leader', label: '教研组副组长' },
-  { value: 'young_pioneer_counselor', label: '少先队大队辅导员' },
+  // 兼任职务
+  { value: 'grade_leader', label: '年段长（兼）' },
+  { value: 'research_group_leader', label: '教研组组长（兼）' },
+  { value: 'research_group_deputy_leader', label: '教研组副组长（兼）' },
+  { value: 'young_pioneer_counselor', label: '少先队大队辅导员（兼）' },
 ];
 
 // 性别选项
@@ -539,6 +545,20 @@ export default function TeachersPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-sm text-gray-500">领导层</p>
+                <p className="text-2xl font-bold text-red-600">{statistics.leaders}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-red-100">
+                <UserCircle className="h-5 w-5 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-sm text-gray-500">班主任</p>
                 <p className="text-2xl font-bold text-amber-600">{statistics.headTeachers}</p>
               </div>
@@ -581,25 +601,11 @@ export default function TeachersPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">年段长</p>
+                <p className="text-sm text-gray-500">年段长（兼）</p>
                 <p className="text-2xl font-bold text-purple-600">{statistics.gradeLeaders}</p>
               </div>
               <div className="p-2 rounded-lg bg-purple-100">
                 <UserCircle className="h-5 w-5 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">教研组</p>
-                <p className="text-2xl font-bold text-orange-600">{statistics.departments}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-orange-100">
-                <BookOpen className="h-5 w-5 text-orange-600" />
               </div>
             </div>
           </CardContent>
