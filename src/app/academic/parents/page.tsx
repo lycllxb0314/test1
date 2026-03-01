@@ -1,10 +1,15 @@
 /**
  * 家长管理页面
  * 
- * 从学生数据中提取家长信息，支持：
+ * 使用 useParents Hook 管理家长数据
+ * 家长是完整实体，从属学生 → 从属班级
+ * 
+ * 功能：
  * - 家长列表展示
  * - 按班级、年级、关系筛选
  * - 搜索家长姓名、学生姓名、电话
+ * - 家长详情查看
+ * - 数据导出
  */
 
 'use client';
@@ -49,19 +54,34 @@ import {
   Baby,
   Loader2,
   Eye,
-  MessageCircle,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Key,
+  Bell,
 } from 'lucide-react';
-import { useStudents, type ParentInfo } from '@/hooks';
+import { 
+  useParents, 
+  type ParentInfo, 
+  type ParentRelation,
+  type ParentNotificationSettings,
+} from '@/hooks';
 import { toast } from 'sonner';
 
 // 每页显示数量
 const PAGE_SIZE = 15;
 
+// 关系选项
+const RELATION_OPTIONS: { value: ParentRelation; label: string; icon: string }[] = [
+  { value: 'father', label: '父亲', icon: '👨' },
+  { value: 'mother', label: '母亲', icon: '👩' },
+  { value: 'grandfather', label: '爷爷/外公', icon: '👴' },
+  { value: 'grandmother', label: '奶奶/外婆', icon: '👵' },
+  { value: 'other', label: '其他', icon: '👤' },
+];
+
 // 获取关系颜色
-const getRelationshipColor = (relationship: string) => {
+const getRelationshipColor = (relationName: string) => {
   const colorMap: Record<string, string> = {
     '父亲': 'bg-blue-100 text-blue-700',
     '母亲': 'bg-pink-100 text-pink-700',
@@ -69,13 +89,15 @@ const getRelationshipColor = (relationship: string) => {
     '奶奶': 'bg-rose-100 text-rose-700',
     '外公': 'bg-orange-100 text-orange-700',
     '外婆': 'bg-red-100 text-red-700',
+    '爷爷/外公': 'bg-amber-100 text-amber-700',
+    '奶奶/外婆': 'bg-rose-100 text-rose-700',
     '其他': 'bg-gray-100 text-gray-700',
   };
-  return colorMap[relationship] || 'bg-gray-100 text-gray-700';
+  return colorMap[relationName] || 'bg-gray-100 text-gray-700';
 };
 
 // 获取关系图标
-const getRelationshipIcon = (relationship: string) => {
+const getRelationshipIcon = (relationName: string) => {
   const iconMap: Record<string, string> = {
     '父亲': '👨',
     '母亲': '👩',
@@ -83,19 +105,26 @@ const getRelationshipIcon = (relationship: string) => {
     '奶奶': '👵',
     '外公': '👴',
     '外婆': '👵',
+    '爷爷/外公': '👴',
+    '奶奶/外婆': '👵',
     '其他': '👤',
   };
-  return iconMap[relationship] || '👤';
+  return iconMap[relationName] || '👤';
 };
 
 export default function ParentsPage() {
-  // 使用学生数据Hook，从中提取家长信息
+  // ==================== 使用家长 Hook ====================
   const { 
-    students, 
+    parents, 
     loading, 
-    error,
-    refetch 
-  } = useStudents();
+    error, 
+    statistics,
+    refetch,
+    setPrimaryParent,
+    createParentAccount,
+    resetParentPassword,
+    updateNotificationSettings,
+  } = useParents();
 
   // 搜索和筛选状态
   const [searchTerm, setSearchTerm] = useState('');
@@ -107,33 +136,6 @@ export default function ParentsPage() {
   // 详情弹窗
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedParent, setSelectedParent] = useState<ParentInfo | null>(null);
-
-  // 从学生数据中提取家长列表
-  const parents = useMemo(() => {
-    const parentList: ParentInfo[] = [];
-    students.forEach(student => {
-      if (student.parents && student.parents.length > 0) {
-        student.parents.forEach(parent => {
-          parentList.push({
-            id: parent.id,
-            name: parent.name,
-            relation: parent.relation || 'other',
-            relationName: parent.relationName || parent.relationship || '家长',
-            phone: parent.phone,
-            wechat: parent.wechat,
-            isPrimary: parent.isPrimary,
-            studentId: student.id,
-            studentName: student.name,
-            classId: student.classId,
-            className: student.className,
-            grade: student.grade,
-            hasAccount: false,
-          });
-        });
-      }
-    });
-    return parentList;
-  }, [students]);
 
   // 获取筛选选项
   const gradeOptions = useMemo(() => {
@@ -155,21 +157,6 @@ export default function ParentsPage() {
     const relationships = [...new Set(parents.map(p => p.relationName).filter(Boolean))];
     return relationships.map(r => ({ value: r || '', label: r || '' }));
   }, [parents]);
-
-  // 统计数据
-  const statistics = useMemo(() => ({
-    total: parents.length,
-    primaryCount: parents.filter(p => p.isPrimary).length,
-    fathers: parents.filter(p => p.relationName === '父亲').length,
-    mothers: parents.filter(p => p.relationName === '母亲').length,
-    grandparents: parents.filter(p => ['爷爷', '奶奶', '外公', '外婆'].includes(p.relationName || '')).length,
-    gradeDistribution: parents.reduce((acc, p) => {
-      if (p.grade) {
-        acc[p.grade] = (acc[p.grade] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<number, number>),
-  }), [parents]);
 
   // 筛选后的家长列表
   const filteredParents = useMemo(() => {
@@ -217,10 +204,40 @@ export default function ParentsPage() {
     setDetailDialogOpen(true);
   };
 
+  // 设置主要联系人
+  const handleSetPrimary = async (parent: ParentInfo) => {
+    const success = await setPrimaryParent(parent.studentId, parent.id);
+    if (success) {
+      toast.success('已设置为该学生的主要联系人');
+    } else {
+      toast.error('设置失败');
+    }
+  };
+
+  // 创建家长账号
+  const handleCreateAccount = async (parent: ParentInfo) => {
+    const success = await createParentAccount(parent.id);
+    if (success) {
+      toast.success('家长账号已创建，默认密码为手机号后6位');
+    } else {
+      toast.error('创建账号失败');
+    }
+  };
+
+  // 重置密码
+  const handleResetPassword = async (parent: ParentInfo) => {
+    const success = await resetParentPassword(parent.id);
+    if (success) {
+      toast.success('密码已重置为手机号后6位');
+    } else {
+      toast.error('重置密码失败');
+    }
+  };
+
   // 导出数据
   const handleExport = () => {
     const csvContent = [
-      ['家长姓名', '关系', '电话', '学生姓名', '班级', '主要联系人'].join(','),
+      ['家长姓名', '关系', '电话', '学生姓名', '班级', '主要联系人', '账号状态'].join(','),
       ...filteredParents.map(p => [
         p.name,
         p.relationName || '',
@@ -228,6 +245,7 @@ export default function ParentsPage() {
         p.studentName,
         p.className,
         p.isPrimary ? '是' : '否',
+        p.hasAccount ? '已开通' : '未开通',
       ].join(','))
     ].join('\n');
 
@@ -273,7 +291,7 @@ export default function ParentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">家长管理</h1>
-          <p className="text-gray-500 mt-1">查看和管理学生家长信息</p>
+          <p className="text-gray-500 mt-1">查看和管理学生家长信息（从属学生 → 从属班级）</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2" onClick={handleExport}>
@@ -304,7 +322,7 @@ export default function ParentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">父亲</p>
-                <p className="text-2xl font-bold text-blue-600">{statistics.fathers}</p>
+                <p className="text-2xl font-bold text-blue-600">{statistics.relationDistribution.father || 0}</p>
               </div>
               <div className="p-2 rounded-lg bg-blue-100">
                 <User className="h-5 w-5 text-blue-600" />
@@ -318,7 +336,7 @@ export default function ParentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">母亲</p>
-                <p className="text-2xl font-bold text-pink-600">{statistics.mothers}</p>
+                <p className="text-2xl font-bold text-pink-600">{statistics.relationDistribution.mother || 0}</p>
               </div>
               <div className="p-2 rounded-lg bg-pink-100">
                 <User className="h-5 w-5 text-pink-600" />
@@ -332,7 +350,9 @@ export default function ParentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">祖辈</p>
-                <p className="text-2xl font-bold text-amber-600">{statistics.grandparents}</p>
+                <p className="text-2xl font-bold text-amber-600">
+                  {(statistics.relationDistribution.grandfather || 0) + (statistics.relationDistribution.grandmother || 0)}
+                </p>
               </div>
               <div className="p-2 rounded-lg bg-amber-100">
                 <Heart className="h-5 w-5 text-amber-600" />
@@ -346,7 +366,7 @@ export default function ParentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">主要联系人</p>
-                <p className="text-2xl font-bold text-green-600">{statistics.primaryCount}</p>
+                <p className="text-2xl font-bold text-green-600">{statistics.primaryParentCount}</p>
               </div>
               <div className="p-2 rounded-lg bg-green-100">
                 <Phone className="h-5 w-5 text-green-600" />
@@ -363,7 +383,7 @@ export default function ParentsPage() {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="搜索家长姓名、学生姓名、电话、学号..."
+                placeholder="搜索家长姓名、学生姓名、电话..."
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
@@ -440,6 +460,7 @@ export default function ParentsPage() {
                     <TableHead>学生姓名</TableHead>
                     <TableHead>班级</TableHead>
                     <TableHead>主要联系人</TableHead>
+                    <TableHead>账号状态</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -477,6 +498,13 @@ export default function ParentsPage() {
                           <Badge className="bg-green-100 text-green-700">是</Badge>
                         ) : (
                           <Badge variant="outline" className="text-gray-400">否</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {parent.hasAccount ? (
+                          <Badge className="bg-blue-100 text-blue-700">已开通</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-gray-400">未开通</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -531,7 +559,7 @@ export default function ParentsPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>家长详情</DialogTitle>
-            <DialogDescription>查看家长和学生信息</DialogDescription>
+            <DialogDescription>查看家长信息和管理账号</DialogDescription>
           </DialogHeader>
 
           {selectedParent && (
@@ -563,7 +591,17 @@ export default function ParentsPage() {
                     <Label className="text-gray-500">微信号</Label>
                     <p className="font-medium">{selectedParent.wechat || '-'}</p>
                   </div>
-                  <div className="col-span-2">
+                  <div>
+                    <Label className="text-gray-500">账号状态</Label>
+                    <p>
+                      {selectedParent.hasAccount ? (
+                        <Badge className="bg-blue-100 text-blue-700">已开通</Badge>
+                      ) : (
+                        <Badge variant="outline">未开通</Badge>
+                      )}
+                    </p>
+                  </div>
+                  <div>
                     <Label className="text-gray-500">主要联系人</Label>
                     <p>
                       {selectedParent.isPrimary ? (
@@ -593,9 +631,46 @@ export default function ParentsPage() {
                   </div>
                   <div>
                     <Label className="text-gray-500">年级</Label>
-                    <p className="font-medium">{selectedParent.grade}年级</p>
+                    <p className="font-medium">{selectedParent.grade ? `${selectedParent.grade}年级` : '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500">班主任</Label>
+                    <p className="font-medium">{selectedParent.headTeacherName || '-'}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {!selectedParent.isPrimary && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleSetPrimary(selectedParent)}
+                  >
+                    <User className="h-4 w-4 mr-1" />
+                    设为主要联系人
+                  </Button>
+                )}
+                {!selectedParent.hasAccount ? (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleCreateAccount(selectedParent)}
+                  >
+                    <Key className="h-4 w-4 mr-1" />
+                    开通账号
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleResetPassword(selectedParent)}
+                  >
+                    <Key className="h-4 w-4 mr-1" />
+                    重置密码
+                  </Button>
+                )}
               </div>
             </div>
           )}
