@@ -507,10 +507,20 @@ export interface StudentMoralRecord {
 export interface Parent {
   id: string;
   name: string;
-  relationship: '父亲' | '母亲' | '爷爷' | '奶奶' | '外公' | '外婆' | '其他';
-  phone: string;
+  // 关系（新字段 - 英文枚举）
+  relation?: 'father' | 'mother' | 'grandfather' | 'grandmother' | 'other';
+  relationName?: string;
+  // 关系（旧字段 - 中文值，保持兼容）
+  relationship?: '父亲' | '母亲' | '爷爷' | '奶奶' | '外公' | '外婆' | '其他';
+  phone?: string;
   isPrimary: boolean;
   wechat?: string;
+  email?: string;
+  avatar?: string;
+  // 工作信息
+  company?: string;
+  position?: string;
+  education?: string;
 }
 
 // 教师信息

@@ -708,7 +708,7 @@ export default function TeachersPage() {
                       {teacher.subTeacherClasses && teacher.subTeacherClasses.length > 0 ? (
                         <div className="flex items-center gap-1">
                           <Badge className="text-[10px] px-1 py-0 h-4 bg-blue-100 text-blue-700">科任</Badge>
-                          <span className="text-xs text-gray-600">{teacher.subTeacherClasses.map(c => c.className).join('、')}</span>
+                          <span className="text-xs text-gray-600">{teacher.subTeacherClasses.map((c: { classId: string; className: string }) => c.className).join('、')}</span>
                         </div>
                       ) : null}
                       {!teacher.isHeadTeacher && (!teacher.subTeacherClasses || teacher.subTeacherClasses.length === 0) ? (

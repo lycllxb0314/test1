@@ -401,8 +401,8 @@ export default function StudentDetailPage({ params }: PageProps) {
     setParentFormData({
       id: parent.id,
       name: parent.name,
-      relationship: parent.relationship,
-      phone: parent.phone,
+      relationship: parent.relationship || '其他',
+      phone: parent.phone || '',
       isPrimary: parent.isPrimary,
       wechat: parent.wechat || '',
     });

@@ -580,7 +580,7 @@ export default function ClassesPage() {
                                 )}
                               </div>
                               <div className="text-sm text-gray-500">
-                                {parent.relationship} · {parent.studentName}家长
+                                {parent.relationName} · {parent.studentName}家长
                               </div>
                             </div>
                           </div>

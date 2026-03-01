@@ -117,16 +117,17 @@ export default function ParentsPage() {
           parentList.push({
             id: parent.id,
             name: parent.name,
-            relationship: parent.relationship,
+            relation: parent.relation || 'other',
+            relationName: parent.relationName || parent.relationship || '家长',
             phone: parent.phone,
             wechat: parent.wechat,
             isPrimary: parent.isPrimary,
             studentId: student.id,
             studentName: student.name,
-            studentNo: student.studentNo,
             classId: student.classId,
             className: student.className,
             grade: student.grade,
+            hasAccount: false,
           });
         });
       }
@@ -136,34 +137,36 @@ export default function ParentsPage() {
 
   // 获取筛选选项
   const gradeOptions = useMemo(() => {
-    const grades = [...new Set(parents.map(p => p.grade))].sort((a, b) => a - b);
+    const grades = [...new Set(parents.map(p => p.grade))].filter((g): g is number => typeof g === 'number').sort((a, b) => a - b);
     return grades.map(g => ({ value: g.toString(), label: `${g}年级` }));
   }, [parents]);
 
   const classOptions = useMemo(() => {
     const classMap = new Map<string, string>();
     parents.forEach(p => {
-      if (!classMap.has(p.classId)) {
-        classMap.set(p.classId, p.className);
+      if (p.classId && !classMap.has(p.classId)) {
+        classMap.set(p.classId, p.className || '');
       }
     });
     return Array.from(classMap.entries()).map(([value, label]) => ({ value, label }));
   }, [parents]);
 
   const relationshipOptions = useMemo(() => {
-    const relationships = [...new Set(parents.map(p => p.relationship))];
-    return relationships.map(r => ({ value: r, label: r }));
+    const relationships = [...new Set(parents.map(p => p.relationName).filter(Boolean))];
+    return relationships.map(r => ({ value: r || '', label: r || '' }));
   }, [parents]);
 
   // 统计数据
   const statistics = useMemo(() => ({
     total: parents.length,
     primaryCount: parents.filter(p => p.isPrimary).length,
-    fathers: parents.filter(p => p.relationship === '父亲').length,
-    mothers: parents.filter(p => p.relationship === '母亲').length,
-    grandparents: parents.filter(p => ['爷爷', '奶奶', '外公', '外婆'].includes(p.relationship)).length,
+    fathers: parents.filter(p => p.relationName === '父亲').length,
+    mothers: parents.filter(p => p.relationName === '母亲').length,
+    grandparents: parents.filter(p => ['爷爷', '奶奶', '外公', '外婆'].includes(p.relationName || '')).length,
     gradeDistribution: parents.reduce((acc, p) => {
-      acc[p.grade] = (acc[p.grade] || 0) + 1;
+      if (p.grade) {
+        acc[p.grade] = (acc[p.grade] || 0) + 1;
+      }
       return acc;
     }, {} as Record<number, number>),
   }), [parents]);
@@ -176,9 +179,8 @@ export default function ParentsPage() {
         const term = searchTerm.toLowerCase();
         const matchName = parent.name.toLowerCase().includes(term);
         const matchStudentName = parent.studentName.toLowerCase().includes(term);
-        const matchPhone = parent.phone.includes(term);
-        const matchStudentNo = parent.studentNo.toLowerCase().includes(term);
-        if (!matchName && !matchStudentName && !matchPhone && !matchStudentNo) {
+        const matchPhone = (parent.phone || '').includes(term);
+        if (!matchName && !matchStudentName && !matchPhone) {
           return false;
         }
       }
@@ -194,7 +196,7 @@ export default function ParentsPage() {
       }
 
       // 关系过滤
-      if (relationshipFilter !== 'all' && parent.relationship !== relationshipFilter) {
+      if (relationshipFilter !== 'all' && parent.relationName !== relationshipFilter) {
         return false;
       }
 
@@ -218,13 +220,12 @@ export default function ParentsPage() {
   // 导出数据
   const handleExport = () => {
     const csvContent = [
-      ['家长姓名', '关系', '电话', '学生姓名', '学号', '班级', '主要联系人'].join(','),
+      ['家长姓名', '关系', '电话', '学生姓名', '班级', '主要联系人'].join(','),
       ...filteredParents.map(p => [
         p.name,
-        p.relationship,
-        p.phone,
+        p.relationName || '',
+        p.phone || '',
         p.studentName,
-        p.studentNo,
         p.className,
         p.isPrimary ? '是' : '否',
       ].join(','))
@@ -437,7 +438,6 @@ export default function ParentsPage() {
                     <TableHead>关系</TableHead>
                     <TableHead>联系电话</TableHead>
                     <TableHead>学生姓名</TableHead>
-                    <TableHead>学号</TableHead>
                     <TableHead>班级</TableHead>
                     <TableHead>主要联系人</TableHead>
                     <TableHead className="text-right">操作</TableHead>
@@ -448,13 +448,13 @@ export default function ParentsPage() {
                     <TableRow key={parent.id} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">{getRelationshipIcon(parent.relationship)}</span>
+                          <span className="text-lg">{getRelationshipIcon(parent.relationName || '')}</span>
                           <span className="font-medium">{parent.name}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getRelationshipColor(parent.relationship)}>
-                          {parent.relationship}
+                        <Badge className={getRelationshipColor(parent.relationName || '')}>
+                          {parent.relationName || ''}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -469,7 +469,6 @@ export default function ParentsPage() {
                           <span>{parent.studentName}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-500">{parent.studentNo}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{parent.className}</Badge>
                       </TableCell>
@@ -551,8 +550,8 @@ export default function ParentsPage() {
                   <div>
                     <Label className="text-gray-500">关系</Label>
                     <p>
-                      <Badge className={getRelationshipColor(selectedParent.relationship)}>
-                        {getRelationshipIcon(selectedParent.relationship)} {selectedParent.relationship}
+                      <Badge className={getRelationshipColor(selectedParent.relationName || '')}>
+                        {getRelationshipIcon(selectedParent.relationName || '')} {selectedParent.relationName || ''}
                       </Badge>
                     </p>
                   </div>
@@ -589,22 +588,12 @@ export default function ParentsPage() {
                     <p className="font-medium">{selectedParent.studentName}</p>
                   </div>
                   <div>
-                    <Label className="text-gray-500">学号</Label>
-                    <p className="font-medium">{selectedParent.studentNo}</p>
-                  </div>
-                  <div>
                     <Label className="text-gray-500">班级</Label>
                     <p className="font-medium">{selectedParent.className}</p>
                   </div>
                   <div>
                     <Label className="text-gray-500">年级</Label>
                     <p className="font-medium">{selectedParent.grade}年级</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">学生状态</Label>
-                    <p>
-                      <Badge variant="outline">{selectedParent.studentStatus}</Badge>
-                    </p>
                   </div>
                 </div>
               </div>

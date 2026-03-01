@@ -239,7 +239,7 @@ export default function EnrollmentPage() {
   // 过滤搜索
   const filteredApplications = applications.filter(app => 
     app.studentName.includes(searchTerm) || 
-    app.parents.some(p => p.name.includes(searchTerm) || p.phone.includes(searchTerm))
+    app.parents.some(p => p.name.includes(searchTerm) || (p.phone || '').includes(searchTerm))
   );
 
   // 全选/取消全选

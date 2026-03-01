@@ -1,9 +1,22 @@
 /**
  * 学生数据管理 Hook
  * 
- * 统一管理学生数据的获取、筛选、统计等操作
- * 支持按年级、班级筛选，整合家长信息
- * 支持获取学生完整档案（学业、荣誉、成长、习惯、德育、出勤）
+ * ==================== 架构定位 ====================
+ * 学生是完整实体，但从属班级。
+ * 学生本身是完整实体（有个人信息、学籍信息、家庭信息、成长档案等），
+ * 但必须归属班级，不能脱离班级独立存在。
+ * 
+ * ==================== 职责边界 ====================
+ * 1. 学生必须归属班级，classId 是必填字段
+ * 2. 提供完整的学生管理功能（创建、更新、删除）
+ * 3. 提供学生完整档案（学业、荣誉、成长、习惯、德育）
+ * 4. 包含家长信息，但不独立管理家长
+ * 5. 提供班级关联查询方法
+ * 
+ * ==================== 关联关系 ====================
+ * - 从属班级：必须通过 classId 关联班级
+ * - 包含家长：家长信息嵌入学生数据中
+ * - 不依赖其他 Hook，独立获取数据
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -19,51 +32,64 @@ import type {
 
 // ==================== 类型定义 ====================
 
+/** 学生状态 */
+export type StudentStatus = '在校' | '请假' | '休学' | '毕业' | '转学';
+
+/** 学生筛选参数 */
+export interface StudentFilters {
+  search?: string;
+  grade?: number | 'all';
+  classId?: string | 'all';
+  status?: StudentStatus | 'all';
+  familyType?: string | 'all';
+}
+
 /** 学生完整信息 */
 export interface StudentInfo {
+  // === 基本信息 ===
   id: string;
   studentNo: string;
   name: string;
   gender: 'male' | 'female';
   birthDate?: string;
+  avatar?: string;
   
-  // 学籍信息
+  // === 学籍信息（班级归属 - 核心关联） ===
   grade: number;
   gradeName: string;
-  classId: string;
+  classId: string;              // 必填：班级归属
   className: string;
   enrollmentDate?: string;
-  studentType?: string;
+  studentType?: string;         // 学生类型（户籍、借读等）
   
-  // 身份信息
+  // === 身份信息 ===
   idCard?: string;
   ethnicity?: string;
   nativePlace?: string;
   politicalStatus?: string;
   
-  // 联系信息
+  // === 联系信息 ===
   phone?: string;
   address?: string;
   homeAddress?: string;
   
-  // 家庭信息
+  // === 家庭信息 ===
   familyType?: string;
-  parents: Parent[];
+  parents: Parent[];            // 家长信息嵌入学生数据
   emergencyContact?: string;
   emergencyPhone?: string;
   
-  // 班主任信息
+  // === 班主任信息（从班级关联获取） ===
   headTeacherId?: string;
   headTeacherName?: string;
   
-  // 状态
-  status: '在校' | '请假' | '休学' | '毕业' | '转学';
-  avatar?: string;
+  // === 状态 ===
+  status: StudentStatus;
   
-  // 习惯养成
+  // === 习惯养成 ===
   habitStars?: number;
   
-  // 时间戳
+  // === 时间戳 ===
   createdAt?: string;
   updatedAt?: string;
 }
@@ -79,14 +105,6 @@ export interface StudentStatistics {
   familyTypeDistribution: Record<string, number>;
 }
 
-/** 筛选参数 */
-export interface StudentFilters {
-  search?: string;
-  grade?: number | 'all';
-  classId?: string | 'all';
-  status?: string | 'all';
-}
-
 /** 分页信息 */
 export interface PaginationInfo {
   page: number;
@@ -97,48 +115,52 @@ export interface PaginationInfo {
 
 /** Hook 返回类型 */
 export interface UseStudentsReturn {
-  // 数据
+  // === 数据 ===
   students: StudentInfo[];
   loading: boolean;
   error: string | null;
   
-  // 统计
+  // === 统计 ===
   statistics: StudentStatistics;
   pagination: PaginationInfo;
   
-  // 筛选
+  // === 筛选 ===
   filters: StudentFilters;
   setFilters: (filters: StudentFilters) => void;
   
-  // 操作方法
+  // === 查询方法 ===
   fetchStudents: () => Promise<void>;
   refetch: () => Promise<void>;
   getStudentById: (id: string) => StudentInfo | undefined;
+  
+  // === 班级关联查询（核心方法） ===
   getStudentsByClass: (classId: string) => StudentInfo[];
   getStudentsByGrade: (grade: number) => StudentInfo[];
+  getStudentsByStatus: (status: StudentStatus) => StudentInfo[];
   
-  // 家长相关
+  // === 家长相关 ===
   getParentsByStudent: (studentId: string) => Parent[];
   getPrimaryParent: (studentId: string) => Parent | undefined;
+  getParentsByClass: (classId: string) => Parent[];
   
-  // 创建/更新/删除
-  createStudent: (student: Partial<StudentInfo>) => Promise<boolean>;
+  // === 学生管理 ===
+  createStudent: (student: Partial<StudentInfo> & { classId: string }) => Promise<boolean>;
   updateStudent: (id: string, data: Partial<StudentInfo>) => Promise<boolean>;
   deleteStudent: (id: string) => Promise<boolean>;
   batchUpdateStudents: (ids: string[], data: Partial<StudentInfo>) => Promise<boolean>;
   
-  // 完整档案
+  // === 完整档案 ===
   profiles: Record<string, StudentFullProfile>;
   profileLoading: boolean;
   fetchStudentProfile: (id: string) => Promise<StudentFullProfile | null>;
   getStudentProfile: (id: string) => StudentFullProfile | undefined;
   
-  // 档案数据操作（学业、荣誉、成长等）
+  // === 档案数据操作 ===
   addAcademicRecord: (studentId: string, record: Partial<StudentAcademicRecord>) => Promise<boolean>;
   addHonor: (studentId: string, honor: Partial<StudentHonor>) => Promise<boolean>;
   addGrowthRecord: (studentId: string, record: Partial<StudentGrowthRecord>) => Promise<boolean>;
   
-  // 习惯评价
+  // === 习惯评价 ===
   addHabitAssessment: (studentId: string, assessment: {
     category: HabitCategory;
     type: 'praise' | 'improve';
@@ -161,7 +183,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   const [filters, setFilters] = useState<StudentFilters>(initialFilters || {});
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
-    pageSize: 500, // 默认获取全部
+    pageSize: 2000, // 默认获取全部
     total: 0,
     totalPages: 0,
   });
@@ -208,7 +230,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       
       // 构建查询参数
       const params = new URLSearchParams();
-      params.append('pageSize', pagination.pageSize.toString());
+      params.append('pageSize', '2000'); // 获取全部学生
       
       if (filters.search) {
         params.append('search', filters.search);
@@ -234,9 +256,10 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           name: s.name as string,
           gender: (s.gender as StudentInfo['gender']) || 'male',
           birthDate: s.birth_date as string,
+          avatar: s.avatar as string,
           grade: (s.grade as number) || 1,
           gradeName: GRADE_NAMES[s.grade as number] || '一年级',
-          classId: s.class_id as string || '',
+          classId: s.class_id as string || '', // 必填：班级归属
           className: s.class_name as string || '',
           enrollmentDate: s.enrollment_date as string,
           studentType: s.student_type as string,
@@ -254,7 +277,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           headTeacherId: s.head_teacher_id as string,
           headTeacherName: s.head_teacher_name as string,
           status: (s.status as StudentInfo['status']) || '在校',
-          avatar: s.avatar as string,
+          habitStars: s.habit_stars as number,
           createdAt: s.created_at as string,
           updatedAt: s.updated_at as string,
         }));
@@ -276,14 +299,14 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.pageSize]);
+  }, [filters]);
   
   // 根据ID获取学生
   const getStudentById = useCallback((id: string) => 
     students.find(s => s.id === id),
   [students]);
   
-  // 根据班级获取学生
+  // 根据班级获取学生（核心方法：班级归属查询）
   const getStudentsByClass = useCallback((classId: string) => 
     students.filter(s => s.classId === classId),
   [students]);
@@ -291,6 +314,11 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   // 根据年级获取学生
   const getStudentsByGrade = useCallback((grade: number) => 
     students.filter(s => s.grade === grade),
+  [students]);
+  
+  // 根据状态获取学生
+  const getStudentsByStatus = useCallback((status: StudentStatus) => 
+    students.filter(s => s.status === status),
   [students]);
   
   // 获取学生的家长列表
@@ -306,8 +334,28 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     return student.parents.find(p => p.isPrimary) || student.parents[0];
   }, [students]);
   
-  // 创建学生
-  const createStudent = useCallback(async (student: Partial<StudentInfo>): Promise<boolean> => {
+  // 获取班级所有家长
+  const getParentsByClass = useCallback((classId: string): Parent[] => {
+    const classStudents = students.filter(s => s.classId === classId);
+    const parents: Parent[] = [];
+    classStudents.forEach(s => {
+      if (s.parents && s.parents.length > 0) {
+        parents.push(...s.parents);
+      }
+    });
+    return parents;
+  }, [students]);
+  
+  // 创建学生（classId 必填）
+  const createStudent = useCallback(async (
+    student: Partial<StudentInfo> & { classId: string }
+  ): Promise<boolean> => {
+    // 验证班级归属
+    if (!student.classId) {
+      console.error('创建学生失败：必须指定班级');
+      return false;
+    }
+    
     try {
       const response = await fetch('/api/students', {
         method: 'POST',
@@ -316,7 +364,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           name: student.name,
           gender: student.gender,
           birth_date: student.birthDate,
-          class_id: student.classId,
+          class_id: student.classId, // 必填
           student_type: student.studentType,
           ethnicity: student.ethnicity,
           native_place: student.nativePlace,
@@ -331,24 +379,22 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       
       const result = await response.json();
       
-      if (result.success) {
-        // 添加到本地状态
-        if (result.data) {
-          const newStudent: StudentInfo = {
-            id: result.data.id,
-            studentNo: result.data.student_no || '',
-            name: result.data.name,
-            gender: result.data.gender || 'male',
-            birthDate: result.data.birth_date,
-            grade: result.data.grade || 1,
-            gradeName: GRADE_NAMES[result.data.grade] || '一年级',
-            classId: result.data.class_id || '',
-            className: result.data.class_name || '',
-            parents: result.data.parents || [],
-            status: result.data.status || '在校',
-          };
-          setStudents(prev => [...prev, newStudent]);
-        }
+      if (result.success && result.data) {
+        const newStudent: StudentInfo = {
+          id: result.data.id,
+          studentNo: result.data.student_no || '',
+          name: result.data.name,
+          gender: result.data.gender || 'male',
+          birthDate: result.data.birth_date,
+          avatar: result.data.avatar,
+          grade: result.data.grade || 1,
+          gradeName: GRADE_NAMES[result.data.grade] || '一年级',
+          classId: result.data.class_id,
+          className: result.data.class_name,
+          parents: result.data.parents || [],
+          status: result.data.status || '在校',
+        };
+        setStudents(prev => [...prev, newStudent]);
         return true;
       }
       return false;
@@ -368,7 +414,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           name: data.name,
           gender: data.gender,
           birth_date: data.birthDate,
-          class_id: data.classId,
+          class_id: data.classId, // 更新班级归属
           status: data.status,
           parents: data.parents,
           emergency_contact: data.emergencyContact,
@@ -380,7 +426,6 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const result = await response.json();
       
       if (result.success) {
-        // 更新本地状态
         setStudents(prev => prev.map(s => {
           if (s.id === id) {
             return { ...s, ...data };
@@ -434,7 +479,6 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const result = await response.json();
       
       if (result.success) {
-        // 更新本地状态
         setStudents(prev => prev.map(s => {
           if (ids.includes(s.id)) {
             return { ...s, ...data };
@@ -454,7 +498,6 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   
   // 获取学生完整档案
   const fetchStudentProfile = useCallback(async (id: string): Promise<StudentFullProfile | null> => {
-    // 优先从缓存获取
     if (profiles[id]) {
       return profiles[id];
     }
@@ -465,7 +508,6 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const result = await response.json();
       
       if (result.success && result.data) {
-        // 缓存档案数据
         setProfiles(prev => ({
           ...prev,
           [id]: result.data,
@@ -492,37 +534,19 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     record: Partial<StudentAcademicRecord>
   ): Promise<boolean> => {
     try {
-      const profile = profiles[studentId];
-      if (!profile) return false;
+      const response = await fetch(`/api/students/${studentId}/academic-records`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record),
+      });
       
-      const newRecord: StudentAcademicRecord = {
-        id: `ar${Date.now()}`,
-        studentId,
-        semester: record.semester || '',
-        examType: record.examType || '单元测试',
-        subject: record.subject || '',
-        score: record.score,
-        level: record.level,
-        classRank: record.classRank,
-        gradeRank: record.gradeRank,
-        createdAt: new Date().toISOString(),
-      };
-      
-      // 更新本地缓存
-      setProfiles(prev => ({
-        ...prev,
-        [studentId]: {
-          ...prev[studentId],
-          academicRecords: [...(prev[studentId]?.academicRecords || []), newRecord],
-        },
-      }));
-      
-      return true;
+      const result = await response.json();
+      return result.success;
     } catch (err) {
       console.error('添加学业记录失败:', err);
       return false;
     }
-  }, [profiles]);
+  }, []);
   
   // 添加荣誉
   const addHonor = useCallback(async (
@@ -530,34 +554,19 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     honor: Partial<StudentHonor>
   ): Promise<boolean> => {
     try {
-      const profile = profiles[studentId];
-      if (!profile) return false;
+      const response = await fetch(`/api/students/${studentId}/honors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(honor),
+      });
       
-      const newHonor: StudentHonor = {
-        id: `h${Date.now()}`,
-        studentId,
-        title: honor.title || '',
-        level: honor.level || '校级',
-        category: honor.category || '综合',
-        issuer: honor.issuer,
-        date: honor.date || new Date().toISOString().slice(0, 7),
-      };
-      
-      // 更新本地缓存
-      setProfiles(prev => ({
-        ...prev,
-        [studentId]: {
-          ...prev[studentId],
-          honors: [...(prev[studentId]?.honors || []), newHonor],
-        },
-      }));
-      
-      return true;
+      const result = await response.json();
+      return result.success;
     } catch (err) {
       console.error('添加荣誉失败:', err);
       return false;
     }
-  }, [profiles]);
+  }, []);
   
   // 添加成长记录
   const addGrowthRecord = useCallback(async (
@@ -565,39 +574,23 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     record: Partial<StudentGrowthRecord>
   ): Promise<boolean> => {
     try {
-      const profile = profiles[studentId];
-      if (!profile) return false;
+      const response = await fetch(`/api/students/${studentId}/growth-records`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record),
+      });
       
-      const newRecord: StudentGrowthRecord = {
-        id: `gr${Date.now()}`,
-        studentId,
-        type: record.type || '其他',
-        title: record.title || '',
-        description: record.description,
-        date: record.date || new Date().toISOString().slice(0, 10),
-        operator: record.operator,
-        createdAt: new Date().toISOString(),
-      };
-      
-      // 更新本地缓存
-      setProfiles(prev => ({
-        ...prev,
-        [studentId]: {
-          ...prev[studentId],
-          growthRecords: [...(prev[studentId]?.growthRecords || []), newRecord],
-        },
-      }));
-      
-      return true;
+      const result = await response.json();
+      return result.success;
     } catch (err) {
       console.error('添加成长记录失败:', err);
       return false;
     }
-  }, [profiles]);
+  }, []);
   
   // 添加习惯评价
   const addHabitAssessment = useCallback(async (
-    studentId: string,
+    studentId: string, 
     assessment: {
       category: HabitCategory;
       type: 'praise' | 'improve';
@@ -608,61 +601,19 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     }
   ): Promise<boolean> => {
     try {
-      const profile = profiles[studentId];
-      if (!profile) return false;
-      
-      const student = students.find(s => s.id === studentId);
-      const now = new Date().toISOString();
-      
-      const newAssessment = {
-        id: `ha${Date.now()}`,
-        studentId,
-        studentName: student?.name || '',
-        classId: student?.classId || '',
-        className: student?.className || '',
-        category: assessment.category,
-        type: assessment.type,
-        title: assessment.title,
-        content: assessment.content || '',
-        score: assessment.score,
-        scene: (assessment.scene || 'campus') as 'campus' | 'classroom' | 'home' | 'activity' | 'other',
-        recorderId: '',
-        recorderName: '',
-        recorderRole: 'teacher' as const,
-        occurredAt: now.slice(0, 10),
-        createdAt: now,
-      };
-      
-      // 获取现有评价记录
-      const existingAssessments = profile.habitProfile?.recentAssessments || [];
-      
-      // 更新本地缓存
-      setProfiles(prev => {
-        const existingProfile = prev[studentId];
-        if (!existingProfile) return prev;
-        
-        return {
-          ...prev,
-          [studentId]: {
-            ...existingProfile,
-            habitProfile: {
-              ...existingProfile.habitProfile,
-              overallScore: existingProfile.habitProfile?.overallScore || 80,
-              level: existingProfile.habitProfile?.level || '良好',
-              habitStarCount: existingProfile.habitProfile?.habitStarCount || 0,
-              monthlyStars: existingProfile.habitProfile?.monthlyStars || [],
-              recentAssessments: [newAssessment, ...existingAssessments].slice(0, 20),
-            },
-          },
-        };
+      const response = await fetch(`/api/students/${studentId}/habit-assessments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assessment),
       });
       
-      return true;
+      const result = await response.json();
+      return result.success;
     } catch (err) {
       console.error('添加习惯评价失败:', err);
       return false;
     }
-  }, [profiles, students]);
+  }, []);
   
   // 初始化加载
   useEffect(() => {
@@ -670,33 +621,55 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   }, [fetchStudents]);
   
   return {
+    // 数据
     students,
     loading,
     error,
     statistics,
     pagination,
+    
+    // 筛选
     filters,
     setFilters,
+    
+    // 查询方法
     fetchStudents,
     refetch: fetchStudents,
     getStudentById,
+    
+    // 班级关联查询
     getStudentsByClass,
     getStudentsByGrade,
+    getStudentsByStatus,
+    
+    // 家长相关
     getParentsByStudent,
     getPrimaryParent,
+    getParentsByClass,
+    
+    // 学生管理
     createStudent,
     updateStudent,
     deleteStudent,
     batchUpdateStudents,
+    
     // 完整档案
     profiles,
     profileLoading,
     fetchStudentProfile,
     getStudentProfile,
+    
     // 档案数据操作
     addAcademicRecord,
     addHonor,
     addGrowthRecord,
+    
+    // 习惯评价
     addHabitAssessment,
   };
 }
+
+// 导出别名
+export { useStudents as useStudentData };
+
+export default useStudents;

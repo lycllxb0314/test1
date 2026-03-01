@@ -1,8 +1,22 @@
 /**
  * 教师数据管理 Hook
  * 
- * 统一管理教师数据的获取、更新、角色配置等操作
- * 所有涉及教师数据的组件都应该使用此 hook，确保数据一致性
+ * ==================== 架构定位 ====================
+ * 教师是系统的第二核心、独立实体。
+ * 教师有独立身份、账号、权限、个人业务，本身是完整独立实体。
+ * 但教师会与班级关联：担任班主任、任课、跨班教学、管理年段。
+ * 
+ * ==================== 职责边界 ====================
+ * 1. 教师独立存在，拥有完整的个人信息、角色、权限
+ * 2. 与班级强相关：班主任、科任、跨班教学、年段管理
+ * 3. 提供完整的教师管理功能（创建、更新、删除）
+ * 4. 提供角色配置、课时配置功能
+ * 5. 提供履历记录、荣誉、培训管理功能
+ * 
+ * ==================== 关联关系 ====================
+ * - 独立实体，不依赖其他 Hook
+ * - 可被班级 Hook 引用和关联
+ * - 提供按班级关联查询方法
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -72,8 +86,25 @@ export const ADMINISTRATIVE_ROLE_COLORS: Record<AdministrativeRole, { bg: string
   young_pioneer_counselor: { bg: 'bg-rose-100', text: 'text-rose-700' },
 };
 
+/** 教师筛选参数 */
+export interface TeacherFilters {
+  search?: string;
+  role?: TeacherRole | 'all';
+  department?: string | 'all';
+  status?: string | 'all';
+}
+
+/** 班级关联信息 */
+export interface ClassRelation {
+  classId: string;
+  className: string;
+  grade: number;
+  role: 'head_teacher' | 'sub_teacher' | 'subject_teacher';
+}
+
 /** 教师完整信息 */
 export interface TeacherInfo {
+  // === 基本信息 ===
   id: string;
   name: string;
   gender: string;
@@ -84,20 +115,21 @@ export interface TeacherInfo {
   email: string;
   status: string;
   teachYears: number;
+  avatar?: string;
   
-  // 个人信息扩展
+  // === 个人信息扩展 ===
   birthDate?: string;           // 出生日期
   idCard?: string;              // 身份证号
   ethnicity?: string;           // 民族
   politicalStatus?: string;     // 政治面貌
   nativePlace?: string;         // 籍贯
   
-  // 联系方式扩展
+  // === 联系方式扩展 ===
   emergencyContact?: string;    // 紧急联系人
   emergencyPhone?: string;      // 紧急联系电话
   address?: string;             // 家庭住址
   
-  // 工作信息扩展
+  // === 工作信息扩展 ===
   employeeId?: string;          // 工号
   titleDate?: string;           // 职称获得日期
   education?: string;           // 学历
@@ -106,23 +138,24 @@ export interface TeacherInfo {
   graduationDate?: string;      // 毕业日期
   joinDate?: string;            // 入职日期
   
-  // 角色信息
+  // === 角色信息 ===
   primaryRole: TeacherRole;     // 主要角色
   additionalRoles: AdministrativeRole[]; // 兼任职务（可多项）
   
-  // 课时配置
+  // === 课时配置 ===
   weeklyHours: number;          // 周课时量
   currentHours: number;         // 已安排课时
   teachableSubjects: string[];  // 可任教科目
   teachableGrades: number[];    // 可任教年级
   
-  // 班级关系
+  // === 班级关系（独立实体，但与班级强相关） ===
   isHeadTeacher: boolean;       // 是否班主任
   headTeacherClassId?: string;  // 班主任班级ID
   headTeacherClassName?: string;// 班主任班级名称
+  classRelations?: ClassRelation[]; // 所有班级关联
   subTeacherClasses?: Array<{ classId: string; className: string }>; // 科任班级列表
   
-  // 履历记录
+  // === 履历记录 ===
   records?: Array<{
     id: string;
     type: string;
@@ -131,7 +164,7 @@ export interface TeacherInfo {
     date: string;
   }>;
   
-  // 荣誉
+  // === 荣誉 ===
   honors?: Array<{
     id: string;
     title: string;
@@ -142,7 +175,7 @@ export interface TeacherInfo {
     certificateNo?: string;
   }>;
   
-  // 培训
+  // === 培训 ===
   trainings?: Array<{
     id: string;
     name: string;
@@ -154,7 +187,7 @@ export interface TeacherInfo {
     status?: string;
   }>;
   
-  // 成就
+  // === 成就 ===
   achievements?: Array<{
     id: string;
     type: string;
@@ -164,6 +197,10 @@ export interface TeacherInfo {
     date: string;
     description?: string;
   }>;
+  
+  // === 时间戳 ===
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** 教师角色配置 */
@@ -177,39 +214,70 @@ export interface TeacherRoleConfig {
   teachableGrades: number[];
 }
 
+/** 教师统计信息 */
+export interface TeacherStatistics {
+  total: number;
+  leaders: number;
+  headTeachers: number;
+  subjectTeachers: number;
+  skillTeachers: number;
+  gradeLeaders: number;
+  researchGroupLeaders: number;
+  youngPioneerCounselors: number;
+  departments: number;
+  byDepartment: Record<string, number>;
+  byTitle: Record<string, number>;
+}
+
+/** 分页信息 */
+export interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 /** Hook 返回类型 */
 export interface UseTeachersReturn {
-  // 数据
+  // === 数据 ===
   teachers: TeacherInfo[];
   loading: boolean;
   error: string | null;
   
-  // 统计
-  statistics: {
-    total: number;
-    leaders: number;
-    headTeachers: number;
-    subjectTeachers: number;
-    skillTeachers: number;
-    gradeLeaders: number;
-    researchGroupLeaders: number;
-    youngPioneerCounselors: number;
-    departments: number;
-  };
+  // === 统计 ===
+  statistics: TeacherStatistics;
+  pagination: PaginationInfo;
   
-  // 角色选项
+  // === 筛选 ===
+  filters: TeacherFilters;
+  setFilters: (filters: TeacherFilters) => void;
+  
+  // === 角色选项 ===
   roleOptions: Array<{ value: TeacherRole; label: string }>;
   adminRoleOptions: Array<{ value: AdministrativeRole; label: string }>;
   
-  // 操作方法
+  // === 查询方法 ===
   fetchTeachers: () => Promise<void>;
-  refetch: () => Promise<void>; // fetchTeachers 的别名
+  refetch: () => Promise<void>;
   getTeacherById: (id: string) => TeacherInfo | undefined;
+  getTeachersByRole: (role: TeacherRole) => TeacherInfo[];
+  getTeachersByDepartment: (department: string) => TeacherInfo[];
+  
+  // === 班级关联查询 ===
+  getHeadTeacherByClass: (classId: string) => TeacherInfo | undefined;
+  getTeachersByGrade: (grade: number) => TeacherInfo[];
+  getGradeLeader: (grade: number) => TeacherInfo | undefined;
+  
+  // === 教师管理 ===
+  createTeacher: (data: Partial<TeacherInfo>) => Promise<boolean>;
   updateTeacher: (id: string, data: Partial<TeacherInfo>) => Promise<boolean>;
+  deleteTeacher: (id: string) => Promise<boolean>;
+  
+  // === 角色配置 ===
   updateTeacherRole: (config: TeacherRoleConfig) => Promise<boolean>;
   batchUpdateRoles: (configs: TeacherRoleConfig[]) => Promise<boolean>;
   
-  // 工具方法
+  // === 工具方法 ===
   getRoleLabel: (role: TeacherRole | AdministrativeRole) => string;
   getRoleColor: (role: TeacherRole | AdministrativeRole) => { bg: string; text: string };
   getTeacherRolesDisplay: (teacher: TeacherInfo) => string[];
@@ -217,10 +285,17 @@ export interface UseTeachersReturn {
 
 // ==================== Hook 实现 ====================
 
-export function useTeachers(): UseTeachersReturn {
+export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn {
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<TeacherFilters>(initialFilters || {});
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    page: 1,
+    pageSize: 500,
+    total: 0,
+    totalPages: 0,
+  });
   
   // 角色选项
   const roleOptions = useMemo(() => 
@@ -238,26 +313,38 @@ export function useTeachers(): UseTeachersReturn {
   []);
   
   // 统计数据
-  const statistics = useMemo(() => ({
-    total: teachers.length,
-    // 领导层
-    leaders: teachers.filter(t => 
-      t.primaryRole === 'principal' || t.primaryRole === 'secretary' || t.primaryRole === 'vice_principal'
-    ).length,
-    // 教师群体
-    headTeachers: teachers.filter(t => t.primaryRole === 'head_teacher').length,
-    subjectTeachers: teachers.filter(t => t.primaryRole === 'subject_teacher').length,
-    skillTeachers: teachers.filter(t => t.primaryRole === 'skill_teacher').length,
-    // 兼任职务统计
-    gradeLeaders: teachers.filter(t => t.additionalRoles.includes('grade_leader')).length,
-    researchGroupLeaders: teachers.filter(t => 
-      t.additionalRoles.includes('research_group_leader') || t.additionalRoles.includes('research_group_deputy_leader')
-    ).length,
-    youngPioneerCounselors: teachers.filter(t => 
-      t.additionalRoles.includes('young_pioneer_counselor')
-    ).length,
-    departments: new Set(teachers.map(t => t.department)).size,
-  }), [teachers]);
+  const statistics = useMemo<TeacherStatistics>(() => {
+    const byDepartment: Record<string, number> = {};
+    const byTitle: Record<string, number> = {};
+    
+    teachers.forEach(t => {
+      byDepartment[t.department] = (byDepartment[t.department] || 0) + 1;
+      byTitle[t.title] = (byTitle[t.title] || 0) + 1;
+    });
+    
+    return {
+      total: teachers.length,
+      // 领导层
+      leaders: teachers.filter(t => 
+        t.primaryRole === 'principal' || t.primaryRole === 'secretary' || t.primaryRole === 'vice_principal'
+      ).length,
+      // 教师群体
+      headTeachers: teachers.filter(t => t.primaryRole === 'head_teacher').length,
+      subjectTeachers: teachers.filter(t => t.primaryRole === 'subject_teacher').length,
+      skillTeachers: teachers.filter(t => t.primaryRole === 'skill_teacher').length,
+      // 兼任职务统计
+      gradeLeaders: teachers.filter(t => t.additionalRoles.includes('grade_leader')).length,
+      researchGroupLeaders: teachers.filter(t => 
+        t.additionalRoles.includes('research_group_leader') || t.additionalRoles.includes('research_group_deputy_leader')
+      ).length,
+      youngPioneerCounselors: teachers.filter(t => 
+        t.additionalRoles.includes('young_pioneer_counselor')
+      ).length,
+      departments: new Set(teachers.map(t => t.department)).size,
+      byDepartment,
+      byTitle,
+    };
+  }, [teachers]);
   
   // 获取教师列表
   const fetchTeachers = useCallback(async () => {
@@ -265,7 +352,7 @@ export function useTeachers(): UseTeachersReturn {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/teachers?pageSize=500');
+      const response = await fetch('/api/teachers?pageSize=1000');
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -280,18 +367,41 @@ export function useTeachers(): UseTeachersReturn {
           email: (t.email as string) || '',
           status: (t.status as string) || 'active',
           teachYears: (t.teachYears as number) || 0,
+          avatar: t.avatar as string,
           primaryRole: (t.role as TeacherRole) || 'subject_teacher',
           additionalRoles: (t.additional_roles as AdministrativeRole[]) || [],
           weeklyHours: (t.total_weekly_hours as number) || 13,
           currentHours: 0,
-          teachableSubjects: [t.primary_subject, ...(t.secondary_subjects as string[] || [])].filter(Boolean),
+          teachableSubjects: [t.primary_subject, ...(t.secondary_subjects as string[] || [])].filter(Boolean) as string[],
           teachableGrades: (t.teachable_grades as number[]) || [1, 2, 3, 4, 5, 6],
           isHeadTeacher: t.isHeadTeacher as boolean || false,
           headTeacherClassId: t.headTeacherClassId as string,
           headTeacherClassName: t.headTeacherClassName as string,
-          subTeacherClasses: t.subTeacherClasses as Array<{ classId: string; className: string }> || [],
+          birthDate: t.birth_date as string,
+          idCard: t.id_card as string,
+          ethnicity: t.ethnicity as string,
+          politicalStatus: t.political_status as string,
+          nativePlace: t.native_place as string,
+          emergencyContact: t.emergency_contact as string,
+          emergencyPhone: t.emergency_phone as string,
+          address: t.address as string,
+          employeeId: t.employee_id as string,
+          education: t.education as string,
+          school: t.school as string,
+          major: t.major as string,
+          joinDate: t.join_date as string,
+          createdAt: t.created_at as string,
+          updatedAt: t.updated_at as string,
         }));
         setTeachers(formattedTeachers);
+        
+        if (result.pagination) {
+          setPagination(prev => ({
+            ...prev,
+            total: result.pagination.total,
+            totalPages: result.pagination.totalPages,
+          }));
+        }
       }
     } catch (err) {
       console.error('获取教师数据失败:', err);
@@ -305,6 +415,95 @@ export function useTeachers(): UseTeachersReturn {
   const getTeacherById = useCallback((id: string) => 
     teachers.find(t => t.id === id),
   [teachers]);
+  
+  // 根据角色获取教师
+  const getTeachersByRole = useCallback((role: TeacherRole) => 
+    teachers.filter(t => t.primaryRole === role),
+  [teachers]);
+  
+  // 根据部门获取教师
+  const getTeachersByDepartment = useCallback((department: string) => 
+    teachers.filter(t => t.department === department),
+  [teachers]);
+  
+  // 根据班级获取班主任
+  const getHeadTeacherByClass = useCallback((classId: string) => 
+    teachers.find(t => t.headTeacherClassId === classId),
+  [teachers]);
+  
+  // 根据年级获取教师（可任教该年级的教师）
+  const getTeachersByGrade = useCallback((grade: number) => 
+    teachers.filter(t => t.teachableGrades.includes(grade)),
+  [teachers]);
+  
+  // 获取年段长
+  const getGradeLeader = useCallback((grade: number) => 
+    teachers.find(t => t.additionalRoles.includes('grade_leader')),
+    // TODO: 实际应该根据年级段长配置来查找
+  [teachers]);
+  
+  // 创建教师
+  const createTeacher = useCallback(async (data: Partial<TeacherInfo>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        await fetchTeachers();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('创建教师失败:', err);
+      return false;
+    }
+  }, [fetchTeachers]);
+  
+  // 更新教师
+  const updateTeacher = useCallback(async (id: string, data: Partial<TeacherInfo>): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/teachers/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      if (response.ok) {
+        // 更新本地状态
+        setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('更新教师信息失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 删除教师
+  const deleteTeacher = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/teachers/${id}`, {
+        method: 'DELETE',
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setTeachers(prev => prev.filter(t => t.id !== id));
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('删除教师失败:', err);
+      return false;
+    }
+  }, []);
   
   // 更新教师角色
   const updateTeacherRole = useCallback(async (config: TeacherRoleConfig): Promise<boolean> => {
@@ -390,51 +589,56 @@ export function useTeachers(): UseTeachersReturn {
     return roles;
   }, [getRoleLabel]);
   
-  // 更新教师基本信息
-  const updateTeacher = useCallback(async (id: string, data: Partial<TeacherInfo>): Promise<boolean> => {
-    try {
-      const response = await fetch(`/api/teachers/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      
-      if (response.ok) {
-        // 更新本地状态
-        setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error('更新教师信息失败:', err);
-      return false;
-    }
-  }, []);
-  
   // 初始化加载
   useEffect(() => {
     fetchTeachers();
   }, [fetchTeachers]);
   
   return {
+    // 数据
     teachers,
     loading,
     error,
     statistics,
+    pagination,
+    
+    // 筛选
+    filters,
+    setFilters,
+    
+    // 角色选项
     roleOptions,
     adminRoleOptions,
+    
+    // 查询方法
     fetchTeachers,
-    refetch: fetchTeachers, // 别名，方便使用
+    refetch: fetchTeachers,
     getTeacherById,
+    getTeachersByRole,
+    getTeachersByDepartment,
+    
+    // 班级关联查询
+    getHeadTeacherByClass,
+    getTeachersByGrade,
+    getGradeLeader,
+    
+    // 教师管理
+    createTeacher,
     updateTeacher,
+    deleteTeacher,
+    
+    // 角色配置
     updateTeacherRole,
     batchUpdateRoles,
+    
+    // 工具方法
     getRoleLabel,
     getRoleColor,
     getTeacherRolesDisplay,
   };
 }
 
-// ==================== 导出子模块 ====================
-
+// 导出别名
 export { useTeachers as useTeacherData };
+
+export default useTeachers;
