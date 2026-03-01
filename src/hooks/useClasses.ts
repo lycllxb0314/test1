@@ -315,12 +315,13 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
           }));
           
           // 先获取班主任详情（在聚合家长之前）
-          const headTeacherId = cls.head_teacher_id as string || '';
+          // API 返回驼峰格式，兼容两种格式
+          const headTeacherId = (cls.headTeacherId as string) || (cls.head_teacher_id as string) || '';
           const headTeacher = headTeacherId ? teachersMap[headTeacherId] : null;
-          const headTeacherName = (headTeacher?.name as string) || (cls.head_teacher_name as string) || '';
+          const headTeacherName = (headTeacher?.name as string) || (cls.headTeacherName as string) || (cls.head_teacher_name as string) || '';
           
           // 获取科任详情
-          const subTeacherId = cls.sub_teacher_id as string;
+          const subTeacherId = (cls.subTeacherId as string) || (cls.sub_teacher_id as string);
           const subTeacher = subTeacherId ? teachersMap[subTeacherId] : null;
           
           // 聚合家长信息（现在可以包含班主任信息了）
@@ -358,7 +359,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             name: cls.name as string,
             grade: cls.grade as number,
             gradeName: GRADE_NAMES[cls.grade as number] || `${cls.grade}年级`,
-            classNumber: cls.class_number as number || 1,
+            classNumber: (cls.classNumber as number) || (cls.class_number as number) || 1,
             
             // 班主任
             headTeacherId,
@@ -375,7 +376,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             
             // 科任
             subTeacherId,
-            subTeacherName: (subTeacher?.name as string) || cls.sub_teacher_name as string,
+            subTeacherName: (subTeacher?.name as string) || (cls.subTeacherName as string) || (cls.sub_teacher_name as string),
             subTeacher: subTeacher ? {
               id: subTeacher.id as string,
               name: subTeacher.name as string,
@@ -397,8 +398,8 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             parentCount: parents.length,
             
             // 教室
-            classroomId: cls.classroom_id as string,
-            classroomName: cls.classroom_name as string,
+            classroomId: (cls.classroomId as string) || (cls.classroom_id as string),
+            classroomName: (cls.classroomName as string) || (cls.classroom_name as string),
             building: cls.building as string,
             floor: cls.floor as number,
             
@@ -410,8 +411,8 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             status: (cls.status as ClassContainer['status']) || 'active',
             
             // 时间戳
-            createdAt: cls.created_at as string,
-            updatedAt: cls.updated_at as string,
+            createdAt: (cls.createdAt as string) || (cls.created_at as string),
+            updatedAt: (cls.updatedAt as string) || (cls.updated_at as string),
           };
         }
       );
