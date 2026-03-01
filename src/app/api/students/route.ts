@@ -16,6 +16,51 @@ import {
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
+ * 获取学生统计数据
+ */
+async function getStudentStatistics(client: ReturnType<typeof getSupabaseClient>, params: ReturnType<typeof parseQueryParams>) {
+  // 构建基础查询条件（与主查询相同）
+  let baseQuery = client.from('students').select('gender', { count: 'exact', head: true });
+  
+  // 应用相同的筛选条件
+  if (params.search) {
+    baseQuery = baseQuery.or(`name.ilike.%${params.search}%,student_no.ilike.%${params.search}%`);
+  }
+  if (params.grade && params.grade !== 'all') {
+    baseQuery = baseQuery.eq('grade', params.grade);
+  }
+  if (params.classId && params.classId !== 'all') {
+    baseQuery = baseQuery.eq('class_id', params.classId);
+  }
+  if (params.status && params.status !== 'all') {
+    baseQuery = baseQuery.eq('status', params.status);
+  }
+  
+  // 获取男生数量
+  const { count: maleCount } = await client
+    .from('students')
+    .select('*', { count: 'exact', head: true })
+    .eq('gender', 'male');
+  
+  // 获取女生数量
+  const { count: femaleCount } = await client
+    .from('students')
+    .select('*', { count: 'exact', head: true })
+    .eq('gender', 'female');
+  
+  // 获取班级数量
+  const { count: classCount } = await client
+    .from('classes')
+    .select('*', { count: 'exact', head: true });
+  
+  return {
+    maleCount: maleCount || 0,
+    femaleCount: femaleCount || 0,
+    classCount: classCount || 0,
+  };
+}
+
+/**
  * GET - 获取学生列表
  * 
  * 查询参数：
@@ -119,6 +164,7 @@ const handleGetStudents = async (request: NextRequest, { user }: ExtendedRouteCo
       success: true,
       data: enrichedData,
       pagination: createPagination(count || 0, page, pageSize),
+      statistics: await getStudentStatistics(client, params),
     });
   } catch (err) {
     console.error('Failed to fetch students:', err);

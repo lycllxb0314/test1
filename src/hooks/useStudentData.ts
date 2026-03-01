@@ -30,6 +30,13 @@ export interface StudentListItem {
   status: '在校' | '请假' | '休学' | '毕业' | '转学';
 }
 
+/** 学生统计数据 */
+export interface StudentStatistics {
+  maleCount: number;
+  femaleCount: number;
+  classCount: number;
+}
+
 /** 学生列表查询参数 */
 export interface StudentsListParams {
   search?: string;
@@ -80,6 +87,7 @@ export function useStudentsList(params: StudentsListParams = {}) {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<StudentListItem[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
+  const [statistics, setStatistics] = useState<StudentStatistics>({ maleCount: 0, femaleCount: 0, classCount: 0 });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -99,7 +107,7 @@ export function useStudentsList(params: StudentsListParams = {}) {
       const result = await response.json();
 
       if (result.success) {
-        // API 返回格式: { success, data: [...], pagination: {...} }
+        // API 返回格式: { success, data: [...], pagination: {...}, statistics: {...} }
         // 转换下划线格式到驼峰格式，并补充计算字段
         const gradeNames: Record<number, string> = {
           1: '一年级', 2: '二年级', 3: '三年级',
@@ -131,6 +139,7 @@ export function useStudentsList(params: StudentsListParams = {}) {
         
         setData(formattedData);
         setPagination(result.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 });
+        setStatistics(result.statistics || { maleCount: 0, femaleCount: 0, classCount: 0 });
       } else {
         setError(result.error || '获取数据失败');
       }
@@ -149,6 +158,7 @@ export function useStudentsList(params: StudentsListParams = {}) {
   return {
     data,
     pagination,
+    statistics,
     loading,
     error,
     refetch: fetchData,

@@ -106,7 +106,7 @@ export default function StudentsPage() {
   const [page, setPage] = useState(1);
   
   // 使用统一Hook获取学生列表
-  const { data: students, pagination, loading, error, refetch } = useStudentsList({
+  const { data: students, pagination, statistics, loading, error, refetch } = useStudentsList({
     search: searchTerm,
     grade: gradeFilter,
     status: statusFilter,
@@ -203,7 +203,7 @@ export default function StudentsPage() {
               <div>
                 <p className="text-sm text-muted-foreground">男生</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {students.filter(s => s.gender === 'male').length}
+                  {statistics.maleCount}
                 </p>
               </div>
               <div className="p-2 rounded-lg bg-blue-50">
@@ -219,7 +219,7 @@ export default function StudentsPage() {
               <div>
                 <p className="text-sm text-muted-foreground">女生</p>
                 <p className="text-2xl font-bold text-pink-600">
-                  {students.filter(s => s.gender === 'female').length}
+                  {statistics.femaleCount}
                 </p>
               </div>
               <div className="p-2 rounded-lg bg-pink-50">
@@ -234,7 +234,7 @@ export default function StudentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">班级数</p>
-                <p className="text-2xl font-bold text-green-600">56</p>
+                <p className="text-2xl font-bold text-green-600">{statistics.classCount}</p>
               </div>
               <div className="p-2 rounded-lg bg-green-50">
                 <GraduationCap className="h-5 w-5 text-green-600" />
