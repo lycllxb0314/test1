@@ -85,6 +85,27 @@ export interface TeacherInfo {
   status: string;
   teachYears: number;
   
+  // 个人信息扩展
+  birthDate?: string;           // 出生日期
+  idCard?: string;              // 身份证号
+  ethnicity?: string;           // 民族
+  politicalStatus?: string;     // 政治面貌
+  nativePlace?: string;         // 籍贯
+  
+  // 联系方式扩展
+  emergencyContact?: string;    // 紧急联系人
+  emergencyPhone?: string;      // 紧急联系电话
+  address?: string;             // 家庭住址
+  
+  // 工作信息扩展
+  employeeId?: string;          // 工号
+  titleDate?: string;           // 职称获得日期
+  education?: string;           // 学历
+  school?: string;              // 毕业院校
+  major?: string;               // 专业
+  graduationDate?: string;      // 毕业日期
+  joinDate?: string;            // 入职日期
+  
   // 角色信息
   primaryRole: TeacherRole;     // 主要角色
   additionalRoles: AdministrativeRole[]; // 兼任职务（可多项）
@@ -100,6 +121,49 @@ export interface TeacherInfo {
   headTeacherClassId?: string;  // 班主任班级ID
   headTeacherClassName?: string;// 班主任班级名称
   subTeacherClasses?: Array<{ classId: string; className: string }>; // 科任班级列表
+  
+  // 履历记录
+  records?: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description?: string;
+    date: string;
+  }>;
+  
+  // 荣誉
+  honors?: Array<{
+    id: string;
+    title: string;
+    level: string;
+    category?: string;
+    issuer?: string;
+    date: string;
+    certificateNo?: string;
+  }>;
+  
+  // 培训
+  trainings?: Array<{
+    id: string;
+    name: string;
+    type?: string;
+    organizer?: string;
+    startDate: string;
+    endDate?: string;
+    hours?: number;
+    status?: string;
+  }>;
+  
+  // 成就
+  achievements?: Array<{
+    id: string;
+    type: string;
+    title: string;
+    level?: string;
+    result?: string;
+    date: string;
+    description?: string;
+  }>;
 }
 
 /** 教师角色配置 */

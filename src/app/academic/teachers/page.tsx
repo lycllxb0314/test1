@@ -60,9 +60,9 @@ import {
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { BatchToolbar, SelectColumn, type BatchAction } from '@/components/common/BatchToolbar';
 import { 
-  TeacherDetailDialog,
-  type TeacherDetail,
-} from '@/components/teacher/TeacherDetailDialog';
+  TeacherFullDetailDialog,
+  type TeacherFullDetail,
+} from '@/components/teacher/TeacherFullDetailDialog';
 // 使用统一的 hook
 import {
   useTeachers,
@@ -263,7 +263,7 @@ export default function TeachersPage() {
   }, []);
 
   // 保存教师详情（统一保存）
-  const handleSaveDetail = useCallback(async (detail: TeacherDetail) => {
+  const handleSaveDetail = useCallback(async (detail: TeacherFullDetail) => {
     try {
       // 调用API保存到数据库
       const response = await fetch(`/api/teachers/${detail.id}`, {
@@ -272,11 +272,26 @@ export default function TeachersPage() {
         body: JSON.stringify({
           name: detail.name,
           gender: detail.gender,
+          birth_date: detail.birthDate,
+          ethnicity: detail.ethnicity,
+          political_status: detail.politicalStatus,
+          native_place: detail.nativePlace,
+          phone: detail.phone,
+          email: detail.email,
+          emergency_contact: detail.emergencyContact,
+          emergency_phone: detail.emergencyPhone,
+          address: detail.address,
           subject: detail.subject,
           title: detail.title,
-          phone: detail.phone,
+          title_date: detail.titleDate,
+          education: detail.education,
+          school: detail.school,
+          major: detail.major,
+          graduation_date: detail.graduationDate,
           department: detail.department,
           status: detail.status,
+          teach_years: detail.teachYears,
+          join_date: detail.joinDate,
           primary_role: detail.primaryRole,
           additional_roles: detail.additionalRoles,
           weekly_hours: detail.weeklyHours,
@@ -623,12 +638,11 @@ export default function TeachersPage() {
                     />
                   </TableCell>
                   <TableCell 
-                    className="font-medium"
-                    onClick={() => router.push(`/academic/teachers/${teacher.id}`)}
+                    className="font-medium cursor-pointer hover:text-primary"
+                    onClick={() => openDetailDialog(teacher)}
                   >
                     <div className="flex items-center gap-2">
                       {teacher.name}
-                      <Eye className="h-3 w-3 text-gray-400" />
                     </div>
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
@@ -654,14 +668,14 @@ export default function TeachersPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
+                  <TableCell onClick={() => openDetailDialog(teacher)}>
                     <Badge variant="outline" className={teacher.gender === '男' ? 'text-blue-600' : 'text-pink-600'}>
                       {teacher.gender}
                     </Badge>
                   </TableCell>
-                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.subject}</TableCell>
-                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.title}</TableCell>
-                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.department}</TableCell>
+                  <TableCell onClick={() => openDetailDialog(teacher)}>{teacher.subject}</TableCell>
+                  <TableCell onClick={() => openDetailDialog(teacher)}>{teacher.title}</TableCell>
+                  <TableCell onClick={() => openDetailDialog(teacher)}>{teacher.department}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-1">
@@ -683,7 +697,7 @@ export default function TeachersPage() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
+                  <TableCell onClick={() => openDetailDialog(teacher)}>
                     <div className="flex flex-col gap-1 min-w-[100px]">
                       {teacher.isHeadTeacher && teacher.headTeacherClassName ? (
                         <div className="flex items-center gap-1">
@@ -702,14 +716,14 @@ export default function TeachersPage() {
                       ) : null}
                     </div>
                   </TableCell>
-                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>
+                  <TableCell onClick={() => openDetailDialog(teacher)}>
                     <div className="flex items-center gap-1 text-gray-600">
                       <Phone className="h-3 w-3" />
                       {teacher.phone}
                     </div>
                   </TableCell>
-                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{teacher.teachYears}年</TableCell>
-                  <TableCell onClick={() => router.push(`/academic/teachers/${teacher.id}`)}>{getStatusBadge(teacher.status)}</TableCell>
+                  <TableCell onClick={() => openDetailDialog(teacher)}>{teacher.teachYears}年</TableCell>
+                  <TableCell onClick={() => openDetailDialog(teacher)}>{getStatusBadge(teacher.status)}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -916,21 +930,36 @@ export default function TeachersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 统一详情编辑对话框 */}
-      <TeacherDetailDialog
+      {/* 统一详情编辑对话框（包含详情页全部内容） */}
+      <TeacherFullDetailDialog
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
         teacher={currentTeacher ? {
           id: currentTeacher.id,
           name: currentTeacher.name,
           gender: currentTeacher.gender,
+          birthDate: currentTeacher.birthDate,
+          idCard: currentTeacher.idCard,
+          ethnicity: currentTeacher.ethnicity,
+          politicalStatus: currentTeacher.politicalStatus,
+          nativePlace: currentTeacher.nativePlace,
           phone: currentTeacher.phone,
           email: currentTeacher.email,
+          emergencyContact: currentTeacher.emergencyContact,
+          emergencyPhone: currentTeacher.emergencyPhone,
+          address: currentTeacher.address,
+          employeeId: currentTeacher.employeeId,
           subject: currentTeacher.subject,
           title: currentTeacher.title,
+          titleDate: currentTeacher.titleDate,
+          education: currentTeacher.education,
+          school: currentTeacher.school,
+          major: currentTeacher.major,
+          graduationDate: currentTeacher.graduationDate,
+          teachYears: currentTeacher.teachYears,
+          joinDate: currentTeacher.joinDate,
           department: currentTeacher.department,
           status: currentTeacher.status,
-          teachYears: currentTeacher.teachYears,
           primaryRole: currentTeacher.primaryRole,
           additionalRoles: currentTeacher.additionalRoles || [],
           weeklyHours: currentTeacher.weeklyHours,
@@ -940,6 +969,10 @@ export default function TeachersPage() {
           isHeadTeacher: currentTeacher.isHeadTeacher,
           headTeacherClassId: currentTeacher.headTeacherClassId,
           headTeacherClassName: currentTeacher.headTeacherClassName,
+          records: currentTeacher.records || [],
+          honors: currentTeacher.honors || [],
+          trainings: currentTeacher.trainings || [],
+          achievements: currentTeacher.achievements || [],
         } : null}
         classes={classes}
         onSave={handleSaveDetail}
