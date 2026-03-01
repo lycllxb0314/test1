@@ -35,6 +35,12 @@ function randomPhoneSuffix(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+// 生成随机手机号
+function randomPhone(): string {
+  const prefixes = ['138', '139', '136', '135', '158', '159', '186', '187', '150', '151'];
+  return randomChoice(prefixes) + randomPhoneSuffix() + randomPhoneSuffix().slice(0, 4);
+}
+
 interface SeedResult {
   teachers: number;
   classes: number;
@@ -209,8 +215,17 @@ export async function POST() {
     console.log(`  - 已分配班主任: ${assignedHeadTeachers.size}人`);
     console.log(`  - 已分配科任: ${assignedSubTeachers.size}人`);
 
-    // ==================== 4. 生成学生数据（3000人，每班50人） ====================
+    // ==================== 4. 生成学生数据（3000人，每班50人，含完整信息） ====================
     console.log('生成学生数据...');
+    
+    // 学生详细信息选项
+    const ethnicities = ['汉族', '汉族', '汉族', '汉族', '汉族', '畲族', '回族', '满族', '壮族', '苗族'];
+    const nativePlaces = ['福建龙岩', '福建厦门', '福建福州', '福建泉州', '福建漳州', '江西赣州', '广东梅州'];
+    const politicalStatuses = ['少先队员', '少先队员', '少先队员', '群众'];
+    const studentTypes = ['普通', '普通', '普通', '普通', '随迁子女', '留守儿童', '低保家庭'];
+    const familyTypes = ['核心家庭', '核心家庭', '核心家庭', '单亲家庭', '重组家庭', '隔代家庭'];
+    const relationships = ['父亲', '母亲', '爷爷', '奶奶', '外公', '外婆'];
+    const addresses = ['龙岩市新罗区东城街道', '龙岩市新罗区南城街道', '龙岩市新罗区西城街道', '龙岩市新罗区北城街道', '龙岩市新罗区中城街道'];
     
     const studentsData: any[] = [];
     const studentStatuses = ['在校', '请假', '休学'];
@@ -218,6 +233,10 @@ export async function POST() {
     
     let studentIndex = 1;
     for (const classItem of classesData) {
+      // 计算入学年份（六年级2020年入学，一年级2025年入学）
+      const admissionYear = 2026 - classItem.grade;
+      const enrollmentDate = `${admissionYear}-09-01`;
+      
       for (let num = 1; num <= 50; num++) {
         const gender = Math.random() > 0.48 ? 'male' : 'female';
         const name = generateName(gender);
@@ -234,15 +253,64 @@ export async function POST() {
           }
         }
         
+        // 生成出生日期（入学时6-7岁）
+        const birthYear = admissionYear - 7 - Math.floor(Math.random() * 2);
+        const birthMonth = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+        const birthDay = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+        const birthDate = `${birthYear}-${birthMonth}-${birthDay}`;
+        
+        // 生成家长信息（1-2个家长）
+        const parentCount = Math.random() > 0.3 ? 2 : 1;
+        const parents: any[] = [];
+        const usedRelationships = new Set<string>();
+        
+        for (let p = 0; p < parentCount; p++) {
+          let relationship: string;
+          do {
+            relationship = randomChoice(relationships);
+          } while (usedRelationships.has(relationship) && usedRelationships.size < relationships.length);
+          usedRelationships.add(relationship);
+          
+          const parentGender = (relationship === '父亲' || relationship === '爷爷' || relationship === '外公') ? 'male' : 'female';
+          const parentName = generateName(parentGender);
+          
+          parents.push({
+            id: `p${studentIndex}_${p}`,
+            name: parentName,
+            relationship: relationship,
+            phone: randomPhone(),
+            isPrimary: p === 0,
+            wechat: `wx_${parentName}_${randomPhoneSuffix()}`,
+          });
+        }
+        
+        // 家庭地址
+        const homeAddress = randomChoice(addresses) + `${Math.floor(Math.random() * 100) + 1}号`;
+        
         studentsData.push({
           id: `s${String(studentIndex).padStart(4, '0')}`,
           name: name,
           gender: gender,
+          birth_date: birthDate,
           class_id: classItem.id,
           class_name: classItem.name,
           grade: classItem.grade,
           student_no: `${classItem.grade}${String(classItem.class_number).padStart(2, '0')}${String(num).padStart(2, '0')}`,
           status: status,
+          // 个人信息
+          ethnicity: randomChoice(ethnicities),
+          native_place: randomChoice(nativePlaces),
+          political_status: randomChoice(politicalStatuses),
+          // 学籍信息
+          enrollment_date: enrollmentDate,
+          student_type: randomChoice(studentTypes),
+          // 联系信息
+          home_address: homeAddress,
+          emergency_contact: parents[0]?.name || '',
+          emergency_phone: parents[0]?.phone || '',
+          // 家庭信息
+          family_type: randomChoice(familyTypes),
+          parents: parents,
         });
         studentIndex++;
       }
