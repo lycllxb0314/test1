@@ -1,15 +1,17 @@
 /**
- * 智能排课系统 - 核心服务 v3.0
- * 
- * 核心改进：
- * 1. 课表必须填满（无空槽）
- * 2. 自动微调教师课时配置（扰动≤2节）
- * 3. 全局最优：使用贪心 + 回溯策略
+ * 智能排课系统 - 核心服务 v4.0
  * 
  * 数学建模：
- * - 时间槽集合 T = {班级 × 星期 × 节次}
- * - 教师供给集合 S = {教师 × 可授课时}
- * - 目标：min Σ|教师实际课时 - 标准课时|，满足 T 被完全覆盖
+ * - 问题类型：约束满足问题（CSP）
+ * - 变量：X[c,d,p] = 班级c在第d天第p节的科目和教师
+ * - 约束：
+ *   C1: 每班每科课时 = 标准课时（硬约束）
+ *   C2: 教师同一时间只能在一个班（硬约束）
+ *   C3: 主科老师在主科只教一个年级（硬约束）
+ *   C4: 主科只在上午（硬约束）
+ *   C5: 班会固定周五下午最后一节（硬约束）
+ *   C6: 非主科一天内不重复（硬约束）
+ *   C7: 同一科目时段错开（软约束）
  */
 
 import type { 
@@ -22,7 +24,7 @@ import type {
   WeekDay
 } from '@/types';
 
-// ==================== 节次配置 ====================
+// ==================== 常量定义 ====================
 
 export const MORNING_PERIODS: PeriodConfig[] = [
   { id: 'p1', index: 1, name: '第一节', startTime: '08:00', endTime: '08:40', type: 'morning', isActive: true },
@@ -58,50 +60,62 @@ export function getTotalPeriodsPerDay(grade: number): number {
 
 export const WEEK_DAYS: WeekDay[] = [1, 2, 3, 4, 5];
 
+// ==================== 标准课时定义（国家课程标准） ====================
+
+function getStandardHours(grade: number): Record<string, number> {
+  // 基础课时（所有年级通用）
+  const base: Record<string, number> = {
+    '语文': 6,
+    '数学': 5,
+    '体育': 3,
+    '音乐': 2,
+    '美术': 2,
+    '道德与法治': 2,
+    '劳动': 1,
+    '班会': 1,
+  };
+  
+  // 低年级（1-2年级）：科学1节，无英语
+  if (grade <= 2) {
+    return { ...base, '科学': 1 };
+  }
+  // 中高年级（3-6年级）：科学2节，英语4节
+  else {
+    return { ...base, '英语': 4, '科学': 2 };
+  }
+}
+
+// 主科定义
+const MAIN_SUBJECTS = ['语文', '数学'];
+
 // ==================== 核心数据结构 ====================
 
-interface TeacherWorkload {
-  teacherId: string;
-  teacherName: string;
+interface TeacherInfo {
+  id: string;
+  name: string;
   subject: string;
-  originalHours: number;      // 原始配置课时
-  currentHours: number;        // 当前已排课时
-  adjustedHours: number;       // 调整后的课时配置
-  capacity: number;            // 最大课时容量（原始+2）
-  classes: Set<string>;        // 已任教班级
-  // 完整约束条件
-  role: string;                // 教师角色
-  mainClassCount: number;      // 主科带班数
-  mainSubjectHours: number;    // 主科课时
-  totalWeeklyHours: number;    // 总课时
-  secondarySubjects: string[]; // 兼任科目
-  teachableGrades: number[];   // 可任教年级
-  headTeacherClassId?: string; // 班主任班级ID
-  subjectHeadClassId?: string; // 科任班级ID
-  mainSubjectGrade?: number;   // 主教学科对应年级（主科老师只教一个年级）
+  role: string;
+  capacity: number;           // 最大课时容量
+  mainSubjectGrade?: number;  // 主教学科年级（主科老师不跨年级）
+  headTeacherClassId?: string;
 }
 
-interface SlotRequirement {
-  classId: string;
-  className: string;
+interface ClassInfo {
+  id: string;
+  name: string;
   grade: number;
+  headTeacherId?: string;
+  subjectHeadId?: string;
+}
+
+interface SlotAssignment {
+  classId: string;
   weekDay: WeekDay;
   periodIndex: number;
-  filled: boolean;
-  subject?: string;
-  teacherId?: string;
-}
-
-interface ScheduleAdjustment {
+  subject: string;
   teacherId: string;
   teacherName: string;
-  subject: string;
-  originalHours: number;
-  suggestedHours: number;
-  reason: string;
 }
-
-// ==================== 排课算法核心 ====================
 
 interface SchedulingContext {
   tasks: TeachingTask[];
@@ -110,15 +124,7 @@ interface SchedulingContext {
   periods: PeriodConfig[];
   weekDays: WeekDay[];
   semester: string;
-  classes: Array<{
-    id: string;
-    name: string;
-    grade: number;
-    headTeacherId?: string;
-    headTeacherName?: string;
-    subjectHeadId?: string;
-    subjectHeadName?: string;
-  }>;
+  classes: ClassInfo[];
   teachers: Array<{
     id: string;
     name: string;
@@ -126,93 +132,98 @@ interface SchedulingContext {
     primarySubject?: string;
     headTeacherClassId?: string;
     subjectHeadClassId?: string;
-    // 完整课时配置
     baseWeeklyHours?: number;
     totalWeeklyHours?: number;
-    mainClassCount?: number;
-    mainSubjectHours?: number;
-    secondarySubjects?: string[];
     teachableGrades?: number[];
   }>;
 }
 
+// ==================== 排课算法核心 ====================
+
 /**
- * 智能排课算法 v3.0
+ * 智能排课算法 v4.0
  * 
- * 核心保证：
- * 1. 所有时间槽必须填满
- * 2. 教师课时配置在国家标准的框架内微调
- * 3. 第一节语文数学均衡交替
- * 
- * 国家标准课时量：
- * - 语数教师（班主任/科任）：14-16节/周
- * - 英语教师：14-16节/周
- * - 技能科教师：16-18节/周
+ * 核心原则：
+ * 1. 严格按标准课时排课，不多不少
+ * 2. 班会固定周五下午最后一节
+ * 3. 主科只在上午
+ * 4. 主科老师主科不跨年级
+ * 5. 非主科一天内不重复
+ * 6. 同一科目时段错开
  */
 export function generateSchedule(context: SchedulingContext): ScheduleResult {
   const startTime = Date.now();
   const { tasks, existingSlots, rules, semester, classes, teachers } = context;
   
-  // ==================== 初始化数据结构 ====================
+  // ==================== 第一阶段：初始化数据结构 ====================
   
-  // 教师工作量表（使用完整的教师配置）
-  const teacherWorkloads = new Map<string, TeacherWorkload>();
-  
-  // 从教师数据初始化工作量
-  for (const teacher of teachers) {
-    // 根据教师类型确定课时范围（国家标准）
-    const primarySubject = teacher.primarySubject || '';
-    const role = teacher.role || 'subject_head';
-    
-    let minHours: number;
-    let maxHours: number;
-    
-    // 判断是否为语数教师或英语教师
-    const isMainSubjectTeacher = primarySubject === '语文' || primarySubject === '数学';
-    const isEnglishTeacher = primarySubject === '英语';
-    
-    if (isMainSubjectTeacher || isEnglishTeacher) {
-      // 语数教师、英语教师：国家标准 14-16 节
-      minHours = 14;
-      maxHours = 16;
-    } else if (role === 'skill_teacher' || role === 'subject_head') {
-      // 技能科教师：国家标准 16-18 节
-      minHours = 16;
-      maxHours = 18;
-    } else {
-      // 领导层：课时较少
-      minHours = 2;
-      maxHours = 8;
-    }
-    
-    const baseHours = teacher.totalWeeklyHours || Math.round((minHours + maxHours) / 2);
-    
-    teacherWorkloads.set(teacher.id, {
-      teacherId: teacher.id,
-      teacherName: teacher.name,
-      subject: primarySubject,
-      originalHours: baseHours,
-      currentHours: 0,
-      adjustedHours: baseHours,
-      capacity: maxHours, // 使用国家标准的最大课时，而不是 base+2
-      classes: new Set(),
-      role: role,
-      mainClassCount: teacher.mainClassCount || 1,
-      mainSubjectHours: teacher.mainSubjectHours || 12,
-      totalWeeklyHours: baseHours,
-      secondarySubjects: teacher.secondarySubjects || [],
-      teachableGrades: teacher.teachableGrades || [1, 2, 3, 4, 5, 6],
-      headTeacherClassId: teacher.headTeacherClassId,
-      subjectHeadClassId: teacher.subjectHeadClassId,
-      // 主科老师确定主教学科年级：通过班主任班级或科任班级
-      mainSubjectGrade: isMainSubjectTeacher 
-        ? (classes.find(c => c.id === teacher.headTeacherClassId || c.id === teacher.subjectHeadClassId)?.grade)
-        : undefined,
+  // 构建班级信息映射
+  const classMap = new Map<string, ClassInfo>();
+  for (const cls of classes) {
+    classMap.set(cls.id, {
+      id: cls.id,
+      name: cls.name,
+      grade: cls.grade || 3,
+      headTeacherId: cls.headTeacherId,
+      subjectHeadId: cls.subjectHeadId,
     });
   }
   
-  // 时间槽占用状态
-  const slotOccupancy = new Map<string, { classId: string; teacherId: string; subject: string }>();
+  // 构建教师信息映射
+  const teacherMap = new Map<string, TeacherInfo>();
+  for (const t of teachers) {
+    const primarySubject = t.primarySubject || '';
+    const isMainSubjectTeacher = MAIN_SUBJECTS.includes(primarySubject);
+    
+    // 确定主科年级
+    let mainSubjectGrade: number | undefined;
+    if (isMainSubjectTeacher) {
+      // 通过班主任班级或科任班级确定年级
+      const htClass = t.headTeacherClassId ? classMap.get(t.headTeacherClassId) : null;
+      const shClass = t.subjectHeadClassId ? classMap.get(t.subjectHeadClassId) : null;
+      mainSubjectGrade = htClass?.grade || shClass?.grade;
+    }
+    
+    // 确定课时容量（国家标准）
+    let capacity: number;
+    if (isMainSubjectTeacher || primarySubject === '英语') {
+      capacity = 16;  // 语数英：14-16节
+    } else if (t.role === 'skill_teacher' || t.role === 'subject_head') {
+      capacity = 18;  // 技能科：16-18节
+    } else {
+      capacity = 8;   // 领导层
+    }
+    
+    teacherMap.set(t.id, {
+      id: t.id,
+      name: t.name,
+      subject: primarySubject,
+      role: t.role || 'subject_head',
+      capacity,
+      mainSubjectGrade,
+      headTeacherClassId: t.headTeacherClassId,
+    });
+  }
+  
+  // 每班每科的课时需求（严格按标准）
+  const classSubjectNeeds = new Map<string, Map<string, number>>();
+  for (const cls of classes) {
+    const grade = cls.grade || 3;
+    const standardHours = getStandardHours(grade);
+    classSubjectNeeds.set(cls.id, new Map(Object.entries(standardHours)));
+  }
+  
+  // 每班每科已排课时计数
+  const classSubjectCount = new Map<string, Map<string, number>>();
+  for (const cls of classes) {
+    classSubjectCount.set(cls.id, new Map());
+  }
+  
+  // 教师已排课时计数
+  const teacherHours = new Map<string, number>();
+  for (const t of teachers) {
+    teacherHours.set(t.id, 0);
+  }
   
   // 教师时间占用：teacherId -> Set<"weekDay-periodIndex">
   const teacherTimeMap = new Map<string, Set<string>>();
@@ -221,533 +232,359 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
   const classTimeMap = new Map<string, Set<string>>();
   
   // 结果数组
-  const newSlots: ScheduleSlot[] = [...existingSlots];
+  const slots: SlotAssignment[] = [];
   const conflicts: ScheduleConflict[] = [];
-  const adjustments: ScheduleAdjustment[] = [];
   
-  // 教学任务状态
-  const taskStatus = new Map<string, { arranged: number; remaining: number }>();
-  for (const task of tasks) {
-    taskStatus.set(task.id, { arranged: 0, remaining: task.weeklyHours });
-  }
-
-  // ==================== 第一阶段：构建所有时间槽需求 ====================
-  
-  const allSlotRequirements: SlotRequirement[] = [];
+  // ==================== 第二阶段：班会固定安排 ====================
+  // 规则：班会固定在周五下午最后一节
   
   for (const cls of classes) {
     const grade = cls.grade || 3;
-    const periods = getPeriodsByGrade(grade);
+    const lastPeriod = grade <= 2 ? 5 : 6;
     
-    for (const day of WEEK_DAYS) {
-      for (const period of periods) {
-        allSlotRequirements.push({
-          classId: cls.id,
-          className: cls.name,
-          grade,
-          weekDay: day,
-          periodIndex: period.index,
-          filled: false,
-        });
-      }
-    }
-  }
-  
-  // ==================== 第一.五阶段：固定班队课（周五下午最后一节） ====================
-  
-  for (const cls of classes) {
-    const grade = cls.grade || 3;
-    const lastPeriod = grade <= 2 ? 5 : 6;  // 低年级5节，中高年级6节
+    // 找班主任
+    const headTeacherId = cls.headTeacherId;
+    const headTeacher = headTeacherId ? teacherMap.get(headTeacherId) : null;
     
-    // 周五下午最后一节固定为班队课
-    const banDuiTask = tasks.find(t => t.classId === cls.id && t.subject === '班会');
-    if (!banDuiTask) continue;
+    if (!headTeacher || !headTeacherId) continue;
     
-    const banDuiWorkload = teacherWorkloads.get(banDuiTask.teacherId);
-    if (!banDuiWorkload) continue;
-    
+    // 检查班主任时间
     const timeKey = `5-${lastPeriod}`;
-    
-    // 创建班队课槽
-    const slot = createSlot(
-      cls.id, cls.name, grade,
-      5, lastPeriod,  // 周五，最后一节
-      '班会', banDuiTask.teacherId, banDuiTask.teacherName, semester
-    );
-    
-    newSlots.push(slot);
-    updateOccupancy(cls.id, banDuiTask.teacherId, 5, lastPeriod, classTimeMap, teacherTimeMap);
-    
-    // 更新任务状态
-    const status = taskStatus.get(banDuiTask.id);
-    if (status) {
-      status.arranged++;
-      status.remaining--;
+    if (teacherTimeMap.has(headTeacherId) && teacherTimeMap.get(headTeacherId)!.has(timeKey)) {
+      conflicts.push({
+        id: `conflict-banhui-${cls.id}`,
+        type: 'rule_violation',
+        description: `班级 ${cls.name} 班主任在周五下午最后一节有冲突，无法安排班会`,
+        relatedSlots: [],
+        severity: 'warning',
+        suggestions: ['调整班主任时间'],
+      });
+      continue;
     }
-    banDuiWorkload.currentHours++;
-    banDuiWorkload.classes.add(cls.id);
     
-    // 标记时间槽已填充
-    const req = allSlotRequirements.find(r => 
-      r.classId === cls.id && r.weekDay === 5 && r.periodIndex === lastPeriod
-    );
-    if (req) {
-      req.filled = true;
-      req.subject = '班会';
-      req.teacherId = banDuiTask.teacherId;
-    }
+    // 安排班会
+    slots.push({
+      classId: cls.id,
+      weekDay: 5 as WeekDay,
+      periodIndex: lastPeriod,
+      subject: '班会',
+      teacherId: headTeacherId,
+      teacherName: headTeacher.name,
+    });
+    
+    // 更新状态
+    updateMaps(cls.id, headTeacherId, 5, lastPeriod, classTimeMap, teacherTimeMap);
+    classSubjectCount.get(cls.id)!.set('班会', 1);
+    teacherHours.set(headTeacherId, teacherHours.get(headTeacherId)! + 1);
   }
   
-  // ==================== 第二阶段：第一节语文数学交替分配 ====================
+  // ==================== 第三阶段：第一节语数轮换安排 ====================
+  // 规则：周一到周五第一节，语文数学交替
   
   for (const cls of classes) {
     const grade = cls.grade || 3;
+    const classTeachers = Array.from(teacherMap.values()).filter(t => 
+      t.headTeacherClassId === cls.id || 
+      (teachers.find(tt => tt.id === t.id)?.subjectHeadClassId === cls.id)
+    );
     
-    // 获取该班级的语文和数学任务
+    // 找语文老师
     const chineseTask = tasks.find(t => t.classId === cls.id && t.subject === '语文');
     const mathTask = tasks.find(t => t.classId === cls.id && t.subject === '数学');
-    const chineseWorkload = chineseTask ? teacherWorkloads.get(chineseTask.teacherId) : null;
-    const mathWorkload = mathTask ? teacherWorkloads.get(mathTask.teacherId) : null;
     
     if (!chineseTask && !mathTask) continue;
     
-    // 基于班级ID决定起始科目（保证稳定性）
+    // 基于班级ID决定起始科目
     const startWithChinese = parseInt(cls.id.replace(/\D/g, '') || '0') % 2 === 0;
     
-    for (let dayIndex = 0; dayIndex < WEEK_DAYS.length; dayIndex++) {
-      const day = WEEK_DAYS[dayIndex];
+    for (let dayIndex = 0; dayIndex < 5; dayIndex++) {
+      const day = dayIndex + 1;
       const timeKey = `${day}-1`;
       
-      // 检查班级是否已被占用
+      // 检查时间槽是否已被占用
       if (classTimeMap.has(cls.id) && classTimeMap.get(cls.id)!.has(timeKey)) {
         continue;
       }
       
-      // 决定排语文还是数学（交替策略）
-      const isChineseDay = startWithChinese ? (dayIndex % 2 === 0) : (dayIndex % 2 === 1);
-      
-      // 按轮换顺序选择科目，但需要检查可用性
-      let selectedTask: TeachingTask | null = null;
-      let selectedWorkload: TeacherWorkload | null = null;
-      
-      // 第一选择：按轮换规则
-      const firstChoice = isChineseDay ? chineseTask : mathTask;
-      const firstWorkload = isChineseDay ? chineseWorkload : mathWorkload;
-      const firstStat = firstChoice ? taskStatus.get(firstChoice.id) : null;
-      
-      // 第二选择：备选科目
-      const secondChoice = isChineseDay ? mathTask : chineseTask;
-      const secondWorkload = isChineseDay ? mathWorkload : chineseWorkload;
-      const secondStat = secondChoice ? taskStatus.get(secondChoice.id) : null;
-      
-      // 尝试第一选择
-      if (firstChoice && firstStat && firstStat.remaining > 0 && firstWorkload) {
-        // 检查教师时间是否可用
-        if (!teacherTimeMap.has(firstChoice.teacherId) || !teacherTimeMap.get(firstChoice.teacherId)!.has(timeKey)) {
-          selectedTask = firstChoice;
-          selectedWorkload = firstWorkload;
-        }
-      }
-      
-      // 如果第一选择不可用，尝试第二选择
-      if (!selectedTask && secondChoice && secondStat && secondStat.remaining > 0 && secondWorkload) {
-        if (!teacherTimeMap.has(secondChoice.teacherId) || !teacherTimeMap.get(secondChoice.teacherId)!.has(timeKey)) {
-          selectedTask = secondChoice;
-          selectedWorkload = secondWorkload;
-        }
-      }
-      
-      if (!selectedTask || !selectedWorkload) continue;
-      
-      // 创建课表槽
-      const slot = createSlot(
-        cls.id, cls.name, grade, day, 1,
-        selectedTask.subject, selectedTask.teacherId, selectedTask.teacherName, semester
-      );
-      
-      newSlots.push(slot);
-      updateOccupancy(cls.id, selectedTask.teacherId, day, 1, classTimeMap, teacherTimeMap);
-      
-      const status = taskStatus.get(selectedTask.id)!;
-      status.arranged++;
-      status.remaining--;
-      
-      selectedWorkload.currentHours++;
-      selectedWorkload.classes.add(cls.id);
-      
-      // 标记时间槽已填充
-      const req = allSlotRequirements.find(r => 
-        r.classId === cls.id && r.weekDay === day && r.periodIndex === 1
-      );
-      if (req) {
-        req.filled = true;
-        req.subject = selectedTask.subject;
-        req.teacherId = selectedTask.teacherId;
-      }
-    }
-  }
-
-  // ==================== 第三阶段：填充其他节次 ====================
-  
-  // 按优先级排序：主科优先，剩余课时多的优先
-  const sortedTasks = [...tasks].sort((a, b) => {
-    const mainSubjects = ['语文', '数学', '英语'];
-    const isMainA = mainSubjects.includes(a.subject);
-    const isMainB = mainSubjects.includes(b.subject);
-    if (isMainA !== isMainB) return isMainA ? -1 : 1;
-    
-    const statA = taskStatus.get(a.id);
-    const statB = taskStatus.get(b.id);
-    const remainingA = statA ? statA.remaining : 0;
-    const remainingB = statB ? statB.remaining : 0;
-    
-    return remainingB - remainingA;
-  });
-  
-  // 为每个任务分配时间槽
-  for (const task of sortedTasks) {
-    const status = taskStatus.get(task.id);
-    if (!status || status.remaining <= 0) continue;
-    
-    const workload = teacherWorkloads.get(task.teacherId);
-    if (!workload) continue;
-    
-    const grade = task.grade || 3;
-    const periods = getPeriodsByGrade(grade);
-    
-    // 找到可用的时间槽
-    for (let i = 0; i < status.remaining; i++) {
-      const bestSlot = findBestSlotForTask(
-        task, grade, periods, classTimeMap, teacherTimeMap, allSlotRequirements, newSlots,
-        workload.mainSubjectGrade  // 传入主科年级限制
-      );
-      
-      if (bestSlot) {
-        const slot = createSlot(
-          task.classId, task.className, grade,
-          bestSlot.weekDay, bestSlot.periodIndex,
-          task.subject, task.teacherId, task.teacherName, semester
-        );
-        
-        newSlots.push(slot);
-        updateOccupancy(task.classId, task.teacherId, bestSlot.weekDay, bestSlot.periodIndex, classTimeMap, teacherTimeMap);
-        
-        status.arranged++;
-        status.remaining--;
-        workload.currentHours++;
-        workload.classes.add(task.classId);
-        
-        bestSlot.filled = true;
-        bestSlot.subject = task.subject;
-        bestSlot.teacherId = task.teacherId;
-      }
-    }
-  }
-
-  // ==================== 第四阶段：填充剩余空槽（自动微调课时） ====================
-  
-  // 找出所有未填充的时间槽
-  const emptySlots = allSlotRequirements.filter(r => !r.filled);
-  
-  if (emptySlots.length > 0) {
-    // 按班级和科目分组统计需求
-    const classSubjectNeeds = new Map<string, Map<string, number>>();
-    
-    for (const slot of emptySlots) {
-      if (!classSubjectNeeds.has(slot.classId)) {
-        classSubjectNeeds.set(slot.classId, new Map());
-      }
-      // 初始化每个班级的科目需求计数
-      const subjectMap = classSubjectNeeds.get(slot.classId)!;
-      subjectMap.set('_empty', (subjectMap.get('_empty') || 0) + 1);
-    }
-    
-    // 计算每个班级各科目的实际课时与标准课时的差距
-    for (const cls of classes) {
-      const grade = cls.grade || 3;
-      const classSlots = newSlots.filter(s => s.classId === cls.id);
-      const subjectHours = new Map<string, number>();
-      
-      for (const slot of classSlots) {
-        subjectHours.set(slot.subject, (subjectHours.get(slot.subject) || 0) + 1);
-      }
-      
-      // 标准课时配置
+      // 检查该班语数课时是否已满
+      const chineseCount = classSubjectCount.get(cls.id)!.get('语文') || 0;
+      const mathCount = classSubjectCount.get(cls.id)!.get('数学') || 0;
       const standardHours = getStandardHours(grade);
       
-      // 计算差距
-      for (const [subject, hours] of Object.entries(standardHours)) {
-        const actual = subjectHours.get(subject) || 0;
-        const gap = hours - actual;
-        
-        if (gap > 0) {
-          if (!classSubjectNeeds.has(cls.id)) {
-            classSubjectNeeds.set(cls.id, new Map());
-          }
-          classSubjectNeeds.get(cls.id)!.set(subject, gap);
-        }
-      }
-    }
-    
-    // 填充空槽：智能匹配教师（考虑教师约束条件）
-    for (const emptySlot of emptySlots) {
-      const cls = classes.find(c => c.id === emptySlot.classId);
-      if (!cls) continue;
+      // 选择科目（轮换策略）
+      let subject: string;
+      let teacherId: string;
+      let teacherName: string;
       
-      const grade = cls.grade || 3;
-      const classNeeds = classSubjectNeeds.get(cls.id);
+      const preferChinese = startWithChinese ? (dayIndex % 2 === 0) : (dayIndex % 2 === 1);
       
-      // 找到最适合的教师
-      let bestTeacher: { teacherId: string; subject: string; workload: TeacherWorkload } | null = null;
-      let minAdjustment = Infinity;
-      
-      // 遍历所有可能教这个班级的教师
-      for (const task of tasks.filter(t => t.classId === cls.id)) {
-        const workload = teacherWorkloads.get(task.teacherId);
-        if (!workload) continue;
-        
-        // 检查教师是否可任教该年级
-        if (workload.teachableGrades.length > 0 && !workload.teachableGrades.includes(grade)) {
-          continue;
-        }
-        
-        // 检查教师是否可用
-        const timeKey = `${emptySlot.weekDay}-${emptySlot.periodIndex}`;
-        if (teacherTimeMap.has(task.teacherId) && 
-            teacherTimeMap.get(task.teacherId)!.has(timeKey)) {
-          continue;
-        }
-        
-        // 判断是否为主科
-        const isMainSubject = task.subject === '语文' || task.subject === '数学';
-        
-        // 下午时段不安排主科
-        const isAfternoon = emptySlot.periodIndex >= 4;
-        if (isAfternoon && isMainSubject) {
-          continue;
-        }
-        
-        // 非主科检查：该班级当天是否已有该科目
-        if (!isMainSubject) {
-          const hasSubjectToday = newSlots.some(s => 
-            s.classId === cls.id && 
-            s.weekDay === emptySlot.weekDay && 
-            s.subject === task.subject
-          );
-          if (hasSubjectToday) {
-            continue;  // 当天已有该科目，跳过
-          }
-        }
-        
-        // 计算调整量
-        const adjustment = workload.currentHours - workload.originalHours;
-        
-        // 如果还没超过容量且调整量最小
-        if (workload.currentHours < workload.capacity && adjustment < minAdjustment) {
-          bestTeacher = {
-            teacherId: task.teacherId,
-            subject: task.subject,
-            workload,
-          };
-          minAdjustment = adjustment;
-        }
+      // 优先按轮换规则，但要考虑课时是否已满
+      if (preferChinese && chineseCount < standardHours['语文'] && chineseTask) {
+        subject = '语文';
+        teacherId = chineseTask.teacherId;
+        teacherName = chineseTask.teacherName;
+      } else if (!preferChinese && mathCount < standardHours['数学'] && mathTask) {
+        subject = '数学';
+        teacherId = mathTask.teacherId;
+        teacherName = mathTask.teacherName;
+      } else if (chineseCount < standardHours['语文'] && chineseTask) {
+        subject = '语文';
+        teacherId = chineseTask.teacherId;
+        teacherName = chineseTask.teacherName;
+      } else if (mathCount < standardHours['数学'] && mathTask) {
+        subject = '数学';
+        teacherId = mathTask.teacherId;
+        teacherName = mathTask.teacherName;
+      } else {
+        continue;  // 语数都已排满
       }
       
-      // 如果找到合适的教师
-      if (bestTeacher) {
-        const slot = createSlot(
-          cls.id, cls.name, grade,
-          emptySlot.weekDay, emptySlot.periodIndex,
-          bestTeacher.subject, bestTeacher.teacherId, bestTeacher.workload.teacherName, semester
-        );
-        
-        newSlots.push(slot);
-        updateOccupancy(cls.id, bestTeacher.teacherId, emptySlot.weekDay, emptySlot.periodIndex, classTimeMap, teacherTimeMap);
-        
-        bestTeacher.workload.currentHours++;
-        bestTeacher.workload.classes.add(cls.id);
-        
-        emptySlot.filled = true;
-        emptySlot.subject = bestTeacher.subject;
-        emptySlot.teacherId = bestTeacher.teacherId;
-        
-        // 更新教学任务状态（如果需要）
-        const relatedTask = tasks.find(t => 
-          t.classId === cls.id && t.teacherId === bestTeacher!.teacherId
-        );
-        if (relatedTask) {
-          const status = taskStatus.get(relatedTask.id);
-          if (status) {
-            status.arranged++;
-            // 允许超出原定课时
-            if (status.remaining > 0) status.remaining--;
-          }
-        }
-      }
-    }
-  }
-
-  // ==================== 第五阶段：强制填充剩余空槽（任何教师） ====================
-  
-  const stillEmpty = allSlotRequirements.filter(r => !r.filled);
-  
-  if (stillEmpty.length > 0) {
-    // 找到能教该年级科目的教师（扩大范围，但仍考虑约束）
-    for (const emptySlot of stillEmpty) {
-      const cls = classes.find(c => c.id === emptySlot.classId);
-      if (!cls) continue;
-      
-      const grade = cls.grade || 3;
-      const timeKey = `${emptySlot.weekDay}-${emptySlot.periodIndex}`;
-      
-      // 找到任意可用的教师（考虑可任教年级）
-      for (const [teacherId, workload] of teacherWorkloads) {
-        // 检查教师是否可任教该年级
-        if (workload.teachableGrades.length > 0 && !workload.teachableGrades.includes(grade)) {
+      // 检查教师是否可用
+      if (teacherTimeMap.has(teacherId) && teacherTimeMap.get(teacherId)!.has(timeKey)) {
+        // 教师冲突，尝试另一个科目
+        if (subject === '语文' && mathTask && mathCount < standardHours['数学']) {
+          subject = '数学';
+          teacherId = mathTask.teacherId;
+          teacherName = mathTask.teacherName;
+        } else if (subject === '数学' && chineseTask && chineseCount < standardHours['语文']) {
+          subject = '语文';
+          teacherId = chineseTask.teacherId;
+          teacherName = chineseTask.teacherName;
+        } else {
           continue;
         }
         
-        // 检查教师是否可用
         if (teacherTimeMap.has(teacherId) && teacherTimeMap.get(teacherId)!.has(timeKey)) {
           continue;
         }
-        
-        // 检查容量（严格不超过国家标准的最大课时）
-        if (workload.currentHours >= workload.capacity) {
-          continue;
+      }
+      
+      // 安排课程
+      slots.push({
+        classId: cls.id,
+        weekDay: day as WeekDay,
+        periodIndex: 1,
+        subject,
+        teacherId,
+        teacherName,
+      });
+      
+      updateMaps(cls.id, teacherId, day, 1, classTimeMap, teacherTimeMap);
+      const currentCount = classSubjectCount.get(cls.id)!.get(subject) || 0;
+      classSubjectCount.get(cls.id)!.set(subject, currentCount + 1);
+      teacherHours.set(teacherId, teacherHours.get(teacherId)! + 1);
+    }
+  }
+  
+  // ==================== 第四阶段：填充其他节次 ====================
+  // 严格按照标准课时，每班每科排满为止
+  
+  // 按优先级排序科目：主科优先
+  const subjectPriority = ['语文', '数学', '英语', '体育', '科学', '道德与法治', '音乐', '美术', '劳动'];
+  
+  for (const subject of subjectPriority) {
+    for (const cls of classes) {
+      const grade = cls.grade || 3;
+      const standardHours = getStandardHours(grade);
+      const targetHours = standardHours[subject];
+      
+      if (!targetHours) continue;  // 该年级没有这门课
+      
+      const currentCount = classSubjectCount.get(cls.id)!.get(subject) || 0;
+      const remaining = targetHours - currentCount;
+      
+      if (remaining <= 0) continue;  // 已排满
+      
+      // 找能教这门课的教师
+      const task = tasks.find(t => t.classId === cls.id && t.subject === subject);
+      if (!task) continue;
+      
+      const teacher = teacherMap.get(task.teacherId);
+      if (!teacher) continue;
+      
+      // 主科年级检查
+      const isMainSubject = MAIN_SUBJECTS.includes(subject);
+      if (isMainSubject && teacher.mainSubjectGrade !== undefined && grade !== teacher.mainSubjectGrade) {
+        continue;  // 主科老师不跨年级
+      }
+      
+      // 为这门课安排 remaining 节课
+      let arranged = 0;
+      
+      // 获取该班级该科目已使用的时段（用于错开）
+      const usedPeriods = new Set<number>();
+      for (const slot of slots) {
+        if (slot.classId === cls.id && slot.subject === subject) {
+          usedPeriods.add(slot.periodIndex);
         }
+      }
+      
+      // 时段优先级
+      // 主科：只在上午（1,2,3节）
+      // 其他：优先上午2,3节，其次下午，最后上午第1节
+      const periodPriority = isMainSubject 
+        ? [2, 3, 1]  // 主科只在上午
+        : [2, 3, 4, 5, 6, 1];  // 其他科目优先上午2,3节
+      
+      // 第一轮：优先选择未使用过的时段
+      for (const periodIndex of periodPriority) {
+        if (arranged >= remaining) break;
+        if (usedPeriods.has(periodIndex)) continue;  // 时段错开
         
-        // 判断是否为主科
-        const isMainSubject = workload.subject === '语文' || workload.subject === '数学';
-        
-        // 下午时段不安排主科
-        const isAfternoon = emptySlot.periodIndex >= 4;
-        if (isAfternoon && isMainSubject) {
-          continue;
+        for (const day of WEEK_DAYS) {
+          if (arranged >= remaining) break;
+          
+          const timeKey = `${day}-${periodIndex}`;
+          
+          // 检查班级是否已有课
+          if (classTimeMap.has(cls.id) && classTimeMap.get(cls.id)!.has(timeKey)) {
+            continue;
+          }
+          
+          // 检查教师是否可用
+          if (teacherTimeMap.has(task.teacherId) && teacherTimeMap.get(task.teacherId)!.has(timeKey)) {
+            continue;
+          }
+          
+          // 主科只在上午
+          if (isMainSubject && periodIndex >= 4) {
+            continue;
+          }
+          
+          // 非主科：检查当天是否已有该科目
+          if (!isMainSubject) {
+            const hasSubjectToday = slots.some(s => 
+              s.classId === cls.id && s.weekDay === day && s.subject === subject
+            );
+            if (hasSubjectToday) continue;
+          }
+          
+          // 检查教师课时是否已满
+          if (teacherHours.get(task.teacherId)! >= teacher.capacity) {
+            continue;
+          }
+          
+          // 安排课程
+          slots.push({
+            classId: cls.id,
+            weekDay: day as WeekDay,
+            periodIndex,
+            subject,
+            teacherId: task.teacherId,
+            teacherName: teacher.name,
+          });
+          
+          updateMaps(cls.id, task.teacherId, day, periodIndex, classTimeMap, teacherTimeMap);
+          arranged++;
+          usedPeriods.add(periodIndex);
         }
-        
-        // 非主科检查：该班级当天是否已有该科目
-        if (!isMainSubject) {
-          const hasSubjectToday = newSlots.some(s => 
-            s.classId === cls.id && 
-            s.weekDay === emptySlot.weekDay && 
-            s.subject === workload.subject
-          );
-          if (hasSubjectToday) {
-            continue;  // 当天已有该科目，跳过
+      }
+      
+      // 第二轮：允许重复时段（兜底）
+      if (arranged < remaining) {
+        for (const periodIndex of periodPriority) {
+          if (arranged >= remaining) break;
+          
+          for (const day of WEEK_DAYS) {
+            if (arranged >= remaining) break;
+            
+            const timeKey = `${day}-${periodIndex}`;
+            
+            if (classTimeMap.has(cls.id) && classTimeMap.get(cls.id)!.has(timeKey)) {
+              continue;
+            }
+            
+            if (teacherTimeMap.has(task.teacherId) && teacherTimeMap.get(task.teacherId)!.has(timeKey)) {
+              continue;
+            }
+            
+            if (isMainSubject && periodIndex >= 4) {
+              continue;
+            }
+            
+            if (!isMainSubject) {
+              const hasSubjectToday = slots.some(s => 
+                s.classId === cls.id && s.weekDay === day && s.subject === subject
+              );
+              if (hasSubjectToday) continue;
+            }
+            
+            if (teacherHours.get(task.teacherId)! >= teacher.capacity) {
+              continue;
+            }
+            
+            slots.push({
+              classId: cls.id,
+              weekDay: day as WeekDay,
+              periodIndex,
+              subject,
+              teacherId: task.teacherId,
+              teacherName: teacher.name,
+            });
+            
+            updateMaps(cls.id, task.teacherId, day, periodIndex, classTimeMap, teacherTimeMap);
+            arranged++;
           }
         }
-        
-        // 使用该教师填充
-        const slot = createSlot(
-          cls.id, cls.name, grade,
-          emptySlot.weekDay, emptySlot.periodIndex,
-          workload.subject, teacherId, workload.teacherName, semester
-        );
-        
-        newSlots.push(slot);
-        updateOccupancy(cls.id, teacherId, emptySlot.weekDay, emptySlot.periodIndex, classTimeMap, teacherTimeMap);
-        
-        workload.currentHours++;
-        workload.classes.add(cls.id);
-        
-        emptySlot.filled = true;
-        emptySlot.subject = workload.subject;
-        emptySlot.teacherId = teacherId;
-        
-        break;
       }
-    }
-  }
-
-  // ==================== 第六阶段：生成调整报告 ====================
-  
-  // 国家标准课时范围
-  const getStandardRange = (subject: string, role: string): { min: number; max: number } => {
-    const isMainSubject = subject === '语文' || subject === '数学';
-    const isEnglish = subject === '英语';
-    
-    if (isMainSubject || isEnglish) {
-      return { min: 14, max: 16 };
-    } else if (role === 'skill_teacher' || role === 'subject_head') {
-      return { min: 16, max: 18 };
-    }
-    return { min: 2, max: 8 };
-  };
-  
-  for (const [teacherId, workload] of teacherWorkloads) {
-    const standardRange = getStandardRange(workload.subject, workload.role);
-    
-    if (workload.currentHours !== workload.originalHours) {
-      const adjustment = workload.currentHours - workload.originalHours;
       
-      // 只有建议课时在国家标准的范围内才生成调整建议
-      if (workload.currentHours >= standardRange.min && workload.currentHours <= standardRange.max) {
-        adjustments.push({
-          teacherId,
-          teacherName: workload.teacherName,
-          subject: workload.subject,
-          originalHours: workload.originalHours,
-          suggestedHours: workload.currentHours,
-          reason: adjustment > 0 
-            ? `需增加${adjustment}节课时以满足课表填满要求（国家标准：${standardRange.min}-${standardRange.max}节）`
-            : `课时配置冗余${Math.abs(adjustment)}节，已自动调整`,
-        });
-      }
-      // 如果超过国家标准，在 conflicts 中记录资源不足
-      else if (workload.currentHours > standardRange.max) {
+      // 更新计数
+      classSubjectCount.get(cls.id)!.set(subject, currentCount + arranged);
+      teacherHours.set(task.teacherId, teacherHours.get(task.teacherId)! + arranged);
+      
+      if (arranged < remaining) {
         conflicts.push({
-          id: `resource-shortage-${teacherId}`,
+          id: `incomplete-${cls.id}-${subject}`,
           type: 'rule_violation',
-          description: `${workload.teacherName}（${workload.subject}）课时已达国家标准上限${standardRange.max}节，无法继续分配，建议增加该学科教师`,
+          description: `班级 ${cls.name} 的 ${subject} 课时不足，已排 ${arranged} 节，还需 ${remaining - arranged} 节`,
           relatedSlots: [],
           severity: 'warning',
-          suggestions: [`增加${workload.subject}教师编制`, '调整课程结构'],
+          suggestions: ['增加教师资源', '调整教师课时上限'],
         });
       }
     }
   }
-
-  // ==================== 最终统计 ====================
   
-  const totalNeeded = tasks.reduce((sum, t) => sum + t.weeklyHours, 0);
-  const totalArranged = newSlots.length;
-  const finalEmpty = allSlotRequirements.filter(r => !r.filled);
+  // ==================== 生成最终结果 ====================
   
-  // 检测冲突
-  const detectedConflicts = detectConflicts(newSlots);
-  conflicts.push(...detectedConflicts);
+  const finalSlots: ScheduleSlot[] = slots.map((s, idx) => ({
+    id: `slot-${idx}`,
+    classId: s.classId,
+    className: classMap.get(s.classId)?.name || '',
+    grade: classMap.get(s.classId)?.grade || 3,
+    weekDay: s.weekDay,
+    periodIndex: s.periodIndex,
+    semester,
+    courseName: s.subject,
+    subject: s.subject,
+    courseType: 'normal' as const,
+    teacherId: s.teacherId,
+    teacherName: s.teacherName,
+    status: 'normal' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }));
   
-  // 如果还有空槽，添加警告
-  if (finalEmpty.length > 0) {
-    conflicts.push({
-      id: 'unfilled-slots',
-      type: 'time_conflict',
-      description: `仍有${finalEmpty.length}个时间槽未填充，可能需要增加教师资源`,
-      relatedSlots: finalEmpty.map(s => `${s.className}-${s.weekDay}-${s.periodIndex}`),
-      severity: 'warning',
-      suggestions: ['增加教师配置', '调整教师课时上限'],
-    });
-  }
-
+  // 统计信息
+  const totalNeeded = classes.reduce((sum, cls) => {
+    const grade = cls.grade || 3;
+    const standardHours = getStandardHours(grade);
+    return sum + Object.values(standardHours).reduce((a, b) => a + b, 0);
+  }, 0);
+  
+  const totalArranged = finalSlots.length;
+  
   return {
-    success: finalEmpty.length === 0 && conflicts.filter(c => c.severity === 'error').length === 0,
-    slots: newSlots,
+    success: conflicts.filter(c => c.severity === 'error').length === 0,
+    slots: finalSlots,
     conflicts,
-    adjustments,
-    unfilledSlots: finalEmpty.map(s => ({
-      classId: s.classId,
-      className: s.className,
-      weekDay: s.weekDay,
-      periodIndex: s.periodIndex,
-    })),
+    adjustments: [],
+    unfilledSlots: [],
     statistics: {
       totalSlots: totalNeeded,
       arrangedSlots: totalArranged,
       conflictCount: conflicts.length,
-      coverageRate: allSlotRequirements.length > 0 
-        ? (allSlotRequirements.length - finalEmpty.length) / allSlotRequirements.length 
-        : 1,
+      coverageRate: totalNeeded > 0 ? totalArranged / totalNeeded : 1,
     },
     duration: Date.now() - startTime,
   };
@@ -755,37 +592,7 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
 
 // ==================== 辅助函数 ====================
 
-function createSlot(
-  classId: string,
-  className: string,
-  grade: number,
-  weekDay: WeekDay,
-  periodIndex: number,
-  subject: string,
-  teacherId: string,
-  teacherName: string,
-  semester: string
-): ScheduleSlot {
-  return {
-    id: `slot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    classId,
-    className,
-    grade,
-    weekDay,
-    periodIndex,
-    semester,
-    courseName: subject,
-    subject,
-    courseType: 'normal',
-    teacherId,
-    teacherName,
-    status: 'normal',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function updateOccupancy(
+function updateMaps(
   classId: string,
   teacherId: string,
   weekDay: number,
@@ -806,194 +613,6 @@ function updateOccupancy(
   teacherTimeMap.get(teacherId)!.add(timeKey);
 }
 
-function findBestSlotForTask(
-  task: TeachingTask,
-  grade: number,
-  periods: PeriodConfig[],
-  classTimeMap: Map<string, Set<string>>,
-  teacherTimeMap: Map<string, Set<string>>,
-  allSlotRequirements: SlotRequirement[],
-  newSlots: ScheduleSlot[],  // 已安排的课表，用于检查当天科目重复
-  teacherMainSubjectGrade?: number  // 主科老师的主教学科年级限制
-): SlotRequirement | null {
-  // 判断是否为主科（语文、数学）
-  const isMainSubject = task.subject === '语文' || task.subject === '数学';
-  
-  // 主科老师教主科时检查年级限制：主科只教一个年级
-  // 但兼任科目（道德与法治、班会等）可以跨年级
-  if (isMainSubject && teacherMainSubjectGrade !== undefined && grade !== teacherMainSubjectGrade) {
-    return null;  // 该班级年级与教师主教学科年级不符，跳过
-  }
-  
-  // 统计该班级该科目已经使用过的时段
-  const usedPeriods = new Set<number>();
-  newSlots.forEach(s => {
-    if (s.classId === task.classId && s.subject === task.subject) {
-      usedPeriods.add(s.periodIndex);
-    }
-  });
-  
-  // 优先级：上午第2、3节 > 上午第1节 > 下午
-  // 主科（语文、数学）只在上午排课（第1、2、3节）
-  const periodPriority = isMainSubject 
-    ? [2, 3, 1]  // 主科只在上午
-    : [2, 3, 4, 5, 6, 1];  // 其他科目优先上午2、3节，其次下午，最后上午第1节
-  
-  // 第一轮：优先选择未使用过的时段
-  for (const periodIndex of periodPriority) {
-    if (!periods.find(p => p.index === periodIndex)) continue;
-    if (usedPeriods.has(periodIndex)) continue;  // 跳过已使用的时段
-    
-    for (const day of WEEK_DAYS) {
-      const timeKey = `${day}-${periodIndex}`;
-      
-      // 检查班级是否已有课
-      if (classTimeMap.has(task.classId) && classTimeMap.get(task.classId)!.has(timeKey)) {
-        continue;
-      }
-      
-      // 检查教师是否可用
-      if (teacherTimeMap.has(task.teacherId) && teacherTimeMap.get(task.teacherId)!.has(timeKey)) {
-        continue;
-      }
-      
-      // 非主科检查：该班级当天是否已有该科目
-      if (!isMainSubject) {
-        const hasSubjectToday = newSlots.some(s => 
-          s.classId === task.classId && 
-          s.weekDay === day && 
-          s.subject === task.subject
-        );
-        if (hasSubjectToday) {
-          continue;  // 当天已有该科目，跳过
-        }
-      }
-      
-      // 检查时间槽是否可用
-      const req = allSlotRequirements.find(r => 
-        r.classId === task.classId && r.weekDay === day && r.periodIndex === periodIndex && !r.filled
-      );
-      
-      if (req) {
-        return req;
-      }
-    }
-  }
-  
-  // 第二轮：所有时段都用过了，允许重复时段（但仍然要避免同一天重复）
-  for (const periodIndex of periodPriority) {
-    if (!periods.find(p => p.index === periodIndex)) continue;
-    
-    for (const day of WEEK_DAYS) {
-      const timeKey = `${day}-${periodIndex}`;
-      
-      // 检查班级是否已有课
-      if (classTimeMap.has(task.classId) && classTimeMap.get(task.classId)!.has(timeKey)) {
-        continue;
-      }
-      
-      // 检查教师是否可用
-      if (teacherTimeMap.has(task.teacherId) && teacherTimeMap.get(task.teacherId)!.has(timeKey)) {
-        continue;
-      }
-      
-      // 非主科检查：该班级当天是否已有该科目
-      if (!isMainSubject) {
-        const hasSubjectToday = newSlots.some(s => 
-          s.classId === task.classId && 
-          s.weekDay === day && 
-          s.subject === task.subject
-        );
-        if (hasSubjectToday) {
-          continue;
-        }
-      }
-      
-      // 检查时间槽是否可用
-      const req = allSlotRequirements.find(r => 
-        r.classId === task.classId && r.weekDay === day && r.periodIndex === periodIndex && !r.filled
-      );
-      
-      if (req) {
-        return req;
-      }
-    }
-  }
-  
-  return null;
-}
-
-function getStandardHours(grade: number): Record<string, number> {
-  const base: Record<string, number> = {
-    '语文': 6,
-    '数学': 5,
-    '体育': 3,
-    '音乐': 2,
-    '美术': 2,
-    '道德与法治': 2,
-    '劳动': 1,
-    '班会': 1,
-  };
-  
-  if (grade <= 2) {
-    return { ...base, '科学': 1 };
-  } else {
-    return { ...base, '英语': 4, '科学': 2 };
-  }
-}
-
-function detectConflicts(slots: ScheduleSlot[]): ScheduleConflict[] {
-  const conflicts: ScheduleConflict[] = [];
-  
-  // 检测教师冲突
-  const teacherSlots = new Map<string, ScheduleSlot[]>();
-  for (const slot of slots) {
-    const key = `${slot.teacherId}-${slot.weekDay}-${slot.periodIndex}`;
-    if (!teacherSlots.has(key)) {
-      teacherSlots.set(key, []);
-    }
-    teacherSlots.get(key)!.push(slot);
-  }
-  
-  for (const [key, slotList] of teacherSlots) {
-    if (slotList.length > 1) {
-      conflicts.push({
-        id: `conflict-teacher-${key}`,
-        type: 'teacher_conflict',
-        description: `教师冲突：${slotList[0].teacherName}在同一时间有多个班级课程`,
-        relatedSlots: slotList.map(s => s.id),
-        severity: 'error',
-        suggestions: ['调整课程时间', '安排代课'],
-      });
-    }
-  }
-  
-  // 检测班级冲突
-  const classSlots = new Map<string, ScheduleSlot[]>();
-  for (const slot of slots) {
-    const key = `${slot.classId}-${slot.weekDay}-${slot.periodIndex}`;
-    if (!classSlots.has(key)) {
-      classSlots.set(key, []);
-    }
-    classSlots.get(key)!.push(slot);
-  }
-  
-  for (const [key, slotList] of classSlots) {
-    if (slotList.length > 1) {
-      conflicts.push({
-        id: `conflict-class-${key}`,
-        type: 'class_conflict',
-        description: `班级冲突：${slotList[0].className}在同一时间有多门课程`,
-        relatedSlots: slotList.map(s => s.id),
-        severity: 'error',
-        suggestions: ['调整课程时间'],
-      });
-    }
-  }
-  
-  return conflicts;
-}
-
 // ==================== 导出辅助函数 ====================
 
 export function getClassSchedule(slots: ScheduleSlot[], classId: string): ScheduleSlot[] {
@@ -1002,6 +621,21 @@ export function getClassSchedule(slots: ScheduleSlot[], classId: string): Schedu
 
 export function getTeacherSchedule(slots: ScheduleSlot[], teacherId: string): ScheduleSlot[] {
   return slots.filter(s => s.teacherId === teacherId);
+}
+
+// 计算班级各科目课时
+export function calculateClassSubjectHours(slots: ScheduleSlot[], classId: string): Record<string, number> {
+  const result: Record<string, number> = {};
+  const classSlots = slots.filter(s => s.classId === classId);
+  for (const slot of classSlots) {
+    result[slot.subject] = (result[slot.subject] || 0) + 1;
+  }
+  return result;
+}
+
+// 计算教师周课时
+export function calculateTeacherWeeklyHours(slots: ScheduleSlot[], teacherId: string): number {
+  return slots.filter(s => s.teacherId === teacherId).length;
 }
 
 export function formatScheduleAsTable(
@@ -1020,19 +654,4 @@ export function formatScheduleAsTable(
   }
   
   return table;
-}
-
-export function calculateClassSubjectHours(slots: ScheduleSlot[], classId: string): Record<string, number> {
-  const classSlots = slots.filter(s => s.classId === classId);
-  const hours: Record<string, number> = {};
-  
-  for (const slot of classSlots) {
-    hours[slot.subject] = (hours[slot.subject] || 0) + 1;
-  }
-  
-  return hours;
-}
-
-export function calculateTeacherWeeklyHours(slots: ScheduleSlot[], teacherId: string): number {
-  return slots.filter(s => s.teacherId === teacherId).length;
 }
