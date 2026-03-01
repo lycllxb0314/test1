@@ -64,8 +64,21 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  FileText,
+  Trash2,
+  Edit,
+  ArrowLeft,
+  ArrowRight,
+  MoreHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Textarea } from '@/components/ui/textarea';
 
 // ==================== 类型定义 ====================
 
@@ -151,6 +164,22 @@ interface SchedulingResult {
   errors: Array<{ type: string; message: string }>;
   teacherWorkloads: TeacherWorkload[];
   classSchedules: ClassSchedule[];
+  assignments?: any[]; // 排课分配详情
+}
+
+interface ScheduleDraft {
+  id: string;
+  name: string;
+  description?: string;
+  statistics: {
+    totalSlots: number;
+    filledSlots: number;
+    totalClasses: number;
+    averageTeacherHours: number;
+    adjustmentsCount: number;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 // ==================== 主组件 ====================
@@ -174,10 +203,25 @@ export default function SchedulingPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [executeDialogOpen, setExecuteDialogOpen] = useState(false);
+  
+  // 草稿相关状态
+  const [drafts, setDrafts] = useState<ScheduleDraft[]>([]);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  const [saveDraftDialogOpen, setSaveDraftDialogOpen] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [draftDescription, setDraftDescription] = useState('');
+  
+  // 手动修改状态
+  const [editingSlot, setEditingSlot] = useState<any | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<any[]>([]);
 
   // === 数据加载 ===
   useEffect(() => {
     loadPreviewData();
+    loadDrafts();
   }, []);
 
   const loadPreviewData = async () => {
@@ -200,6 +244,148 @@ export default function SchedulingPage() {
     } finally {
       setPreviewLoading(false);
     }
+  };
+
+  const loadDrafts = async () => {
+    setDraftsLoading(true);
+    try {
+      const response = await fetch('/api/scheduling/drafts');
+      const data = await response.json();
+      
+      if (data.success) {
+        setDrafts(data.data || []);
+      }
+    } catch (error) {
+      console.error('加载草稿列表失败:', error);
+    } finally {
+      setDraftsLoading(false);
+    }
+  };
+
+  const saveDraft = async () => {
+    if (!result) {
+      toast.error('没有可保存的排课结果');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/scheduling/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: currentDraftId,
+          name: draftName || undefined,
+          description: draftDescription,
+          result: result,
+          assignments: result.assignments || [],
+          statistics: result.statistics,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setCurrentDraftId(data.data.id);
+        toast.success(data.message || '草稿保存成功');
+        setSaveDraftDialogOpen(false);
+        loadDrafts();
+      } else {
+        toast.error(data.error || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存草稿失败:', error);
+      toast.error('保存失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDraft = async (draftId: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/scheduling/drafts?id=${draftId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const draft = data.data;
+        setResult({
+          success: true,
+          statistics: draft.statistics,
+          warnings: [],
+          errors: [],
+          teacherWorkloads: draft.result?.teacherWorkloads || [],
+          classSchedules: draft.result?.classSchedules || [],
+          assignments: draft.assignments || [],
+        });
+        setCurrentDraftId(draftId);
+        setActiveTab('result');
+        toast.success('草稿加载成功');
+      } else {
+        toast.error(data.error || '加载失败');
+      }
+    } catch (error) {
+      console.error('加载草稿失败:', error);
+      toast.error('加载失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteDraft = async (draftId: string) => {
+    try {
+      const response = await fetch(`/api/scheduling/drafts?id=${draftId}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('草稿已删除');
+        loadDrafts();
+        if (currentDraftId === draftId) {
+          setCurrentDraftId(null);
+        }
+      } else {
+        toast.error(data.error || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除草稿失败:', error);
+      toast.error('删除失败，请重试');
+    }
+  };
+
+  const openSaveDraftDialog = () => {
+    setDraftName('');
+    setDraftDescription('');
+    setSaveDraftDialogOpen(true);
+  };
+
+  // 手动修改相关
+  const openEditDialog = (classItem: ClassSchedule) => {
+    setSelectedClassId(classItem.classId);
+    // 获取该班级的排课详情
+    if (result?.assignments) {
+      const classAssignments = result.assignments.filter(
+        (a: any) => a.classId === classItem.classId
+      );
+      setSelectedSchedule(classAssignments);
+    }
+    setEditDialogOpen(true);
+  };
+
+  const updateSlot = (slotIndex: number, updates: any) => {
+    if (!result?.assignments) return;
+    
+    const newAssignments = [...result.assignments];
+    newAssignments[slotIndex] = { ...newAssignments[slotIndex], ...updates };
+    
+    setResult({
+      ...result,
+      assignments: newAssignments,
+    });
+    
+    toast.success('课表已更新');
   };
 
   const executeScheduling = async () => {
@@ -338,6 +524,52 @@ export default function SchedulingPage() {
             <RefreshCw className={`h-4 w-4 mr-2 ${previewLoading ? 'animate-spin' : ''}`} />
             刷新数据
           </Button>
+          
+          {/* 草稿管理下拉菜单 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <FileText className="h-4 w-4 mr-2" />
+                草稿管理
+                {drafts.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">{drafts.length}</Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              {drafts.length === 0 ? (
+                <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                  暂无保存的草稿
+                </div>
+              ) : (
+                drafts.map(draft => (
+                  <div key={draft.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-muted rounded">
+                    <div 
+                      className="flex-1 cursor-pointer" 
+                      onClick={() => loadDraft(draft.id)}
+                    >
+                      <div className="text-sm font-medium">{draft.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(draft.updated_at).toLocaleString('zh-CN')}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteDraft(draft.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Button 
             onClick={() => setExecuteDialogOpen(true)} 
             disabled={previewLoading || !validation.valid}
@@ -436,7 +668,7 @@ export default function SchedulingPage() {
 
       {/* 主内容区 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">
             <BookOpen className="h-4 w-4 mr-2" />
             科目配置
@@ -452,6 +684,10 @@ export default function SchedulingPage() {
           <TabsTrigger value="result" disabled={!result}>
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             排课结果
+          </TabsTrigger>
+          <TabsTrigger value="class-schedule" disabled={!result}>
+            <Calendar className="h-4 w-4 mr-2" />
+            班级课表
           </TabsTrigger>
           <TabsTrigger value="workload" disabled={!result}>
             <Clock className="h-4 w-4 mr-2" />
@@ -784,18 +1020,36 @@ export default function SchedulingPage() {
               )}
 
               {/* 操作按钮 */}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setExecuteDialogOpen(true)}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  重新排课
-                </Button>
-                <Button 
-                  onClick={() => setConfirmDialogOpen(true)} 
-                  disabled={!result.success}
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  确认并同步
-                </Button>
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  {currentDraftId && (
+                    <span className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      当前草稿ID: {currentDraftId.slice(0, 8)}...
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={openSaveDraftDialog}
+                    disabled={!result}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    保存草稿
+                  </Button>
+                  <Button variant="outline" onClick={() => setExecuteDialogOpen(true)}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    重新排课
+                  </Button>
+                  <Button 
+                    onClick={() => setConfirmDialogOpen(true)} 
+                    disabled={!result.success}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    确认并同步
+                  </Button>
+                </div>
               </div>
             </>
           )}
@@ -851,6 +1105,75 @@ export default function SchedulingPage() {
                                 <div className="text-muted-foreground">还有 {teacher.classes.length - 2} 个班级...</div>
                               )}
                             </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* 班级课表 - 支持手动修改 */}
+        <TabsContent value="class-schedule" className="space-y-4">
+          {result && (
+            <Card className="shadow-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>班级课表详情</CardTitle>
+                    <CardDescription>点击班级可查看详细课表并手动调整</CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={openSaveDraftDialog}>
+                      <Save className="h-4 w-4 mr-2" />
+                      保存草稿
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>班级</TableHead>
+                        <TableHead>年级</TableHead>
+                        <TableHead>已排课时</TableHead>
+                        <TableHead>覆盖率</TableHead>
+                        <TableHead>任课教师数</TableHead>
+                        <TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.classSchedules.map(cls => (
+                        <TableRow key={cls.classId}>
+                          <TableCell className="font-medium">{cls.className}</TableCell>
+                          <TableCell>{cls.grade}年级</TableCell>
+                          <TableCell>{cls.filledSlots}/{cls.totalSlots}节</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Progress 
+                                value={(cls.filledSlots / cls.totalSlots) * 100} 
+                                className="w-16 h-2"
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                {Math.round((cls.filledSlots / cls.totalSlots) * 100)}%
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{cls.teachers.length}人</TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => openEditDialog(cls)}
+                            >
+                              <Edit className="h-3 w-3 mr-1" />
+                              查看详情
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -934,6 +1257,137 @@ export default function SchedulingPage() {
             <Button onClick={confirmScheduling} disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               确认同步
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 保存草稿对话框 */}
+      <Dialog open={saveDraftDialogOpen} onOpenChange={setSaveDraftDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>保存排课草稿</DialogTitle>
+            <DialogDescription>
+              保存草稿后可随时加载继续编辑，不会影响正式课表
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">草稿名称</label>
+              <Input
+                placeholder="排课草稿（自动生成时间戳）"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">备注说明</label>
+              <Textarea
+                placeholder="可选：添加备注说明..."
+                value={draftDescription}
+                onChange={(e) => setDraftDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDraftDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={saveDraft} disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 班级课表详情对话框 - 支持手动修改 */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              班级课表详情
+              {result?.classSchedules.find(c => c.classId === selectedClassId)?.className && (
+                <span className="ml-2 text-muted-foreground font-normal">
+                  - {result.classSchedules.find(c => c.classId === selectedClassId)?.className}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              查看班级课表安排，可手动调整教师分配
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 overflow-auto max-h-[50vh]">
+            {selectedSchedule.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>星期</TableHead>
+                    <TableHead>节次</TableHead>
+                    <TableHead>科目</TableHead>
+                    <TableHead>教师</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedSchedule.map((slot: any, index: number) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        {['', '周一', '周二', '周三', '周四', '周五'][slot.weekDay] || `周${slot.weekDay}`}
+                      </TableCell>
+                      <TableCell>第{slot.periodIndex}节</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{slot.subject}</Badge>
+                      </TableCell>
+                      <TableCell>{slot.teacherName}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={slot.teacherId}
+                          onValueChange={(teacherId) => {
+                            const teacher = teachers.find(t => t.id === teacherId);
+                            if (teacher) {
+                              updateSlot(index, { 
+                                teacherId: teacher.id, 
+                                teacherName: teacher.name 
+                              });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="更换教师" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teachers
+                              .filter(t => t.teachableSubjects.includes(slot.subject))
+                              .map(t => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {t.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                暂无课表数据
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              关闭
+            </Button>
+            <Button onClick={() => {
+              setEditDialogOpen(false);
+              openSaveDraftDialog();
+            }}>
+              <Save className="h-4 w-4 mr-2" />
+              保存修改
             </Button>
           </DialogFooter>
         </DialogContent>
