@@ -337,6 +337,23 @@ export async function GET(
       .eq('student_id', id)
       .order('date', { ascending: false });
 
+    // 获取班主任信息（从班级表）
+    let headTeacherId: string | undefined;
+    let headTeacherName: string | undefined;
+    
+    if (student.class_id) {
+      const { data: classData } = await client
+        .from('classes')
+        .select('head_teacher_id, head_teacher_name')
+        .eq('id', student.class_id)
+        .single();
+      
+      if (classData) {
+        headTeacherId = classData.head_teacher_id;
+        headTeacherName = classData.head_teacher_name;
+      }
+    }
+
     // 组装完整档案
     // 年级名称映射
     const gradeNames: Record<number, string> = {
@@ -372,8 +389,8 @@ export async function GET(
       emergencyContact: student.emergency_contact,
       emergencyPhone: student.emergency_phone,
       
-      headTeacherId: student.head_teacher_id,
-      headTeacherName: student.head_teacher_name,
+      headTeacherId: headTeacherId,
+      headTeacherName: headTeacherName,
       
       status: student.status,
       statusReason: student.status_reason,
