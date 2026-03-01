@@ -20,7 +20,7 @@ export const mockUsers: User[] = [
     email: 'lijg@lysf.fx.edu.cn',
     department: '党支部',
     position: '党支部书记',
-    avatar: '/avatars/secretary.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '3',
@@ -30,7 +30,7 @@ export const mockUsers: User[] = [
     email: 'wangxf@lysf.fx.edu.cn',
     department: '副校长室',
     position: '教学副校长',
-    avatar: '/avatars/vice1.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '4',
@@ -40,7 +40,7 @@ export const mockUsers: User[] = [
     email: 'chenzq@lysf.fx.edu.cn',
     department: '副校长室',
     position: '德育副校长',
-    avatar: '/avatars/vice2.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '5',
@@ -50,7 +50,7 @@ export const mockUsers: User[] = [
     email: 'liutt@lysf.fx.edu.cn',
     department: '教务处',
     position: '教务主任',
-    avatar: '/avatars/admin1.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '6',
@@ -60,7 +60,7 @@ export const mockUsers: User[] = [
     email: 'huangwm@lysf.fx.edu.cn',
     department: '德育处',
     position: '德育主任',
-    avatar: '/avatars/admin2.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '6-1',
@@ -70,7 +70,7 @@ export const mockUsers: User[] = [
     email: 'zhouxm@lysf.fx.edu.cn',
     department: '教务处',
     position: '教务员',
-    avatar: '/avatars/staff2.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '6-2',
@@ -80,7 +80,7 @@ export const mockUsers: User[] = [
     email: 'wuxy@lysf.fx.edu.cn',
     department: '德育处',
     position: '德育员',
-    avatar: '/avatars/staff3.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '6-3',
@@ -90,7 +90,7 @@ export const mockUsers: User[] = [
     email: 'chendf@lysf.fx.edu.cn',
     department: '总务处',
     position: '总务主任',
-    avatar: '/avatars/staff4.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '7',
@@ -103,7 +103,7 @@ export const mockUsers: User[] = [
     classId: '3-1',
     className: '三年级1班',
     subjects: ['语文'],
-    avatar: '/avatars/teacher1.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '8',
@@ -116,7 +116,7 @@ export const mockUsers: User[] = [
     classId: '4-2',
     className: '四年级2班',
     subjects: ['数学'],
-    avatar: '/avatars/teacher2.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '8-1',
@@ -127,7 +127,7 @@ export const mockUsers: User[] = [
     department: '三年级',
     position: '年段长',
     subjects: ['数学'],
-    avatar: '/avatars/teacher4.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '9',
@@ -138,7 +138,7 @@ export const mockUsers: User[] = [
     department: '英语组',
     position: '教师',
     subjects: ['英语'],
-    avatar: '/avatars/teacher3.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '10',
@@ -147,7 +147,7 @@ export const mockUsers: User[] = [
     phone: '138****1010',
     classId: '3-1',
     className: '三年级1班',
-    avatar: '/avatars/student1.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '11',
@@ -157,7 +157,7 @@ export const mockUsers: User[] = [
     children: [
       { id: '10', name: '学生张三', classId: '3-1', className: '三年级1班' }
     ],
-    avatar: '/avatars/parent1.png',
+    avatar: '/avatars/default.svg',
   },
   {
     id: '12',
@@ -166,7 +166,7 @@ export const mockUsers: User[] = [
     phone: '138****1012',
     department: '后勤处',
     position: '维修工',
-    avatar: '/avatars/staff1.png',
+    avatar: '/avatars/default.svg',
   },
 ];
 
