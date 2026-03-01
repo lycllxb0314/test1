@@ -96,6 +96,8 @@ export async function GET(request: NextRequest) {
       classNumber: cls.class_number,
       headTeacherId: cls.head_teacher_id,
       headTeacherName: cls.head_teacher_name,
+      subTeacherId: cls.sub_teacher_id,
+      subTeacherName: cls.sub_teacher_name,
       classroomId: cls.classroom_id,
       classroomName: cls.classroom_name,
       building: cls.building,

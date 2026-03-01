@@ -75,6 +75,8 @@ interface ClassInfo {
   classNumber: number;
   headTeacherId: string;
   headTeacherName: string;
+  subTeacherId?: string;       // 科任（副班主任）ID
+  subTeacherName?: string;     // 科任（副班主任）姓名
   studentCount: number;
   classroomId: string;
   classroomName: string;
@@ -84,17 +86,8 @@ interface ClassInfo {
   updatedAt: string;
 }
 
-// 科目配置
-const SUBJECTS = [
-  { name: '语文', weeklyHours: 8, color: 'bg-red-100 text-red-700' },
-  { name: '数学', weeklyHours: 6, color: 'bg-blue-100 text-blue-700' },
-  { name: '英语', weeklyHours: 4, color: 'bg-green-100 text-green-700' },
-  { name: '体育', weeklyHours: 3, color: 'bg-orange-100 text-orange-700' },
-  { name: '音乐', weeklyHours: 2, color: 'bg-purple-100 text-purple-700' },
-  { name: '美术', weeklyHours: 2, color: 'bg-pink-100 text-pink-700' },
-  { name: '科学', weeklyHours: 2, color: 'bg-cyan-100 text-cyan-700' },
-  { name: '道德与法治', weeklyHours: 2, color: 'bg-yellow-100 text-yellow-700' },
-];
+// 语文和数学老师才能担任班主任或科任（副班主任）
+const HEAD_TEACHER_SUBJECTS = ['语文', '数学'];
 
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
 
@@ -141,12 +134,12 @@ export default function ClassesPage() {
   // 对话框
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showCourseConfigDialog, setShowCourseConfigDialog] = useState(false);
+  const [showSubTeacherDialog, setShowSubTeacherDialog] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
   
-  // 科任配置状态
-  const [courseConfig, setCourseConfig] = useState<Record<string, { teacherId: string; weeklyHours: number }>>({});
-  const [savingCourseConfig, setSavingCourseConfig] = useState(false);
+  // 科任（副班主任）配置
+  const [subTeacherId, setSubTeacherId] = useState<string>('');
+  const [savingSubTeacher, setSavingSubTeacher] = useState(false);
   
   // 编辑表单
   const [editForm, setEditForm] = useState({
@@ -184,76 +177,42 @@ export default function ClassesPage() {
     setShowEditDialog(true);
   };
 
-  // 打开科任配置
-  const handleOpenCourseConfig = async (cls: ClassInfo) => {
+  // 打开科任（副班主任）配置
+  const handleOpenSubTeacher = (cls: ClassInfo) => {
     setSelectedClass(cls);
-    setShowCourseConfigDialog(true);
-    
-    // 获取该班级已有的科任配置
-    try {
-      const res = await fetch(`/api/teacher-courses?classId=${cls.id}`);
-      const data = await res.json();
-      
-      if (data.success && data.data) {
-        const config: Record<string, { teacherId: string; weeklyHours: number }> = {};
-        data.data.forEach((item: { subject: string; teacherId: string; weeklyHours: number }) => {
-          config[item.subject] = {
-            teacherId: item.teacherId,
-            weeklyHours: item.weeklyHours || SUBJECTS.find(s => s.name === item.subject)?.weeklyHours || 2,
-          };
-        });
-        
-        // 补充未配置的科目
-        SUBJECTS.forEach(subject => {
-          if (!config[subject.name]) {
-            config[subject.name] = { teacherId: '', weeklyHours: subject.weeklyHours };
-          }
-        });
-        
-        setCourseConfig(config);
-      } else {
-        // 初始化所有科目
-        const initialConfig: Record<string, { teacherId: string; weeklyHours: number }> = {};
-        SUBJECTS.forEach(subject => {
-          initialConfig[subject.name] = { teacherId: '', weeklyHours: subject.weeklyHours };
-        });
-        setCourseConfig(initialConfig);
-      }
-    } catch (error) {
-      console.error('获取科任配置失败:', error);
-      // 初始化所有科目
-      const initialConfig: Record<string, { teacherId: string; weeklyHours: number }> = {};
-      SUBJECTS.forEach(subject => {
-        initialConfig[subject.name] = { teacherId: '', weeklyHours: subject.weeklyHours };
-      });
-      setCourseConfig(initialConfig);
-    }
+    setSubTeacherId(cls.subTeacherId || '');
+    setShowSubTeacherDialog(true);
   };
 
-  // 保存科任配置
-  const handleSaveCourseConfig = async () => {
+  // 保存科任（副班主任）配置
+  const handleSaveSubTeacher = async () => {
     if (!selectedClass) return;
     
-    setSavingCourseConfig(true);
+    setSavingSubTeacher(true);
     try {
-      const res = await fetch('/api/teacher-courses', {
-        method: 'POST',
+      const res = await fetch(`/api/classes/${selectedClass.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          classId: selectedClass.id,
-          className: selectedClass.name,
-          config: Object.entries(courseConfig).map(([subject, config]) => ({
-            subject,
-            teacherId: config.teacherId,
-            weeklyHours: config.weeklyHours,
-          })).filter(c => c.teacherId), // 只保存已配置教师的科目
+          subTeacherId: subTeacherId || null,
         }),
       });
       
       const data = await res.json();
       if (data.success) {
-        setShowCourseConfigDialog(false);
-        alert('科任配置保存成功！');
+        // 更新本地状态
+        const teacher = teachers.find(t => t.id === subTeacherId);
+        setClasses(prev => prev.map(c => {
+          if (c.id === selectedClass.id) {
+            return {
+              ...c,
+              subTeacherId: subTeacherId || undefined,
+              subTeacherName: teacher?.name,
+            };
+          }
+          return c;
+        }));
+        setShowSubTeacherDialog(false);
       } else {
         alert('保存失败：' + (data.error || '未知错误'));
       }
@@ -261,7 +220,7 @@ export default function ClassesPage() {
       console.error('保存科任配置失败:', error);
       alert('保存失败，请重试');
     } finally {
-      setSavingCourseConfig(false);
+      setSavingSubTeacher(false);
     }
   };
 
@@ -407,6 +366,7 @@ export default function ClassesPage() {
                 <TableHead>年级</TableHead>
                 <TableHead>学生人数</TableHead>
                 <TableHead>班主任</TableHead>
+                <TableHead>科任（副班主任）</TableHead>
                 <TableHead>教室位置</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
@@ -414,14 +374,14 @@ export default function ClassesPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-amber-600" />
                     <p className="mt-2 text-gray-500">加载中...</p>
                   </TableCell>
                 </TableRow>
               ) : filteredClasses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     暂无班级数据
                   </TableCell>
                 </TableRow>
@@ -440,6 +400,16 @@ export default function ClassesPage() {
                         <UserCheck className="h-4 w-4 text-amber-600" />
                         {cls.headTeacherName}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {cls.subTeacherName ? (
+                        <div className="flex items-center gap-1">
+                          <UserCircle className="h-4 w-4 text-blue-600" />
+                          {cls.subTeacherName}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">未配置</span>
+                      )}
                     </TableCell>
                     <TableCell>{cls.classroomName}</TableCell>
                     <TableCell className="text-right">
@@ -464,11 +434,11 @@ export default function ClassesPage() {
                           variant="outline" 
                           size="sm"
                           className="text-amber-600 border-amber-200 hover:bg-amber-50"
-                          onClick={() => handleOpenCourseConfig(cls)}
-                          title="科任配置"
+                          onClick={() => handleOpenSubTeacher(cls)}
+                          title="设置科任（副班主任）"
                         >
                           <BookOpenCheck className="h-3 w-3 mr-1" />
-                          科任配置
+                          科任
                         </Button>
                       </div>
                     </TableCell>
@@ -559,111 +529,84 @@ export default function ClassesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 科任配置对话框 */}
-      <Dialog open={showCourseConfigDialog} onOpenChange={setShowCourseConfigDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+      {/* 科任（副班主任）配置对话框 */}
+      <Dialog open={showSubTeacherDialog} onOpenChange={setShowSubTeacherDialog}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BookOpenCheck className="h-5 w-5 text-amber-600" />
-              {selectedClass?.name} - 科任配置
+              设置科任（副班主任）
             </DialogTitle>
             <DialogDescription>
-              为各科目分配任课教师，这是智能排课的前置条件
+              为 {selectedClass?.name} 设置科任（副班主任）
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead className="w-32">科目</TableHead>
-                  <TableHead>周课时</TableHead>
-                  <TableHead>任课教师</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {SUBJECTS.map((subject) => {
-                  const config = courseConfig[subject.name] || { teacherId: '', weeklyHours: subject.weeklyHours };
-                  // 筛选能教该科目的教师
-                  const availableTeachers = teachers.filter(t => 
-                    t.subjects?.includes(subject.name)
-                  );
-                  
-                  return (
-                    <TableRow key={subject.name}>
-                      <TableCell>
-                        <Badge className={subject.color}>
-                          {subject.name}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={config.weeklyHours.toString()}
-                          onValueChange={(v) => setCourseConfig(prev => ({
-                            ...prev,
-                            [subject.name]: { ...prev[subject.name], weeklyHours: parseInt(v) }
-                          }))}
-                        >
-                          <SelectTrigger className="w-20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[1,2,3,4,5,6,7,8].map(h => (
-                              <SelectItem key={h} value={h.toString()}>{h}节</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={config.teacherId}
-                          onValueChange={(v) => setCourseConfig(prev => ({
-                            ...prev,
-                            [subject.name]: { ...prev[subject.name], teacherId: v }
-                          }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="选择教师" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableTeachers.length > 0 ? (
-                              availableTeachers.map(t => (
-                                <SelectItem key={t.id} value={t.id}>
-                                  {t.name} {t.title ? `(${t.title})` : ''}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="_none" disabled>暂无该科目教师</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            
+            {/* 当前班主任信息 */}
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-amber-700">当前班主任</span>
+                <div className="flex items-center gap-1">
+                  <UserCheck className="h-4 w-4 text-amber-600" />
+                  <span className="font-medium text-amber-700">{selectedClass?.headTeacherName}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* 科任选择 */}
+            <div className="space-y-2">
+              <Label>科任（副班主任）</Label>
+              <Select
+                value={subTeacherId}
+                onValueChange={setSubTeacherId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择科任老师" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* 只能选择语文或数学老师，且不能是该班班主任 */}
+                  {teachers
+                    .filter(t => 
+                      // 是语文或数学老师
+                      t.subjects?.some(s => HEAD_TEACHER_SUBJECTS.includes(s)) &&
+                      // 不是当前班级的班主任
+                      t.id !== selectedClass?.headTeacherId
+                    )
+                    .map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name} ({t.subjects?.join('/')}) {t.department ? `- ${t.department}` : ''}
+                      </SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-                <div className="text-sm text-amber-700">
-                  <p className="font-medium">提示</p>
-                  <p>请确保每个科目都已分配任课教师，未配置的科目将无法参与智能排课。</p>
+                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
+                <div className="text-sm text-blue-700">
+                  <p className="font-medium">规则说明</p>
+                  <ul className="mt-1 space-y-1 list-disc list-inside">
+                    <li>科任由语文或数学老师担任</li>
+                    <li>一个老师只能担任一个班的班主任</li>
+                    <li>一个老师可以担任多个班的科任</li>
+                  </ul>
                 </div>
               </div>
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCourseConfigDialog(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setShowSubTeacherDialog(false)}>取消</Button>
             <Button 
-              onClick={handleSaveCourseConfig}
-              disabled={savingCourseConfig}
+              onClick={handleSaveSubTeacher}
+              disabled={savingSubTeacher}
               className="bg-amber-600 hover:bg-amber-700"
             >
-              {savingCourseConfig && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              保存配置
+              {savingSubTeacher && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              保存
             </Button>
           </DialogFooter>
         </DialogContent>
