@@ -100,7 +100,36 @@ export function useStudentsList(params: StudentsListParams = {}) {
 
       if (result.success) {
         // API 返回格式: { success, data: [...], pagination: {...} }
-        setData(result.data || []);
+        // 转换下划线格式到驼峰格式，并补充计算字段
+        const gradeNames: Record<number, string> = {
+          1: '一年级', 2: '二年级', 3: '三年级',
+          4: '四年级', 5: '五年级', 6: '六年级',
+        };
+        
+        const formattedData: StudentListItem[] = (result.data || []).map((item: {
+          id: string;
+          student_no: string;
+          name: string;
+          gender: string;
+          grade: number;
+          class_id: string;
+          class_name: string;
+          head_teacher_name?: string;
+          status: string;
+        }) => ({
+          id: item.id,
+          studentNo: item.student_no,
+          name: item.name,
+          gender: item.gender === 'male' ? 'male' : 'female' as const,
+          grade: item.grade,
+          gradeName: gradeNames[item.grade] || `${item.grade}年级`,
+          classId: item.class_id,
+          className: item.class_name,
+          headTeacherName: item.head_teacher_name,
+          status: item.status as StudentListItem['status'],
+        }));
+        
+        setData(formattedData);
         setPagination(result.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 0 });
       } else {
         setError(result.error || '获取数据失败');

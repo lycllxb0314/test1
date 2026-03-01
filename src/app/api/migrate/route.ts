@@ -91,7 +91,8 @@ export async function POST() {
     console.log('Migrating teachers data...');
     const { count: teachersCount } = await client.from('teachers').select('*', { count: 'exact', head: true });
     if (teachersCount === 0) {
-      const teachersData = MASTER_TEACHERS.map(t => ({
+      const phonePrefixes = ['138', '139', '136', '135', '134', '133', '132', '131', '130', '150'];
+      const teachersData = MASTER_TEACHERS.map((t, index) => ({
         id: t.id,
         name: t.name,
         gender: t.gender,
@@ -100,6 +101,9 @@ export async function POST() {
         head_teacher_class_ids: t.headTeacherClassIds,
         department: t.department,
         title: t.title,
+        // 生成模拟电话和邮箱
+        phone: `${phonePrefixes[index % phonePrefixes.length]}****${String(1000 + index).slice(1)}`,
+        email: `${t.name.toLowerCase().replace(/\s/g, '')}@lysf.fx.edu.cn`,
       }));
 
       const { error: teachersError } = await client.from('teachers').insert(teachersData);
@@ -117,7 +121,8 @@ export async function POST() {
     console.log('Migrating students data...');
     const { count: studentsCount } = await client.from('students').select('*', { count: 'exact', head: true });
     if (studentsCount === 0) {
-      const studentsData = MASTER_STUDENTS.map(s => {
+      const phonePrefixes = ['138', '139', '136', '135', '186', '187', '150', '151', '152', '188'];
+      const studentsData = MASTER_STUDENTS.map((s, index) => {
         const cls = MASTER_CLASSES.find(c => c.id === s.classId);
         return {
           id: s.id,
@@ -129,6 +134,9 @@ export async function POST() {
           class_name: cls?.name || '',
           grade: cls?.grade || 1,
           status: s.status,
+          // 生成模拟家长信息
+          parent_name: s.gender === 'male' ? `${s.name.charAt(0)}先生` : `${s.name.charAt(0)}女士`,
+          parent_phone: `${phonePrefixes[index % phonePrefixes.length]}****${String(8000 + index).slice(1)}`,
         };
       });
 

@@ -67,9 +67,57 @@ const handleGetStudents = async (request: NextRequest, { user }: ExtendedRouteCo
       return NextResponse.json(error('获取学生列表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
+    // 获取班级和班主任信息
+    let enrichedData = data || [];
+    if (enrichedData.length > 0) {
+      // 获取所有相关班级ID
+      const classIds = [...new Set(enrichedData.map(s => s.class_id).filter(Boolean))];
+      
+      if (classIds.length > 0) {
+        // 查询班级信息（包含班主任ID）
+        const { data: classesData } = await client
+          .from('classes')
+          .select('id, name, head_teacher_id')
+          .in('id', classIds);
+        
+        // 获取所有班主任ID
+        const headTeacherIds = [...new Set((classesData || [])
+          .map(c => c.head_teacher_id)
+          .filter(Boolean))];
+        
+        // 查询班主任姓名
+        let headTeachersMap: Record<string, string> = {};
+        if (headTeacherIds.length > 0) {
+          const { data: teachersData } = await client
+            .from('teachers')
+            .select('id, name')
+            .in('id', headTeacherIds);
+          
+          headTeachersMap = (teachersData || []).reduce((acc, t) => {
+            acc[t.id] = t.name;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+        
+        // 构建班级到班主任姓名的映射
+        const classToHeadTeacher: Record<string, string> = (classesData || []).reduce((acc, c) => {
+          if (c.head_teacher_id && headTeachersMap[c.head_teacher_id]) {
+            acc[c.id] = headTeachersMap[c.head_teacher_id];
+          }
+          return acc;
+        }, {} as Record<string, string>);
+        
+        // 补充班主任姓名
+        enrichedData = enrichedData.map(student => ({
+          ...student,
+          head_teacher_name: classToHeadTeacher[student.class_id] || null,
+        }));
+      }
+    }
+    
     return NextResponse.json({
       success: true,
-      data: data || [],
+      data: enrichedData,
       pagination: createPagination(count || 0, page, pageSize),
     });
   } catch (err) {
