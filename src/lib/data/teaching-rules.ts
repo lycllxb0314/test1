@@ -162,13 +162,26 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
  * 
  * 国家标准：
  * - 语数教师：14-16节/周
- * - 技能科教师：16-18节/周
+ * - 英语教师：14-16节/周（特殊技能科）
+ * - 其他技能科教师：16-18节/周
  */
 export function calculateSuggestedHours(
   role: TeacherRole,
   classCount: number,
-  isSkillTeacher: boolean = false
+  isSkillTeacher: boolean = false,
+  subject?: string
 ): { mainSubjectHours: number; totalHours: number; minHours: number; maxHours: number; description: string } {
+  // 英语教师特殊处理：虽然是技能科，但课时量标准同主科
+  if (subject === '英语') {
+    return { 
+      mainSubjectHours: 0, 
+      totalHours: 15,
+      minHours: 14,
+      maxHours: 16,
+      description: '英语教师：周课时14-16节'
+    };
+  }
+  
   // 技能科教师：16-18节
   if (role === 'skill_teacher' || role === 'subject_head' || isSkillTeacher) {
     return { 
@@ -236,9 +249,23 @@ export function validateTeachingHours(
   role: TeacherRole,
   classCount: number,
   mainSubjectHours: number,
-  totalHours: number
+  totalHours: number,
+  subject?: string
 ): { valid: boolean; message: string; warnings: string[] } {
   const warnings: string[] = [];
+  
+  // 英语教师特殊处理：课时量标准同主科 14-16节
+  if (subject === '英语') {
+    if (totalHours >= 14 && totalHours <= 16) {
+      return { valid: true, message: '课时量配置合理', warnings: [] };
+    }
+    if (totalHours < 14) {
+      warnings.push(`英语教师周课时建议14-16节，当前${totalHours}节偏少`);
+    } else if (totalHours > 16) {
+      warnings.push(`英语教师周课时建议14-16节，当前${totalHours}节偏多`);
+    }
+    return { valid: true, message: '课时量已配置', warnings };
+  }
   
   // 技能科教师：16-18节
   if (role === 'skill_teacher' || role === 'subject_head' || (classCount === 0 && mainSubjectHours === 0)) {

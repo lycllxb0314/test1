@@ -295,8 +295,8 @@ export function TeacherFullDetailDialog({
 
   // 根据主科和带班数计算建议课时
   const suggestedHours = useMemo(() => {
-    return calculateSuggestedHours(form.primaryRole, form.weeklyHours > 12 ? 2 : 1, isSkillTeacher);
-  }, [form.primaryRole, form.weeklyHours, isSkillTeacher]);
+    return calculateSuggestedHours(form.primaryRole, form.weeklyHours > 12 ? 2 : 1, isSkillTeacher, form.subject);
+  }, [form.primaryRole, form.weeklyHours, isSkillTeacher, form.subject]);
 
   // 初始化表单
   useEffect(() => {

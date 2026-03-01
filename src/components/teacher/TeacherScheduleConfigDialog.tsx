@@ -125,21 +125,23 @@ export function TeacherScheduleConfigDialog({
 
   // 根据角色和带班数计算建议课时
   const suggestedHours = useMemo(() => {
-    return calculateSuggestedHours(form.role, form.mainClassCount, isSkillTeacher);
-  }, [form.role, form.mainClassCount, isSkillTeacher]);
+    return calculateSuggestedHours(form.role, form.mainClassCount, isSkillTeacher, form.primarySubject);
+  }, [form.role, form.mainClassCount, isSkillTeacher, form.primarySubject]);
 
   // 验证课时配置
   const validation = useMemo(() => {
-    if (isSkillTeacher) {
+    // 英语教师需要验证（虽然是技能科，但课时标准同主科）
+    if (isSkillTeacher && form.primarySubject !== '英语') {
       return { valid: true, message: '', warnings: [] };
     }
     return validateTeachingHours(
       form.role,
       form.mainClassCount,
       form.mainSubjectHours,
-      form.totalWeeklyHours
+      form.totalWeeklyHours,
+      form.primarySubject
     );
-  }, [form.role, form.mainClassCount, form.mainSubjectHours, form.totalWeeklyHours, isSkillTeacher]);
+  }, [form.role, form.mainClassCount, form.mainSubjectHours, form.totalWeeklyHours, isSkillTeacher, form.primarySubject]);
 
   // 获取兼任科目建议
   const secondarySuggestions = useMemo(() => {
