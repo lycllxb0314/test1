@@ -327,6 +327,20 @@ export function TeacherFullDetailDialog({
     }
   }, [isSkillTeacher, form.primaryRole]);
 
+  // 班主任自动添加班会到可任教科目
+  useEffect(() => {
+    const isHeadTeacher = form.primaryRole === 'head_teacher';
+    const hasClassMeeting = form.teachableSubjects.includes('班会');
+    
+    if (isHeadTeacher && !hasClassMeeting) {
+      // 成为班主任时自动添加班会
+      setForm(prev => ({
+        ...prev,
+        teachableSubjects: [...prev.teachableSubjects, '班会']
+      }));
+    }
+  }, [form.primaryRole, form.teachableSubjects]);
+
   // 切换兼任职务
   const toggleAdditionalRole = (role: AdministrativeRole) => {
     setForm(prev => ({
@@ -349,6 +363,12 @@ export function TeacherFullDetailDialog({
 
   // 切换可任教科目
   const toggleSubject = (subject: string) => {
+    // 班主任的班会课是固定的，不能取消
+    const isHeadTeacher = form.primaryRole === 'head_teacher';
+    if (isHeadTeacher && subject === '班会') {
+      return; // 班主任必须教班会
+    }
+    
     setForm(prev => {
       const subjects = prev.teachableSubjects.includes(subject)
         ? prev.teachableSubjects.filter(s => s !== subject)
@@ -733,18 +753,32 @@ export function TeacherFullDetailDialog({
               <Separator />
 
               <div className="space-y-3">
-                <Label className="text-base font-medium">可任教科目 <span className="text-sm font-normal text-gray-500 ml-2">（可多选）</span></Label>
+                <Label className="text-base font-medium">可任教科目 <span className="text-sm font-normal text-gray-500 ml-2">（可多选）</span>
+                  {form.primaryRole === 'head_teacher' && (
+                    <span className="text-xs text-amber-600 ml-2">* 班主任自动负责班会课</span>
+                  )}
+                </Label>
                 <div className="flex flex-wrap gap-2">
                   {SUBJECTS_CONFIG.map(s => {
                     const isChecked = form.teachableSubjects.includes(s.name);
                     const isPrimary = form.subject === s.name;
+                    // 班主任的班会课是固定的
+                    const isFixedClassMeeting = form.primaryRole === 'head_teacher' && s.name === '班会';
                     return (
                       <Badge
                         key={s.name}
-                        className={`cursor-pointer transition-all ${isChecked ? isPrimary ? 'bg-primary text-white' : 'bg-primary/20 text-primary' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                        onClick={() => toggleSubject(s.name)}
+                        className={`transition-all ${
+                          isFixedClassMeeting
+                            ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                            : isChecked
+                              ? isPrimary
+                                ? 'bg-primary text-white'
+                                : 'bg-primary/20 text-primary'
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200 cursor-pointer'
+                        } ${isFixedClassMeeting ? '' : 'cursor-pointer'}`}
+                        onClick={() => !isFixedClassMeeting && toggleSubject(s.name)}
                       >
-                        {s.name}{isPrimary && ' (主)'}
+                        {s.name}{isPrimary && ' (主)'}{isFixedClassMeeting && ' (固定)'}
                       </Badge>
                     );
                   })}

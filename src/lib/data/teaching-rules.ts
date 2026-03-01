@@ -137,13 +137,13 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     description: '科任教师带2个班（语数教师）：两个班主科共10-12节 + 兼任科目约2-4节，总课时14-16节',
   },
   
-  // 技能课教师（体育、音乐、美术、科学、信息技术等）
+  // 技能课教师（体育、音乐、美术、科学、信息技术等，不含英语）
   {
     role: 'skill_teacher',
     classCount: 0,  // 跨多个班级
     mainSubjectHours: [0, 0],
     totalHours: 17,
-    description: '技能课教师（体育/音乐/美术/科学/信息技术等）：跨多个班级教学，周课时16-18节',
+    description: '技能课教师（体育/音乐/美术/科学/信息技术等）：跨多个班级教学，周课时16-18节（英语教师除外，课时14-16节）',
   },
   
   // 学科组长（视为技能课教师）
@@ -162,7 +162,7 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
  * 
  * 国家标准：
  * - 语数教师：14-16节/周
- * - 英语教师：14-16节/周（特殊技能科）
+ * - 英语教师：14-16节/周（特殊技能科，可跨年级段教学）
  * - 其他技能科教师：16-18节/周
  */
 export function calculateSuggestedHours(
@@ -171,14 +171,14 @@ export function calculateSuggestedHours(
   isSkillTeacher: boolean = false,
   subject?: string
 ): { mainSubjectHours: number; totalHours: number; minHours: number; maxHours: number; description: string } {
-  // 英语教师特殊处理：虽然是技能科，但课时量标准同主科
+  // 英语教师特殊处理：虽然是技能科，但课时量标准同主科，且可跨年级段教学
   if (subject === '英语') {
     return { 
       mainSubjectHours: 0, 
       totalHours: 15,
       minHours: 14,
       maxHours: 16,
-      description: '英语教师：周课时14-16节'
+      description: '英语教师：可跨年级段教学，周课时14-16节'
     };
   }
   
