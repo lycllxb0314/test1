@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,11 +24,21 @@ import {
   Clock,
   Sparkles,
   CheckCircle,
+  Loader2,
 } from 'lucide-react';
-import { schoolStats } from '@/data/mock';
+import { useSchoolStats } from '@/hooks/useSchoolStats';
 
 export default function AcademicPage() {
-  // 统计数据
+  const { data: statsData, loading, error } = useSchoolStats();
+  
+  // 统计数据（基于API返回）
+  const schoolStats = statsData ? {
+    totalStudents: statsData.students.total,
+    totalTeachers: statsData.teachers.total,
+    totalClasses: statsData.classes.total,
+    name: statsData.school.name,
+  } : { totalStudents: 0, totalTeachers: 0, totalClasses: 0, name: '龙岩师范附属小学' };
+
   const stats = [
     { title: '学生总数', value: schoolStats.totalStudents, change: '+12', icon: Users, gradient: 'from-blue-500 to-cyan-500' },
     { title: '教师总数', value: schoolStats.totalTeachers, change: '+3', icon: GraduationCap, gradient: 'from-purple-500 to-pink-500' },

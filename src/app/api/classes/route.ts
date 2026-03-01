@@ -1,16 +1,11 @@
 /**
  * 班级管理 API
  * 
- * 使用统一的路由处理模式和集中的Mock数据
+ * 数据源：Supabase 数据库（唯一数据源）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  MOCK_CLASSES, 
-  getMockClasses,
-  getMockClassesByGrade,
-} from '@/lib/mock/classes.mock';
 import { 
   success, 
   error, 
@@ -18,7 +13,6 @@ import {
   createPagination,
   ErrorCode 
 } from '@/lib/api-route-utils';
-import type { ClassInfo } from '@/types';
 
 /**
  * GET - 获取班级列表
@@ -38,8 +32,27 @@ export async function GET(request: NextRequest) {
     
     // 检查是否需要按年级分组
     if (params.groupByGrade) {
-      const grouped = getMockClassesByGrade();
-      return NextResponse.json(success(grouped, 'mock'));
+      const { data: allClasses, error: dbError } = await client
+        .from('classes')
+        .select('*')
+        .order('grade', { ascending: true })
+        .order('class_number', { ascending: true });
+      
+      if (dbError) {
+        return NextResponse.json(error('数据库查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+      }
+      
+      // 按年级分组
+      const grouped: Record<string, typeof allClasses> = {};
+      allClasses?.forEach(cls => {
+        const gradeName = cls.grade_name || `${cls.grade}年级`;
+        if (!grouped[gradeName]) {
+          grouped[gradeName] = [];
+        }
+        grouped[gradeName].push(cls);
+      });
+      
+      return NextResponse.json(success(grouped));
     }
     
     // 构建查询
@@ -71,52 +84,17 @@ export async function GET(request: NextRequest) {
     const { data, error: dbError, count } = await query;
     
     if (dbError) {
-      console.log('Database query failed, using mock data:', dbError.message);
-      
-      // 使用Mock数据 - 只传递有值的参数
-      const mockData = getMockClasses({
-        grade: params.grade ? String(params.grade) : undefined,
-        search: params.search,
-      });
-      
-      const start = (page - 1) * pageSize;
-      const end = start + pageSize;
-      const paginatedData = mockData.slice(start, end);
-      
-      return NextResponse.json({
-        success: true,
-        data: paginatedData,
-        pagination: createPagination(mockData.length, page, pageSize),
-        source: 'mock',
-      });
+      return NextResponse.json(error('数据库查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
     return NextResponse.json({
       success: true,
       data: data || [],
       pagination: createPagination(count || 0, page, pageSize),
-      source: 'database',
     });
   } catch (err) {
     console.error('Failed to fetch classes:', err);
-    
-    // 使用Mock数据作为fallback - 只传递有值的参数
-    const page = params.page || 1;
-    const pageSize = params.pageSize || 20;
-    const mockData = getMockClasses({
-      grade: params.grade ? String(params.grade) : undefined,
-      search: params.search,
-    });
-    
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    
-    return NextResponse.json({
-      success: true,
-      data: mockData.slice(start, end),
-      pagination: createPagination(mockData.length, page, pageSize),
-      source: 'mock',
-    });
+    return NextResponse.json(error('获取班级列表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }
 
@@ -141,59 +119,37 @@ export async function POST(request: NextRequest) {
         .single();
       
       if (dbError) {
-        console.error('Database update error:', dbError);
-        return NextResponse.json(success({ id: body.classId, ...body.data }, 'mock'));
+        return NextResponse.json(error('更新班级失败', ErrorCode.DATABASE_ERROR), { status: 500 });
       }
       
-      return NextResponse.json(success(data, 'database'));
+      return NextResponse.json(success(data));
     }
     
-    // 创建新班级
+    // 创建班级
     const { data, error: dbError } = await client
       .from('classes')
       .insert({
-        ...body,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        id: body.id || `c${Date.now()}`,
+        name: body.name,
+        grade: body.grade,
+        grade_name: body.gradeName || `${body.grade}年级`,
+        class_number: body.classNumber,
+        head_teacher_id: body.headTeacherId,
+        head_teacher_name: body.headTeacherName,
+        classroom_id: body.classroomId,
+        classroom_name: body.classroomName,
+        building: body.building,
       })
       .select()
       .single();
     
     if (dbError) {
-      console.error('Database insert error:', dbError);
-      
-      const newClass: Partial<ClassInfo> = {
-        id: `c_${Date.now()}`,
-        name: body.name,
-        grade: body.grade,
-        classNumber: body.classNumber,
-        headTeacherId: body.headTeacherId,
-        headTeacherName: body.headTeacherName,
-        studentCount: 0,
-        maleCount: 0,
-        femaleCount: 0,
-        status: 'active',
-      };
-      
-      return NextResponse.json({
-        success: true,
-        data: newClass,
-        message: '班级添加成功',
-        source: 'mock',
-      });
+      return NextResponse.json(error('创建班级失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
-    return NextResponse.json({
-      success: true,
-      data,
-      message: '班级添加成功',
-      source: 'database',
-    });
+    return NextResponse.json(success(data));
   } catch (err) {
     console.error('Failed to create/update class:', err);
-    return NextResponse.json(
-      error('操作失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return NextResponse.json(error('操作失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }

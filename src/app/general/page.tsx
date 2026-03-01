@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,16 +24,68 @@ import {
   Cpu,
   DoorOpen,
   UserPlus,
+  Loader2,
 } from 'lucide-react';
-import { mockRepairRequests, mockAssets } from '@/data/mock';
+import { useSchoolStats } from '@/hooks/useSchoolStats';
+
+// 维修申请接口
+interface RepairRequest {
+  id: string;
+  requester: string;
+  item: string;
+  type: string;
+  location: string;
+  description: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+}
+
+// 资产接口
+interface Asset {
+  id: string;
+  name: string;
+  category: string;
+  specification: string;
+  department: string;
+  status: string;
+  value: number;
+}
 
 export default function GeneralPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const { data: schoolStats, loading: statsLoading } = useSchoolStats();
+
+  // 从API获取维修申请
+  useEffect(() => {
+    fetch('/api/repair-requests?status=pending')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setRepairRequests(data.data || []);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  // 从API获取资产
+  useEffect(() => {
+    fetch('/api/assets')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setAssets(data.data || []);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   // 统计数据
   const stats = [
-    { title: '资产总数', value: '1,234', change: '+12%', icon: Package, color: 'bg-blue-500', trend: 'up' },
-    { title: '待处理维修', value: '23', change: '+3', icon: Wrench, color: 'bg-orange-500', trend: 'up' },
+    { title: '资产总数', value: assets.length.toString() || '0', change: '+12%', icon: Package, color: 'bg-blue-500', trend: 'up' },
+    { title: '待处理维修', value: repairRequests.filter(r => r.status === 'pending').length.toString() || '0', change: '+3', icon: Wrench, color: 'bg-orange-500', trend: 'up' },
     { title: '本月采购', value: '¥58,000', change: '-5%', icon: ShoppingCart, color: 'bg-green-500', trend: 'down' },
     { title: '本月支出', value: '¥128,500', change: '+8%', icon: DollarSign, color: 'bg-purple-500', trend: 'up' },
   ];
@@ -149,7 +201,7 @@ export default function GeneralPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockRepairRequests.map((repair) => (
+              {repairRequests.slice(0, 5).map((repair) => (
                 <div
                   key={repair.id}
                   className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
@@ -245,7 +297,7 @@ export default function GeneralPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
-            {mockAssets.map((asset) => (
+            {assets.slice(0, 6).map((asset: Asset) => (
               <div
                 key={asset.id}
                 className="p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"

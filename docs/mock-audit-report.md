@@ -1,7 +1,7 @@
 # 前端页面独立 Mock 数据审查报告
 
-**审查时间**: 2024-12-10
-**审查范围**: `src/app/` 目录下所有页面组件
+**审查时间**: 2024-12-10（第二轮）
+**审查范围**: `src/app/` 目录下所有页面组件 + `src/data/mock.ts`
 **问题类型**: 页面内定义独立 mock 数据（未使用统一数据源）
 
 ---
@@ -10,259 +10,204 @@
 
 | 指标 | 数量 |
 |------|------|
-| 问题页面总数 | **37 个** |
-| 独立 mock 数据定义 | **65+ 处** |
-| 涉及模块 | 教务、总务、德育、教师、家长、工作流 |
+| 问题页面总数 | **50+ 个** |
+| 独立 mock 数据定义 | **100+ 处** |
+| 涉及模块 | 教务、总务、德育、教师、家长、驾驶舱、工作流 |
 
 ---
 
-## 🔴 严重程度分级
+## 🚨 严重发现：数据严重不一致
 
-### P0 - 高优先级（核心业务页面，数据需与 API 保持一致）
+### `src/data/mock.ts` vs `src/lib/mock/master-data.ts`
 
-| 页面路径 | Mock 数据 | 影响 |
-|----------|-----------|------|
-| `academic/attendance/page.tsx` | `mockAttendance`, `mockLeaveRecords` | 教师考勤统计与 API 不一致 |
-| `academic/exams/page.tsx` | `mockExams` | 考试列表与 API 不一致 |
-| `academic/grades/page.tsx` | `mockGrades` | 成绩数据与 API 不一致 |
-| `academic/teachers/[id]/page.tsx` | `mockTeacherProfile` | 教师档案详情页 |
-| `parent/grades/page.tsx` | `mockExams`, `mockGrades` | 家长端成绩查询 |
+| 数据项 | `data/mock.ts` | `lib/mock/master-data.ts` | 差异 |
+|--------|----------------|---------------------------|------|
+| 学生总数 | 1286 | 100 | **相差 12 倍** |
+| 教师总数 | 68 | 28 | **相差 2.4 倍** |
+| 班级总数 | 36 | 14 | **相差 2.6 倍** |
 
-### P1 - 中优先级（功能页面，影响用户体验）
-
-| 页面路径 | Mock 数据 |
-|----------|-----------|
-| `academic/classes/[id]/schedule/page.tsx` | `mockClassInfo`, `mockScheduleSlots`, `mockNotices` |
-| `academic/research/page.tsx` | `mockLessonGroups`, `mockLessonActivities`, `mockObservations` |
-| `academic/rooms/page.tsx` | `mockRooms`, `mockBookings` |
-| `academic/rooms/approval/page.tsx` | `mockPendingApprovals`, `mockAllBookings` |
-| `academic/rooms/booking/page.tsx` | `mockAvailableRooms`, `mockMyBookings` |
-| `academic/rooms/calendar/page.tsx` | `mockRooms`, `mockScheduleData` |
-| `moral/honors/page.tsx` | `mockHonors` |
-| `teacher/homework/page.tsx` | `mockHomework`, `mockLearning` |
-| `teacher/leave/page.tsx` | `mockApplications` |
-| `teacher/grade/page.tsx` | `mockTeachers`, `mockClasses` |
-
-### P2 - 低优先级（辅助功能页面）
-
-| 页面路径 | Mock 数据 |
-|----------|-----------|
-| `general/access/page.tsx` | `mockStatistics`, `mockDeviceStatus`, `mockRecentRecords`, `mockPendingVisitors` |
-| `general/access/devices/page.tsx` | `mockDevices` |
-| `general/access/persons/page.tsx` | `mockStudents`, `mockTeachers`, `mockStaff` |
-| `general/access/records/page.tsx` | `mockRecords` |
-| `general/access/visitors/page.tsx` | `mockVisitors` |
-| `general/devices/page.tsx` | `mockDevices` |
-| `general/purchase/page.tsx` | `mockPurchases` |
-| `general/security/page.tsx` | `mockSecurityRecords`, `mockHazards` |
-| `general/staff/page.tsx` | `mockStaff` |
-| `moral/activities/page.tsx` | `mockActivities` |
-| `moral/alerts/page.tsx` | `mockAlerts` |
-| `moral/assessment/page.tsx` | `mockAssessments` |
-| `moral/growth/page.tsx` | `mockGrowth` |
-| `moral/plans/page.tsx` | `mockPlans` |
-| `parent/announcements/page.tsx` | `mockNotices` |
-| `teacher/admin/page.tsx` | `mockMaterials` |
-| `teacher/collect/page.tsx` | `mockCollections`, `mockNotSubmitted` |
-| `teacher/communication/page.tsx` | `mockNotices`, `mockMessages`, `mockTemplates` |
-| `teacher/grade-habit/page.tsx` | `mockGradeClasses` |
-| `teacher/moral/page.tsx` | `mockMoral`, `mockRecords` |
-| `teacher/safety/page.tsx` | `mockSafety`, `mockHazards` |
-| `workflow/purchase/page.tsx` | `mockPurchases` |
+**影响范围**：所有引用 `schoolStats` 的页面显示的数据与实际数据源不一致！
 
 ---
 
-## 📋 详细问题清单
+## 🔴 新增问题：驾驶舱/工作台页面
 
-### 教务模块 (academic/)
-
-#### 1. `academic/attendance/page.tsx`
+### 1. `dashboard/principal/page.tsx`（校长驾驶舱）
 ```typescript
-// 问题代码位置：第 42 行、第 164 行
-const mockAttendance = [...]  // 教师考勤数据
-const mockLeaveRecords = [...]  // 请假记录数据
+// 独立 mock 数据定义
+const schoolHealthData = {...}       // 学校运行健康度
+const teachingQualityData = {...}    // 教学质量趋势
+const teacherDevelopmentData = {...} // 教师队伍发展
+const studentGrowthData = {...}      // 学生成长指标
+const resourceEfficiencyData = {...} // 资源配置效率
+const developmentOpportunities = {...} // 发展机遇与突破
 ```
-**问题**: 数据格式与 `MOCK_TEACHER_ATTENDANCE` 不一致，ID 使用 `ta001` vs `t001`
+**问题**: 6 个独立 mock 数据对象，数据与统一数据源完全不一致
 
-#### 2. `academic/classes/[id]/schedule/page.tsx`
+### 2. `dashboard/secretary/page.tsx`（书记驾驶舱）
 ```typescript
-// 问题代码位置：第 60 行、第 76 行、第 114 行
-const mockClassInfo = {...}  // 班级信息
-const mockScheduleSlots = [...]  // 课表数据
-const mockNotices = [...]  // 通知数据
+const partyBuildingData = {...}      // 党建工作数据
+const teacherMoralityData = {...}    // 师德师风数据
+const safetyData = {...}             // 安全稳定数据
+const collaborationData = {...}      // 家校社协同数据
+const developmentData = {...}        // 发展规划数据
 ```
-**问题**: 班级信息应从 `MASTER_CLASSES` 获取，课表应从 `MOCK_BASE_SCHEDULE` 获取
+**问题**: 5 个独立 mock 数据对象
 
-#### 3. `academic/exams/page.tsx`
+### 3. `dashboard/vice-principal/page.tsx`（副校长驾驶舱）
 ```typescript
-// 问题代码位置：第 35 行
-const mockExams = [...]  // 考试列表
+const pendingDecisions = [...]       // 待决策事项
+const departmentWork = {...}         // 分管部门重点工作
+const crossDepartmentProjects = [...] // 跨部门协同项目
+const riskAlerts = [...]             // 风险预警
+const coordinationNeeds = [...]      // 资源协调需求
+const weeklySchedule = [...]         // 本周工作安排
 ```
-**问题**: 数据与 `MOCK_EXAMS` 不一致，字段名 `examType` vs `type`
+**问题**: 6 个独立 mock 数据对象
 
-#### 4. `academic/grades/page.tsx`
+### 4. `dashboard/page.tsx`（主驾驶舱）
 ```typescript
-// 问题代码位置：第 34 行
-const mockGrades = [...]  // 成绩列表
+import { schoolStats } from '@/data/mock';  // 引用不一致的数据源
+const pendingTasks = [...]           // 待办事项
+const quickActions = [...]           // 快捷操作
 ```
-**问题**: 数据与 `MOCK_GRADES` 不一致
-
-#### 5. `academic/research/page.tsx`
-```typescript
-// 问题代码位置：第 59 行、第 65 行、第 93 行
-const mockLessonGroups = [...]  // 集体备课组
-const mockLessonActivities = [...]  // 教研活动
-const mockObservations = [...]  // 听课记录
-```
-**问题**: 教研相关数据未在统一数据源中定义
-
-#### 6. `academic/rooms/page.tsx`
-```typescript
-// 问题代码位置：第 76 行、第 253 行
-const mockRooms: Room[] = [...]  // 场地列表
-const mockBookings = [...]  // 预约记录
-```
-**问题**: 数据与 `MOCK_ROOMS`、`MOCK_ROOM_BOOKINGS` 不一致
-
-#### 7. `academic/rooms/approval/page.tsx`
-```typescript
-// 问题代码位置：第 48 行、第 87 行
-const mockPendingApprovals: RoomBooking[] = [...]
-const mockAllBookings: RoomBooking[] = [...]
-```
-
-#### 8. `academic/rooms/booking/page.tsx`
-```typescript
-// 问题代码位置：第 53 行、第 152 行
-const mockAvailableRooms: Room[] = [...]
-const mockMyBookings: RoomBooking[] = [...]
-```
-
-#### 9. `academic/rooms/calendar/page.tsx`
-```typescript
-// 问题代码位置：第 45 行、第 53 行
-const mockRooms = [...]
-const mockScheduleData: Record<string, RoomBooking[]> = {...}
-```
-
-#### 10. `academic/teachers/[id]/page.tsx`
-```typescript
-// 问题代码位置：第 60 行
-const mockTeacherProfile: TeacherProfile = {...}
-```
-**问题**: 教师档案详情应从 `getMockTeacherProfile()` 获取
 
 ---
 
-### 总务模块 (general/)
+## 🔴 新增问题：各系统首页
 
-#### 11-15. 门禁管理 (general/access/)
-| 文件 | Mock 数据 |
+### 5. `academic/page.tsx`（教务首页）
+```typescript
+import { schoolStats } from '@/data/mock';  // 不一致数据
+const todaySchedule = [...]          // 今日课程
+const topStudents = [...]            // 优秀学生
+const recentActivities = [...]       // 最近活动
+```
+
+### 6. `general/page.tsx`（总务首页）
+```typescript
+import { mockRepairRequests, mockAssets } from '@/data/mock';
+const stats = [...]                  // 统计数据
+const securityAlerts = [...]         // 安全提醒
+```
+
+### 7. `moral/page.tsx`（德育首页）
+```typescript
+const schoolStats = {                // 重新定义！与 data/mock.ts 不同
+  totalStudents: 2450,               // 又一个不同值！
+  totalClasses: 48,                  // 又一个不同值！
+  ...
+};
+const gradeComparisonData = [...]    // 年级对比数据
+const classRankingData = [...]       // 班级德育排行
+const warningData = [...]            // 实时预警数据
+const moralTypeData = [...]          // 德育类型分布
+```
+**严重问题**: 德育首页重新定义了 `schoolStats`，值又不同！
+
+### 8. `teacher/page.tsx`（教师工作台）
+```typescript
+const todosData = [...]              // 待办事项
+const headTeacherTodos = [...]       // 班主任专属待办
+const notificationsData = [...]      // 通知提醒
+const todayAttendance = {...}        // 今日考勤
+const classOverview = {...}          // 班级概况
+const todaySchedule = [...]          // 今日课表
+```
+
+---
+
+## 📋 `src/data/mock.ts` 完整问题清单
+
+该文件是**另一个独立数据源**，与 `lib/mock/` 完全独立：
+
+| 导出项 | 用途 | 使用页面数 |
+|--------|------|-----------|
+| `mockUsers` | 用户数据 | 多处 |
+| `mockClasses` | 班级数据（36班）| 多处 |
+| `mockAnnouncements` | 公告数据 | 驾驶舱 |
+| `mockStudents` | 学生数据 | 多处 |
+| `mockRepairRequests` | 维修申请 | 总务首页 |
+| `mockAssets` | 资产数据 | 总务首页 |
+| `schoolStats` | **学校统计** | **5+ 页面** |
+| `newsList` | 新闻动态 | 首页 |
+| `quickLinks` | 快捷入口 | 多处 |
+
+---
+
+## 🔴 严重程度分级（更新）
+
+### P0 - 极高优先级（数据不一致问题）
+
+| 页面 | 问题 | 影响 |
+|------|------|------|
+| `data/mock.ts` | 与 `lib/mock/master-data.ts` 数据完全不一致 | **全局性影响** |
+| `dashboard/principal/page.tsx` | 6 处独立 mock | 校长决策数据错误 |
+| `dashboard/secretary/page.tsx` | 5 处独立 mock | 书记工作台数据错误 |
+| `dashboard/vice-principal/page.tsx` | 6 处独立 mock | 副校长工作台数据错误 |
+| `moral/page.tsx` | 重新定义 schoolStats（又是不同值！） | 德育统计数据三重不一致 |
+| `academic/page.tsx` | 引用错误 schoolStats | 教务首页数据错误 |
+
+### P1 - 高优先级（核心业务页面）
+
+| 页面 | Mock 数据 |
 |------|-----------|
-| `page.tsx` | `mockStatistics`, `mockDeviceStatus`, `mockRecentRecords`, `mockPendingVisitors` |
-| `devices/page.tsx` | `mockDevices` |
-| `persons/page.tsx` | `mockStudents`, `mockTeachers`, `mockStaff` |
-| `records/page.tsx` | `mockRecords` |
-| `visitors/page.tsx` | `mockVisitors` |
+| `teacher/page.tsx` | 6 处独立 mock |
+| `general/page.tsx` | 多处独立 mock |
+| `academic/attendance/page.tsx` | `mockAttendance`, `mockLeaveRecords` |
+| `academic/exams/page.tsx` | `mockExams` |
+| `academic/grades/page.tsx` | `mockGrades` |
+| `academic/teachers/[id]/page.tsx` | `mockTeacherProfile` |
+| `parent/grades/page.tsx` | `mockExams`, `mockGrades` |
 
-#### 16-19. 其他总务页面
-| 文件 | Mock 数据 |
-|------|-----------|
-| `devices/page.tsx` | `mockDevices` |
-| `purchase/page.tsx` | `mockPurchases` |
-| `security/page.tsx` | `mockSecurityRecords`, `mockHazards` |
-| `staff/page.tsx` | `mockStaff` |
+### P2 - 中优先级（功能页面）- **10 个**
+
+### P3 - 低优先级（辅助功能页面）- **22 个**
 
 ---
 
-### 德育模块 (moral/)
+## 📊 数据不一致问题汇总
 
-| 文件 | Mock 数据 |
-|------|-----------|
-| `activities/page.tsx` | `mockActivities` |
-| `alerts/page.tsx` | `mockAlerts` |
-| `assessment/page.tsx` | `mockAssessments` |
-| `growth/page.tsx` | `mockGrowth` |
-| `honors/page.tsx` | `mockHonors` |
-| `plans/page.tsx` | `mockPlans` |
+### 学校统计数据三重不一致
 
----
+| 来源 | 学生数 | 教师数 | 班级数 |
+|------|--------|--------|--------|
+| `lib/mock/master-data.ts` | 100 | 28 | 14 |
+| `data/mock.ts` → `schoolStats` | 1286 | 68 | 36 |
+| `moral/page.tsx` → `schoolStats` | 2450 | ? | 48 |
 
-### 教师工作台 (teacher/)
-
-| 文件 | Mock 数据 |
-|------|-----------|
-| `admin/page.tsx` | `mockMaterials` |
-| `collect/page.tsx` | `mockCollections`, `mockNotSubmitted` |
-| `communication/page.tsx` | `mockNotices`, `mockMessages`, `mockTemplates` |
-| `grade-habit/page.tsx` | `mockGradeClasses` |
-| `grade/page.tsx` | `mockTeachers`, `mockClasses` |
-| `homework/page.tsx` | `mockHomework`, `mockLearning` |
-| `leave/page.tsx` | `mockApplications` |
-| `moral/page.tsx` | `mockMoral`, `mockRecords` |
-| `safety/page.tsx` | `mockSafety`, `mockHazards` |
+**这导致**：
+- 教务首页显示 1286 名学生
+- 德育首页显示 2450 名学生
+- 实际数据源只有 100 名学生
 
 ---
 
-### 家长端 (parent/)
+## 🎯 整改优先级建议（更新）
 
-| 文件 | Mock 数据 |
-|------|-----------|
-| `announcements/page.tsx` | `mockNotices` |
-| `grades/page.tsx` | `mockExams`, `mockGrades` |
+### Phase 0 - 紧急（本周）
+1. **删除 `src/data/mock.ts`**，所有引用改为 `lib/mock/`
+2. **驾驶舱页面整改** - 3 个页面，17 处 mock
+3. **首页统计数据统一** - 5 个首页使用统一数据源
 
----
+### Phase 1 - 高优先级
+- P0 核心业务页面整改
 
-### 工作流模块 (workflow/)
+### Phase 2 - 中优先级
+- P1 功能页面整改
 
-| 文件 | Mock 数据 |
-|------|-----------|
-| `purchase/page.tsx` | `mockPurchases` |
-
----
-
-## 🎯 整改建议
-
-### 方案 A: 页面调用 API（推荐）
-```typescript
-// 改造前
-const mockExams = [...]
-
-// 改造后
-const [exams, setExams] = useState([]);
-
-useEffect(() => {
-  fetch('/api/exams')
-    .then(res => res.json())
-    .then(data => setExams(data.data));
-}, []);
-```
-
-### 方案 B: 导入统一 Mock 数据源
-```typescript
-// 改造前
-const mockExams = [...]
-
-// 改造后
-import { MOCK_EXAMS } from '@/lib/mock/academic.mock';
-```
+### Phase 3 - 后续
+- P2/P3 辅助页面整改
 
 ---
 
-## 📅 整改优先级建议
+## ⚠️ 风险提示（更新）
 
-1. **Phase 1 (本周)**: P0 级别 - 5 个核心业务页面
-2. **Phase 2 (下周)**: P1 级别 - 10 个功能页面
-3. **Phase 3 (后续)**: P2 级别 - 22 个辅助页面
-
----
-
-## ⚠️ 风险提示
-
-1. **数据不一致风险**: 页面显示与 API 返回数据不一致，可能导致用户困惑
-2. **维护成本**: 同一数据多处维护，修改时容易遗漏
-3. **类型不一致**: 部分 mock 数据类型定义与统一数据源不匹配
+1. **数据严重不一致**: 同一数据在不同页面显示不同值
+2. **数据源分裂**: 存在两个完全独立的 mock 数据体系
+3. **决策风险**: 领导驾驶舱数据与实际不符，可能影响决策
+4. **用户体验差**: 用户在不同页面看到矛盾的统计数据
 
 ---
 
-**审查结论**: 项目存在严重的数据孤岛问题，需要系统性整改。建议按优先级逐步推进，确保页面数据与 API 层保持一致。
+**审查结论**: 项目存在**严重的数据孤岛和数据不一致问题**，需要立即进行系统性整改。建议优先处理 `src/data/mock.ts` 文件和驾驶舱页面。

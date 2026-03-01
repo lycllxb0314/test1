@@ -1,15 +1,11 @@
 /**
  * 学生API路由
  * 
- * 使用统一的路由处理模式、集中的Mock数据和认证保护
+ * 数据源：Supabase 数据库（唯一数据源）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  MOCK_STUDENTS, 
-  getMockStudents,
-} from '@/lib/mock/students.mock';
 import { 
   success, 
   error, 
@@ -18,7 +14,6 @@ import {
   ErrorCode 
 } from '@/lib/api-route-utils';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import type { Student } from '@/types';
 
 /**
  * GET - 获取学生列表
@@ -30,8 +25,6 @@ import type { Student } from '@/types';
  * - status: 状态筛选
  * - page: 页码
  * - pageSize: 每页数量
- * 
- * 权限要求：教师模块查看权限（班主任、年段长、教务等）
  */
 const handleGetStudents = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const params = parseQueryParams(request);
@@ -66,118 +59,75 @@ const handleGetStudents = async (request: NextRequest, { user }: ExtendedRouteCo
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     
-    query = query.range(from, to).order('created_at', { ascending: false });
+    query = query.range(from, to).order('student_no', { ascending: true });
     
     const { data, error: dbError, count } = await query;
     
     if (dbError) {
-      console.log('Database query failed, using mock data:', dbError.message);
-      
-      // 使用Mock数据 - 只传递有值的参数
-      const mockResult = getMockStudents({
-        search: params.search,
-        grade: params.grade ? String(params.grade) : undefined,
-        classId: params.classId ? String(params.classId) : undefined,
-        status: params.status ? String(params.status) : undefined,
-        page,
-        pageSize,
-      });
-      
-      return NextResponse.json({
-        success: true,
-        data: mockResult.data,
-        pagination: createPagination(mockResult.total, page, pageSize),
-        source: 'mock',
-      });
+      return NextResponse.json(error('获取学生列表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
     return NextResponse.json({
       success: true,
       data: data || [],
       pagination: createPagination(count || 0, page, pageSize),
-      source: 'database',
     });
   } catch (err) {
     console.error('Failed to fetch students:', err);
-    
-    // 使用Mock数据作为fallback - 只传递有值的参数
-    const page = params.page || 1;
-    const pageSize = params.pageSize || 20;
-    const mockResult = getMockStudents({
-      search: params.search,
-      grade: params.grade ? String(params.grade) : undefined,
-      classId: params.classId ? String(params.classId) : undefined,
-      status: params.status ? String(params.status) : undefined,
-      page,
-      pageSize,
-    });
-    
-    return NextResponse.json({
-      success: true,
-      data: mockResult.data,
-      pagination: createPagination(mockResult.total, page, pageSize),
-      source: 'mock',
-    });
+    return NextResponse.json(error('获取学生列表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 };
 
 /**
  * POST - 创建新学生
- * 
- * 权限要求：教务模块管理权限
  */
 const handleCreateStudent = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const body = await request.json();
     const client = getSupabaseClient();
     
-    // 数据库插入
+    // 获取班级信息
+    const { data: classData } = await client
+      .from('classes')
+      .select('*')
+      .eq('id', body.class_id || body.classId)
+      .single();
+    
     const { data, error: dbError } = await client
       .from('students')
       .insert({
-        ...body,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        id: body.id || `s${Date.now()}`,
+        student_no: body.student_no || body.studentNo || `${Date.now()}`,
+        name: body.name,
+        gender: body.gender,
+        birth_date: body.birth_date || body.birthDate,
+        class_id: body.class_id || body.classId,
+        class_name: classData?.name || body.class_name || body.className,
+        grade: classData?.grade || body.grade,
+        parent_name: body.parent_name || body.parentName,
+        parent_phone: body.parent_phone || body.parentPhone,
+        address: body.address,
+        status: body.status || '在校',
       })
       .select()
       .single();
     
     if (dbError) {
-      console.error('Database insert error:', dbError);
-      
-      // 返回mock成功响应
-      const newStudent: Student = {
-        id: `s_${Date.now()}`,
-        studentNo: body.studentNo || `${Date.now()}`,
-        name: body.name,
-        gender: body.gender || 'male',
-        birthDate: body.birthDate,
-        classId: body.classId,
-        className: body.className,
-        status: body.status || '在校',
-        parents: body.parents || [],
-      };
-      
-      return NextResponse.json({
-        success: true,
-        data: newStudent,
-        message: '学生添加成功',
-        source: 'mock',
-      });
+      return NextResponse.json(error('创建学生失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
-    return NextResponse.json({
-      success: true,
-      data,
-      message: '学生添加成功',
-      source: 'database',
-    });
+    // 更新班级学生数量
+    if (classData) {
+      await client
+        .from('classes')
+        .update({ student_count: (classData.student_count || 0) + 1 })
+        .eq('id', classData.id);
+    }
+    
+    return NextResponse.json(success(data));
   } catch (err) {
     console.error('Failed to create student:', err);
-    return NextResponse.json(
-      error('添加学生失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return NextResponse.json(error('操作失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 };
 
@@ -185,7 +135,7 @@ const handleCreateStudent = async (request: NextRequest, { user }: ExtendedRoute
 export const GET = protectedRoute(handleGetStudents, { 
   module: 'teacher', 
   permission: 'view',
-  optional: true, // 列表查询允许未登录访问（用于演示）
+  optional: true,
 });
 
 export const POST = protectedRoute(handleCreateStudent, { 

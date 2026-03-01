@@ -46,22 +46,34 @@ import {
   ArrowDownRight,
   Target,
   Trophy,
+  Loader2,
 } from 'lucide-react';
+import { useSchoolStats } from '@/hooks/useSchoolStats';
 
 export default function MoralPage() {
   const [selectedGrade, setSelectedGrade] = useState('all');
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const { data: apiStats, loading, error } = useSchoolStats();
 
-  // 德育数据
-  const schoolStats = {
-    totalStudents: 2450,
-    totalClasses: 48,
+  // 德育数据（基于API返回）
+  const schoolStats = apiStats ? {
+    totalStudents: apiStats.students.total,
+    totalClasses: apiStats.classes.total,
     praiseCount: 3420,
     criticismCount: 156,
     activityCount: 89,
     activityParticipationRate: 92,
-    excellentClassCount: 12,
+    excellentClassCount: Math.round(apiStats.classes.total * 0.3),
     warningClassCount: 3,
+  } : {
+    totalStudents: 0,
+    totalClasses: 0,
+    praiseCount: 0,
+    criticismCount: 0,
+    activityCount: 0,
+    activityParticipationRate: 0,
+    excellentClassCount: 0,
+    warningClassCount: 0,
   };
 
   // 年级对比数据
