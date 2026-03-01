@@ -32,7 +32,8 @@ export type TeacherRole =
   // === 教师群体 ===
   | 'head_teacher'              // 班主任
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
-  | 'skill_teacher';            // 技能课教师（体育、音乐、美术等）
+  | 'skill_teacher'             // 技能课教师（体育、音乐、美术等）
+  | 'subject_head';             // 学科组长（视为技能课教师）
 
 /** 行政职务类型（可兼任） */
 export type AdministrativeRole = 
@@ -52,6 +53,7 @@ export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   head_teacher: '班主任',
   subject_teacher: '科任教师',
   skill_teacher: '技能课教师',
+  subject_head: '学科组长',
 };
 
 /** 行政职务标签映射 */
@@ -73,6 +75,7 @@ export const TEACHER_ROLE_COLORS: Record<TeacherRole, { bg: string; text: string
   head_teacher: { bg: 'bg-amber-100', text: 'text-amber-700' },
   subject_teacher: { bg: 'bg-blue-100', text: 'text-blue-700' },
   skill_teacher: { bg: 'bg-green-100', text: 'text-green-700' },
+  subject_head: { bg: 'bg-teal-100', text: 'text-teal-700' },
 };
 
 /** 行政职务颜色映射 */
@@ -368,14 +371,19 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           status: (t.status as string) || 'active',
           teachYears: (t.teachYears as number) || 0,
           avatar: t.avatar as string,
-          primaryRole: (t.role as TeacherRole) || 'subject_teacher',
+          // 角色映射：subject_head 视为 skill_teacher
+          primaryRole: (t.role === 'subject_head' ? 'skill_teacher' : t.role as TeacherRole) || 'subject_teacher',
           additionalRoles: (t.additional_roles as AdministrativeRole[]) || [],
           weeklyHours: (t.total_weekly_hours as number) || 13,
           currentHours: 0,
-          // 优先使用 teachable_subjects，否则从 primary_subject + secondary_subjects 构建
-          teachableSubjects: (t.teachable_subjects as string[] && (t.teachable_subjects as string[]).length > 0)
-            ? (t.teachable_subjects as string[])
-            : [t.primary_subject, ...(t.secondary_subjects as string[] || [])].filter(Boolean) as string[],
+          // teachable_subjects：数据库字段为空，从 primary_subject + secondary_subjects 构建
+          teachableSubjects: (() => {
+            const ts = t.teachable_subjects as string[] | undefined;
+            if (ts && ts.length > 0) return ts;
+            const primary = t.primary_subject as string;
+            const secondary = (t.secondary_subjects as string[]) || [];
+            return [primary, ...secondary].filter(Boolean) as string[];
+          })(),
           teachableGrades: (t.teachable_grades as number[]) || [1, 2, 3, 4, 5, 6],
           isHeadTeacher: t.isHeadTeacher as boolean || false,
           headTeacherClassId: t.headTeacherClassId as string,

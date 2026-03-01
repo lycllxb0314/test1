@@ -19,17 +19,44 @@ import {
 
 /**
  * 将教师角色转换为排课角色
+ * 支持英文角色代码和中文角色名称
  */
 function mapToSchedulingRole(role: string): TeacherPrimaryRole {
-  const roleMap: Record<string, TeacherPrimaryRole> = {
+  // 英文角色代码映射（数据库存储格式）
+  const englishRoleMap: Record<string, TeacherPrimaryRole> = {
+    'principal': 'principal',           // 校长
+    'secretary': 'secretary',           // 书记
+    'vice_principal': 'vice_principal', // 副校长
+    'head_teacher': 'head_teacher',     // 班主任
+    'subject_teacher': 'subject_teacher', // 科任教师
+    'skill_teacher': 'skill_teacher',   // 技能课教师
+    'subject_head': 'skill_teacher',    // 学科组长（视为技能课教师）
+  };
+  
+  // 中文角色名称映射（兼容）
+  const chineseRoleMap: Record<string, TeacherPrimaryRole> = {
     '校长': 'principal',
     '书记': 'secretary',
     '副校长': 'vice_principal',
     '班主任': 'head_teacher',
     '科任': 'subject_teacher',
+    '科任教师': 'subject_teacher',
     '技能课教师': 'skill_teacher',
+    '学科组长': 'skill_teacher',
   };
-  return roleMap[role] || 'subject_teacher';
+  
+  // 优先匹配英文角色代码
+  if (englishRoleMap[role]) {
+    return englishRoleMap[role];
+  }
+  
+  // 其次匹配中文角色名称
+  if (chineseRoleMap[role]) {
+    return chineseRoleMap[role];
+  }
+  
+  // 默认返回科任教师
+  return 'subject_teacher';
 }
 
 /**

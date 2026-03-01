@@ -109,8 +109,9 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         status: t.status,
         createdAt: t.created_at,
         updatedAt: t.updated_at,
-        // 课时配置字段（从数据库读取）
+        // 角色和课时配置字段（从数据库读取）
         role: t.role,
+        additional_roles: t.additional_roles || [],
         primary_subject: t.primary_subject,
         secondary_subjects: t.secondary_subjects,
         total_weekly_hours: t.total_weekly_hours,

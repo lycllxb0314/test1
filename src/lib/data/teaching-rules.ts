@@ -24,7 +24,8 @@ export type TeacherRole =
   // === 教师群体 ===
   | 'head_teacher'              // 班主任
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
-  | 'skill_teacher';            // 技能课教师（体育、音乐、美术等）
+  | 'skill_teacher'             // 技能课教师（体育、音乐、美术等）
+  | 'subject_head';             // 学科组长（视为技能课教师）
 
 /** 行政职务类型（可兼任） */
 export type AdministrativeRole = 
@@ -43,6 +44,7 @@ export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   head_teacher: '班主任',
   subject_teacher: '科任教师',
   skill_teacher: '技能课教师',
+  subject_head: '学科组长',
 };
 
 export const ADMINISTRATIVE_ROLE_LABELS: Record<AdministrativeRole, string> = {
