@@ -750,12 +750,63 @@ function findBestSlotForTask(
   allSlotRequirements: SlotRequirement[],
   newSlots: ScheduleSlot[]  // 已安排的课表，用于检查当天科目重复
 ): SlotRequirement | null {
-  // 优先级：上午第2、3节 > 下午第1节 > 其他
-  const periodPriority = [2, 3, 4, 5, 6, 1];
-  
   // 判断是否为主科（语文、数学）- 主科允许一天内多次
   const isMainSubject = task.subject === '语文' || task.subject === '数学';
   
+  // 统计该班级该科目已经使用过的时段
+  const usedPeriods = new Set<number>();
+  newSlots.forEach(s => {
+    if (s.classId === task.classId && s.subject === task.subject) {
+      usedPeriods.add(s.periodIndex);
+    }
+  });
+  
+  // 优先级：优先选择未使用过的时段
+  // 时段优先级：上午第2、3节 > 下午第1节 > 其他
+  const periodPriority = [2, 3, 4, 5, 6, 1];
+  
+  // 第一轮：优先选择未使用过的时段
+  for (const periodIndex of periodPriority) {
+    if (!periods.find(p => p.index === periodIndex)) continue;
+    if (usedPeriods.has(periodIndex)) continue;  // 跳过已使用的时段
+    
+    for (const day of WEEK_DAYS) {
+      const timeKey = `${day}-${periodIndex}`;
+      
+      // 检查班级是否已有课
+      if (classTimeMap.has(task.classId) && classTimeMap.get(task.classId)!.has(timeKey)) {
+        continue;
+      }
+      
+      // 检查教师是否可用
+      if (teacherTimeMap.has(task.teacherId) && teacherTimeMap.get(task.teacherId)!.has(timeKey)) {
+        continue;
+      }
+      
+      // 非主科检查：该班级当天是否已有该科目
+      if (!isMainSubject) {
+        const hasSubjectToday = newSlots.some(s => 
+          s.classId === task.classId && 
+          s.weekDay === day && 
+          s.subject === task.subject
+        );
+        if (hasSubjectToday) {
+          continue;  // 当天已有该科目，跳过
+        }
+      }
+      
+      // 检查时间槽是否可用
+      const req = allSlotRequirements.find(r => 
+        r.classId === task.classId && r.weekDay === day && r.periodIndex === periodIndex && !r.filled
+      );
+      
+      if (req) {
+        return req;
+      }
+    }
+  }
+  
+  // 第二轮：所有时段都用过了，允许重复时段（但仍然要避免同一天重复）
   for (const periodIndex of periodPriority) {
     if (!periods.find(p => p.index === periodIndex)) continue;
     
@@ -780,7 +831,7 @@ function findBestSlotForTask(
           s.subject === task.subject
         );
         if (hasSubjectToday) {
-          continue;  // 当天已有该科目，跳过
+          continue;
         }
       }
       
