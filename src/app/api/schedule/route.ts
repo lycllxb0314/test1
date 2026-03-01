@@ -15,6 +15,10 @@ import {
   formatScheduleAsTable,
   calculateClassSubjectHours,
   calculateTeacherWeeklyHours,
+  getPeriodsByGrade,
+  MORNING_PERIODS,
+  AFTERNOON_PERIODS_LOW,
+  AFTERNOON_PERIODS_HIGH,
 } from '@/lib/schedule-service';
 import type { ScheduleSlot, TeachingTask, ScheduleRule, WeekDay } from '@/types';
 // 导入统一数据源
@@ -175,10 +179,23 @@ export async function GET(request: NextRequest) {
       });
       
     case 'periods':
-      // 获取节次配置
+      // 获取节次配置（支持根据年级返回）
+      const periodGrade = searchParams.get('grade');
+      if (periodGrade) {
+        return NextResponse.json({
+          success: true,
+          data: getPeriodsByGrade(parseInt(periodGrade)),
+        });
+      }
+      // 返回所有节次配置
       return NextResponse.json({
         success: true,
-        data: DEFAULT_PERIODS,
+        data: {
+          morning: MORNING_PERIODS,
+          afternoonLow: AFTERNOON_PERIODS_LOW,
+          afternoonHigh: AFTERNOON_PERIODS_HIGH,
+          default: DEFAULT_PERIODS,
+        },
       });
       
     case 'readiness':

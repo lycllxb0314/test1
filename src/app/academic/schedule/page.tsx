@@ -77,7 +77,14 @@ export default function SchedulePage() {
   const [generating, setGenerating] = useState(false);
   const [classes, setClasses] = useState<Array<{ id: string; name: string; grade: number }>>([]);
   const [teachers, setTeachers] = useState<Array<{ id: string; name: string; subjects: string[] }>>([]);
-  const [periods, setPeriods] = useState<Array<{ index: number; name: string; startTime: string; endTime: string }>>([]);
+  const [periods, setPeriods] = useState<Array<{ index: number; name: string; startTime: string; endTime: string }>>([
+    { index: 1, name: '第一节', startTime: '08:00', endTime: '08:40' },
+    { index: 2, name: '第二节', startTime: '08:50', endTime: '09:30' },
+    { index: 3, name: '第三节', startTime: '10:00', endTime: '10:40' },
+    { index: 4, name: '第四节', startTime: '14:00', endTime: '14:40' },
+    { index: 5, name: '第五节', startTime: '14:50', endTime: '15:30' },
+    { index: 6, name: '第六节', startTime: '15:40', endTime: '16:20' },
+  ]);
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
   const [teachingTasks, setTeachingTasks] = useState<TeachingTask[]>([]);
   const [substitutes, setSubstitutes] = useState<SubstituteRecord[]>([]);
@@ -106,25 +113,57 @@ export default function SchedulePage() {
     fetchInitialData();
   }, []);
 
+  // 根据年级动态获取节次配置
+  const getPeriodsByGrade = (grade: number) => {
+    // 上午3节（所有年级相同）
+    const morningPeriods = [
+      { index: 1, name: '第一节', startTime: '08:00', endTime: '08:40' },
+      { index: 2, name: '第二节', startTime: '08:50', endTime: '09:30' },
+      { index: 3, name: '第三节', startTime: '10:00', endTime: '10:40' },
+    ];
+    
+    // 下午节次根据年级区分
+    const afternoonPeriods = grade <= 2
+      ? [ // 低年级（1-2年级）下午2节
+          { index: 4, name: '第四节', startTime: '14:00', endTime: '14:40' },
+          { index: 5, name: '第五节', startTime: '14:50', endTime: '15:30' },
+        ]
+      : [ // 中高年级（3-6年级）下午3节
+          { index: 4, name: '第四节', startTime: '14:00', endTime: '14:40' },
+          { index: 5, name: '第五节', startTime: '14:50', endTime: '15:30' },
+          { index: 6, name: '第六节', startTime: '15:40', endTime: '16:20' },
+        ];
+    
+    return [...morningPeriods, ...afternoonPeriods];
+  };
+
+  // 根据选中班级动态调整节次
+  useEffect(() => {
+    if (selectedClassId && classes.length > 0) {
+      const selectedClass = classes.find(c => c.id === selectedClassId);
+      if (selectedClass) {
+        setPeriods(getPeriodsByGrade(selectedClass.grade));
+      }
+    }
+  }, [selectedClassId, classes]);
+
   const fetchInitialData = async () => {
     try {
       setLoading(true);
       
-      // 并行获取基础数据
-      const [classesRes, teachersRes, periodsRes, slotsRes, tasksRes, subsRes, statsRes] = await Promise.all([
+      // 并行获取基础数据（periods使用前端默认配置）
+      const [classesRes, teachersRes, slotsRes, tasksRes, subsRes, statsRes] = await Promise.all([
         fetch('/api/schedule?action=classes'),
         fetch('/api/schedule?action=teachers'),
-        fetch('/api/schedule?action=periods'),
         fetch('/api/schedule'),
         fetch('/api/schedule?action=tasks'),
         fetch('/api/schedule/substitutes'),
         fetch('/api/schedule?action=statistics'),
       ]);
       
-      const [classesData, teachersData, periodsData, slotsData, tasksData, subsData, statsData] = await Promise.all([
+      const [classesData, teachersData, slotsData, tasksData, subsData, statsData] = await Promise.all([
         classesRes.json(),
         teachersRes.json(),
-        periodsRes.json(),
         slotsRes.json(),
         tasksRes.json(),
         subsRes.json(),
@@ -133,7 +172,7 @@ export default function SchedulePage() {
       
       if (classesData.success) setClasses(classesData.data);
       if (teachersData.success) setTeachers(teachersData.data);
-      if (periodsData.success) setPeriods(periodsData.data);
+      // periods使用前端默认配置，根据班级年级动态调整
       if (slotsData.success) setScheduleSlots(slotsData.data.slots || []);
       if (tasksData.success) setTeachingTasks(tasksData.data);
       if (subsData.success) setSubstitutes(subsData.data);

@@ -30,15 +30,59 @@ import {
 
 // ==================== 默认配置 ====================
 
-export const DEFAULT_PERIODS: PeriodConfig[] = [
+/**
+ * 上午节次配置（统一3节）
+ */
+export const MORNING_PERIODS: PeriodConfig[] = [
   { id: 'p1', index: 1, name: '第一节', startTime: '08:00', endTime: '08:40', type: 'morning', isActive: true },
   { id: 'p2', index: 2, name: '第二节', startTime: '08:50', endTime: '09:30', type: 'morning', isActive: true },
   { id: 'p3', index: 3, name: '第三节', startTime: '10:00', endTime: '10:40', type: 'morning', isActive: true },
-  { id: 'p4', index: 4, name: '第四节', startTime: '10:50', endTime: '11:30', type: 'morning', isActive: true },
-  { id: 'p5', index: 5, name: '第五节', startTime: '14:00', endTime: '14:40', type: 'afternoon', isActive: true },
-  { id: 'p6', index: 6, name: '第六节', startTime: '14:50', endTime: '15:30', type: 'afternoon', isActive: true },
-  { id: 'p7', index: 7, name: '第七节', startTime: '15:40', endTime: '16:20', type: 'afternoon', isActive: true },
 ];
+
+/**
+ * 下午节次配置（低年级2节）
+ */
+export const AFTERNOON_PERIODS_LOW: PeriodConfig[] = [
+  { id: 'p4', index: 4, name: '第四节', startTime: '14:00', endTime: '14:40', type: 'afternoon', isActive: true },
+  { id: 'p5', index: 5, name: '第五节', startTime: '14:50', endTime: '15:30', type: 'afternoon', isActive: true },
+];
+
+/**
+ * 下午节次配置（中高年级3节）
+ */
+export const AFTERNOON_PERIODS_HIGH: PeriodConfig[] = [
+  { id: 'p4', index: 4, name: '第四节', startTime: '14:00', endTime: '14:40', type: 'afternoon', isActive: true },
+  { id: 'p5', index: 5, name: '第五节', startTime: '14:50', endTime: '15:30', type: 'afternoon', isActive: true },
+  { id: 'p6', index: 6, name: '第六节', startTime: '15:40', endTime: '16:20', type: 'afternoon', isActive: true },
+];
+
+/**
+ * 默认节次配置（兼容旧代码，使用中高年级配置）
+ */
+export const DEFAULT_PERIODS: PeriodConfig[] = [
+  ...MORNING_PERIODS,
+  ...AFTERNOON_PERIODS_HIGH,
+];
+
+/**
+ * 根据年级获取节次配置
+ * - 低年级（1-2年级）：上午3节 + 下午2节 = 5节/天
+ * - 中高年级（3-6年级）：上午3节 + 下午3节 = 6节/天
+ */
+export function getPeriodsByGrade(grade: number): PeriodConfig[] {
+  const isLowerGrade = grade <= 2;
+  return [
+    ...MORNING_PERIODS,
+    ...(isLowerGrade ? AFTERNOON_PERIODS_LOW : AFTERNOON_PERIODS_HIGH),
+  ];
+}
+
+/**
+ * 获取每天总课时数
+ */
+export function getTotalPeriodsPerDay(grade: number): number {
+  return grade <= 2 ? 5 : 6;
+}
 
 export const WEEK_DAYS = [
   { key: 1, label: '周一' },
@@ -109,6 +153,8 @@ interface SchedulingContext {
  * 2. 科任教本班主科 > 科任教本班兼任科目 > 其他
  * 3. 主科优先（语数英）
  * 4. 课时量约束是核心
+ * 
+ * 特殊规则：避免第一节全是语文，语文数学交替
  */
 export function generateSchedule(context: SchedulingContext): ScheduleResult {
   const startTime = Date.now();
@@ -117,10 +163,116 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
   const newSlots: ScheduleSlot[] = [...existingSlots];
   const conflicts: ScheduleConflict[] = [];
   
-  // 按优先级排序教学任务
+  // ===== 第一步：预处理，确保第一节语文数学均衡 =====
+  // 统计每个班级的语文和数学任务
+  const chineseTasks = tasks.filter(t => t.subject === '语文');
+  const mathTasks = tasks.filter(t => t.subject === '数学');
+  
+  // 先为每个班级的第一节课程分配语文和数学
+  // 使用轮换策略：班级1周一第一节语文、班级2周一第一节数学...
+  const classList = classes.filter(c => c.id);
+  const dayList = weekDays;
+  
+  // 为每天的第一节做均衡分配
+  for (const day of dayList) {
+    let period1ChineseCount = 0;
+    let period1MathCount = 0;
+    
+    // 按班级轮换分配第一节
+    for (let i = 0; i < classList.length; i++) {
+      const cls = classList[i];
+      const grade = cls.grade || 3;
+      const effectivePeriods = getPeriodsByGrade(grade);
+      
+      // 检查第一节是否已安排
+      const existingSlot = newSlots.find(
+        s => s.classId === cls.id && s.weekDay === day && s.periodIndex === 1
+      );
+      if (existingSlot) continue;
+      
+      // 决定第一节排语文还是数学
+      // 轮换策略：奇数班级语文，偶数班级数学，但要根据当前统计调整
+      let preferChinese = i % 2 === 0;
+      
+      // 如果语文已经比数学多，优先排数学
+      if (period1ChineseCount > period1MathCount) {
+        preferChinese = false;
+      } else if (period1MathCount > period1ChineseCount) {
+        preferChinese = true;
+      }
+      
+      // 找到对应的任务
+      const chineseTask = chineseTasks.find(t => 
+        t.classId === cls.id && 
+        t.weeklyHours > t.arrangedHours
+      );
+      const mathTask = mathTasks.find(t => 
+        t.classId === cls.id && 
+        t.weeklyHours > t.arrangedHours
+      );
+      
+      let selectedTask = preferChinese ? chineseTask : mathTask;
+      
+      // 如果优先的任务不存在，用另一个
+      if (!selectedTask || selectedTask.weeklyHours <= selectedTask.arrangedHours) {
+        selectedTask = preferChinese ? mathTask : chineseTask;
+      }
+      
+      if (!selectedTask || selectedTask.weeklyHours <= selectedTask.arrangedHours) continue;
+      
+      // 检查教师是否可用
+      const teacherConflict = newSlots.find(
+        s => s.teacherId === selectedTask!.teacherId && 
+             s.weekDay === day && 
+             s.periodIndex === 1
+      );
+      if (teacherConflict) {
+        // 教师冲突，尝试另一个任务
+        selectedTask = preferChinese ? mathTask : chineseTask;
+        if (!selectedTask || selectedTask.weeklyHours <= selectedTask.arrangedHours) continue;
+        
+        const teacherConflict2 = newSlots.find(
+          s => s.teacherId === selectedTask!.teacherId && 
+               s.weekDay === day && 
+               s.periodIndex === 1
+        );
+        if (teacherConflict2) continue;
+      }
+      
+      // 创建课表槽
+      const slot: ScheduleSlot = {
+        id: `slot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        classId: selectedTask.classId,
+        className: selectedTask.className,
+        grade: selectedTask.grade,
+        weekDay: day,
+        periodIndex: 1,
+        semester,
+        courseName: selectedTask.subject,
+        subject: selectedTask.subject,
+        courseType: 'normal',
+        teacherId: selectedTask.teacherId,
+        teacherName: selectedTask.teacherName,
+        status: 'normal',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      newSlots.push(slot);
+      selectedTask.arrangedHours++;
+      
+      if (selectedTask.subject === '语文') {
+        period1ChineseCount++;
+      } else {
+        period1MathCount++;
+      }
+    }
+  }
+  
+  // ===== 第二步：按优先级排序剩余教学任务 =====
   const sortedTasks = sortTasksByPriority(tasks, classes, teachers);
   
-  // 为每个教学任务分配时间槽
+  // ===== 第三步：为剩余教学任务分配时间槽 =====
   for (const task of sortedTasks) {
     const neededSlots = task.weeklyHours - task.arrangedHours;
     
@@ -184,13 +336,42 @@ export function generateSchedule(context: SchedulingContext): ScheduleResult {
  * 6. 科任教其他班课程: 50分
  * 7. 普通教师主科: 40分
  * 8. 普通教师其他: 30分
+ * 
+ * 额外规则：语文数学交替排列，避免语文全部排在第一节
  */
 function sortTasksByPriority(
   tasks: TeachingTask[], 
   classes: Array<{ id: string; headTeacherId?: string; subjectHeadId?: string }>,
   teachers: Array<{ id: string; primarySubject?: string }>
 ): TeachingTask[] {
-  return [...tasks].sort((a, b) => {
+  // 先按班级分组，确保同一班级的语文数学交替排列
+  const tasksByClass = new Map<string, TeachingTask[]>();
+  for (const task of tasks) {
+    const classTasks = tasksByClass.get(task.classId) || [];
+    classTasks.push(task);
+    tasksByClass.set(task.classId, classTasks);
+  }
+  
+  // 对每个班级的任务进行排序，让语文数学交替
+  const alternatedTasks: TeachingTask[] = [];
+  for (const [, classTasks] of tasksByClass) {
+    // 分离语文、数学和其他科目
+    const chinese = classTasks.filter(t => t.subject === '语文');
+    const math = classTasks.filter(t => t.subject === '数学');
+    const others = classTasks.filter(t => t.subject !== '语文' && t.subject !== '数学');
+    
+    // 交替排列语文和数学
+    const maxLen = Math.max(chinese.length, math.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < chinese.length) alternatedTasks.push(chinese[i]);
+      if (i < math.length) alternatedTasks.push(math[i]);
+    }
+    // 添加其他科目
+    alternatedTasks.push(...others);
+  }
+  
+  // 最后按优先级排序，但保持语文数学交替的趋势
+  return alternatedTasks.sort((a, b) => {
     const classA = classes.find(c => c.id === a.classId);
     const classB = classes.find(c => c.id === b.classId);
     const teacherA = teachers.find(t => t.id === a.teacherId);
@@ -211,7 +392,7 @@ function sortTasksByPriority(
     // 优先级高的先排
     if (priorityA !== priorityB) return priorityB - priorityA;
     
-    // 主科优先
+    // 主科优先，但语文数学之间交替（不区分优先级）
     const isMainA = MAIN_SUBJECTS.includes(a.subject as any);
     const isMainB = MAIN_SUBJECTS.includes(b.subject as any);
     if (isMainA !== isMainB) return isMainA ? -1 : 1;
@@ -225,20 +406,25 @@ function sortTasksByPriority(
 
 /**
  * 为教学任务找到最佳时间槽
+ * 根据班级年级动态获取节次配置
  */
 function findBestSlot(
   task: TeachingTask,
   existingSlots: ScheduleSlot[],
   rules: ScheduleRule[],
-  periods: PeriodConfig[],
+  periods: PeriodConfig[], // 保留参数兼容，但会根据年级覆盖
   weekDays: WeekDay[],
   semester: string,
-  classes: Array<{ id: string; headTeacherId?: string; subjectHeadId?: string }>,
+  classes: Array<{ id: string; headTeacherId?: string; subjectHeadId?: string; grade?: number }>,
   teachers: Array<{ id: string; primarySubject?: string }>
 ): ScheduleSlot | null {
   // 判断优先级类型
   const cls = classes.find(c => c.id === task.classId);
   const teacher = teachers.find(t => t.id === task.teacherId);
+  
+  // 根据班级年级获取正确的节次配置
+  const grade = cls?.grade || task.grade || 3; // 默认使用中高年级配置
+  const effectivePeriods = getPeriodsByGrade(grade);
   
   const isHeadTeacher = cls?.headTeacherId === task.teacherId;
   const isSubjectHead = cls?.subjectHeadId === task.teacherId;
@@ -250,7 +436,7 @@ function findBestSlot(
   const candidates: Array<{ weekDay: WeekDay; periodIndex: number; score: number }> = [];
   
   for (const weekDay of weekDays) {
-    for (const period of periods) {
+    for (const period of effectivePeriods) {
       if (!period.isActive) continue;
       
       // 计算该时间槽的得分
@@ -305,8 +491,9 @@ function findBestSlot(
  * 1. 教师冲突（同一时间不能有多节课）
  * 2. 班级冲突（同一时间不能有多节课）
  * 3. 课程分布均匀性
- * 4. 主科尽量安排在上午
- * 5. 班主任/科任的本班课程优先安排
+ * 4. 主科尽量安排在上午（前3节）
+ * 5. 避免"第一节全是语文"，语文数学要轮换
+ * 6. 班主任/科任的本班课程优先安排
  */
 function evaluateSlot(
   weekDay: WeekDay,
@@ -351,25 +538,92 @@ function evaluateSlot(
   const sameClassDaySlots = teacherDaySlots.filter(s => s.classId === task.classId);
   score -= sameClassDaySlots.length * 10; // 每多一节扣10分
   
-  // 主科尽量安排在上午
-  if (isMainSubject && periodIndex > 4) {
-    score -= 10; // 下午扣10分
+  // 主科尽量安排在上午（前3节）
+  if (isMainSubject && periodIndex > 3) {
+    score -= 15; // 下午扣15分
   }
   
-  // 3. 加分项
+  // 3. 语文数学轮换检查（重要！避免第一节全是语文）
   
-  // 班主任/科任的本班课程加分
-  if (isHeadTeacher || isSubjectHead) {
-    // 班主任/科任教本班的课，优先安排
-    score += 15;
+  // 检查该班级当天该节次前后的科目
+  const classDaySlots = existingSlots.filter(
+    s => s.classId === task.classId && s.weekDay === weekDay
+  ).sort((a, b) => a.periodIndex - b.periodIndex);
+  
+  // 检查前一节是否是同科目（避免连续两节相同主科）
+  const prevSlot = classDaySlots.find(s => s.periodIndex === periodIndex - 1);
+  if (prevSlot && prevSlot.subject === task.subject && isMainSubject) {
+    score -= 30; // 连续两节相同主科，大幅扣分
+  }
+  
+  // 检查后一节是否是同科目
+  const nextSlot = classDaySlots.find(s => s.periodIndex === periodIndex + 1);
+  if (nextSlot && nextSlot.subject === task.subject && isMainSubject) {
+    score -= 30; // 连续两节相同主科，大幅扣分
+  }
+  
+  // 4. 全局科目分布均衡（避免全校第一节全是语文）
+  
+  // 检查全校该节次该科目的数量
+  const globalSamePeriodSubject = existingSlots.filter(
+    s => s.weekDay === weekDay && s.periodIndex === periodIndex && s.subject === task.subject
+  );
+  
+  // 第一节特殊处理：严格控制语文数学均衡
+  if (periodIndex === 1) {
+    const chineseCount = existingSlots.filter(
+      s => s.weekDay === weekDay && s.periodIndex === 1 && s.subject === '语文'
+    ).length;
+    const mathCount = existingSlots.filter(
+      s => s.weekDay === weekDay && s.periodIndex === 1 && s.subject === '数学'
+    ).length;
     
-    // 兼任科目（道法、劳动等）优先
-    if (isPrioritySecondary) {
-      score += 10;
+    // 如果当前是语文课，且语文已经比数学多2节以上，大幅扣分
+    if (task.subject === '语文' && chineseCount >= mathCount + 2) {
+      score -= 50; // 大幅扣分，强制分散
+    }
+    // 如果当前是数学课，且语文比数学多，加分鼓励
+    else if (task.subject === '数学' && chineseCount > mathCount) {
+      score += 25; // 鼓励数学排第一节
+    }
+    // 反之亦然
+    else if (task.subject === '数学' && mathCount >= chineseCount + 2) {
+      score -= 50;
+    }
+    else if (task.subject === '语文' && mathCount > chineseCount) {
+      score += 25;
     }
   }
   
-  // 4. 课程分布优化
+  // 如果该节次该科目已经很多了，扣分
+  if (globalSamePeriodSubject.length >= 10) {
+    score -= 20; // 该节次该科目太多，扣分
+  } else if (globalSamePeriodSubject.length >= 5) {
+    score -= 10;
+  }
+  
+  // 语文数学交替：如果该节次已有较多语文，数学加分；反之亦然
+  const chineseCount = existingSlots.filter(
+    s => s.weekDay === weekDay && s.periodIndex === periodIndex && s.subject === '语文'
+  ).length;
+  const mathCount = existingSlots.filter(
+    s => s.weekDay === weekDay && s.periodIndex === periodIndex && s.subject === '数学'
+  ).length;
+  
+  if (task.subject === '数学' && chineseCount > mathCount + 2) {
+    score += 15; // 语文太多，数学加分
+  } else if (task.subject === '语文' && mathCount > chineseCount + 2) {
+    score += 15; // 数学太多，语文加分
+  }
+  
+  // 5. 加分项
+  
+  // 班主任/科任的本班课程加分
+  if (isHeadTeacher || isSubjectHead) {
+    score += 10; // 班主任/科任教本班的课，优先安排
+  }
+  
+  // 6. 课程分布优化
   
   // 检查该科目在该班级本周已有课时
   const subjectSlots = existingSlots.filter(
@@ -379,13 +633,28 @@ function evaluateSlot(
   // 同一科目尽量不在同一天连着排
   const sameDaySubjectSlots = subjectSlots.filter(s => s.weekDay === weekDay);
   if (sameDaySubjectSlots.length >= 2) {
-    score -= 20; // 同一天已有多节同科目，扣分
+    score -= 25; // 同一天已有多节同科目，扣分
+  } else if (sameDaySubjectSlots.length >= 1) {
+    score -= 10; // 同一天已有1节同科目，轻微扣分
   }
   
   // 同一科目尽量分散在不同天
   const subjectDays = new Set(subjectSlots.map(s => s.weekDay));
   if (!subjectDays.has(weekDay)) {
-    score += 5; // 该科目还没排在今天，加分
+    score += 8; // 该科目还没排在今天，加分
+  }
+  
+  // 7. 节次偏好（上午前两节适合主科，第三节适合英语/科学等）
+  if (periodIndex === 1 || periodIndex === 2) {
+    // 第一节和第二节
+    if (task.subject === '语文' || task.subject === '数学') {
+      score += 5; // 主科适合前两节
+    }
+  } else if (periodIndex === 3) {
+    // 第三节
+    if (task.subject === '英语' || task.subject === '科学') {
+      score += 5;
+    }
   }
   
   return Math.max(0, score);
