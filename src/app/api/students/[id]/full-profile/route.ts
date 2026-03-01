@@ -338,6 +338,12 @@ export async function GET(
       .order('date', { ascending: false });
 
     // 组装完整档案
+    // 年级名称映射
+    const gradeNames: Record<number, string> = {
+      1: '一年级', 2: '二年级', 3: '三年级',
+      4: '四年级', 5: '五年级', 6: '六年级',
+    };
+    
     const fullProfile: StudentFullProfile = {
       id: student.id,
       studentNo: student.student_no,
@@ -350,7 +356,7 @@ export async function GET(
       politicalStatus: student.political_status,
       
       grade: student.grade,
-      gradeName: student.grade_name,
+      gradeName: gradeNames[student.grade] || `${student.grade}年级`,
       classId: student.class_id,
       className: student.class_name,
       classNumber: student.class_number,
