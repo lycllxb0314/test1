@@ -116,6 +116,13 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
       success: true,
       data: formattedData,
       pagination: createPagination(count || 0, page, pageSize),
+      statistics: {
+        total: count || 0,
+        headTeachers: Object.keys(headTeacherClassMap).length,
+        subTeachers: Object.keys(subTeacherClassesMap).length,
+        departments: [...new Set((data || []).map(t => t.department))].length,
+        senior: (data || []).filter(t => t.title === '高级教师' || t.title === '正高级教师').length,
+      },
     });
   } catch (err) {
     console.error('Failed to fetch teachers:', err);

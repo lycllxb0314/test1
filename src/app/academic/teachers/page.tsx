@@ -55,6 +55,8 @@ import {
   Loader2,
   Clock,
   Settings,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { BatchToolbar, SelectColumn, type BatchAction } from '@/components/common/BatchToolbar';
@@ -106,6 +108,10 @@ export default function TeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // 分页状态
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  
   // 搜索和筛选
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('all');
@@ -135,7 +141,7 @@ export default function TeachersPage() {
     const fetchTeachers = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/teachers?pageSize=100');
+        const response = await fetch('/api/teachers?pageSize=200');
         const result = await response.json();
         
         if (result.success && result.data) {
@@ -222,6 +228,15 @@ export default function TeachersPage() {
     const matchesSubject = subjectFilter === 'all' || t.subject === subjectFilter;
     return matchesSearch && matchesSubject;
   });
+
+  // 分页后的教师列表
+  const totalPages = Math.ceil(filteredTeachers.length / pageSize);
+  const paginatedTeachers = filteredTeachers.slice((page - 1) * pageSize, page * pageSize);
+
+  // 筛选条件变化时重置页码
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, subjectFilter]);
 
   // 获取状态标签
   const getStatusBadge = (status: string) => {
@@ -580,7 +595,7 @@ export default function TeachersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTeachers.map((teacher) => (
+              {paginatedTeachers.map((teacher) => (
                 <TableRow 
                   key={teacher.id} 
                   className="hover:bg-blue-50 cursor-pointer"
@@ -691,6 +706,38 @@ export default function TeachersPage() {
               ))}
             </TableBody>
           </Table>
+          
+          {/* 分页 */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-gray-500">
+                显示 {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, filteredTeachers.length)} 条，共 {filteredTeachers.length} 条
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  上一页
+                </Button>
+                <span className="text-sm">
+                  第 {page} / {totalPages} 页
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  下一页
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

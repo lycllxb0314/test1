@@ -53,6 +53,8 @@ import {
   CheckCircle,
   AlertCircle,
   BookOpenCheck,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 // ==================== 类型定义 ====================
@@ -131,6 +133,10 @@ export default function ClassesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [gradeFilter, setGradeFilter] = useState('all');
   
+  // 分页
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  
   // 对话框
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -153,6 +159,15 @@ export default function ClassesPage() {
     const matchesGrade = gradeFilter === 'all' || c.grade === parseInt(gradeFilter);
     return matchesSearch && matchesGrade;
   });
+
+  // 分页
+  const totalPages = Math.ceil(filteredClasses.length / pageSize);
+  const paginatedClasses = filteredClasses.slice((page - 1) * pageSize, page * pageSize);
+
+  // 筛选条件变化时重置页码
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, gradeFilter]);
 
   // 统计
   const totalStudents = classes.reduce((sum, c) => sum + c.studentCount, 0);
@@ -386,7 +401,7 @@ export default function ClassesPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredClasses.map((cls) => (
+                paginatedClasses.map((cls) => (
                 <TableRow key={cls.id} className="hover:bg-gray-50">
                   <TableCell className="font-medium">{cls.name}</TableCell>
                   <TableCell>{GRADE_NAMES[cls.grade]}</TableCell>
@@ -447,6 +462,38 @@ export default function ClassesPage() {
               )}
             </TableBody>
           </Table>
+          
+          {/* 分页 */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-gray-500">
+                显示 {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, filteredClasses.length)} 条，共 {filteredClasses.length} 条
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  上一页
+                </Button>
+                <span className="text-sm">
+                  第 {page} / {totalPages} 页
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  下一页
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
