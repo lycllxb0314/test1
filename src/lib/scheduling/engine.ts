@@ -31,6 +31,7 @@ import {
   getSubjectHours,
   isMainSubject,
   isSkillSubject,
+  type Weekday,
 } from './rules';
 import {
   TimeSlot,
@@ -443,6 +444,111 @@ export class SchedulingEngine {
   // ==================== 排剩余语数 ====================
   
   private scheduleMainSubjects(): void {
+    // 第一阶段：确保3-6年级每天都有语文和数学
+    this.ensureDailyChineseAndMath();
+    
+    // 第二阶段：排剩余语数（一二年级和剩余课时）
+    this.scheduleRemainingMainSubjects();
+  }
+  
+  /**
+   * 确保3-6年级每天都有语文和数学课
+   */
+  private ensureDailyChineseAndMath(): void {
+    // 只处理3-6年级
+    const highGradeClasses = this.input.classes.filter(c => c.grade >= 3);
+    
+    for (const cls of highGradeClasses) {
+      const state = this.classStates.get(cls.id)!;
+      
+      // 遍历每一天
+      for (const weekday of WEEKDAYS) {
+        // 检查今天是否有语文课
+        const hasChineseToday = this.hasSubjectOnDay(state, weekday, '语文');
+        if (!hasChineseToday) {
+          // 尝试安排语文
+          this.tryAssignSubjectOnDay(cls, state, weekday, '语文');
+        }
+        
+        // 检查今天是否有数学课
+        const hasMathToday = this.hasSubjectOnDay(state, weekday, '数学');
+        if (!hasMathToday) {
+          // 尝试安排数学
+          this.tryAssignSubjectOnDay(cls, state, weekday, '数学');
+        }
+      }
+    }
+  }
+  
+  /**
+   * 检查某天是否有某科目
+   */
+  private hasSubjectOnDay(state: ClassScheduleState, weekday: Weekday, subject: string): boolean {
+    for (const [slotId, slot] of state.dailySchedule) {
+      if (slot && slot.timeSlot.weekday === weekday && slot.subject === subject) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  /**
+   * 尝试在某天安排某科目
+   */
+  private tryAssignSubjectOnDay(
+    cls: ClassForSchedule,
+    state: ClassScheduleState,
+    weekday: Weekday,
+    subject: string
+  ): boolean {
+    // 检查是否还有剩余课时
+    const remaining = state.subjectHours.get(subject) || 0;
+    if (remaining <= 0) return false;
+    
+    // 获取当天所有可用时段
+    const availableSlots: TimeSlotId[] = [];
+    for (let period = 1; period <= PERIOD_CONFIG.highGradeMorning; period++) {
+      const slotId = createTimeSlotId(weekday, '上午', period);
+      if (!state.dailySchedule.has(slotId)) {
+        availableSlots.push(slotId);
+      }
+    }
+    for (let period = 1; period <= 3; period++) {
+      const slotId = createTimeSlotId(weekday, '下午', period);
+      if (!state.dailySchedule.has(slotId)) {
+        availableSlots.push(slotId);
+      }
+    }
+    
+    // 尝试每个时段
+    for (const slotId of availableSlots) {
+      const slot = parseTimeSlotId(slotId);
+      
+      // 检查单日限制（每天同一科目最多2节）
+      const dailySubjectCount = this.getDailySubjectCount(state, weekday, subject);
+      if (dailySubjectCount >= 2) continue;
+      
+      // 找教师
+      const teacher = this.findTeacherForSubject(cls, subject, slotId);
+      if (!teacher) continue;
+      
+      // 检查教师当日该科目课时
+      const availability = this.teacherAvailability.get(teacher.id)!;
+      const subjectDaily = availability.subjectDailyHours.get(subject)?.get(weekday) || 0;
+      if (subjectDaily >= 2) continue;
+      
+      // 分配
+      this.assignSlot(cls, state, slotId, subject, teacher);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * 排剩余语数（一二年级和剩余课时）
+   */
+  private scheduleRemainingMainSubjects(): void {
     // 收集所有语数任务
     const tasks: ScheduleTask[] = [];
     
@@ -1039,7 +1145,7 @@ export class SchedulingEngine {
   
   private getDailySubjectCount(
     state: ClassScheduleState,
-    weekday: string,
+    weekday: Weekday,
     subject: string
   ): number {
     let count = 0;
@@ -1052,7 +1158,7 @@ export class SchedulingEngine {
     return count;
   }
   
-  private getDailySkillCount(state: ClassScheduleState, weekday: string): number {
+  private getDailySkillCount(state: ClassScheduleState, weekday: Weekday): number {
     let count = 0;
     for (const [slotId, slot] of state.dailySchedule) {
       const slotTime = parseTimeSlotId(slotId);
