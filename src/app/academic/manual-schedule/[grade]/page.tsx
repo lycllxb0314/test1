@@ -193,8 +193,16 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   }, [gradeClasses, grade]);
 
   useEffect(() => {
-    loadGradeSchedule();
-    loadStatus();
+    // 首次加载时先清理重复数据
+    fetch('/api/academic/manual-schedule/cleanup', { method: 'POST' })
+      .then(() => {
+        loadGradeSchedule();
+        loadStatus();
+      })
+      .catch(() => {
+        loadGradeSchedule();
+        loadStatus();
+      });
   }, [loadGradeSchedule]);
 
   // 加载教师列表
@@ -361,9 +369,23 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     });
   };
 
+  // 清理重复数据
+  const cleanupDuplicates = async () => {
+    try {
+      const res = await fetch('/api/academic/manual-schedule/cleanup', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.data.deletedCount > 0) {
+        console.log(`已清理 ${data.data.deletedCount} 条重复记录`);
+      }
+    } catch (err) {
+      console.error('清理失败:', err);
+    }
+  };
+
   // 刷新
   const handleRefresh = async () => {
     setLoading(true);
+    await cleanupDuplicates();
     await Promise.all([loadGradeSchedule(), loadStatus()]);
     toast.success('已刷新');
   };

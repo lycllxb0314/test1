@@ -61,48 +61,32 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
       return NextResponse.json(error('缺少必要参数', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
-    // 检查该位置是否已有课程
-    const { data: existing } = await client
+    // 使用 upsert 避免重复插入（基于唯一约束）
+    // 先删除该位置的旧记录，再插入新记录
+    await client
       .from('schedule_slots')
-      .select('id')
+      .delete()
       .eq('class_id', classId)
       .eq('week_day', weekDay)
-      .eq('period_index', periodIndex)
-      .single();
+      .eq('period_index', periodIndex);
     
-    if (existing) {
-      // 更新
-      const { error: updateError } = await client
-        .from('schedule_slots')
-        .update({
-          subject,
-          teacher_id: teacherId || null,
-          teacher_name: teacherName || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id);
-      
-      if (updateError) {
-        return NextResponse.json(error('更新失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-      }
-    } else {
-      // 新增
-      const { error: insertError } = await client
-        .from('schedule_slots')
-        .insert({
-          class_id: classId,
-          class_name: className,
-          grade,
-          week_day: weekDay,
-          period_index: periodIndex,
-          subject,
-          teacher_id: teacherId || null,
-          teacher_name: teacherName || null,
-        });
-      
-      if (insertError) {
-        return NextResponse.json(error('保存失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-      }
+    // 插入新记录
+    const { error: insertError } = await client
+      .from('schedule_slots')
+      .insert({
+        class_id: classId,
+        class_name: className,
+        grade,
+        week_day: weekDay,
+        period_index: periodIndex,
+        subject,
+        teacher_id: teacherId || null,
+        teacher_name: teacherName || null,
+      });
+    
+    if (insertError) {
+      console.error('保存失败:', insertError);
+      return NextResponse.json(error('保存失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
     // 返回更新后的教师课时
