@@ -2,6 +2,7 @@
  * 手动排课 - 获取教师列表
  * 按学科分组，显示剩余课时
  * 支持按班级筛选（语文数学只能选本班班主任/科任）
+ * 显示教师跨年级任职信息
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -37,6 +38,11 @@ const SUBJECT_HOURS: Record<string, Record<number, number>> = {
   '英语': { 1: 0, 2: 0, 3: 2, 4: 2, 5: 2, 6: 2 },
   '心育': { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 1 },
   '书法': { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 1 },
+};
+
+// 年级中文映射
+const GRADE_CHINESE: Record<number, string> = {
+  1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六',
 };
 
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
@@ -96,15 +102,30 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       }
     });
     
-    // 获取每个教师已安排的课时
+    // 获取每个教师已安排的课时（从 schedule_slots 表）
     const { data: slots } = await client
       .from('schedule_slots')
-      .select('teacher_id');
+      .select('teacher_id, grade, class_name, subject');
     
+    // 统计每个教师的课时和跨年级任职信息
     const teacherUsedHours = new Map<string, number>();
+    const teacherGrades = new Map<string, Map<number, { classes: Set<string>; subjects: Set<string> }>>();
+    
     slots?.forEach(s => {
       if (s.teacher_id) {
+        // 统计课时
         teacherUsedHours.set(s.teacher_id, (teacherUsedHours.get(s.teacher_id) || 0) + 1);
+        
+        // 统计跨年级信息
+        if (!teacherGrades.has(s.teacher_id)) {
+          teacherGrades.set(s.teacher_id, new Map());
+        }
+        const gradeMap = teacherGrades.get(s.teacher_id)!;
+        if (!gradeMap.has(s.grade)) {
+          gradeMap.set(s.grade, { classes: new Set(), subjects: new Set() });
+        }
+        gradeMap.get(s.grade)!.classes.add(s.class_name);
+        gradeMap.get(s.grade)!.subjects.add(s.subject);
       }
     });
     
@@ -129,6 +150,22 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       const isClassHeadTeacher = classInfo?.headTeacherId === t.id;
       const isClassSubTeacher = classInfo?.subTeacherId === t.id;
       
+      // 构建跨年级任职信息
+      const gradeAssignments: { grade: number; gradeName: string; classes: string[]; subjects: string[] }[] = [];
+      const teacherGradeMap = teacherGrades.get(t.id);
+      if (teacherGradeMap) {
+        teacherGradeMap.forEach((info, g) => {
+          gradeAssignments.push({
+            grade: g,
+            gradeName: `${GRADE_CHINESE[g]}年级`,
+            classes: Array.from(info.classes),
+            subjects: Array.from(info.subjects),
+          });
+        });
+        // 按年级排序
+        gradeAssignments.sort((a, b) => a.grade - b.grade);
+      }
+      
       const teacherInfo = {
         id: t.id,
         name: t.name,
@@ -139,6 +176,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         isHeadTeacher,
         isClassHeadTeacher,  // 是否是当前班级的班主任
         isClassSubTeacher,   // 是否是当前班级的副班主任
+        gradeAssignments,    // 跨年级任职信息
       };
       
       if (!teachersBySubject.has(t.primary_subject)) {

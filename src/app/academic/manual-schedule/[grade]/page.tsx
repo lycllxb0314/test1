@@ -93,6 +93,13 @@ interface TeacherInfo {
   remainingHours: number;
   isClassHeadTeacher?: boolean;
   isClassSubTeacher?: boolean;
+  // 跨年级任职信息
+  gradeAssignments?: {
+    grade: number;
+    gradeName: string;
+    classes: string[];
+    subjects: string[];
+  }[];
 }
 
 interface SubjectGroup {
@@ -1006,43 +1013,59 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                         const isClassTeacher = rule === 'chinese_only' || rule === 'math_only';
                         // 判断是否是本班的班主任/副班主任
                         const isThisClassTeacher = teacher.id === selectedSlot?.chineseTeacherId || teacher.id === selectedSlot?.mathTeacherId || teacher.id === selectedSlot?.headTeacherId;
+                        // 获取跨年级任职信息（排除当前年级）
+                        const otherGradeAssignments = (teacher.gradeAssignments || []).filter(g => g.grade !== grade);
                         
                         return (
                           <button
                             key={teacher.id}
                             onClick={() => handleSelectTeacher(teacher)}
                             disabled={isDisabled}
-                            className={`w-full p-4 text-left transition-all duration-200 rounded-xl flex items-center justify-between gap-4 ${
+                            className={`w-full p-4 text-left transition-all duration-200 rounded-xl flex flex-col gap-3 ${
                               isDisabled 
                                 ? 'opacity-40 cursor-not-allowed bg-stone-100 border border-stone-200' 
                                 : 'bg-white hover:bg-amber-50 hover:shadow-md border border-stone-200 hover:border-amber-300'
                             }`}
                           >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm shrink-0 ${colors.bg} ${colors.text}`}>
-                                {teacher.name.slice(0, 1)}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-base font-bold text-stone-800 flex items-center gap-2 truncate">
-                                  {teacher.name}
-                                  {isThisClassTeacher && (
-                                    <span className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded-full shrink-0">本班</span>
-                                  )}
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm shrink-0 ${colors.bg} ${colors.text}`}>
+                                  {teacher.name.slice(0, 1)}
                                 </div>
-                                <div className="text-sm text-stone-500 truncate">{teacher.subject}教师</div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-base font-bold text-stone-800 flex items-center gap-2 truncate">
+                                    {teacher.name}
+                                    {isThisClassTeacher && (
+                                      <span className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded-full shrink-0">本班</span>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-stone-500 truncate">{teacher.subject}教师</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4 shrink-0">
+                                <div className="text-right">
+                                  <div className={`text-base font-bold ${teacher.remainingHours > 0 ? 'text-stone-700' : 'text-red-500'}`}>
+                                    {teacher.usedHours}/{teacher.maxHours}
+                                  </div>
+                                  <div className={`text-xs font-medium ${teacher.remainingHours > 0 ? 'text-green-600' : 'text-red-400'}`}>
+                                    {teacher.remainingHours > 0 ? `剩余${teacher.remainingHours}节` : '已满'}
+                                  </div>
+                                </div>
+                                <div className={`w-2 h-8 rounded-full ${teacher.remainingHours > 0 ? 'bg-green-400' : 'bg-red-300'}`} />
                               </div>
                             </div>
-                            <div className="flex items-center gap-4 shrink-0">
-                              <div className="text-right">
-                                <div className={`text-base font-bold ${teacher.remainingHours > 0 ? 'text-stone-700' : 'text-red-500'}`}>
-                                  {teacher.usedHours}/{teacher.maxHours}
-                                </div>
-                                <div className={`text-xs font-medium ${teacher.remainingHours > 0 ? 'text-green-600' : 'text-red-400'}`}>
-                                  {teacher.remainingHours > 0 ? `剩余${teacher.remainingHours}节` : '已满'}
-                                </div>
+                            {/* 跨年级任职信息 */}
+                            {otherGradeAssignments.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 pt-2 border-t border-stone-100">
+                                <span className="text-xs text-stone-400 shrink-0">已任职：</span>
+                                {otherGradeAssignments.map(g => (
+                                  <span key={g.grade} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+                                    {g.gradeName}
+                                    <span className="text-blue-400">({g.classes.length}班)</span>
+                                  </span>
+                                ))}
                               </div>
-                              <div className={`w-2 h-8 rounded-full ${teacher.remainingHours > 0 ? 'bg-green-400' : 'bg-red-300'}`} />
-                            </div>
+                            )}
                           </button>
                         );
                       })}
