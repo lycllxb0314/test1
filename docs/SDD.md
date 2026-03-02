@@ -52,19 +52,21 @@
 
 ### 1.3 系统范围
 
-智慧校园平台涵盖**九大核心业务系统**，共计**60+功能模块**：
+智慧校园平台涵盖**九大核心业务系统**，共计**89个页面**：
 
-| 系统名称 | 主要功能 | 功能模块数 | 目标用户 |
-|----------|----------|------------|----------|
-| 总务后勤系统 | 财务报销、资产管理、维修管理、功能室预约、门禁管理、安全管理 | 12 | 后勤人员、财务人员 |
-| 教务教研系统 | 课表管理、调课代课、工作量统计、考试管理、教研活动、教师发展 | 15 | 教务员、教师 |
-| 德育管理系统 | 学生管理、行为评价、习惯养成、活动管理、成长档案 | 12 | 德育员、班主任 |
-| 教师空间 | 个人信息、请假申请、工资查询、教研参与 | 8 | 全体教师 |
-| 家长端 | 学生信息、缴费记录、习惯记录、成绩查询 | 6 | 学生家长 |
-| 新生注册系统 | 信息采集、审核分配、学籍同步 | 4 | 教务、家长 |
-| 数据中心 | 数据采集、数据链接、迁移工具 | 3 | 系统管理员 |
-| 工作流引擎 | 流程配置、审批实例、流程监控 | 3 | 系统管理员 |
-| 公共组件 | 文件上传、图片搜索、通讯通知 | 3 | 所有用户 |
+| 系统名称 | 主要功能 | 页面数 | 目标用户 |
+|----------|----------|--------|----------|
+| 教务教研系统 | 手动排课、学生管理、教师管理、考试管理、教研活动、工作量统计 | 19 | 教务员、教师 |
+| 总务后勤系统 | 门禁管理、财务管理、资产管理、维修管理、安全管理 | 14 | 后勤人员、财务人员 |
+| 德育管理系统 | 行为评价、习惯养成、德育活动、成长档案、预警管理 | 14 | 德育员、班主任 |
+| 教师空间 | 个人中心、请假管理、调课管理、班级管理、年级管理 | 18 | 全体教师 |
+| 家长端 | 孩子信息、习惯记录、成绩查询、公告通知 | 6 | 学生家长 |
+| 新生注册系统 | 信息采集、审核分配、学籍同步 | (含在教务) | 教务、家长 |
+| 数据中心 | 数据采集、数据链接、迁移工具 | (API) | 系统管理员 |
+| 工作流引擎 | 流程配置、审批实例 | 7 | 系统管理员 |
+| 首页管理 | 新闻管理、荣誉展示、图片管理 | 5 | 系统管理员 |
+| 仪表盘 | 校长仪表盘、书记仪表盘、副校长仪表盘 | 4 | 学校领导 |
+| 登录认证 | 用户登录、身份验证 | 1 | 所有用户 |
 
 ### 1.4 术语定义
 
@@ -74,8 +76,8 @@
 | JWT | JSON Web Token，用于身份认证的令牌标准 |
 | SSE | Server-Sent Events，服务器推送事件 |
 | HMR | Hot Module Replacement，热模块替换 |
-| 基准课表 | 学期开始前确定的固定课表 |
-| 实际课表 | 根据请假、代课动态生成的每周课表 |
+| 手动排课 | 教务主任通过点击课表格子直接安排课程的方式 |
+| 科目规则 | 不同科目对教师选择的限制规则（如语文只能选本班语文老师） |
 | 习惯养成 | 学生日常行为习惯评价与追踪系统 |
 
 ### 1.5 参考文档
@@ -342,7 +344,7 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 
 | 服务 | 熔断后降级方案 |
 |------|----------------|
-| 数据库 | 返回Mock数据 / 缓存数据 |
+| 数据库 | 返回错误响应 / 缓存数据（如有） |
 | 对象存储 | 返回默认占位图 / 延迟加载 |
 | 缓存 | 直接查询数据库（有限流保护） |
 | 搜索服务 | 返回空结果 / 简单匹配 |
@@ -416,19 +418,24 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 项目采用 Next.js App Router 架构，页面按功能模块组织在 `src/app/` 目录下：
 
 ```
-智慧校园平台 (90个页面)
-├── academic/          教务系统 (20个页面)
+智慧校园平台 (89个页面)
+├── (根目录)           首页 (1个页面)
+│   └── page.tsx       平台首页/入口
+│
+├── academic/          教务系统 (19个页面)
+│   ├── page.tsx       教务系统首页
 │   ├── analysis/      教学分析
 │   ├── attendance/    考勤管理
 │   ├── classes/       班级管理
-│   │   └── [id]/schedule/  班级课表
 │   ├── enrollment/    新生注册
 │   ├── exams/         考试管理
 │   ├── grades/        成绩管理
 │   ├── manual-schedule/ 手动排课（v3.1重构）
 │   │   └── [grade]/   按年级分页排课
+│   ├── parents/       家长管理
 │   ├── research/      教研活动
 │   ├── rooms/         功能室预约
+│   │   ├── page.tsx   功能室列表
 │   │   ├── approval/  预约审批
 │   │   ├── booking/   预约申请
 │   │   └── calendar/  预约日历
@@ -439,7 +446,9 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   └── workload/      工作量统计
 │
 ├── general/           总务系统 (14个页面)
+│   ├── page.tsx       总务系统首页
 │   ├── access/        门禁管理
+│   │   ├── page.tsx   门禁概览
 │   │   ├── devices/   设备管理
 │   │   ├── persons/   人员管理
 │   │   ├── records/   通行记录
@@ -454,12 +463,14 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   └── staff/         员工管理
 │
 ├── moral/             德育系统 (14个页面)
+│   ├── page.tsx       德育系统首页
 │   ├── activities/    德育活动
 │   ├── alerts/        预警管理
 │   ├── analytics/     德育分析
 │   ├── assessment/    行为评价
 │   ├── growth/        成长档案
 │   ├── habit/         习惯养成 (5个子页面)
+│   │   ├── page.tsx   习惯养成主页
 │   │   ├── goals/     习惯目标
 │   │   ├── overview/  全校总览
 │   │   ├── settings/  习惯设置
@@ -469,6 +480,7 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   └── plans/         德育计划
 │
 ├── teacher/           教师空间 (18个页面)
+│   ├── page.tsx       教师空间首页
 │   ├── adjust/        调课管理
 │   ├── admin/         管理功能
 │   ├── class/         班级管理
@@ -488,6 +500,7 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   └── safety/        安全管理
 │
 ├── parent/            家长端 (6个页面)
+│   ├── page.tsx       家长端首页
 │   ├── announcements/ 公告通知
 │   ├── children/      孩子信息
 │   ├── enrollment/    新生注册
@@ -495,6 +508,7 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   └── habit/         习惯记录
 │
 ├── workflow/          工作流 (7个页面)
+│   ├── page.tsx       工作流首页
 │   ├── config/        流程配置
 │   │   └── edit/      流程编辑
 │   ├── expense/       报销流程
@@ -503,17 +517,20 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   └── repair/        维修流程
 │
 ├── homepage/          首页管理 (5个页面)
+│   ├── page.tsx       首页管理入口
 │   ├── honors/        荣誉展示
 │   ├── images/        图片管理
 │   ├── news/          新闻管理
 │   └── sections/      板块管理
 │
 ├── dashboard/         仪表盘 (4个页面)
+│   ├── page.tsx       仪表盘入口
 │   ├── principal/     校长仪表盘
 │   ├── secretary/     书记仪表盘
 │   └── vice-principal/ 副校长仪表盘
 │
-└── login/             登录页
+└── login/             登录页 (1个页面)
+    └── page.tsx       用户登录
 ```
 
 ### 3.2 教务系统 (academic)
@@ -1207,43 +1224,120 @@ src/app/moral/
 
 ### 3.10 API接口清单
 
-项目共实现 **90+ API路由**，按功能模块组织：
+项目共实现 **103个API路由**，按功能模块组织：
 
 ```
 src/app/api/
-├── access/           门禁管理API (4个路由)
-│   ├── devices/      设备管理
-│   ├── records/      通行记录
-│   ├── statistics/   数据统计
-│   └── visitors/     访客管理
-├── auth/             认证API (4个路由)
-│   ├── current/      当前用户
-│   ├── login/        登录
-│   ├── logout/       登出
-│   └── refresh/      刷新Token
-├── academic/         教务系统API (20+个路由)
-│   ├── manual-schedule/    手动排课API (7个路由)
-│   │   ├── cleanup/        清理重复数据
-│   │   ├── draft/          保存草稿
-│   │   ├── grade/          获取年级课表
-│   │   ├── publish/        发布课表
-│   │   ├── slot/           保存/删除单个课程
-│   │   ├── status/         获取排课状态
-│   │   └── teachers/       获取教师列表（含课时统计）
-│   ├── official-schedule/  正式课表API
-│   └── schedule-drafts/    草稿管理API
-├── teachers/         教师管理API (10个路由)
-├── students/         学生管理API (6个路由)
-├── expenses/         报销管理API (5个路由)
-├── grades/           成绩管理API
-├── habit/            习惯养成API (4个路由)
-├── moral/            德育管理API (4个路由)
-├── rooms/            功能室API (3个路由)
-├── research/         教研活动API (3个路由)
-├── safety/           安全管理API (2个路由)
-├── workflow/         工作流API (3个路由)
-├── homepage/         首页管理API (4个路由)
-└── ...               其他API
+├── academic/              教务系统API (13个路由)
+│   ├── manual-schedule/   手动排课 (7个路由)
+│   │   ├── cleanup/       清理重复数据
+│   │   ├── draft/         保存草稿
+│   │   ├── grade/         获取年级课表
+│   │   ├── publish/       发布课表
+│   │   ├── slot/          保存/删除单个课程
+│   │   ├── status/        获取排课状态
+│   │   └── teachers/      获取教师列表（含课时统计）
+│   ├── official-schedule/ 正式课表
+│   └── schedule-drafts/   草稿管理 (4个路由)
+├── access/                门禁管理API (4个路由)
+│   ├── devices/           设备管理
+│   ├── records/           通行记录
+│   ├── statistics/        数据统计
+│   └── visitors/          访客管理
+├── auth/                  认证API (4个路由)
+│   ├── current/           当前用户
+│   ├── login/             登录
+│   ├── logout/            登出
+│   └── refresh/           刷新Token
+├── teachers/              教师管理API (10个路由)
+│   ├── [id]/              教师详情/更新/删除
+│   ├── [id]/full-profile/ 教师完整档案
+│   ├── [id]/profile/      教师简介
+│   ├── achievements/      教师成就
+│   ├── batch-delete/      批量删除
+│   ├── batch-update/      批量更新
+│   ├── honors/            教师荣誉
+│   ├── records/           教师记录
+│   ├── trainings/         教师培训
+│   └── route.ts           教师列表/创建
+├── students/              学生管理API (6个路由)
+│   ├── [id]/              学生详情/更新/删除
+│   ├── [id]/full-profile/ 学生完整档案
+│   ├── [id]/habit-profile/ 学生习惯档案
+│   ├── batch-delete/      批量删除
+│   ├── batch-update/      批量更新
+│   └── route.ts           学生列表/创建
+├── expenses/              报销管理API (5个路由)
+│   ├── [id]/              报销详情
+│   ├── [id]/approve/      报销审批
+│   ├── [id]/process/      报销处理
+│   ├── statistics/        报销统计
+│   └── route.ts           报销列表/创建
+├── habit/                 习惯养成API (4个路由)
+│   ├── assessments/       习惯评价
+│   ├── goals/             习惯目标
+│   ├── stars/             习惯之星
+│   └── stats/school/      学校统计
+├── homepage/              首页管理API (4个路由)
+│   ├── honors/            荣誉展示
+│   ├── migrate/           数据迁移
+│   ├── news/              新闻管理
+│   └── route.ts           首页配置
+├── moral/                 德育管理API (4个路由)
+│   ├── activities/        德育活动
+│   ├── alerts/            预警管理
+│   ├── growth/            成长档案
+│   └── plans/             德育计划
+├── migrate/               数据迁移API (6个路由)
+│   ├── parents/           家长数据迁移
+│   ├── student-details/   学生详情迁移
+│   ├── teachers-config/   教师配置迁移
+│   ├── update-fields/     字段更新
+│   ├── users/             用户迁移
+│   └── route.ts           通用迁移
+├── classes/               班级管理API (2个路由)
+├── class-teachers/        班级教师API (2个路由)
+├── research/              教研活动API (3个路由)
+│   ├── activities/        教研活动
+│   ├── observations/      听课评课
+│   └── preparations/      集体备课
+├── rooms/                 功能室API (3个路由)
+│   ├── bookings/          预约管理
+│   ├── bookings/[id]/approve/ 预约审批
+│   └── route.ts           功能室列表
+├── safety/                安全管理API (2个路由)
+│   ├── drills/            安全演练
+│   └── inspections/       安全检查
+├── workflow/              工作流API (3个路由)
+│   └── config/            流程配置
+├── actual-schedules/      实际课表API
+├── after-school-services/ 课后服务API
+├── assets/                资产管理API
+├── attendance/            考勤管理API
+├── base-schedules/        基准课表API
+├── communications/        家校通讯API
+├── courses/               课程管理API
+├── data-collection/       数据采集API
+├── data-link/             数据链接API
+├── enrollment/            新生注册API
+├── exams/                 考试管理API
+├── finance/records/       财务记录API
+├── grades/                成绩管理API
+├── homeworks/             作业管理API
+├── leave-requests/        请假申请API
+├── parents/               家长管理API
+├── repair-requests/       维修申请API
+├── schedule-changes/      调课记录API
+├── schedules/             课表管理API
+├── school/stats/          学校统计API
+├── search-images/         图片搜索API
+├── seed-data/             种子数据API
+├── spaces/reservations/   场地预约API
+├── sync/teacher-classes/  教师班级同步API
+├── update-teacher-config/ 教师配置更新API
+├── upload/                文件上传API
+├── users/accounts/        用户账户API
+└── workload/              工作量API
 ```
 
 #### 3.10.1 手动排课API详细说明
@@ -1293,15 +1387,20 @@ interface TeacherAPIResponse {
 
 #### 3.11.2 自定义Hooks
 
-| Hook | 位置 | 用途 |
-|------|------|------|
-| useAuth | src/hooks/ | 认证状态管理 |
-| useClasses | src/hooks/ | 班级数据获取 |
-| useTeachers | src/hooks/ | 教师数据获取 |
-| useStudents | src/hooks/ | 学生数据获取 |
-| usePermissions | src/hooks/ | 权限检查 |
-| useScheduleDraft | src/hooks/ | 草稿管理 |
-| useOfficialSchedule | src/hooks/ | 正式课表获取 |
+| Hook | 文件位置 | 用途 |
+|------|----------|------|
+| useAuth | src/hooks/useAuth.ts | 认证状态管理、登录登出 |
+| useClasses | src/hooks/useClasses.ts | 班级数据获取、按年级筛选 |
+| useTeachers | src/hooks/useTeachers.ts | 教师数据获取、搜索筛选 |
+| useStudents | src/hooks/useStudents.ts | 学生数据获取、分页搜索 |
+| usePermissions | src/hooks/usePermissions.ts | 权限检查、角色判断 |
+| useScheduleDraft | src/hooks/useScheduleDraft.ts | 课表草稿管理 |
+| useOfficialSchedule | src/hooks/useOfficialSchedule.ts | 正式课表获取 |
+| useParents | src/hooks/useParents.ts | 家长数据获取 |
+| useHabitData | src/hooks/useHabitData.ts | 习惯养成数据获取 |
+| useSchoolStats | src/hooks/useSchoolStats.ts | 学校统计数据获取 |
+| useApi | src/hooks/useApi.ts | 通用API请求封装 |
+| useMobile | src/hooks/use-mobile.ts | 移动端检测 |
 
 #### 3.11.3 共享组件
 
@@ -1311,7 +1410,7 @@ interface TeacherAPIResponse {
 
 ### 3.12 教务德育联动方案
 
-#### 3.11.1 联动设计原则
+#### 3.12.1 联动设计原则
 
 教务系统与德育系统通过**统一学生档案**实现数据共享与业务联动：
 
@@ -1322,7 +1421,7 @@ interface TeacherAPIResponse {
 | 荣誉评选联动 | 教务 ↔ 德育 | 学期荣誉评选 |
 | 预警信息共享 | 德育 → 教务 | 生成预警通知 |
 
-#### 3.11.2 统一学生档案API
+#### 3.12.2 统一学生档案API
 
 **接口设计**：`GET /api/students/[id]/profile`
 
@@ -1407,7 +1506,7 @@ interface StudentProfileResponse {
 }
 ```
 
-#### 3.11.3 数据聚合实现
+#### 3.12.3 数据聚合实现
 
 **服务层设计**：
 
@@ -1463,7 +1562,7 @@ async function aggregateByYears(studentId: string, years: string[]) {
 }
 ```
 
-#### 3.11.4 联动业务流程
+#### 3.12.4 联动业务流程
 
 **1. 新生入学自动同步**
 
@@ -1519,7 +1618,7 @@ async function aggregateByYears(studentId: string, years: string[]) {
 教务系统记录预警标记
 ```
 
-#### 3.11.5 权限控制矩阵
+#### 3.12.5 权限控制矩阵
 
 | 角色 | 基本信息 | 家庭信息 | 学业表现 | 荣誉奖项 | 德育表现 | 预警信息 |
 |------|----------|----------|----------|----------|----------|----------|
@@ -1552,7 +1651,7 @@ async function checkProfileAccess(
 }
 ```
 
-#### 3.11.6 缓存策略
+#### 3.12.6 缓存策略
 
 | 数据类型 | 缓存时长 | 失效条件 |
 |----------|----------|----------|
