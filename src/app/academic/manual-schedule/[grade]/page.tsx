@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { useClasses } from '@/hooks/useClasses';
 import { SubjectHoursPanel } from '@/components/schedule/subject-hours-panel';
 import { SUBJECT_COLORS, getSubjectColor } from '@/lib/subject-colors';
-import { SUBJECT_HOURS } from '@/lib/schedule-config';
+import { getGradeSubjectHours } from '@/lib/schedule-config';
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五'];
 const MORNING_PERIODS = ['第1节', '第2节', '第3节'];
@@ -648,8 +648,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* 课时参考面板 */}
-        <div className="mb-6">
+        {/* 课时参考面板 - sticky 固定 */}
+        <div className="sticky top-[72px] z-20 mb-6 -mx-6 px-6 py-2 bg-gradient-to-b from-stone-50 via-stone-50 to-transparent">
           <SubjectHoursPanel grade={grade} />
         </div>
 
@@ -667,12 +667,9 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               classSlots.forEach(s => {
                 subjectCount[s.subject] = (subjectCount[s.subject] || 0) + 1;
               });
-              // 获取当前年级有课时的科目（过滤掉课时为0的科目）
-              const gradeSubjects = SUBJECT_ORDER.filter(subject => {
-                const hours = SUBJECT_HOURS[subject]?.[grade] ?? 0;
-                return hours > 0;
-              });
-              const allSubjectsCount = gradeSubjects.map(subject => ({
+              // 使用与参考栏相同的科目顺序（按课时降序）
+              const gradeSubjectHours = getGradeSubjectHours(grade);
+              const allSubjectsCount = gradeSubjectHours.map(({ subject }) => ({
                 subject,
                 count: subjectCount[subject] || 0,
               }));
