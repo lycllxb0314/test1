@@ -23,6 +23,7 @@ import {
  * - page: 页码
  * - pageSize: 每页数量
  * - groupByGrade: 是否按年级分组
+ * - withTeachers: 是否包含教师详细信息
  */
 export async function GET(request: NextRequest) {
   const params = parseQueryParams(request);
@@ -87,25 +88,71 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(error('数据库查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
-    // 转换下划线格式为驼峰格式
-    const formattedData = (data || []).map(cls => ({
-      id: cls.id,
-      name: cls.name,
-      grade: cls.grade,
-      gradeName: cls.grade_name,
-      classNumber: cls.class_number,
-      headTeacherId: cls.head_teacher_id,
-      headTeacherName: cls.head_teacher_name,
-      subTeacherId: cls.sub_teacher_id,
-      subTeacherName: cls.sub_teacher_name,
-      classroomId: cls.classroom_id,
-      classroomName: cls.classroom_name,
-      building: cls.building,
-      studentCount: cls.student_count || 0,
-      status: cls.status,
-      createdAt: cls.created_at,
-      updatedAt: cls.updated_at,
-    }));
+    // 获取所有涉及的教师ID
+    const teacherIds = new Set<string>();
+    (data || []).forEach(cls => {
+      if (cls.head_teacher_id) teacherIds.add(cls.head_teacher_id);
+      if (cls.sub_teacher_id) teacherIds.add(cls.sub_teacher_id);
+    });
+    
+    // 查询教师信息
+    const { data: teachersData } = await client
+      .from('teachers')
+      .select('id, name, primary_subject, subjects, phone, gender, title')
+      .in('id', Array.from(teacherIds));
+    
+    // 构建教师映射
+    const teachersMap: Record<string, any> = {};
+    (teachersData || []).forEach(t => {
+      teachersMap[t.id] = t;
+    });
+    
+    // 转换下划线格式为驼峰格式，并附加教师详细信息
+    const formattedData = (data || []).map(cls => {
+      const headTeacher = cls.head_teacher_id ? teachersMap[cls.head_teacher_id] : null;
+      const subTeacher = cls.sub_teacher_id ? teachersMap[cls.sub_teacher_id] : null;
+      
+      return {
+        id: cls.id,
+        name: cls.name,
+        grade: cls.grade,
+        gradeName: cls.grade_name,
+        classNumber: cls.class_number,
+        headTeacherId: cls.head_teacher_id,
+        headTeacherName: cls.head_teacher_name,
+        // 班主任详细信息
+        headTeacher: headTeacher ? {
+          id: headTeacher.id,
+          name: headTeacher.name,
+          subject: headTeacher.primary_subject,
+          primarySubject: headTeacher.primary_subject,
+          subjects: headTeacher.subjects,
+          phone: headTeacher.phone,
+          gender: headTeacher.gender,
+          title: headTeacher.title,
+        } : undefined,
+        subTeacherId: cls.sub_teacher_id,
+        subTeacherName: cls.sub_teacher_name,
+        // 副班主任详细信息
+        subTeacher: subTeacher ? {
+          id: subTeacher.id,
+          name: subTeacher.name,
+          subject: subTeacher.primary_subject,
+          primarySubject: subTeacher.primary_subject,
+          subjects: subTeacher.subjects,
+          phone: subTeacher.phone,
+          gender: subTeacher.gender,
+          title: subTeacher.title,
+        } : undefined,
+        classroomId: cls.classroom_id,
+        classroomName: cls.classroom_name,
+        building: cls.building,
+        studentCount: cls.student_count || 0,
+        status: cls.status,
+        createdAt: cls.created_at,
+        updatedAt: cls.updated_at,
+      };
+    });
     
     return NextResponse.json({
       success: true,

@@ -42,9 +42,15 @@ export interface TeacherBasicInfo {
   name: string;
   gender?: string;
   phone?: string;
-  subject?: string;
+  subject?: string;        // 主教学科
   title?: string;
   avatar?: string;
+  // 新增：更详细的教师信息
+  primarySubject?: string;  // 主教学科（数据库字段）
+  subjects?: string[];      // 可任教科目
+  headTeacherClassId?: string;    // 班主任所在班级ID
+  headTeacherClassName?: string;  // 班主任所在班级名称
+  subTeacherClasses?: Array<{ classId: string; className: string }>; // 科任所在班级
 }
 
 /** 学生基本信息（班级聚合用） */
@@ -391,9 +397,14 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
               name: headTeacher.name as string,
               gender: headTeacher.gender as string,
               phone: headTeacher.phone as string,
-              subject: headTeacher.subject as string,
+              subject: headTeacher.primary_subject as string,  // 修正：使用 primary_subject
+              primarySubject: headTeacher.primary_subject as string,
+              subjects: headTeacher.subjects as string[],
               title: headTeacher.title as string,
               avatar: headTeacher.avatar as string,
+              headTeacherClassId: headTeacher.headTeacherClassId as string,
+              headTeacherClassName: headTeacher.headTeacherClassName as string,
+              subTeacherClasses: headTeacher.subTeacherClasses as Array<{ classId: string; className: string }>,
             } : undefined,
             
             // 科任
@@ -404,9 +415,14 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
               name: subTeacher.name as string,
               gender: subTeacher.gender as string,
               phone: subTeacher.phone as string,
-              subject: subTeacher.subject as string,
+              subject: subTeacher.primary_subject as string,  // 修正：使用 primary_subject
+              primarySubject: subTeacher.primary_subject as string,
+              subjects: subTeacher.subjects as string[],
               title: subTeacher.title as string,
               avatar: subTeacher.avatar as string,
+              headTeacherClassId: subTeacher.headTeacherClassId as string,
+              headTeacherClassName: subTeacher.headTeacherClassName as string,
+              subTeacherClasses: subTeacher.subTeacherClasses as Array<{ classId: string; className: string }>,
             } : undefined,
             
             // 学生
