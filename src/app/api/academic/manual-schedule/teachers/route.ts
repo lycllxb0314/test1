@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api-route-utils';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { SUBJECT_HOURS, GRADE_CHINESE } from '@/lib/schedule-config';
 
 // 职务课时减免
 const POSITION_REDUCTION: Record<string, number> = {
@@ -21,28 +22,6 @@ const POSITION_REDUCTION: Record<string, number> = {
   grade_leader: 2,
   research_group_leader: 1,
   head_teacher: 2,
-};
-
-// 各年级课时标准
-const SUBJECT_HOURS: Record<string, Record<number, number>> = {
-  '语文': { 1: 8, 2: 8, 3: 7, 4: 7, 5: 7, 6: 7 },
-  '数学': { 1: 4, 2: 4, 3: 5, 4: 5, 5: 5, 6: 5 },
-  '道德与法治': { 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2 },
-  '科学': { 1: 2, 2: 2, 3: 3, 4: 3, 5: 3, 6: 3 },
-  '体育': { 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3 },
-  '音乐': { 1: 2, 2: 2, 3: 1, 4: 1, 5: 1, 6: 1 },
-  '美术': { 1: 2, 2: 2, 3: 1, 4: 1, 5: 1, 6: 1 },
-  '劳动': { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 },
-  '综合实践': { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 },
-  '信息技术': { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 1 },
-  '英语': { 1: 0, 2: 0, 3: 2, 4: 2, 5: 2, 6: 2 },
-  '心育': { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 1 },
-  '书法': { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 1 },
-};
-
-// 年级中文映射
-const GRADE_CHINESE: Record<number, string> = {
-  1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六',
 };
 
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
