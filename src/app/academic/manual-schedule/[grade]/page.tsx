@@ -680,27 +680,12 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                 style={{ animationDelay: `${classIndex * 50}ms` }}
               >
                 {/* 班级标题栏 */}
-                <div className="px-5 py-3.5 bg-gradient-to-r from-stone-50 to-white border-b border-stone-100 flex items-center justify-between">
+                <div className="px-5 py-3 bg-gradient-to-r from-stone-50 to-white border-b border-stone-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-lg font-bold text-stone-800">{cls.name}</span>
                     <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                       {classIndex + 1}/{gradeClasses.length}
                     </span>
-                    {/* 各科目课时统计 */}
-                    <div className="flex items-center gap-1.5 ml-2">
-                      {allSubjectsCount.map(({ subject, count }) => {
-                        const colors = getSubjectColor(subject);
-                        return (
-                          <span 
-                            key={subject}
-                            className={`text-xs px-2 py-0.5 rounded ${count > 0 ? colors.bg : 'bg-stone-100'} ${count > 0 ? colors.text : 'text-stone-400'}`}
-                          >
-                            {subject}{count}
-                          </span>
-                        );
-                      })}
-                      <span className="text-xs text-stone-500 ml-1 font-medium">共{totalClassSlots}节</span>
-                    </div>
                   </div>
                   <div className="flex items-center gap-6 text-sm">
                     {cls.headTeacher && (
@@ -722,6 +707,25 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                       </div>
                     )}
                   </div>
+                </div>
+                
+                {/* 科目课时统计栏 */}
+                <div className="px-5 py-2 bg-stone-50/50 border-b border-stone-100 flex items-center gap-2 overflow-x-auto">
+                  <span className="text-xs text-stone-500 shrink-0">课时统计</span>
+                  <div className="flex items-center gap-1">
+                    {allSubjectsCount.map(({ subject, count }) => {
+                      const colors = getSubjectColor(subject);
+                      return (
+                        <span 
+                          key={subject}
+                          className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${count > 0 ? colors.bg : 'bg-white border border-stone-200'} ${count > 0 ? colors.text : 'text-stone-400'}`}
+                        >
+                          {subject}{count}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <span className="text-xs text-stone-500 ml-auto shrink-0 font-medium">共 {totalClassSlots} 节</span>
                 </div>
                 
                 {/* 课表网格 */}
