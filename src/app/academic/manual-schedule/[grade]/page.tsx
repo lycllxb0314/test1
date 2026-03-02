@@ -8,20 +8,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, X, Clock, User, Sparkles, RefreshCw, Save, CheckCircle, FileText, Database } from 'lucide-react';
+import { Search, X, Clock, User, Sparkles, RefreshCw, Save, FileText, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { useClasses } from '@/hooks/useClasses';
 import { SubjectHoursPanel } from '@/components/schedule/subject-hours-panel';
@@ -113,8 +103,6 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<ScheduleStatus | null>(null);
   const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [showPublishDialog, setShowPublishDialog] = useState(false);
   
   // 弹窗状态
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -417,42 +405,6 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     }
   };
 
-  // 定稿
-  const handlePublish = async () => {
-    setPublishing(true);
-    try {
-      const scheduleData = buildScheduleData();
-      
-      if (scheduleData.every(c => c.slots.length === 0)) {
-        toast.error('请先安排课程');
-        setPublishing(false);
-        setShowPublishDialog(false);
-        return;
-      }
-      
-      const res = await fetch('/api/academic/manual-schedule/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grade, scheduleData }),
-      });
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success(`课表定稿成功，共 ${data.data.slotsCount} 节课`);
-        setShowPublishDialog(false);
-        loadStatus();
-      } else {
-        toast.error(data.error || '定稿失败');
-      }
-    } catch (err) {
-      console.error('定稿失败:', err);
-      toast.error('定稿失败');
-    } finally {
-      setPublishing(false);
-    }
-  };
-
   // 筛选教师（根据科目规则）
   const filteredTeachers = (() => {
     if (!selectedSubject) return [];
@@ -660,16 +612,6 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               >
                 <Save className="w-4 h-4" />
                 {saving ? '保存中...' : '保存草稿'}
-              </Button>
-              
-              <Button
-                size="sm"
-                onClick={() => setShowPublishDialog(true)}
-                disabled={publishing || totalSlots === 0}
-                className="gap-1.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
-              >
-                <CheckCircle className="w-4 h-4" />
-                {publishing ? '定稿中...' : '定稿'}
               </Button>
             </div>
           </div>
@@ -1101,30 +1043,6 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* 定稿确认弹窗 */}
-      <AlertDialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认定稿？</AlertDialogTitle>
-            <AlertDialogDescription>
-              定稿后将覆盖该年级现有的正式课表，所有班级的排课数据将生效。
-              <br /><br />
-              当前已安排 <span className="font-bold text-stone-900">{totalSlots}</span> 节课程。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handlePublish}
-              disabled={publishing}
-              className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
-            >
-              {publishing ? '定稿中...' : '确认定稿'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
