@@ -925,16 +925,43 @@ export class SchedulingEngine {
     // 数学兼任科目：劳动、综合实践、校本 -> 本班数学老师
     // 科学：优先专职科学老师，不够才由本班数学老师兼任（在排序中处理）
     // 综合实践、校本：两者都可兼任，优先选择课时较少的
-    const chineseParttimeOnly = ['道德与法治', '书法'];  // 只能语文老师兼任
-    const mathParttimeOnly = ['劳动'];                   // 只能数学老师兼任
+    const chineseParttimeOnly = ['道德与法治', '书法'];  // 只能本班语文老师兼任
+    const mathParttimeOnly = ['劳动'];                   // 只能本班数学老师兼任
     const bothParttime = ['综合实践', '校本'];            // 两者都可兼任
+    
+    // 书法和道法必须由本班语文老师担任，不能由其他老师代替
+    if (chineseParttimeOnly.includes(subject)) {
+      if (!cls.chineseTeacherId) {
+        console.log(`[警告] ${cls.name} 没有语文老师，无法安排${subject}`);
+        return null;
+      }
+      
+      const chineseTeacher = this.input.teachers.find(t => t.id === cls.chineseTeacherId);
+      if (!chineseTeacher) {
+        console.log(`[警告] ${cls.name} 语文老师不存在`);
+        return null;
+      }
+      
+      // 检查语文老师是否有书法作为兼任科目
+      if (!chineseTeacher.secondarySubjects.includes(subject) && chineseTeacher.primarySubject !== subject) {
+        console.log(`[警告] ${cls.name} 语文老师 ${chineseTeacher.name} 不能教${subject}`);
+        return null;
+      }
+      
+      // 检查语文老师是否可用
+      const availability = this.teacherAvailability.get(chineseTeacher.id)!;
+      const check = isTeacherAvailable(chineseTeacher, availability, slotId, subject);
+      if (!check.available) {
+        console.log(`[警告] ${cls.name} 语文老师 ${chineseTeacher.name} 在该时段不可用: ${check.reason}`);
+        return null;
+      }
+      
+      return chineseTeacher;
+    }
     
     let preferredTeacherIds: string[] = [];
     
-    if (chineseParttimeOnly.includes(subject)) {
-      // 只能语文老师兼任
-      if (cls.chineseTeacherId) preferredTeacherIds.push(cls.chineseTeacherId);
-    } else if (subject === '科学') {
+    if (subject === '科学') {
       // 科学课：优先专职科学老师（在排序时处理），备选本班数学老师
       if (cls.mathTeacherId) preferredTeacherIds.push(cls.mathTeacherId);
     } else if (mathParttimeOnly.includes(subject)) {
