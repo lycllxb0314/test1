@@ -55,6 +55,9 @@ export interface ClassForSchedule {
   classNumber: number;
   headTeacherId?: string;
   headTeacherName?: string;
+  // 新增：本班语数老师ID（用于兼任科目绑定）
+  chineseTeacherId?: string;  // 本班语文老师
+  mathTeacherId?: string;     // 本班数学老师
   // 课程需求
   subjectNeeds: SubjectNeed[];
 }

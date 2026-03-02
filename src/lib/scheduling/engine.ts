@@ -688,7 +688,7 @@ export class SchedulingEngine {
       checkedSlots++;
       const slot = parseTimeSlotId(slotId);
       
-      // 检查该科目当天是否已安排（每个技能科每天最多1节）
+      // 检查该科目当天是否已安排（技能科每天最多1节）
       const dailySubjectCount = this.getDailySubjectCount(state, slot.weekday, subject);
       if (dailySubjectCount >= 1) {
         skippedByDailyLimit++;
@@ -705,9 +705,18 @@ export class SchedulingEngine {
       return slotId;
     }
     
-    // 如果找不到时段，打印调试信息（只针对第一个班级）
-    if (cls.id === this.input.classes[0]?.id) {
+    // 如果找不到时段，打印调试信息（只针对第一个班级的前几个科目）
+    if (cls.id === this.input.classes[0]?.id && subject === '体育') {
       console.log(`[DEBUG] ${cls.name} ${subject} 找不到时段: 检查了${checkedSlots}个时段, 日限制跳过${skippedByDailyLimit}个, 无教师跳过${skippedByNoTeacher}个`);
+      // 详细分析无教师的原因
+      if (skippedByNoTeacher > 0) {
+        console.log(`[DEBUG] 分析体育教师可用性:`);
+        const peTeachers = this.input.teachers.filter(t => t.primarySubject === '体育' && t.teachableGrades.includes(cls.grade));
+        for (const t of peTeachers.slice(0, 3)) {
+          const avail = this.teacherAvailability.get(t.id)!;
+          console.log(`  ${t.name}: 已分配${avail.assignedSlots.size}节, 剩余容量${t.maxHours - avail.assignedSlots.size}节`);
+        }
+      }
     }
     
     return null;
@@ -732,6 +741,49 @@ export class SchedulingEngine {
     
     // 检查该班级该科目是否已有教师
     const existingTeacherId = state.assignedTeachers.get(subject);
+    
+    // 确定兼任科目应该用哪位老师
+    // 语文兼任科目：道德与法治、书法、综合实践、校本 -> 本班语文老师
+    // 数学兼任科目：劳动、综合实践、校本 -> 本班数学老师
+    // 科学：优先专职科学老师，不够才由本班数学老师兼任（在排序中处理）
+    // 综合实践、校本：两者都可兼任，优先选择课时较少的
+    const chineseParttimeOnly = ['道德与法治', '书法'];  // 只能语文老师兼任
+    const mathParttimeOnly = ['劳动'];                   // 只能数学老师兼任
+    const bothParttime = ['综合实践', '校本'];            // 两者都可兼任
+    
+    let preferredTeacherIds: string[] = [];
+    
+    if (chineseParttimeOnly.includes(subject)) {
+      // 只能语文老师兼任
+      if (cls.chineseTeacherId) preferredTeacherIds.push(cls.chineseTeacherId);
+    } else if (subject === '科学') {
+      // 科学课：优先专职科学老师（在排序时处理），备选本班数学老师
+      if (cls.mathTeacherId) preferredTeacherIds.push(cls.mathTeacherId);
+    } else if (mathParttimeOnly.includes(subject)) {
+      // 只能数学老师兼任
+      if (cls.mathTeacherId) preferredTeacherIds.push(cls.mathTeacherId);
+    } else if (bothParttime.includes(subject)) {
+      // 两者都可，按课时排序选较少的
+      const chineseTeacher = cls.chineseTeacherId ? 
+        this.input.teachers.find(t => t.id === cls.chineseTeacherId) : null;
+      const mathTeacher = cls.mathTeacherId ? 
+        this.input.teachers.find(t => t.id === cls.mathTeacherId) : null;
+      
+      if (chineseTeacher && mathTeacher) {
+        const chineseHours = this.teacherAvailability.get(chineseTeacher.id)!.assignedSlots.size;
+        const mathHours = this.teacherAvailability.get(mathTeacher.id)!.assignedSlots.size;
+        // 选择课时较少的老师优先
+        if (chineseHours <= mathHours) {
+          preferredTeacherIds = [cls.chineseTeacherId!, cls.mathTeacherId!];
+        } else {
+          preferredTeacherIds = [cls.mathTeacherId!, cls.chineseTeacherId!];
+        }
+      } else if (chineseTeacher) {
+        preferredTeacherIds = [cls.chineseTeacherId!];
+      } else if (mathTeacher) {
+        preferredTeacherIds = [cls.mathTeacherId!];
+      }
+    }
     
     // 候选教师
     const candidates: TeacherForSchedule[] = [];
@@ -759,18 +811,49 @@ export class SchedulingEngine {
       if (existingTeacher) {
         return existingTeacher;
       }
-      // 如果已分配的教师不可用（课时已满等），需要选择新教师
-      // 但这只在极端情况下发生
+      // 已分配的教师不可用，需要选择新教师
+      // 科学课允许最多2个教师，其他科目强制使用已分配教师
+      if (subject !== '科学') {
+        // 其他科目：如果已分配教师不可用，返回null（无法排课）
+        // 这样可以保证同一班同一科目由同一教师教
+        return null;
+      }
+      // 科学课：检查是否已有第二位教师
+      const secondTeacherId = state.assignedTeachers.get(`${subject}_2`);
+      if (secondTeacherId) {
+        const secondTeacher = candidates.find(t => t.id === secondTeacherId);
+        if (secondTeacher) {
+          return secondTeacher;
+        }
+        // 第二位教师也不可用，返回null
+        return null;
+      }
+      // 科学课还没有第二位教师，从候选中选择一位新教师
+      // 继续往下执行选择逻辑
     }
     
-    // 优先选择：班主任 > 主科匹配 > 课时最少
+    // 选择新教师（可能是该科目的第一位教师，或科学课的第二位教师）
+    
+    // 优先选择：本班语数老师（兼任科目） > 专职教师 > 课时最少
     candidates.sort((a, b) => {
+      // 兼任科目：本班语数老师最高优先级（按顺序）
+      if (preferredTeacherIds.length > 0) {
+        const aPreferredIndex = preferredTeacherIds.indexOf(a.id);
+        const bPreferredIndex = preferredTeacherIds.indexOf(b.id);
+        if (aPreferredIndex !== bPreferredIndex) {
+          // 在优先列表中的排前面，越靠前越优先
+          if (aPreferredIndex === -1) return 1;
+          if (bPreferredIndex === -1) return -1;
+          return aPreferredIndex - bPreferredIndex;
+        }
+      }
+      
       // 班主任优先
       const aIsHead = a.headTeacherClassId === cls.id ? 1 : 0;
       const bIsHead = b.headTeacherClassId === cls.id ? 1 : 0;
       if (aIsHead !== bIsHead) return bIsHead - aIsHead;
       
-      // 主科匹配优先
+      // 主科匹配优先（专职教师优先）
       const aPrimary = a.primarySubject === subject ? 1 : 0;
       const bPrimary = b.primarySubject === subject ? 1 : 0;
       if (aPrimary !== bPrimary) return bPrimary - aPrimary;
@@ -814,7 +897,11 @@ export class SchedulingEngine {
     
     // 记录该科目已分配的教师（确保同一班同一科目由同一教师教）
     if (!state.assignedTeachers.has(subject)) {
+      // 第一次分配该科目的教师
       state.assignedTeachers.set(subject, teacher.id);
+    } else if (subject === '科学' && !state.assignedTeachers.has(`${subject}_2`)) {
+      // 科学课允许第二位教师
+      state.assignedTeachers.set(`${subject}_2`, teacher.id);
     }
     
     // 更新教师可用性

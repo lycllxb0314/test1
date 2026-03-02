@@ -67,12 +67,23 @@ const handleSchedule = async (request: NextRequest, { user }: ExtendedRouteConte
     
     // 构建教师任教班级映射
     const teacherClassesMap = new Map<string, Set<string>>();
+    // 构建班级语数老师映射（用于兼任科目绑定）
+    const classChineseTeacher = new Map<string, string>(); // classId -> teacherId
+    const classMathTeacher = new Map<string, string>();    // classId -> teacherId
+    
     if (coursesData) {
       for (const course of coursesData) {
         if (!teacherClassesMap.has(course.teacher_id)) {
           teacherClassesMap.set(course.teacher_id, new Set());
         }
         teacherClassesMap.get(course.teacher_id)!.add(course.class_id);
+        
+        // 记录班级的语数老师
+        if (course.subject === '语文') {
+          classChineseTeacher.set(course.class_id, course.teacher_id);
+        } else if (course.subject === '数学') {
+          classMathTeacher.set(course.class_id, course.teacher_id);
+        }
       }
     }
     
@@ -158,12 +169,52 @@ const handleSchedule = async (request: NextRequest, { user }: ExtendedRouteConte
         classNumber: c.class_number || 1,
         headTeacherId: c.head_teacher_id,
         headTeacherName: c.head_teacher_name,
+        chineseTeacherId: classChineseTeacher.get(c.id),
+        mathTeacherId: classMathTeacher.get(c.id),
         subjectNeeds,
       };
     });
     
     // 6. 执行排课
     const input: ScheduleInput = { teachers, classes, semester: '2024-2025-2' };
+    
+    // 诊断：统计教师资源
+    console.log('\n===== 教师资源统计 =====');
+    const teacherBySubject = new Map<string, { count: number; totalMaxHours: number; grades: Set<number> }>();
+    for (const t of teachers) {
+      const subj = t.primarySubject;
+      if (!teacherBySubject.has(subj)) {
+        teacherBySubject.set(subj, { count: 0, totalMaxHours: 0, grades: new Set() });
+      }
+      const info = teacherBySubject.get(subj)!;
+      info.count++;
+      info.totalMaxHours += t.maxHours;
+      t.teachableGrades.forEach(g => info.grades.add(g));
+    }
+    for (const [subj, info] of teacherBySubject) {
+      console.log(`${subj} 教师: ${info.count}人, 总容量${info.totalMaxHours}节, 可教年级[${[...info.grades].sort().join(',')}]`);
+    }
+    
+    // 诊断：统计课时需求
+    console.log('\n===== 课时需求统计 =====');
+    const hoursByGrade = new Map<number, Map<string, number>>();
+    for (const cls of classes) {
+      if (!hoursByGrade.has(cls.grade)) {
+        hoursByGrade.set(cls.grade, new Map());
+      }
+      for (const need of cls.subjectNeeds) {
+        const gradeMap = hoursByGrade.get(cls.grade)!;
+        gradeMap.set(need.subject, (gradeMap.get(need.subject) || 0) + need.weeklyHours);
+      }
+    }
+    for (const [grade, subjMap] of hoursByGrade) {
+      console.log(`\n${grade}年级 (共${classes.filter(c => c.grade === grade).length}个班):`);
+      for (const [subj, hours] of subjMap) {
+        console.log(`  ${subj}: ${hours}节`);
+      }
+    }
+    console.log('========================\n');
+    
     const engine = new SchedulingEngine(input);
     
     const result = await engine.execute((phase, current, total, message) => {
