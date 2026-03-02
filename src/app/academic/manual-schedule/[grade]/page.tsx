@@ -820,10 +820,10 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
             </div>
             
             {/* 右侧 - 教师选择 */}
-            <div className="flex-1 flex flex-col bg-white">
+            <div className="flex-1 flex flex-col bg-white min-h-0">
               {/* 搜索栏 */}
               {selectedSubject && selectedSubject !== '语文' && selectedSubject !== '数学' && (
-                <div className="p-4 border-b border-stone-200">
+                <div className="p-4 border-b border-stone-200 shrink-0">
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
                     <Input
@@ -836,9 +836,9 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                 </div>
               )}
               
-              {/* 教师列表 */}
+              {/* 教师列表 - 使用原生滚动 */}
               {selectedSubject ? (
-                <ScrollArea className="flex-1">
+                <div className="flex-1 overflow-y-auto min-h-0">
                   {loadingTeachers ? (
                     <div className="flex flex-col items-center justify-center h-64 text-stone-400">
                       <div className="w-10 h-10 border-3 border-stone-200 border-t-amber-500 rounded-full animate-spin mb-3" />
@@ -903,7 +903,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                       })}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-stone-400">
                   <Sparkles className="w-16 h-16 mb-4 opacity-30" />
@@ -913,7 +913,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               
               {/* 不指定教师按钮 */}
               {selectedSubject && selectedSubject !== '语文' && selectedSubject !== '数学' && (
-                <div className="p-4 border-t border-stone-200">
+                <div className="p-4 border-t border-stone-200 shrink-0">
                   <button
                     onClick={() => handleSelectTeacher(null)}
                     className="w-full p-4 text-base text-stone-500 hover:text-stone-700 hover:bg-stone-50 rounded-xl transition-colors border-2 border-dashed border-stone-300 hover:border-stone-400 flex items-center justify-center gap-2"
