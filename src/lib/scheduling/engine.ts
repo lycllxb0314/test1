@@ -496,74 +496,141 @@ export class SchedulingEngine {
   // ==================== 排技能科 ====================
   
   /** 专职技能科（有专职教师的科目） */
-  private static readonly FULLTIME_SKILL_SUBJECTS = ['体育', '音乐', '美术', '信息技术', '英语'];
+  private static readonly FULLTIME_SKILL_SUBJECTS = ['体育', '音乐', '美术', '信息技术', '英语', '心育'];
   
   /** 兼任技能科（由语数教师兼任的科目，应优先下午） */
-  private static readonly PARTTIME_SKILL_SUBJECTS = ['道德与法治', '科学', '劳动', '综合实践'];
+  private static readonly PARTTIME_SKILL_SUBJECTS = ['道德与法治', '科学', '劳动', '综合实践', '校本'];
+  
+  /** 语文教师兼任的科目（可以安排在上午） */
+  private static readonly CHINESE_PARTTIME_SUBJECTS = ['书法', '道德与法治', '综合实践', '校本'];
   
   private scheduleSkillSubjects(): void {
-    // 第一阶段：排专职技能科（体育、音乐、美术、信息技术、英语）
-    this.scheduleFulltimeSkillSubjects();
+    // 第一阶段：先排语文兼任科目（书法优先，安排在上午剩余时段）
+    this.scheduleChineseParttimeSubjects();
     
-    // 第二阶段：排兼任技能科（道德与法治、科学、劳动、综合实践），优先下午
-    this.scheduleParttimeSkillSubjects();
+    // 第二阶段：排专职技能科和数学兼任科目
+    this.scheduleOtherSkillSubjects();
   }
   
-  private scheduleFulltimeSkillSubjects(): void {
-    const tasks: ScheduleTask[] = [];
+  /** 排语文兼任科目（书法、道法、综合实践） */
+  private scheduleChineseParttimeSubjects(): void {
+    let maxRounds = 30;
+    let hasRemaining = true;
     
-    for (const cls of this.input.classes) {
-      const state = this.classStates.get(cls.id)!;
-      
-      for (const subject of SchedulingEngine.FULLTIME_SKILL_SUBJECTS) {
-        const remaining = state.subjectHours.get(subject) || 0;
-        if (remaining > 0) {
-          tasks.push({
-            classId: cls.id,
-            grade: cls.grade,
-            subject,
-            remainingHours: remaining,
-            priority: this.getSkillSubjectPriority(subject),
-          });
-        }
-      }
-    }
-    
-    // 按优先级排序
-    tasks.sort((a, b) => b.priority - a.priority);
-    
-    // 多轮分配：优先下午，然后上午
-    let maxRounds = 10; // 防止无限循环
-    while (tasks.some(t => t.remainingHours > 0) && maxRounds > 0) {
+    while (hasRemaining && maxRounds > 0) {
       maxRounds--;
+      hasRemaining = false;
       
-      for (const task of tasks) {
-        if (task.remainingHours <= 0) continue;
+      for (const cls of this.input.classes) {
+        const state = this.classStates.get(cls.id)!;
         
-        const cls = this.classMap.get(task.classId)!;
-        const state = this.classStates.get(task.classId)!;
-        
-        // 优先找下午时段
-        let slotId = this.findBestSlot(cls, state, task.subject, true);
-        
-        // 如果下午没有，找上午时段
-        if (!slotId) {
-          slotId = this.findBestSlot(cls, state, task.subject, false);
-        }
-        
-        if (slotId) {
-          const teacher = this.findTeacherForSubject(cls, task.subject, slotId);
-          if (teacher) {
-            this.assignSlot(cls, state, slotId, task.subject, teacher);
-            task.remainingHours--;
+        for (const subject of SchedulingEngine.CHINESE_PARTTIME_SUBJECTS) {
+          const remaining = state.subjectHours.get(subject) || 0;
+          if (remaining <= 0) continue;
+          
+          // 书法课优先上午（和语文一起排），其他兼任科目优先下午
+          const preferAfternoon = subject !== '书法';
+          const slotId = this.findAvailableSlot(cls, state, subject, preferAfternoon);
+          
+          if (slotId) {
+            const teacher = this.findTeacherForSubject(cls, subject, slotId);
+            if (teacher) {
+              this.assignSlot(cls, state, slotId, subject, teacher);
+            }
+          } else if (remaining > 0) {
+            hasRemaining = true;
           }
         }
       }
     }
   }
   
-  /** 找最佳时间槽 */
-  private findBestSlot(
+  /** 排专职技能科和数学兼任科目 */
+  private scheduleOtherSkillSubjects(): void {
+    // 按班级轮转排课，确保每个班级都有机会分配到好的时段
+    let maxRounds = 50;
+    let hasRemaining = true;
+    
+    while (hasRemaining && maxRounds > 0) {
+      maxRounds--;
+      hasRemaining = false;
+      
+      // 按班级轮转
+      for (const cls of this.input.classes) {
+        const state = this.classStates.get(cls.id)!;
+        
+        // 先排专职技能科（按优先级）
+        for (const subject of SchedulingEngine.FULLTIME_SKILL_SUBJECTS) {
+          const remaining = state.subjectHours.get(subject) || 0;
+          if (remaining <= 0) continue;
+          
+          const slotId = this.findAvailableSlot(cls, state, subject, true);
+          if (slotId) {
+            const teacher = this.findTeacherForSubject(cls, subject, slotId);
+            if (teacher) {
+              this.assignSlot(cls, state, slotId, subject, teacher);
+            }
+          } else if (remaining > 0) {
+            hasRemaining = true;
+          }
+        }
+        
+        // 再排兼任技能科（按优先级）
+        for (const subject of SchedulingEngine.PARTTIME_SKILL_SUBJECTS) {
+          const remaining = state.subjectHours.get(subject) || 0;
+          if (remaining <= 0) continue;
+          
+          const slotId = this.findAvailableSlot(cls, state, subject, true);
+          if (slotId) {
+            const teacher = this.findTeacherForSubject(cls, subject, slotId);
+            if (teacher) {
+              this.assignSlot(cls, state, slotId, subject, teacher);
+            }
+          } else if (remaining > 0) {
+            hasRemaining = true;
+          }
+        }
+      }
+    }
+    
+    // 如果还有剩余，尝试上午时段
+    maxRounds = 50;
+    hasRemaining = true;
+    
+    while (hasRemaining && maxRounds > 0) {
+      maxRounds--;
+      hasRemaining = false;
+      
+      for (const cls of this.input.classes) {
+        const state = this.classStates.get(cls.id)!;
+        
+        // 所有技能科
+        const allSkillSubjects = [
+          ...SchedulingEngine.FULLTIME_SKILL_SUBJECTS,
+          ...SchedulingEngine.PARTTIME_SKILL_SUBJECTS
+        ];
+        
+        for (const subject of allSkillSubjects) {
+          const remaining = state.subjectHours.get(subject) || 0;
+          if (remaining <= 0) continue;
+          
+          // 尝试上午时段
+          const slotId = this.findAvailableSlot(cls, state, subject, false);
+          if (slotId) {
+            const teacher = this.findTeacherForSubject(cls, subject, slotId);
+            if (teacher) {
+              this.assignSlot(cls, state, slotId, subject, teacher);
+            }
+          } else if (remaining > 0) {
+            hasRemaining = true;
+          }
+        }
+      }
+    }
+  }
+  
+  /** 找可用时间槽（检查科目和教师） */
+  private findAvailableSlot(
     cls: ClassForSchedule,
     state: ClassScheduleState,
     subject: string,
@@ -580,65 +647,14 @@ export class SchedulingEngine {
       const dailySubjectCount = this.getDailySubjectCount(state, slot.weekday, subject);
       if (dailySubjectCount >= 1) continue;
       
-      // 检查该时间槽是否可用
-      if (state.dailySchedule.has(slotId)) continue;
+      // 检查是否有教师可用（预检查）
+      const teacher = this.findTeacherForSubject(cls, subject, slotId);
+      if (!teacher) continue;
       
       return slotId;
     }
     
     return null;
-  }
-  
-  private scheduleParttimeSkillSubjects(): void {
-    const tasks: ScheduleTask[] = [];
-    
-    for (const cls of this.input.classes) {
-      const state = this.classStates.get(cls.id)!;
-      
-      for (const subject of SchedulingEngine.PARTTIME_SKILL_SUBJECTS) {
-        const remaining = state.subjectHours.get(subject) || 0;
-        if (remaining > 0) {
-          tasks.push({
-            classId: cls.id,
-            grade: cls.grade,
-            subject,
-            remainingHours: remaining,
-            priority: this.getSkillSubjectPriority(subject),
-          });
-        }
-      }
-    }
-    
-    tasks.sort((a, b) => b.priority - a.priority);
-    
-    // 多轮分配：优先下午，然后上午
-    let maxRounds = 10;
-    while (tasks.some(t => t.remainingHours > 0) && maxRounds > 0) {
-      maxRounds--;
-      
-      for (const task of tasks) {
-        if (task.remainingHours <= 0) continue;
-        
-        const cls = this.classMap.get(task.classId)!;
-        const state = this.classStates.get(task.classId)!;
-        
-        // 兼任科目优先下午
-        let slotId = this.findBestSlot(cls, state, task.subject, true);
-        
-        // 如果下午没有，找上午时段
-        if (!slotId) {
-          slotId = this.findBestSlot(cls, state, task.subject, false);
-        }
-        
-        if (slotId) {
-          const teacher = this.findTeacherForSubject(cls, task.subject, slotId);
-          if (teacher) {
-            this.assignSlot(cls, state, slotId, task.subject, teacher);
-            task.remainingHours--;
-          }
-        }
-      }
-    }
   }
   
   // ==================== 辅助方法 ====================
@@ -785,6 +801,7 @@ export class SchedulingEngine {
   private getSkillSubjectPriority(subject: string): number {
     const priorities: Record<string, number> = {
       '体育': 8,
+      '心育': 7,
       '科学': 7,
       '道德与法治': 6,
       '音乐': 5,
@@ -792,6 +809,8 @@ export class SchedulingEngine {
       '信息技术': 4,
       '劳动': 3,
       '综合实践': 2,
+      '校本': 2,
+      '书法': 1,
     };
     return priorities[subject] || 1;
   }

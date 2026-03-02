@@ -55,7 +55,8 @@ export interface SubjectHours {
 }
 
 export const SUBJECT_HOURS_CONFIG: SubjectHours[] = [
-  { name: '语文', hours: { 1: 8, 2: 8, 3: 7, 4: 7, 5: 7, 6: 7 } },
+  { name: '语文', hours: { 1: 6, 2: 6, 3: 6, 4: 6, 5: 6, 6: 6 } },
+  { name: '书法', hours: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 } },
   { name: '数学', hours: { 1: 4, 2: 4, 3: 5, 4: 5, 5: 5, 6: 5 } },
   { name: '英语', hours: { 1: 0, 2: 0, 3: 2, 4: 2, 5: 2, 6: 2 } },
   { name: '道德与法治', hours: { 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2 } },
@@ -66,6 +67,8 @@ export const SUBJECT_HOURS_CONFIG: SubjectHours[] = [
   { name: '劳动', hours: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 } },
   { name: '综合实践', hours: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 } },
   { name: '信息技术', hours: { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 1 } },
+  { name: '校本', hours: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 } },
+  { name: '心育', hours: { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 1 } },
   { name: '班会', hours: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 } },
 ];
 
