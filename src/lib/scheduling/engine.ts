@@ -629,20 +629,24 @@ export class SchedulingEngine {
       allSlots.push({ slotId, isAfternoon: false, load });
     }
     
-    // 根据偏好排序，然后按负载升序（负载低的优先）
-    if (preferAfternoon) {
-      allSlots.sort((a, b) => {
-        // 下午优先
+    // 排序策略：
+    // 1. 体育、音乐、美术：上午下午都可以，但优先下午（上午时段留给主科）
+    // 2. 其他兼任科目：优先下午
+    // 3. 同一时段内，按负载升序（负载低的优先）
+    allSlots.sort((a, b) => {
+      // 体育等科目：下午优先，但上午也可以接受
+      if (preferAfternoon) {
+        // 下午优先（但不是强制）
         if (a.isAfternoon !== b.isAfternoon) {
-          return b.isAfternoon ? 1 : -1;
+          // 下午的排前面，但如果上午负载很低也可以优先
+          const aScore = a.isAfternoon ? a.load : a.load + 5; // 上午加5分惩罚
+          const bScore = b.isAfternoon ? b.load : b.load + 5;
+          return aScore - bScore;
         }
-        // 负载低的优先
-        return a.load - b.load;
-      });
-    } else {
+      }
       // 负载低的优先
-      allSlots.sort((a, b) => a.load - b.load);
-    }
+      return a.load - b.load;
+    });
     
     // 找可用时段
     for (const { slotId } of allSlots) {
