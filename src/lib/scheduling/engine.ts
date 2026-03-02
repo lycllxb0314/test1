@@ -766,16 +766,27 @@ export class SchedulingEngine {
     if (skippedByNoTeacher > 0 || skippedByDailyLimit > 0) {
       console.log(`[DEBUG] ${cls.name} ${subject} 找不到时段: 检查了${checkedSlots}个时段, 日限制跳过${skippedByDailyLimit}个, 无教师跳过${skippedByNoTeacher}个`);
       
-      // 详细分析无教师的原因
-      if (skippedByNoTeacher > 0 && cls.id === this.input.classes[0]?.id) {
-        const subjectTeachers = this.input.teachers.filter(t => 
-          (t.primarySubject === subject || t.secondarySubjects.includes(subject)) && 
-          t.teachableGrades.includes(cls.grade)
-        );
-        console.log(`[DEBUG] ${subject}教师资源(${subjectTeachers.length}人):`);
-        for (const t of subjectTeachers.slice(0, 5)) {
-          const avail = this.teacherAvailability.get(t.id)!;
-          console.log(`  ${t.name}(${t.primarySubject}): 已分配${avail.assignedSlots.size}节, 最大${t.maxHours}节, 剩余${t.maxHours - avail.assignedSlots.size}节`);
+      // 详细分析无教师的原因（对所有有问题的班级都打印）
+      if (skippedByNoTeacher > 0) {
+        // 检查是否已有分配的教师
+        const existingTeacherId = state.assignedTeachers.get(subject);
+        if (existingTeacherId) {
+          const existingTeacher = this.input.teachers.find(t => t.id === existingTeacherId);
+          const avail = this.teacherAvailability.get(existingTeacherId);
+          if (existingTeacher && avail) {
+            console.log(`[DEBUG]   已分配教师: ${existingTeacher.name}, 已用${avail.assignedSlots.size}/${existingTeacher.maxHours}节`);
+          }
+        } else {
+          // 没有分配教师，显示所有可用教师
+          const subjectTeachers = this.input.teachers.filter(t => 
+            (t.primarySubject === subject || t.secondarySubjects.includes(subject)) && 
+            t.teachableGrades.includes(cls.grade)
+          );
+          console.log(`[DEBUG]   无已分配教师, 可用${subjectTeachers.length}人:`);
+          for (const t of subjectTeachers.slice(0, 3)) {
+            const avail = this.teacherAvailability.get(t.id)!;
+            console.log(`[DEBUG]     ${t.name}: 已用${avail.assignedSlots.size}/${t.maxHours}节`);
+          }
         }
       }
     }
@@ -873,23 +884,33 @@ export class SchedulingEngine {
         return existingTeacher;
       }
       // 已分配的教师不可用，需要选择新教师
-      // 科学课允许最多2个教师，其他科目强制使用已分配教师
-      if (subject !== '科学') {
-        // 其他科目：如果已分配教师不可用，返回null（无法排课）
-        // 这样可以保证同一班同一科目由同一教师教
+      // 技能科（非语数）允许有多个教师，优先使用已分配教师，备选其他教师
+      const isSkillSubject = !isMainSubject(subject);
+      if (!isSkillSubject) {
+        // 语数必须由同一个教师教
         return null;
       }
-      // 科学课：检查是否已有第二位教师
+      
+      // 技能科：检查是否已有第二位教师
       const secondTeacherId = state.assignedTeachers.get(`${subject}_2`);
       if (secondTeacherId) {
         const secondTeacher = candidates.find(t => t.id === secondTeacherId);
         if (secondTeacher) {
           return secondTeacher;
         }
-        // 第二位教师也不可用，返回null
-        return null;
+        // 第二位教师也不可用，尝试第三位教师
+        const thirdTeacherId = state.assignedTeachers.get(`${subject}_3`);
+        if (thirdTeacherId) {
+          const thirdTeacher = candidates.find(t => t.id === thirdTeacherId);
+          if (thirdTeacher) {
+            return thirdTeacher;
+          }
+        }
+        // 没有可用的教师了
+        console.log(`[DEBUG] ${cls.name} ${subject} 所有已分配教师都不可用，尝试选择新教师`);
+        // 继续往下执行，尝试选择新教师
       }
-      // 科学课还没有第二位教师，从候选中选择一位新教师
+      // 技能科还没有第二位教师，从候选中选择一位新教师
       // 继续往下执行选择逻辑
     }
     
@@ -956,13 +977,20 @@ export class SchedulingEngine {
     state.subjectHours.set(subject, remaining - 1);
     state.dailySchedule.set(slotId, scheduleSlot);
     
-    // 记录该科目已分配的教师（确保同一班同一科目由同一教师教）
+    // 记录该科目已分配的教师（技能科允许多位教师）
+    const isSkillSubject = !isMainSubject(subject);
     if (!state.assignedTeachers.has(subject)) {
       // 第一次分配该科目的教师
       state.assignedTeachers.set(subject, teacher.id);
-    } else if (subject === '科学' && !state.assignedTeachers.has(`${subject}_2`)) {
-      // 科学课允许第二位教师
-      state.assignedTeachers.set(`${subject}_2`, teacher.id);
+    } else if (isSkillSubject && state.assignedTeachers.get(subject) !== teacher.id) {
+      // 技能科：如果不是第一位教师，记录为第二/三位教师
+      if (!state.assignedTeachers.has(`${subject}_2`)) {
+        state.assignedTeachers.set(`${subject}_2`, teacher.id);
+        console.log(`[INFO] ${cls.name} ${subject} 启用第二位教师: ${teacher.name}`);
+      } else if (state.assignedTeachers.get(`${subject}_2`) !== teacher.id && !state.assignedTeachers.has(`${subject}_3`)) {
+        state.assignedTeachers.set(`${subject}_3`, teacher.id);
+        console.log(`[INFO] ${cls.name} ${subject} 启用第三位教师: ${teacher.name}`);
+      }
     }
     
     // 更新教师可用性
