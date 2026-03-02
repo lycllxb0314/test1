@@ -554,6 +554,27 @@ export class SchedulingEngine {
       }
     }
     
+    // 统计各科目总需求
+    console.log('\n===== 技能科排课开始 =====');
+    const subjectTotals = new Map<string, number>();
+    for (const task of allTasks) {
+      subjectTotals.set(task.subject, (subjectTotals.get(task.subject) || 0) + task.remaining);
+    }
+    for (const [subj, total] of subjectTotals) {
+      console.log(`${subj}: 需排 ${total} 节`);
+    }
+    
+    // 统计可用时段
+    let totalMorningSlots = 0;
+    let totalAfternoonSlots = 0;
+    for (const cls of this.input.classes) {
+      const state = this.classStates.get(cls.id)!;
+      totalMorningSlots += this.getAvailableMorningSlots(state).length;
+      totalAfternoonSlots += this.getAvailableAfternoonSlots(state).length;
+    }
+    console.log(`可用上午时段: ${totalMorningSlots}, 可用下午时段: ${totalAfternoonSlots}`);
+    console.log('==========================\n');
+    
     // 多轮分配，每轮处理一个时段的一个科目
     let maxRounds = 300; // 增加轮次，确保所有课程都能排进去
     while (allTasks.some(t => t.remaining > 0) && maxRounds > 0) {
@@ -606,9 +627,23 @@ export class SchedulingEngine {
       
       if (!assigned) break;
     }
+    
+    // 打印未排完的科目
+    const remaining = allTasks.filter(t => t.remaining > 0);
+    if (remaining.length > 0) {
+      console.log('\n===== 技能科未排完汇总 =====');
+      const bySubject = new Map<string, number>();
+      for (const t of remaining) {
+        bySubject.set(t.subject, (bySubject.get(t.subject) || 0) + t.remaining);
+      }
+      for (const [subj, count] of bySubject) {
+        console.log(`${subj}: 剩余 ${count} 节未排`);
+      }
+      console.log('==============================\n');
+    }
   }
   
-  /** 找可用时间槽（检查科目和教师），优先选择教师负载低的时段 */
+  /** 找可用时间槽（检查科目和教师），平衡使用上午和下午时段 */
   private findAvailableSlot(
     cls: ClassForSchedule,
     state: ClassScheduleState,
@@ -630,37 +665,49 @@ export class SchedulingEngine {
     }
     
     // 排序策略：
-    // 1. 体育、音乐、美术：上午下午都可以，但优先下午（上午时段留给主科）
-    // 2. 其他兼任科目：优先下午
-    // 3. 同一时段内，按负载升序（负载低的优先）
+    // 1. 按负载排序（负载低的时段优先），这样可以平衡使用上午和下午
+    // 2. 当负载相同时，preferAfternoon 决定优先级
     allSlots.sort((a, b) => {
-      // 体育等科目：下午优先，但上午也可以接受
-      if (preferAfternoon) {
-        // 下午优先（但不是强制）
-        if (a.isAfternoon !== b.isAfternoon) {
-          // 下午的排前面，但如果上午负载很低也可以优先
-          const aScore = a.isAfternoon ? a.load : a.load + 5; // 上午加5分惩罚
-          const bScore = b.isAfternoon ? b.load : b.load + 5;
-          return aScore - bScore;
-        }
+      // 首先按负载排序（负载低的优先）
+      if (a.load !== b.load) {
+        return a.load - b.load;
       }
-      // 负载低的优先
-      return a.load - b.load;
+      // 负载相同时，根据偏好决定
+      if (preferAfternoon) {
+        return a.isAfternoon ? -1 : 1; // 下午优先
+      }
+      return 0;
     });
     
     // 找可用时段
+    let checkedSlots = 0;
+    let skippedByDailyLimit = 0;
+    let skippedByNoTeacher = 0;
+    
     for (const { slotId } of allSlots) {
+      checkedSlots++;
       const slot = parseTimeSlotId(slotId);
       
       // 检查该科目当天是否已安排（每个技能科每天最多1节）
       const dailySubjectCount = this.getDailySubjectCount(state, slot.weekday, subject);
-      if (dailySubjectCount >= 1) continue;
+      if (dailySubjectCount >= 1) {
+        skippedByDailyLimit++;
+        continue;
+      }
       
       // 检查是否有教师可用
       const teacher = this.findTeacherForSubject(cls, subject, slotId);
-      if (!teacher) continue;
+      if (!teacher) {
+        skippedByNoTeacher++;
+        continue;
+      }
       
       return slotId;
+    }
+    
+    // 如果找不到时段，打印调试信息（只针对第一个班级）
+    if (cls.id === this.input.classes[0]?.id) {
+      console.log(`[DEBUG] ${cls.name} ${subject} 找不到时段: 检查了${checkedSlots}个时段, 日限制跳过${skippedByDailyLimit}个, 无教师跳过${skippedByNoTeacher}个`);
     }
     
     return null;
@@ -902,11 +949,16 @@ export class SchedulingEngine {
   }
   
   private checkSubjectHoursConstraint(): void {
+    // 汇总各科目剩余课时
+    const subjectTotalRemaining = new Map<string, number>();
+    
     for (const cls of this.input.classes) {
       const state = this.classStates.get(cls.id)!;
       
       for (const [subject, remaining] of state.subjectHours) {
         if (remaining > 0) {
+          subjectTotalRemaining.set(subject, (subjectTotalRemaining.get(subject) || 0) + remaining);
+          
           this.violations.push({
             type: 'SUBJECT_HOURS_MISMATCH',
             message: `${cls.name} ${subject} 课时不足`,
@@ -915,6 +967,15 @@ export class SchedulingEngine {
           });
         }
       }
+    }
+    
+    // 打印汇总信息
+    if (subjectTotalRemaining.size > 0) {
+      console.log('\n===== 课时不足汇总 =====');
+      for (const [subject, total] of subjectTotalRemaining) {
+        console.log(`${subject}: 还需安排 ${total} 节`);
+      }
+      console.log('========================\n');
     }
   }
   
