@@ -110,7 +110,16 @@ const academicNav: NavItem[] = [
   { name: '新生注册', href: '/academic/enrollment', icon: UserPlus, description: '新生信息采集与注册', badge: '9月' },
   { name: '教师管理', href: '/academic/teachers', icon: UserCircle, description: '教师信息管理' },
   { name: '班级管理', href: '/academic/classes', icon: School, description: '班级信息管理' },
-  { name: '手动排课', href: '/academic/manual-schedule', icon: Edit3, description: '编排班级课表' },
+  { name: '手动排课', href: '/academic/manual-schedule', icon: Edit3, description: '编排班级课表', 
+    children: [
+      { name: '一年级', href: '/academic/manual-schedule/1', icon: Edit3, description: '一年级排课' },
+      { name: '二年级', href: '/academic/manual-schedule/2', icon: Edit3, description: '二年级排课' },
+      { name: '三年级', href: '/academic/manual-schedule/3', icon: Edit3, description: '三年级排课' },
+      { name: '四年级', href: '/academic/manual-schedule/4', icon: Edit3, description: '四年级排课' },
+      { name: '五年级', href: '/academic/manual-schedule/5', icon: Edit3, description: '五年级排课' },
+      { name: '六年级', href: '/academic/manual-schedule/6', icon: Edit3, description: '六年级排课' },
+    ]
+  },
   { name: '工作量统计', href: '/academic/workload', icon: BarChart3, description: '教师工作量统计', badge: '新' },
   { name: '考试管理', href: '/academic/exams', icon: ClipboardList, description: '考试安排管理' },
   { name: '成绩管理', href: '/academic/grades', icon: BookOpen, description: '成绩录入查询' },
