@@ -197,6 +197,7 @@ export interface ClassScheduleState {
   subjectHours: Map<string, number>; // 各科目剩余课时
   dailySchedule: Map<TimeSlotId, ScheduleSlot | null>;
   firstPeriodSubjects: Weekday[]; // 每天第一节课科目
+  assignedTeachers: Map<string, string>; // 每个科目已分配的教师ID（确保同一班同一科目由同一教师教）
 }
 
 /** 排课任务 */

@@ -142,8 +142,8 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
     role: 'skill_teacher',
     classCount: 0,  // 跨多个班级
     mainSubjectHours: [0, 0],
-    totalHours: 17,
-    description: '技能课教师（体育/音乐/美术/科学/信息技术等）：跨多个班级教学，周课时16-18节（英语教师除外，课时14-16节）',
+    totalHours: 18,
+    description: '技能课教师（体育/音乐/美术/科学/信息技术等）：跨多个班级教学，周课时16-20节（英语教师除外，课时14-16节）',
   },
   
   // 学科组长（视为技能课教师）
@@ -182,14 +182,14 @@ export function calculateSuggestedHours(
     };
   }
   
-  // 技能科教师：16-18节
+  // 技能科教师：16-20节
   if (role === 'skill_teacher' || role === 'subject_head' || isSkillTeacher) {
     return { 
       mainSubjectHours: 0, 
-      totalHours: 17,
+      totalHours: 18,
       minHours: 16,
-      maxHours: 18,
-      description: '技能科教师（体育/音乐/美术/科学/信息技术等）：周课时16-18节'
+      maxHours: 20,
+      description: '技能科教师（体育/音乐/美术/科学/信息技术等）：周课时16-20节'
     };
   }
   

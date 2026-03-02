@@ -291,6 +291,7 @@ export class SchedulingEngine {
         subjectHours,
         dailySchedule: new Map(),
         firstPeriodSubjects: [],
+        assignedTeachers: new Map(), // 记录每个科目已分配的教师
       });
     }
     
@@ -697,6 +698,10 @@ export class SchedulingEngine {
     slotId: TimeSlotId
   ): TeacherForSchedule | null {
     const slot = parseTimeSlotId(slotId);
+    const state = this.classStates.get(cls.id)!;
+    
+    // 检查该班级该科目是否已有教师
+    const existingTeacherId = state.assignedTeachers.get(subject);
     
     // 候选教师
     const candidates: TeacherForSchedule[] = [];
@@ -716,6 +721,16 @@ export class SchedulingEngine {
       if (!check.available) continue;
       
       candidates.push(teacher);
+    }
+    
+    // 如果已有教师且在候选列表中，直接返回
+    if (existingTeacherId) {
+      const existingTeacher = candidates.find(t => t.id === existingTeacherId);
+      if (existingTeacher) {
+        return existingTeacher;
+      }
+      // 如果已分配的教师不可用（课时已满等），需要选择新教师
+      // 但这只在极端情况下发生
     }
     
     // 优先选择：班主任 > 主科匹配 > 课时最少
@@ -766,6 +781,11 @@ export class SchedulingEngine {
     const remaining = state.subjectHours.get(subject) || 0;
     state.subjectHours.set(subject, remaining - 1);
     state.dailySchedule.set(slotId, scheduleSlot);
+    
+    // 记录该科目已分配的教师（确保同一班同一科目由同一教师教）
+    if (!state.assignedTeachers.has(subject)) {
+      state.assignedTeachers.set(subject, teacher.id);
+    }
     
     // 更新教师可用性
     const availability = this.teacherAvailability.get(teacher.id)!;

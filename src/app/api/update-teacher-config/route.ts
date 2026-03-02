@@ -211,11 +211,11 @@ export async function POST() {
     // 5. 技能科教师
     const skillSubjects = [
       { name: '英语', hours: 15, grades: [3, 4, 5, 6] },
-      { name: '体育', hours: 17, grades: [1, 2, 3, 4, 5, 6] },
-      { name: '音乐', hours: 17, grades: [1, 2, 3, 4, 5, 6] },
-      { name: '美术', hours: 17, grades: [1, 2, 3, 4, 5, 6] },
-      { name: '科学', hours: 17, grades: [1, 2, 3, 4, 5, 6] },
-      { name: '道德与法治', hours: 17, grades: [1, 2, 3, 4, 5, 6] },
+      { name: '体育', hours: 18, grades: [1, 2, 3, 4, 5, 6] },
+      { name: '音乐', hours: 18, grades: [1, 2, 3, 4, 5, 6] },
+      { name: '美术', hours: 18, grades: [1, 2, 3, 4, 5, 6] },
+      { name: '科学', hours: 18, grades: [1, 2, 3, 4, 5, 6] },
+      { name: '道德与法治', hours: 18, grades: [1, 2, 3, 4, 5, 6] },
     ];
 
     for (const subj of skillSubjects) {
