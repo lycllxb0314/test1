@@ -267,6 +267,26 @@ const handleSchedule = async (request: NextRequest, { user }: ExtendedRouteConte
       }
     }
     
+    // 打印完整的硬约束违规信息
+    if (result.hardConstraintViolations && result.hardConstraintViolations.length > 0) {
+      console.log('\n===== 硬约束违规完整列表 =====');
+      const groupedViolations = new Map<string, typeof result.hardConstraintViolations>();
+      for (const v of result.hardConstraintViolations) {
+        if (!groupedViolations.has(v.type)) {
+          groupedViolations.set(v.type, []);
+        }
+        groupedViolations.get(v.type)!.push(v);
+      }
+      
+      for (const [type, violations] of groupedViolations) {
+        console.log(`\n【${type}】共 ${violations.length} 项`);
+        for (const v of violations) {
+          console.log(`  - ${v.message}`);
+        }
+      }
+      console.log('================================\n');
+    }
+    
     return NextResponse.json(success(result));
     
   } catch (err) {

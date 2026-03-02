@@ -1038,6 +1038,7 @@ export class SchedulingEngine {
   private checkSubjectHoursConstraint(): void {
     // 汇总各科目剩余课时
     const subjectTotalRemaining = new Map<string, number>();
+    const classSubjectRemaining = new Map<string, Map<string, { remaining: number; teacher: string | undefined }>>();
     
     for (const cls of this.input.classes) {
       const state = this.classStates.get(cls.id)!;
@@ -1045,6 +1046,15 @@ export class SchedulingEngine {
       for (const [subject, remaining] of state.subjectHours) {
         if (remaining > 0) {
           subjectTotalRemaining.set(subject, (subjectTotalRemaining.get(subject) || 0) + remaining);
+          
+          // 记录每个班级每个科目的剩余课时和已分配教师
+          if (!classSubjectRemaining.has(cls.id)) {
+            classSubjectRemaining.set(cls.id, new Map());
+          }
+          classSubjectRemaining.get(cls.id)!.set(subject, {
+            remaining,
+            teacher: state.assignedTeachers.get(subject),
+          });
           
           this.violations.push({
             type: 'SUBJECT_HOURS_MISMATCH',
@@ -1056,13 +1066,41 @@ export class SchedulingEngine {
       }
     }
     
-    // 打印汇总信息
+    // 打印详细调试信息
     if (subjectTotalRemaining.size > 0) {
-      console.log('\n===== 课时不足汇总 =====');
+      console.log('\n===== 课时不足详细汇总 =====');
       for (const [subject, total] of subjectTotalRemaining) {
-        console.log(`${subject}: 还需安排 ${total} 节`);
+        console.log(`\n【${subject}】还需安排 ${total} 节`);
+        
+        // 找出该科目课时不足的班级
+        let count = 0;
+        for (const [classId, subjects] of classSubjectRemaining) {
+          const info = subjects.get(subject);
+          if (info) {
+            const cls = this.input.classes.find(c => c.id === classId);
+            if (cls && count < 5) { // 只显示前5个
+              console.log(`  - ${cls.name}: 剩余${info.remaining}节, 已分配教师: ${info.teacher || '无'}`);
+              count++;
+            }
+          }
+        }
+        if (count >= 5) {
+          const totalClasses = Array.from(classSubjectRemaining.values()).filter(s => s.has(subject)).length;
+          console.log(`  - ... 共 ${totalClasses} 个班级`);
+        }
+        
+        // 分析该科目的教师资源
+        const subjectTeachers = this.input.teachers.filter(t => 
+          t.primarySubject === subject || t.secondarySubjects.includes(subject)
+        );
+        const totalCapacity = subjectTeachers.reduce((sum, t) => sum + t.maxHours, 0);
+        const assignedCount = subjectTeachers.reduce((sum, t) => {
+          const avail = this.teacherAvailability.get(t.id);
+          return sum + (avail?.assignedSlots.size || 0);
+        }, 0);
+        console.log(`  教师资源: ${subjectTeachers.length}人, 总容量${totalCapacity}节, 已分配${assignedCount}节, 剩余${totalCapacity - assignedCount}节`);
       }
-      console.log('========================\n');
+      console.log('==============================\n');
     }
   }
   
