@@ -666,8 +666,11 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               classSlots.forEach(s => {
                 subjectCount[s.subject] = (subjectCount[s.subject] || 0) + 1;
               });
-              // 按课时降序排序
-              const sortedSubjects = Object.entries(subjectCount).sort((a, b) => b[1] - a[1]);
+              // 获取所有科目的课时（包括未排的显示0）
+              const allSubjectsCount = SUBJECT_ORDER.map(subject => ({
+                subject,
+                count: subjectCount[subject] || 0,
+              }));
               const totalClassSlots = classSlots.length;
               
               return (
@@ -683,26 +686,20 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                     <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                       {classIndex + 1}/{gradeClasses.length}
                     </span>
-                    {/* 已排课时统计 */}
+                    {/* 各科目课时统计 */}
                     <div className="flex items-center gap-1.5 ml-2">
-                      {sortedSubjects.length > 0 ? (
-                        sortedSubjects.map(([subject, count]) => {
-                          const colors = getSubjectColor(subject);
-                          return (
-                            <span 
-                              key={subject}
-                              className={`text-xs px-2 py-0.5 rounded ${colors.bg} ${colors.text}`}
-                            >
-                              {subject}{count}
-                            </span>
-                          );
-                        })
-                      ) : (
-                        <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded">
-                          暂无排课
-                        </span>
-                      )}
-                      <span className="text-xs text-stone-400 ml-1">共{totalClassSlots}节</span>
+                      {allSubjectsCount.map(({ subject, count }) => {
+                        const colors = getSubjectColor(subject);
+                        return (
+                          <span 
+                            key={subject}
+                            className={`text-xs px-2 py-0.5 rounded ${count > 0 ? colors.bg : 'bg-stone-100'} ${count > 0 ? colors.text : 'text-stone-400'}`}
+                          >
+                            {subject}{count}
+                          </span>
+                        );
+                      })}
+                      <span className="text-xs text-stone-500 ml-1 font-medium">共{totalClassSlots}节</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-6 text-sm">
