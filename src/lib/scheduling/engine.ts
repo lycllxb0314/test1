@@ -300,34 +300,9 @@ export class SchedulingEngine {
   }
   
   private preassignSecondarySubjects(): void {
-    for (const cls of this.input.classes) {
-      const state = this.classStates.get(cls.id)!;
-      
-      // 找到班主任
-      if (cls.headTeacherId) {
-        const headTeacher = this.teacherMap.get(cls.headTeacherId);
-        if (!headTeacher) continue;
-        
-        // 语文班主任：兼任道法
-        if (headTeacher.primarySubject === '语文') {
-          const daofaHours = state.subjectHours.get('道德与法治') || 0;
-          if (daofaHours > 0) {
-            // 标记道法由班主任负责
-            state.subjectHours.set('道德与法治', 0);
-            // 增加语文老师的道法课时
-            // 实际分配在排课时处理
-          }
-        }
-        
-        // 数学班主任：兼任劳动
-        if (headTeacher.primarySubject === '数学') {
-          const laborHours = state.subjectHours.get('劳动') || 0;
-          if (laborHours > 0) {
-            state.subjectHours.set('劳动', 0);
-          }
-        }
-      }
-    }
+    // 不再在这里预处理兼任科目
+    // 让排课引擎根据教师的 secondarySubjects 自动分配
+    // 班主任会优先被选中教其兼任科目
   }
   
   // ==================== 固定班队课 ====================
@@ -519,9 +494,9 @@ export class SchedulingEngine {
     this.scheduleOtherSkillSubjects();
   }
   
-  /** 排语文兼任科目（书法、道法、综合实践） */
+  /** 排语文兼任科目（书法、道法、综合实践、校本） */
   private scheduleChineseParttimeSubjects(): void {
-    let maxRounds = 30;
+    let maxRounds = 60; // 增加轮次
     let hasRemaining = true;
     
     while (hasRemaining && maxRounds > 0) {
@@ -543,6 +518,8 @@ export class SchedulingEngine {
             const teacher = this.findTeacherForSubject(cls, subject, slotId);
             if (teacher) {
               this.assignSlot(cls, state, slotId, subject, teacher);
+            } else {
+              hasRemaining = true; // 找不到教师，标记为未完成
             }
           } else if (remaining > 0) {
             hasRemaining = true;
@@ -578,7 +555,7 @@ export class SchedulingEngine {
     }
     
     // 多轮分配，每轮处理一个时段的一个科目
-    let maxRounds = 100;
+    let maxRounds = 300; // 增加轮次，确保所有课程都能排进去
     while (allTasks.some(t => t.remaining > 0) && maxRounds > 0) {
       maxRounds--;
       
@@ -1092,7 +1069,7 @@ export class SchedulingEngine {
       const slots: ScheduleSlot[][] = WEEKDAYS.map(() => []);
       
       for (const [slotId, classId] of availability.assignedSlots) {
-        const slot = this.schedule.get(slotId);
+        const slot = this.schedule.get(`${slotId}_${classId}`);
         if (slot) {
           const dayIndex = WEEKDAYS.indexOf(slot.timeSlot.weekday);
           slots[dayIndex].push(slot);
