@@ -72,10 +72,10 @@ export default function SmartSchedulingPage() {
   useEffect(() => {
     const fetchTeachers = async () => {
       try {
-        const response = await fetch('/api/teachers');
+        const response = await fetch('/api/teachers?pageSize=200');
         const data = await response.json();
-        if (data.success) {
-          setTeachers(data.teachers.map((t: any) => ({
+        if (data.success && data.data) {
+          setTeachers(data.data.map((t: any) => ({
             id: t.id,
             name: t.name,
             primarySubject: t.primary_subject,
