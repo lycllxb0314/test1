@@ -87,20 +87,26 @@ const saveDraft = async (request: NextRequest, { user }: ExtendedRouteContext) =
     
     // 保存课表数据
     if (slots && slots.length > 0) {
-      const slotsData = slots.map((slot: any) => ({
-        id: slot.id || undefined,
-        class_id: slot.classId,
-        class_name: slot.className,
-        grade: slot.grade,
-        week_day: slot.weekDay || slot.week_day,
-        period_index: slot.periodIndex || slot.period_index,
-        period_name: slot.periodName || slot.period_name,
-        subject: slot.subject,
-        teacher_id: slot.teacherId || slot.teacher_id,
-        teacher_name: slot.teacherName || slot.teacher_name,
-        draft_id: draft.id,
-        status: 'active',
-      }));
+      const slotsData = slots.map((slot: any) => {
+        const data: any = {
+          class_id: slot.classId,
+          class_name: slot.className,
+          grade: slot.grade,
+          week_day: slot.weekDay || slot.week_day,
+          period_index: slot.periodIndex || slot.period_index,
+          period_name: slot.periodName || slot.period_name,
+          subject: slot.subject,
+          teacher_id: slot.teacherId || slot.teacher_id,
+          teacher_name: slot.teacherName || slot.teacher_name,
+          draft_id: draft.id,
+          status: 'active',
+        };
+        // 只有当 id 存在且有效时才传入，否则让数据库自动生成
+        if (slot.id && typeof slot.id === 'string' && slot.id.trim() !== '') {
+          data.id = slot.id;
+        }
+        return data;
+      });
       
       const { error: slotsError } = await client
         .from('schedule_slots')
