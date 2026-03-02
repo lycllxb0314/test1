@@ -505,25 +505,27 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
         }];
       }
       
-      // 可选全校语文老师（道德与法治）- 本班老师优先
+      // 可选全校语文老师（道德与法治）- 本班老师优先，其次课时快要满足的
       case 'all_chinese': {
         const chineseGroup = teachers.find(g => g.subject === '语文');
         const filtered = (chineseGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
-        // 本班老师ID（班主任、副班主任、语文老师、数学老师）
+        // 本班老师ID（班主任、语文老师、数学老师）
         const priorityIds = new Set([
           selectedSlot?.headTeacherId,
           selectedSlot?.chineseTeacherId,
           selectedSlot?.mathTeacherId
         ].filter(Boolean));
-        // 排序：本班老师在前
+        // 排序：1.本班老师在前 2.剩余课时少的优先（快要满足课时）
         return filtered.sort((a, b) => {
           const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
           const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
-          return aIsPriority - bIsPriority;
+          if (aIsPriority !== bIsPriority) return aIsPriority - bIsPriority;
+          // 都是本班老师或都不是，按剩余课时升序（少的在前）
+          return a.remainingHours - b.remainingHours;
         });
       }
       
-      // 可选全校数学老师（科学）- 本班老师优先
+      // 可选全校数学老师（科学）- 本班老师优先，其次课时快要满足的
       case 'all_math': {
         const mathGroup = teachers.find(g => g.subject === '数学');
         const filtered = (mathGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
@@ -533,15 +535,16 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
           selectedSlot?.chineseTeacherId,
           selectedSlot?.mathTeacherId
         ].filter(Boolean));
-        // 排序：本班老师在前
+        // 排序：1.本班老师在前 2.剩余课时少的优先
         return filtered.sort((a, b) => {
           const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
           const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
-          return aIsPriority - bIsPriority;
+          if (aIsPriority !== bIsPriority) return aIsPriority - bIsPriority;
+          return a.remainingHours - b.remainingHours;
         });
       }
       
-      // 可选全校语数老师（校本、综合实践、劳动）- 本班老师优先
+      // 可选全校语数老师（校本、综合实践、劳动）- 本班老师优先，其次课时快要满足的
       case 'all_chinese_math': {
         const chineseGroup = teachers.find(g => g.subject === '语文');
         const mathGroup = teachers.find(g => g.subject === '数学');
@@ -553,19 +556,22 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
           selectedSlot?.chineseTeacherId,
           selectedSlot?.mathTeacherId
         ].filter(Boolean));
-        // 排序：本班老师在前
+        // 排序：1.本班老师在前 2.剩余课时少的优先
         return filtered.sort((a, b) => {
           const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
           const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
-          return aIsPriority - bIsPriority;
+          if (aIsPriority !== bIsPriority) return aIsPriority - bIsPriority;
+          return a.remainingHours - b.remainingHours;
         });
       }
       
-      // 默认：显示该学科所有教师
+      // 默认：显示该学科所有教师 - 课时快要满足的优先
       case 'all_subject':
       default: {
         const subjectGroup = teachers.find(g => g.subject === selectedSubject);
-        return (subjectGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+        const filtered = (subjectGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+        // 排序：剩余课时少的优先（快要满足课时）
+        return filtered.sort((a, b) => a.remainingHours - b.remainingHours);
       }
     }
   })();
