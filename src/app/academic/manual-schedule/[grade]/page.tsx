@@ -668,6 +668,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               });
               // 按课时降序排序
               const sortedSubjects = Object.entries(subjectCount).sort((a, b) => b[1] - a[1]);
+              const totalClassSlots = classSlots.length;
               
               return (
               <div 
@@ -683,9 +684,9 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                       {classIndex + 1}/{gradeClasses.length}
                     </span>
                     {/* 已排课时统计 */}
-                    {sortedSubjects.length > 0 && (
-                      <div className="flex items-center gap-1.5 ml-2">
-                        {sortedSubjects.map(([subject, count]) => {
+                    <div className="flex items-center gap-1.5 ml-2">
+                      {sortedSubjects.length > 0 ? (
+                        sortedSubjects.map(([subject, count]) => {
                           const colors = getSubjectColor(subject);
                           return (
                             <span 
@@ -695,9 +696,14 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                               {subject}{count}
                             </span>
                           );
-                        })}
-                      </div>
-                    )}
+                        })
+                      ) : (
+                        <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded">
+                          暂无排课
+                        </span>
+                      )}
+                      <span className="text-xs text-stone-400 ml-1">共{totalClassSlots}节</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-6 text-sm">
                     {cls.headTeacher && (
