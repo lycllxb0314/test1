@@ -7,10 +7,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, X, Clock, User, Sparkles } from 'lucide-react';
+import { Search, X, Clock, User, Sparkles, RefreshCw, Save, CheckCircle, FileText, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { useClasses } from '@/hooks/useClasses';
 
@@ -18,7 +28,7 @@ const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五'];
 const MORNING_PERIODS = ['第1节', '第2节', '第3节'];
 const AFTERNOON_PERIODS = ['第4节', '第5节', '第6节'];
 
-// 学科配色系统 - 柔和但有辨识度
+// 学科配色系统
 const SUBJECT_COLORS: Record<string, { bg: string; text: string; border: string; light: string }> = {
   '语文': { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-200', light: 'bg-amber-50' },
   '数学': { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-200', light: 'bg-sky-50' },
@@ -34,7 +44,6 @@ const SUBJECT_COLORS: Record<string, { bg: string; text: string; border: string;
   '自习': { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200', light: 'bg-gray-50' },
 };
 
-// 获取学科颜色
 const getSubjectColor = (subject: string) => {
   return SUBJECT_COLORS[subject] || { bg: 'bg-neutral-100', text: 'text-neutral-800', border: 'border-neutral-200', light: 'bg-neutral-50' };
 };
@@ -63,6 +72,14 @@ interface SlotData {
   period_index: number;
 }
 
+interface ScheduleStatus {
+  hasDraft: boolean;
+  draftUpdatedAt: string | null;
+  draftSlotsCount: number;
+  hasOfficial: boolean;
+  officialSlotsCount: number;
+}
+
 export default function GradeSchedulePage({ params }: { params: Promise<{ grade: string }> }) {
   const { grade: gradeParam } = use(params);
   const grade = parseInt(gradeParam);
@@ -70,6 +87,10 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   const [gradeClasses, setGradeClasses] = useState<any[]>([]);
   const [schedulesMap, setSchedulesMap] = useState<Map<string, SlotData[]>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<ScheduleStatus | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
   
   // 弹窗状态
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -97,6 +118,19 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     }
   }, [classesLoading, classes, grade, getClassesByGrade]);
 
+  // 加载状态
+  const loadStatus = async () => {
+    try {
+      const res = await fetch(`/api/academic/manual-schedule/status?grade=${grade}`);
+      const data = await res.json();
+      if (data.success) {
+        setStatus(data.data);
+      }
+    } catch (err) {
+      console.error('加载状态失败:', err);
+    }
+  };
+
   // 加载年级课表
   const loadGradeSchedule = useCallback(async () => {
     if (gradeClasses.length === 0) return;
@@ -122,6 +156,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
 
   useEffect(() => {
     loadGradeSchedule();
+    loadStatus();
   }, [loadGradeSchedule]);
 
   // 加载教师列表
@@ -199,6 +234,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
         setDialogOpen(false);
         loadGradeSchedule();
         loadTeachers();
+        loadStatus();
       } else {
         toast.error(data.error || '保存失败');
       }
@@ -225,10 +261,99 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
         setDialogOpen(false);
         loadGradeSchedule();
         loadTeachers();
+        loadStatus();
       }
     } catch (err) {
       console.error('清除失败:', err);
       toast.error('清除失败');
+    }
+  };
+
+  // 构建草稿数据
+  const buildScheduleData = () => {
+    return gradeClasses.map(cls => {
+      const slots = schedulesMap.get(cls.id) || [];
+      return {
+        classId: cls.id,
+        className: cls.name,
+        slots: slots.map(s => ({
+          subject: s.subject,
+          teacher_id: s.teacher_id,
+          teacher_name: s.teacher_name,
+          week_day: s.week_day,
+          period_index: s.period_index,
+        })),
+      };
+    });
+  };
+
+  // 刷新
+  const handleRefresh = async () => {
+    setLoading(true);
+    await Promise.all([loadGradeSchedule(), loadStatus()]);
+    toast.success('已刷新');
+  };
+
+  // 保存草稿
+  const handleSaveDraft = async () => {
+    setSaving(true);
+    try {
+      const scheduleData = buildScheduleData();
+      const res = await fetch('/api/academic/manual-schedule/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grade, scheduleData }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.success('草稿保存成功');
+        loadStatus();
+      } else {
+        toast.error(data.error || '保存失败');
+      }
+    } catch (err) {
+      console.error('保存草稿失败:', err);
+      toast.error('保存草稿失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 定稿
+  const handlePublish = async () => {
+    setPublishing(true);
+    try {
+      const scheduleData = buildScheduleData();
+      
+      if (scheduleData.every(c => c.slots.length === 0)) {
+        toast.error('请先安排课程');
+        setPublishing(false);
+        setShowPublishDialog(false);
+        return;
+      }
+      
+      const res = await fetch('/api/academic/manual-schedule/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grade, scheduleData }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.success(`课表定稿成功，共 ${data.data.slotsCount} 节课`);
+        setShowPublishDialog(false);
+        loadStatus();
+      } else {
+        toast.error(data.error || '定稿失败');
+      }
+    } catch (err) {
+      console.error('定稿失败:', err);
+      toast.error('定稿失败');
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -250,6 +375,9 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     return true;
   };
 
+  // 计算已安排课程数
+  const totalSlots = Array.from(schedulesMap.values()).reduce((acc, slots) => acc + slots.length, 0);
+
   // 获取年级中文数字
   const gradeChinese = ['一', '二', '三', '四', '五', '六'][grade - 1];
 
@@ -265,12 +393,63 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               </div>
               <div>
                 <h1 className="text-xl font-bold text-stone-900 tracking-tight">{gradeChinese}年级课程表</h1>
-                <p className="text-sm text-stone-500">点击课表格子安排课程 · 共 {gradeClasses.length} 个班级</p>
+                <p className="text-sm text-stone-500">
+                  共 {gradeClasses.length} 个班级 · 已安排 {totalSlots} 节课
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-stone-500 bg-stone-50 px-4 py-2 rounded-full">
-              <Clock className="w-4 h-4" />
-              <span>上下午分界</span>
+            
+            {/* 操作按钮 */}
+            <div className="flex items-center gap-3">
+              {/* 状态指示 */}
+              {status && (
+                <div className="flex items-center gap-4 text-sm mr-4">
+                  {status.hasDraft && (
+                    <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>有草稿 ({status.draftSlotsCount}节)</span>
+                    </div>
+                  )}
+                  {status.hasOfficial && (
+                    <div className="flex items-center gap-1.5 text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
+                      <Database className="w-3.5 h-3.5" />
+                      <span>已定稿 ({status.officialSlotsCount}节)</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="gap-1.5"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                刷新
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSaveDraft}
+                disabled={saving || totalSlots === 0}
+                className="gap-1.5 border-amber-200 text-amber-700 hover:bg-amber-50"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? '保存中...' : '保存草稿'}
+              </Button>
+              
+              <Button
+                size="sm"
+                onClick={() => setShowPublishDialog(true)}
+                disabled={publishing || totalSlots === 0}
+                className="gap-1.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
+              >
+                <CheckCircle className="w-4 h-4" />
+                {publishing ? '定稿中...' : '定稿'}
+              </Button>
             </div>
           </div>
         </div>
@@ -552,7 +731,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                   </div>
                 ) : (
                   <div>
-                    {filteredTeachers.map((teacher, index) => {
+                    {filteredTeachers.map((teacher) => {
                       const colors = getSubjectColor(teacher.subject);
                       const isDisabled = teacher.remainingHours <= 0;
                       return (
@@ -603,6 +782,30 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 定稿确认弹窗 */}
+      <AlertDialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认定稿？</AlertDialogTitle>
+            <AlertDialogDescription>
+              定稿后将覆盖该年级现有的正式课表，所有班级的排课数据将生效。
+              <br /><br />
+              当前已安排 <span className="font-bold text-stone-900">{totalSlots}</span> 节课程。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePublish}
+              disabled={publishing}
+              className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
+            >
+              {publishing ? '定稿中...' : '确认定稿'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
