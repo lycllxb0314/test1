@@ -41,8 +41,41 @@ const SUBJECT_COLORS: Record<string, { bg: string; text: string; border: string;
   '道德与法治': { bg: 'bg-violet-100', text: 'text-violet-800', border: 'border-violet-200', light: 'bg-violet-50' },
   '信息技术': { bg: 'bg-cyan-100', text: 'text-cyan-800', border: 'border-cyan-200', light: 'bg-cyan-50' },
   '综合实践': { bg: 'bg-stone-100', text: 'text-stone-800', border: 'border-stone-200', light: 'bg-stone-50' },
+  '劳动': { bg: 'bg-lime-100', text: 'text-lime-800', border: 'border-lime-200', light: 'bg-lime-50' },
+  '书法': { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200', light: 'bg-pink-50' },
+  '校本': { bg: 'bg-indigo-100', text: 'text-indigo-800', border: 'border-indigo-200', light: 'bg-indigo-50' },
   '班会': { bg: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-200', light: 'bg-slate-50' },
   '自习': { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200', light: 'bg-gray-50' },
+};
+
+// 科目显示顺序（语文数学优先）
+const SUBJECT_ORDER = [
+  '语文', '数学',
+  '英语', '科学', '道德与法治',
+  '音乐', '美术', '体育',
+  '信息技术', '书法', '劳动', '综合实践', '校本',
+  '班会', '自习'
+];
+
+// 科目特殊规则类型
+type SubjectRule = 
+  | 'chinese_only'      // 只能选本班语文老师（语文、书法）
+  | 'math_only'         // 只能选本班数学老师（数学）
+  | 'all_chinese'       // 可选全校语文老师（道德与法治）
+  | 'all_math'          // 可选全校数学老师（科学）
+  | 'all_chinese_math'  // 可选全校语数老师（校本、综合实践、劳动）
+  | 'all_subject';      // 可选该学科全校老师（其他学科）
+
+// 科目规则映射
+const SUBJECT_RULES: Record<string, SubjectRule> = {
+  '语文': 'chinese_only',
+  '数学': 'math_only',
+  '书法': 'chinese_only',           // 书法只能选本班语文老师
+  '道德与法治': 'all_chinese',      // 道德与法治可选全校语文老师
+  '科学': 'all_math',               // 科学可选全校数学老师
+  '校本': 'all_chinese_math',       // 校本可选全校语数老师
+  '综合实践': 'all_chinese_math',   // 综合实践可选全校语数老师
+  '劳动': 'all_chinese_math',       // 劳动可选全校语数老师
 };
 
 const getSubjectColor = (subject: string) => {
@@ -405,53 +438,75 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     }
   };
 
-  // 筛选教师（语文数学只能选本班老师）
+  // 筛选教师（根据科目规则）
   const filteredTeachers = (() => {
-    // 先按学科筛选
-    const subjectGroups = teachers.filter(g => !selectedSubject || g.subject === selectedSubject);
+    if (!selectedSubject) return [];
     
-    // 如果选的是语文，只显示本班语文老师
-    if (selectedSubject === '语文' && selectedSlot?.chineseTeacherId) {
-      // 从教师列表中获取课时信息
-      const chineseGroup = teachers.find(g => g.subject === '语文');
-      const teacherInfo = chineseGroup?.teachers.find(t => t.id === selectedSlot.chineseTeacherId);
-      if (teacherInfo) {
-        return [teacherInfo];
+    const rule = SUBJECT_RULES[selectedSubject] || 'all_subject';
+    
+    // 获取本班语数老师信息
+    const getClassTeacher = (type: 'chinese' | 'math') => {
+      const teacherId = type === 'chinese' ? selectedSlot?.chineseTeacherId : selectedSlot?.mathTeacherId;
+      const teacherName = type === 'chinese' ? selectedSlot?.chineseTeacherName : selectedSlot?.mathTeacherName;
+      const subject = type === 'chinese' ? '语文' : '数学';
+      const subjectGroup = teachers.find(g => g.subject === subject);
+      const teacherInfo = subjectGroup?.teachers.find(t => t.id === teacherId);
+      
+      if (teacherInfo) return teacherInfo;
+      if (teacherId) {
+        return {
+          id: teacherId,
+          name: teacherName || '未知',
+          subject,
+          maxHours: 16,
+          usedHours: 0,
+          remainingHours: 16,
+        };
       }
-      // 如果教师列表中没有，用班级信息构造
-      return [{
-        id: selectedSlot.chineseTeacherId,
-        name: selectedSlot.chineseTeacherName || '未知',
-        subject: '语文',
-        maxHours: 16,
-        usedHours: 0,
-        remainingHours: 16,
-      }];
-    }
+      return null;
+    };
     
-    // 如果选的是数学，只显示本班数学老师
-    if (selectedSubject === '数学' && selectedSlot?.mathTeacherId) {
-      // 从教师列表中获取课时信息
-      const mathGroup = teachers.find(g => g.subject === '数学');
-      const teacherInfo = mathGroup?.teachers.find(t => t.id === selectedSlot.mathTeacherId);
-      if (teacherInfo) {
-        return [teacherInfo];
+    // 根据规则筛选教师
+    switch (rule) {
+      // 只能选本班语文老师（语文、书法）
+      case 'chinese_only': {
+        const teacher = getClassTeacher('chinese');
+        return teacher ? [teacher] : [];
       }
-      // 如果教师列表中没有，用班级信息构造
-      return [{
-        id: selectedSlot.mathTeacherId,
-        name: selectedSlot.mathTeacherName || '未知',
-        subject: '数学',
-        maxHours: 16,
-        usedHours: 0,
-        remainingHours: 16,
-      }];
+      
+      // 只能选本班数学老师（数学）
+      case 'math_only': {
+        const teacher = getClassTeacher('math');
+        return teacher ? [teacher] : [];
+      }
+      
+      // 可选全校语文老师（道德与法治）
+      case 'all_chinese': {
+        const chineseGroup = teachers.find(g => g.subject === '语文');
+        return (chineseGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+      }
+      
+      // 可选全校数学老师（科学）
+      case 'all_math': {
+        const mathGroup = teachers.find(g => g.subject === '数学');
+        return (mathGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+      }
+      
+      // 可选全校语数老师（校本、综合实践、劳动）
+      case 'all_chinese_math': {
+        const chineseGroup = teachers.find(g => g.subject === '语文');
+        const mathGroup = teachers.find(g => g.subject === '数学');
+        const allTeachers = [...(chineseGroup?.teachers || []), ...(mathGroup?.teachers || [])];
+        return allTeachers.filter(t => !searchQuery || t.name.includes(searchQuery));
+      }
+      
+      // 默认：显示该学科所有教师
+      case 'all_subject':
+      default: {
+        const subjectGroup = teachers.find(g => g.subject === selectedSubject);
+        return (subjectGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+      }
     }
-    
-    // 其他学科：显示所有该学科教师
-    return subjectGroups
-      .flatMap(g => g.teachers)
-      .filter(t => !searchQuery || t.name.includes(searchQuery) || t.subject.includes(searchQuery));
   })();
 
   // 获取时段显示名称
@@ -775,54 +830,67 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
           {/* 横向布局主体 */}
           <div className="flex flex-1 h-[calc(85vh-88px)]">
             {/* 左侧 - 科目选择 */}
-            <div className="w-80 border-r border-stone-200 bg-stone-50/50 p-6 flex flex-col">
-              <label className="text-base font-bold text-stone-800 mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-500" />
+            <div className="w-72 border-r border-stone-200 bg-stone-50/50 p-4 flex flex-col">
+              <label className="text-sm font-bold text-stone-800 mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
                 选择科目
               </label>
-              <div className="grid grid-cols-2 gap-3 flex-1 overflow-y-auto">
-                {teachers.map(g => {
-                  const colors = getSubjectColor(g.subject);
-                  const isSelected = selectedSubject === g.subject;
-                  const isRestricted = g.subject === '语文' || g.subject === '数学';
+              <div className="grid grid-cols-3 gap-2 flex-1 overflow-y-auto content-start">
+                {/* 按顺序显示科目 */}
+                {SUBJECT_ORDER.map(subject => {
+                  const colors = getSubjectColor(subject);
+                  const isSelected = selectedSubject === subject;
+                  const rule = SUBJECT_RULES[subject];
+                  // 标记需要特殊处理的科目
+                  const isRestricted = rule === 'chinese_only' || rule === 'math_only';
                   
                   return (
                     <button
-                      key={g.subject}
-                      onClick={() => setSelectedSubject(isSelected ? '' : g.subject)}
-                      className={`px-4 py-4 rounded-xl text-base font-semibold transition-all duration-200 border-2 relative ${
+                      key={subject}
+                      onClick={() => setSelectedSubject(isSelected ? '' : subject)}
+                      className={`px-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border relative ${
                         isSelected
-                          ? `${colors.bg} ${colors.text} ${colors.border} shadow-lg scale-[1.02]`
-                          : 'bg-white text-stone-600 border-stone-200 hover:border-stone-300 hover:bg-stone-50 hover:shadow'
+                          ? `${colors.bg} ${colors.text} ${colors.border} shadow-md`
+                          : 'bg-white text-stone-600 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
                       }`}
                     >
-                      {g.subject}
+                      <span className="truncate block">{subject}</span>
                       {isRestricted && (
-                        <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-white shadow" title="限本班教师" />
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white shadow" title="限本班教师" />
                       )}
                     </button>
                   );
                 })}
               </div>
-              {/* 提示语文数学限制 */}
-              {selectedSubject === '语文' && selectedSlot?.chineseTeacherName && (
-                <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center gap-2 text-amber-700 text-sm">
-                  <User className="w-4 h-4" />
-                  <span>语文老师：<strong>{selectedSlot.chineseTeacherName}</strong></span>
+              {/* 提示信息 */}
+              {selectedSubject && SUBJECT_RULES[selectedSubject] === 'chinese_only' && selectedSlot?.chineseTeacherName && (
+                <div className="mt-3 p-2.5 bg-amber-50 rounded-lg border border-amber-200 flex items-center gap-2 text-amber-700 text-xs">
+                  <User className="w-3.5 h-3.5" />
+                  <span>本班老师：<strong>{selectedSlot.chineseTeacherName}</strong></span>
                 </div>
               )}
-              {selectedSubject === '数学' && selectedSlot?.mathTeacherName && (
-                <div className="mt-4 p-3 bg-sky-50 rounded-xl border border-sky-200 flex items-center gap-2 text-sky-700 text-sm">
-                  <User className="w-4 h-4" />
-                  <span>数学老师：<strong>{selectedSlot.mathTeacherName}</strong></span>
+              {selectedSubject && SUBJECT_RULES[selectedSubject] === 'math_only' && selectedSlot?.mathTeacherName && (
+                <div className="mt-3 p-2.5 bg-sky-50 rounded-lg border border-sky-200 flex items-center gap-2 text-sky-700 text-xs">
+                  <User className="w-3.5 h-3.5" />
+                  <span>本班老师：<strong>{selectedSlot.mathTeacherName}</strong></span>
+                </div>
+              )}
+              {selectedSubject && (SUBJECT_RULES[selectedSubject] === 'all_chinese' || SUBJECT_RULES[selectedSubject] === 'all_math' || SUBJECT_RULES[selectedSubject] === 'all_chinese_math') && (
+                <div className="mt-3 p-2.5 bg-stone-100 rounded-lg border border-stone-200 flex items-center gap-2 text-stone-600 text-xs">
+                  <User className="w-3.5 h-3.5" />
+                  <span>
+                    {SUBJECT_RULES[selectedSubject] === 'all_chinese' && '可选全校语文老师'}
+                    {SUBJECT_RULES[selectedSubject] === 'all_math' && '可选全校数学老师'}
+                    {SUBJECT_RULES[selectedSubject] === 'all_chinese_math' && '可选全校语数老师'}
+                  </span>
                 </div>
               )}
             </div>
             
             {/* 右侧 - 教师选择 */}
             <div className="flex-1 flex flex-col bg-white min-h-0">
-              {/* 搜索栏 */}
-              {selectedSubject && selectedSubject !== '语文' && selectedSubject !== '数学' && (
+              {/* 搜索栏 - 非限制科目才显示 */}
+              {selectedSubject && !['chinese_only', 'math_only'].includes(SUBJECT_RULES[selectedSubject] || '') && (
                 <div className="p-4 border-b border-stone-200 shrink-0">
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
@@ -860,7 +928,11 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                       {filteredTeachers.map((teacher) => {
                         const colors = getSubjectColor(teacher.subject);
                         const isDisabled = teacher.remainingHours <= 0;
-                        const isClassTeacher = selectedSubject === '语文' || selectedSubject === '数学';
+                        // 判断是否显示"本班"标记
+                        const rule = SUBJECT_RULES[selectedSubject];
+                        const isClassTeacher = rule === 'chinese_only' || rule === 'math_only';
+                        // 判断是否是本班的班主任/副班主任
+                        const isThisClassTeacher = teacher.id === selectedSlot?.chineseTeacherId || teacher.id === selectedSlot?.mathTeacherId;
                         
                         return (
                           <button
@@ -880,7 +952,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                               <div className="min-w-0 flex-1">
                                 <div className="text-base font-bold text-stone-800 flex items-center gap-2 truncate">
                                   {teacher.name}
-                                  {isClassTeacher && (
+                                  {isThisClassTeacher && (
                                     <span className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded-full shrink-0">本班</span>
                                   )}
                                 </div>
