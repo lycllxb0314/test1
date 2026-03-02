@@ -836,12 +836,12 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                 </div>
               )}
               
-              {/* 教师卡片网格 */}
+              {/* 教师列表 */}
               {selectedSubject ? (
                 <ScrollArea className="flex-1">
                   {loadingTeachers ? (
                     <div className="flex flex-col items-center justify-center h-64 text-stone-400">
-                      <div className="w-12 h-12 border-3 border-stone-200 border-t-amber-500 rounded-full animate-spin mb-3" />
+                      <div className="w-10 h-10 border-3 border-stone-200 border-t-amber-500 rounded-full animate-spin mb-3" />
                       <span className="text-base">加载教师数据...</span>
                     </div>
                   ) : filteredTeachers.length === 0 ? (
@@ -856,7 +856,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                       </span>
                     </div>
                   ) : (
-                    <div className="p-6 grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="p-4 space-y-2">
                       {filteredTeachers.map((teacher) => {
                         const colors = getSubjectColor(teacher.subject);
                         const isDisabled = teacher.remainingHours <= 0;
@@ -867,40 +867,36 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                             key={teacher.id}
                             onClick={() => handleSelectTeacher(teacher)}
                             disabled={isDisabled}
-                            className={`p-6 text-left transition-all duration-200 rounded-2xl flex flex-col items-center text-center ${
+                            className={`w-full p-4 text-left transition-all duration-200 rounded-xl flex items-center justify-between gap-4 ${
                               isDisabled 
-                                ? 'opacity-40 cursor-not-allowed bg-stone-100 border-2 border-stone-200' 
-                                : 'bg-white hover:bg-gradient-to-br hover:from-amber-50 hover:to-orange-50 hover:shadow-xl border-2 border-stone-200 hover:border-amber-300'
+                                ? 'opacity-40 cursor-not-allowed bg-stone-100 border border-stone-200' 
+                                : 'bg-white hover:bg-amber-50 hover:shadow-md border border-stone-200 hover:border-amber-300'
                             }`}
                           >
-                            {/* 头像 */}
-                            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg mb-4 ${colors.bg} ${colors.text}`}>
-                              {teacher.name.slice(0, 1)}
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm shrink-0 ${colors.bg} ${colors.text}`}>
+                                {teacher.name.slice(0, 1)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-base font-bold text-stone-800 flex items-center gap-2 truncate">
+                                  {teacher.name}
+                                  {isClassTeacher && (
+                                    <span className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded-full shrink-0">本班</span>
+                                  )}
+                                </div>
+                                <div className="text-sm text-stone-500 truncate">{teacher.subject}教师</div>
+                              </div>
                             </div>
-                            {/* 姓名 */}
-                            <div className="text-xl font-bold text-stone-800 flex items-center justify-center gap-2 mb-1">
-                              {teacher.name}
-                              {isClassTeacher && (
-                                <span className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded-full">本班</span>
-                              )}
-                            </div>
-                            {/* 学科 */}
-                            <div className="text-sm text-stone-500 mb-4">{teacher.subject}教师</div>
-                            {/* 课时信息 */}
-                            <div className="w-full bg-stone-100 rounded-xl p-3 flex items-center justify-between">
-                              <div className="text-center">
-                                <div className={`text-2xl font-bold ${teacher.remainingHours > 0 ? 'text-stone-700' : 'text-red-500'}`}>
+                            <div className="flex items-center gap-4 shrink-0">
+                              <div className="text-right">
+                                <div className={`text-base font-bold ${teacher.remainingHours > 0 ? 'text-stone-700' : 'text-red-500'}`}>
                                   {teacher.usedHours}/{teacher.maxHours}
                                 </div>
-                                <div className="text-xs text-stone-500 mt-0.5">已用/总课时</div>
+                                <div className={`text-xs font-medium ${teacher.remainingHours > 0 ? 'text-green-600' : 'text-red-400'}`}>
+                                  {teacher.remainingHours > 0 ? `剩余${teacher.remainingHours}节` : '已满'}
+                                </div>
                               </div>
-                              <div className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
-                                teacher.remainingHours > 0 
-                                  ? 'bg-green-100 text-green-700' 
-                                  : 'bg-red-100 text-red-600'
-                              }`}>
-                                {teacher.remainingHours > 0 ? `剩余 ${teacher.remainingHours} 节` : '课时已满'}
-                              </div>
+                              <div className={`w-2 h-8 rounded-full ${teacher.remainingHours > 0 ? 'bg-green-400' : 'bg-red-300'}`} />
                             </div>
                           </button>
                         );
