@@ -122,6 +122,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     // 班主任信息（用于班会课）
     headTeacherId?: string;
     headTeacherName?: string;
+    // 本班已安排的教师（按科目分组）用于优先推荐
+    classTeacherBySubject?: Record<string, { id: string; name: string }[]>;
   } | null>(null);
   
   // 教师搜索
@@ -250,6 +252,21 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       mathTeacherName = cls.subTeacherName;
     }
     
+    // 获取该班级已安排的教师（按科目分组）用于优先推荐
+    const classSlots = schedulesMap.get(cls.id) || [];
+    const classTeacherBySubject: Record<string, { id: string; name: string }[]> = {};
+    classSlots.forEach(s => {
+      if (s.teacher_id && s.teacher_name) {
+        if (!classTeacherBySubject[s.subject]) {
+          classTeacherBySubject[s.subject] = [];
+        }
+        // 避免重复
+        if (!classTeacherBySubject[s.subject].find(t => t.id === s.teacher_id)) {
+          classTeacherBySubject[s.subject].push({ id: s.teacher_id, name: s.teacher_name });
+        }
+      }
+    });
+    
     setSelectedSlot({
       classId: cls.id,
       className: cls.name,
@@ -264,6 +281,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       mathTeacherName,
       headTeacherId: cls.headTeacherId,
       headTeacherName: cls.headTeacherName,
+      classTeacherBySubject,  // 本班已安排的教师（按科目分组）
     });
     setSearchQuery('');
     setSelectedSubject(slot?.subject || '');
@@ -525,13 +543,23 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
         });
       }
       
-      // 默认：显示该学科所有教师 - 课时快要满足的优先
+      // 默认：显示该学科所有教师 - 本班已排老师优先，其次课时快要满足的
       case 'all_subject':
       default: {
         const subjectGroup = teachers.find(g => g.subject === selectedSubject);
         const filtered = (subjectGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
-        // 排序：剩余课时少的优先（快要满足课时）
-        return filtered.sort((a, b) => a.remainingHours - b.remainingHours);
+        
+        // 获取本班已安排过该科目的教师ID
+        const classTeachersForSubject = selectedSlot?.classTeacherBySubject?.[selectedSubject] || [];
+        const classTeacherIds = new Set(classTeachersForSubject.map(t => t.id));
+        
+        // 排序：1.本班已排该科目的老师优先 2.剩余课时少的优先
+        return filtered.sort((a, b) => {
+          const aIsClassTeacher = classTeacherIds.has(a.id) ? 0 : 1;
+          const bIsClassTeacher = classTeacherIds.has(b.id) ? 0 : 1;
+          if (aIsClassTeacher !== bIsClassTeacher) return aIsClassTeacher - bIsClassTeacher;
+          return a.remainingHours - b.remainingHours;
+        });
       }
     }
   })();
@@ -631,7 +659,17 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
           </div>
         ) : (
           <div className="space-y-8">
-            {gradeClasses.map((cls, classIndex) => (
+            {gradeClasses.map((cls, classIndex) => {
+              // 计算该班级各学科已排课时
+              const classSlots = schedulesMap.get(cls.id) || [];
+              const subjectCount: Record<string, number> = {};
+              classSlots.forEach(s => {
+                subjectCount[s.subject] = (subjectCount[s.subject] || 0) + 1;
+              });
+              // 按课时降序排序
+              const sortedSubjects = Object.entries(subjectCount).sort((a, b) => b[1] - a[1]);
+              
+              return (
               <div 
                 key={cls.id} 
                 className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-lg hover:border-stone-200 transition-all duration-300"
@@ -644,6 +682,22 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                     <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                       {classIndex + 1}/{gradeClasses.length}
                     </span>
+                    {/* 已排课时统计 */}
+                    {sortedSubjects.length > 0 && (
+                      <div className="flex items-center gap-1.5 ml-2">
+                        {sortedSubjects.map(([subject, count]) => {
+                          const colors = getSubjectColor(subject);
+                          return (
+                            <span 
+                              key={subject}
+                              className={`text-xs px-2 py-0.5 rounded ${colors.bg} ${colors.text}`}
+                            >
+                              {subject}{count}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-6 text-sm">
                     {cls.headTeacher && (
@@ -799,7 +853,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -961,6 +1016,9 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                         const isClassTeacher = rule === 'chinese_only' || rule === 'math_only';
                         // 判断是否是本班的班主任/副班主任
                         const isThisClassTeacher = teacher.id === selectedSlot?.chineseTeacherId || teacher.id === selectedSlot?.mathTeacherId || teacher.id === selectedSlot?.headTeacherId;
+                        // 判断是否是本班已排过该科目的老师（用于技能科优先推荐）
+                        const classTeachersForSubject = selectedSlot?.classTeacherBySubject?.[selectedSubject] || [];
+                        const isClassSubjectTeacher = classTeachersForSubject.some(t => t.id === teacher.id);
                         // 获取跨年级任职信息（排除当前年级）
                         const otherGradeAssignments = (teacher.gradeAssignments || []).filter(g => g.grade !== grade);
                         
@@ -985,6 +1043,9 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                                     {teacher.name}
                                     {isThisClassTeacher && (
                                       <span className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded-full shrink-0">本班</span>
+                                    )}
+                                    {isClassSubjectTeacher && !isThisClassTeacher && (
+                                      <span className="text-xs font-semibold text-white bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-0.5 rounded-full shrink-0">已排</span>
                                     )}
                                   </div>
                                   <div className="text-sm text-stone-500 truncate">{teacher.subject}教师</div>
