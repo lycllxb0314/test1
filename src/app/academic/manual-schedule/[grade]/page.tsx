@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, use } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -9,16 +8,36 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, X } from 'lucide-react';
+import { Search, X, Clock, User, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useClasses } from '@/hooks/useClasses';
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五'];
 const MORNING_PERIODS = ['第1节', '第2节', '第3节'];
 const AFTERNOON_PERIODS = ['第4节', '第5节', '第6节'];
+
+// 学科配色系统 - 柔和但有辨识度
+const SUBJECT_COLORS: Record<string, { bg: string; text: string; border: string; light: string }> = {
+  '语文': { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-200', light: 'bg-amber-50' },
+  '数学': { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-200', light: 'bg-sky-50' },
+  '英语': { bg: 'bg-teal-100', text: 'text-teal-800', border: 'border-teal-200', light: 'bg-teal-50' },
+  '科学': { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200', light: 'bg-emerald-50' },
+  '音乐': { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-200', light: 'bg-rose-50' },
+  '美术': { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-200', light: 'bg-orange-50' },
+  '体育': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200', light: 'bg-green-50' },
+  '道德与法治': { bg: 'bg-violet-100', text: 'text-violet-800', border: 'border-violet-200', light: 'bg-violet-50' },
+  '信息技术': { bg: 'bg-cyan-100', text: 'text-cyan-800', border: 'border-cyan-200', light: 'bg-cyan-50' },
+  '综合实践': { bg: 'bg-stone-100', text: 'text-stone-800', border: 'border-stone-200', light: 'bg-stone-50' },
+  '班会': { bg: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-200', light: 'bg-slate-50' },
+  '自习': { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200', light: 'bg-gray-50' },
+};
+
+// 获取学科颜色
+const getSubjectColor = (subject: string) => {
+  return SUBJECT_COLORS[subject] || { bg: 'bg-neutral-100', text: 'text-neutral-800', border: 'border-neutral-200', light: 'bg-neutral-50' };
+};
 
 interface TeacherInfo {
   id: string;
@@ -231,199 +250,354 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     return true;
   };
 
+  // 获取年级中文数字
+  const gradeChinese = ['一', '二', '三', '四', '五', '六'][grade - 1];
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{grade}年级排课</h1>
-        <p className="text-sm text-muted-foreground">点击课表格子安排课程</p>
+    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-white">
+      {/* 页面头部 */}
+      <div className="bg-white border-b border-stone-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-200">
+                <span className="text-white font-bold text-lg">{gradeChinese}</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-stone-900 tracking-tight">{gradeChinese}年级课程表</h1>
+                <p className="text-sm text-stone-500">点击课表格子安排课程 · 共 {gradeClasses.length} 个班级</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-stone-500 bg-stone-50 px-4 py-2 rounded-full">
+              <Clock className="w-4 h-4" />
+              <span>上下午分界</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {(classesLoading || loading) ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">加载中...</div>
-      ) : (
-        <div className="space-y-6">
-          {gradeClasses.map(cls => (
-            <Card key={cls.id} className="overflow-hidden border shadow-sm">
-              <CardHeader className="bg-slate-50 dark:bg-slate-900/50 py-3 px-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">{cls.name}</CardTitle>
-                  <div className="flex items-center gap-4 text-sm">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {(classesLoading || loading) ? (
+          <div className="flex flex-col items-center justify-center py-20 text-stone-400">
+            <div className="w-12 h-12 border-4 border-stone-200 border-t-amber-500 rounded-full animate-spin mb-4" />
+            <span>加载课表数据...</span>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {gradeClasses.map((cls, classIndex) => (
+              <div 
+                key={cls.id} 
+                className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-lg hover:border-stone-200 transition-all duration-300"
+                style={{ animationDelay: `${classIndex * 50}ms` }}
+              >
+                {/* 班级标题栏 */}
+                <div className="px-5 py-3.5 bg-gradient-to-r from-stone-50 to-white border-b border-stone-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-stone-800">{cls.name}</span>
+                    <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
+                      {classIndex + 1}/{gradeClasses.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-6 text-sm">
                     {cls.headTeacher && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">班主任</span>
-                        <Badge variant="outline" className="font-normal">{cls.headTeacherName}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          ({cls.headTeacher?.subject || '语文'})
+                      <div className="flex items-center gap-2">
+                        <span className="text-stone-400">班主任</span>
+                        <span className="font-medium text-stone-700">{cls.headTeacherName}</span>
+                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                          {cls.headTeacher?.subject || '语文'}
                         </span>
                       </div>
                     )}
                     {cls.subTeacher && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">副班</span>
-                        <Badge variant="outline" className="font-normal">{cls.subTeacherName}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          ({cls.subTeacher?.subject || '数学'})
+                      <div className="flex items-center gap-2">
+                        <span className="text-stone-400">副班</span>
+                        <span className="font-medium text-stone-700">{cls.subTeacherName}</span>
+                        <span className="text-xs text-sky-600 bg-sky-50 px-2 py-0.5 rounded">
+                          {cls.subTeacher?.subject || '数学'}
                         </span>
                       </div>
                     )}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-slate-50/50 dark:bg-slate-900/30">
-                      <th className="border-b border-r w-16 py-2 text-center font-medium text-muted-foreground">节次</th>
-                      {WEEKDAYS.map((day, i) => (
-                        <th key={day} className="border-b py-2 text-center font-medium text-muted-foreground">
-                          {day}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[0, 1, 2, 3, 4, 5].map(periodIdx => (
-                      <tr key={periodIdx} className={periodIdx === 3 ? 'border-t-2 border-t-slate-200 dark:border-t-slate-700' : ''}>
-                        <td className="border-r py-1 text-center text-xs text-muted-foreground bg-slate-50/30 dark:bg-slate-900/20">
-                          {getPeriodDisplay(periodIdx)}
-                        </td>
+                
+                {/* 课表网格 */}
+                <div className="p-4">
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {/* 表头 */}
+                    <div className="h-10"></div>
+                    {WEEKDAYS.map((day) => (
+                      <div key={day} className="h-10 flex items-center justify-center text-sm font-semibold text-stone-600 bg-stone-50 rounded-lg">
+                        {day}
+                      </div>
+                    ))}
+                    
+                    {/* 上午课程 */}
+                    {[0, 1, 2].map((periodIdx) => (
+                      <div key={`row-${periodIdx}`} className="contents">
+                        <div className="h-14 flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="text-xs text-stone-400 mb-0.5">上午</div>
+                            <div className="text-sm font-medium text-stone-600">{periodIdx + 1}</div>
+                          </div>
+                        </div>
                         {WEEKDAYS.map((_, dayIdx) => {
                           const slot = getSlot(cls.id, dayIdx, periodIdx);
                           const available = isSlotAvailable(dayIdx, periodIdx);
+                          const colors = slot ? getSubjectColor(slot.subject) : null;
                           
                           return (
-                            <td
-                              key={dayIdx}
-                              className={`h-10 border-b ${available ? 'cursor-pointer hover:bg-primary/5 transition-colors' : 'bg-slate-100/50 dark:bg-slate-900/30'}`}
+                            <div
+                              key={`${dayIdx}-${periodIdx}`}
+                              className={`h-14 rounded-xl transition-all duration-200 ${
+                                available 
+                                  ? 'cursor-pointer hover:scale-[1.02] hover:z-10' 
+                                  : 'bg-stone-50/50'
+                              } ${
+                                slot 
+                                  ? `${colors?.bg} ${colors?.border} border shadow-sm hover:shadow-md` 
+                                  : available 
+                                    ? 'bg-stone-50/50 hover:bg-stone-100 border border-transparent hover:border-stone-200' 
+                                    : ''
+                              }`}
                               onClick={() => available && handleSlotClick(cls.id, cls.name, dayIdx, periodIdx)}
                             >
                               {available && (
-                                <div className="h-full flex flex-col items-center justify-center">
+                                <div className="h-full flex flex-col items-center justify-center px-1">
                                   {slot ? (
                                     <>
-                                      <span className="font-medium text-sm">{slot.subject}</span>
+                                      <span className={`text-sm font-semibold ${colors?.text} truncate max-w-full`}>
+                                        {slot.subject}
+                                      </span>
                                       {slot.teacher_name && (
-                                        <span className="text-xs text-muted-foreground">{slot.teacher_name}</span>
+                                        <span className="text-xs text-stone-500 truncate max-w-full mt-0.5">
+                                          {slot.teacher_name}
+                                        </span>
                                       )}
                                     </>
                                   ) : (
-                                    <span className="text-xs text-slate-300 dark:text-slate-600">+</span>
+                                    <div className="w-6 h-6 rounded-full border-2 border-dashed border-stone-200 flex items-center justify-center text-stone-300 text-lg font-light hover:border-amber-300 hover:text-amber-400 transition-colors">
+                                      +
+                                    </div>
                                   )}
                                 </div>
                               )}
-                            </td>
+                            </div>
                           );
                         })}
-                      </tr>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                    
+                    {/* 午休分隔 */}
+                    <div className="col-span-6 h-6 flex items-center justify-center">
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent"></div>
+                      <span className="px-3 text-xs text-stone-400 mx-2">午休</span>
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent"></div>
+                    </div>
+                    
+                    {/* 下午课程 */}
+                    {[3, 4, 5].map((periodIdx) => (
+                      <div key={`row-${periodIdx}`} className="contents">
+                        <div className="h-14 flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="text-xs text-stone-400 mb-0.5">下午</div>
+                            <div className="text-sm font-medium text-stone-600">{periodIdx + 1}</div>
+                          </div>
+                        </div>
+                        {WEEKDAYS.map((_, dayIdx) => {
+                          const slot = getSlot(cls.id, dayIdx, periodIdx);
+                          const available = isSlotAvailable(dayIdx, periodIdx);
+                          const colors = slot ? getSubjectColor(slot.subject) : null;
+                          
+                          return (
+                            <div
+                              key={`${dayIdx}-${periodIdx}`}
+                              className={`h-14 rounded-xl transition-all duration-200 ${
+                                available 
+                                  ? 'cursor-pointer hover:scale-[1.02] hover:z-10' 
+                                  : 'bg-stone-50/50'
+                              } ${
+                                slot 
+                                  ? `${colors?.bg} ${colors?.border} border shadow-sm hover:shadow-md` 
+                                  : available 
+                                    ? 'bg-stone-50/50 hover:bg-stone-100 border border-transparent hover:border-stone-200' 
+                                    : ''
+                              }`}
+                              onClick={() => available && handleSlotClick(cls.id, cls.name, dayIdx, periodIdx)}
+                            >
+                              {available && (
+                                <div className="h-full flex flex-col items-center justify-center px-1">
+                                  {slot ? (
+                                    <>
+                                      <span className={`text-sm font-semibold ${colors?.text} truncate max-w-full`}>
+                                        {slot.subject}
+                                      </span>
+                                      {slot.teacher_name && (
+                                        <span className="text-xs text-stone-500 truncate max-w-full mt-0.5">
+                                          {slot.teacher_name}
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full border-2 border-dashed border-stone-200 flex items-center justify-center text-stone-300 text-lg font-light hover:border-amber-300 hover:text-amber-400 transition-colors">
+                                      +
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 选课弹窗 */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-base">
-              {selectedSlot?.className} · {selectedSlot && WEEKDAYS[selectedSlot.weekDay]} {selectedSlot && getPeriodDisplay(selectedSlot.periodIndex)}
+        <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden border-stone-200 shadow-2xl">
+          {/* 弹窗头部 */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-4 border-b border-amber-100">
+            <DialogTitle className="text-lg font-bold text-stone-800">
+              {selectedSlot?.className}
             </DialogTitle>
-          </DialogHeader>
+            <p className="text-sm text-stone-500 mt-1">
+              {selectedSlot && WEEKDAYS[selectedSlot.weekDay]} · {selectedSlot && getPeriodDisplay(selectedSlot.periodIndex)}
+            </p>
+          </div>
           
-          <div className="space-y-4 py-2">
+          <div className="p-6 space-y-5">
             {/* 当前状态 */}
             {selectedSlot?.currentSubject && (
-              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
-                <div>
-                  <span className="font-medium">{selectedSlot.currentSubject}</span>
-                  {selectedSlot.currentTeacherName && (
-                    <span className="text-muted-foreground ml-2">- {selectedSlot.currentTeacherName}</span>
-                  )}
+              <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold ${getSubjectColor(selectedSlot.currentSubject).bg} ${getSubjectColor(selectedSlot.currentSubject).text}`}>
+                    {selectedSlot.currentSubject.slice(0, 1)}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-stone-800">{selectedSlot.currentSubject}</div>
+                    {selectedSlot.currentTeacherName && (
+                      <div className="text-sm text-stone-500 flex items-center gap-1 mt-0.5">
+                        <User className="w-3 h-3" />
+                        {selectedSlot.currentTeacherName}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleClearSlot} className="text-destructive hover:text-destructive">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleClearSlot} 
+                  className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                >
+                  <X className="w-4 h-4 mr-1" />
                   清除
                 </Button>
               </div>
             )}
             
-            {/* 科目筛选 */}
+            {/* 科目选择 */}
             <div>
-              <label className="text-sm font-medium mb-2 block">选择科目</label>
-              <div className="flex flex-wrap gap-1.5">
-                {teachers.map(g => (
-                  <button
-                    key={g.subject}
-                    onClick={() => setSelectedSubject(selectedSubject === g.subject ? '' : g.subject)}
-                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
-                      selectedSubject === g.subject
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200'
-                    }`}
-                  >
-                    {g.subject}
-                  </button>
-                ))}
+              <label className="text-sm font-semibold text-stone-700 mb-3 block flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                选择科目
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {teachers.map(g => {
+                  const colors = getSubjectColor(g.subject);
+                  const isSelected = selectedSubject === g.subject;
+                  return (
+                    <button
+                      key={g.subject}
+                      onClick={() => setSelectedSubject(isSelected ? '' : g.subject)}
+                      className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border ${
+                        isSelected
+                          ? `${colors.bg} ${colors.text} ${colors.border} shadow-sm scale-105`
+                          : 'bg-white text-stone-600 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                      }`}
+                    >
+                      {g.subject}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             
             {/* 教师搜索 */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
               <Input
                 placeholder="搜索教师姓名..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-11 h-11 bg-stone-50 border-stone-200 focus:border-amber-300 focus:ring-amber-200"
               />
             </div>
             
             {/* 教师列表 */}
-            <ScrollArea className="h-56 border rounded-lg">
-              {loadingTeachers ? (
-                <div className="p-4 text-center text-muted-foreground text-sm">加载中...</div>
-              ) : filteredTeachers.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground text-sm">未找到教师</div>
-              ) : (
-                <div className="divide-y">
-                  {filteredTeachers.map(teacher => (
-                    <button
-                      key={teacher.id}
-                      onClick={() => handleSelectTeacher(teacher)}
-                      disabled={teacher.remainingHours <= 0}
-                      className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors flex items-center justify-between ${
-                        teacher.remainingHours <= 0 ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                    >
-                      <div>
-                        <div className="font-medium">{teacher.name}</div>
-                        <div className="text-xs text-muted-foreground">{teacher.subject}</div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant={teacher.remainingHours > 0 ? 'secondary' : 'destructive'} className="font-normal">
-                          {teacher.usedHours}/{teacher.maxHours}节
-                        </Badge>
-                        {teacher.remainingHours > 0 && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            剩余 {teacher.remainingHours} 节
+            <div className="border border-stone-200 rounded-xl overflow-hidden">
+              <ScrollArea className="h-64">
+                {loadingTeachers ? (
+                  <div className="p-8 text-center text-stone-400">
+                    <div className="w-8 h-8 border-2 border-stone-200 border-t-amber-500 rounded-full animate-spin mx-auto mb-2" />
+                    加载教师数据...
+                  </div>
+                ) : filteredTeachers.length === 0 ? (
+                  <div className="p-8 text-center text-stone-400">
+                    未找到匹配的教师
+                  </div>
+                ) : (
+                  <div>
+                    {filteredTeachers.map((teacher, index) => {
+                      const colors = getSubjectColor(teacher.subject);
+                      const isDisabled = teacher.remainingHours <= 0;
+                      return (
+                        <button
+                          key={teacher.id}
+                          onClick={() => handleSelectTeacher(teacher)}
+                          disabled={isDisabled}
+                          className={`w-full p-4 text-left transition-colors border-b border-stone-100 last:border-0 flex items-center justify-between ${
+                            isDisabled 
+                              ? 'opacity-40 cursor-not-allowed bg-stone-50' 
+                              : 'hover:bg-amber-50/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${colors.light} ${colors.text}`}>
+                              {teacher.name.slice(0, 1)}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-stone-800">{teacher.name}</div>
+                              <div className="text-xs text-stone-400 mt-0.5">{teacher.subject}</div>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
+                          <div className="text-right">
+                            <div className={`text-sm font-bold ${teacher.remainingHours > 0 ? 'text-stone-700' : 'text-red-500'}`}>
+                              {teacher.usedHours}/{teacher.maxHours} 节
+                            </div>
+                            <div className={`text-xs mt-0.5 ${teacher.remainingHours > 0 ? 'text-green-600' : 'text-red-400'}`}>
+                              {teacher.remainingHours > 0 ? `剩余 ${teacher.remainingHours} 节` : '已满'}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
             
             {/* 不指定教师 */}
             {selectedSubject && (
               <button
                 onClick={() => handleSelectTeacher(null)}
-                className="w-full p-2 text-sm text-muted-foreground hover:bg-slate-50 dark:hover:bg-slate-900/50 rounded-lg transition-colors border border-dashed"
+                className="w-full p-3 text-sm text-stone-500 hover:bg-stone-50 rounded-xl transition-colors border border-dashed border-stone-300 hover:border-stone-400 flex items-center justify-center gap-2"
               >
-                不指定教师（仅安排科目）
+                <span>仅安排科目，不指定教师</span>
               </button>
             )}
           </div>
