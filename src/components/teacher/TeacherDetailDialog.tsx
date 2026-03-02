@@ -83,6 +83,22 @@ const SUBJECTS_CONFIG = [
 
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
 
+// 学段名称映射
+const GRADE_LEVEL_NAMES: Record<string, string> = {
+  'low': '低年级（1-2年级）',
+  'middle': '中年级（3-4年级）',
+  'high': '高年级（5-6年级）',
+};
+
+// 根据年级列表计算学段
+function calculateGradeLevels(grades: number[]): string[] {
+  const levels: string[] = [];
+  if (grades.some(g => g === 1 || g === 2)) levels.push('low');
+  if (grades.some(g => g === 3 || g === 4)) levels.push('middle');
+  if (grades.some(g => g === 5 || g === 6)) levels.push('high');
+  return levels;
+}
+
 // 主要角色选项（教师本职角色）
 const PRIMARY_ROLE_OPTIONS: TeacherRole[] = [
   'head_teacher',
@@ -563,25 +579,19 @@ export function TeacherDetailDialog({
             <Alert>
               <Calculator className="h-4 w-4" />
               <AlertDescription>
-                课时配置用于排课系统，系统会根据主教学科和角色自动计算建议课时。
+                课时配置信息来源于教师所任教班级的实际情况，由系统自动计算生成。
               </AlertDescription>
             </Alert>
 
-            {/* 周课时量 */}
+            {/* 周课时量 - 只读展示 */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="weeklyHours">周课时量</Label>
-                <Input
-                  id="weeklyHours"
-                  type="number"
-                  min={0}
-                  max={30}
-                  value={form.weeklyHours}
-                  onChange={(e) => setForm(prev => ({ 
-                    ...prev, 
-                    weeklyHours: parseInt(e.target.value) || 0 
-                  }))}
-                />
+                <Label>周课时量</Label>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-100 text-blue-700 text-lg px-3 py-1">
+                    {form.weeklyHours} 节/周
+                  </Badge>
+                </div>
                 <p className="text-xs text-gray-500">
                   建议课时：{suggestedHours.totalHours} 节/周
                 </p>
@@ -614,76 +624,74 @@ export function TeacherDetailDialog({
 
             <Separator />
 
-            {/* 可任教科目 */}
+            {/* 任教学科 - 只读展示 */}
             <div className="space-y-3">
               <Label className="text-base font-medium">
-                可任教科目
+                任教学科
                 <span className="text-sm font-normal text-gray-500 ml-2">
-                  （可多选）
+                  （从教师配置读取）
                 </span>
-                {form.primaryRole === 'head_teacher' && (
-                  <span className="text-xs text-amber-600 ml-2">
-                    * 班主任自动负责班会课
-                  </span>
-                )}
               </Label>
               <div className="flex flex-wrap gap-2">
-                {SUBJECTS_CONFIG.map(s => {
-                  const isChecked = form.teachableSubjects.includes(s.name);
-                  const isPrimary = form.subject === s.name;
-                  // 班主任的班会课是固定的
-                  const isFixedClassMeeting = form.primaryRole === 'head_teacher' && s.name === '班会';
+                {/* 语数教师只显示主教学科 */}
+                {(MAIN_SUBJECTS.includes(form.subject as typeof MAIN_SUBJECTS[number]) 
+                  ? [form.subject] // 语数教师只显示主教学科
+                  : form.teachableSubjects // 技能科教师显示所有可任教学科
+                ).map((subject, index) => {
+                  const isPrimary = subject === form.subject;
                   return (
                     <Badge
-                      key={s.name}
+                      key={subject}
                       className={`transition-all ${
-                        isFixedClassMeeting
-                          ? 'bg-amber-100 text-amber-700 border border-amber-300'
-                          : isChecked
-                            ? isPrimary
-                              ? 'bg-primary text-white'
-                              : 'bg-primary/20 text-primary'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 cursor-pointer'
-                      } ${isFixedClassMeeting ? '' : 'cursor-pointer'}`}
-                      onClick={() => !isFixedClassMeeting && toggleSubject(s.name)}
+                        isPrimary
+                          ? 'bg-primary text-white'
+                          : 'bg-primary/20 text-primary'
+                      }`}
                     >
-                      {s.name}
+                      {subject}
                       {isPrimary && ' (主)'}
-                      {isFixedClassMeeting && ' (固定)'}
                     </Badge>
                   );
                 })}
+                {form.primaryRole === 'head_teacher' && (
+                  <Badge className="bg-amber-100 text-amber-700 border border-amber-300">
+                    班会 (班主任固定)
+                  </Badge>
+                )}
               </div>
+              {MAIN_SUBJECTS.includes(form.subject as typeof MAIN_SUBJECTS[number]) && form.teachableSubjects.length > 1 && (
+                <p className="text-xs text-amber-600">
+                  * 语数教师任教学科仅显示主教学科
+                </p>
+              )}
             </div>
 
             <Separator />
 
-            {/* 可任教年级 */}
+            {/* 任教学段 - 只读展示 */}
             <div className="space-y-3">
               <Label className="text-base font-medium">
-                可任教年级
+                任教学段
                 <span className="text-sm font-normal text-gray-500 ml-2">
-                  （可多选）
+                  （从任教班级计算）
                 </span>
               </Label>
               <div className="flex flex-wrap gap-2">
-                {[1, 2, 3, 4, 5, 6].map(grade => {
-                  const isChecked = form.teachableGrades.includes(grade);
-                  return (
-                    <Badge
-                      key={grade}
-                      className={`cursor-pointer transition-all ${
-                        isChecked
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
-                      onClick={() => toggleGrade(grade)}
-                    >
-                      {GRADE_NAMES[grade]}
-                    </Badge>
-                  );
-                })}
+                {calculateGradeLevels(form.teachableGrades).map(level => (
+                  <Badge
+                    key={level}
+                    className="bg-primary text-white"
+                  >
+                    {GRADE_LEVEL_NAMES[level]}
+                  </Badge>
+                ))}
+                {form.teachableGrades.length === 0 && (
+                  <span className="text-sm text-gray-400">暂无任教班级</span>
+                )}
               </div>
+              <p className="text-xs text-gray-500">
+                可任教年级：{form.teachableGrades.map(g => GRADE_NAMES[g]).join('、') || '暂无'}
+              </p>
             </div>
 
             {/* 班主任班级（仅班主任显示） */}
