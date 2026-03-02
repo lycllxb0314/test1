@@ -226,6 +226,29 @@ export class SchedulingEngine {
       onProgress?.('排语数', 3, 7, '安排剩余语文数学课程...');
       this.scheduleMainSubjects();
       
+      // 诊断：语数排完后统计剩余时段
+      let totalRemainingMorning = 0;
+      let totalRemainingAfternoon = 0;
+      for (const cls of this.input.classes) {
+        const state = this.classStates.get(cls.id)!;
+        totalRemainingMorning += this.getAvailableMorningSlots(state).length;
+        totalRemainingAfternoon += this.getAvailableAfternoonSlots(state).length;
+      }
+      console.log(`\n[语数排完后] 剩余时段: 上午${totalRemainingMorning}个, 下午${totalRemainingAfternoon}个`);
+      
+      // 统计技能科需求
+      const skillNeeds = new Map<string, number>();
+      for (const cls of this.input.classes) {
+        const state = this.classStates.get(cls.id)!;
+        for (const [subject, remaining] of state.subjectHours) {
+          if (subject !== '语文' && subject !== '数学' && remaining > 0) {
+            skillNeeds.set(subject, (skillNeeds.get(subject) || 0) + remaining);
+          }
+        }
+      }
+      console.log('[技能科需求]', Array.from(skillNeeds.entries()).map(([s, c]) => `${s}:${c}`).join(', '));
+      console.log('');
+      
       // 5. 排技能科
       onProgress?.('排技能科', 4, 7, '安排技能科课程...');
       this.scheduleSkillSubjects();
@@ -632,15 +655,40 @@ export class SchedulingEngine {
     const remaining = allTasks.filter(t => t.remaining > 0);
     if (remaining.length > 0) {
       console.log('\n===== 技能科未排完汇总 =====');
-      const bySubject = new Map<string, number>();
+      const bySubject = new Map<string, { count: number; total: number; examples: string[] }>();
       for (const t of remaining) {
-        bySubject.set(t.subject, (bySubject.get(t.subject) || 0) + t.remaining);
+        if (!bySubject.has(t.subject)) {
+          bySubject.set(t.subject, { count: 0, total: 0, examples: [] });
+        }
+        const info = bySubject.get(t.subject)!;
+        info.count++;
+        info.total += t.remaining;
+        if (info.examples.length < 3) {
+          const cls = this.classMap.get(t.classId);
+          if (cls) info.examples.push(cls.name);
+        }
       }
-      for (const [subj, count] of bySubject) {
-        console.log(`${subj}: 剩余 ${count} 节未排`);
+      for (const [subj, info] of bySubject) {
+        console.log(`${subj}: 剩余 ${info.total} 节, 涉及 ${info.count} 个班 (${info.examples.join(', ')})`);
       }
       console.log('==============================\n');
     }
+    
+    // 打印教师使用情况
+    console.log('\n===== 技能科教师使用情况 =====');
+    const skillSubjects = ['体育', '音乐', '美术', '科学', '道德与法治', '英语', '信息技术', '心育'];
+    for (const subject of skillSubjects) {
+      const teachers = this.input.teachers.filter(t => t.primarySubject === subject);
+      if (teachers.length === 0) continue;
+      
+      const usedHours = teachers.reduce((sum, t) => {
+        const avail = this.teacherAvailability.get(t.id);
+        return sum + (avail?.assignedSlots.size || 0);
+      }, 0);
+      const totalCapacity = teachers.reduce((sum, t) => sum + t.maxHours, 0);
+      console.log(`${subject}: ${teachers.length}人, 已用${usedHours}/${totalCapacity}节`);
+    }
+    console.log('==============================\n');
   }
   
   /** 找可用时间槽（检查科目和教师），平衡使用上午和下午时段 */
@@ -705,16 +753,20 @@ export class SchedulingEngine {
       return slotId;
     }
     
-    // 如果找不到时段，打印调试信息（只针对第一个班级的前几个科目）
-    if (cls.id === this.input.classes[0]?.id && subject === '体育') {
+    // 如果找不到时段，打印调试信息
+    if (skippedByNoTeacher > 0 || skippedByDailyLimit > 0) {
       console.log(`[DEBUG] ${cls.name} ${subject} 找不到时段: 检查了${checkedSlots}个时段, 日限制跳过${skippedByDailyLimit}个, 无教师跳过${skippedByNoTeacher}个`);
+      
       // 详细分析无教师的原因
-      if (skippedByNoTeacher > 0) {
-        console.log(`[DEBUG] 分析体育教师可用性:`);
-        const peTeachers = this.input.teachers.filter(t => t.primarySubject === '体育' && t.teachableGrades.includes(cls.grade));
-        for (const t of peTeachers.slice(0, 3)) {
+      if (skippedByNoTeacher > 0 && cls.id === this.input.classes[0]?.id) {
+        const subjectTeachers = this.input.teachers.filter(t => 
+          (t.primarySubject === subject || t.secondarySubjects.includes(subject)) && 
+          t.teachableGrades.includes(cls.grade)
+        );
+        console.log(`[DEBUG] ${subject}教师资源(${subjectTeachers.length}人):`);
+        for (const t of subjectTeachers.slice(0, 5)) {
           const avail = this.teacherAvailability.get(t.id)!;
-          console.log(`  ${t.name}: 已分配${avail.assignedSlots.size}节, 剩余容量${t.maxHours - avail.assignedSlots.size}节`);
+          console.log(`  ${t.name}(${t.primarySubject}): 已分配${avail.assignedSlots.size}节, 最大${t.maxHours}节, 剩余${t.maxHours - avail.assignedSlots.size}节`);
         }
       }
     }
