@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useClasses } from '@/hooks/useClasses';
 import { SubjectHoursPanel } from '@/components/schedule/subject-hours-panel';
 import { SUBJECT_COLORS, getSubjectColor } from '@/lib/subject-colors';
+import { SUBJECT_HOURS } from '@/lib/schedule-config';
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五'];
 const MORNING_PERIODS = ['第1节', '第2节', '第3节'];
@@ -666,8 +667,12 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               classSlots.forEach(s => {
                 subjectCount[s.subject] = (subjectCount[s.subject] || 0) + 1;
               });
-              // 获取所有科目的课时（包括未排的显示0）
-              const allSubjectsCount = SUBJECT_ORDER.map(subject => ({
+              // 获取当前年级有课时的科目（过滤掉课时为0的科目）
+              const gradeSubjects = SUBJECT_ORDER.filter(subject => {
+                const hours = SUBJECT_HOURS[subject]?.[grade] ?? 0;
+                return hours > 0;
+              });
+              const allSubjectsCount = gradeSubjects.map(subject => ({
                 subject,
                 count: subjectCount[subject] || 0,
               }));
