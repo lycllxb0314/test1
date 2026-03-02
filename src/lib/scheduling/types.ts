@@ -150,6 +150,7 @@ export interface SoftConstraintDetail {
   type: string;
   penalty: number;
   count: number;
+  details?: string[];
 }
 
 // ==================== 排课状态 ====================

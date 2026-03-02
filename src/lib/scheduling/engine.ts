@@ -1257,6 +1257,10 @@ export class SchedulingEngine {
     const balancePenalty = this.checkTeacherHoursBalance();
     totalPenalty += balancePenalty;
     
+    // 检查3-6年级每天是否有语文数学课
+    const dailyMainSubjectPenalty = this.checkDailyChineseAndMath();
+    totalPenalty += dailyMainSubjectPenalty;
+    
     this.softPenalties.push({
       type: 'TOTAL_PENALTY',
       penalty: totalPenalty,
@@ -1303,6 +1307,61 @@ export class SchedulingEngine {
     const variance = hours.reduce((sum, h) => sum + Math.pow(h - avg, 2), 0) / hours.length;
     
     return Math.round(variance * 0.5);
+  }
+  
+  /**
+   * 检查3-6年级每天是否有语文和数学课
+   * 软约束：高年级每天最好都有语文和数学课
+   * 违反扣分：每缺少一科扣20分
+   */
+  private checkDailyChineseAndMath(): number {
+    let penalty = 0;
+    let violationCount = 0;
+    const details: string[] = [];
+    
+    for (const cls of this.input.classes) {
+      // 只检查3-6年级
+      if (cls.grade < 3) continue;
+      
+      const state = this.classStates.get(cls.id)!;
+      
+      for (const weekday of WEEKDAYS) {
+        let hasChinese = false;
+        let hasMath = false;
+        
+        // 检查当天所有时段
+        for (const [slotId, slot] of state.dailySchedule) {
+          if (slot && slot.timeSlot.weekday === weekday) {
+            if (slot.subject === '语文') hasChinese = true;
+            if (slot.subject === '数学') hasMath = true;
+          }
+        }
+        
+        // 扣分：缺少语文或数学
+        if (!hasChinese) {
+          penalty += 20;
+          violationCount++;
+          details.push(`${cls.name} ${weekday}无语文课`);
+        }
+        if (!hasMath) {
+          penalty += 20;
+          violationCount++;
+          details.push(`${cls.name} ${weekday}无数学课`);
+        }
+      }
+    }
+    
+    // 记录软约束详情
+    if (penalty > 0) {
+      this.softPenalties.push({
+        type: 'DAILY_CHINESE_MATH',
+        penalty,
+        count: violationCount,
+        details: details.slice(0, 10), // 只保留前10条
+      });
+    }
+    
+    return penalty;
   }
   
   // ==================== 构建结果 ====================
