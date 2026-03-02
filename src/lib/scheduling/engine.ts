@@ -929,10 +929,58 @@ export class SchedulingEngine {
     const mathParttimeOnly = ['劳动'];                   // 只能本班数学老师兼任
     const bothParttime = ['综合实践', '校本'];            // 两者都可兼任
     
-    // 书法和道法必须由本班语文老师担任，不能由其他老师代替
-    if (chineseParttimeOnly.includes(subject)) {
+    // 关键修复：语文课必须由本班语文老师担任
+    if (subject === '语文') {
       if (!cls.chineseTeacherId) {
-        console.log(`[警告] ${cls.name} 没有语文老师，无法安排${subject}`);
+        console.log(`[警告] ${cls.name} 没有配置语文老师，无法安排语文课`);
+        return null;
+      }
+      
+      const chineseTeacher = this.input.teachers.find(t => t.id === cls.chineseTeacherId);
+      if (!chineseTeacher) {
+        console.log(`[警告] ${cls.name} 语文老师不存在于教师列表中`);
+        return null;
+      }
+      
+      // 检查语文老师是否可用
+      const availability = this.teacherAvailability.get(chineseTeacher.id)!;
+      const check = isTeacherAvailable(chineseTeacher, availability, slotId, subject);
+      if (!check.available) {
+        // 语文老师不可用，不安排（而不是选择其他老师）
+        return null;
+      }
+      
+      return chineseTeacher;
+    }
+    
+    // 关键修复：数学课必须由本班数学老师担任
+    if (subject === '数学') {
+      if (!cls.mathTeacherId) {
+        console.log(`[警告] ${cls.name} 没有配置数学老师，无法安排数学课`);
+        return null;
+      }
+      
+      const mathTeacher = this.input.teachers.find(t => t.id === cls.mathTeacherId);
+      if (!mathTeacher) {
+        console.log(`[警告] ${cls.name} 数学老师不存在于教师列表中`);
+        return null;
+      }
+      
+      // 检查数学老师是否可用
+      const availability = this.teacherAvailability.get(mathTeacher.id)!;
+      const check = isTeacherAvailable(mathTeacher, availability, slotId, subject);
+      if (!check.available) {
+        // 数学老师不可用，不安排（而不是选择其他老师）
+        return null;
+      }
+      
+      return mathTeacher;
+    }
+    
+    // 书法必须由本班语文老师担任，不能由其他老师代替
+    if (subject === '书法') {
+      if (!cls.chineseTeacherId) {
+        console.log(`[警告] ${cls.name} 没有语文老师，无法安排书法`);
         return null;
       }
       
@@ -944,7 +992,7 @@ export class SchedulingEngine {
       
       // 检查语文老师是否有书法作为兼任科目
       if (!chineseTeacher.secondarySubjects.includes(subject) && chineseTeacher.primarySubject !== subject) {
-        console.log(`[警告] ${cls.name} 语文老师 ${chineseTeacher.name} 不能教${subject}`);
+        console.log(`[警告] ${cls.name} 语文老师 ${chineseTeacher.name} 不能教书法`);
         return null;
       }
       
@@ -957,6 +1005,45 @@ export class SchedulingEngine {
       }
       
       return chineseTeacher;
+    }
+    
+    // 道德与法治：优先专职老师，不可用则由本班语文老师兼任
+    if (subject === '道德与法治') {
+      // 优先找专职道德与法治老师
+      const moralityTeachers = this.input.teachers.filter(t => 
+        t.primarySubject === '道德与法治'
+      );
+      
+      // 按课时少的优先排序
+      moralityTeachers.sort((a, b) => {
+        const aHours = this.teacherAvailability.get(a.id)?.assignedSlots.size || 0;
+        const bHours = this.teacherAvailability.get(b.id)?.assignedSlots.size || 0;
+        return aHours - bHours;
+      });
+      
+      for (const teacher of moralityTeachers) {
+        if (!teacher.teachableGrades.includes(cls.grade)) continue;
+        const availability = this.teacherAvailability.get(teacher.id)!;
+        const check = isTeacherAvailable(teacher, availability, slotId, subject);
+        if (check.available) {
+          return teacher;
+        }
+      }
+      
+      // 专职老师不可用，由本班语文老师兼任
+      if (cls.chineseTeacherId) {
+        const chineseTeacher = this.input.teachers.find(t => t.id === cls.chineseTeacherId);
+        if (chineseTeacher && chineseTeacher.secondarySubjects.includes('道德与法治')) {
+          const availability = this.teacherAvailability.get(chineseTeacher.id)!;
+          const check = isTeacherAvailable(chineseTeacher, availability, slotId, subject);
+          if (check.available) {
+            return chineseTeacher;
+          }
+        }
+      }
+      
+      console.log(`[警告] ${cls.name} 没有可用的道德与法治老师`);
+      return null;
     }
     
     let preferredTeacherIds: string[] = [];

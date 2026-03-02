@@ -42,11 +42,112 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import { WEEKDAYS } from '@/lib/scheduling/rules';
-import type { ScheduleResult } from '@/lib/scheduling/types';
-import { useScheduleDraft } from '@/hooks/useScheduleDraft';
+import type { ScheduleResult, ClassSchedule, TeacherSchedule, ScheduleSlot } from '@/lib/scheduling/types';
+import { useScheduleDraft, type ScheduleDraft } from '@/hooks/useScheduleDraft';
 import { DraftList } from '@/components/scheduling/DraftList';
 import { DraftScheduleTab } from '@/components/scheduling/DraftScheduleTab';
 import { OfficialScheduleTab } from '@/components/scheduling/OfficialScheduleTab';
+
+/**
+ * 将草稿数据转换为排课结果格式
+ */
+function convertDraftToResult(draft: ScheduleDraft, teachers: any[]): ScheduleResult {
+  const classMap = new Map<string, ClassSchedule>();
+  const teacherMap = new Map<string, TeacherSchedule>();
+  
+  // 遍历所有课表格子
+  for (const slot of draft.slots || []) {
+    // 确定时段（上午/下午）和节次
+    // 数据库中：上午1-3对应period_index=1,2,3，下午1-3对应period_index=4,5,6
+    let period: '上午' | '下午' = '上午';
+    let periodIndex = slot.period_index;
+    
+    if (slot.period_name?.includes('下午') || slot.period_index > 3) {
+      period = '下午';
+      // 下午课程：period_index 4,5,6 转换为 1,2,3
+      periodIndex = slot.period_index - 3;
+    }
+    
+    // 创建 ScheduleSlot
+    const scheduleSlot: ScheduleSlot = {
+      timeSlotId: `${slot.week_day}_${period}_${periodIndex}`,
+      timeSlot: {
+        weekday: WEEKDAYS[slot.week_day - 1] || '周一',
+        period,
+        periodIndex,
+      },
+      classId: slot.class_id,
+      className: slot.class_name,
+      grade: slot.grade,
+      subject: slot.subject,
+      teacherId: slot.teacher_id,
+      teacherName: slot.teacher_name,
+    };
+    
+    // 添加到班级课表
+    if (!classMap.has(slot.class_id)) {
+      classMap.set(slot.class_id, {
+        classId: slot.class_id,
+        className: slot.class_name,
+        grade: slot.grade,
+        slots: [[], [], [], [], []], // 5天
+      });
+    }
+    const classSchedule = classMap.get(slot.class_id)!;
+    const dayIndex = slot.week_day - 1;
+    if (classSchedule.slots[dayIndex]) {
+      classSchedule.slots[dayIndex].push(scheduleSlot);
+    }
+    
+    // 添加到教师课表
+    if (!teacherMap.has(slot.teacher_id)) {
+      const teacher = teachers.find(t => t.id === slot.teacher_id);
+      teacherMap.set(slot.teacher_id, {
+        teacherId: slot.teacher_id,
+        teacherName: slot.teacher_name,
+        primarySubject: teacher?.primarySubject || '',
+        slots: [[], [], [], [], []],
+        totalHours: 0,
+      });
+    }
+    const teacherSchedule = teacherMap.get(slot.teacher_id)!;
+    teacherSchedule.slots[dayIndex].push(scheduleSlot);
+    teacherSchedule.totalHours++;
+  }
+  
+  // 对每个班级的 slots 按时间排序
+  for (const classSchedule of classMap.values()) {
+    for (const daySlots of classSchedule.slots) {
+      daySlots.sort((a, b) => {
+        const aOrder = (a.timeSlot.period === '上午' ? 0 : 100) + a.timeSlot.periodIndex;
+        const bOrder = (b.timeSlot.period === '上午' ? 0 : 100) + b.timeSlot.periodIndex;
+        return aOrder - bOrder;
+      });
+    }
+  }
+  
+  const classSchedules = Array.from(classMap.values());
+  const teacherSchedules = Array.from(teacherMap.values());
+  
+  return {
+    success: true,
+    message: `已载入草稿: ${draft.name}`,
+    classSchedules,
+    teacherSchedules,
+    statistics: {
+      totalSlots: draft.slots?.length || 0,
+      assignedSlots: draft.slots?.length || 0,
+      unassignedSlots: 0,
+      teacherHoursVariance: 0,
+      averageTeacherHours: teacherSchedules.length > 0 
+        ? teacherSchedules.reduce((sum, t) => sum + t.totalHours, 0) / teacherSchedules.length 
+        : 0,
+    },
+    hardConstraintViolations: [],
+    softConstraintPenalty: 0,
+    softConstraintDetails: [],
+  };
+}
 
 export default function SmartSchedulingPage() {
   const [loading, setLoading] = useState(false);
@@ -159,10 +260,11 @@ export default function SmartSchedulingPage() {
     const draft = await loadDraft(draftId);
     if (draft && draft.slots) {
       // 将草稿数据转换为结果格式
-      // 这里简化处理，实际需要转换格式
-      alert(`草稿 "${draft.name}" 已载入`);
+      const convertedResult = convertDraftToResult(draft, teachers);
+      setResult(convertedResult);
+      // currentDraft 已经在 loadDraft 中更新
     }
-  }, [loadDraft]);
+  }, [loadDraft, teachers]);
 
   // 发布草稿
   const handlePublish = useCallback(async () => {

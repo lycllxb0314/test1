@@ -21,34 +21,49 @@ const getOfficialSchedule = async (request: NextRequest, { user }: ExtendedRoute
     const teacherId = searchParams.get('teacherId');
     const grade = searchParams.get('grade');
     
-    let query = client
-      .from('schedule_slots')
-      .select('*')
-      .is('draft_id', null) // 只获取正式课表
-      .order('grade')
-      .order('week_day')
-      .order('period_index');
+    // 使用分批查询获取所有数据（Supabase默认限制1000行）
+    const allSlots: any[] = [];
+    const batchSize = 1000;
+    let offset = 0;
     
-    if (classId) {
-      query = query.eq('class_id', classId);
-    }
-    if (teacherId) {
-      query = query.eq('teacher_id', teacherId);
-    }
-    if (grade) {
-      query = query.eq('grade', parseInt(grade));
+    while (true) {
+      let query = client
+        .from('schedule_slots')
+        .select('*')
+        .is('draft_id', null) // 只获取正式课表
+        .range(offset, offset + batchSize - 1);
+      
+      if (classId) {
+        query = query.eq('class_id', classId);
+      }
+      if (teacherId) {
+        query = query.eq('teacher_id', teacherId);
+      }
+      if (grade) {
+        query = query.eq('grade', parseInt(grade));
+      }
+      
+      const { data: batch, error: dbError } = await query;
+      
+      if (dbError) {
+        return NextResponse.json(
+          error('获取正式课表失败', ErrorCode.DATABASE_ERROR),
+          { status: 500 }
+        );
+      }
+      
+      if (batch && batch.length > 0) {
+        allSlots.push(...batch);
+      }
+      
+      if (!batch || batch.length < batchSize) {
+        break;
+      }
+      
+      offset += batchSize;
     }
     
-    const { data, error: dbError } = await query;
-    
-    if (dbError) {
-      return NextResponse.json(
-        error('获取正式课表失败', ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json(success(data || []));
+    return NextResponse.json(success(allSlots));
   } catch (err) {
     console.error('获取正式课表失败:', err);
     return NextResponse.json(

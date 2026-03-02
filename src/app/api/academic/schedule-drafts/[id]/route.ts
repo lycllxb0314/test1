@@ -47,22 +47,43 @@ const getDraft = async (
     }
     
     // 获取草稿的所有课表数据
-    const { data: slots, error: slotsError } = await client
-      .from('schedule_slots')
-      .select('*')
-      .eq('draft_id', id);
+    // Supabase默认限制1000行，使用分批查询获取所有数据
+    const allSlots: any[] = [];
+    const batchSize = 1000;
+    let offset = 0;
     
-    if (slotsError) {
-      console.error('获取课表数据失败:', slotsError);
-      return NextResponse.json(
-        error('获取课表数据失败', ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+    while (true) {
+      const { data: batch, error: batchError } = await client
+        .from('schedule_slots')
+        .select('*')
+        .eq('draft_id', id)
+        .range(offset, offset + batchSize - 1);
+      
+      if (batchError) {
+        console.error('获取课表数据失败:', batchError);
+        return NextResponse.json(
+          error('获取课表数据失败', ErrorCode.DATABASE_ERROR),
+          { status: 500 }
+        );
+      }
+      
+      if (batch && batch.length > 0) {
+        allSlots.push(...batch);
+      }
+      
+      // 如果返回的数据少于批次大小，说明已经获取完毕
+      if (!batch || batch.length < batchSize) {
+        break;
+      }
+      
+      offset += batchSize;
     }
+    
+    console.log(`[API] 获取草稿课表数据: draft_id=${id}, total=${allSlots.length}`);
     
     return NextResponse.json(success({
       ...draft,
-      slots: slots || [],
+      slots: allSlots,
     }));
   } catch (err) {
     console.error('获取草稿详情失败:', err);
