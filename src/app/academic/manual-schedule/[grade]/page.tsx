@@ -54,13 +54,14 @@ const SUBJECT_ORDER = [
   '英语', '科学', '道德与法治',
   '音乐', '美术', '体育',
   '信息技术', '书法', '劳动', '综合实践', '校本',
-  '班会', '自习'
+  '班会'
 ];
 
 // 科目特殊规则类型
 type SubjectRule = 
   | 'chinese_only'      // 只能选本班语文老师（语文、书法）
   | 'math_only'         // 只能选本班数学老师（数学）
+  | 'head_teacher_only' // 只能选本班班主任（班会）
   | 'all_chinese'       // 可选全校语文老师（道德与法治）
   | 'all_math'          // 可选全校数学老师（科学）
   | 'all_chinese_math'  // 可选全校语数老师（校本、综合实践、劳动）
@@ -71,6 +72,7 @@ const SUBJECT_RULES: Record<string, SubjectRule> = {
   '语文': 'chinese_only',
   '数学': 'math_only',
   '书法': 'chinese_only',           // 书法只能选本班语文老师
+  '班会': 'head_teacher_only',      // 班会只能选本班班主任
   '道德与法治': 'all_chinese',      // 道德与法治可选全校语文老师
   '科学': 'all_math',               // 科学可选全校数学老师
   '校本': 'all_chinese_math',       // 校本可选全校语数老师
@@ -143,6 +145,9 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     chineseTeacherName?: string;
     mathTeacherId?: string;
     mathTeacherName?: string;
+    // 班主任信息（用于班会课）
+    headTeacherId?: string;
+    headTeacherName?: string;
   } | null>(null);
   
   // 教师搜索
@@ -275,6 +280,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       chineseTeacherName,
       mathTeacherId,
       mathTeacherName,
+      headTeacherId: cls.headTeacherId,
+      headTeacherName: cls.headTeacherName,
     });
     setSearchQuery('');
     setSelectedSubject(slot?.subject || '');
@@ -478,6 +485,24 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       case 'math_only': {
         const teacher = getClassTeacher('math');
         return teacher ? [teacher] : [];
+      }
+      
+      // 只能选本班班主任（班会）
+      case 'head_teacher_only': {
+        if (!selectedSlot?.headTeacherId) return [];
+        // 在所有教师中查找班主任
+        const allTeachers = teachers.flatMap(g => g.teachers);
+        const headTeacher = allTeachers.find(t => t.id === selectedSlot.headTeacherId);
+        if (headTeacher) return [headTeacher];
+        // 如果找不到，返回基本信息
+        return [{
+          id: selectedSlot.headTeacherId,
+          name: selectedSlot.headTeacherName || '未知',
+          subject: '班主任',
+          maxHours: 16,
+          usedHours: 0,
+          remainingHours: 16,
+        }];
       }
       
       // 可选全校语文老师（道德与法治）
@@ -842,7 +867,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                   const isSelected = selectedSubject === subject;
                   const rule = SUBJECT_RULES[subject];
                   // 标记需要特殊处理的科目
-                  const isRestricted = rule === 'chinese_only' || rule === 'math_only';
+                  const isRestricted = rule === 'chinese_only' || rule === 'math_only' || rule === 'head_teacher_only';
                   
                   return (
                     <button
@@ -875,6 +900,12 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                   <span>本班老师：<strong>{selectedSlot.mathTeacherName}</strong></span>
                 </div>
               )}
+              {selectedSubject && SUBJECT_RULES[selectedSubject] === 'head_teacher_only' && selectedSlot?.headTeacherName && (
+                <div className="mt-3 p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-2 text-emerald-700 text-xs">
+                  <User className="w-3.5 h-3.5" />
+                  <span>本班班主任：<strong>{selectedSlot.headTeacherName}</strong></span>
+                </div>
+              )}
               {selectedSubject && (SUBJECT_RULES[selectedSubject] === 'all_chinese' || SUBJECT_RULES[selectedSubject] === 'all_math' || SUBJECT_RULES[selectedSubject] === 'all_chinese_math') && (
                 <div className="mt-3 p-2.5 bg-stone-100 rounded-lg border border-stone-200 flex items-center gap-2 text-stone-600 text-xs">
                   <User className="w-3.5 h-3.5" />
@@ -890,7 +921,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
             {/* 右侧 - 教师选择 */}
             <div className="flex-1 flex flex-col bg-white min-h-0">
               {/* 搜索栏 - 非限制科目才显示 */}
-              {selectedSubject && !['chinese_only', 'math_only'].includes(SUBJECT_RULES[selectedSubject] || '') && (
+              {selectedSubject && !['chinese_only', 'math_only', 'head_teacher_only'].includes(SUBJECT_RULES[selectedSubject] || '') && (
                 <div className="p-4 border-b border-stone-200 shrink-0">
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
@@ -932,7 +963,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                         const rule = SUBJECT_RULES[selectedSubject];
                         const isClassTeacher = rule === 'chinese_only' || rule === 'math_only';
                         // 判断是否是本班的班主任/副班主任
-                        const isThisClassTeacher = teacher.id === selectedSlot?.chineseTeacherId || teacher.id === selectedSlot?.mathTeacherId;
+                        const isThisClassTeacher = teacher.id === selectedSlot?.chineseTeacherId || teacher.id === selectedSlot?.mathTeacherId || teacher.id === selectedSlot?.headTeacherId;
                         
                         return (
                           <button
