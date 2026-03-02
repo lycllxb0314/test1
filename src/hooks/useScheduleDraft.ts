@@ -256,6 +256,69 @@ export function useScheduleDraft() {
     }
   }, [currentDraft]);
 
+  // 创建新课表格子（为空槽添加课程）
+  const createSlot = useCallback(async (
+    draftId: string,
+    slotData: {
+      classId: string;
+      className: string;
+      grade: number;
+      weekDay: number;
+      periodIndex: number;
+      periodName: string;
+      subject: string;
+      teacherId: string;
+      teacherName: string;
+    }
+  ): Promise<boolean> => {
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/academic/schedule-drafts/${draftId}/slots`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(slotData),
+        }
+      );
+      const result = await response.json();
+      
+      if (result.success) {
+        // 更新当前草稿中的课表数据
+        if (currentDraft && currentDraft.id === draftId) {
+          setCurrentDraft(prev => {
+            if (!prev) return prev;
+            const newSlot: ScheduleSlot = {
+              id: result.data.id,
+              class_id: slotData.classId,
+              class_name: slotData.className,
+              grade: slotData.grade,
+              week_day: slotData.weekDay,
+              period_index: slotData.periodIndex,
+              period_name: slotData.periodName,
+              subject: slotData.subject,
+              teacher_id: slotData.teacherId,
+              teacher_name: slotData.teacherName,
+              draft_id: draftId,
+            };
+            return {
+              ...prev,
+              slots: [...(prev.slots || []), newSlot],
+            };
+          });
+        }
+        return true;
+      } else {
+        setError(result.error || '创建失败');
+        return false;
+      }
+    } catch (err) {
+      setError('创建失败');
+      console.error(err);
+      return false;
+    }
+  }, [currentDraft]);
+
   return {
     drafts,
     currentDraft,
@@ -265,6 +328,7 @@ export function useScheduleDraft() {
     saveDraft,
     loadDraft,
     updateSlot,
+    createSlot,
     publishDraft,
     deleteDraft,
     clearError: () => setError(null),

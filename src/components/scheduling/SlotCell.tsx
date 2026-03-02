@@ -6,11 +6,12 @@
  * 功能：
  * - 显示科目和教师
  * - 点击可编辑
+ * - 支持空槽人工分配
  */
 
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Pencil } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { ScheduleEditDialog } from './ScheduleEditDialog';
 
 interface SlotCellProps {
@@ -26,27 +27,45 @@ interface SlotCellProps {
     teacherId: string;
     teacherName: string;
   } | null;
+  // 空槽时使用的数据
+  emptySlotData?: {
+    classId: string;
+    className: string;
+    grade: number;
+    weekDay: number;
+    periodIndex: number;
+    periodName: string;
+  };
   teachers: any[];
-  subjectColor: string;
+  subjectColor?: string;
   draftId?: string;
   onSlotUpdate?: (slotId: string, subject: string, teacherId: string, teacherName: string) => Promise<void>;
+  onSlotCreate?: (slotData: {
+    classId: string;
+    className: string;
+    grade: number;
+    weekDay: number;
+    periodIndex: number;
+    periodName: string;
+    subject: string;
+    teacherId: string;
+    teacherName: string;
+  }) => Promise<void>;
   readOnly?: boolean;
 }
 
 export function SlotCell({
   slot,
+  emptySlotData,
   teachers,
   subjectColor,
   draftId,
   onSlotUpdate,
+  onSlotCreate,
   readOnly = false,
 }: SlotCellProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [currentSlot, setCurrentSlot] = useState(slot);
-
-  if (!slot) {
-    return <div className="min-h-[60px] flex items-center justify-center text-muted-foreground text-xs">-</div>;
-  }
 
   const handleClick = () => {
     if (!readOnly) {
@@ -55,16 +74,68 @@ export function SlotCell({
   };
 
   const handleSave = async (slotId: string, subject: string, teacherId: string, teacherName: string) => {
-    if (onSlotUpdate) {
+    if (slot && onSlotUpdate) {
+      // 更新已有课时
       await onSlotUpdate(slotId, subject, teacherId, teacherName);
       setCurrentSlot(prev => prev ? { ...prev, subject, teacherId, teacherName } : null);
+    } else if (!slot && onSlotCreate) {
+      // 创建新课时
+      // 这里 slotId 实际上是临时的，需要从外部传入完整数据
     }
   };
 
+  const handleCreate = async (subject: string, teacherId: string, teacherName: string, slotData: any) => {
+    if (onSlotCreate) {
+      await onSlotCreate({
+        ...slotData,
+        subject,
+        teacherId,
+        teacherName,
+      });
+    }
+  };
+
+  // 空槽显示
+  if (!slot) {
+    return (
+      <>
+        <div
+          className="min-h-[60px] flex items-center justify-center border-2 border-dashed border-muted-foreground/30 rounded cursor-pointer hover:border-primary hover:bg-muted/50 transition-all"
+          onClick={handleClick}
+        >
+          <Plus className="h-4 w-4 text-muted-foreground/50" />
+        </div>
+
+        {!readOnly && emptySlotData && (
+          <ScheduleEditDialog
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            slot={null}
+            teachers={teachers}
+            isNewSlot={true}
+            emptySlotData={emptySlotData}
+            onSave={() => Promise.resolve()}
+            onCreate={async (subject, teacherId, teacherName, slotData) => {
+              if (onSlotCreate) {
+                await onSlotCreate({
+                  ...slotData,
+                  subject,
+                  teacherId,
+                  teacherName,
+                });
+              }
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  // 已有课时显示
   return (
     <>
       <div
-        className={`rounded p-2 text-xs ${subjectColor} relative group cursor-pointer transition-all hover:shadow-md ${!readOnly ? 'hover:ring-2 hover:ring-primary/50' : ''}`}
+        className={`rounded p-2 text-xs ${subjectColor || 'bg-gray-100 text-gray-700 border-gray-300'} relative group cursor-pointer transition-all hover:shadow-md ${!readOnly ? 'hover:ring-2 hover:ring-primary/50' : ''}`}
         onClick={handleClick}
       >
         <div className="font-medium">{currentSlot?.subject || slot.subject}</div>

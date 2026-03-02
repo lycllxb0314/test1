@@ -67,6 +67,7 @@ export default function SmartSchedulingPage() {
     loadDraft,
     publishDraft,
     deleteDraft,
+    createSlot,
   } = useScheduleDraft();
 
   // 获取教师列表
@@ -328,6 +329,17 @@ export default function SmartSchedulingPage() {
                 teachers={teachers}
                 onSaveDraft={handleSaveDraft}
                 onPublish={async () => { setPublishDialogOpen(true); }}
+                onSlotCreate={async (slotData) => {
+                  if (currentDraft?.id) {
+                    const success = await createSlot(currentDraft.id, slotData);
+                    if (success) {
+                      // 可以添加成功提示
+                    }
+                  } else {
+                    // 如果没有当前草稿，需要先提示用户保存草稿
+                    alert('请先保存草稿后再编辑');
+                  }
+                }}
                 isSaving={draftLoading}
               />
             </>

@@ -7,6 +7,7 @@
  * - 显示当前课时的详细信息
  * - 修改科目
  * - 选择教师（带筛选和搜索）
+ * - 支持为空槽创建新课时
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -29,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, User, BookOpen, Loader2 } from 'lucide-react';
+import { Search, User, BookOpen, Loader2, Plus } from 'lucide-react';
 
 // 科目列表
 const SUBJECTS = [
@@ -63,12 +64,25 @@ interface SlotData {
   teacherName: string;
 }
 
+// 空槽创建数据类型
+interface EmptySlotData {
+  classId: string;
+  className: string;
+  grade: number;
+  weekDay: number;
+  periodIndex: number;
+  periodName: string;
+}
+
 interface ScheduleEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   slot: SlotData | null;
   teachers: Teacher[];
-  onSave: (slotId: string, subject: string, teacherId: string, teacherName: string) => Promise<void>;
+  isNewSlot?: boolean;
+  emptySlotData?: EmptySlotData;
+  onSave?: (slotId: string, subject: string, teacherId: string, teacherName: string) => Promise<void>;
+  onCreate?: (subject: string, teacherId: string, teacherName: string, slotData: EmptySlotData) => Promise<void>;
 }
 
 export function ScheduleEditDialog({
@@ -76,7 +90,10 @@ export function ScheduleEditDialog({
   onOpenChange,
   slot,
   teachers,
+  isNewSlot = false,
+  emptySlotData,
   onSave,
+  onCreate,
 }: ScheduleEditDialogProps) {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
@@ -84,15 +101,29 @@ export function ScheduleEditDialog({
   const [filterSubject, setFilterSubject] = useState<string>('all');
   const [isSaving, setIsSaving] = useState(false);
 
+  // 获取当前操作的班级信息
+  const currentClassInfo = useMemo(() => {
+    if (isNewSlot && emptySlotData) {
+      return emptySlotData;
+    }
+    return slot;
+  }, [isNewSlot, emptySlotData, slot]);
+
   // 当 slot 变化时，初始化表单
   useEffect(() => {
-    if (slot) {
-      setSelectedSubject(slot.subject);
-      setSelectedTeacherId(slot.teacherId);
+    if (slot && !isNewSlot) {
+      setSelectedSubject(slot.subject || '');
+      setSelectedTeacherId(slot.teacherId || '');
       setSearchQuery('');
       setFilterSubject(slot.subject || 'all');
+    } else if (isNewSlot) {
+      // 新建课时，清空表单
+      setSelectedSubject('');
+      setSelectedTeacherId('');
+      setSearchQuery('');
+      setFilterSubject('all');
     }
-  }, [slot]);
+  }, [slot, isNewSlot, open]);
 
   // 筛选和搜索教师
   const filteredTeachers = useMemo(() => {
@@ -113,33 +144,40 @@ export function ScheduleEditDialog({
       }
       
       // 年级过滤（教师只能教其可教年级范围内的班级）
-      if (slot && !teacher.teachableGrades?.includes(slot.grade)) {
+      const grade = currentClassInfo?.grade;
+      if (grade && !teacher.teachableGrades?.includes(grade)) {
         return false;
       }
       
       return true;
     });
-  }, [teachers, searchQuery, filterSubject, slot]);
+  }, [teachers, searchQuery, filterSubject, currentClassInfo]);
 
   // 获取选中的教师名称
   const selectedTeacher = teachers.find(t => t.id === selectedTeacherId);
 
-  // 处理保存
-  const handleSave = async () => {
-    if (!slot || !selectedSubject || !selectedTeacherId) return;
+  // 处理保存/创建
+  const handleSubmit = async () => {
+    if (!selectedSubject || !selectedTeacherId) return;
     
     setIsSaving(true);
     try {
-      await onSave(slot.id, selectedSubject, selectedTeacherId, selectedTeacher?.name || '');
+      if (isNewSlot && onCreate && emptySlotData) {
+        // 创建新课时
+        await onCreate(selectedSubject, selectedTeacherId, selectedTeacher?.name || '', emptySlotData);
+      } else if (slot && onSave) {
+        // 更新已有课时
+        await onSave(slot.id, selectedSubject, selectedTeacherId, selectedTeacher?.name || '');
+      }
       onOpenChange(false);
     } catch (error) {
-      console.error('保存失败:', error);
+      console.error('操作失败:', error);
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (!slot) return null;
+  if (!currentClassInfo) return null;
 
   const weekDayNames = ['', '周一', '周二', '周三', '周四', '周五'];
 
@@ -148,8 +186,17 @@ export function ScheduleEditDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            编辑课表
+            {isNewSlot ? (
+              <>
+                <Plus className="h-5 w-5" />
+                添加课程
+              </>
+            ) : (
+              <>
+                <BookOpen className="h-5 w-5" />
+                编辑课表
+              </>
+            )}
           </DialogTitle>
         </DialogHeader>
         
@@ -157,19 +204,25 @@ export function ScheduleEditDialog({
         <div className="bg-muted/50 rounded-lg p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">班级</span>
-            <span className="font-medium">{slot.className}</span>
+            <span className="font-medium">{currentClassInfo.className}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">时间</span>
             <span className="font-medium">
-              {weekDayNames[slot.weekDay]} {slot.periodName}
+              {weekDayNames[currentClassInfo.weekDay]} {currentClassInfo.periodName}
             </span>
           </div>
+          {!isNewSlot && slot?.subject && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">当前科目</span>
+              <Badge variant="outline">{slot.subject}</Badge>
+            </div>
+          )}
         </div>
 
         {/* 科目选择 */}
         <div className="space-y-2">
-          <Label>科目</Label>
+          <Label>{isNewSlot ? '选择科目' : '修改科目'}</Label>
           <Select value={selectedSubject} onValueChange={(value) => {
             setSelectedSubject(value);
             // 切换科目时，自动设置筛选
@@ -191,7 +244,7 @@ export function ScheduleEditDialog({
 
         {/* 教师选择 */}
         <div className="space-y-2">
-          <Label>教师</Label>
+          <Label>选择教师</Label>
           
           {/* 搜索和筛选 */}
           <div className="flex gap-2">
@@ -272,11 +325,11 @@ export function ScheduleEditDialog({
             取消
           </Button>
           <Button 
-            onClick={handleSave} 
+            onClick={handleSubmit} 
             disabled={!selectedSubject || !selectedTeacherId || isSaving}
           >
             {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            保存修改
+            {isNewSlot ? '添加课程' : '保存修改'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -67,6 +67,17 @@ interface DraftScheduleTabProps {
   onSaveDraft: (name: string) => Promise<void>;
   onPublish: () => Promise<void>;
   onSlotUpdate?: (slotId: string, subject: string, teacherId: string, teacherName: string) => Promise<void>;
+  onSlotCreate?: (slotData: {
+    classId: string;
+    className: string;
+    grade: number;
+    weekDay: number;
+    periodIndex: number;
+    periodName: string;
+    subject: string;
+    teacherId: string;
+    teacherName: string;
+  }) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -76,6 +87,7 @@ export function DraftScheduleTab({
   onSaveDraft,
   onPublish,
   onSlotUpdate,
+  onSlotCreate,
   isSaving,
 }: DraftScheduleTabProps) {
   const [selectedGrade, setSelectedGrade] = useState<string>('1');
@@ -231,23 +243,31 @@ export function DraftScheduleTab({
                           );
                           return (
                             <TableCell key={dayIndex} className="text-center p-1">
-                              {slot && (
-                                <SlotCell
-                                  slot={{
-                                    classId: classSchedule.classId,
-                                    className: classSchedule.className,
-                                    grade: classSchedule.grade,
-                                    weekDay: dayIndex + 1,
-                                    periodIndex: period,
-                                    periodName: `上午${period}`,
-                                    subject: slot.subject,
-                                    teacherId: slot.teacherId,
-                                    teacherName: slot.teacherName,
-                                  }}
-                                  teachers={teachers}
-                                  subjectColor={getSubjectColor(slot.subject)}
-                                />
-                              )}
+                              <SlotCell
+                                slot={slot ? {
+                                  classId: classSchedule.classId,
+                                  className: classSchedule.className,
+                                  grade: classSchedule.grade,
+                                  weekDay: dayIndex + 1,
+                                  periodIndex: period,
+                                  periodName: `上午${period}`,
+                                  subject: slot.subject,
+                                  teacherId: slot.teacherId,
+                                  teacherName: slot.teacherName,
+                                } : null}
+                                emptySlotData={{
+                                  classId: classSchedule.classId,
+                                  className: classSchedule.className,
+                                  grade: classSchedule.grade,
+                                  weekDay: dayIndex + 1,
+                                  periodIndex: period,
+                                  periodName: `上午${period}`,
+                                }}
+                                teachers={teachers}
+                                subjectColor={slot ? getSubjectColor(slot.subject) : undefined}
+                                onSlotUpdate={onSlotUpdate}
+                                onSlotCreate={onSlotCreate}
+                              />
                             </TableCell>
                           );
                         })}
@@ -265,23 +285,31 @@ export function DraftScheduleTab({
                           );
                           return (
                             <TableCell key={dayIndex} className="text-center p-1">
-                              {slot && (
-                                <SlotCell
-                                  slot={{
-                                    classId: classSchedule.classId,
-                                    className: classSchedule.className,
-                                    grade: classSchedule.grade,
-                                    weekDay: dayIndex + 1,
-                                    periodIndex: period,
-                                    periodName: `下午${period}`,
-                                    subject: slot.subject,
-                                    teacherId: slot.teacherId,
-                                    teacherName: slot.teacherName,
-                                  }}
-                                  teachers={teachers}
-                                  subjectColor={getSubjectColor(slot.subject)}
-                                />
-                              )}
+                              <SlotCell
+                                slot={slot ? {
+                                  classId: classSchedule.classId,
+                                  className: classSchedule.className,
+                                  grade: classSchedule.grade,
+                                  weekDay: dayIndex + 1,
+                                  periodIndex: period,
+                                  periodName: `下午${period}`,
+                                  subject: slot.subject,
+                                  teacherId: slot.teacherId,
+                                  teacherName: slot.teacherName,
+                                } : null}
+                                emptySlotData={{
+                                  classId: classSchedule.classId,
+                                  className: classSchedule.className,
+                                  grade: classSchedule.grade,
+                                  weekDay: dayIndex + 1,
+                                  periodIndex: period,
+                                  periodName: `下午${period}`,
+                                }}
+                                teachers={teachers}
+                                subjectColor={slot ? getSubjectColor(slot.subject) : undefined}
+                                onSlotUpdate={onSlotUpdate}
+                                onSlotCreate={onSlotCreate}
+                              />
                             </TableCell>
                           );
                         })}
