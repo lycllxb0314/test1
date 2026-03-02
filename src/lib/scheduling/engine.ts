@@ -370,45 +370,67 @@ export class SchedulingEngine {
   // ==================== 排上午第一节 ====================
   
   private scheduleFirstPeriods(): void {
-    // 奇数班第一节语文，偶数班第一节数学
+    // 按班级分配第一节：确保语数轮换
+    // 一年级语文8节、数学4节 -> 5天上午第一节：语文、数学、语文、数学、语文 或类似轮换
     for (const cls of this.input.classes) {
       const state = this.classStates.get(cls.id)!;
       const isOddClass = cls.classNumber % 2 === 1;
       
-      // 按天分配第一节
+      // 获取语文和数学的剩余课时
+      let chineseRemaining = state.subjectHours.get('语文') || 0;
+      let mathRemaining = state.subjectHours.get('数学') || 0;
+      
+      // 按天分配第一节（语数轮换）
       for (let dayIndex = 0; dayIndex < WEEKDAYS.length; dayIndex++) {
         const weekday = WEEKDAYS[dayIndex];
         const slotId = createTimeSlotId(weekday, '上午', 1);
         
-        // 轮换规则：检查前一天第一节
-        let subject: string;
+        // 确定今天第一节排什么科目
+        let subject: string | null = null;
+        
         if (dayIndex === 0) {
+          // 周一：奇数班语文，偶数班数学
           subject = isOddClass ? '语文' : '数学';
         } else {
+          // 检查前一天第一节是什么科目
           const prevWeekday = WEEKDAYS[dayIndex - 1];
           const prevSlotId = createTimeSlotId(prevWeekday, '上午', 1);
           const prevSlot = state.dailySchedule.get(prevSlotId);
           
           if (prevSlot) {
             // 连续两天第一节不能同一科目
-            subject = prevSlot.subject === '语文' ? '数学' : '语文';
-          } else {
-            subject = isOddClass ? '语文' : '数学';
+            const prevSubject = prevSlot.subject;
+            if (prevSubject === '语文' && mathRemaining > 0) {
+              subject = '数学';
+            } else if (prevSubject === '数学' && chineseRemaining > 0) {
+              subject = '语文';
+            } else if (chineseRemaining > 0) {
+              subject = '语文';
+            } else if (mathRemaining > 0) {
+              subject = '数学';
+            }
           }
         }
         
-        // 检查科目是否还有剩余课时
-        const remainingHours = state.subjectHours.get(subject) || 0;
-        if (remainingHours <= 0) {
-          subject = subject === '语文' ? '数学' : '语文';
+        // 检查是否有剩余课时
+        if (subject === '语文' && chineseRemaining <= 0) {
+          subject = mathRemaining > 0 ? '数学' : null;
+        } else if (subject === '数学' && mathRemaining <= 0) {
+          subject = chineseRemaining > 0 ? '语文' : null;
         }
+        
+        if (!subject) continue;
         
         // 找教师
         const teacher = this.findTeacherForSubject(cls, subject, slotId);
-        if (!teacher || remainingHours <= 0) continue;
+        if (!teacher) continue;
         
         // 分配
         this.assignSlot(cls, state, slotId, subject, teacher);
+        
+        // 更新剩余课时
+        if (subject === '语文') chineseRemaining--;
+        else mathRemaining--;
       }
     }
   }
@@ -507,29 +529,64 @@ export class SchedulingEngine {
       }
     }
     
+    // 按优先级排序
     tasks.sort((a, b) => b.priority - a.priority);
     
-    for (const task of tasks) {
-      const cls = this.classMap.get(task.classId)!;
-      const state = this.classStates.get(task.classId)!;
+    // 多轮分配：优先下午，然后上午
+    let maxRounds = 10; // 防止无限循环
+    while (tasks.some(t => t.remainingHours > 0) && maxRounds > 0) {
+      maxRounds--;
       
-      // 专职技能科优先下午
-      const afternoonSlots = this.getAvailableAfternoonSlots(state);
-      
-      for (const slotId of afternoonSlots) {
-        if (task.remainingHours <= 0) break;
+      for (const task of tasks) {
+        if (task.remainingHours <= 0) continue;
         
-        const slot = parseTimeSlotId(slotId);
-        const dailySkillCount = this.getDailySkillCount(state, slot.weekday);
-        if (dailySkillCount >= 1) continue;
+        const cls = this.classMap.get(task.classId)!;
+        const state = this.classStates.get(task.classId)!;
         
-        const teacher = this.findTeacherForSubject(cls, task.subject, slotId);
-        if (!teacher) continue;
+        // 优先找下午时段
+        let slotId = this.findBestSlot(cls, state, task.subject, true);
         
-        this.assignSlot(cls, state, slotId, task.subject, teacher);
-        task.remainingHours--;
+        // 如果下午没有，找上午时段
+        if (!slotId) {
+          slotId = this.findBestSlot(cls, state, task.subject, false);
+        }
+        
+        if (slotId) {
+          const teacher = this.findTeacherForSubject(cls, task.subject, slotId);
+          if (teacher) {
+            this.assignSlot(cls, state, slotId, task.subject, teacher);
+            task.remainingHours--;
+          }
+        }
       }
     }
+  }
+  
+  /** 找最佳时间槽 */
+  private findBestSlot(
+    cls: ClassForSchedule,
+    state: ClassScheduleState,
+    subject: string,
+    preferAfternoon: boolean
+  ): TimeSlotId | null {
+    const slots = preferAfternoon 
+      ? this.getAvailableAfternoonSlots(state)
+      : this.getAvailableMorningSlots(state);
+    
+    for (const slotId of slots) {
+      const slot = parseTimeSlotId(slotId);
+      
+      // 检查该科目当天是否已安排（每个技能科每天最多1节）
+      const dailySubjectCount = this.getDailySubjectCount(state, slot.weekday, subject);
+      if (dailySubjectCount >= 1) continue;
+      
+      // 检查该时间槽是否可用
+      if (state.dailySchedule.has(slotId)) continue;
+      
+      return slotId;
+    }
+    
+    return null;
   }
   
   private scheduleParttimeSkillSubjects(): void {
@@ -554,44 +611,31 @@ export class SchedulingEngine {
     
     tasks.sort((a, b) => b.priority - a.priority);
     
-    for (const task of tasks) {
-      const cls = this.classMap.get(task.classId)!;
-      const state = this.classStates.get(task.classId)!;
+    // 多轮分配：优先下午，然后上午
+    let maxRounds = 10;
+    while (tasks.some(t => t.remainingHours > 0) && maxRounds > 0) {
+      maxRounds--;
       
-      // 第一轮：优先排下午时段
-      const afternoonSlots = this.getAvailableAfternoonSlots(state);
-      
-      for (const slotId of afternoonSlots) {
-        if (task.remainingHours <= 0) break;
+      for (const task of tasks) {
+        if (task.remainingHours <= 0) continue;
         
-        const slot = parseTimeSlotId(slotId);
-        const dailySkillCount = this.getDailySkillCount(state, slot.weekday);
-        if (dailySkillCount >= 1) continue;
+        const cls = this.classMap.get(task.classId)!;
+        const state = this.classStates.get(task.classId)!;
         
-        const teacher = this.findTeacherForSubject(cls, task.subject, slotId);
-        if (!teacher) continue;
+        // 兼任科目优先下午
+        let slotId = this.findBestSlot(cls, state, task.subject, true);
         
-        this.assignSlot(cls, state, slotId, task.subject, teacher);
-        task.remainingHours--;
-      }
-      
-      // 第二轮：如果还有剩余，尝试排上午时段（语数教师兼任）
-      if (task.remainingHours > 0) {
-        const morningSlots = this.getAvailableMorningSlots(state);
+        // 如果下午没有，找上午时段
+        if (!slotId) {
+          slotId = this.findBestSlot(cls, state, task.subject, false);
+        }
         
-        for (const slotId of morningSlots) {
-          if (task.remainingHours <= 0) break;
-          
-          // 兼任科目在上午也要检查单日限制
-          const slot = parseTimeSlotId(slotId);
-          const dailySkillCount = this.getDailySkillCount(state, slot.weekday);
-          if (dailySkillCount >= 1) continue;
-          
+        if (slotId) {
           const teacher = this.findTeacherForSubject(cls, task.subject, slotId);
-          if (!teacher) continue;
-          
-          this.assignSlot(cls, state, slotId, task.subject, teacher);
-          task.remainingHours--;
+          if (teacher) {
+            this.assignSlot(cls, state, slotId, task.subject, teacher);
+            task.remainingHours--;
+          }
         }
       }
     }
