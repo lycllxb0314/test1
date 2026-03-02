@@ -1,11 +1,12 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v3.0  
+**文档版本**: v3.1  
 **编制日期**: 2024年3月  
 **编制单位**: 智慧校园项目组
 
 **版本历史**:
+- v3.1 (2024-03): **手动排课系统重构**：移除复杂智能排课算法，改为教务主任手动排课模式；新增右键复制粘贴功能；实现教师选择规则引擎（语文/数学/科学等科目规则）；新增课时参考悬浮窗；优化班级课表面板布局
 - v3.0 (2024-03): **数据孤岛彻底整改**：移除所有API层Mock fallback，Supabase成为唯一数据源；建立数据库迁移机制；更新API实现规范，禁止Mock回退；新增数据库唯一数据源验收标准
 - v2.0 (2024-03): 数据孤岛全面整改，消除页面内mock数据，建立统一API数据获取规范
 - v1.9 (2024-01): 数据孤岛整改方案，建立统一Mock数据源(master-data.ts)，修复班级-年级-班主任映射不一致、课表ID格式冲突等问题，新增4.3节Mock数据架构说明
@@ -139,16 +140,22 @@
 | React | 19.x | UI组件库 |
 | TypeScript | 5.x | 类型安全 |
 | Tailwind CSS | 4.x | 样式系统 |
-| shadcn/ui | latest | 组件库 |
+| shadcn/ui | latest | 组件库（基于 Radix UI） |
+| Recharts | 2.x | 图表库 |
+| Lucide React | latest | 图标库 |
+| Sonner | latest | Toast 通知 |
+| date-fns | 4.x | 日期处理 |
 
 #### 2.2.2 后端技术栈
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
 | Next.js API Routes | 16.x | BFF层API |
-| Supabase | latest | 数据库+认证 |
-| jose | latest | JWT处理 |
-| zod | latest | 参数校验 |
+| Supabase | 2.x | 数据库+认证 |
+| jose | 6.x | JWT处理 |
+| zod | 4.x | 参数校验 |
+| Drizzle ORM | 0.45.x | 数据库ORM |
+| coze-coding-dev-sdk | 0.7.x | AI能力集成 |
 
 #### 2.2.3 基础设施
 
@@ -157,6 +164,15 @@
 | Supabase PostgreSQL | 主数据库 |
 | S3兼容对象存储 | 文件存储 |
 | Vercel/自建服务器 | 应用托管 |
+
+#### 2.2.4 开发工具
+
+| 工具 | 用途 |
+|------|------|
+| pnpm | 包管理器（强制使用） |
+| Coze CLI | 项目脚手架 |
+| ESLint | 代码规范检查 |
+| TypeScript | 类型检查 |
 
 ### 2.3 认证授权架构
 
@@ -409,13 +425,13 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 │   ├── enrollment/    新生注册
 │   ├── exams/         考试管理
 │   ├── grades/        成绩管理
+│   ├── manual-schedule/ 手动排课（v3.1重构）
+│   │   └── [grade]/   按年级分页排课
 │   ├── research/      教研活动
 │   ├── rooms/         功能室预约
 │   │   ├── approval/  预约审批
 │   │   ├── booking/   预约申请
 │   │   └── calendar/  预约日历
-│   ├── schedule/      课表管理
-│   │   └── actual/    实际课表
 │   ├── students/      学生管理
 │   │   └── [id]/      学生详情
 │   ├── teachers/      教师管理
@@ -508,16 +524,57 @@ const circuitConfigs: Record<string, CircuitBreakerConfig> = {
 
 | 子模块 | 路由 | 功能说明 |
 |--------|------|----------|
-| 基准课表 | /academic/schedule | 学期开始前确定的固定课表 |
-| 实际课表 | /academic/schedule/actual | 每周生成，反映请假、代课等变化 |
+| 手动排课 | /academic/manual-schedule/[grade] | 教务主任手动排课，支持按年级分页 |
 | 班级课表 | /academic/classes/[id]/schedule | 各班级课表查询 |
 
+**手动排课模块设计（v3.1重构）**:
+
+| 功能 | 说明 |
+|------|------|
+| 按年级分页 | 一年级到六年级，每个年级独立页面 |
+| 班级课表面板 | 显示班级名称、班主任/副班主任信息、各学科课时统计 |
+| 右键复制粘贴 | 复制课程到剪贴板，粘贴到目标格子，自动更新课时 |
+| 教师选择弹窗 | 横向布局，左侧科目选择，右侧教师列表 |
+| 课时参考悬浮窗 | 可拖动悬浮窗，显示各学科参考课时 |
+
+**科目规则引擎**:
+
+| 科目 | 规则 | 教师来源 |
+|------|------|----------|
+| 语文 | chinese_only | 本班语文老师（班主任或副班主任） |
+| 数学 | math_only | 本班数学老师（班主任或副班主任） |
+| 书法 | chinese_only | 本班语文老师 |
+| 班会 | head_teacher_only | 本班班主任 |
+| 道德与法治 | all_chinese | 全校语文老师 |
+| 科学 | science_rule | 本班数学老师 > 专职科学老师 > 其他数学老师 |
+| 校本/综合实践/劳动 | all_chinese_math | 全校语数老师 |
+| 其他学科 | all_subject | 该学科全校老师 |
+
+**课时配置文件** (`src/lib/schedule-config.ts`):
+
+| 科目 | 一二年级 | 三至六年级 |
+|------|----------|------------|
+| 语文 | 7节 | 6节 |
+| 数学 | 4节 | 5节 |
+| 英语 | - | 2节 |
+| 科学 | 2节 | 3节 |
+| 道德与法治 | 2节 | 2节 |
+| 体育 | 3节 | 3节 |
+| 音乐 | 2节 | 1节 |
+| 美术 | 2节 | 1节 |
+| 书法 | 1节 | 1节 |
+| 信息技术 | - | 1节 |
+| 劳动 | 1节 | 1节 |
+| 综合实践 | 1节 | 1节 |
+| 校本 | 1节 | 1节 |
+| 班会 | 1节 | 1节 |
+| **总计** | **26节** | **30节** |
+
 **课表数据模型**:
-| 数据类型 | 说明 | 更新频率 |
-|----------|------|----------|
-| 基准课表 | 学期开始前确定的固定课表 | 学期初 |
-| 实际课表 | 根据请假、代课动态生成的每周课表 | 每周 |
-| 调课记录 | 所有调课申请的记录 | 实时追加 |
+| 数据表 | 说明 | 更新频率 |
+|--------|------|----------|
+| schedule_slots | 正式课表（唯一数据源） | 实时更新 |
+| schedule_drafts | 草稿备份 | 手动保存 |
 
 #### 3.2.2 学生管理
 
@@ -1150,7 +1207,7 @@ src/app/moral/
 
 ### 3.10 API接口清单
 
-项目共实现 **80个API路由**，按功能模块组织：
+项目共实现 **90+ API路由**，按功能模块组织：
 
 ```
 src/app/api/
@@ -1164,6 +1221,17 @@ src/app/api/
 │   ├── login/        登录
 │   ├── logout/       登出
 │   └── refresh/      刷新Token
+├── academic/         教务系统API (20+个路由)
+│   ├── manual-schedule/    手动排课API (7个路由)
+│   │   ├── cleanup/        清理重复数据
+│   │   ├── draft/          保存草稿
+│   │   ├── grade/          获取年级课表
+│   │   ├── publish/        发布课表
+│   │   ├── slot/           保存/删除单个课程
+│   │   ├── status/         获取排课状态
+│   │   └── teachers/       获取教师列表（含课时统计）
+│   ├── official-schedule/  正式课表API
+│   └── schedule-drafts/    草稿管理API
 ├── teachers/         教师管理API (10个路由)
 ├── students/         学生管理API (6个路由)
 ├── expenses/         报销管理API (5个路由)
@@ -1173,13 +1241,75 @@ src/app/api/
 ├── rooms/            功能室API (3个路由)
 ├── research/         教研活动API (3个路由)
 ├── safety/           安全管理API (2个路由)
-├── schedule*/        课表相关API (4个路由)
 ├── workflow/         工作流API (3个路由)
 ├── homepage/         首页管理API (4个路由)
 └── ...               其他API
 ```
 
-### 3.11 教务德育联动方案
+#### 3.10.1 手动排课API详细说明
+
+| API | 方法 | 功能 | 请求参数 |
+|-----|------|------|----------|
+| `/api/academic/manual-schedule/grade` | GET | 获取年级课表 | `grade` (年级数字) |
+| `/api/academic/manual-schedule/teachers` | GET | 获取教师列表 | `grade` (年级数字) |
+| `/api/academic/manual-schedule/slot` | POST | 保存课程格子 | `classId, grade, weekDay, periodIndex, subject, teacherId, teacherName` |
+| `/api/academic/manual-schedule/slot` | DELETE | 删除课程格子 | `classId, weekDay, periodIndex` |
+| `/api/academic/manual-schedule/status` | GET | 获取排课状态 | `grade` (年级数字) |
+| `/api/academic/manual-schedule/draft` | POST | 保存草稿 | `grade, scheduleData` |
+| `/api/academic/manual-schedule/cleanup` | POST | 清理重复数据 | - |
+
+**教师API返回结构**:
+
+```typescript
+interface TeacherAPIResponse {
+  subjects: {
+    subject: string;        // 学科名称
+    teachers: {
+      id: string;
+      name: string;
+      subject: string;
+      maxHours: number;      // 最大课时
+      usedHours: number;     // 已用课时
+      remainingHours: number; // 剩余课时
+      gradeAssignments?: {   // 跨年级任职信息
+        grade: number;
+        gradeName: string;
+        classes: string[];
+        subjects: string[];
+      }[];
+    }[];
+  }[];
+}
+```
+
+### 3.11 核心配置与共享库
+
+#### 3.11.1 排课配置文件
+
+| 文件 | 位置 | 用途 |
+|------|------|------|
+| schedule-config.ts | src/lib/ | 各年级各学科课时配置 |
+| subject-colors.ts | src/lib/ | 学科配色方案 |
+
+#### 3.11.2 自定义Hooks
+
+| Hook | 位置 | 用途 |
+|------|------|------|
+| useAuth | src/hooks/ | 认证状态管理 |
+| useClasses | src/hooks/ | 班级数据获取 |
+| useTeachers | src/hooks/ | 教师数据获取 |
+| useStudents | src/hooks/ | 学生数据获取 |
+| usePermissions | src/hooks/ | 权限检查 |
+| useScheduleDraft | src/hooks/ | 草稿管理 |
+| useOfficialSchedule | src/hooks/ | 正式课表获取 |
+
+#### 3.11.3 共享组件
+
+| 组件 | 位置 | 用途 |
+|------|------|------|
+| SubjectHoursPanel | src/components/schedule/ | 课时参考悬浮窗（可拖动） |
+
+### 3.12 教务德育联动方案
 
 #### 3.11.1 联动设计原则
 
