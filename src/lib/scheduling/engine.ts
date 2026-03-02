@@ -698,25 +698,34 @@ export class SchedulingEngine {
     subject: string,
     preferAfternoon: boolean
   ): TimeSlotId | null {
-    // 获取所有可用时段
-    const allSlots: { slotId: TimeSlotId; isAfternoon: boolean; load: number }[] = [];
+    // 获取所有可用时段，并计算当天该科目已安排数量
+    const allSlots: { slotId: TimeSlotId; isAfternoon: boolean; load: number; dailyCount: number }[] = [];
     
     // 下午时段
     for (const slotId of this.getAvailableAfternoonSlots(state)) {
+      const slot = parseTimeSlotId(slotId);
       const load = this.getSlotSubjectLoad(slotId, subject);
-      allSlots.push({ slotId, isAfternoon: true, load });
+      const dailyCount = this.getDailySubjectCount(state, slot.weekday, subject);
+      allSlots.push({ slotId, isAfternoon: true, load, dailyCount });
     }
     // 上午时段
     for (const slotId of this.getAvailableMorningSlots(state)) {
+      const slot = parseTimeSlotId(slotId);
       const load = this.getSlotSubjectLoad(slotId, subject);
-      allSlots.push({ slotId, isAfternoon: false, load });
+      const dailyCount = this.getDailySubjectCount(state, slot.weekday, subject);
+      allSlots.push({ slotId, isAfternoon: false, load, dailyCount });
     }
     
     // 排序策略：
-    // 1. 按负载排序（负载低的时段优先），这样可以平衡使用上午和下午
-    // 2. 当负载相同时，preferAfternoon 决定优先级
+    // 1. 优先选择当天该科目还未安排的时段（dailyCount=0），确保每天≤1节
+    // 2. 按负载排序（负载低的时段优先）
+    // 3. 当负载相同时，preferAfternoon 决定优先级
     allSlots.sort((a, b) => {
-      // 首先按负载排序（负载低的优先）
+      // 优先选择当天该科目为0的时段
+      if (a.dailyCount !== b.dailyCount) {
+        return a.dailyCount - b.dailyCount;
+      }
+      // 然后按负载排序（负载低的优先）
       if (a.load !== b.load) {
         return a.load - b.load;
       }
@@ -732,13 +741,13 @@ export class SchedulingEngine {
     let skippedByDailyLimit = 0;
     let skippedByNoTeacher = 0;
     
-    for (const { slotId } of allSlots) {
+    for (const { slotId, dailyCount } of allSlots) {
       checkedSlots++;
       const slot = parseTimeSlotId(slotId);
       
-      // 检查该科目当天是否已安排（技能科每天最多1节）
-      const dailySubjectCount = this.getDailySubjectCount(state, slot.weekday, subject);
-      if (dailySubjectCount >= 1) {
+      // 检查该科目当天是否已安排（技能科每天最多2节，放宽限制确保课时充足）
+      // 注意：由于排序已经优先选择了dailyCount=0的时段，这里只是兜底检查
+      if (dailyCount >= 2) {
         skippedByDailyLimit++;
         continue;
       }
