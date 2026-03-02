@@ -72,8 +72,8 @@ export default function SmartSchedulingPage() {
   const [progress, setProgress] = useState({ phase: '', current: 0, total: 0, message: '' });
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string>('1');
-  const [selectedClass, setSelectedClass] = useState<string>('');
-  const [selectedTeacher, setSelectedTeacher] = useState<string>('');
+  const [selectedClass, setSelectedClass] = useState<string>('all');
+  const [selectedTeacher, setSelectedTeacher] = useState<string>('all');
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // 执行排课
@@ -113,7 +113,7 @@ export default function SmartSchedulingPage() {
       filtered = filtered.filter(c => c.grade === parseInt(selectedGrade));
     }
     
-    if (selectedClass) {
+    if (selectedClass !== 'all') {
       filtered = filtered.filter(c => c.classId === selectedClass);
     }
     
@@ -124,7 +124,7 @@ export default function SmartSchedulingPage() {
   const filteredTeacherSchedules = useMemo(() => {
     if (!result) return [];
     
-    if (!selectedTeacher) return result.teacherSchedules.slice(0, 20);
+    if (selectedTeacher === 'all') return result.teacherSchedules.slice(0, 20);
     
     return result.teacherSchedules.filter(t => t.teacherId === selectedTeacher);
   }, [result, selectedTeacher]);
@@ -320,7 +320,7 @@ export default function SmartSchedulingPage() {
                           <SelectValue placeholder="选择班级" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">全部班级</SelectItem>
+                          <SelectItem value="all">全部班级</SelectItem>
                           {result.classSchedules
                             .filter(c => selectedGrade === 'all' || c.grade === parseInt(selectedGrade))
                             .map(c => (
@@ -417,7 +417,7 @@ export default function SmartSchedulingPage() {
                         <SelectValue placeholder="选择教师" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">全部教师（前20）</SelectItem>
+                        <SelectItem value="all">全部教师（前20）</SelectItem>
                         {result.teacherSchedules.map(t => (
                           <SelectItem key={t.teacherId} value={t.teacherId}>
                             {t.teacherName} ({t.primarySubject})
