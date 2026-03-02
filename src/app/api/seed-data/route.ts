@@ -71,12 +71,14 @@ export async function POST() {
     const teacherSubjects = [
       { subject: '语文', count: 60 },  // 每班一个班主任
       { subject: '数学', count: 60 },  // 每班一个班主任
-      { subject: '道德与法治', count: 8 },  // 每班2节，60班=120节，每教师15节
-      { subject: '科学', count: 7 },   // 100节
-      { subject: '英语', count: 14 },  // 40班×4节=160节，每教师最多12节(3班)
-      { subject: '体育', count: 12 },  // 60班×3节=180节
-      { subject: '音乐', count: 8 },   // 60班×2节=120节
-      { subject: '美术', count: 8 },   // 60班×2节=120节
+      { subject: '道德与法治', count: 8 },  // 60班×2节=120节，8人×18节=144节（部分由语文教师兼任）
+      { subject: '科学', count: 8 },   // 60班×(2+3)/2≈150节，8人×18节=144节（数学教师兼任补充）
+      { subject: '英语', count: 14 },  // 40班×4节=160节，14人×15节=210节
+      { subject: '体育', count: 12 },  // 60班×3节=180节，12人×18节=216节
+      { subject: '音乐', count: 8 },   // 60班×(1+2)/2≈90节，8人×18节=144节
+      { subject: '美术', count: 8 },   // 60班×(1+2)/2≈90节，8人×18节=144节
+      { subject: '信息技术', count: 4 }, // 40班×1节=40节，4人×18节=72节
+      { subject: '心育', count: 4 },   // 40班×1节=40节，4人×18节=72节
     ];
     
     const teachersData: any[] = [];
@@ -110,13 +112,22 @@ export async function POST() {
         // 其他技能科：skill_teacher，课时16-18节
         const isMainSubject = subject === '语文' || subject === '数学';
         const isEnglish = subject === '英语';
+        const isUpperGradeOnly = subject === '英语' || subject === '信息技术' || subject === '心育';
         const teacherRole = isMainSubject ? 'subject_teacher' : 'skill_teacher';
         
         // 课时量标准：
-        // - 语文/数学：15节（后续会根据是否班主任调整）
+        // - 语文/数学：16节（含兼任科目）
         // - 英语：15节（特殊技能科，同主科标准）
-        // - 其他技能科：17节
-        const weeklyHours = isMainSubject || isEnglish ? 15 : 17;
+        // - 其他技能科：18节
+        const weeklyHours = isMainSubject ? 16 : (isEnglish ? 15 : 18);
+        
+        // 兼任科目配置
+        let secondarySubjects: string[] = [];
+        if (subject === '语文') {
+          secondarySubjects = ['道德与法治', '书法', '综合实践', '校本'];
+        } else if (subject === '数学') {
+          secondarySubjects = ['科学', '劳动', '综合实践', '校本'];
+        }
         
         const teacher = {
           id: `t${String(teacherIndex).padStart(3, '0')}`,
@@ -131,11 +142,11 @@ export async function POST() {
           // 新增：角色和主教学科
           role: teacherRole,
           primary_subject: subject,
-          secondary_subjects: isEnglish ? [] : (isMainSubject ? ['道德与法治', '劳动'] : []),
+          secondary_subjects: secondarySubjects,
           total_weekly_hours: weeklyHours,
           main_class_count: isMainSubject ? 2 : 0,
           main_subject_hours: isMainSubject ? 10 : 0,
-          teachable_grades: isEnglish ? [3, 4, 5, 6] : [1, 2, 3, 4, 5, 6], // 英语只教3-6年级
+          teachable_grades: isUpperGradeOnly ? [3, 4, 5, 6] : [1, 2, 3, 4, 5, 6], // 英语/信息/心育只教3-6年级
         };
         
         teachersData.push(teacher);

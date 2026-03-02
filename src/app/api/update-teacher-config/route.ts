@@ -114,8 +114,8 @@ export async function POST() {
         .from('teachers')
         .update({
           primary_subject: '语文',
-          secondary_subjects: ['道德与法治', '班会', '书法'],
-          total_weekly_hours: 15,
+          secondary_subjects: ['道德与法治', '班会', '书法', '综合实践', '校本'],
+          total_weekly_hours: 16,
           main_class_count: 1,
           main_subject_hours: 6,
         })
@@ -140,8 +140,8 @@ export async function POST() {
         .from('teachers')
         .update({
           primary_subject: '数学',
-          secondary_subjects: ['劳动', '班会'],
-          total_weekly_hours: 15,
+          secondary_subjects: ['劳动', '班会', '科学', '综合实践', '校本'],
+          total_weekly_hours: 16,
           main_class_count: 1,
           main_subject_hours: 5,
         })
@@ -166,8 +166,8 @@ export async function POST() {
         .from('teachers')
         .update({
           primary_subject: '语文',
-          secondary_subjects: ['道德与法治', '书法'],
-          total_weekly_hours: 15,
+          secondary_subjects: ['道德与法治', '书法', '综合实践', '校本'],
+          total_weekly_hours: 16,
           main_class_count: 2,
           main_subject_hours: 12,
         })
@@ -192,10 +192,10 @@ export async function POST() {
         .from('teachers')
         .update({
           primary_subject: '数学',
-          secondary_subjects: ['科学', '劳动'],
-          total_weekly_hours: 15,
+          secondary_subjects: ['科学', '劳动', '综合实践', '校本'],
+          total_weekly_hours: 16,
           main_class_count: 2,
-          main_subject_hours: 8,
+          main_subject_hours: 10,
         })
         .in('id', mathSubsIds);
       
@@ -216,6 +216,8 @@ export async function POST() {
       { name: '美术', hours: 18, grades: [1, 2, 3, 4, 5, 6] },
       { name: '科学', hours: 18, grades: [1, 2, 3, 4, 5, 6] },
       { name: '道德与法治', hours: 18, grades: [1, 2, 3, 4, 5, 6] },
+      { name: '信息技术', hours: 18, grades: [3, 4, 5, 6] },
+      { name: '心育', hours: 18, grades: [3, 4, 5, 6] },
     ];
 
     for (const subj of skillSubjects) {

@@ -82,10 +82,10 @@ export const SKILL_SUBJECTS = [
 ] as const;
 
 /** 语文教师兼任科目 */
-export const CHINESE_SECONDARY = ['道德与法治', '书法'] as const;
+export const CHINESE_SECONDARY = ['道德与法治', '书法', '综合实践', '校本'] as const;
 
 /** 数学教师兼任科目 */
-export const MATH_SECONDARY = ['劳动', '科学'] as const;
+export const MATH_SECONDARY = ['劳动', '科学', '综合实践', '校本'] as const;
 
 // ==================== 硬约束 ====================
 

@@ -186,7 +186,7 @@ export class SchedulingEngine {
   private classMap: Map<string, ClassForSchedule>;
   private teacherAvailability: Map<string, TeacherAvailability>;
   private classStates: Map<string, ClassScheduleState>;
-  private schedule: Map<TimeSlotId, ScheduleSlot>;
+  private schedule: Map<string, ScheduleSlot>; // key: slotId_classId
   private violations: ConstraintViolation[];
   private softPenalties: SoftConstraintDetail[];
   
@@ -346,7 +346,7 @@ export class SchedulingEngine {
       if (!teacher) continue;
       
       // 班会固定周五下午第三节
-      this.schedule.set(slotId, {
+      const scheduleSlot: ScheduleSlot = {
         timeSlotId: slotId,
         timeSlot: {
           weekday: CLASS_MEETING_SLOT.weekday,
@@ -359,12 +359,14 @@ export class SchedulingEngine {
         subject: '班会',
         teacherId: teacher.id,
         teacherName: teacher.name,
-      });
+      };
+      
+      this.schedule.set(`${slotId}_${cls.id}`, scheduleSlot);
       
       // 更新班级状态
       const state = this.classStates.get(cls.id)!;
       state.subjectHours.set('班会', 0);
-      state.dailySchedule.set(slotId, this.schedule.get(slotId)!);
+      state.dailySchedule.set(slotId, scheduleSlot);
       
       // 更新教师可用性
       const availability = this.teacherAvailability.get(teacher.id)!;
@@ -775,7 +777,7 @@ export class SchedulingEngine {
       teacherName: teacher.name,
     };
     
-    this.schedule.set(slotId, scheduleSlot);
+    this.schedule.set(`${slotId}_${cls.id}`, scheduleSlot);
     
     // 更新班级状态
     const remaining = state.subjectHours.get(subject) || 0;
@@ -880,11 +882,42 @@ export class SchedulingEngine {
     // 检查各班各科课时是否达标
     this.checkSubjectHoursConstraint();
     
+    // 检查空槽（新增）
+    this.checkEmptySlots();
+    
     // 检查教师冲突
     this.checkTeacherConflictConstraint();
     
     // 检查语数是否都在上午
     this.checkMainSubjectMorningConstraint();
+  }
+  
+  /** 检查空槽（时间槽未填满） */
+  private checkEmptySlots(): void {
+    for (const cls of this.input.classes) {
+      const state = this.classStates.get(cls.id)!;
+      const grade = cls.grade;
+      
+      // 生成该班级应有的所有时间槽
+      const expectedSlots = generateTimeSlotsForGrade(grade);
+      
+      // 检查每个槽是否都有课程
+      const emptySlots: string[] = [];
+      for (const slotId of expectedSlots) {
+        if (!state.dailySchedule.has(slotId) || state.dailySchedule.get(slotId) === null) {
+          emptySlots.push(slotId);
+        }
+      }
+      
+      if (emptySlots.length > 0) {
+        this.violations.push({
+          type: 'EMPTY_SLOTS',
+          message: `${cls.name} 有 ${emptySlots.length} 个空槽未安排课程`,
+          count: emptySlots.length,
+          details: emptySlots.slice(0, 5).map(s => `空槽: ${s}`),
+        });
+      }
+    }
   }
   
   private checkSubjectHoursConstraint(): void {
