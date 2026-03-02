@@ -67,6 +67,17 @@ export async function PATCH(
     const body = await request.json();
     const client = getSupabaseClient();
     
+    // 先获取当前班级信息
+    const { data: currentClass, error: fetchError } = await client
+      .from('classes')
+      .select('head_teacher_id, sub_teacher_id')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError || !currentClass) {
+      return NextResponse.json(error('班级不存在', ErrorCode.NOT_FOUND), { status: 404 });
+    }
+    
     // 构建更新数据
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -103,11 +114,7 @@ export async function PATCH(
       }
     }
     
-    // 教室
-    if (body.classroomName !== undefined) {
-      updateData.classroom_name = body.classroomName;
-    }
-    
+    // 更新班级信息
     const { data, error: dbError } = await client
       .from('classes')
       .update(updateData)
@@ -118,6 +125,43 @@ export async function PATCH(
     if (dbError) {
       console.error('Update error:', dbError);
       return NextResponse.json(error('更新失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    }
+    
+    // 同步更新 teachers 表的 head_teacher_class_ids
+    // 1. 清除原班主任的关联
+    if (currentClass.head_teacher_id && currentClass.head_teacher_id !== body.headTeacherId) {
+      const { data: oldTeacher } = await client
+        .from('teachers')
+        .select('head_teacher_class_ids')
+        .eq('id', currentClass.head_teacher_id)
+        .single();
+      
+      if (oldTeacher && oldTeacher.head_teacher_class_ids) {
+        const newIds = (oldTeacher.head_teacher_class_ids as string[]).filter(cid => cid !== id);
+        await client
+          .from('teachers')
+          .update({ head_teacher_class_ids: newIds })
+          .eq('id', currentClass.head_teacher_id);
+      }
+    }
+    
+    // 2. 添加新班主任的关联
+    if (body.headTeacherId && body.headTeacherId !== currentClass.head_teacher_id) {
+      const { data: newTeacher } = await client
+        .from('teachers')
+        .select('head_teacher_class_ids')
+        .eq('id', body.headTeacherId)
+        .single();
+      
+      if (newTeacher) {
+        const existingIds = (newTeacher.head_teacher_class_ids as string[]) || [];
+        if (!existingIds.includes(id)) {
+          await client
+            .from('teachers')
+            .update({ head_teacher_class_ids: [...existingIds, id] })
+            .eq('id', body.headTeacherId);
+        }
+      }
     }
     
     return NextResponse.json(success({

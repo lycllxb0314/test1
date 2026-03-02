@@ -46,10 +46,10 @@ const handleSchedule = async (request: NextRequest, { user }: ExtendedRouteConte
       );
     }
     
-    // 2. 获取班级数据
+    // 2. 获取班级数据（包含语数老师信息）
     const { data: classesData, error: classesError } = await client
       .from('classes')
-      .select('id, name, grade, class_number, head_teacher_id, head_teacher_name')
+      .select('id, name, grade, class_number, head_teacher_id, head_teacher_name, sub_teacher_id, sub_teacher_name')
       .order('grade', { ascending: true })
       .order('class_number', { ascending: true });
     
@@ -60,29 +60,33 @@ const handleSchedule = async (request: NextRequest, { user }: ExtendedRouteConte
       );
     }
     
-    // 3. 获取教师课程数据（用于确定教师任教班级）
-    const { data: coursesData } = await client
-      .from('teacher_courses')
-      .select('teacher_id, class_id, subject');
-    
-    // 构建教师任教班级映射
-    const teacherClassesMap = new Map<string, Set<string>>();
-    // 构建班级语数老师映射（用于兼任科目绑定）
+    // 3. 从 classes 表构建映射（作为唯一数据源）
     const classChineseTeacher = new Map<string, string>(); // classId -> teacherId
     const classMathTeacher = new Map<string, string>();    // classId -> teacherId
+    const teacherHeadClassMap = new Map<string, string>(); // teacherId -> headTeacherClassId
     
-    if (coursesData) {
-      for (const course of coursesData) {
-        if (!teacherClassesMap.has(course.teacher_id)) {
-          teacherClassesMap.set(course.teacher_id, new Set());
-        }
-        teacherClassesMap.get(course.teacher_id)!.add(course.class_id);
+    if (classesData) {
+      for (const c of classesData) {
+        // 根据 head_teacher 的科目判断谁是语文老师、谁是数学老师
+        const headTeacher = teachersData?.find(t => t.id === c.head_teacher_id);
+        const subTeacher = teachersData?.find(t => t.id === c.sub_teacher_id);
         
-        // 记录班级的语数老师
-        if (course.subject === '语文') {
-          classChineseTeacher.set(course.class_id, course.teacher_id);
-        } else if (course.subject === '数学') {
-          classMathTeacher.set(course.class_id, course.teacher_id);
+        if (headTeacher) {
+          if (headTeacher.primary_subject === '语文') {
+            classChineseTeacher.set(c.id, c.head_teacher_id);
+          } else if (headTeacher.primary_subject === '数学') {
+            classMathTeacher.set(c.id, c.head_teacher_id);
+          }
+          // 记录班主任对应的班级
+          teacherHeadClassMap.set(c.head_teacher_id, c.id);
+        }
+        
+        if (subTeacher) {
+          if (subTeacher.primary_subject === '语文') {
+            classChineseTeacher.set(c.id, c.sub_teacher_id);
+          } else if (subTeacher.primary_subject === '数学') {
+            classMathTeacher.set(c.id, c.sub_teacher_id);
+          }
         }
       }
     }
@@ -97,8 +101,9 @@ const handleSchedule = async (request: NextRequest, { user }: ExtendedRouteConte
         reduction += POSITION_HOURS_REDUCTION[role] || 0;
       }
       
-      // 班主任减免
-      if (t.head_teacher_class_ids && t.head_teacher_class_ids.length > 0) {
+      // 班主任减免（优先使用classes表的数据）
+      const headClassId = teacherHeadClassMap.get(t.id) || t.head_teacher_class_ids?.[0];
+      if (headClassId) {
         reduction += POSITION_HOURS_REDUCTION['head_teacher'] || 2;
       }
       
@@ -135,6 +140,9 @@ const handleSchedule = async (request: NextRequest, { user }: ExtendedRouteConte
       const baseHours = t.total_weekly_hours || 16;
       const maxHours = Math.max(baseHours - reduction, 0);
       
+      // 使用classes表数据补充班主任信息
+      const actualHeadClassId = teacherHeadClassMap.get(t.id) || t.head_teacher_class_ids?.[0];
+      
       return {
         id: t.id,
         name: t.name,
@@ -143,8 +151,8 @@ const handleSchedule = async (request: NextRequest, { user }: ExtendedRouteConte
         weeklyHours: baseHours,
         currentHours: 0,
         teachableGrades,
-        isHeadTeacher: !!(t.head_teacher_class_ids && t.head_teacher_class_ids.length > 0),
-        headTeacherClassId: t.head_teacher_class_ids?.[0],
+        isHeadTeacher: !!actualHeadClassId,
+        headTeacherClassId: actualHeadClassId,
         additionalRoles: roles || [],
         maxHours,
         mainSubjectOnly: t.primary_subject === '语文' || t.primary_subject === '数学',
