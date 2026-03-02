@@ -37,7 +37,7 @@ type SubjectRule =
   | 'math_only'         // 只能选本班数学老师（数学）
   | 'head_teacher_only' // 只能选本班班主任（班会）
   | 'all_chinese'       // 可选全校语文老师（道德与法治）
-  | 'all_math'          // 可选全校数学老师（科学）
+  | 'science_rule'      // 科学课：本班数学老师 > 专职科学老师 > 其他数学老师
   | 'all_chinese_math'  // 可选全校语数老师（校本、综合实践、劳动）
   | 'all_subject';      // 可选该学科全校老师（其他学科）
 
@@ -48,7 +48,7 @@ const SUBJECT_RULES: Record<string, SubjectRule> = {
   '书法': 'chinese_only',           // 书法只能选本班语文老师
   '班会': 'head_teacher_only',      // 班会只能选本班班主任
   '道德与法治': 'all_chinese',      // 道德与法治可选全校语文老师
-  '科学': 'all_math',               // 科学可选全校数学老师
+  '科学': 'science_rule',           // 科学：本班数学老师优先，其次专职科学老师
   '校本': 'all_chinese_math',       // 校本可选全校语数老师
   '综合实践': 'all_chinese_math',   // 综合实践可选全校语数老师
   '劳动': 'all_chinese_math',       // 劳动可选全校语数老师
@@ -504,21 +504,34 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
         });
       }
       
-      // 可选全校数学老师（科学）- 本班老师优先，其次课时快要满足的
-      case 'all_math': {
+      // 科学课：本班数学老师 > 专职科学老师 > 其他数学老师
+      case 'science_rule': {
         const mathGroup = teachers.find(g => g.subject === '数学');
-        const filtered = (mathGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
-        // 本班老师ID
-        const priorityIds = new Set([
-          selectedSlot?.headTeacherId,
-          selectedSlot?.chineseTeacherId,
-          selectedSlot?.mathTeacherId
-        ].filter(Boolean));
-        // 排序：1.本班老师在前 2.剩余课时少的优先
+        const scienceGroup = teachers.find(g => g.subject === '科学');
+        
+        // 合并数学老师和科学老师
+        const allTeachers = [
+          ...(mathGroup?.teachers || []),
+          ...(scienceGroup?.teachers || [])
+        ];
+        const filtered = allTeachers.filter(t => !searchQuery || t.name.includes(searchQuery));
+        
+        // 本班数学老师ID（第一优先）
+        const classMathTeacherId = selectedSlot?.mathTeacherId;
+        
+        // 排序优先级：1.本班数学老师 2.专职科学老师 3.其他数学老师 4.剩余课时少的优先
         return filtered.sort((a, b) => {
-          const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
-          const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
-          if (aIsPriority !== bIsPriority) return aIsPriority - bIsPriority;
+          // 判断是否是本班数学老师
+          const aIsClassMath = a.id === classMathTeacherId ? 0 : 1;
+          const bIsClassMath = b.id === classMathTeacherId ? 0 : 1;
+          if (aIsClassMath !== bIsClassMath) return aIsClassMath - bIsClassMath;
+          
+          // 判断是否是专职科学老师
+          const aIsScience = a.subject === '科学' ? 0 : 1;
+          const bIsScience = b.subject === '科学' ? 0 : 1;
+          if (aIsScience !== bIsScience) return aIsScience - bIsScience;
+          
+          // 同级别按剩余课时升序（少的在前，快要满足课时的优先）
           return a.remainingHours - b.remainingHours;
         });
       }
@@ -965,12 +978,12 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                   <span>本班班主任：<strong>{selectedSlot.headTeacherName}</strong></span>
                 </div>
               )}
-              {selectedSubject && (SUBJECT_RULES[selectedSubject] === 'all_chinese' || SUBJECT_RULES[selectedSubject] === 'all_math' || SUBJECT_RULES[selectedSubject] === 'all_chinese_math') && (
+              {selectedSubject && (SUBJECT_RULES[selectedSubject] === 'all_chinese' || SUBJECT_RULES[selectedSubject] === 'science_rule' || SUBJECT_RULES[selectedSubject] === 'all_chinese_math') && (
                 <div className="mt-3 p-2.5 bg-stone-100 rounded-lg border border-stone-200 flex items-center gap-2 text-stone-600 text-xs">
                   <User className="w-3.5 h-3.5" />
                   <span>
                     {SUBJECT_RULES[selectedSubject] === 'all_chinese' && '可选全校语文老师'}
-                    {SUBJECT_RULES[selectedSubject] === 'all_math' && '可选全校数学老师'}
+                    {SUBJECT_RULES[selectedSubject] === 'science_rule' && '本班数学老师优先，其次专职科学老师'}
                     {SUBJECT_RULES[selectedSubject] === 'all_chinese_math' && '可选全校语数老师'}
                   </span>
                 </div>
