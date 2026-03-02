@@ -505,24 +505,60 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
         }];
       }
       
-      // 可选全校语文老师（道德与法治）
+      // 可选全校语文老师（道德与法治）- 本班老师优先
       case 'all_chinese': {
         const chineseGroup = teachers.find(g => g.subject === '语文');
-        return (chineseGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+        const filtered = (chineseGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+        // 本班老师ID（班主任、副班主任、语文老师、数学老师）
+        const priorityIds = new Set([
+          selectedSlot?.headTeacherId,
+          selectedSlot?.chineseTeacherId,
+          selectedSlot?.mathTeacherId
+        ].filter(Boolean));
+        // 排序：本班老师在前
+        return filtered.sort((a, b) => {
+          const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
+          const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
+          return aIsPriority - bIsPriority;
+        });
       }
       
-      // 可选全校数学老师（科学）
+      // 可选全校数学老师（科学）- 本班老师优先
       case 'all_math': {
         const mathGroup = teachers.find(g => g.subject === '数学');
-        return (mathGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+        const filtered = (mathGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
+        // 本班老师ID
+        const priorityIds = new Set([
+          selectedSlot?.headTeacherId,
+          selectedSlot?.chineseTeacherId,
+          selectedSlot?.mathTeacherId
+        ].filter(Boolean));
+        // 排序：本班老师在前
+        return filtered.sort((a, b) => {
+          const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
+          const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
+          return aIsPriority - bIsPriority;
+        });
       }
       
-      // 可选全校语数老师（校本、综合实践、劳动）
+      // 可选全校语数老师（校本、综合实践、劳动）- 本班老师优先
       case 'all_chinese_math': {
         const chineseGroup = teachers.find(g => g.subject === '语文');
         const mathGroup = teachers.find(g => g.subject === '数学');
         const allTeachers = [...(chineseGroup?.teachers || []), ...(mathGroup?.teachers || [])];
-        return allTeachers.filter(t => !searchQuery || t.name.includes(searchQuery));
+        const filtered = allTeachers.filter(t => !searchQuery || t.name.includes(searchQuery));
+        // 本班老师ID
+        const priorityIds = new Set([
+          selectedSlot?.headTeacherId,
+          selectedSlot?.chineseTeacherId,
+          selectedSlot?.mathTeacherId
+        ].filter(Boolean));
+        // 排序：本班老师在前
+        return filtered.sort((a, b) => {
+          const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
+          const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
+          return aIsPriority - bIsPriority;
+        });
       }
       
       // 默认：显示该学科所有教师
