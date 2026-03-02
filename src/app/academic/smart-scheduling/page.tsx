@@ -264,16 +264,15 @@ export default function SmartSchedulingPage() {
           {result.hardConstraintViolations.length > 0 && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>硬约束违反</AlertTitle>
+              <AlertTitle>硬约束违反（共 {result.hardConstraintViolations.length} 项）</AlertTitle>
               <AlertDescription>
-                <ul className="mt-2 list-disc list-inside">
-                  {result.hardConstraintViolations.slice(0, 5).map((v, i) => (
-                    <li key={i}>{v.message} ({v.count}处)</li>
-                  ))}
-                  {result.hardConstraintViolations.length > 5 && (
-                    <li>... 还有 {result.hardConstraintViolations.length - 5} 项</li>
-                  )}
-                </ul>
+                <div className="mt-2 max-h-60 overflow-y-auto">
+                  <ul className="list-disc list-inside space-y-1">
+                    {result.hardConstraintViolations.map((v, i) => (
+                      <li key={i}>{v.message} ({v.count}处)</li>
+                    ))}
+                  </ul>
+                </div>
               </AlertDescription>
             </Alert>
           )}
