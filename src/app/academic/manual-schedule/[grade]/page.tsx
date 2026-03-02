@@ -55,6 +55,8 @@ interface TeacherInfo {
   maxHours: number;
   usedHours: number;
   remainingHours: number;
+  isClassHeadTeacher?: boolean;
+  isClassSubTeacher?: boolean;
 }
 
 interface SubjectGroup {
@@ -102,6 +104,11 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     currentSubject?: string;
     currentTeacherId?: string;
     currentTeacherName?: string;
+    // 班级语数老师信息
+    chineseTeacherId?: string;
+    chineseTeacherName?: string;
+    mathTeacherId?: string;
+    mathTeacherName?: string;
   } | null>(null);
   
   // 教师搜索
@@ -109,6 +116,12 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   const [selectedSubject, setSelectedSubject] = useState('');
   const [teachers, setTeachers] = useState<SubjectGroup[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
+  const [classInfo, setClassInfo] = useState<{
+    headTeacherId: string | null;
+    subTeacherId: string | null;
+    headTeacherSubject: string | null;
+    subTeacherSubject: string | null;
+  } | null>(null);
 
   // 获取年级班级
   useEffect(() => {
@@ -183,17 +196,51 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   };
 
   // 点击格子
-  const handleSlotClick = (classId: string, className: string, weekDay: number, periodIndex: number) => {
-    const slot = getSlot(classId, weekDay, periodIndex);
+  const handleSlotClick = (cls: any, weekDay: number, periodIndex: number) => {
+    const slot = getSlot(cls.id, weekDay, periodIndex);
+    
+    // 确定本班的语文老师和数学老师
+    const headSubject = cls.headTeacher?.subject;
+    const subSubject = cls.subTeacher?.subject;
+    
+    let chineseTeacherId: string | undefined;
+    let chineseTeacherName: string | undefined;
+    let mathTeacherId: string | undefined;
+    let mathTeacherName: string | undefined;
+    
+    // 班主任是语文老师
+    if (headSubject === '语文') {
+      chineseTeacherId = cls.headTeacherId;
+      chineseTeacherName = cls.headTeacherName;
+    }
+    // 副班主任是语文老师
+    if (subSubject === '语文') {
+      chineseTeacherId = cls.subTeacherId;
+      chineseTeacherName = cls.subTeacherName;
+    }
+    // 班主任是数学老师
+    if (headSubject === '数学') {
+      mathTeacherId = cls.headTeacherId;
+      mathTeacherName = cls.headTeacherName;
+    }
+    // 副班主任是数学老师
+    if (subSubject === '数学') {
+      mathTeacherId = cls.subTeacherId;
+      mathTeacherName = cls.subTeacherName;
+    }
     
     setSelectedSlot({
-      classId,
-      className,
+      classId: cls.id,
+      className: cls.name,
       weekDay,
       periodIndex,
       currentSubject: slot?.subject || undefined,
       currentTeacherId: slot?.teacher_id || undefined,
       currentTeacherName: slot?.teacher_name || undefined,
+      chineseTeacherId,
+      chineseTeacherName,
+      mathTeacherId,
+      mathTeacherName,
     });
     setSearchQuery('');
     setSelectedSubject(slot?.subject || '');
@@ -357,11 +404,54 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     }
   };
 
-  // 筛选教师
-  const filteredTeachers = teachers
-    .filter(g => !selectedSubject || g.subject === selectedSubject)
-    .flatMap(g => g.teachers)
-    .filter(t => !searchQuery || t.name.includes(searchQuery) || t.subject.includes(searchQuery));
+  // 筛选教师（语文数学只能选本班老师）
+  const filteredTeachers = (() => {
+    // 先按学科筛选
+    const subjectGroups = teachers.filter(g => !selectedSubject || g.subject === selectedSubject);
+    
+    // 如果选的是语文，只显示本班语文老师
+    if (selectedSubject === '语文' && selectedSlot?.chineseTeacherId) {
+      // 从教师列表中获取课时信息
+      const chineseGroup = teachers.find(g => g.subject === '语文');
+      const teacherInfo = chineseGroup?.teachers.find(t => t.id === selectedSlot.chineseTeacherId);
+      if (teacherInfo) {
+        return [teacherInfo];
+      }
+      // 如果教师列表中没有，用班级信息构造
+      return [{
+        id: selectedSlot.chineseTeacherId,
+        name: selectedSlot.chineseTeacherName || '未知',
+        subject: '语文',
+        maxHours: 16,
+        usedHours: 0,
+        remainingHours: 16,
+      }];
+    }
+    
+    // 如果选的是数学，只显示本班数学老师
+    if (selectedSubject === '数学' && selectedSlot?.mathTeacherId) {
+      // 从教师列表中获取课时信息
+      const mathGroup = teachers.find(g => g.subject === '数学');
+      const teacherInfo = mathGroup?.teachers.find(t => t.id === selectedSlot.mathTeacherId);
+      if (teacherInfo) {
+        return [teacherInfo];
+      }
+      // 如果教师列表中没有，用班级信息构造
+      return [{
+        id: selectedSlot.mathTeacherId,
+        name: selectedSlot.mathTeacherName || '未知',
+        subject: '数学',
+        maxHours: 16,
+        usedHours: 0,
+        remainingHours: 16,
+      }];
+    }
+    
+    // 其他学科：显示所有该学科教师
+    return subjectGroups
+      .flatMap(g => g.teachers)
+      .filter(t => !searchQuery || t.name.includes(searchQuery) || t.subject.includes(searchQuery));
+  })();
 
   // 获取时段显示名称
   const getPeriodDisplay = (index: number) => {
@@ -538,7 +628,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                                     ? 'bg-stone-50/50 hover:bg-stone-100 border border-transparent hover:border-stone-200' 
                                     : ''
                               }`}
-                              onClick={() => available && handleSlotClick(cls.id, cls.name, dayIdx, periodIdx)}
+                              onClick={() => available && handleSlotClick(cls, dayIdx, periodIdx)}
                             >
                               {available && (
                                 <div className="h-full flex flex-col items-center justify-center px-1">
@@ -601,7 +691,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                                     ? 'bg-stone-50/50 hover:bg-stone-100 border border-transparent hover:border-stone-200' 
                                     : ''
                               }`}
-                              onClick={() => available && handleSlotClick(cls.id, cls.name, dayIdx, periodIdx)}
+                              onClick={() => available && handleSlotClick(cls, dayIdx, periodIdx)}
                             >
                               {available && (
                                 <div className="h-full flex flex-col items-center justify-center px-1">
@@ -689,37 +779,57 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                 {teachers.map(g => {
                   const colors = getSubjectColor(g.subject);
                   const isSelected = selectedSubject === g.subject;
+                  const isRestricted = g.subject === '语文' || g.subject === '数学';
+                  
                   return (
                     <button
                       key={g.subject}
                       onClick={() => setSelectedSubject(isSelected ? '' : g.subject)}
-                      className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border ${
+                      className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border relative ${
                         isSelected
                           ? `${colors.bg} ${colors.text} ${colors.border} shadow-sm scale-105`
                           : 'bg-white text-stone-600 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
                       }`}
                     >
                       {g.subject}
+                      {isRestricted && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full" title="限本班教师" />
+                      )}
                     </button>
                   );
                 })}
               </div>
+              {/* 提示语文数学限制 */}
+              {selectedSubject === '语文' && selectedSlot?.chineseTeacherName && (
+                <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  语文课只能选择本班语文老师：{selectedSlot.chineseTeacherName}
+                </p>
+              )}
+              {selectedSubject === '数学' && selectedSlot?.mathTeacherName && (
+                <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  数学课只能选择本班数学老师：{selectedSlot.mathTeacherName}
+                </p>
+              )}
             </div>
             
-            {/* 教师搜索 */}
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
-              <Input
-                placeholder="搜索教师姓名..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-11 h-11 bg-stone-50 border-stone-200 focus:border-amber-300 focus:ring-amber-200"
-              />
-            </div>
+            {/* 教师搜索 - 语文数学不需要搜索 */}
+            {selectedSubject !== '语文' && selectedSubject !== '数学' && (
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+                <Input
+                  placeholder="搜索教师姓名..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-11 h-11 bg-stone-50 border-stone-200 focus:border-amber-300 focus:ring-amber-200"
+                />
+              </div>
+            )}
             
             {/* 教师列表 */}
             <div className="border border-stone-200 rounded-xl overflow-hidden">
-              <ScrollArea className="h-64">
+              <ScrollArea className={selectedSubject === '语文' || selectedSubject === '数学' ? 'h-32' : 'h-64'}>
                 {loadingTeachers ? (
                   <div className="p-8 text-center text-stone-400">
                     <div className="w-8 h-8 border-2 border-stone-200 border-t-amber-500 rounded-full animate-spin mx-auto mb-2" />
@@ -727,13 +837,19 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                   </div>
                 ) : filteredTeachers.length === 0 ? (
                   <div className="p-8 text-center text-stone-400">
-                    未找到匹配的教师
+                    {selectedSubject === '语文' && !selectedSlot?.chineseTeacherId 
+                      ? '该班级尚未配置语文老师' 
+                      : selectedSubject === '数学' && !selectedSlot?.mathTeacherId
+                      ? '该班级尚未配置数学老师'
+                      : '未找到匹配的教师'}
                   </div>
                 ) : (
                   <div>
                     {filteredTeachers.map((teacher) => {
                       const colors = getSubjectColor(teacher.subject);
                       const isDisabled = teacher.remainingHours <= 0;
+                      const isClassTeacher = selectedSubject === '语文' || selectedSubject === '数学';
+                      
                       return (
                         <button
                           key={teacher.id}
@@ -750,7 +866,12 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                               {teacher.name.slice(0, 1)}
                             </div>
                             <div>
-                              <div className="font-semibold text-stone-800">{teacher.name}</div>
+                              <div className="font-semibold text-stone-800 flex items-center gap-2">
+                                {teacher.name}
+                                {isClassTeacher && (
+                                  <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">本班</span>
+                                )}
+                              </div>
                               <div className="text-xs text-stone-400 mt-0.5">{teacher.subject}</div>
                             </div>
                           </div>

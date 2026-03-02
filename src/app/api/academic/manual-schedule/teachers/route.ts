@@ -1,6 +1,7 @@
 /**
  * 手动排课 - 获取教师列表
  * 按学科分组，显示剩余课时
+ * 支持按班级筛选（语文数学只能选本班班主任/科任）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -43,6 +44,33 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const grade = parseInt(searchParams.get('grade') || '1');
+    const classId = searchParams.get('classId') || '';
+    
+    // 获取班级信息（班主任、副班主任）
+    let classInfo: { headTeacherId: string | null; subTeacherId: string | null; headTeacherSubject: string | null; subTeacherSubject: string | null } | null = null;
+    
+    if (classId) {
+      const { data: cls } = await client
+        .from('classes')
+        .select(`
+          id,
+          head_teacher_id,
+          sub_teacher_id,
+          head_teacher:teachers!classes_head_teacher_id_fkey(id, primary_subject),
+          sub_teacher:teachers!classes_sub_teacher_id_fkey(id, primary_subject)
+        `)
+        .eq('id', classId)
+        .single();
+      
+      if (cls) {
+        classInfo = {
+          headTeacherId: cls.head_teacher_id,
+          subTeacherId: cls.sub_teacher_id,
+          headTeacherSubject: (cls.head_teacher as any)?.primary_subject || null,
+          subTeacherSubject: (cls.sub_teacher as any)?.primary_subject || null,
+        };
+      }
+    }
     
     // 获取所有教师（排除校长书记副校长）
     const { data: teachers, error: teachersError } = await client
@@ -97,6 +125,10 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       const usedHours = teacherUsedHours.get(t.id) || 0;
       const remainingHours = maxHours - usedHours;
       
+      // 判断是否是本班的班主任/副班主任
+      const isClassHeadTeacher = classInfo?.headTeacherId === t.id;
+      const isClassSubTeacher = classInfo?.subTeacherId === t.id;
+      
       const teacherInfo = {
         id: t.id,
         name: t.name,
@@ -105,6 +137,8 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         usedHours,
         remainingHours,
         isHeadTeacher,
+        isClassHeadTeacher,  // 是否是当前班级的班主任
+        isClassSubTeacher,   // 是否是当前班级的副班主任
       };
       
       if (!teachersBySubject.has(t.primary_subject)) {
@@ -116,13 +150,25 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     // 构建响应
     const subjects = Array.from(teachersBySubject.entries()).map(([subject, teachers]) => ({
       subject,
-      teachers: teachers.sort((a, b) => b.remainingHours - a.remainingHours), // 剩余课时多的排前面
+      teachers: teachers.sort((a, b) => {
+        // 本班班主任/副班主任排最前面
+        if (a.isClassHeadTeacher || a.isClassSubTeacher) return -1;
+        if (b.isClassHeadTeacher || b.isClassSubTeacher) return 1;
+        // 然后按剩余课时排序
+        return b.remainingHours - a.remainingHours;
+      }),
     }));
     
     return NextResponse.json(success({
       subjects,
       subjectHours: SUBJECT_HOURS,
       grade,
+      classInfo: classInfo ? {
+        headTeacherId: classInfo.headTeacherId,
+        subTeacherId: classInfo.subTeacherId,
+        headTeacherSubject: classInfo.headTeacherSubject,
+        subTeacherSubject: classInfo.subTeacherSubject,
+      } : null,
     }));
     
   } catch (err) {
