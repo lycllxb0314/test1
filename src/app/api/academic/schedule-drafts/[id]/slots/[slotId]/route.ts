@@ -18,7 +18,7 @@ const updateSlot = async (
 ) => {
   try {
     const params = await context.params;
-    const draftId = params?.draftId;
+    const draftId = params?.id;  // 统一使用 id 参数名
     const slotId = params?.slotId;
     
     if (!draftId || !slotId) {

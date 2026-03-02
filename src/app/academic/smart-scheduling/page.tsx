@@ -66,6 +66,7 @@ export default function SmartSchedulingPage() {
     saveDraft,
     loadDraft,
     publishDraft,
+    deleteDraft,
   } = useScheduleDraft();
 
   // 获取教师列表
@@ -366,8 +367,10 @@ export default function SmartSchedulingPage() {
                 isLoading={draftLoading}
                 onLoad={handleLoadDraft}
                 onDelete={async (id) => {
-                  // TODO: 实现删除
-                  console.log('删除草稿:', id);
+                  const success = await deleteDraft(id);
+                  if (success) {
+                    alert('草稿已删除');
+                  }
                 }}
                 onPublish={async (id) => {
                   await loadDraft(id);

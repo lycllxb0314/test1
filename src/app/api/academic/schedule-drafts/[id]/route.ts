@@ -165,6 +165,9 @@ const deleteDraft = async (
     // 删除草稿的所有课表数据
     await client.from('schedule_slots').delete().eq('draft_id', id);
     
+    // 删除草稿的历史记录
+    await client.from('schedule_draft_history').delete().eq('draft_id', id);
+    
     // 删除草稿
     const { error: dbError } = await client
       .from('schedule_drafts')
