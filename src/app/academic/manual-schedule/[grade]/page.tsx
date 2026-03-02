@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, X, Clock, User, Sparkles, RefreshCw, Save, FileText, Database } from 'lucide-react';
+import { Search, X, Clock, User, Sparkles, RefreshCw, Save, FileText, Database, Copy, Clipboard, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useClasses } from '@/hooks/useClasses';
 import { SubjectHoursPanel } from '@/components/schedule/subject-hours-panel';
@@ -137,6 +137,24 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     subTeacherId: string | null;
     headTeacherSubject: string | null;
     subTeacherSubject: string | null;
+  } | null>(null);
+
+  // 剪贴板（用于复制粘贴）
+  const [clipboard, setClipboard] = useState<{
+    subject: string;
+    teacherId: string | null;
+    teacherName: string | null;
+  } | null>(null);
+
+  // 右键菜单
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    classId: string;
+    className: string;
+    weekDay: number;
+    periodIndex: number;
+    hasSlot: boolean;
   } | null>(null);
 
   // 获取年级班级
@@ -423,6 +441,124 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       setSaving(false);
     }
   };
+
+  // 右键菜单处理
+  const handleContextMenu = (e: React.MouseEvent, cls: any, weekDay: number, periodIndex: number) => {
+    e.preventDefault();
+    const slot = getSlot(cls.id, weekDay, periodIndex);
+    const available = isSlotAvailable(weekDay, periodIndex);
+    
+    if (!available) return;
+    
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      classId: cls.id,
+      className: cls.name,
+      weekDay,
+      periodIndex,
+      hasSlot: !!slot,
+    });
+  };
+
+  // 关闭右键菜单
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  // 复制格子
+  const handleCopySlot = () => {
+    if (!contextMenu) return;
+    const slot = getSlot(contextMenu.classId, contextMenu.weekDay, contextMenu.periodIndex);
+    
+    if (slot) {
+      setClipboard({
+        subject: slot.subject,
+        teacherId: slot.teacher_id,
+        teacherName: slot.teacher_name,
+      });
+      toast.success(`已复制: ${slot.subject}${slot.teacher_name ? ' - ' + slot.teacher_name : ''}`);
+    }
+    closeContextMenu();
+  };
+
+  // 粘贴格子
+  const handlePasteSlot = async () => {
+    if (!contextMenu || !clipboard) return;
+    
+    try {
+      const res = await fetch('/api/academic/manual-schedule/slot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classId: contextMenu.classId,
+          className: contextMenu.className,
+          grade,
+          weekDay: contextMenu.weekDay + 1,
+          periodIndex: contextMenu.periodIndex,
+          subject: clipboard.subject,
+          teacherId: clipboard.teacherId,
+          teacherName: clipboard.teacherName,
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.success(`已粘贴: ${clipboard.subject}`);
+        loadGradeSchedule();
+        loadTeachers();
+        loadStatus();
+      } else {
+        toast.error(data.error || '粘贴失败');
+      }
+    } catch (err) {
+      console.error('粘贴失败:', err);
+      toast.error('粘贴失败');
+    }
+    closeContextMenu();
+  };
+
+  // 右键清除格子
+  const handleContextMenuClear = async () => {
+    if (!contextMenu) return;
+    
+    try {
+      const res = await fetch(
+        `/api/academic/manual-schedule/slot?classId=${contextMenu.classId}&weekDay=${contextMenu.weekDay + 1}&periodIndex=${contextMenu.periodIndex}`,
+        { method: 'DELETE' }
+      );
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.success('已清除');
+        loadGradeSchedule();
+        loadTeachers();
+        loadStatus();
+      }
+    } catch (err) {
+      console.error('清除失败:', err);
+      toast.error('清除失败');
+    }
+    closeContextMenu();
+  };
+
+  // 点击其他地方关闭右键菜单
+  useEffect(() => {
+    const handleClick = () => closeContextMenu();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu();
+    };
+    
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // 筛选教师（根据科目规则）
   const filteredTeachers = (() => {
@@ -781,6 +917,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                                     : ''
                               }`}
                               onClick={() => available && handleSlotClick(cls, dayIdx, periodIdx)}
+                              onContextMenu={(e) => handleContextMenu(e, cls, dayIdx, periodIdx)}
                             >
                               {available && (
                                 <div className="h-full flex flex-col items-center justify-center px-1">
@@ -844,6 +981,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                                     : ''
                               }`}
                               onClick={() => available && handleSlotClick(cls, dayIdx, periodIdx)}
+                              onContextMenu={(e) => handleContextMenu(e, cls, dayIdx, periodIdx)}
                             >
                               {available && (
                                 <div className="h-full flex flex-col items-center justify-center px-1">
@@ -1124,6 +1262,54 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <div
+          className="fixed z-[100] bg-white rounded-xl shadow-2xl border border-stone-200 py-2 min-w-[160px] animate-in fade-in-0 zoom-in-95 duration-150"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.hasSlot && (
+            <button
+              onClick={handleCopySlot}
+              className="w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 hover:bg-amber-50 text-stone-700 hover:text-amber-700 transition-colors"
+            >
+              <Copy className="w-4 h-4" />
+              复制课程
+            </button>
+          )}
+          
+          {clipboard && (
+            <button
+              onClick={handlePasteSlot}
+              className="w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 hover:bg-green-50 text-stone-700 hover:text-green-700 transition-colors"
+            >
+              <Clipboard className="w-4 h-4" />
+              粘贴 <span className="text-xs text-stone-400 ml-auto">{clipboard.subject}</span>
+            </button>
+          )}
+          
+          {contextMenu.hasSlot && (
+            <>
+              <div className="h-px bg-stone-200 my-1.5 mx-2" />
+              <button
+                onClick={handleContextMenuClear}
+                className="w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 hover:bg-red-50 text-red-600 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                清除课程
+              </button>
+            </>
+          )}
+          
+          {!contextMenu.hasSlot && !clipboard && (
+            <div className="px-4 py-2 text-sm text-stone-400">
+              空白格子
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
