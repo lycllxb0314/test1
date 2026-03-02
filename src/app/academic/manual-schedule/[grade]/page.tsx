@@ -648,10 +648,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* 课时参考面板 - sticky 固定 */}
-        <div className="sticky top-[72px] z-20 mb-6 -mx-6 px-6 py-2 bg-gradient-to-b from-stone-50 via-stone-50 to-transparent">
-          <SubjectHoursPanel grade={grade} />
-        </div>
+        {/* 课时参考面板 - 可拖动悬浮窗 */}
+        <SubjectHoursPanel grade={grade} />
 
         {(classesLoading || loading) ? (
           <div className="flex flex-col items-center justify-center py-20 text-stone-400">
@@ -659,7 +657,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
             <span>加载课表数据...</span>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {gradeClasses.map((cls, classIndex) => {
               // 计算该班级各学科已排课时
               const classSlots = schedulesMap.get(cls.id) || [];
@@ -678,32 +676,32 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               return (
               <div 
                 key={cls.id} 
-                className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-lg hover:border-stone-200 transition-all duration-300"
+                className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md hover:border-stone-200 transition-all duration-300"
                 style={{ animationDelay: `${classIndex * 50}ms` }}
               >
                 {/* 班级标题栏 */}
-                <div className="px-5 py-3 bg-gradient-to-r from-stone-50 to-white border-b border-stone-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold text-stone-800">{cls.name}</span>
-                    <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
+                <div className="px-4 py-2 bg-gradient-to-r from-stone-50 to-white border-b border-stone-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold text-stone-800">{cls.name}</span>
+                    <span className="text-xs text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded-full">
                       {classIndex + 1}/{gradeClasses.length}
                     </span>
                   </div>
-                  <div className="flex items-center gap-6 text-sm">
+                  <div className="flex items-center gap-4 text-xs">
                     {cls.headTeacher && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span className="text-stone-400">班主任</span>
                         <span className="font-medium text-stone-700">{cls.headTeacherName}</span>
-                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                        <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
                           {cls.headTeacher?.subject || '语文'}
                         </span>
                       </div>
                     )}
                     {cls.subTeacher && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span className="text-stone-400">副班</span>
                         <span className="font-medium text-stone-700">{cls.subTeacherName}</span>
-                        <span className="text-xs text-sky-600 bg-sky-50 px-2 py-0.5 rounded">
+                        <span className="text-xs text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
                           {cls.subTeacher?.subject || '数学'}
                         </span>
                       </div>
@@ -712,31 +710,31 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                 </div>
                 
                 {/* 科目课时统计栏 */}
-                <div className="px-5 py-2 bg-stone-50/50 border-b border-stone-100 flex items-center gap-2 overflow-x-auto">
-                  <span className="text-xs text-stone-500 shrink-0">课时统计</span>
+                <div className="px-4 py-1.5 bg-stone-50/50 border-b border-stone-100 flex items-center gap-2 overflow-x-auto">
+                  <span className="text-xs text-stone-500 shrink-0">课时</span>
                   <div className="flex items-center gap-1">
                     {allSubjectsCount.map(({ subject, count }) => {
                       const colors = getSubjectColor(subject);
                       return (
                         <span 
                           key={subject}
-                          className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${count > 0 ? colors.bg : 'bg-white border border-stone-200'} ${count > 0 ? colors.text : 'text-stone-400'}`}
+                          className={`text-xs px-1 py-0.5 rounded shrink-0 ${count > 0 ? colors.bg : 'bg-white border border-stone-200'} ${count > 0 ? colors.text : 'text-stone-400'}`}
                         >
                           {subject}{count}
                         </span>
                       );
                     })}
                   </div>
-                  <span className="text-xs text-stone-500 ml-auto shrink-0 font-medium">共 {totalClassSlots} 节</span>
+                  <span className="text-xs text-stone-500 ml-auto shrink-0 font-medium">共{totalClassSlots}节</span>
                 </div>
                 
                 {/* 课表网格 */}
-                <div className="p-5">
-                  <div className="grid grid-cols-6 gap-2">
+                <div className="p-3">
+                  <div className="grid grid-cols-6 gap-1.5">
                     {/* 表头 */}
-                    <div className="h-12"></div>
+                    <div className="h-8"></div>
                     {WEEKDAYS.map((day) => (
-                      <div key={day} className="h-12 flex items-center justify-center text-base font-bold text-stone-600 bg-stone-100 rounded-xl">
+                      <div key={day} className="h-8 flex items-center justify-center text-sm font-bold text-stone-600 bg-stone-100 rounded-lg">
                         {day}
                       </div>
                     ))}
@@ -744,10 +742,10 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                     {/* 上午课程 */}
                     {[0, 1, 2].map((periodIdx) => (
                       <div key={`row-${periodIdx}`} className="contents">
-                        <div className="h-20 flex items-center justify-center">
+                        <div className="h-14 flex items-center justify-center">
                           <div className="text-center">
-                            <div className="text-xs text-stone-400 mb-1">上午</div>
-                            <div className="text-lg font-bold text-stone-700">{periodIdx + 1}</div>
+                            <div className="text-[10px] text-stone-400 leading-none">上午</div>
+                            <div className="text-base font-bold text-stone-700">{periodIdx + 1}</div>
                           </div>
                         </div>
                         {WEEKDAYS.map((_, dayIdx) => {
@@ -758,34 +756,34 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                           return (
                             <div
                               key={`${dayIdx}-${periodIdx}`}
-                              className={`h-20 rounded-2xl transition-all duration-200 ${
+                              className={`h-14 rounded-xl transition-all duration-200 ${
                                 available 
-                                  ? 'cursor-pointer hover:scale-[1.03] hover:z-10' 
+                                  ? 'cursor-pointer hover:scale-[1.02] hover:z-10' 
                                   : 'bg-stone-50/50'
                               } ${
                                 slot 
-                                  ? `${colors?.bg} ${colors?.border} border-2 shadow-sm hover:shadow-lg` 
+                                  ? `${colors?.bg} ${colors?.border} border shadow-sm hover:shadow-md` 
                                   : available 
-                                    ? 'bg-stone-50 hover:bg-amber-50 border-2 border-dashed border-stone-200 hover:border-amber-300' 
+                                    ? 'bg-stone-50 hover:bg-amber-50 border border-dashed border-stone-200 hover:border-amber-300' 
                                     : ''
                               }`}
                               onClick={() => available && handleSlotClick(cls, dayIdx, periodIdx)}
                             >
                               {available && (
-                                <div className="h-full flex flex-col items-center justify-center px-2">
+                                <div className="h-full flex flex-col items-center justify-center px-1">
                                   {slot ? (
                                     <>
-                                      <span className={`text-base font-bold ${colors?.text} truncate max-w-full`}>
+                                      <span className={`text-sm font-bold ${colors?.text} truncate max-w-full`}>
                                         {slot.subject}
                                       </span>
                                       {slot.teacher_name && (
-                                        <span className="text-sm text-stone-500 truncate max-w-full mt-1">
+                                        <span className="text-xs text-stone-500 truncate max-w-full">
                                           {slot.teacher_name}
                                         </span>
                                       )}
                                     </>
                                   ) : (
-                                    <div className="w-8 h-8 rounded-full border-2 border-dashed border-stone-300 flex items-center justify-center text-stone-400 text-xl font-light hover:border-amber-400 hover:text-amber-500 transition-colors">
+                                    <div className="w-6 h-6 rounded-full border border-dashed border-stone-300 flex items-center justify-center text-stone-400 text-sm font-light hover:border-amber-400 hover:text-amber-500 transition-colors">
                                       +
                                     </div>
                                   )}
@@ -798,19 +796,19 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                     ))}
                     
                     {/* 午休分隔 */}
-                    <div className="col-span-6 h-8 flex items-center justify-center">
+                    <div className="col-span-6 h-6 flex items-center justify-center">
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent"></div>
-                      <span className="px-4 text-sm text-stone-400 mx-3 font-medium">午休</span>
+                      <span className="px-3 text-xs text-stone-400 mx-2">午休</span>
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent"></div>
                     </div>
                     
                     {/* 下午课程 */}
                     {[3, 4, 5].map((periodIdx) => (
                       <div key={`row-${periodIdx}`} className="contents">
-                        <div className="h-20 flex items-center justify-center">
+                        <div className="h-14 flex items-center justify-center">
                           <div className="text-center">
-                            <div className="text-xs text-stone-400 mb-1">下午</div>
-                            <div className="text-lg font-bold text-stone-700">{periodIdx + 1}</div>
+                            <div className="text-[10px] text-stone-400 leading-none">下午</div>
+                            <div className="text-base font-bold text-stone-700">{periodIdx + 1}</div>
                           </div>
                         </div>
                         {WEEKDAYS.map((_, dayIdx) => {
@@ -821,34 +819,34 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                           return (
                             <div
                               key={`${dayIdx}-${periodIdx}`}
-                              className={`h-20 rounded-2xl transition-all duration-200 ${
+                              className={`h-14 rounded-xl transition-all duration-200 ${
                                 available 
-                                  ? 'cursor-pointer hover:scale-[1.03] hover:z-10' 
+                                  ? 'cursor-pointer hover:scale-[1.02] hover:z-10' 
                                   : 'bg-stone-50/50'
                               } ${
                                 slot 
-                                  ? `${colors?.bg} ${colors?.border} border-2 shadow-sm hover:shadow-lg` 
+                                  ? `${colors?.bg} ${colors?.border} border shadow-sm hover:shadow-md` 
                                   : available 
-                                    ? 'bg-stone-50 hover:bg-amber-50 border-2 border-dashed border-stone-200 hover:border-amber-300' 
+                                    ? 'bg-stone-50 hover:bg-amber-50 border border-dashed border-stone-200 hover:border-amber-300' 
                                     : ''
                               }`}
                               onClick={() => available && handleSlotClick(cls, dayIdx, periodIdx)}
                             >
                               {available && (
-                                <div className="h-full flex flex-col items-center justify-center px-2">
+                                <div className="h-full flex flex-col items-center justify-center px-1">
                                   {slot ? (
                                     <>
-                                      <span className={`text-base font-bold ${colors?.text} truncate max-w-full`}>
+                                      <span className={`text-sm font-bold ${colors?.text} truncate max-w-full`}>
                                         {slot.subject}
                                       </span>
                                       {slot.teacher_name && (
-                                        <span className="text-sm text-stone-500 truncate max-w-full mt-1">
+                                        <span className="text-xs text-stone-500 truncate max-w-full">
                                           {slot.teacher_name}
                                         </span>
                                       )}
                                     </>
                                   ) : (
-                                    <div className="w-8 h-8 rounded-full border-2 border-dashed border-stone-300 flex items-center justify-center text-stone-400 text-xl font-light hover:border-amber-400 hover:text-amber-500 transition-colors">
+                                    <div className="w-6 h-6 rounded-full border border-dashed border-stone-300 flex items-center justify-center text-stone-400 text-sm font-light hover:border-amber-400 hover:text-amber-500 transition-colors">
                                       +
                                     </div>
                                   )}
