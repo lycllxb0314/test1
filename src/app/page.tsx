@@ -925,8 +925,8 @@ export default function HomePage() {
             </div>
             <div>
               <h3 className="font-bold mb-4 text-white">关注我们</h3>
-              <div className="w-24 h-24 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                <span className="text-xs text-white/70">公众号二维码</span>
+              <div className="w-28 h-28 bg-white rounded-lg p-1 shadow-lg">
+                <img src="/qrcode.png" alt="公众号二维码" className="w-full h-full object-contain" />
               </div>
             </div>
           </div>
