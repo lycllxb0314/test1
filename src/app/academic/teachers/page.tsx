@@ -59,10 +59,6 @@ import {
 } from 'lucide-react';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { BatchToolbar, SelectColumn, type BatchAction } from '@/components/common/BatchToolbar';
-import { 
-  TeacherFullDetailDialog,
-  type TeacherFullDetail,
-} from '@/components/teacher/TeacherFullDetailDialog';
 // 使用统一的 hook
 import {
   useTeachers,
@@ -157,7 +153,6 @@ export default function TeachersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   
   // 当前编辑/删除的教师
   const [currentTeacher, setCurrentTeacher] = useState<TeacherInfo | null>(null);
@@ -263,63 +258,10 @@ export default function TeachersPage() {
     setDeleteDialogOpen(true);
   }, []);
 
-  // 打开详情编辑对话框（统一整合基本信息、角色、课时配置）
+  // 打开教师详情页
   const openDetailDialog = useCallback((teacher: TeacherInfo) => {
-    setCurrentTeacher(teacher);
-    setDetailDialogOpen(true);
-  }, []);
-
-  // 保存教师详情（统一保存）
-  const handleSaveDetail = useCallback(async (detail: TeacherFullDetail) => {
-    try {
-      // 调用API保存到数据库
-      const response = await fetch(`/api/teachers/${detail.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: detail.name,
-          gender: detail.gender,
-          birth_date: detail.birthDate,
-          ethnicity: detail.ethnicity,
-          political_status: detail.politicalStatus,
-          native_place: detail.nativePlace,
-          phone: detail.phone,
-          email: detail.email,
-          emergency_contact: detail.emergencyContact,
-          emergency_phone: detail.emergencyPhone,
-          address: detail.address,
-          subject: detail.subject,
-          title: detail.title,
-          title_date: detail.titleDate,
-          education: detail.education,
-          school: detail.school,
-          major: detail.major,
-          graduation_date: detail.graduationDate,
-          department: detail.department,
-          status: detail.status,
-          teach_years: detail.teachYears,
-          join_date: detail.joinDate,
-          primary_role: detail.primaryRole,
-          additional_roles: detail.additionalRoles,
-          weekly_hours: detail.weeklyHours,
-          // 将 teachableSubjects 拆分为 primary_subject 和 secondary_subjects
-          primary_subject: detail.teachableSubjects?.[0] || detail.subject,
-          secondary_subjects: detail.teachableSubjects?.slice(1) || [],
-          teachable_grades: detail.teachableGrades,
-          is_head_teacher: detail.isHeadTeacher,
-          head_teacher_class_id: detail.headTeacherClassId,
-        }),
-      });
-      
-      if (response.ok) {
-        await refetch();
-      } else {
-        console.error('保存教师信息失败');
-      }
-    } catch (error) {
-      console.error('保存教师信息失败:', error);
-    }
-  }, [refetch]);
+    router.push(`/academic/teachers/${teacher.id}`);
+  }, [router]);
 
   // 打开新增对话框
   const openAddDialog = useCallback(() => {
@@ -954,54 +896,6 @@ export default function TeachersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* 统一详情编辑对话框（包含详情页全部内容） */}
-      <TeacherFullDetailDialog
-        open={detailDialogOpen}
-        onOpenChange={setDetailDialogOpen}
-        teacher={currentTeacher ? {
-          id: currentTeacher.id,
-          name: currentTeacher.name,
-          gender: currentTeacher.gender,
-          birthDate: currentTeacher.birthDate,
-          idCard: currentTeacher.idCard,
-          ethnicity: currentTeacher.ethnicity,
-          politicalStatus: currentTeacher.politicalStatus,
-          nativePlace: currentTeacher.nativePlace,
-          phone: currentTeacher.phone,
-          email: currentTeacher.email,
-          emergencyContact: currentTeacher.emergencyContact,
-          emergencyPhone: currentTeacher.emergencyPhone,
-          address: currentTeacher.address,
-          employeeId: currentTeacher.employeeId,
-          subject: currentTeacher.subject,
-          title: currentTeacher.title,
-          titleDate: currentTeacher.titleDate,
-          education: currentTeacher.education,
-          school: currentTeacher.school,
-          major: currentTeacher.major,
-          graduationDate: currentTeacher.graduationDate,
-          teachYears: currentTeacher.teachYears,
-          joinDate: currentTeacher.joinDate,
-          department: currentTeacher.department,
-          status: currentTeacher.status,
-          primaryRole: currentTeacher.primaryRole,
-          additionalRoles: currentTeacher.additionalRoles || [],
-          weeklyHours: currentTeacher.weeklyHours,
-          currentHours: currentTeacher.currentHours,
-          teachableSubjects: currentTeacher.teachableSubjects || [currentTeacher.subject],
-          teachableGrades: currentTeacher.teachableGrades || [1, 2, 3, 4, 5, 6],
-          isHeadTeacher: currentTeacher.isHeadTeacher,
-          headTeacherClassId: currentTeacher.headTeacherClassId,
-          headTeacherClassName: currentTeacher.headTeacherClassName,
-          records: currentTeacher.records || [],
-          honors: currentTeacher.honors || [],
-          trainings: currentTeacher.trainings || [],
-          achievements: currentTeacher.achievements || [],
-        } : null}
-        classes={classes}
-        onSave={handleSaveDetail}
-      />
 
       {/* 删除确认对话框 */}
       <DeleteConfirmDialog
