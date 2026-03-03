@@ -430,62 +430,72 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* 历史沿革 - S型曲线时间轴 */}
-          <div className="mb-12">
-            <div className="max-w-xl mx-auto relative">
-              {[
-                { year: '1914', title: '创办', desc: '闽西基础教育标杆校', side: 'left' },
-                { year: '2006', title: '迁址', desc: '登高山南麓新校区', side: 'right' },
-                { year: '2010', title: '童心', desc: '特色示范学校', side: 'left' },
-                { year: '2025.7', title: '智慧', desc: '省智慧校园试点校', side: 'right' },
-                { year: '2025.12', title: '科创', desc: '少年科学院成立', side: 'left', isNew: true },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-center mb-6 last:mb-0">
-                  {/* 左侧卡片 */}
-                  <div className={`w-2/5 ${item.side === 'left' ? '' : 'order-3'}`}>
-                    {item.side === 'left' && (
-                      <div className={`text-right pr-6 ${item.isNew ? 'transform scale-105' : ''}`}>
-                        <div className={`inline-block px-4 py-3 rounded-xl ${
-                          item.isNew 
-                            ? 'bg-gradient-to-br from-[#D4A574] to-[#B8860B] text-white shadow-lg' 
-                            : 'bg-white shadow-sm border border-[#E8DDD0]'
-                        }`}>
-                          <div className={`text-xs ${item.isNew ? 'text-white/80' : 'text-[#8B5A2B]/60'}`}>{item.year}</div>
-                          <div className={`font-bold ${item.isNew ? 'text-white' : 'text-[#3D2314]'}`}>{item.title}</div>
-                          <div className={`text-xs ${item.isNew ? 'text-white/70' : 'text-[#8B5A2B]/60'}`}>{item.desc}</div>
-                        </div>
-                        {item.isNew && <span className="inline-block mt-1 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full">NEW</span>}
+          {/* 历史沿革 - 横向S型曲线时间轴 */}
+          <div className="mb-12 overflow-x-auto">
+            <div className="min-w-[800px] relative px-8 py-4">
+              {/* S型曲线 */}
+              <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                <path
+                  d="M 40 120 Q 120 40, 200 120 T 360 120 T 520 120 T 680 120 T 840 120"
+                  fill="none"
+                  stroke="url(#timelineGradient)"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+                <defs>
+                  <linearGradient id="timelineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#D4A574" stopOpacity="0.3" />
+                    <stop offset="50%" stopColor="#D4A574" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#D4A574" stopOpacity="0.3" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              
+              {/* 时间节点 */}
+              <div className="relative flex justify-between items-start h-[240px]">
+                {[
+                  { year: '1914', title: '创办', desc: '闽西基础教育标杆校', position: 'top' },
+                  { year: '2006', title: '迁址', desc: '登高山南麓新校区', position: 'bottom' },
+                  { year: '2010', title: '童心', desc: '特色示范学校', position: 'top' },
+                  { year: '2025.7', title: '智慧', desc: '省智慧校园试点校', position: 'bottom' },
+                  { year: '2025.12', title: '科创', desc: '少年科学院成立', position: 'top', isNew: true },
+                ].map((item, index) => (
+                  <div 
+                    key={index} 
+                    className={`relative flex flex-col items-center ${item.position === 'bottom' ? 'pt-[160px]' : 'pt-4'}`}
+                  >
+                    {/* 卡片 */}
+                    <div className={`relative px-4 py-3 rounded-xl shadow-sm ${
+                      item.isNew 
+                        ? 'bg-gradient-to-br from-[#D4A574] to-[#B8860B] text-white shadow-lg' 
+                        : 'bg-white border border-[#E8DDD0]'
+                    }`}>
+                      <div className={`text-lg font-bold ${item.isNew ? 'text-white' : 'text-[#8B5A2B]'}`}>
+                        {item.year}
                       </div>
-                    )}
-                    {item.side === 'right' && <div className="pr-6"></div>}
-                  </div>
-                  
-                  {/* 中间圆点 */}
-                  <div className="flex flex-col items-center order-2">
-                    <div className={`w-4 h-4 rounded-full ${item.isNew ? 'bg-[#D4A574] ring-4 ring-[#D4A574]/20' : 'bg-[#D4A574]'}`}></div>
-                    {index < 4 && <div className="w-0.5 h-16 bg-gradient-to-b from-[#D4A574] to-[#D4A574]/20"></div>}
-                  </div>
-                  
-                  {/* 右侧卡片 */}
-                  <div className={`w-2/5 ${item.side === 'right' ? '' : 'order-3'}`}>
-                    {item.side === 'right' && (
-                      <div className={`text-left pl-6 ${item.isNew ? 'transform scale-105' : ''}`}>
-                        <div className={`inline-block px-4 py-3 rounded-xl ${
-                          item.isNew 
-                            ? 'bg-gradient-to-br from-[#D4A574] to-[#B8860B] text-white shadow-lg' 
-                            : 'bg-white shadow-sm border border-[#E8DDD0]'
-                        }`}>
-                          <div className={`text-xs ${item.isNew ? 'text-white/80' : 'text-[#8B5A2B]/60'}`}>{item.year}</div>
-                          <div className={`font-bold ${item.isNew ? 'text-white' : 'text-[#3D2314]'}`}>{item.title}</div>
-                          <div className={`text-xs ${item.isNew ? 'text-white/70' : 'text-[#8B5A2B]/60'}`}>{item.desc}</div>
-                        </div>
-                        {item.isNew && <span className="inline-block mt-1 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full">NEW</span>}
+                      <div className={`text-sm font-medium ${item.isNew ? 'text-white' : 'text-[#3D2314]'}`}>
+                        {item.title}
                       </div>
-                    )}
-                    {item.side === 'left' && <div className="pl-6"></div>}
+                      <div className={`text-xs mt-1 whitespace-nowrap ${item.isNew ? 'text-white/70' : 'text-[#8B5A2B]/60'}`}>
+                        {item.desc}
+                      </div>
+                      {item.isNew && (
+                        <span className="absolute -top-2 -right-2 text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+                          NEW
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* 连接线 */}
+                    <div className={`w-0.5 ${item.position === 'bottom' ? 'h-8 -mt-8 mb-2' : 'h-8 mt-2'}`}></div>
+                    
+                    {/* 圆点 */}
+                    <div className={`absolute ${item.position === 'bottom' ? 'top-[140px]' : 'top-[140px]'} w-4 h-4 rounded-full ${
+                      item.isNew ? 'bg-[#D4A574] ring-4 ring-[#D4A574]/20' : 'bg-[#D4A574]'
+                    }`}></div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
