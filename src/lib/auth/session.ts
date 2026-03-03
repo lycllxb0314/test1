@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import { User, UserRole, AdministrativeRole } from '@/types';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import {
@@ -98,9 +99,12 @@ export async function login(
     return { success: false, error: '用户不存在' };
   }
 
-  // 3. 验证密码
-  // 生产环境应使用 bcrypt 等加密比较
-  const isValidPassword = password === dbUser.password_hash || password === 'lysf2024';
+  // 3. 验证密码（使用 bcrypt）
+  if (!dbUser.password_hash) {
+    return { success: false, error: '用户密码未设置，请联系管理员' };
+  }
+  
+  const isValidPassword = await bcrypt.compare(password, dbUser.password_hash);
 
   if (!isValidPassword) {
     return { success: false, error: '密码错误' };
