@@ -430,6 +430,54 @@ export default function HomePage() {
             </p>
           </div>
 
+          {/* 历史沿革 - 创意时间轴 */}
+          <div className="mb-12 relative">
+            {/* 时间轴背景装饰 */}
+            <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#D4A574]/30 to-transparent hidden md:block"></div>
+            
+            <div className="grid gap-4 md:gap-6">
+              {[
+                { year: '1914', title: '创办奠基', desc: '学校正式创办，成为闽西红色土地上的基础教育标杆校', align: 'left' },
+                { year: '2006', title: '整体迁址', desc: '整体搬迁至新罗区登高山南麓，开启办学新篇章', align: 'right' },
+                { year: '2010', title: '童心启航', desc: '确立"回归儿童本真"核心理念，成为龙岩市特色示范学校', align: 'left' },
+                { year: '2025.7', title: '智慧领航', desc: '入选福建省"智慧校园试点校"，成为数字教育标杆校', align: 'right' },
+                { year: '2025.12', title: '科创未来', desc: '成立少年科学院，开启创新人才培养新阶段', align: 'left', isLatest: true },
+              ].map((item, index) => (
+                <div 
+                  key={index}
+                  className={`flex items-center gap-4 ${item.align === 'right' ? 'md:flex-row-reverse' : ''}`}
+                >
+                  {/* 内容卡片 */}
+                  <div className={`flex-1 ${item.align === 'right' ? 'md:text-right' : ''}`}>
+                    <div className={`inline-block bg-white/90 backdrop-blur-sm rounded-2xl p-5 shadow-sm border border-[#E8DDD0]/50 hover:shadow-md hover:border-[#D4A574]/30 transition-all duration-300 ${item.isLatest ? 'ring-2 ring-[#D4A574]/20' : ''}`}>
+                      <div className={`flex items-center gap-3 mb-2 ${item.align === 'right' ? 'md:flex-row-reverse' : ''}`}>
+                        <span 
+                          className="text-2xl font-bold text-[#8B5A2B]"
+                          style={{ fontFamily: 'var(--font-serif)' }}
+                        >
+                          {item.year}
+                        </span>
+                        <span className="text-sm font-medium text-[#3D2314]">{item.title}</span>
+                        {item.isLatest && (
+                          <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full">最新</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-[#8B5A2B]/70 leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                  
+                  {/* 时间节点 */}
+                  <div className="hidden md:flex flex-col items-center">
+                    <div className={`w-4 h-4 rounded-full ${item.isLatest ? 'bg-[#D4A574] ring-4 ring-[#D4A574]/20' : 'bg-[#D4A574]/60'} transition-all`}></div>
+                  </div>
+                  
+                  {/* 空白占位 */}
+                  <div className="flex-1 hidden md:block"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* 第一篇章：源起 - 校训 */}
           <div className="mb-10">
             <div className="flex items-center gap-4 mb-5">
