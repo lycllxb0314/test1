@@ -391,6 +391,8 @@ export const classes = pgTable("classes", {
 	classNumber: integer("class_number").notNull(),
 	headTeacherId: varchar("head_teacher_id", { length: 50 }).notNull(),
 	headTeacherName: varchar("head_teacher_name", { length: 50 }).notNull(),
+	subTeacherId: varchar("sub_teacher_id", { length: 50 }),
+	subTeacherName: varchar("sub_teacher_name", { length: 50 }),
 	classroomId: varchar("classroom_id", { length: 50 }),
 	classroomName: varchar("classroom_name", { length: 50 }),
 	building: varchar({ length: 50 }),
@@ -401,6 +403,7 @@ export const classes = pgTable("classes", {
 }, (table) => [
 	index("idx_classes_grade").using("btree", table.grade.asc().nullsLast().op("int4_ops")),
 	index("idx_classes_head_teacher").using("btree", table.headTeacherId.asc().nullsLast().op("text_ops")),
+	index("idx_classes_sub_teacher").using("btree", table.subTeacherId.asc().nullsLast().op("text_ops")),
 ]);
 
 export const schools = pgTable("schools", {

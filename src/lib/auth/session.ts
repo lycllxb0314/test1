@@ -125,7 +125,32 @@ export async function login(
     children: dbUser.children,
   };
 
-  // 5. 生成 Token 对
+  // 5. 如果是科任教师，查询其负责的班级
+  if (dbUser.role === 'subject_teacher' && dbUser.employee_id) {
+    // 通过 employee_id 从 teachers 表获取教师 ID
+    const { data: teacherData } = await client
+      .from('teachers')
+      .select('id')
+      .eq('employee_id', dbUser.employee_id)
+      .single();
+    
+    if (teacherData) {
+      // 查询该教师作为科任负责的班级
+      const { data: subTeacherClasses } = await client
+        .from('classes')
+        .select('id, name')
+        .eq('sub_teacher_id', teacherData.id);
+      
+      if (subTeacherClasses && subTeacherClasses.length > 0) {
+        user.subTeacherClasses = subTeacherClasses.map(cls => ({
+          classId: cls.id,
+          className: cls.name,
+        }));
+      }
+    }
+  }
+
+  // 6. 生成 Token 对
   const tokens = await generateTokenPair({
     id: user.id,
     name: user.name,
@@ -198,7 +223,7 @@ export async function validateSession(
     .select(`
       id, name, role, phone, email, department, position,
       class_id, class_name, subjects, avatar, children, status,
-      additional_roles
+      additional_roles, employee_id
     `)
     .eq('id', payload.userId)
     .eq('status', 'active')
@@ -213,7 +238,32 @@ export async function validateSession(
     classId: data.class_id,
     className: data.class_name,
     additionalRoles: data.additional_roles,
+    employeeId: data.employee_id,
   };
+
+  // 如果是科任教师，通过 employee_id 关联 teachers 表查询其负责的班级
+  if (data.role === 'subject_teacher' && data.employee_id) {
+    // 通过 employee_id 获取教师 ID
+    const { data: teacherData } = await client
+      .from('teachers')
+      .select('id')
+      .eq('employee_id', data.employee_id)
+      .single();
+    
+    if (teacherData) {
+      const { data: subTeacherClasses } = await client
+        .from('classes')
+        .select('id, name')
+        .eq('sub_teacher_id', teacherData.id);
+      
+      if (subTeacherClasses && subTeacherClasses.length > 0) {
+        user.subTeacherClasses = subTeacherClasses.map(cls => ({
+          classId: cls.id,
+          className: cls.name,
+        }));
+      }
+    }
+  }
 
   // 3. 检查是否需要刷新 Token
   const shouldRefresh = isTokenExpiringSoon(accessToken);
