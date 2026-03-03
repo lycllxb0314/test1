@@ -17,15 +17,49 @@ import {
   Star,
   TreePine,
   ChevronRight,
+  ChevronLeft,
   Bell,
   Newspaper,
   GraduationCap,
   Sparkles,
   Award,
   Music,
-  Brain,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+
+// 轮播图数据
+const carouselItems = [
+  {
+    image: '/images/campus/science-academy-opening.png',
+    title: '少年科学院成立',
+    subtitle: '中科院谢华安院士亲自指导',
+    tag: '科创特色',
+  },
+  {
+    image: '/images/campus/art-festival.png',
+    title: '校园艺术节',
+    subtitle: '全国艺术教育先进单位',
+    tag: '艺术教育',
+  },
+  {
+    image: '/images/campus/sports-start.jpg',
+    title: '阳光体育运动',
+    subtitle: '体质健康合格率全市第一梯队',
+    tag: '阳光体育',
+  },
+  {
+    image: '/images/campus/young-pioneers.png',
+    title: '少先队活动',
+    subtitle: '有效德育引领童心成长',
+    tag: '德育实践',
+  },
+  {
+    image: '/images/campus/classroom-teaching.jpg',
+    title: '高效课堂',
+    subtitle: '高效课堂发展童心智慧',
+    tag: '教学特色',
+  },
+];
 
 // 童心教育六大路径
 const childHeartPaths = [
@@ -62,7 +96,7 @@ const notices = [
   { title: '2025-2026学年第一学期期末工作安排', date: '2026-01-05' },
 ];
 
-// 办学荣誉（精简版）
+// 办学荣誉
 const honors = [
   { title: '全国文明校园', year: '连续8届' },
   { title: '福建省示范小学', year: '' },
@@ -81,10 +115,31 @@ const quickLinks = [
 export default function HomePage() {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // 自动轮播
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % carouselItems.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
+
+  const goNext = () => {
+    setCurrentSlide((prev) => (prev + 1) % carouselItems.length);
+  };
+
+  const goPrev = () => {
+    setCurrentSlide((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
+  };
 
   if (!mounted) return null;
 
@@ -92,7 +147,7 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
       
       {/* 顶部导航 */}
-      <header className="bg-[#8B5A2B] text-white shadow-sm">
+      <header className="bg-[#8B5A2B] text-white shadow-sm relative z-20">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-6">
@@ -132,42 +187,106 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Banner */}
-      <section className="bg-gradient-to-r from-[#C4956A] via-[#D4A574] to-[#C4956A] text-white py-12">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="text-center md:text-left">
-              <div className="inline-block bg-white/20 text-white/95 text-xs px-3 py-1 rounded-full mb-4 backdrop-blur-sm">
+      {/* 轮播图 */}
+      <section className="relative h-[400px] md:h-[500px] overflow-hidden">
+        {/* 图片层 */}
+        <div className="absolute inset-0">
+          {carouselItems.map((item, index) => (
+            <div
+              key={index}
+              className={`absolute inset-0 transition-opacity duration-1000 ${
+                index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
+              }`}
+            >
+              <img
+                src={item.image}
+                alt={item.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+            </div>
+          ))}
+        </div>
+
+        {/* 内容层 */}
+        <div className="relative z-20 h-full flex items-center">
+          <div className="max-w-7xl mx-auto px-4 w-full">
+            <div className="max-w-xl">
+              <div className="inline-block bg-white/20 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full mb-4">
                 福建省示范小学 · 创建于1914年
               </div>
               <h1 
-                className="text-4xl md:text-5xl font-bold mb-3 drop-shadow-sm"
+                className="text-3xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg"
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
                 福建省龙岩师范附属小学
               </h1>
-              <p className="text-lg text-white/90 mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+              <p 
+                className="text-lg md:text-xl text-white/90 mb-2"
+                style={{ fontFamily: 'var(--font-serif)' }}
+              >
                 珍视童心，张扬个性，全面发展
               </p>
-              <p className="text-white/70 text-sm">当有情怀的老师，办有温度的学校</p>
+              <p className="text-white/70 text-sm mb-6">当有情怀的老师，办有温度的学校</p>
+              
+              {/* 当前幻灯片信息 */}
+              <div className="bg-white/15 backdrop-blur-sm rounded-lg p-4 inline-block">
+                <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full mr-2">
+                  {carouselItems[currentSlide].tag}
+                </span>
+                <span className="text-white font-medium">{carouselItems[currentSlide].title}</span>
+                <span className="text-white/60 text-sm ml-2">· {carouselItems[currentSlide].subtitle}</span>
+              </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4 text-center">
-              {[
-                { num: '60', label: '教学班', unit: '个' },
-                { num: '3000+', label: '学生', unit: '' },
-                { num: '194', label: '教师', unit: '人' },
-                { num: '111', label: '办学历史', unit: '年' },
-              ].map((item, i) => (
-                <div key={i} className="bg-white/15 rounded-xl p-4 min-w-[100px] backdrop-blur-sm">
-                  <div className="text-2xl font-bold">
-                    {item.num}<span className="text-sm font-normal">{item.unit}</span>
+            {/* 右侧数据统计 */}
+            <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 hidden lg:block">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { num: '60', label: '教学班', unit: '个' },
+                  { num: '3000+', label: '学生', unit: '' },
+                  { num: '194', label: '教师', unit: '人' },
+                  { num: '111', label: '办学历史', unit: '年' },
+                ].map((item, i) => (
+                  <div key={i} className="bg-white/15 backdrop-blur-sm rounded-lg p-3 text-center text-white min-w-[80px]">
+                    <div className="text-xl font-bold">
+                      {item.num}<span className="text-xs font-normal">{item.unit}</span>
+                    </div>
+                    <div className="text-xs text-white/70">{item.label}</div>
                   </div>
-                  <div className="text-xs text-white/70">{item.label}</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* 左右箭头 */}
+        <button
+          onClick={goPrev}
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+        <button
+          onClick={goNext}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </button>
+
+        {/* 底部指示器 */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+          {carouselItems.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`transition-all duration-300 ${
+                index === currentSlide 
+                  ? 'w-8 h-2 bg-white rounded-full' 
+                  : 'w-2 h-2 bg-white/50 rounded-full hover:bg-white/70'
+              }`}
+            />
+          ))}
         </div>
       </section>
 
@@ -371,7 +490,7 @@ export default function HomePage() {
             </div>
             
             <div className="grid md:grid-cols-3 gap-6">
-              {/* 科创教育 - 重点突出 */}
+              {/* 科创教育 */}
               <div className="md:col-span-2 bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl p-6 text-white">
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles className="h-5 w-5 text-[#D4A574]" />
@@ -385,7 +504,6 @@ export default function HomePage() {
                       2025年成立龙岩市首个小学少年科学院，中科院谢华安院士亲自指导
                     </p>
                     
-                    {/* 核心成就 */}
                     <div className="bg-white/10 rounded-xl p-4 mb-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Award className="h-4 w-4 text-[#D4A574]" />
@@ -404,7 +522,6 @@ export default function HomePage() {
                     </div>
                   </div>
                   
-                  {/* 数据 */}
                   <div className="flex gap-3">
                     <div className="bg-white/10 rounded-xl p-4 text-center backdrop-blur-sm flex-1">
                       <div className="text-3xl font-bold text-[#D4A574]">7</div>
@@ -420,7 +537,6 @@ export default function HomePage() {
               
               {/* 右侧：人文德育 + 艺体心理 */}
               <div className="space-y-4">
-                {/* 人文德育 */}
                 <div className="bg-white/80 rounded-xl p-5 border border-[#E8DDD0]/50">
                   <div className="flex items-center gap-2 mb-3">
                     <BookOpen className="h-5 w-5 text-[#8B5A2B]" />
@@ -442,7 +558,6 @@ export default function HomePage() {
                   </div>
                 </div>
                 
-                {/* 艺体心理 */}
                 <div className="bg-white/80 rounded-xl p-5 border border-[#E8DDD0]/50">
                   <div className="flex items-center gap-2 mb-3">
                     <Music className="h-5 w-5 text-[#8B5A2B]" />
@@ -466,7 +581,7 @@ export default function HomePage() {
               </div>
             </div>
             
-            {/* 办学荣誉 - 精简横排 */}
+            {/* 办学荣誉 */}
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               {honors.map((honor, index) => (
                 <div
@@ -485,7 +600,6 @@ export default function HomePage() {
 
         </div>
       </section>
-      {/* ==================== 核心叙事板块结束 ==================== */}
 
       {/* 快速入口 */}
       <section id="quick-links" className="py-8">
