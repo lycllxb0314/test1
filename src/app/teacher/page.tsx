@@ -147,6 +147,16 @@ export default function TeacherPage() {
     { name: '安全应急', icon: Shield, color: 'bg-red-100 text-red-600', path: '/teacher/safety' },
   ];
 
+  // 校长专属功能
+  const principalFunctions = [
+    { name: '首页管理', icon: LayoutDashboard, color: 'bg-rose-100 text-rose-600', path: '/admin/carousel', desc: '轮播图与视频' },
+    { name: '学校统计', icon: BarChart3, color: 'bg-emerald-100 text-emerald-600', path: '/teacher/grade', desc: '数据概览' },
+    { name: '教师管理', icon: Users, color: 'bg-blue-100 text-blue-600', path: '/teacher/profile', desc: '教师信息' },
+  ];
+
+  // 判断是否是校长
+  const isPrincipal = user?.role === 'principal' || user?.role === 'vice_principal';
+
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-purple-50/30 via-white to-pink-50/30 min-h-screen">
       {/* 页面标题 */}
@@ -504,6 +514,40 @@ export default function TeacherPage() {
 
       {/* 快捷功能 */}
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* 校长专属功能 */}
+        {isPrincipal && (
+          <Card className="border-0 shadow-md bg-gradient-to-r from-rose-500 to-orange-500 text-white">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded bg-white/20">
+                  <GraduationCap className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-white">校长工作台</CardTitle>
+                  <CardDescription className="text-white/80">学校管理与系统配置</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                {principalFunctions.map((item, index) => (
+                  <Link
+                    key={index}
+                    href={item.path}
+                    className="flex flex-col items-center p-4 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"
+                  >
+                    <div className={`p-2 rounded-lg ${item.color} mb-2`}>
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-medium text-white">{item.name}</span>
+                    <span className="text-[10px] text-white/70">{item.desc}</span>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* 班主任专属功能 */}
         {isHeadTeacher && (
           <Card className="border-0 shadow-md">

@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Storage } from 'coze-coding-dev-sdk';
 
+// 配置请求体大小限制
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '500mb',
+    },
+  },
+};
+
 // 初始化存储
 const storage = new S3Storage({
   endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
@@ -46,18 +55,17 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 读取文件内容
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
+    // 使用流式上传方式处理大文件
+    const stream = file.stream();
+    
     // 生成文件名
     const timestamp = Date.now();
     const originalName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const fileName = `videos/carousel/${timestamp}_${originalName}`;
 
-    // 上传到对象存储
-    const fileKey = await storage.uploadFile({
-      fileContent: buffer,
+    // 流式上传到对象存储
+    const fileKey = await storage.streamUploadFile({
+      stream: stream as any,
       fileName: fileName,
       contentType: file.type,
     });

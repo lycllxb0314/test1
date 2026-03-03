@@ -81,7 +81,7 @@ export default function LoginPage() {
                             className="h-24 w-24 rounded-2xl object-contain bg-white/20 backdrop-blur-sm p-3" />
                     </div>
                     <h1 className="text-4xl font-bold mb-4 text-center">龙岩师范附属小学</h1>
-                    <p className="text-xl text-white/80 mb-8 text-center">智慧校园管理平台</p>
+                    <p className="text-xl text-white/80 mb-8 text-center">统一身份认证中心</p>
                     <div className="flex items-center gap-2 mb-4">
                         <Sparkles className="h-5 w-5" />
                         <span className="text-lg">统一门户 · 统一身份认证 · 统一数据</span>
@@ -119,7 +119,7 @@ export default function LoginPage() {
                             className="h-12 w-12 rounded-lg object-contain" />
                         <div>
                             <h1 className="text-xl font-bold text-gray-900">龙岩师范附属小学</h1>
-                            <p className="text-sm text-gray-500">智慧校园管理平台</p>
+                            <p className="text-sm text-gray-500">统一身份认证中心</p>
                         </div>
                     </div>
                     <Card className="border-0 shadow-2xl shadow-orange-500/10">
