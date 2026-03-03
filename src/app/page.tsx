@@ -362,8 +362,8 @@ export default function HomePage() {
 
       {/* 新闻中心 + 校园公告 */}
       <section id="news" className="py-8">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr_300px] gap-6">
+        <div className="max-w-[1400px] mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-[300px_1fr_320px] gap-5">
             {/* 左侧：校园公告 */}
             <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
               <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
