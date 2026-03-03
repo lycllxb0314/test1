@@ -634,7 +634,7 @@ export default function HomePage() {
               <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
                 <div className="relative h-48">
                   <img
-                    src="/images/campus/dance-performance.png"
+                    src="/images/campus/art-festival.png"
                     alt="艺体心理"
                     className="w-full h-full object-cover"
                   />
