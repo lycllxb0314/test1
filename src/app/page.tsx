@@ -128,85 +128,6 @@ const studyStyle = {
   ],
 };
 
-// 五育数据
-const fiveEducation = [
-  {
-    category: '德育',
-    path: '引领童心',
-    goal: '培养有理想、有道德、有担当的时代新人',
-    practice: '少先队活动、主题班会、社会实践、红色教育',
-    color: '#B22222',
-    images: [
-      { src: '/images/campus/scarf-ceremony.png', title: '入队仪式' },
-      { src: '/images/campus/young-pioneers.png', title: '少先队活动' },
-      { src: '/images/campus/recitation-grade6.jpg', title: '红色教育' },
-      { src: '/images/campus/fire-safety-class.jpg', title: '安全教育' },
-    ],
-  },
-  {
-    category: '智育',
-    path: '发展童心',
-    goal: '培养善思考、会学习、能创新的智慧少年',
-    practice: '课堂教学、学科竞赛、科技创新、阅读工程',
-    color: '#1565C0',
-    images: [
-      { src: '/images/campus/science-academy.png', title: '少年科学院' },
-      { src: '/images/campus/robot-interaction.jpg', title: '科技创新' },
-      { src: '/images/campus/wrc-finals-team.jpg', title: '学科竞赛' },
-      { src: '/images/campus/english-contest.png', title: '学科活动' },
-    ],
-  },
-  {
-    category: '体育',
-    path: '点亮童心',
-    goal: '培养体魄健、意志坚、精神强的阳光少年',
-    practice: '体育课堂、阳光大课间、体育社团、田径运动会',
-    color: '#E65100',
-    images: [
-      { src: '/images/campus/group-exercise.jpg', title: '阳光大课间' },
-      { src: '/images/campus/sports-race.jpg', title: '田径运动会' },
-      { src: '/images/campus/sports-start.jpg', title: '体育竞技' },
-      { src: '/images/campus/eye-exercise.jpg', title: '健康教育' },
-    ],
-  },
-  {
-    category: '美育',
-    path: '涵养童心',
-    goal: '培养有审美、会表达、能创造的艺术素养',
-    practice: '艺术课堂、社团活动、校园艺术节、传统文化',
-    color: '#6A1B9A',
-    images: [
-      { src: '/images/campus/dance-contest.png', title: '校园艺术节' },
-      { src: '/images/campus/orchestra.png', title: '艺术社团' },
-      { src: '/images/campus/festival-opening.png', title: '文艺汇演' },
-      { src: '/images/campus/lion-dance-activity.jpg', title: '传统文化' },
-    ],
-  },
-  {
-    category: '劳育',
-    path: '润泽童心',
-    goal: '培养爱劳动、会劳动、懂劳动的时代新人',
-    practice: '劳动课程、校园种植、家务劳动、劳动技能大赛',
-    color: '#2E7D32',
-    images: [
-      { src: '/images/campus/labor-food-display.jpg', title: '劳动技能大赛' },
-      { src: '/images/campus/labor-cooking.jpg', title: '劳动实践' },
-      { src: '/images/campus/planting.jpg', title: '校园种植' },
-      { src: '/images/campus/succulent.jpg', title: '劳动教育' },
-    ],
-  },
-];
-
-// 教师发展
-const teacherDevelopment = [
-  { image: '/images/campus/conference-hall.png', title: '学术报告厅' },
-  { image: '/images/campus/talent-meeting.png', title: '人才工作会议' },
-  { image: '/images/campus/teacher-award.png', title: '教师表彰典礼' },
-  { image: '/images/campus/brain-science-training.jpg', title: '脑科学教学培训' },
-  { image: '/images/campus/researcher-guidance.png', title: '教研员入校指导' },
-  { image: '/images/campus/qinglan-project.png', title: '青蓝工程' },
-];
-
 // 校园活动
 const campusActivities = [
   { image: '/images/campus/festival-stage.png', title: '校园文化艺术节' },
@@ -380,10 +301,10 @@ export default function HomePage() {
             </div>
 
             <nav className="hidden md:flex items-center gap-8">
-              {['学校概况', '科创教育', '办学荣誉', '师资队伍'].map((item, index) => (
+              {['童心教育', '科创特色', '办学荣誉', '师资队伍'].map((item, index) => (
                 <a
                   key={index}
-                  href={`#${['about', 'science-tech', 'honors', 'teacher'][index]}`}
+                  href={`#${['child-heart', 'science-tech', 'honors', 'teacher'][index]}`}
                   className="text-sm text-gray-600 hover:text-amber-700"
                 >
                   {item}
@@ -513,121 +434,134 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 童心教育核心内涵 */}
-      <section className="py-16 bg-white">
+      {/* 童心教育 - 核心办学品牌 */}
+      <section id="child-heart" className="py-20 bg-gradient-to-b from-amber-50 via-orange-50 to-white">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-4">
+          {/* 品牌定位 */}
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-4 py-1.5 rounded-full text-sm mb-6">
               <Star className="h-4 w-4" />
-              <span>核心教育理念</span>
+              <span>核心办学品牌 · 福建省小学特色办学标杆案例</span>
             </div>
             <h2 
-              className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
+              className="text-4xl md:text-5xl font-bold text-gray-900 mb-6"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
               童心教育
             </h2>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              尊重儿童<span className="text-amber-700 font-medium">天真</span>、
-              <span className="text-amber-700 font-medium">纯朴</span>、
-              <span className="text-amber-700 font-medium">活泼</span>、
-              <span className="text-amber-700 font-medium">自然</span>的生命状态，
-              创设富有<span className="text-amber-700 font-medium">爱心</span>、
-              <span className="text-amber-700 font-medium">童趣</span>、
-              <span className="text-amber-700 font-medium">自由</span>、
-              <span className="text-amber-700 font-medium">和谐</span>的育人环境，
-              立足儿童实际、遵循身心发展规律，让孩子<span className="text-amber-700 font-medium">本真</span>、
-              <span className="text-amber-700 font-medium">快乐</span>、
-              <span className="text-amber-700 font-medium">阳光</span>地成长。
-            </p>
-          </div>
-
-          {/* 四个关键词展示 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { icon: Smile, word: '本真', desc: '保持天性，真实成长' },
-              { icon: Sun, word: '快乐', desc: '享受童年，快乐学习' },
-              { icon: Sparkles, word: '阳光', desc: '积极向上，阳光成长' },
-              { icon: Heart, word: '有爱', desc: '关爱呵护，温暖相伴' },
-            ].map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <div key={index} className="text-center p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-100">
-                  <div className="w-14 h-14 mx-auto mb-4 bg-amber-100 rounded-full flex items-center justify-center">
-                    <Icon className="h-7 w-7 text-amber-700" />
-                  </div>
-                  <h3 
-                    className="text-xl font-bold text-gray-900 mb-2"
-                    style={{ fontFamily: 'var(--font-serif)' }}
-                  >
-                    {item.word}
-                  </h3>
-                  <p className="text-sm text-gray-600">{item.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* 六大实施路径 - 核心特色 */}
-      <section id="child-heart" className="py-16 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-4">
-              <Target className="h-4 w-4" />
-              <span>十余年持续优化的核心执行标准</span>
+            <div className="max-w-3xl mx-auto">
+              <p className="text-lg text-gray-600 leading-relaxed mb-4">
+                尊重儿童<span className="text-amber-700 font-semibold">天真</span>、
+                <span className="text-amber-700 font-semibold">纯朴</span>、
+                <span className="text-amber-700 font-semibold">活泼</span>、
+                <span className="text-amber-700 font-semibold">自然</span>的生命状态，
+                创设富有<span className="text-amber-700 font-semibold">爱心</span>、
+                <span className="text-amber-700 font-semibold">童趣</span>、
+                <span className="text-amber-700 font-semibold">自由</span>、
+                <span className="text-amber-700 font-semibold">和谐</span>的育人环境
+              </p>
+              <p className="text-base text-gray-500">
+                立足儿童实际、遵循身心发展规律，让孩子<span className="text-amber-700 font-medium">本真</span>、
+                <span className="text-amber-700 font-medium">快乐</span>、
+                <span className="text-amber-700 font-medium">阳光</span>地成长
+              </p>
             </div>
-            <h2 
-              className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
-              style={{ fontFamily: 'var(--font-serif)' }}
-            >
-              童心教育六大实施路径
-            </h2>
-            <p className="text-gray-600">
-              贯穿校本部所有教学、管理、德育工作的核心框架
-            </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {childHeartPaths.map((path, index) => {
-              const Icon = path.icon;
-              return (
-                <div 
-                  key={index} 
-                  className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 group"
-                >
-                  <div className="flex items-start gap-4 mb-4">
-                    <div 
-                      className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: path.color }}
-                    >
-                      <Icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-amber-700 transition-colors">
-                        {path.title}
-                      </h3>
-                      <p className="text-sm" style={{ color: path.color }}>{path.subtitle}</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                    {path.desc}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {path.examples.map((example, i) => (
-                      <span 
-                        key={i}
-                        className="text-xs px-2 py-1 rounded-full"
-                        style={{ background: `${path.color}15`, color: path.color }}
-                      >
-                        {example}
-                      </span>
-                    ))}
-                  </div>
+          {/* 办学宗旨与方向 */}
+          <div className="grid md:grid-cols-2 gap-6 mb-16">
+            <div className="bg-white p-6 rounded-xl border border-amber-200 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <Target className="h-5 w-5 text-amber-700" />
                 </div>
-              );
-            })}
+                <h3 className="font-bold text-gray-900">办学宗旨</h3>
+              </div>
+              <p className="text-2xl font-bold text-amber-700" style={{ fontFamily: 'var(--font-serif)' }}>
+                为每个儿童的身心发展奠基
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-amber-200 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <Heart className="h-5 w-5 text-amber-700" />
+                </div>
+                <h3 className="font-bold text-gray-900">办学方向</h3>
+              </div>
+              <p className="text-2xl font-bold text-amber-700" style={{ fontFamily: 'var(--font-serif)' }}>
+                当有情怀的老师，办有温度的学校
+              </p>
+            </div>
+          </div>
+
+          {/* 六大实施路径 */}
+          <div className="mb-8">
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
+                <Target className="h-4 w-4" />
+                <span>十余年持续优化的核心执行标准</span>
+              </div>
+              <h3 
+                className="text-2xl font-bold text-gray-900"
+                style={{ fontFamily: 'var(--font-serif)' }}
+              >
+                六大实施路径
+              </h3>
+              <p className="text-gray-500 text-sm mt-2">贯穿校本部所有教学、管理、德育工作的核心框架</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {childHeartPaths.map((path, index) => {
+                const Icon = path.icon;
+                return (
+                  <div 
+                    key={index} 
+                    className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-amber-200 transition-all duration-300 group"
+                  >
+                    <div className="flex items-start gap-4 mb-4">
+                      <div 
+                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                        style={{ background: path.color }}
+                      >
+                        <Icon className="h-7 w-7 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-bold text-gray-900 group-hover:text-amber-700 transition-colors">
+                          {path.title}
+                        </h4>
+                        <p className="text-sm font-medium" style={{ color: path.color }}>{path.subtitle}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                      {path.desc}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {path.examples.map((example, i) => (
+                        <span 
+                          key={i}
+                          className="text-xs px-2.5 py-1 rounded-full font-medium"
+                          style={{ background: `${path.color}15`, color: path.color }}
+                        >
+                          {example}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 成果印证 */}
+          <div className="mt-12 p-6 bg-white rounded-xl border border-gray-200">
+            <div className="flex items-center gap-3 mb-4">
+              <Trophy className="h-5 w-5 text-amber-600" />
+              <h4 className="font-bold text-gray-900">品牌成果</h4>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              "童心教育"形成完整的理论与实践体系，配套六大实施路径深耕十余年，成为<span className="text-amber-700 font-medium">福建省小学特色办学标杆案例</span>，
+              德育成果被《中国德育》《福建教育》专题报道，形成了可复制、可推广的小学育人模式。
+            </p>
           </div>
         </div>
       </section>
@@ -806,75 +740,6 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 五育并举 */}
-      <section id="education" className="py-16 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="mb-12">
-            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
-              <GraduationCap className="h-4 w-4" />
-              <span>育人体系</span>
-            </div>
-            <h2 
-              className="text-2xl font-bold text-gray-900 mb-2"
-              style={{ fontFamily: 'var(--font-serif)' }}
-            >
-              五育并举
-            </h2>
-            <p className="text-gray-600">全面落实立德树人根本任务，助力童心全面发展</p>
-          </div>
-
-          <div className="space-y-12">
-            {fiveEducation.map((edu, eduIndex) => (
-              <div key={eduIndex} className="grid md:grid-cols-12 gap-6">
-                {/* 左侧 */}
-                <div className="md:col-span-3">
-                  <div 
-                    className="w-16 h-16 flex items-center justify-center mb-3 rounded-lg"
-                    style={{ background: edu.color }}
-                  >
-                    <span 
-                      className="text-3xl font-bold text-white"
-                      style={{ fontFamily: 'var(--font-serif)' }}
-                    >
-                      {edu.category.charAt(0)}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900">{edu.category}</h3>
-                  <p className="text-sm text-gray-500">童心路径：{edu.path}</p>
-                </div>
-
-                {/* 右侧 */}
-                <div className="md:col-span-9">
-                  <p className="text-sm text-gray-700 mb-2"><strong>育人目标：</strong>{edu.goal}</p>
-                  <p className="text-sm text-gray-600 mb-4"><strong>实施路径：</strong>{edu.practice}</p>
-                  <div className="grid grid-cols-4 gap-3">
-                    {edu.images.map((img, imgIndex) => (
-                      <div key={imgIndex}>
-                        <div className="aspect-[4/3] bg-gray-100 rounded overflow-hidden">
-                          {!imageErrors[`edu-${eduIndex}-${imgIndex}`] ? (
-                            <img
-                              src={img.src}
-                              alt={img.title}
-                              className="w-full h-full object-cover"
-                              onError={() => handleImageError(`edu-${eduIndex}-${imgIndex}`)}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                              <GraduationCap className="h-6 w-6 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1.5">{img.title}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
