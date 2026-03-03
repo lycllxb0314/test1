@@ -169,8 +169,13 @@ export default function ClassManagePage() {
     return filtered;
   }, [allStudents, classId, searchTerm, statusFilter]);
 
-  // 前端分页
+  // 前端分页（学生名单）
   const pagination = useFrontendPagination(students, { 
+    defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
+  });
+  
+  // 家长通讯录分页
+  const parentPagination = useFrontendPagination(students, { 
     defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
   });
   
@@ -732,48 +737,93 @@ export default function ClassManagePage() {
                     <p className="mt-4 text-gray-500">暂无家长数据</p>
                   </div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {students.slice(0, 12).map((student) => {
-                      const primaryParent = getPrimaryParent(student.id);
-                      return (
-                        <Card key={student.id} className="border">
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-3 mb-3">
-                              <Avatar className="h-10 w-10">
-                                <AvatarFallback className={getGenderStyle(student.gender).bg}>
-                                  {student.name.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="font-medium">{student.name}</div>
-                                <div className="text-xs text-gray-500">{student.studentNo}</div>
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {parentPagination.paginatedData.map((student) => {
+                        const primaryParent = getPrimaryParent(student.id);
+                        return (
+                          <Card key={student.id} className="border">
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-3 mb-3">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarFallback className={getGenderStyle(student.gender).bg}>
+                                    {student.name.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-medium">{student.name}</div>
+                                  <div className="text-xs text-gray-500">{student.studentNo}</div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex items-center gap-2 text-gray-600">
-                                <User className="h-4 w-4" />
-                                <span>{primaryParent?.name || '未填写'}</span>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <User className="h-4 w-4" />
+                                  <span>{primaryParent?.name || '未填写'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <Phone className="h-4 w-4" />
+                                  <span>{primaryParent?.phone || '未填写'}</span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 text-gray-600">
-                                <Phone className="h-4 w-4" />
-                                <span>{primaryParent?.phone || '未填写'}</span>
+                              <div className="mt-3 flex gap-2">
+                                <Button variant="outline" size="sm" className="flex-1">
+                                  <Phone className="h-3 w-3 mr-1" />
+                                  拨打
+                                </Button>
+                                <Button variant="outline" size="sm" className="flex-1">
+                                  <MessageCircle className="h-3 w-3 mr-1" />
+                                  发消息
+                                </Button>
                               </div>
-                            </div>
-                            <div className="mt-3 flex gap-2">
-                              <Button variant="outline" size="sm" className="flex-1">
-                                <Phone className="h-3 w-3 mr-1" />
-                                拨打
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1">
-                                <MessageCircle className="h-3 w-3 mr-1" />
-                                发消息
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+
+                    {parentPagination.totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                        <div className="flex items-center gap-4">
+                          <p className="text-sm text-gray-500">
+                            共 {parentPagination.total} 条记录，第 {parentPagination.page} / {parentPagination.totalPages} 页
+                          </p>
+                          <Select 
+                            value={parentPagination.pageSize.toString()} 
+                            onValueChange={(value) => parentPagination.setPageSize(parseInt(value))}
+                          >
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
+                                <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={parentPagination.page <= 1}
+                            onClick={parentPagination.prevPage}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            上一页
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={parentPagination.page >= parentPagination.totalPages}
+                            onClick={parentPagination.nextPage}
+                          >
+                            下一页
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
