@@ -215,14 +215,94 @@ const campusActivities = [
   { image: '/images/campus/sports-race.jpg', title: '田径运动会' },
 ];
 
-// 荣誉展示
-const honors = [
-  { title: '全国文明校园', year: '2023', org: '中央文明办' },
-  { title: '福建省示范小学', year: '2018', org: '福建省教育厅' },
-  { title: '全国青少年校园足球特色学校', year: '2022', org: '教育部' },
-  { title: '福建省德育工作先进学校', year: '2021', org: '福建省教育厅' },
-  { title: '龙岩市教学质量先进单位', year: '2023', org: '龙岩市教育局' },
-  { title: '全国优秀少先队集体', year: '2020', org: '共青团中央' },
+// 国家级核心荣誉
+const nationalHonors = [
+  { title: '全国文明校园', year: '连续8届', org: '中央文明办', highlight: true },
+  { title: '全国心理健康教育特色学校', year: '', org: '教育部', highlight: false },
+  { title: '全国艺术教育先进单位', year: '', org: '教育部', highlight: false },
+  { title: '全国红旗大队', year: '', org: '共青团中央', highlight: false },
+  { title: '全国少年军校示范校', year: '', org: '全国少工委', highlight: false },
+  { title: '全国"三八"红旗集体', year: '', org: '全国妇联', highlight: false },
+];
+
+// 省级核心荣誉
+const provincialHonors = [
+  { title: '福建省示范小学', year: '2018', org: '福建省教育厅', highlight: true },
+  { title: '福建省文明校园', year: '连续8届', org: '福建省委省政府', highlight: true },
+  { title: '首批福建省素质教育先进校', year: '', org: '福建省教育厅', highlight: false },
+  { title: '福建省心理健康教育基地校', year: '', org: '福建省教育厅', highlight: false },
+  { title: '福建省绿色学校', year: '', org: '福建省教育厅', highlight: false },
+  { title: '福建省校园文化艺术先进单位', year: '', org: '福建省教育厅', highlight: false },
+];
+
+// 2025年最新资质
+const latestQualifications = [
+  { 
+    title: '2025年福建省"智慧校园试点校"', 
+    desc: '龙岩市小学段数字教育与智慧校园建设标杆校',
+    icon: '🏫',
+  },
+  { 
+    title: '龙岩市首个小学少年科学院', 
+    desc: '中国科学院谢华安院士担任指导，2025年12月成立',
+    icon: '🔬',
+  },
+];
+
+// 科创教育成果
+const scienceTechAchievements = [
+  {
+    title: '全国学生数字素养提升实践活动',
+    award: '创新之星（最高奖项）',
+    year: '2025年7月',
+    desc: '邓昕宇、李昊坛同学在第26届全国赛中斩获小学组创意编程项目最高荣誉',
+    level: 'national',
+  },
+  {
+    title: '科创类累计获奖',
+    award: '国家级7项 · 省级58项',
+    year: '截至2025年8月',
+    desc: '获奖数量与质量稳居龙岩市小学首位',
+    level: 'total',
+  },
+  {
+    title: '少年科学院成立',
+    award: '龙岩市首个',
+    year: '2025年12月',
+    desc: '中国科学院谢华安院士担任指导，搭建完整科创培养体系',
+    level: 'special',
+  },
+];
+
+// 教师发展成果
+const teacherAchievements = [
+  { name: '张美珍', achievement: '福建省小学STEM优秀教学案例', year: '2025' },
+  { name: '黄艳婷', achievement: '福建省"基础教育精品课"', year: '2025' },
+  { name: '唐丹华、谢玲玲', achievement: '福建省师生信息素养提升实践活动省级三等奖', year: '2025' },
+  { name: '陈昀、陈婉玲', achievement: '龙岩市大中小学学科德育精品项目', year: '2025' },
+];
+
+// 教师培养体系
+const teacherTrainingSystem = [
+  { title: '青蓝工程', desc: '师徒结对，以老带新，加速青年教师成长' },
+  { title: '名师领航', desc: '名师工作室引领，骨干教师梯队培养' },
+  { title: '校本教研', desc: '分学科、分年级常态化集体备课磨课' },
+  { title: 'AI融合教学', desc: '深化AI智能技术与学科教学深度融合' },
+];
+
+// 学生德育人文成果
+const studentHumanitiesAchievements = [
+  { title: '龙岩市"福籽同心爱中华"演讲大赛', award: '一等奖3名', type: '朗诵' },
+  { title: '"弘扬抗战精神 赓续红色血脉"读书活动', award: '一等奖3名', type: '征文' },
+  { title: '龙岩市首届"海峡教育杯"作文比赛', award: '一等奖2名、二等奖2名', type: '作文' },
+  { title: '福建省中华经典诵写讲大赛', award: '小学组省级二等奖', type: '朗诵' },
+];
+
+// 德育品牌
+const moralEducationBrands = [
+  { title: '小目标促成长', desc: '家校社协同落地，福建省小学德育典型案例' },
+  { title: '八大良好习惯', desc: '分学段落实学生行为与学习习惯培养' },
+  { title: '仪式教育', desc: '入队仪式、十岁成长礼等，强化成长印记' },
 ];
 
 // 新闻动态
@@ -300,10 +380,10 @@ export default function HomePage() {
             </div>
 
             <nav className="hidden md:flex items-center gap-8">
-              {['学校概况', '育人体系', '师资队伍', '新闻动态'].map((item, index) => (
+              {['学校概况', '科创教育', '办学荣誉', '师资队伍'].map((item, index) => (
                 <a
                   key={index}
-                  href={`#${['about', 'education', 'teacher', 'news'][index]}`}
+                  href={`#${['about', 'science-tech', 'honors', 'teacher'][index]}`}
                   className="text-sm text-gray-600 hover:text-amber-700"
                 >
                   {item}
@@ -799,78 +879,335 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 教师发展 */}
-      <section id="teacher" className="py-16 bg-white">
+      {/* 科创教育 - 王牌特色 */}
+      <section id="science-tech" className="py-16 bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-blue-500/30 text-blue-200 px-4 py-1.5 rounded-full text-sm mb-4">
+              <Sparkles className="h-4 w-4" />
+              <span>王牌办学特色 · 区域标杆</span>
+            </div>
+            <h2 
+              className="text-3xl md:text-4xl font-bold mb-4"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              科创教育
+            </h2>
+            <p className="text-blue-200 text-lg">
+              数字教育模式成为闽西区域标杆，全国领先
+            </p>
+          </div>
+
+          {/* 2025年重磅成果 */}
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            {scienceTechAchievements.map((item, index) => (
+              <div 
+                key={index} 
+                className={`p-6 rounded-xl ${
+                  item.level === 'national' 
+                    ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-400/30' 
+                    : item.level === 'special'
+                    ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-400/30'
+                    : 'bg-white/10 border border-white/20'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  {item.level === 'national' && <Trophy className="h-5 w-5 text-amber-400" />}
+                  {item.level === 'special' && <Star className="h-5 w-5 text-purple-400" />}
+                  {item.level === 'total' && <Target className="h-5 w-5 text-blue-300" />}
+                  <span className="text-xs text-gray-300">{item.year}</span>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
+                <p className={`text-xl font-bold mb-2 ${
+                  item.level === 'national' ? 'text-amber-400' : 
+                  item.level === 'special' ? 'text-purple-300' : 'text-blue-300'
+                }`}>
+                  {item.award}
+                </p>
+                <p className="text-sm text-gray-300">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 少年科学院 */}
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-8">
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-4xl">
+                🔬
+              </div>
+              <div className="flex-1 text-center md:text-left">
+                <h3 className="text-xl font-bold text-white mb-2">龙岩市首个小学少年科学院</h3>
+                <p className="text-gray-300 mb-3">
+                  2025年12月正式成立，聘请中国科学院谢华安院士担任指导专家
+                </p>
+                <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                  {['院士科普', '科创竞赛', '跨学科项目', '小院士评选'].map((tag, i) => (
+                    <span key={i} className="px-3 py-1 bg-purple-500/30 text-purple-200 rounded-full text-sm">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 办学资质与荣誉 */}
+      <section id="honors" className="py-16 bg-white">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
+              <Trophy className="h-4 w-4" />
+              <span>百年名校 · 权威认可</span>
+            </div>
+            <h2 
+              className="text-2xl md:text-3xl font-bold text-gray-900 mb-2"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              办学资质与荣誉
+            </h2>
+            <p className="text-gray-600">国家、省、市三级权威认可</p>
+          </div>
+
+          {/* 2025年最新资质 */}
+          <div className="grid md:grid-cols-2 gap-4 mb-12">
+            {latestQualifications.map((item, index) => (
+              <div key={index} className="flex items-center gap-4 p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
+                <div className="w-14 h-14 bg-amber-100 rounded-xl flex items-center justify-center text-3xl">
+                  {item.icon}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">{item.title}</h3>
+                  <p className="text-sm text-gray-600">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 国家级荣誉 */}
+          <div className="mb-8">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-5 bg-red-600 rounded-full" />
+              国家级核心荣誉
+            </h3>
+            <div className="grid md:grid-cols-3 gap-3">
+              {nationalHonors.map((honor, index) => (
+                <div 
+                  key={index} 
+                  className={`p-4 rounded-lg border ${
+                    honor.highlight 
+                      ? 'bg-red-50 border-red-200' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {honor.highlight && <Trophy className="h-4 w-4 text-red-600" />}
+                    <h4 className="font-medium text-gray-900">{honor.title}</h4>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{honor.org} {honor.year && `· ${honor.year}`}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 省级荣誉 */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-5 bg-blue-600 rounded-full" />
+              省级核心荣誉
+            </h3>
+            <div className="grid md:grid-cols-3 gap-3">
+              {provincialHonors.map((honor, index) => (
+                <div 
+                  key={index} 
+                  className={`p-4 rounded-lg border ${
+                    honor.highlight 
+                      ? 'bg-blue-50 border-blue-200' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {honor.highlight && <Trophy className="h-4 w-4 text-blue-600" />}
+                    <h4 className="font-medium text-gray-900">{honor.title}</h4>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{honor.org} {honor.year && `· ${honor.year}`}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 教师队伍建设成果 */}
+      <section id="teacher" className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="mb-12">
             <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
               <Users className="h-4 w-4" />
-              <span>有情怀的老师</span>
+              <span>当有情怀的老师</span>
             </div>
             <h2 
               className="text-2xl font-bold text-gray-900 mb-2"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              师资队伍
+              教师队伍建设成果
             </h2>
-            <p className="text-gray-600">强师兴教，以专业发展支撑高质量育人</p>
+            <p className="text-gray-600">青蓝工程+名师领航双轨培养体系</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {teacherDevelopment.map((item, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="aspect-[16/10] bg-gray-100">
-                  {!imageErrors[`teacher-${index}`] ? (
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                      onError={() => handleImageError(`teacher-${index}`)}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
-                      <Users className="h-8 w-8 text-amber-300" />
-                    </div>
-                  )}
+          {/* 教师获奖统计 */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 text-center">
+              <div className="text-3xl font-bold text-red-600 mb-1">4人次</div>
+              <p className="text-sm text-gray-500">国家级表彰</p>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 text-center">
+              <div className="text-3xl font-bold text-blue-600 mb-1">30+人次</div>
+              <p className="text-sm text-gray-500">省级表彰</p>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 text-center">
+              <div className="text-3xl font-bold text-amber-600 mb-1">70+人次</div>
+              <p className="text-sm text-gray-500">市区级表彰</p>
+            </div>
+          </div>
+
+          {/* 2025年教师成果 */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+            <h3 className="text-base font-bold text-gray-900 mb-4">2025年教师获奖成果</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {teacherAchievements.map((item, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Trophy className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{item.achievement}</p>
+                    <p className="text-xs text-gray-500">{item.name} · {item.year}年</p>
+                  </div>
                 </div>
-                <div className="p-4 border-t border-gray-100">
-                  <h3 className="text-sm font-medium text-gray-900">{item.title}</h3>
-                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 教师培养体系 */}
+          <div className="grid md:grid-cols-4 gap-4">
+            {teacherTrainingSystem.map((item, index) => (
+              <div key={index} className="bg-white p-5 rounded-xl border border-gray-200">
+                <h4 className="font-bold text-gray-900 mb-2">{item.title}</h4>
+                <p className="text-sm text-gray-600">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* 办学成果 */}
-      <section className="py-16 bg-gray-800">
+      {/* 学生五育融合成果 */}
+      <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <div className="mb-12">
-            <div className="inline-flex items-center gap-2 text-amber-400 text-sm mb-2">
-              <Trophy className="h-4 w-4" />
-              <span>百年耕耘</span>
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
+              <GraduationCap className="h-4 w-4" />
+              <span>五育并举</span>
             </div>
             <h2 
-              className="text-2xl font-bold text-white mb-2"
+              className="text-2xl font-bold text-gray-900 mb-2"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              办学成果
+              学生培养成果
             </h2>
-            <p className="text-gray-400">硕果累累，荣誉见证</p>
+            <p className="text-gray-600">为每个儿童的身心发展奠基</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            {honors.map((honor, index) => (
-              <div key={index} className="flex items-center gap-4 p-4 bg-gray-700/50 rounded-lg">
-                <div className="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Trophy className="h-5 w-5 text-white" />
+          {/* 人文德育成果 */}
+          <div className="mb-8">
+            <h3 className="text-base font-bold text-gray-900 mb-4">人文与德育成果</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {studentHumanitiesAchievements.map((item, index) => (
+                <div key={index} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                    <BookOpen className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                    <p className="text-xs text-amber-600 font-medium">{item.award}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-white font-medium">{honor.title}</h4>
-                  <p className="text-gray-400 text-xs">{honor.org} · {honor.year}年</p>
+              ))}
+            </div>
+          </div>
+
+          {/* 德育品牌 */}
+          <div className="mb-8">
+            <h3 className="text-base font-bold text-gray-900 mb-4">德育品牌项目</h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              {moralEducationBrands.map((item, index) => (
+                <div key={index} className="p-5 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
+                  <h4 className="font-bold text-gray-900 mb-2">{item.title}</h4>
+                  <p className="text-sm text-gray-600">{item.desc}</p>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 艺体与心理健康 */}
+          <div className="bg-gray-50 rounded-xl p-6">
+            <h3 className="text-base font-bold text-gray-900 mb-4">艺体与心理健康教育</h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-medium text-gray-800 mb-2">艺术节 · 体育节 · 读书节 · 科技节</h4>
+                <p className="text-sm text-gray-600">全国艺术教育先进单位，多次在全国、全省中小学艺术展演中斩获佳绩</p>
               </div>
-            ))}
+              <div>
+                <h4 className="font-medium text-gray-800 mb-2">心理健康教育体系全省领先</h4>
+                <p className="text-sm text-gray-600">标准化心理辅导室、心理辅导热线、校园心理剧，相关经验在全省推广</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 示范引领与社会影响力 */}
+      <section className="py-16 bg-gray-900 text-white">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 
+              className="text-2xl md:text-3xl font-bold mb-2"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              示范引领与社会影响力
+            </h2>
+            <p className="text-gray-400">龙岩市小学教育龙头校，带动区域协同发展</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700">
+              <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center mb-4">
+                <Building2 className="h-6 w-6 text-amber-400" />
+              </div>
+              <h3 className="font-bold text-white mb-2">区域教育示范</h3>
+              <p className="text-sm text-gray-400">
+                数字教育、课后服务、德育管理、心理健康教育等办学模式成为全市中小学示范样板
+              </p>
+            </div>
+            <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700">
+              <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4">
+                <Users className="h-6 w-6 text-blue-400" />
+              </div>
+              <h3 className="font-bold text-white mb-2">家校社协同育人</h3>
+              <p className="text-sm text-gray-400">
+                三级家委会、法制副校长、校外辅导员形成育人合力，获评龙岩市家庭教育工作先进集体
+              </p>
+            </div>
+            <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700">
+              <div className="w-12 h-12 bg-pink-500/20 rounded-xl flex items-center justify-center mb-4">
+                <Heart className="h-6 w-6 text-pink-400" />
+              </div>
+              <h3 className="font-bold text-white mb-2">教育公益关爱</h3>
+              <p className="text-sm text-gray-400">
+                "大爱龙岩·同心育苗"关爱行动，党员教师一对一结对帮扶，获评福建省关爱农村留守儿童工作先进集体
+              </p>
+            </div>
           </div>
         </div>
       </section>
