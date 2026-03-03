@@ -189,7 +189,7 @@ export default function HomePage() {
     <div className="min-h-screen pt-14" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
       
       {/* 顶部导航 - 固定 */}
-      <header className="fixed top-0 left-0 right-0 bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white shadow-sm z-50">
+      <header className="fixed top-0 left-0 right-0 bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white z-50 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-6">
@@ -214,13 +214,13 @@ export default function HomePage() {
 
             {user ? (
               <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
-                <Button className="bg-white text-[#8B5A2B] hover:bg-white/90 rounded-md px-5 h-8 text-sm font-medium">
+                <Button className="bg-white text-[#8B5A2B] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
                   进入工作台
                 </Button>
               </Link>
             ) : (
               <Link href="/login">
-                <Button className="bg-white text-[#8B5A2B] hover:bg-white/90 rounded-md px-5 h-8 text-sm font-medium">
+                <Button className="bg-white text-[#8B5A2B] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
                   登录系统
                 </Button>
               </Link>
@@ -261,11 +261,12 @@ export default function HomePage() {
         <div className="relative z-20 h-full flex items-center pointer-events-none">
           <div className="max-w-7xl mx-auto px-4 w-full">
             <div className="max-w-xl">
-              <div className="inline-block bg-white/20 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full mb-4">
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white text-xs px-4 py-1.5 rounded-full mb-5 border border-white/20 shadow-lg shadow-black/10">
+                <Sparkles className="h-3.5 w-3.5 text-white/80" />
                 福建省示范小学 · 创建于1914年
               </div>
               <h1 
-                className="text-3xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg"
+                className="text-3xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg tracking-tight"
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
                 福建省龙岩师范附属小学
@@ -280,8 +281,8 @@ export default function HomePage() {
               
               {/* 当前轮播项信息 + 视频播放按钮 */}
               <div className="flex items-center gap-4 flex-wrap pointer-events-auto">
-                <div className="bg-white/15 backdrop-blur-sm rounded-lg p-4 inline-flex items-center gap-3">
-                  <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full">
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 inline-flex items-center gap-3 border border-white/20 shadow-lg shadow-black/10">
+                  <span className="text-xs bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white px-3 py-1 rounded-full font-medium shadow-sm">
                     {carouselItems[currentSlide].tag}
                   </span>
                   <span className="text-white font-medium">{carouselItems[currentSlide].title}</span>
@@ -312,11 +313,11 @@ export default function HomePage() {
                   { num: '194', label: '教师', unit: '人' },
                   { num: '112', label: '办学历史', unit: '年' },
                 ].map((item, i) => (
-                  <div key={i} className="bg-white/15 backdrop-blur-sm rounded-lg p-3 text-center text-white min-w-[80px]">
-                    <div className="text-xl font-bold">
-                      {item.num}<span className="text-xs font-normal">{item.unit}</span>
+                  <div key={i} className="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center text-white min-w-[90px] border border-white/20 shadow-lg shadow-black/10 hover:bg-white/15 hover:border-white/30 transition-all duration-300">
+                    <div className="text-2xl font-bold tracking-tight">
+                      {item.num}<span className="text-sm font-normal ml-0.5">{item.unit}</span>
                     </div>
-                    <div className="text-xs text-white/70">{item.label}</div>
+                    <div className="text-xs text-white/80 mt-1 font-medium">{item.label}</div>
                   </div>
                 ))}
               </div>
@@ -326,15 +327,15 @@ export default function HomePage() {
 
         <button
           onClick={goPrev}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all duration-300 border border-white/20 hover:border-white/40"
         >
-          <ChevronLeft className="h-6 w-6" />
+          <ChevronLeft className="h-5 w-5" />
         </button>
         <button
           onClick={goNext}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white/10 hover:bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all duration-300 border border-white/20 hover:border-white/40"
         >
-          <ChevronRight className="h-6 w-6" />
+          <ChevronRight className="h-5 w-5" />
         </button>
 
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
@@ -342,10 +343,10 @@ export default function HomePage() {
             <button
               key={index}
               onClick={() => goToSlide(index)}
-              className={`transition-all duration-300 ${
+              className={`transition-all duration-300 rounded-full ${
                 index === currentSlide 
-                  ? 'w-8 h-2 bg-white rounded-full' 
-                  : 'w-2 h-2 bg-white/50 rounded-full hover:bg-white/70'
+                  ? 'w-8 h-2 bg-white shadow-lg shadow-black/20' 
+                  : 'w-2 h-2 bg-white/40 hover:bg-white/60 border border-white/30'
               }`}
             />
           ))}
@@ -357,7 +358,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-6">
             {/* 新闻中心 */}
-            <div className="md:col-span-2 bg-white/80 rounded-xl shadow-sm border border-[#E8DDD0]/50 overflow-hidden">
+            <div className="md:col-span-2 bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
               <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
                 <div className="flex items-center gap-2">
                   <Newspaper className="h-5 w-5 text-[#8B5A2B]" />
@@ -404,7 +405,7 @@ export default function HomePage() {
             </div>
 
             {/* 校园公告 */}
-            <div className="bg-white/80 rounded-xl shadow-sm border border-[#E8DDD0]/50 overflow-hidden">
+            <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
               <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
                 <div className="flex items-center gap-2">
                   <Bell className="h-5 w-5 text-[#8B5A2B]" />
@@ -432,13 +433,21 @@ export default function HomePage() {
       </section>
 
       {/* ==================== 核心叙事板块：百年传承 · 童心育人 ==================== */}
-      <section id="philosophy" className="py-12 bg-gradient-to-b from-[#FDF8F3] to-[#F5EDE4]">
-        <div className="max-w-7xl mx-auto px-4">
+      <section id="philosophy" className="py-16 bg-gradient-to-b from-[#FDF8F3] via-[#FAF6F0] to-[#F5EDE4] relative overflow-hidden">
+        {/* 装饰元素 */}
+        <div className="absolute top-0 left-0 w-96 h-96 bg-[#D4A574]/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#8B5A2B]/5 rounded-full blur-3xl translate-x-1/3 translate-y-1/3" />
+        <div className="max-w-7xl mx-auto px-4 relative z-10">
           
           {/* 板块标题 */}
-          <div className="text-center mb-10">
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <div className="w-12 h-px bg-gradient-to-r from-transparent to-[#D4A574]" />
+              <div className="w-2 h-2 bg-[#D4A574] rounded-full" />
+              <div className="w-12 h-px bg-gradient-to-l from-transparent to-[#D4A574]" />
+            </div>
             <h2 
-              className="text-2xl md:text-3xl font-bold text-[#3D2314] mb-3"
+              className="text-2xl md:text-3xl font-bold text-[#3D2314] mb-3 tracking-wide"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
               百年传承 · 童心育人
@@ -468,7 +477,7 @@ export default function HomePage() {
               </div>
             </div>
             
-            <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 shadow-sm overflow-hidden">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-[#E8DDD0]/40 shadow-lg shadow-[#D4A574]/5 overflow-hidden hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
               <div className="grid md:grid-cols-5">
                 {/* 左侧图片 */}
                 <div className="relative md:col-span-2 h-56 md:h-72">
@@ -790,9 +799,9 @@ export default function HomePage() {
               const Icon = link.icon;
               return (
                 <Link key={index} href="/login">
-                  <div className="bg-white rounded-2xl p-6 hover:shadow-lg transition-all cursor-pointer group border border-[#E8DDD0]/50 hover:border-[#D4A574] hover:-translate-y-1">
+                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 hover:shadow-xl hover:shadow-[#D4A574]/10 transition-all duration-300 cursor-pointer group border border-[#E8DDD0]/40 hover:border-[#D4A574]/60 hover:-translate-y-1">
                     <div className="flex flex-col items-center text-center">
-                      <div className="w-14 h-14 bg-gradient-to-br from-[#F5EDE4] to-[#E8DDD0] rounded-2xl flex items-center justify-center mb-4 group-hover:from-[#D4A574]/20 group-hover:to-[#D4A574]/10 transition-all">
+                      <div className="w-14 h-14 bg-gradient-to-br from-[#F5EDE4] to-[#E8DDD0] rounded-2xl flex items-center justify-center mb-4 group-hover:from-[#D4A574]/20 group-hover:to-[#D4A574]/10 transition-all duration-300 shadow-sm">
                         <Icon className="h-7 w-7 text-[#8B5A2B] group-hover:text-[#B8860B] transition" />
                       </div>
                       <h3 className="font-bold text-[#3D2314] mb-1">{link.title}</h3>
@@ -865,14 +874,22 @@ export default function HomePage() {
       </section>
 
       {/* 页脚 */}
-      <footer className="py-6 bg-gradient-to-r from-[#A67C52] to-[#8B6914] text-white/80 text-sm">
-        <div className="max-w-7xl mx-auto px-4">
+      <footer className="py-8 bg-gradient-to-r from-[#A67C52] via-[#9B7530] to-[#8B6914] text-white/80 text-sm relative overflow-hidden">
+        {/* 装饰光效 */}
+        <div className="absolute top-0 left-1/4 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
+        <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div>© 2026 福建省龙岩师范附属小学 版权所有</div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center">
+                <GraduationCap className="h-4 w-4 text-white" />
+              </div>
+              <span>© 2026 福建省龙岩师范附属小学 版权所有</span>
+            </div>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-white/80 transition">隐私政策</a>
-              <a href="#" className="hover:text-white/80 transition">使用条款</a>
-              <a href="#" className="hover:text-white/80 transition">技术支持</a>
+              <a href="#" className="hover:text-white transition-colors duration-300">隐私政策</a>
+              <a href="#" className="hover:text-white transition-colors duration-300">使用条款</a>
+              <a href="#" className="hover:text-white transition-colors duration-300">技术支持</a>
             </div>
           </div>
         </div>
