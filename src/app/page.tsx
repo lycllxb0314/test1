@@ -26,6 +26,7 @@ import {
   Music,
   Play,
   X,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -35,6 +36,7 @@ interface CarouselItem {
   image: string;
   videoUrl?: string;
   bilibiliUrl?: string;
+  bilibiliBvid?: string; // B站视频BV号，用于跳转高清播放
   title: string;
   subtitle: string;
   tag: string;
@@ -45,7 +47,8 @@ const carouselItems: CarouselItem[] = [
   {
     type: 'bilibili',
     image: '/images/campus/science-academy-opening.png',
-    bilibiliUrl: 'https://player.bilibili.com/player.html?bvid=BV1WdPczBEVv&page=1&high_quality=1&danmaku=0&autoplay=1&quality=116&mute=0',
+    bilibiliUrl: 'https://player.bilibili.com/player.html?bvid=BV1WdPczBEVv&page=1&high_quality=1&danmaku=0&autoplay=1',
+    bilibiliBvid: 'BV1WdPczBEVv',
     title: '少年科学院成立',
     subtitle: '中科院谢华安院士亲自指导',
     tag: '科创特色',
@@ -874,8 +877,8 @@ export default function HomePage() {
             </button>
             
             {/* 视频标题 */}
-            <div className="absolute top-4 left-4 z-10">
-              <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-1 rounded-full mr-2">
+            <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+              <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-1 rounded-full">
                 {playingVideo.tag}
               </span>
               <span className="text-white font-medium">{playingVideo.title}</span>
@@ -883,17 +886,35 @@ export default function HomePage() {
             
             {/* B站视频播放器 */}
             {playingVideo.type === 'bilibili' && playingVideo.bilibiliUrl && (
-              <iframe
-                src={playingVideo.bilibiliUrl}
-                className="w-full aspect-video"
-                scrolling="no"
-                frameBorder="no"
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              />
+              <>
+                <iframe
+                  src={playingVideo.bilibiliUrl}
+                  className="w-full aspect-video"
+                  scrolling="no"
+                  frameBorder="no"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+                {/* B站高清观看提示 */}
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between z-10">
+                  <div className="flex items-center gap-2 text-white/70 text-sm">
+                    <span>嵌入播放器清晰度受限</span>
+                  </div>
+                  <a
+                    href={`https://www.bilibili.com/video/${playingVideo.bilibiliBvid || ''}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-[#FB7299] hover:bg-[#E85D87] text-white px-4 py-2 rounded-lg transition text-sm font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    在B站观看高清
+                  </a>
+                </div>
+              </>
             )}
             
-            {/* 普通视频播放器 */}
+            {/* 自托管视频播放器 - 支持高清 */}
             {playingVideo.type === 'video' && playingVideo.videoUrl && (
               <video
                 src={playingVideo.videoUrl}
