@@ -535,104 +535,124 @@ export default function HomePage() {
             </div>
             
             <div className="grid md:grid-cols-3 gap-5">
-              {/* 科创教育 */}
-              <div className="md:col-span-2 bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white">
-                <div className="grid md:grid-cols-2">
-                  <div className="relative h-56 md:h-72">
-                    <img
-                      src="/images/campus/robot-award.jpg"
-                      alt="科创获奖"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#3D2314]/80 hidden md:block"></div>
+              {/* 科创教育 - 王牌特色 */}
+              <div className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
+                <div className="relative h-48">
+                  <img
+                    src="/images/campus/robot-award.jpg"
+                    alt="科创获奖"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#3D2314] via-[#3D2314]/30 to-transparent"></div>
+                  <div className="absolute top-4 left-4 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-[#D4A574]" />
+                    <span className="font-bold">科创教育</span>
+                    <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-1">王牌特色</span>
+                  </div>
+                </div>
+                
+                <div className="p-5 flex-1 flex flex-col">
+                  <p className="text-sm text-white/70 mb-4">
+                    2025年成立龙岩市首个小学少年科学院，中科院谢华安院士亲自指导
+                  </p>
+                  
+                  <div className="bg-white/10 rounded-xl p-4 mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Award className="h-4 w-4 text-[#D4A574]" />
+                      <span className="text-sm font-medium text-[#D4A574]">2025年全国学生数字素养大赛</span>
+                    </div>
+                    <p className="text-lg font-bold">斩获"创新之星"最高奖项</p>
                   </div>
                   
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Sparkles className="h-5 w-5 text-[#D4A574]" />
-                      <h4 className="font-bold">科创教育</h4>
-                      <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-auto">王牌特色</span>
+                  <div className="flex gap-4 mt-auto">
+                    <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
+                      <div className="text-2xl font-bold text-[#D4A574]">7</div>
+                      <div className="text-xs text-white/50">国家级奖项</div>
                     </div>
-                    
-                    <p className="text-sm text-white/70 mb-4">
-                      2025年成立龙岩市首个小学少年科学院，中科院谢华安院士亲自指导
-                    </p>
-                    
-                    <div className="bg-white/10 rounded-xl p-4 mb-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Award className="h-4 w-4 text-[#D4A574]" />
-                        <span className="text-sm font-medium text-[#D4A574]">2025年全国学生数字素养大赛</span>
-                      </div>
-                      <p className="text-lg font-bold">斩获"创新之星"最高奖项</p>
+                    <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
+                      <div className="text-2xl font-bold text-[#D4A574]">58</div>
+                      <div className="text-xs text-white/50">省级奖项</div>
                     </div>
-                    
-                    <div className="flex gap-4">
-                      <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
-                        <div className="text-2xl font-bold text-[#D4A574]">7</div>
-                        <div className="text-xs text-white/50">国家级奖项</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 人文德育 */}
+              <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                <div className="relative h-48">
+                  <img
+                    src="/images/campus/teacher-day-award.png"
+                    alt="人文德育"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                  <div className="absolute top-4 left-4 flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-white" />
+                    <span className="font-bold text-white">人文德育</span>
+                  </div>
+                </div>
+                <div className="p-5 flex-1">
+                  <p className="text-sm text-[#8B5A2B]/70 mb-4">
+                    以"小目标促成长"为载体，培养学生良好品德与行为习惯
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Award className="h-3.5 w-3.5 text-[#B8860B]" />
                       </div>
-                      <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
-                        <div className="text-2xl font-bold text-[#D4A574]">58</div>
-                        <div className="text-xs text-white/50">省级奖项</div>
+                      <div>
+                        <p className="text-sm font-medium text-[#3D2314]">省级德育典型案例</p>
+                        <p className="text-xs text-[#8B5A2B]/60">"小目标促成长"育人模式</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[#3D2314]">演讲征文比赛</p>
+                        <p className="text-xs text-[#8B5A2B]/60">多项一等奖</p>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
               
-              {/* 右侧卡片 */}
-              <div className="space-y-5">
-                <div className="bg-white/80 rounded-xl border border-[#E8DDD0]/50 overflow-hidden">
-                  <div className="relative h-36 md:h-44">
-                    <img
-                      src="/images/campus/teacher-day-award.png"
-                      alt="人文德育"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent">
-                      <div className="absolute bottom-3 left-4 flex items-center gap-2">
-                        <BookOpen className="h-4 w-4 text-white" />
-                        <span className="font-bold text-white text-sm">人文德育</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
-                        <span className="text-[#5D4037]">"小目标促成长"省级德育典型案例</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
-                        <span className="text-[#5D4037]">演讲征文比赛多项一等奖</span>
-                      </div>
-                    </div>
+              {/* 艺体心理 */}
+              <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                <div className="relative h-48">
+                  <img
+                    src="/images/campus/wrc-competition.jpg"
+                    alt="艺体心理"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                  <div className="absolute top-4 left-4 flex items-center gap-2">
+                    <Music className="h-5 w-5 text-white" />
+                    <span className="font-bold text-white">艺体心理</span>
                   </div>
                 </div>
-                
-                <div className="bg-white/80 rounded-xl border border-[#E8DDD0]/50 overflow-hidden">
-                  <div className="relative h-36 md:h-44">
-                    <img
-                      src="/images/campus/wrc-competition.jpg"
-                      alt="艺体心理"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent">
-                      <div className="absolute bottom-3 left-4 flex items-center gap-2">
-                        <Music className="h-4 w-4 text-white" />
-                        <span className="font-bold text-white text-sm">艺体心理</span>
+                <div className="p-5 flex-1">
+                  <p className="text-sm text-[#8B5A2B]/70 mb-4">
+                    艺术体育与心理健康教育并重，促进学生身心全面发展
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[#3D2314]">全国艺术教育先进单位</p>
+                        <p className="text-xs text-[#8B5A2B]/60">艺术教育成果显著</p>
                       </div>
                     </div>
-                  </div>
-                  <div className="p-4">
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
-                        <span className="text-[#5D4037]">全国艺术教育先进单位</span>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Award className="h-3.5 w-3.5 text-[#B8860B]" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
-                        <span className="text-[#5D4037]">心理健康教育全省领先</span>
+                      <div>
+                        <p className="text-sm font-medium text-[#3D2314]">心理健康教育特色学校</p>
+                        <p className="text-xs text-[#8B5A2B]/60">全省领先</p>
                       </div>
                     </div>
                   </div>
