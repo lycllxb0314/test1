@@ -183,10 +183,10 @@ export default function HomePage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
+    <div className="min-h-screen pt-14" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
       
-      {/* 顶部导航 */}
-      <header className="bg-[#8B5A2B] text-white shadow-sm relative z-20">
+      {/* 顶部导航 - 固定 */}
+      <header className="fixed top-0 left-0 right-0 bg-[#8B5A2B] text-white shadow-sm z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-6">
