@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -44,7 +45,6 @@ import {
   Users,
   Search,
   Plus,
-  Upload,
   RefreshCw,
   Phone,
   Mail,
@@ -54,7 +54,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  MessageSquare,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -62,9 +61,18 @@ import {
   User,
   GraduationCap,
   Home,
+  School,
+  MapPin,
+  UserCheck,
+  UserCog,
+  MessageCircle,
+  Star,
+  Award,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStudents, type StudentInfo } from '@/hooks/useStudents';
+import { useClasses } from '@/hooks/useClasses';
 import { useFrontendPagination } from '@/hooks/useApi';
 import { PAGINATION } from '@/lib/pagination-config';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -92,24 +100,40 @@ const getGenderStyle = (gender: string) => {
 export default function ClassManagePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isHeadTeacher, canEditStudent } = usePermissions();
+  const { isHeadTeacher } = usePermissions();
 
   // 搜索状态
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('overview');
 
-  // 获取当前用户班级的学生
+  // 获取当前用户班级信息
   const classId = user?.classId || '';
   const className = user?.className || '我的班级';
 
-  // 使用统一 Hook 获取学生列表（全部数据）
+  // 使用统一 Hook 获取学生列表
   const { 
     allStudents,
-    loading, 
+    loading: studentsLoading, 
     error, 
-    refetch,
-    deleteStudent 
+    refetch: refetchStudents,
+    deleteStudent,
+    getPrimaryParent
   } = useStudents();
+
+  // 获取班级信息（包含科任教师）
+  const { 
+    allClasses, 
+    loading: classesLoading,
+    refetch: refetchClasses
+  } = useClasses();
+
+  const loading = studentsLoading || classesLoading;
+
+  // 获取当前班级详情
+  const currentClass = useMemo(() => {
+    return allClasses.find(c => c.id === classId);
+  }, [allClasses, classId]);
 
   // 筛选当前班级的学生
   const students = useMemo(() => {
@@ -128,12 +152,11 @@ export default function ClassManagePage() {
     return filtered;
   }, [allStudents, classId, searchTerm, statusFilter]);
 
-  // 前端分页（基于筛选后的数据）
+  // 前端分页
   const pagination = useFrontendPagination(students, { 
     defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
   });
   
-  // 总数使用筛选后的数据长度
   const totalStudents = students.length;
 
   // 学生操作状态
@@ -143,7 +166,7 @@ export default function ClassManagePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<StudentInfo | null>(null);
 
-  // 权限检查 - 只有班主任可以访问
+  // 权限检查
   useEffect(() => {
     if (user && !isHeadTeacher()) {
       toast.error('您不是班主任，无法访问此页面');
@@ -177,7 +200,7 @@ export default function ClassManagePage() {
     
     if (success) {
       toast.success('学生已删除');
-      refetch();
+      refetchStudents();
     } else {
       toast.error('删除失败，请重试');
     }
@@ -207,13 +230,19 @@ export default function ClassManagePage() {
     toast.success('导出成功');
   };
 
+  // 统计数据
+  const presentCount = students.filter(s => s.status === '在校').length;
+  const leaveCount = students.filter(s => s.status === '请假').length;
+  const maleCount = students.filter(s => s.gender === 'male').length;
+  const femaleCount = students.filter(s => s.gender === 'female').length;
+
   // 加载状态
   if (loading && students.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="mt-4 text-muted-foreground">加载学生数据...</p>
+          <p className="mt-4 text-muted-foreground">加载班级数据...</p>
         </div>
       </div>
     );
@@ -226,7 +255,7 @@ export default function ClassManagePage() {
         <div className="text-center">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto" />
           <p className="mt-4 text-muted-foreground">{error}</p>
-          <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+          <Button variant="outline" className="mt-4" onClick={() => refetchStudents()}>
             重试
           </Button>
         </div>
@@ -234,262 +263,471 @@ export default function ClassManagePage() {
     );
   }
 
-  // 统计数据
-  const presentCount = students.filter(s => s.status === '在校').length;
-  const leaveCount = students.filter(s => s.status === '请假').length;
-  const maleCount = students.filter(s => s.gender === 'male').length;
-  const femaleCount = students.filter(s => s.gender === 'female').length;
-
   return (
-    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-purple-50/30 via-white to-pink-50/30 min-h-screen">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Users className="h-7 w-7 text-primary" />
-            <h1 className="text-2xl font-bold text-gray-900">班级学生管理</h1>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50/30 via-white to-pink-50/30">
+      {/* 班级标题卡片 */}
+      <Card className="border-0 shadow-lg overflow-hidden rounded-none">
+        <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6">
+          <div className="flex items-start justify-between text-white">
+            <div>
+              <h1 className="text-3xl font-bold">{className}</h1>
+              <div className="mt-2 flex items-center gap-4 text-purple-100">
+                <span className="flex items-center gap-1">
+                  <GraduationCap className="h-4 w-4" />
+                  {currentClass?.gradeName || '班级'}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {currentClass?.classroomName || '待分配教室'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold">{totalStudents}</div>
+                <div className="text-sm text-purple-100">学生</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold">{currentClass?.parentCount || 0}</div>
+                <div className="text-sm text-purple-100">家长</div>
+              </div>
+            </div>
           </div>
-          <p className="text-gray-500 mt-1">{className} · 学生信息维护</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4" />
-            刷新
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={handleExport}>
-            <Download className="h-4 w-4" />
-            导出名单
-          </Button>
-          <Button className="bg-purple-500 hover:bg-purple-600 text-white gap-2">
-            <UserPlus className="h-4 w-4" />
-            添加学生
-          </Button>
+        
+        {/* 教师信息栏 */}
+        <div className="p-4 bg-white grid grid-cols-2 gap-4">
+          {/* 班主任 */}
+          <div className="flex items-center gap-4 p-4 bg-purple-50 rounded-lg border border-purple-100">
+            <Avatar className="h-12 w-12 border-2 border-purple-200">
+              <AvatarImage src={user?.avatar} />
+              <AvatarFallback className="bg-purple-100 text-purple-700 text-lg">
+                {user?.name?.charAt(0) || '班'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <div className="text-sm text-purple-600 font-medium">班主任</div>
+              <div className="font-bold text-lg text-gray-900">{user?.name || '我'}</div>
+              {user?.department && (
+                <div className="text-sm text-gray-500">{user.department}</div>
+              )}
+            </div>
+            <div className="flex items-center gap-1 text-purple-600">
+              <Star className="h-4 w-4" />
+              <span className="text-sm">班级管理员</span>
+            </div>
+          </div>
+          
+          {/* 科任（副班主任） */}
+          <div className={`flex items-center gap-4 p-4 rounded-lg border ${
+            currentClass?.subTeacherName 
+              ? 'bg-blue-50 border-blue-100' 
+              : 'bg-gray-50 border-gray-200'
+          }`}>
+            <Avatar className="h-12 w-12 border-2 border-blue-200">
+              <AvatarImage src={currentClass?.subTeacher?.avatar} />
+              <AvatarFallback className={`text-lg ${
+                currentClass?.subTeacherName 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'bg-gray-100 text-gray-400'
+              }`}>
+                {currentClass?.subTeacherName?.charAt(0) || '?'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <div className="text-sm text-blue-600 font-medium">科任（副班主任）</div>
+              <div className="font-bold text-lg text-gray-900">
+                {currentClass?.subTeacherName || '未配置'}
+              </div>
+              {currentClass?.subTeacher?.subject && (
+                <div className="text-sm text-gray-500">{currentClass.subTeacher.subject}教师</div>
+              )}
+            </div>
+            {currentClass?.subTeacherName && (
+              <div className="flex items-center gap-1 text-blue-600">
+                <UserCog className="h-4 w-4" />
+                <span className="text-sm">协同管理</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </Card>
 
-      {/* 统计卡片 */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">学生总数</p>
-                <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-blue-100">
-                <Users className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">在校人数</p>
-                <p className="text-2xl font-bold text-green-600">{presentCount}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-green-100">
-                <Users className="h-5 w-5 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">请假人数</p>
-                <p className="text-2xl font-bold text-yellow-600">{leaveCount}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-yellow-100">
-                <Users className="h-5 w-5 text-yellow-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">男女比例</p>
-                <p className="text-2xl font-bold text-purple-600">{maleCount}:{femaleCount}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-purple-100">
-                <Users className="h-5 w-5 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 学生列表 */}
-      <Card className="border-0 shadow-md">
-        <CardHeader className="pb-0">
+      {/* Tab 内容区 */}
+      <div className="px-6 py-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">学生列表</CardTitle>
-            <div className="flex items-center gap-4">
-              {/* 搜索框 */}
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="搜索学生姓名或学号..."
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    pagination.goToPage(1);
-                  }}
-                  className="pl-10"
-                />
-              </div>
-              {/* 状态筛选 */}
-              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); pagination.goToPage(1); }}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="状态筛选" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value="在校">在校</SelectItem>
-                  <SelectItem value="请假">请假</SelectItem>
-                  <SelectItem value="休学">休学</SelectItem>
-                </SelectContent>
-              </Select>
+            <TabsList className="bg-white border shadow-sm p-1 h-auto">
+              <TabsTrigger 
+                value="overview" 
+                className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700"
+              >
+                <School className="h-4 w-4 mr-2" />
+                班级概览
+              </TabsTrigger>
+              <TabsTrigger 
+                value="students"
+                className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                学生名单 ({totalStudents})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="parents"
+                className="data-[state=active]:bg-green-50 data-[state=active]:text-green-700"
+              >
+                <User className="h-4 w-4 mr-2" />
+                家长通讯录
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => { refetchStudents(); refetchClasses(); }}>
+                <RefreshCw className="h-4 w-4" />
+                刷新
+              </Button>
+              <Button variant="outline" size="sm" className="gap-2" onClick={handleExport}>
+                <Download className="h-4 w-4" />
+                导出名单
+              </Button>
+              <Button size="sm" className="bg-purple-500 hover:bg-purple-600 text-white gap-2">
+                <UserPlus className="h-4 w-4" />
+                添加学生
+              </Button>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="pt-6">
-          {students.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 text-gray-300 mx-auto" />
-              <p className="mt-4 text-gray-500">
-                {searchTerm ? '没有找到匹配的学生' : '暂无学生数据'}
-              </p>
-            </div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead>学号</TableHead>
-                    <TableHead>姓名</TableHead>
-                    <TableHead>性别</TableHead>
-                    <TableHead>年级</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>班主任</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pagination.paginatedData.map((student) => {
-                    const genderStyle = getGenderStyle(student.gender);
-                    return (
-                      <TableRow key={student.id} className="hover:bg-gray-50">
-                        <TableCell className="font-mono text-sm">{student.studentNo}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className={genderStyle.bg}>
-                                {student.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium">{student.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className={genderStyle.color}>{genderStyle.label}</span>
-                        </TableCell>
-                        <TableCell>{student.gradeName}</TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(student.status)}>
-                            {student.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{student.headTeacherName || '-'}</TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>操作</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleViewDetail(student.id)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                查看详情
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEdit(student.id)}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                编辑信息
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-red-600"
-                                onClick={() => confirmDelete(student)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                删除
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+          
+          {/* 概览 Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            {/* 统计卡片 */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">学生总数</p>
+                      <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-blue-100">
+                      <Users className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-              {/* 分页 */}
-              {pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">在校人数</p>
+                      <p className="text-2xl font-bold text-green-600">{presentCount}</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-green-100">
+                      <UserCheck className="h-5 w-5 text-green-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">请假人数</p>
+                      <p className="text-2xl font-bold text-yellow-600">{leaveCount}</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-yellow-100">
+                      <AlertCircle className="h-5 w-5 text-yellow-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">男女比例</p>
+                      <p className="text-2xl font-bold text-purple-600">{maleCount}:{femaleCount}</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-purple-100">
+                      <Users className="h-5 w-5 text-purple-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 快捷操作 */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg">快捷操作</CardTitle>
+                <CardDescription>常用班级管理功能</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col gap-2"
+                    onClick={() => setActiveTab('students')}
+                  >
+                    <Users className="h-6 w-6 text-blue-500" />
+                    <span>学生管理</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col gap-2"
+                    onClick={() => setActiveTab('parents')}
+                  >
+                    <User className="h-6 w-6 text-green-500" />
+                    <span>家长通讯</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col gap-2"
+                    onClick={() => router.push('/teacher/habit')}
+                  >
+                    <Star className="h-6 w-6 text-amber-500" />
+                    <span>习惯养成</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col gap-2"
+                    onClick={() => router.push('/teacher/communication')}
+                  >
+                    <MessageCircle className="h-6 w-6 text-purple-500" />
+                    <span>家校沟通</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* 学生 Tab */}
+          <TabsContent value="students" className="space-y-6">
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-0">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">学生列表</CardTitle>
                   <div className="flex items-center gap-4">
-                    <p className="text-sm text-gray-500">
-                      共 {pagination.total} 条记录，第 {pagination.page} / {pagination.totalPages} 页
-                    </p>
-                    <Select 
-                      value={pagination.pageSize.toString()} 
-                      onValueChange={(value) => pagination.setPageSize(parseInt(value))}
-                    >
-                      <SelectTrigger className="w-[100px]">
-                        <SelectValue />
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="搜索学生姓名或学号..."
+                        value={searchTerm}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          pagination.goToPage(1);
+                        }}
+                        className="pl-10"
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); pagination.goToPage(1); }}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="状态筛选" />
                       </SelectTrigger>
                       <SelectContent>
-                        {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
-                          <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
-                        ))}
+                        <SelectItem value="all">全部状态</SelectItem>
+                        <SelectItem value="在校">在校</SelectItem>
+                        <SelectItem value="请假">请假</SelectItem>
+                        <SelectItem value="休学">休学</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pagination.page <= 1}
-                      onClick={pagination.prevPage}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      上一页
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pagination.page >= pagination.totalPages}
-                      onClick={pagination.nextPage}
-                    >
-                      下一页
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {students.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Users className="h-12 w-12 text-gray-300 mx-auto" />
+                    <p className="mt-4 text-gray-500">
+                      {searchTerm ? '没有找到匹配的学生' : '暂无学生数据'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50">
+                          <TableHead>学号</TableHead>
+                          <TableHead>姓名</TableHead>
+                          <TableHead>性别</TableHead>
+                          <TableHead>年级</TableHead>
+                          <TableHead>状态</TableHead>
+                          <TableHead className="text-right">操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pagination.paginatedData.map((student) => {
+                          const genderStyle = getGenderStyle(student.gender);
+                          return (
+                            <TableRow key={student.id} className="hover:bg-gray-50">
+                              <TableCell className="font-mono text-sm">{student.studentNo}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback className={genderStyle.bg}>
+                                      {student.name.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="font-medium">{student.name}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className={genderStyle.color}>{genderStyle.label}</span>
+                              </TableCell>
+                              <TableCell>{student.gradeName}</TableCell>
+                              <TableCell>
+                                <Badge className={getStatusColor(student.status)}>
+                                  {student.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>操作</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleViewDetail(student.id)}>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      查看详情
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleEdit(student.id)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      编辑信息
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      className="text-red-600"
+                                      onClick={() => confirmDelete(student)}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      删除
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+
+                    {pagination.totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center gap-4">
+                          <p className="text-sm text-gray-500">
+                            共 {pagination.total} 条记录，第 {pagination.page} / {pagination.totalPages} 页
+                          </p>
+                          <Select 
+                            value={pagination.pageSize.toString()} 
+                            onValueChange={(value) => pagination.setPageSize(parseInt(value))}
+                          >
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
+                                <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pagination.page <= 1}
+                            onClick={pagination.prevPage}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            上一页
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pagination.page >= pagination.totalPages}
+                            onClick={pagination.nextPage}
+                          >
+                            下一页
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* 家长 Tab */}
+          <TabsContent value="parents" className="space-y-6">
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg">家长通讯录</CardTitle>
+                <CardDescription>班级学生家长联系方式</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {students.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Users className="h-12 w-12 text-gray-300 mx-auto" />
+                    <p className="mt-4 text-gray-500">暂无家长数据</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {students.slice(0, 12).map((student) => {
+                      const primaryParent = getPrimaryParent(student.id);
+                      return (
+                        <Card key={student.id} className="border">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3 mb-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback className={getGenderStyle(student.gender).bg}>
+                                  {student.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium">{student.name}</div>
+                                <div className="text-xs text-gray-500">{student.studentNo}</div>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <User className="h-4 w-4" />
+                                <span>{primaryParent?.name || '未填写'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Phone className="h-4 w-4" />
+                                <span>{primaryParent?.phone || '未填写'}</span>
+                              </div>
+                            </div>
+                            <div className="mt-3 flex gap-2">
+                              <Button variant="outline" size="sm" className="flex-1">
+                                <Phone className="h-3 w-3 mr-1" />
+                                拨打
+                              </Button>
+                              <Button variant="outline" size="sm" className="flex-1">
+                                <MessageCircle className="h-3 w-3 mr-1" />
+                                发消息
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* 删除确认对话框 */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
