@@ -103,6 +103,67 @@ export interface TeacherFilters {
   status?: string | 'all';
 }
 
+/** 履历记录 */
+export interface TeacherRecord {
+  id: string;
+  teacherId: string;
+  type: 'education' | 'title' | 'position' | 'award' | 'training' | 'research' | 'other';
+  title: string;
+  description?: string;
+  date: string;
+  attachments?: string[];
+  createdAt?: string;
+}
+
+/** 教师荣誉 */
+export interface TeacherHonor {
+  id: string;
+  teacherId: string;
+  title: string;
+  level: '国家级' | '省级' | '市级' | '区级' | '校级';
+  category?: string;
+  issuer?: string;
+  date: string;
+  certificateNo?: string;
+  attachments?: string[];
+}
+
+/** 教师培训 */
+export interface TeacherTraining {
+  id: string;
+  teacherId: string;
+  name: string;
+  type: '校内培训' | '区级培训' | '市级培训' | '省级培训' | '国家级培训';
+  organizer?: string;
+  startDate: string;
+  endDate?: string;
+  hours?: number;
+  status?: '进行中' | '已完成' | '未通过';
+  certificate?: string;
+  notes?: string;
+}
+
+/** 教师成就 */
+export interface TeacherAchievement {
+  id: string;
+  teacherId: string;
+  type: '公开课' | '教学比赛' | '论文发表' | '课题研究' | '指导学生获奖';
+  title: string;
+  level?: string;
+  result?: string;
+  date: string;
+  description?: string;
+  attachments?: string[];
+}
+
+/** 教师筛选参数 */
+export interface TeacherFilters {
+  search?: string;
+  role?: TeacherRole | 'all';
+  department?: string | 'all';
+  status?: string | 'all';
+}
+
 /** 班级关联信息 */
 export interface ClassRelation {
   classId: string;
@@ -312,6 +373,30 @@ export interface UseTeachersReturn {
   // === 角色配置 ===
   updateTeacherRole: (config: TeacherRoleConfig) => Promise<boolean>;
   batchUpdateRoles: (configs: TeacherRoleConfig[]) => Promise<boolean>;
+  
+  // === 履历管理 ===
+  fetchRecords: (teacherId: string) => Promise<TeacherRecord[]>;
+  addRecord: (teacherId: string, record: Omit<TeacherRecord, 'id' | 'teacherId'>) => Promise<boolean>;
+  updateRecord: (id: string, record: Partial<TeacherRecord>) => Promise<boolean>;
+  deleteRecord: (id: string) => Promise<boolean>;
+  
+  // === 荣誉管理 ===
+  fetchHonors: (teacherId: string) => Promise<TeacherHonor[]>;
+  addHonor: (teacherId: string, honor: Omit<TeacherHonor, 'id' | 'teacherId'>) => Promise<boolean>;
+  updateHonor: (id: string, honor: Partial<TeacherHonor>) => Promise<boolean>;
+  deleteHonor: (id: string) => Promise<boolean>;
+  
+  // === 培训管理 ===
+  fetchTrainings: (teacherId: string) => Promise<TeacherTraining[]>;
+  addTraining: (teacherId: string, training: Omit<TeacherTraining, 'id' | 'teacherId'>) => Promise<boolean>;
+  updateTraining: (id: string, training: Partial<TeacherTraining>) => Promise<boolean>;
+  deleteTraining: (id: string) => Promise<boolean>;
+  
+  // === 成就管理 ===
+  fetchAchievements: (teacherId: string) => Promise<TeacherAchievement[]>;
+  addAchievement: (teacherId: string, achievement: Omit<TeacherAchievement, 'id' | 'teacherId'>) => Promise<boolean>;
+  updateAchievement: (id: string, achievement: Partial<TeacherAchievement>) => Promise<boolean>;
+  deleteAchievement: (id: string) => Promise<boolean>;
   
   // === 工具方法 ===
   getRoleLabel: (role: TeacherRole | AdministrativeRole) => string;
@@ -659,6 +744,258 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     }
   }, [updateTeacherRole]);
   
+  // ==================== 履历管理 ====================
+  
+  // 获取教师履历
+  const fetchRecords = useCallback(async (teacherId: string): Promise<TeacherRecord[]> => {
+    try {
+      const response = await fetch(`/api/teachers/records?teacherId=${teacherId}`);
+      const result = await response.json();
+      if (result.success) {
+        return result.data || [];
+      }
+      return [];
+    } catch (err) {
+      console.error('获取履历失败:', err);
+      return [];
+    }
+  }, []);
+  
+  // 添加履历
+  const addRecord = useCallback(async (teacherId: string, record: Omit<TeacherRecord, 'id' | 'teacherId'>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherId, ...record }),
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('添加履历失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 更新履历
+  const updateRecord = useCallback(async (id: string, record: Partial<TeacherRecord>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers/records', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...record }),
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('更新履历失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 删除履历
+  const deleteRecord = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/teachers/records?id=${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('删除履历失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // ==================== 荣誉管理 ====================
+  
+  // 获取教师荣誉
+  const fetchHonors = useCallback(async (teacherId: string): Promise<TeacherHonor[]> => {
+    try {
+      const response = await fetch(`/api/teachers/honors?teacherId=${teacherId}`);
+      const result = await response.json();
+      if (result.success) {
+        return result.data || [];
+      }
+      return [];
+    } catch (err) {
+      console.error('获取荣誉失败:', err);
+      return [];
+    }
+  }, []);
+  
+  // 添加荣誉
+  const addHonor = useCallback(async (teacherId: string, honor: Omit<TeacherHonor, 'id' | 'teacherId'>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers/honors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherId, ...honor }),
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('添加荣誉失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 更新荣誉
+  const updateHonor = useCallback(async (id: string, honor: Partial<TeacherHonor>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers/honors', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...honor }),
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('更新荣誉失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 删除荣誉
+  const deleteHonor = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/teachers/honors?id=${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('删除荣誉失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // ==================== 培训管理 ====================
+  
+  // 获取教师培训
+  const fetchTrainings = useCallback(async (teacherId: string): Promise<TeacherTraining[]> => {
+    try {
+      const response = await fetch(`/api/teachers/trainings?teacherId=${teacherId}`);
+      const result = await response.json();
+      if (result.success) {
+        return result.data || [];
+      }
+      return [];
+    } catch (err) {
+      console.error('获取培训失败:', err);
+      return [];
+    }
+  }, []);
+  
+  // 添加培训
+  const addTraining = useCallback(async (teacherId: string, training: Omit<TeacherTraining, 'id' | 'teacherId'>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers/trainings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherId, ...training }),
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('添加培训失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 更新培训
+  const updateTraining = useCallback(async (id: string, training: Partial<TeacherTraining>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers/trainings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...training }),
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('更新培训失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 删除培训
+  const deleteTraining = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/teachers/trainings?id=${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('删除培训失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // ==================== 成就管理 ====================
+  
+  // 获取教师成就
+  const fetchAchievements = useCallback(async (teacherId: string): Promise<TeacherAchievement[]> => {
+    try {
+      const response = await fetch(`/api/teachers/achievements?teacherId=${teacherId}`);
+      const result = await response.json();
+      if (result.success) {
+        return result.data || [];
+      }
+      return [];
+    } catch (err) {
+      console.error('获取成就失败:', err);
+      return [];
+    }
+  }, []);
+  
+  // 添加成就
+  const addAchievement = useCallback(async (teacherId: string, achievement: Omit<TeacherAchievement, 'id' | 'teacherId'>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers/achievements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherId, ...achievement }),
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('添加成就失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 更新成就
+  const updateAchievement = useCallback(async (id: string, achievement: Partial<TeacherAchievement>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/teachers/achievements', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...achievement }),
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('更新成就失败:', err);
+      return false;
+    }
+  }, []);
+  
+  // 删除成就
+  const deleteAchievement = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/teachers/achievements?id=${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      return result.success;
+    } catch (err) {
+      console.error('删除成就失败:', err);
+      return false;
+    }
+  }, []);
+  
   // 获取角色标签
   const getRoleLabel = useCallback((role: TeacherRole | AdministrativeRole): string => {
     if (role in TEACHER_ROLE_LABELS) {
@@ -733,6 +1070,30 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     // 角色配置
     updateTeacherRole,
     batchUpdateRoles,
+    
+    // 履历管理
+    fetchRecords,
+    addRecord,
+    updateRecord,
+    deleteRecord,
+    
+    // 荣誉管理
+    fetchHonors,
+    addHonor,
+    updateHonor,
+    deleteHonor,
+    
+    // 培训管理
+    fetchTrainings,
+    addTraining,
+    updateTraining,
+    deleteTraining,
+    
+    // 成就管理
+    fetchAchievements,
+    addAchievement,
+    updateAchievement,
+    deleteAchievement,
     
     // 工具方法
     getRoleLabel,

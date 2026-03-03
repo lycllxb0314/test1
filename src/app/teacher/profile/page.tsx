@@ -14,14 +14,6 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,41 +24,30 @@ import {
   User,
   Phone,
   Mail,
-  Calendar,
-  MapPin,
-  Award,
   BookOpen,
   GraduationCap,
   Briefcase,
-  Clock,
   FileText,
   Trophy,
   Target,
   Edit,
   Plus,
-  CheckCircle,
   Save,
   Upload,
-  Building,
   IdCard,
-  Users,
-  Star,
   TrendingUp,
   X,
   Loader2,
+  Lock,
+  Clock,
+  Users,
+  Award,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { TeacherProfile } from '@/types';
-import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
+import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement } from '@/hooks/useTeachers';
 import { toast } from 'sonner';
-import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
-
-// 类型别名
-type TeacherFullProfile = TeacherInfo;
-type TeacherRecord = { id: string; type: string; title: string; date: string; description?: string };
-type TeacherHonor = { id: string; name: string; level: string; date: string; type: string };
-type TeacherTraining = { id: string; name: string; type: string; organizer: string; startDate: string; endDate: string; hours: number; status: string };
-type TeacherAchievement = { id: string; type: string; title: string; level?: string; date: string; result?: string; description?: string };
+import { TeacherProfileDialogs } from '@/components/teacher/TeacherProfileDialogs';
 
 // 本地类型定义，用于对话框编辑项（兼容 TeacherProfileDialogs）
 type EditItem = { 
@@ -104,7 +85,7 @@ const getHonorLevelColor = (level: string) => {
 
 // 获取记录类型图标和颜色
 const getRecordTypeInfo = (type: string) => {
-  const typeMap: Record<string, { icon: any; color: string; label: string }> = {
+  const typeMap: Record<string, { icon: typeof GraduationCap; color: string; label: string }> = {
     education: { icon: GraduationCap, color: 'text-blue-500', label: '学历' },
     title: { icon: Award, color: 'text-purple-500', label: '职称' },
     position: { icon: Briefcase, color: 'text-orange-500', label: '职务' },
@@ -114,6 +95,19 @@ const getRecordTypeInfo = (type: string) => {
     other: { icon: FileText, color: 'text-gray-500', label: '其他' },
   };
   return typeMap[type] || typeMap.other;
+};
+
+// 获取角色显示名称
+const getRoleDisplayName = (role: string): string => {
+  const roleMap: Record<string, string> = {
+    'homeroom_teacher': '班主任',
+    'subject_teacher': '科任教师',
+    'grade_leader': '年级组长',
+    'research_leader': '教研组长',
+    'admin': '行政人员',
+    'dean': '教务主任',
+  };
+  return roleMap[role] || role;
 };
 
 // 可编辑的表单数据
@@ -134,7 +128,24 @@ export default function TeacherProfilePage() {
   const teacherId = user?.id || 'teacher-001'; // 默认使用当前登录用户的ID
   
   // 使用统一数据接口获取教师完整档案
-  const { getTeacherById, updateTeacher, loading: hookLoading, refetch } = useTeachers();
+  const { 
+    getTeacherById, 
+    updateTeacher, 
+    addRecord,
+    updateRecord,
+    deleteRecord,
+    addHonor,
+    updateHonor,
+    deleteHonor,
+    addTraining,
+    updateTraining,
+    deleteTraining,
+    addAchievement,
+    updateAchievement,
+    deleteAchievement,
+    loading: hookLoading,
+    refetch 
+  } = useTeachers();
   
   const [profile, setProfile] = useState<TeacherInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -270,7 +281,22 @@ export default function TeacherProfilePage() {
   const handleDelete = async (type: 'honor' | 'training' | 'achievement' | 'record', id: string) => {
     if (!confirm('确定要删除这条记录吗？')) return;
     
-    const success = await deleteTeacherProfileItem(type, id);
+    let success = false;
+    switch (type) {
+      case 'honor':
+        success = await deleteHonor(id);
+        break;
+      case 'training':
+        success = await deleteTraining(id);
+        break;
+      case 'achievement':
+        success = await deleteAchievement(id);
+        break;
+      case 'record':
+        success = await deleteRecord(id);
+        break;
+    }
+    
     if (success) {
       toast.success('删除成功');
       refetch();
@@ -656,6 +682,98 @@ export default function TeacherProfilePage() {
                   <div>
                     <Label className="text-muted-foreground text-xs">班主任</Label>
                     <p className="font-medium mt-1">{profile.isHeadTeacher ? `是（${profile.headTeacherClassName || '未分配班级'}）` : '否'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 角色配置 - 只读 */}
+            <Card className="shadow-md border-muted/50">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-primary" />
+                  角色配置
+                  <Badge variant="outline" className="ml-2 text-xs bg-muted/50">
+                    <Lock className="h-3 w-3 mr-1" />
+                    只读
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-xs">角色配置由教务处统一管理，如有疑问请联系教务处</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground text-xs">主要角色</Label>
+                    <p className="font-medium mt-1">{getRoleDisplayName(profile.primaryRole)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">兼任职务</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {profile.additionalRoles && profile.additionalRoles.length > 0 ? (
+                        profile.additionalRoles.map((role, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {getRoleDisplayName(role)}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">无</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 课时配置 - 只读 */}
+            <Card className="shadow-md border-muted/50">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  课时配置
+                  <Badge variant="outline" className="ml-2 text-xs bg-muted/50">
+                    <Lock className="h-3 w-3 mr-1" />
+                    只读
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-xs">课时配置由教务处统一管理，如有疑问请联系教务处</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground text-xs">周课时量</Label>
+                    <p className="font-medium mt-1">{profile.weeklyHours} 节</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">已安排课时</Label>
+                    <p className="font-medium mt-1">{profile.currentHours} 节</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">可任教科目</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {profile.teachableSubjects && profile.teachableSubjects.length > 0 ? (
+                        profile.teachableSubjects.map((subject, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {subject}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">{profile.subject}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">可任教年级</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {profile.teachableGrades && profile.teachableGrades.length > 0 ? (
+                        profile.teachableGrades.map((grade, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {grade}年级
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">全部年级</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

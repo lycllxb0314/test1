@@ -58,6 +58,10 @@ export {
   type TeacherRoleConfig,
   type TeacherFilters,
   type TeacherStatistics,
+  type TeacherRecord,
+  type TeacherHonor,
+  type TeacherTraining,
+  type TeacherAchievement,
   type UseTeachersReturn,
   // 常量
   TEACHER_ROLE_LABELS,

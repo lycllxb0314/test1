@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { TeacherProfile } from '@/types';
-import { useTeachers, type TeacherInfo } from '@/hooks';
+import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement } from '@/hooks';
 import { toast } from 'sonner';
 import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
 
@@ -211,21 +211,67 @@ export default function TeacherDetailPage() {
   const teacherId = params.id as string;
   
   // 使用统一数据接口
-  const { getTeacherById, loading, refetch } = useTeachers();
+  const { 
+    getTeacherById, 
+    loading, 
+    refetch,
+    updateTeacher,
+    // 履历管理
+    fetchRecords, addRecord, updateRecord, deleteRecord,
+    // 荣誉管理
+    fetchHonors, addHonor, updateHonor, deleteHonor,
+    // 培训管理
+    fetchTrainings, addTraining, updateTraining, deleteTraining,
+    // 成就管理
+    fetchAchievements, addAchievement, updateAchievement, deleteAchievement,
+  } = useTeachers();
   const teacher = getTeacherById(teacherId);
   
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // 履历、荣誉、培训、成就数据
+  const [records, setRecords] = useState<TeacherRecord[]>([]);
+  const [honors, setHonors] = useState<TeacherHonor[]>([]);
+  const [trainings, setTrainings] = useState<TeacherTraining[]>([]);
+  const [achievements, setAchievements] = useState<TeacherAchievement[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  
   // 对话框状态
   const [dialogType, setDialogType] = useState<'honor' | 'training' | 'achievement' | 'record' | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<EditItem | undefined>(undefined);
   
+  // 加载教师详情数据（履历、荣誉、培训、成就）
+  const loadTeacherDetails = useCallback(async () => {
+    if (!teacherId) return;
+    setLoadingDetails(true);
+    try {
+      const [recordsData, honorsData, trainingsData, achievementsData] = await Promise.all([
+        fetchRecords(teacherId),
+        fetchHonors(teacherId),
+        fetchTrainings(teacherId),
+        fetchAchievements(teacherId),
+      ]);
+      setRecords(recordsData);
+      setHonors(honorsData);
+      setTrainings(trainingsData);
+      setAchievements(achievementsData);
+    } catch (err) {
+      console.error('加载教师详情数据失败:', err);
+    } finally {
+      setLoadingDetails(false);
+    }
+  }, [teacherId, fetchRecords, fetchHonors, fetchTrainings, fetchAchievements]);
+  
+  // 初始化加载
+  useEffect(() => {
+    loadTeacherDetails();
+  }, [loadTeacherDetails]);
+  
   const updateProfile = async (data: Partial<TeacherInfo>) => {
-    // TODO: 实现更新逻辑
-    return true;
+    return await updateTeacher(teacherId, data);
   };
   
   const [formData, setFormData] = useState<FormData>({
@@ -376,10 +422,28 @@ export default function TeacherDetailPage() {
   const handleDelete = async (type: 'honor' | 'training' | 'achievement' | 'record', id: string) => {
     if (!confirm('确定要删除这条记录吗？')) return;
     
-    const success = await deleteTeacherProfileItem(type, id);
+    let success = false;
+    switch (type) {
+      case 'honor':
+        success = await deleteHonor(id);
+        if (success) setHonors(prev => prev.filter(h => h.id !== id));
+        break;
+      case 'training':
+        success = await deleteTraining(id);
+        if (success) setTrainings(prev => prev.filter(t => t.id !== id));
+        break;
+      case 'achievement':
+        success = await deleteAchievement(id);
+        if (success) setAchievements(prev => prev.filter(a => a.id !== id));
+        break;
+      case 'record':
+        success = await deleteRecord(id);
+        if (success) setRecords(prev => prev.filter(r => r.id !== id));
+        break;
+    }
+    
     if (success) {
       toast.success('删除成功');
-      refetch();
     } else {
       toast.error('删除失败');
     }
@@ -388,7 +452,7 @@ export default function TeacherDetailPage() {
   // 对话框保存成功
   const handleDialogSuccess = () => {
     toast.success('保存成功');
-    refetch();
+    loadTeacherDetails(); // 刷新详情数据
   };
 
   // 加载中状态
@@ -866,23 +930,23 @@ export default function TeacherDetailPage() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.honors?.length || 0}</div>
+                  <div className="text-2xl font-bold text-primary">{honors.length}</div>
                   <div className="text-sm text-muted-foreground mt-1">荣誉奖项</div>
                 </div>
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.trainings?.filter(t => t.status === '已完成').length || 0}</div>
+                  <div className="text-2xl font-bold text-primary">{trainings.filter(t => t.status === '已完成').length}</div>
                   <div className="text-sm text-muted-foreground mt-1">培训完成</div>
                 </div>
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.achievements?.length || 0}</div>
+                  <div className="text-2xl font-bold text-primary">{achievements.length}</div>
                   <div className="text-sm text-muted-foreground mt-1">教学成果</div>
                 </div>
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.trainings?.reduce((sum, t) => sum + (t.hours || 0), 0) || 0}</div>
+                  <div className="text-2xl font-bold text-primary">{trainings.reduce((sum, t) => sum + (t.hours || 0), 0)}</div>
                   <div className="text-sm text-muted-foreground mt-1">培训学时</div>
                 </div>
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{teacher.honors?.filter(h => h.level === '省级' || h.level === '国家级').length || 0}</div>
+                  <div className="text-2xl font-bold text-primary">{honors.filter(h => h.level === '省级' || h.level === '国家级').length}</div>
                   <div className="text-sm text-muted-foreground mt-1">省级以上荣誉</div>
                 </div>
               </div>
@@ -907,7 +971,7 @@ export default function TeacherDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {(teacher.honors || []).map(honor => (
+                {honors.map(honor => (
                   <div key={honor.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
                     <div className={`px-3 py-1 rounded-full text-sm font-medium ${getHonorLevelColor(honor.level)}`}>
                       {honor.level}
@@ -926,7 +990,7 @@ export default function TeacherDetailPage() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('honor', honor)}>编辑</Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog('honor', honor as unknown as EditItem)}>编辑</Button>
                       <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete('honor', honor.id)}>删除</Button>
                     </div>
                   </div>
@@ -953,7 +1017,7 @@ export default function TeacherDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {(teacher.trainings || []).map(training => (
+                {trainings.map(training => (
                   <div key={training.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -998,7 +1062,7 @@ export default function TeacherDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {(teacher.achievements || []).map(achievement => (
+                {achievements.map(achievement => (
                   <div key={achievement.id} className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -1056,7 +1120,7 @@ export default function TeacherDetailPage() {
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border"></div>
                 
                 <div className="space-y-4">
-                  {(teacher.records || []).sort((a, b) => b.date.localeCompare(a.date)).map(record => {
+                  {records.sort((a, b) => b.date.localeCompare(a.date)).map(record => {
                     const typeInfo = getRecordTypeInfo(record.type);
                     const Icon = typeInfo.icon;
                     return (
