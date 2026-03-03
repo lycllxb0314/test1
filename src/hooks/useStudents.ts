@@ -17,9 +17,14 @@
  * - 从属班级：必须通过 classId 关联班级
  * - 包含家长：家长信息嵌入学生数据中
  * - 不依赖其他 Hook，独立获取数据
+ * 
+ * ==================== 数据获取 ====================
+ * - 使用统一分页配置 (src/lib/pagination-config.ts)
+ * - 支持大数据量获取，确保获取所有学生数据
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { PAGINATION } from '@/lib/pagination-config';
 import type { 
   Parent, 
   StudentFullProfile, 
@@ -187,7 +192,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   const [filters, setFilters] = useState<StudentFilters>(initialFilters || {});
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
-    pageSize: 50, // 默认每页50条
+    pageSize: PAGINATION.ENTITY_CONFIG.students.fetchPageSize, // 使用统一分页配置
     total: 0,
     totalPages: 0,
   });

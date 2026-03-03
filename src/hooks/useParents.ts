@@ -17,9 +17,14 @@
  * - 绑定学生：通过 studentId 关联学生
  * - 间接班级：通过学生归属班级
  * - 独立账号：家长有独立登录账号
+ * 
+ * ==================== 数据获取 ====================
+ * - 使用统一分页配置 (src/lib/pagination-config.ts)
+ * - 支持大数据量获取，确保获取所有家长数据
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { PAGINATION } from '@/lib/pagination-config';
 
 // ==================== 类型定义 ====================
 
@@ -202,9 +207,9 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
       setLoading(true);
       setError(null);
       
-      // 构建查询参数
+      // 构建查询参数（使用统一分页配置）
       const params = new URLSearchParams();
-      params.append('pageSize', '5000'); // 获取全部家长
+      params.append('pageSize', PAGINATION.ENTITY_CONFIG.parents.fetchPageSize.toString());
       
       if (filters.search) {
         params.append('search', filters.search);

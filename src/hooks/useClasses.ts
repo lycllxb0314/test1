@@ -18,9 +18,14 @@
  * - 聚合家长：从学生数据中提取家长信息
  * - 关联教师：班主任、科任教师信息
  * - 不直接调用其他 Hook，而是通过 API 获取数据后自行聚合
+ * 
+ * ==================== 数据获取 ====================
+ * - 使用统一分页配置 (src/lib/pagination-config.ts)
+ * - 支持大数据量获取，确保获取所有班级数据
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { PAGINATION } from '@/lib/pagination-config';
 import type { Parent } from '@/types';
 
 // ==================== 类型定义 ====================
@@ -236,7 +241,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
   const [filters, setFilters] = useState<ClassFilters>(initialFilters || {});
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
-    pageSize: 500, // 默认获取全部
+    pageSize: PAGINATION.ENTITY_CONFIG.classes.fetchPageSize, // 使用统一分页配置
     total: 0,
     totalPages: 0,
   });
@@ -272,10 +277,10 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       setLoading(true);
       setError(null);
       
-      // 并行获取班级和教师数据
+      // 并行获取班级和教师数据（使用统一分页配置）
       const [classesRes, teachersRes] = await Promise.all([
-        fetch('/api/classes?pageSize=200'),
-        fetch('/api/teachers?pageSize=500'),
+        fetch(`/api/classes?pageSize=${PAGINATION.ENTITY_CONFIG.classes.fetchPageSize}`),
+        fetch(`/api/teachers?pageSize=${PAGINATION.ENTITY_CONFIG.teachers.fetchPageSize}`),
       ]);
       
       const classesData = await classesRes.json();
@@ -285,10 +290,10 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
         throw new Error('获取班级数据失败');
       }
       
-      // 分批获取学生数据（Supabase 限制每次最多 1000 条）
+      // 分批获取学生数据（使用统一分页配置）
       const allStudents: Record<string, unknown>[] = [];
       let page = 1;
-      const batchSize = 1000;
+      const batchSize = PAGINATION.ENTITY_CONFIG.students.fetchPageSize;
       
       while (true) {
         const studentsRes = await fetch(`/api/students?page=${page}&pageSize=${batchSize}`);

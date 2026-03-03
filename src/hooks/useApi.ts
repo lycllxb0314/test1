@@ -10,14 +10,21 @@
  * 4. 条件查询支持
  * 5. 类型安全
  * 
+ * 分页架构：
+ * - 数据获取：后端全量获取（支持5000+大数据量）
+ * - 前端展示：前端分页（用户可选每页10/30/50条）
+ * 
  * @module hooks/useApi
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ApiResponse, QueryParams, Pagination } from '@/services/api-client';
+import { PAGINATION } from '@/lib/pagination-config';
 
 // 重新导出类型供其他模块使用
 export type { ApiResponse, QueryParams, Pagination } from '@/services/api-client';
+// 导出分页常量
+export { PAGINATION };
 
 // ============================================
 // 核心类型定义
@@ -439,6 +446,351 @@ export function usePaginatedQuery<T>(
     pageSize,
     total: pagination?.total || 0,
     totalPages: pagination?.totalPages || 0,
+  };
+}
+
+// ============================================
+// 大数据量获取Hook
+// ============================================
+
+/**
+ * 大数据量获取配置
+ */
+export interface UseFetchAllOptions {
+  /** 每批次获取数量（默认500） */
+  batchSize?: number;
+  /** 最大获取数量（默认10000，防止无限获取） */
+  maxTotal?: number;
+  /** 是否立即执行（默认true） */
+  enabled?: boolean;
+  /** 成功回调 */
+  onSuccess?: (data: unknown[]) => void;
+  /** 错误回调 */
+  onError?: (error: string) => void;
+  /** 依赖项变化时重新获取 */
+  deps?: unknown[];
+}
+
+/**
+ * 大数据量获取结果
+ */
+export interface UseFetchAllResult<T> {
+  /** 数据 */
+  data: T[];
+  /** 加载中 */
+  loading: boolean;
+  /** 错误信息 */
+  error: string | null;
+  /** 重新获取 */
+  refetch: () => Promise<void>;
+  /** 是否正在获取 */
+  isFetching: boolean;
+  /** 总数 */
+  total: number;
+  /** 是否已获取全部 */
+  isComplete: boolean;
+}
+
+/**
+ * 大数据量获取Hook
+ * 
+ * 自动分页获取所有数据，适用于需要一次性获取大量数据的场景
+ * 支持5000+条数据的自动分批获取
+ * 
+ * @example
+ * ```tsx
+ * function TeacherList() {
+ *   const { data, loading, total } = useFetchAll<Teacher>(
+ *     (page, pageSize) => fetch(`/api/teachers?page=${page}&pageSize=${pageSize}`).then(r => r.json()),
+ *     { batchSize: 500 }
+ *   );
+ *   
+ *   return (
+ *     <div>
+ *       <p>共 {total} 条数据</p>
+ *       {loading ? <div>加载中...</div> : data.map(t => <div key={t.id}>{t.name}</div>)}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+export function useFetchAll<T>(
+  fetchFn: (page: number, pageSize: number) => Promise<ApiResponse<T[]>>,
+  options: UseFetchAllOptions = {}
+): UseFetchAllResult<T> {
+  const {
+    batchSize = 500,
+    maxTotal = 10000,
+    enabled = true,
+    onSuccess,
+    onError,
+    deps = [],
+  } = options;
+
+  const [data, setData] = useState<T[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+  
+  const mountedRef = useRef(true);
+  const fetchFnRef = useRef(fetchFn);
+  fetchFnRef.current = fetchFn;
+
+  const fetchAllData = useCallback(async (forceRefresh = false) => {
+    if (!enabled) return;
+
+    setLoading(prev => forceRefresh ? true : (prev || true));
+    setIsFetching(true);
+    setError(null);
+    setIsComplete(false);
+
+    try {
+      let allData: T[] = [];
+      let currentPage = 1;
+      let totalCount = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await fetchFnRef.current(currentPage, batchSize);
+        
+        if (!mountedRef.current) return;
+
+        if (!response.success) {
+          throw new Error(response.error || '获取数据失败');
+        }
+
+        const pageData = response.data || [];
+        allData = [...allData, ...pageData];
+        
+        // 更新总数
+        if (response.pagination?.total !== undefined) {
+          totalCount = response.pagination.total;
+          setTotal(totalCount);
+        } else {
+          totalCount = allData.length;
+          setTotal(totalCount);
+        }
+
+        // 判断是否还有更多数据
+        hasMore = pageData.length === batchSize && allData.length < totalCount && allData.length < maxTotal;
+        currentPage++;
+
+        // 实时更新数据（让用户看到加载进度）
+        if (mountedRef.current) {
+          setData([...allData]);
+        }
+      }
+
+      if (mountedRef.current) {
+        setIsComplete(true);
+        onSuccess?.(allData);
+      }
+    } catch (err) {
+      if (!mountedRef.current) return;
+      const errorMsg = err instanceof Error ? err.message : '未知错误';
+      setError(errorMsg);
+      onError?.(errorMsg);
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+        setIsFetching(false);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, batchSize, maxTotal, ...deps]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    fetchAllData();
+    
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [fetchAllData]);
+
+  const refetch = useCallback(async () => {
+    await fetchAllData(true);
+  }, [fetchAllData]);
+
+  return {
+    data,
+    loading,
+    error,
+    refetch,
+    isFetching,
+    total,
+    isComplete,
+  };
+}
+
+/**
+ * 创建API数据获取函数
+ * 用于简化useFetchAll的使用
+ * 
+ * @example
+ * ```tsx
+ * const fetchTeachers = createFetchAllFn<Teacher>('/api/teachers');
+ * 
+ * function TeacherList() {
+ *   const { data, loading } = useFetchAll(fetchTeachers);
+ *   // ...
+ * }
+ * ```
+ */
+export function createFetchAllFn<T>(endpoint: string) {
+  return async (page: number, pageSize: number): Promise<ApiResponse<T[]>> => {
+    const response = await fetch(`${endpoint}?page=${page}&pageSize=${pageSize}`);
+    return response.json();
+  };
+}
+
+// ============================================
+// 前端分页Hook
+// ============================================
+
+/**
+ * 前端分页结果
+ */
+export interface UseFrontendPaginationResult<T> {
+  /** 当前页数据 */
+  paginatedData: T[];
+  /** 全部数据 */
+  allData: T[];
+  /** 当前页码 */
+  page: number;
+  /** 每页显示数量 */
+  pageSize: number;
+  /** 总数量 */
+  total: number;
+  /** 总页数 */
+  totalPages: number;
+  /** 可选的每页数量选项 */
+  pageSizeOptions: readonly number[];
+  /** 跳转到指定页 */
+  goToPage: (page: number) => void;
+  /** 上一页 */
+  prevPage: () => void;
+  /** 下一页 */
+  nextPage: () => void;
+  /** 设置每页显示数量 */
+  setPageSize: (size: number) => void;
+  /** 设置全部数据（用于外部更新数据后重新计算分页） */
+  setData: (data: T[]) => void;
+}
+
+/**
+ * 前端分页Hook
+ * 
+ * 用于全量获取数据后的前端分页展示
+ * 支持用户选择每页显示数量（10/30/50）
+ * 
+ * @example
+ * ```tsx
+ * function TeacherList() {
+ *   const { data, loading } = useFetchAll<Teacher>(fetchTeachers);
+ *   const pagination = useFrontendPagination(data, { defaultPageSize: 10 });
+ *   
+ *   return (
+ *     <div>
+ *       {pagination.paginatedData.map(t => <div key={t.id}>{t.name}</div>)}
+ *       <Pagination
+ *         page={pagination.page}
+ *         totalPages={pagination.totalPages}
+ *         onPageChange={pagination.goToPage}
+ *         pageSize={pagination.pageSize}
+ *         pageSizeOptions={pagination.pageSizeOptions}
+ *         onPageSizeChange={pagination.setPageSize}
+ *       />
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+export function useFrontendPagination<T>(
+  data: T[],
+  options: {
+    /** 默认每页显示数量（默认10） */
+    defaultPageSize?: number;
+    /** 可选的每页数量选项（默认[10, 30, 50]） */
+    pageSizeOptions?: readonly number[];
+  } = {}
+): UseFrontendPaginationResult<T> {
+  const {
+    defaultPageSize = PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE,
+    pageSizeOptions = PAGINATION.PAGE_SIZE_OPTIONS,
+  } = options;
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState(defaultPageSize);
+  const [internalData, setInternalData] = useState<T[]>(data);
+
+  // 当外部数据变化时更新内部数据
+  useEffect(() => {
+    setInternalData(data);
+    // 数据变化时不重置页码，保持用户当前位置（如果有效）
+  }, [data]);
+
+  // 计算分页信息
+  const total = internalData.length;
+  const totalPages = Math.ceil(total / pageSize);
+
+  // 获取当前页数据
+  const paginatedData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return internalData.slice(start, end);
+  }, [internalData, page, pageSize]);
+
+  // 页码变化时确保在有效范围内
+  useEffect(() => {
+    if (page > totalPages && totalPages > 0) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  // 跳转到指定页
+  const goToPage = useCallback((newPage: number) => {
+    const validPage = Math.max(1, Math.min(newPage, totalPages || 1));
+    setPage(validPage);
+  }, [totalPages]);
+
+  // 上一页
+  const prevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1));
+  }, []);
+
+  // 下一页
+  const nextPage = useCallback(() => {
+    setPage(p => Math.min(totalPages, p + 1));
+  }, [totalPages]);
+
+  // 设置每页显示数量
+  const setPageSize = useCallback((newSize: number) => {
+    setPageSizeState(newSize);
+    setPage(1); // 重置到第一页
+  }, []);
+
+  // 设置全部数据
+  const setData = useCallback((newData: T[]) => {
+    setInternalData(newData);
+    setPage(1); // 重置到第一页
+  }, []);
+
+  return {
+    paginatedData,
+    allData: internalData,
+    page,
+    pageSize,
+    total,
+    totalPages,
+    pageSizeOptions,
+    goToPage,
+    prevPage,
+    nextPage,
+    setPageSize,
+    setData,
   };
 }
 

@@ -17,9 +17,14 @@
  * - 独立实体，不依赖其他 Hook
  * - 可被班级 Hook 引用和关联
  * - 提供按班级关联查询方法
+ * 
+ * ==================== 数据获取 ====================
+ * - 使用统一分页配置 (src/lib/pagination-config.ts)
+ * - 支持大数据量获取，确保获取所有教师数据
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { PAGINATION } from '@/lib/pagination-config';
 
 // ==================== 类型定义 ====================
 
@@ -355,7 +360,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/teachers?pageSize=1000');
+      const response = await fetch(`/api/teachers?pageSize=${PAGINATION.ENTITY_CONFIG.teachers.fetchPageSize}`);
       const result = await response.json();
       
       if (result.success && result.data) {

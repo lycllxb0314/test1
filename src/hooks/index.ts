@@ -96,5 +96,18 @@ export {
 
 export { useAuth } from './useAuth';
 export { usePermissions } from './usePermissions';
-export { useQuery, useMutation, usePaginatedQuery, type UseQueryOptions, type UseQueryResult, type UseMutationResult, type UsePaginatedResult } from './useApi';
+export { 
+  useQuery, 
+  useMutation, 
+  usePaginatedQuery, 
+  useFetchAll,
+  useFrontendPagination,
+  type UseQueryOptions, 
+  type UseQueryResult, 
+  type UseMutationResult, 
+  type UsePaginatedResult,
+  type UseFetchAllResult,
+  type UseFrontendPaginationResult,
+  PAGINATION,
+} from './useApi';
 export { useIsMobile, useIsMobile as useMobile } from './use-mobile';
