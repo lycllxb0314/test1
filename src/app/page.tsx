@@ -24,36 +24,53 @@ import {
   Sparkles,
   Award,
   Music,
+  Play,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-// 轮播图数据
-const carouselItems = [
+// 轮播项类型定义
+interface CarouselItem {
+  type: 'image' | 'video';
+  image: string;
+  videoUrl?: string;
+  title: string;
+  subtitle: string;
+  tag: string;
+}
+
+// 轮播图数据（支持图片和视频）
+const carouselItems: CarouselItem[] = [
   {
+    type: 'image',
     image: '/images/campus/science-academy-opening.png',
     title: '少年科学院成立',
     subtitle: '中科院谢华安院士亲自指导',
     tag: '科创特色',
   },
   {
+    type: 'image',
     image: '/images/campus/art-festival.png',
     title: '校园艺术节',
     subtitle: '全国艺术教育先进单位',
     tag: '艺术教育',
   },
   {
+    type: 'image',
     image: '/images/campus/sports-start.jpg',
     title: '阳光体育运动',
     subtitle: '体质健康合格率全市第一梯队',
     tag: '阳光体育',
   },
   {
+    type: 'image',
     image: '/images/campus/young-pioneers.png',
     title: '少先队活动',
     subtitle: '有效德育引领童心成长',
     tag: '德育实践',
   },
   {
+    type: 'image',
     image: '/images/campus/classroom-teaching.jpg',
     title: '高效课堂',
     subtitle: '高效课堂发展童心智慧',
@@ -118,6 +135,7 @@ export default function HomePage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activePath, setActivePath] = useState(0);
   const [activeSection, setActiveSection] = useState(0);
+  const [playingVideo, setPlayingVideo] = useState<CarouselItem | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -149,6 +167,12 @@ export default function HomePage() {
 
   const goPrev = () => {
     setCurrentSlide((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
+  };
+
+  const handleCarouselClick = (item: CarouselItem) => {
+    if (item.type === 'video' && item.videoUrl) {
+      setPlayingVideo(item);
+    }
   };
 
   if (!mounted) return null;
@@ -213,6 +237,18 @@ export default function HomePage() {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+              
+              {/* 视频播放按钮 */}
+              {item.type === 'video' && item.videoUrl && (
+                <button
+                  onClick={() => handleCarouselClick(item)}
+                  className="absolute inset-0 flex items-center justify-center z-20 cursor-pointer group"
+                >
+                  <div className="w-20 h-20 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-white/40 transition">
+                    <Play className="h-10 w-10 text-white ml-1" />
+                  </div>
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -802,6 +838,46 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* 视频播放弹窗 */}
+      {playingVideo && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setPlayingVideo(null)}
+        >
+          <div 
+            className="relative w-full max-w-5xl mx-4 bg-black rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 关闭按钮 */}
+            <button
+              onClick={() => setPlayingVideo(null)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            
+            {/* 视频标题 */}
+            <div className="absolute top-4 left-4 z-10">
+              <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-1 rounded-full mr-2">
+                {playingVideo.tag}
+              </span>
+              <span className="text-white font-medium">{playingVideo.title}</span>
+            </div>
+            
+            {/* 视频播放器 */}
+            <video
+              src={playingVideo.videoUrl}
+              controls
+              autoPlay
+              className="w-full aspect-video"
+              poster={playingVideo.image}
+            >
+              您的浏览器不支持视频播放
+            </video>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
