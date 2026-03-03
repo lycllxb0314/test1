@@ -535,7 +535,6 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           phone: (t.phone as string) || '',
           email: (t.email as string) || '',
           status: (t.status as string) || 'active',
-          teachYears: (t.teachYears as number) || 0,
           avatar: t.avatar as string,
           // 角色映射逻辑：
           // 1. 如果 role === 'subject_head'，视为 skill_teacher
@@ -581,7 +580,10 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           education: t.education as string,
           school: t.school as string,
           major: t.major as string,
+          graduationDate: t.graduation_date as string,
           joinDate: t.join_date as string,
+          titleDate: t.title_date as string,
+          teachYears: (t.teach_years as number) || 10,
           createdAt: t.created_at as string,
           updatedAt: t.updated_at as string,
         }));

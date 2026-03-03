@@ -150,6 +150,22 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         teachable_grades: t.teachable_grades,
         head_teacher_class_id: t.head_teacher_class_ids?.[0],
         subject_head_class_id: t.subject_head_class_id,
+        // 教师详情扩展字段
+        birth_date: t.birth_date,
+        id_card: t.id_card,
+        ethnicity: t.ethnicity,
+        political_status: t.political_status,
+        native_place: t.native_place,
+        emergency_contact: t.emergency_contact,
+        emergency_phone: t.emergency_phone,
+        address: t.address,
+        education: t.education,
+        school: t.school,
+        major: t.major,
+        graduation_date: t.graduation_date,
+        join_date: t.join_date,
+        title_date: t.title_date,
+        teach_years: t.teach_years,
       };
     });
     
