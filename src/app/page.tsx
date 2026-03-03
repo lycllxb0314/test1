@@ -179,7 +179,7 @@ export default function HomePage() {
   };
 
   const handleCarouselClick = (item: CarouselItem) => {
-    if (item.type === 'video' && item.videoUrl) {
+    if ((item.type === 'video' && item.videoUrl) || (item.type === 'bilibili' && item.bilibiliUrl)) {
       setPlayingVideo(item);
     }
   };
