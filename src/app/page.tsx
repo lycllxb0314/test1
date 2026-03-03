@@ -46,13 +46,6 @@ const carouselItems: CarouselItem[] = [
     type: 'bilibili',
     image: '/images/campus/science-academy-opening.png',
     bilibiliUrl: 'https://player.bilibili.com/player.html?bvid=BV1WdPczBEVv&page=1&high_quality=1&danmaku=0',
-    title: '学校宣传视频',
-    subtitle: '龙岩师范附属小学',
-    tag: '学校风采',
-  },
-  {
-    type: 'image',
-    image: '/images/campus/science-academy-opening.png',
     title: '少年科学院成立',
     subtitle: '中科院谢华安院士亲自指导',
     tag: '科创特色',
