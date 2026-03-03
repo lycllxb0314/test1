@@ -455,6 +455,8 @@ export const teachers = pgTable("teachers", {
 	phone: varchar({ length: 20 }),
 	email: varchar({ length: 100 }),
 	status: varchar({ length: 20 }).default('active'),
+	password: varchar({ length: 100 }),                // 登录密码
+	employeeId: varchar("employee_id", { length: 20 }), // 工号
 	// 角色和课时配置
 	role: varchar({ length: 30 }),                    // 教师角色：head_teacher, subject_teacher, skill_teacher
 	primarySubject: varchar("primary_subject", { length: 20 }),  // 主教学科

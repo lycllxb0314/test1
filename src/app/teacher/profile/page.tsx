@@ -21,6 +21,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   User,
   Phone,
   Mail,
@@ -120,6 +128,7 @@ interface EditableFormData {
   address: string;
   // 个人信息
   birthDate: string;
+  gender: string;
   ethnicity: string;
   politicalStatus: string;
   nativePlace: string;
@@ -215,6 +224,12 @@ export default function TeacherProfilePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<EditItem | undefined>(undefined);
   
+  // 密码修改状态
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  
   // 可编辑字段状态
   const [formData, setFormData] = useState<EditableFormData>({
     phone: '',
@@ -223,6 +238,7 @@ export default function TeacherProfilePage() {
     emergencyPhone: '',
     address: '',
     birthDate: '',
+    gender: '',
     ethnicity: '',
     politicalStatus: '',
     nativePlace: '',
@@ -246,6 +262,7 @@ export default function TeacherProfilePage() {
         emergencyPhone: profile.emergencyPhone ?? '',
         address: profile.address ?? '',
         birthDate: profile.birthDate ?? '',
+        gender: profile.gender ?? '',
         ethnicity: profile.ethnicity ?? '',
         politicalStatus: profile.politicalStatus ?? '',
         nativePlace: profile.nativePlace ?? '',
@@ -279,6 +296,8 @@ export default function TeacherProfilePage() {
         emergencyPhone: formData.emergencyPhone,
         address: formData.address,
         birthDate: formData.birthDate,
+        // 性别转换：中文 -> 英文
+        gender: formData.gender === '男' ? 'male' : formData.gender === '女' ? 'female' : formData.gender,
         ethnicity: formData.ethnicity,
         politicalStatus: formData.politicalStatus,
         nativePlace: formData.nativePlace,
@@ -314,6 +333,7 @@ export default function TeacherProfilePage() {
         emergencyPhone: profile.emergencyPhone ?? '',
         address: profile.address ?? '',
         birthDate: profile.birthDate ?? '',
+        gender: profile.gender ?? '',
         ethnicity: profile.ethnicity ?? '',
         politicalStatus: profile.politicalStatus ?? '',
         nativePlace: profile.nativePlace ?? '',
@@ -328,6 +348,42 @@ export default function TeacherProfilePage() {
       });
     }
     setIsEditing(false);
+  };
+
+  // 修改密码
+  const handleChangePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('密码长度至少6位');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('两次输入的密码不一致');
+      return;
+    }
+    
+    setPasswordLoading(true);
+    try {
+      const response = await fetch(`/api/teachers/${user?.id}/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        toast.success('密码修改成功');
+        setShowPasswordDialog(false);
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast.error(result.error || '密码修改失败');
+      }
+    } catch (error) {
+      console.error('Failed to change password:', error);
+      toast.error('密码修改失败');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   // 打开添加对话框
@@ -432,10 +488,16 @@ export default function TeacherProfilePage() {
               </Button>
             </>
           ) : (
-            <Button onClick={() => setIsEditing(true)}>
-              <Edit className="h-4 w-4 mr-1" />
-              编辑信息
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
+                <Lock className="h-4 w-4 mr-1" />
+                修改密码
+              </Button>
+              <Button onClick={() => setIsEditing(true)}>
+                <Edit className="h-4 w-4 mr-1" />
+                编辑信息
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -553,7 +615,22 @@ export default function TeacherProfilePage() {
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs">性别</Label>
-                    <p className="font-medium mt-1">{profile.gender}</p>
+                    {isEditing ? (
+                      <Select 
+                        value={formData.gender} 
+                        onValueChange={(v) => handleFieldChange('gender', v)}
+                      >
+                        <SelectTrigger className="mt-1 h-8">
+                          <SelectValue placeholder="请选择性别" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="男">男</SelectItem>
+                          <SelectItem value="女">女</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium mt-1">{profile.gender}</p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs">出生日期</Label>
@@ -1148,6 +1225,58 @@ export default function TeacherProfilePage() {
           editItem={editItem}
         />
       )}
+
+      {/* 密码修改对话框 */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              修改密码
+            </DialogTitle>
+            <DialogDescription>
+              请输入新密码
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">新密码</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="请输入新密码（至少6位）"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">确认密码</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="请再次输入新密码"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleChangePassword} disabled={passwordLoading}>
+              {passwordLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  修改中...
+                </>
+              ) : (
+                '确认修改'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

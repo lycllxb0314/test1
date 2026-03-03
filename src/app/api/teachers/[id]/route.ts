@@ -68,6 +68,7 @@ export async function PATCH(
     if (body.phone !== undefined) dbData.phone = body.phone;
     if (body.email !== undefined) dbData.email = body.email;
     if (body.status !== undefined) dbData.status = body.status;
+    if (body.employeeId !== undefined) dbData.employee_id = body.employeeId;
     
     // 扩展字段映射
     if (body.birthDate !== undefined) dbData.birth_date = body.birthDate;

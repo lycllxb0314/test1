@@ -53,6 +53,8 @@ import {
   Info,
   Calculator,
   GraduationCap,
+  KeyRound,
+  IdCard,
 } from 'lucide-react';
 import {
   TeacherRole,
@@ -135,6 +137,7 @@ export interface TeacherDetail {
   gender: string;
   phone: string;
   email: string;
+  employeeId: string;  // 工号
   subject: string;
   title: string;
   department: string;
@@ -171,12 +174,16 @@ export function TeacherDetailDialog({
 }: TeacherDetailDialogProps) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [form, setForm] = useState<TeacherDetail>({
     id: '',
     name: '',
     gender: '男',
     phone: '',
     email: '',
+    employeeId: '',
     subject: '语文',
     title: '二级教师',
     department: '',
@@ -292,6 +299,37 @@ export function TeacherDetailDialog({
     }
   };
 
+  // 修改密码
+  const handleChangePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      alert('密码长度至少6位');
+      return;
+    }
+    
+    setPasswordLoading(true);
+    try {
+      const response = await fetch(`/api/teachers/${form.id}/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        alert('密码修改成功');
+        setShowPasswordDialog(false);
+        setNewPassword('');
+      } else {
+        alert(result.error || '密码修改失败');
+      }
+    } catch (error) {
+      console.error('Failed to change password:', error);
+      alert('密码修改失败');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const roleColor = TEACHER_ROLE_COLORS[form.primaryRole];
 
   return (
@@ -380,6 +418,21 @@ export function TeacherDetailDialog({
                     value={form.email}
                     onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="请输入邮箱"
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              {/* 工号 */}
+              <div className="space-y-2">
+                <Label htmlFor="employeeId">工号</Label>
+                <div className="relative">
+                  <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="employeeId"
+                    value={form.employeeId}
+                    onChange={(e) => setForm(prev => ({ ...prev, employeeId: e.target.value }))}
+                    placeholder="请输入工号"
                     className="pl-9"
                   />
                 </div>
@@ -738,6 +791,16 @@ export function TeacherDetailDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
+          {form.id && (
+            <Button 
+              variant="outline" 
+              onClick={() => setShowPasswordDialog(true)}
+              className="gap-2"
+            >
+              <KeyRound className="h-4 w-4" />
+              修改密码
+            </Button>
+          )}
           <Button onClick={handleSave} disabled={loading}>
             {loading ? (
               <>
@@ -753,6 +816,48 @@ export function TeacherDetailDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* 密码修改对话框 */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5" />
+              修改密码
+            </DialogTitle>
+            <DialogDescription>
+              为 {form.name} 设置新密码
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">新密码</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="请输入新密码（至少6位）"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleChangePassword} disabled={passwordLoading}>
+              {passwordLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  修改中...
+                </>
+              ) : (
+                '确认修改'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
