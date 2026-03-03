@@ -431,11 +431,25 @@ export function TeacherDetailDialog({
                   <Input
                     id="employeeId"
                     value={form.employeeId}
-                    onChange={(e) => setForm(prev => ({ ...prev, employeeId: e.target.value }))}
-                    placeholder="请输入工号"
+                    onChange={(e) => {
+                      // 自动格式化工号：用户输入数字时自动补全为 ly+4位数字
+                      let value = e.target.value.toLowerCase();
+                      // 如果只输入数字，自动补全
+                      if (/^\d+$/.test(value)) {
+                        value = 'ly' + value.padStart(4, '0');
+                      }
+                      // 如果输入 ly 开头加数字，格式化为 ly+4位数字
+                      if (/^ly\d+$/.test(value)) {
+                        const num = value.replace('ly', '');
+                        value = 'ly' + num.padStart(4, '0');
+                      }
+                      setForm(prev => ({ ...prev, employeeId: value }));
+                    }}
+                    placeholder="ly0001（输入数字自动格式化）"
                     className="pl-9"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">格式：ly + 4位数字，如 ly0001</p>
               </div>
 
               {/* 任教学科 */}

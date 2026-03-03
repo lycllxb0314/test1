@@ -576,7 +576,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           emergencyContact: t.emergency_contact as string,
           emergencyPhone: t.emergency_phone as string,
           address: t.address as string,
-          employeeId: t.employee_id as string,
+          employeeId: (t.employeeId || t.employee_id) as string,
           education: t.education as string,
           school: t.school as string,
           major: t.major as string,
