@@ -97,6 +97,7 @@ interface Parent {
   is_primary: boolean;
   has_account: boolean;
   account_id: string | null;
+  password: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -543,6 +544,7 @@ export default function ParentsPage() {
                     <TableHead>家长姓名</TableHead>
                     <TableHead>关系</TableHead>
                     <TableHead>联系电话</TableHead>
+                    <TableHead>登录密码</TableHead>
                     <TableHead>学生姓名</TableHead>
                     <TableHead>班级</TableHead>
                     <TableHead>主要联系人</TableHead>
@@ -572,6 +574,15 @@ export default function ParentsPage() {
                           <Phone className="h-4 w-4 text-gray-400" />
                           <span>{parent.phone || '-'}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {parent.has_account ? (
+                          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                            {parent.password || '-'}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-sm">未开通</span>
+                        )}
                       </TableCell>
                       <TableCell>{parent.student_name}</TableCell>
                       <TableCell>
@@ -741,6 +752,14 @@ export default function ParentsPage() {
                       )}
                     </p>
                   </div>
+                  {selectedParent.has_account && (
+                    <div>
+                      <Label className="text-gray-500">登录密码</Label>
+                      <p className="font-mono text-sm bg-gray-100 px-2 py-1 rounded inline-block">
+                        {selectedParent.password || '-'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               
