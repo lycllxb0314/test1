@@ -39,8 +39,8 @@ export default function NoticesPage() {
             
             <nav className="hidden md:flex items-center gap-1">
               <Link href="/" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">首 页</Link>
-              <Link href="/news" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">新闻中心</Link>
               <Link href="/philosophy" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">办学理念</Link>
+              <Link href="/news" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">新闻中心</Link>
               <Link href="/notices" className="px-4 py-2 text-sm bg-white/10 rounded-md">校园公告</Link>
             </nav>
 
