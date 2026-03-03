@@ -598,16 +598,11 @@ export function AppSidebar() {
 
           {/* 底部：折叠按钮 + 用户信息 */}
           <div className="border-t">
-            {/* 返回学校主页 */}
+            {/* 返回网站首页 */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    // TODO: 配置正确的学校官网地址
-                    alert('学校官网地址待配置，请联系管理员设置正确的网址');
-                  }}
+                <Link
+                  href="/"
                   className={cn(
                     'flex w-full items-center gap-2 rounded-xl p-2 transition-all hover:bg-blue-50 hover:text-blue-600',
                     collapsed && 'justify-center'
@@ -615,13 +610,13 @@ export function AppSidebar() {
                 >
                   <School className="h-4 w-4" />
                   {!collapsed && (
-                    <span className="text-xs">学校主页</span>
+                    <span className="text-xs">网站首页</span>
                   )}
-                </a>
+                </Link>
               </TooltipTrigger>
               {collapsed && (
                 <TooltipContent side="right">
-                  学校主页
+                  网站首页
                 </TooltipContent>
               )}
             </Tooltip>
@@ -676,10 +671,10 @@ export function AppSidebar() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <a href="#" onClick={(e) => { e.preventDefault(); alert('学校官网地址待配置'); }} className="cursor-pointer">
+                  <Link href="/" className="cursor-pointer">
                     <School className="mr-2 h-4 w-4" />
-                    学校主页
-                  </a>
+                    网站首页
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuLabel className="text-xs text-gray-500">切换角色（演示）</DropdownMenuLabel>
                 {roleOptions.map((role) => (
