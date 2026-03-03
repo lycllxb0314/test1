@@ -125,7 +125,6 @@ interface EditableFormData {
 
 export default function TeacherProfilePage() {
   const { user } = useAuth();
-  const teacherId = user?.id || 'teacher-001'; // 默认使用当前登录用户的ID
   
   // 使用统一数据接口获取教师完整档案
   const { 
@@ -144,30 +143,62 @@ export default function TeacherProfilePage() {
     updateAchievement,
     deleteAchievement,
     loading: hookLoading,
-    refetch 
+    refetch,
+    allTeachers
   } = useTeachers();
   
-  const [profile, setProfile] = useState<TeacherInfo | null>(null);
+  // 动态获取 teacherId：优先使用用户 ID，否则使用第一个教师
+  const teacherId = React.useMemo(() => {
+    if (user?.id) return user.id;
+    // 使用第一个教师作为默认
+    if (allTeachers && allTeachers.length > 0) {
+      return allTeachers[0].id;
+    }
+    return null;
+  }, [user?.id, allTeachers]);
+  
+  const [profile, setProfile,] = useState<TeacherInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // 加载教师档案
   useEffect(() => {
-    const loadProfile = async () => {
-      setIsLoading(true);
+    // 如果没有 teacherId，等待
+    if (!teacherId) {
+      return;
+    }
+    
+    // 如果 hook 正在加载，等待
+    if (hookLoading) {
+      return;
+    }
+    
+    setIsLoading(true);
+    const teacher = getTeacherById(teacherId);
+    if (teacher) {
+      setProfile(teacher);
+      setError(null);
+    } else {
+      setError('获取教师档案失败');
+    }
+    setIsLoading(false);
+  }, [teacherId, getTeacherById, hookLoading]);
+  
+  // 当 hookLoading 变为 false 或 teacherId 变化时，重新尝试加载
+  useEffect(() => {
+    if (!hookLoading && teacherId && !profile) {
       const teacher = getTeacherById(teacherId);
       if (teacher) {
         setProfile(teacher);
-      } else {
-        setError('获取教师档案失败');
+        setError(null);
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    };
-    loadProfile();
-  }, [teacherId, getTeacherById]);
+    }
+  }, [hookLoading, teacherId, getTeacherById, profile]);
   
   // 更新档案
   const updateProfile = async (data: Partial<TeacherInfo>) => {
+    if (!teacherId) return false;
     return await updateTeacher(teacherId, data);
   };
   
@@ -311,8 +342,8 @@ export default function TeacherProfilePage() {
     refetch();
   };
 
-  // 加载状态
-  if (isLoading) {
+  // 加载状态 - 等待 hook 数据加载完成
+  if (isLoading || hookLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -328,7 +359,18 @@ export default function TeacherProfilePage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-red-500">加载失败，请刷新页面重试</p>
+          <p className="text-red-500">{error || '未找到教师档案'}</p>
+          <Button 
+            variant="outline" 
+            className="mt-4"
+            onClick={() => {
+              setIsLoading(true);
+              setError(null);
+              refetch();
+            }}
+          >
+            重新加载
+          </Button>
         </div>
       </div>
     );
@@ -987,14 +1029,16 @@ export default function TeacherProfilePage() {
       </Tabs>
 
       {/* 对话框组件 */}
-      <TeacherProfileDialogs
-        teacherId={teacherId}
-        type={dialogType}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSuccess={handleDialogSuccess}
-        editItem={editItem}
-      />
+      {teacherId && (
+        <TeacherProfileDialogs
+          teacherId={teacherId}
+          type={dialogType}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSuccess={handleDialogSuccess}
+          editItem={editItem}
+        />
+      )}
     </div>
   );
 }
