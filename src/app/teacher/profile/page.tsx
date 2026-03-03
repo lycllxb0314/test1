@@ -157,44 +157,17 @@ export default function TeacherProfilePage() {
     return null;
   }, [user?.id, allTeachers]);
   
-  const [profile, setProfile,] = useState<TeacherInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // 直接从 allTeachers 获取教师档案
+  const profile = React.useMemo(() => {
+    if (!teacherId || !allTeachers) return null;
+    return allTeachers.find(t => t.id === teacherId) || null;
+  }, [teacherId, allTeachers]);
   
-  // 加载教师档案
-  useEffect(() => {
-    // 如果没有 teacherId，等待
-    if (!teacherId) {
-      return;
-    }
-    
-    // 如果 hook 正在加载，等待
-    if (hookLoading) {
-      return;
-    }
-    
-    setIsLoading(true);
-    const teacher = getTeacherById(teacherId);
-    if (teacher) {
-      setProfile(teacher);
-      setError(null);
-    } else {
-      setError('获取教师档案失败');
-    }
-    setIsLoading(false);
-  }, [teacherId, getTeacherById, hookLoading]);
+  // 计算加载状态
+  const isLoading = hookLoading || (!teacherId && !profile);
   
-  // 当 hookLoading 变为 false 或 teacherId 变化时，重新尝试加载
-  useEffect(() => {
-    if (!hookLoading && teacherId && !profile) {
-      const teacher = getTeacherById(teacherId);
-      if (teacher) {
-        setProfile(teacher);
-        setError(null);
-        setIsLoading(false);
-      }
-    }
-  }, [hookLoading, teacherId, getTeacherById, profile]);
+  // 计算错误状态
+  const error = !isLoading && !profile ? '未找到教师档案' : null;
   
   // 更新档案
   const updateProfile = async (data: Partial<TeacherInfo>) => {
@@ -363,11 +336,7 @@ export default function TeacherProfilePage() {
           <Button 
             variant="outline" 
             className="mt-4"
-            onClick={() => {
-              setIsLoading(true);
-              setError(null);
-              refetch();
-            }}
+            onClick={() => refetch()}
           >
             重新加载
           </Button>
