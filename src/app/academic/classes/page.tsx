@@ -162,7 +162,9 @@ export default function ClassesPage() {
     
     setSavingSubTeacher(true);
     try {
-      const success = await assignSubTeacher(selectedClass.id, subTeacherId);
+      // 将特殊值 "__none__" 转换为空字符串（API 会将其设为 null）
+      const teacherIdToSend = subTeacherId === '__none__' ? '' : subTeacherId;
+      const success = await assignSubTeacher(selectedClass.id, teacherIdToSend);
       if (success) {
         setShowSubTeacherDialog(false);
         // 更新详情视图中的数据
@@ -510,7 +512,7 @@ export default function ClassesPage() {
                     <SelectValue placeholder="选择科任老师" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    <SelectItem value="">
+                    <SelectItem value="__none__">
                       <span className="text-gray-500">-- 不指定科任 --</span>
                     </SelectItem>
                     
@@ -965,7 +967,7 @@ export default function ClassesPage() {
                   <SelectValue placeholder="选择科任老师（系统已智能推荐）" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  <SelectItem value="">
+                  <SelectItem value="__none__">
                     <span className="text-gray-500">-- 不指定科任 --</span>
                   </SelectItem>
                   
