@@ -202,6 +202,13 @@ const headTeacherNav: NavItem[] = [
   { name: '安全应急', href: '/teacher/safety', icon: Shield, description: '安全台账隐患' },
 ];
 
+// 教师空间导航 - 科任教师（副班主任）功能
+const subTeacherNav: NavItem[] = [
+  { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息' },
+  { name: '家校沟通', href: '/teacher/communication', icon: MessageSquare, description: '通知话术家长会', badge: 'AI' },
+  { name: '学情作业', href: '/teacher/homework', icon: BookOpen, description: '作业错题学情' },
+];
+
 // 教师空间导航 - 年段长专属功能
 const gradeLeaderNav: NavItem[] = [
   { name: '年级管理', href: '/teacher/grade', icon: Users, description: '年级教师学生管理' },
@@ -273,6 +280,7 @@ export function AppSidebar() {
   const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
   
   const isHeadTeacher = user.role === 'head_teacher';
+  const isSubTeacher = user.role === 'subject_teacher'; // 科任教师（副班主任）
   const isGradeLeader = additionalRoles?.includes('grade_leader');
 
   // 获取当前模块的导航
@@ -288,6 +296,10 @@ export function AppSidebar() {
         // 班主任有基础功能 + 班主任专属功能
         if (isHeadTeacher) {
           return [...teacherBaseNav, ...headTeacherNav];
+        }
+        // 科任教师（副班主任）有基础功能 + 科任教师功能
+        if (isSubTeacher) {
+          return [...teacherBaseNav, ...subTeacherNav];
         }
         // 年段长有基础功能 + 年段长专属功能
         if (isGradeLeader) {
