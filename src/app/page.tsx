@@ -390,9 +390,8 @@ export default function HomePage() {
             </div>
 
             {/* 中间：新闻大图轮播 */}
-            <div className="rounded-2xl overflow-hidden shadow-lg shadow-[#D4A574]/10 bg-white">
-              {/* 图片区域 */}
-              <div className="relative h-52">
+            <div className="relative rounded-2xl overflow-hidden shadow-lg shadow-[#D4A574]/10 group cursor-pointer">
+              <div className="relative h-72">
                 {newsItems.map((item, index) => (
                   <div
                     key={index}
@@ -405,7 +404,25 @@ export default function HomePage() {
                       alt={item.title}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          item.category === '媒体附小' 
+                            ? 'bg-[#D4A574] text-white' 
+                            : 'bg-[#8B5A2B] text-white'
+                        }`}>
+                          {item.category === '媒体附小' ? item.level : item.category}
+                        </span>
+                        <span className="text-xs text-white/70">{item.date}</span>
+                      </div>
+                      <h3 className="text-white font-bold text-lg leading-snug mb-2">
+                        {item.title}
+                      </h3>
+                      <p className="text-white/80 text-sm leading-relaxed line-clamp-2">
+                        {item.summary}
+                      </p>
+                    </div>
                   </div>
                 ))}
                 {/* 轮播指示器 */}
@@ -422,27 +439,6 @@ export default function HomePage() {
                     />
                   ))}
                 </div>
-              </div>
-              {/* 标题+摘要区域 */}
-              <div className="p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    newsItems[activeNewsIndex].category === '媒体附小' 
-                      ? 'bg-[#D4A574] text-white' 
-                      : 'bg-[#8B5A2B] text-white'
-                  }`}>
-                    {newsItems[activeNewsIndex].category === '媒体附小' 
-                      ? newsItems[activeNewsIndex].level 
-                      : newsItems[activeNewsIndex].category}
-                  </span>
-                  <span className="text-xs text-[#8B5A2B]/60">{newsItems[activeNewsIndex].date}</span>
-                </div>
-                <h3 className="font-bold text-[#3D2314] text-lg leading-snug mb-2 line-clamp-2 hover:text-[#8B5A2B] cursor-pointer transition">
-                  {newsItems[activeNewsIndex].title}
-                </h3>
-                <p className="text-sm text-[#8B5A2B]/70 leading-relaxed line-clamp-2">
-                  {newsItems[activeNewsIndex].summary}
-                </p>
               </div>
             </div>
 
