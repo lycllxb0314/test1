@@ -147,15 +147,34 @@ export default function TeacherProfilePage() {
     allTeachers
   } = useTeachers();
   
-  // 动态获取 teacherId：优先使用用户 ID，否则使用第一个教师
+  // 动态获取 teacherId：通过工号或手机号匹配教师
   const teacherId = React.useMemo(() => {
-    if (user?.id) return user.id;
-    // 使用第一个教师作为默认
-    if (allTeachers && allTeachers.length > 0) {
-      return allTeachers[0].id;
+    if (!allTeachers || allTeachers.length === 0) return null;
+    
+    // 1. 尝试通过工号匹配
+    if (user?.employeeId) {
+      const matchedByEmployeeId = allTeachers.find(t => t.employeeId === user.employeeId);
+      if (matchedByEmployeeId) {
+        return matchedByEmployeeId.id;
+      }
     }
-    return null;
-  }, [user?.id, allTeachers]);
+    
+    // 2. 尝试通过手机号匹配（去掉掩码*号）
+    if (user?.phone) {
+      const userPhoneClean = user.phone.replace(/\*/g, '');
+      const matchedByPhone = allTeachers.find(t => {
+        const teacherPhoneClean = t.phone?.replace(/\*/g, '') || '';
+        // 支持部分匹配（去掉掩码后的比较）
+        return teacherPhoneClean.includes(userPhoneClean) || userPhoneClean.includes(teacherPhoneClean);
+      });
+      if (matchedByPhone) {
+        return matchedByPhone.id;
+      }
+    }
+    
+    // 3. 未匹配到，使用第一个教师作为演示
+    return allTeachers[0].id;
+  }, [user?.employeeId, user?.phone, allTeachers]);
   
   // 直接从 allTeachers 获取教师档案
   const profile = React.useMemo(() => {

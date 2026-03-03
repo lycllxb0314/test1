@@ -111,6 +111,7 @@ export async function login(
     id: dbUser.id,
     name: dbUser.name,
     role: dbUser.role as UserRole,
+    employeeId: dbUser.employee_id,
     phone: dbUser.phone,
     email: dbUser.email,
     department: dbUser.department,

@@ -82,6 +82,7 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
+  employeeId?: string;    // 工号
   avatar?: string;
   phone?: string;
   email?: string;

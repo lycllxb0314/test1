@@ -132,6 +132,7 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         title: t.title,
         phone: t.phone,
         email: t.email,
+        employeeId: t.employee_id,  // 工号
         status: t.status,
         createdAt: t.created_at,
         updatedAt: t.updated_at,
