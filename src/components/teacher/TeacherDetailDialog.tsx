@@ -99,11 +99,14 @@ function calculateGradeLevels(grades: number[]): string[] {
   return levels;
 }
 
-// 主要角色选项（教师本职角色）
+// 主要角色选项（包含领导层和教师群体）
 const PRIMARY_ROLE_OPTIONS: TeacherRole[] = [
-  'head_teacher',
-  'subject_teacher',
-  'skill_teacher',
+  'principal',        // 校长
+  'secretary',        // 书记
+  'vice_principal',   // 副校长
+  'head_teacher',     // 班主任
+  'subject_teacher',  // 科任教师
+  'skill_teacher',    // 技能课教师
 ];
 
 // 可兼任的行政职务选项

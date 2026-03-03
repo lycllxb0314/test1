@@ -112,15 +112,27 @@ const getRoleDisplayName = (role: string): string => {
 
 // 可编辑的表单数据
 interface EditableFormData {
+  // 联系信息
   phone: string;
   email: string;
   emergencyContact: string;
   emergencyPhone: string;
   address: string;
+  // 个人信息
   birthDate: string;
   ethnicity: string;
   politicalStatus: string;
   nativePlace: string;
+  // 学历职称
+  education: string;
+  school: string;
+  major: string;
+  graduationDate: string;
+  title: string;
+  titleDate: string;
+  teachYears: number;
+  // 任教信息
+  department: string;
 }
 
 export default function TeacherProfilePage() {
@@ -214,6 +226,14 @@ export default function TeacherProfilePage() {
     ethnicity: '',
     politicalStatus: '',
     nativePlace: '',
+    education: '',
+    school: '',
+    major: '',
+    graduationDate: '',
+    title: '',
+    titleDate: '',
+    teachYears: 0,
+    department: '',
   });
 
   // 初始化表单数据
@@ -229,12 +249,20 @@ export default function TeacherProfilePage() {
         ethnicity: profile.ethnicity ?? '',
         politicalStatus: profile.politicalStatus ?? '',
         nativePlace: profile.nativePlace ?? '',
+        education: profile.education ?? '',
+        school: profile.school ?? '',
+        major: profile.major ?? '',
+        graduationDate: profile.graduationDate ?? '',
+        title: profile.title ?? '',
+        titleDate: profile.titleDate ?? '',
+        teachYears: profile.teachYears ?? 0,
+        department: profile.department ?? '',
       });
     }
   }, [profile]);
 
   // 处理字段变化
-  const handleFieldChange = (field: keyof EditableFormData, value: string) => {
+  const handleFieldChange = (field: keyof EditableFormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -254,6 +282,14 @@ export default function TeacherProfilePage() {
         ethnicity: formData.ethnicity,
         politicalStatus: formData.politicalStatus,
         nativePlace: formData.nativePlace,
+        education: formData.education,
+        school: formData.school,
+        major: formData.major,
+        graduationDate: formData.graduationDate,
+        title: formData.title,
+        titleDate: formData.titleDate,
+        teachYears: formData.teachYears,
+        department: formData.department,
       });
       
       if (!success) throw new Error('保存失败');
@@ -281,6 +317,14 @@ export default function TeacherProfilePage() {
         ethnicity: profile.ethnicity ?? '',
         politicalStatus: profile.politicalStatus ?? '',
         nativePlace: profile.nativePlace ?? '',
+        education: profile.education ?? '',
+        school: profile.school ?? '',
+        major: profile.major ?? '',
+        graduationDate: profile.graduationDate ?? '',
+        title: profile.title ?? '',
+        titleDate: profile.titleDate ?? '',
+        teachYears: profile.teachYears ?? 0,
+        department: profile.department ?? '',
       });
     }
     setIsEditing(false);
@@ -660,22 +704,99 @@ export default function TeacherProfilePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-muted-foreground text-xs">学历</Label>
-                    <p className="font-medium mt-1">{profile.education}</p>
+                    {isEditing ? (
+                      <Select 
+                        value={formData.education} 
+                        onValueChange={(v) => handleFieldChange('education', v)}
+                      >
+                        <SelectTrigger className="mt-1 h-8">
+                          <SelectValue placeholder="请选择学历" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="专科">专科</SelectItem>
+                          <SelectItem value="本科">本科</SelectItem>
+                          <SelectItem value="硕士">硕士</SelectItem>
+                          <SelectItem value="博士">博士</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium mt-1">{profile.education}</p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs">职称</Label>
-                    <p className="font-medium mt-1">{profile.title}</p>
+                    {isEditing ? (
+                      <Select 
+                        value={formData.title} 
+                        onValueChange={(v) => handleFieldChange('title', v)}
+                      >
+                        <SelectTrigger className="mt-1 h-8">
+                          <SelectValue placeholder="请选择职称" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="二级教师">二级教师</SelectItem>
+                          <SelectItem value="一级教师">一级教师</SelectItem>
+                          <SelectItem value="高级教师">高级教师</SelectItem>
+                          <SelectItem value="正高级教师">正高级教师</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium mt-1">{profile.title}</p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs">毕业院校</Label>
-                    <p className="font-medium mt-1">{profile.school}</p>
+                    {isEditing ? (
+                      <Input 
+                        value={formData.school} 
+                        onChange={(e) => handleFieldChange('school', e.target.value)}
+                        className="mt-1 h-8" 
+                        placeholder="请输入毕业院校"
+                      />
+                    ) : (
+                      <p className="font-medium mt-1">{profile.school}</p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-xs">专业</Label>
-                    <p className="font-medium mt-1">{profile.major}</p>
+                    {isEditing ? (
+                      <Input 
+                        value={formData.major} 
+                        onChange={(e) => handleFieldChange('major', e.target.value)}
+                        className="mt-1 h-8" 
+                        placeholder="请输入专业"
+                      />
+                    ) : (
+                      <p className="font-medium mt-1">{profile.major}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">毕业日期</Label>
+                    {isEditing ? (
+                      <Input 
+                        type="date" 
+                        value={formData.graduationDate} 
+                        onChange={(e) => handleFieldChange('graduationDate', e.target.value)}
+                        className="mt-1 h-8" 
+                      />
+                    ) : (
+                      <p className="font-medium mt-1">{profile.graduationDate}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">职称获得日期</Label>
+                    {isEditing ? (
+                      <Input 
+                        type="date" 
+                        value={formData.titleDate} 
+                        onChange={(e) => handleFieldChange('titleDate', e.target.value)}
+                        className="mt-1 h-8" 
+                      />
+                    ) : (
+                      <p className="font-medium mt-1">{profile.titleDate}</p>
+                    )}
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">* 学历职称信息需联系教务处修改</p>
               </CardContent>
             </Card>
 
