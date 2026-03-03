@@ -232,6 +232,7 @@ const workflowNav: NavItem[] = [
 // 家长端导航
 const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
+  { name: '个人资料', href: '/parent/profile', icon: UserCircle, description: '维护个人信息' },
   { name: '子女信息', href: '/parent/children', icon: Users, description: '子女信息管理' },
   { name: '习惯养成', href: '/parent/habit', icon: Star, description: '添加习惯养成记录', badge: '特色' },
   { name: '成绩查看', href: '/parent/grades', icon: BookOpen, description: '查看子女成绩' },

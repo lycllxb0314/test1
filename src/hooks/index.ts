@@ -96,6 +96,15 @@ export {
   type UseParentsReturn,
 } from './useParents';
 
+// 家长个人信息 Hook
+export {
+  useParentProfile,
+  // 类型
+  type ParentProfile,
+  type ParentProfileFormData,
+  type UseParentProfileReturn,
+} from './useParentProfile';
+
 // ==================== 通用 Hook ====================
 
 export { useAuth } from './useAuth';
