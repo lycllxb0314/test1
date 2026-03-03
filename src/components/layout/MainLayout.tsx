@@ -598,6 +598,31 @@ export function AppSidebar() {
 
           {/* 底部：折叠按钮 + 用户信息 */}
           <div className="border-t">
+            {/* 返回学校主页 */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a
+                  href="https://lysf.fx.edu.cn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-xl p-2 transition-all hover:bg-blue-50 hover:text-blue-600',
+                    collapsed && 'justify-center'
+                  )}
+                >
+                  <School className="h-4 w-4" />
+                  {!collapsed && (
+                    <span className="text-xs">学校主页</span>
+                  )}
+                </a>
+              </TooltipTrigger>
+              {collapsed && (
+                <TooltipContent side="right">
+                  学校主页
+                </TooltipContent>
+              )}
+            </Tooltip>
+            
             {/* 折叠按钮 */}
             <button
               onClick={() => setCollapsed(!collapsed)}
@@ -647,6 +672,12 @@ export function AppSidebar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <a href="https://lysf.fx.edu.cn" target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                    <School className="mr-2 h-4 w-4" />
+                    学校主页
+                  </a>
+                </DropdownMenuItem>
                 <DropdownMenuLabel className="text-xs text-gray-500">切换角色（演示）</DropdownMenuLabel>
                 {roleOptions.map((role) => (
                   <DropdownMenuItem
