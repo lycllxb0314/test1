@@ -247,37 +247,19 @@ export default function HomePage() {
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
               
-              {/* B站视频播放按钮 */}
-              {item.type === 'bilibili' && item.bilibiliUrl && (
+              {/* B站视频可点击区域 */}
+              {item.type === 'bilibili' && item.bilibiliUrl && index === currentSlide && (
                 <button
                   onClick={() => handleCarouselClick(item)}
-                  className="absolute inset-0 flex items-center justify-center z-20 cursor-pointer group"
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="w-24 h-24 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-white/40 transition mb-3">
-                      <Play className="h-12 w-12 text-white ml-1" />
-                    </div>
-                    <span className="text-white/80 text-sm">点击播放视频</span>
-                  </div>
-                </button>
-              )}
-              
-              {/* 视频播放按钮 */}
-              {item.type === 'video' && item.videoUrl && (
-                <button
-                  onClick={() => handleCarouselClick(item)}
-                  className="absolute inset-0 flex items-center justify-center z-20 cursor-pointer group"
-                >
-                  <div className="w-20 h-20 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-white/40 transition">
-                    <Play className="h-10 w-10 text-white ml-1" />
-                  </div>
-                </button>
+                  className="absolute inset-0 z-[15] cursor-pointer"
+                  aria-label="点击播放视频"
+                />
               )}
             </div>
           ))}
         </div>
 
-        <div className="relative z-20 h-full flex items-center">
+        <div className="relative z-20 h-full flex items-center pointer-events-none">
           <div className="max-w-7xl mx-auto px-4 w-full">
             <div className="max-w-xl">
               <div className="inline-block bg-white/20 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full mb-4">
@@ -297,16 +279,33 @@ export default function HomePage() {
               </p>
               <p className="text-white/70 text-sm mb-6">当有情怀的老师，办有温度的学校</p>
               
-              <div className="bg-white/15 backdrop-blur-sm rounded-lg p-4 inline-block">
-                <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full mr-2">
-                  {carouselItems[currentSlide].tag}
-                </span>
-                <span className="text-white font-medium">{carouselItems[currentSlide].title}</span>
-                <span className="text-white/60 text-sm ml-2">· {carouselItems[currentSlide].subtitle}</span>
+              {/* 当前轮播项信息 + 视频播放按钮 */}
+              <div className="flex items-center gap-4 flex-wrap pointer-events-auto">
+                <div className="bg-white/15 backdrop-blur-sm rounded-lg p-4 inline-flex items-center gap-3">
+                  <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full">
+                    {carouselItems[currentSlide].tag}
+                  </span>
+                  <span className="text-white font-medium">{carouselItems[currentSlide].title}</span>
+                  <span className="text-white/60 text-sm">· {carouselItems[currentSlide].subtitle}</span>
+                </div>
+                
+                {/* B站视频播放按钮 - 更明显的样式 */}
+                {carouselItems[currentSlide].type === 'bilibili' && carouselItems[currentSlide].bilibiliUrl && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCarouselClick(carouselItems[currentSlide]);
+                    }}
+                    className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg transition font-medium shadow-lg hover:scale-105 active:scale-95"
+                  >
+                    <Play className="h-5 w-5 fill-white" />
+                    播放视频
+                  </button>
+                )}
               </div>
             </div>
             
-            <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 hidden lg:block">
+            <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 hidden lg:block pointer-events-auto">
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { num: '60', label: '教学班', unit: '个' },
