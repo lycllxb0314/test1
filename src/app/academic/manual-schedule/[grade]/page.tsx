@@ -98,7 +98,7 @@ interface ScheduleStatus {
 export default function GradeSchedulePage({ params }: { params: Promise<{ grade: string }> }) {
   const { grade: gradeParam } = use(params);
   const grade = parseInt(gradeParam);
-  const { classes, loading: classesLoading, getClassesByGrade } = useClasses();
+  const { classes, loading: classesLoading, getClassesByGrade, refetch: refetchClasses } = useClasses();
   const [gradeClasses, setGradeClasses] = useState<any[]>([]);
   const [schedulesMap, setSchedulesMap] = useState<Map<string, SlotData[]>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -411,7 +411,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   const handleRefresh = async () => {
     setLoading(true);
     await cleanupDuplicates();
-    await Promise.all([loadGradeSchedule(), loadStatus()]);
+    // 同时刷新班级数据和课表数据
+    await Promise.all([refetchClasses(), loadGradeSchedule(), loadStatus()]);
     toast.success('已刷新');
   };
 
