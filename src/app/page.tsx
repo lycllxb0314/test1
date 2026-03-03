@@ -214,9 +214,9 @@ export default function HomePage() {
             
             <nav className="hidden md:flex items-center gap-1">
               <a href="#" className="px-4 py-2 text-sm bg-white/10 rounded-md">首 页</a>
-              <a href="#news" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">新闻中心</a>
-              <a href="#philosophy" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">办学理念</a>
-              <a href="#quick-links" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">快速入口</a>
+              <Link href="/news" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">新闻中心</Link>
+              <Link href="/philosophy" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">办学理念</Link>
+              <Link href="/notices" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">校园公告</Link>
             </nav>
 
             {user ? (
@@ -371,7 +371,7 @@ export default function HomePage() {
                   <Bell className="h-5 w-5 text-[#8B5A2B]" />
                   <h2 className="font-bold text-[#3D2314]">校园公告</h2>
                 </div>
-                <a href="#" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</a>
+                <Link href="/notices" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
               </div>
               <div className="divide-y divide-[#E8DDD0]/30">
                 {notices.map((item, index) => (
@@ -453,7 +453,7 @@ export default function HomePage() {
                   <Newspaper className="h-5 w-5 text-[#8B5A2B]" />
                   <h2 className="font-bold text-[#3D2314]">新闻中心</h2>
                 </div>
-                <a href="#" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</a>
+                <Link href="/news" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
               </div>
               <div className="divide-y divide-[#E8DDD0]/30">
                 {newsItems.slice(0, 5).map((item, index) => (
