@@ -31,16 +31,25 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // 轮播项类型定义
 interface CarouselItem {
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'bilibili';
   image: string;
   videoUrl?: string;
+  bilibiliUrl?: string;
   title: string;
   subtitle: string;
   tag: string;
 }
 
-// 轮播图数据（支持图片和视频）
+// 轮播图数据（支持图片、视频和B站视频）
 const carouselItems: CarouselItem[] = [
+  {
+    type: 'bilibili',
+    image: '/images/campus/science-academy-opening.png',
+    bilibiliUrl: '//player.bilibili.com/player.html?isOutside=true&aid=116165980456643&bvid=BV1WdPczBEVv&cid=36430479858&p=1',
+    title: '学校宣传视频',
+    subtitle: '龙岩师范附属小学',
+    tag: '学校风采',
+  },
   {
     type: 'image',
     image: '/images/campus/science-academy-opening.png',
@@ -237,6 +246,21 @@ export default function HomePage() {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+              
+              {/* B站视频播放按钮 */}
+              {item.type === 'bilibili' && item.bilibiliUrl && (
+                <button
+                  onClick={() => handleCarouselClick(item)}
+                  className="absolute inset-0 flex items-center justify-center z-20 cursor-pointer group"
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="w-24 h-24 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-white/40 transition mb-3">
+                      <Play className="h-12 w-12 text-white ml-1" />
+                    </div>
+                    <span className="text-white/80 text-sm">点击播放视频</span>
+                  </div>
+                </button>
+              )}
               
               {/* 视频播放按钮 */}
               {item.type === 'video' && item.videoUrl && (
@@ -865,16 +889,29 @@ export default function HomePage() {
               <span className="text-white font-medium">{playingVideo.title}</span>
             </div>
             
-            {/* 视频播放器 */}
-            <video
-              src={playingVideo.videoUrl}
-              controls
-              autoPlay
-              className="w-full aspect-video"
-              poster={playingVideo.image}
-            >
-              您的浏览器不支持视频播放
-            </video>
+            {/* B站视频播放器 */}
+            {playingVideo.type === 'bilibili' && playingVideo.bilibiliUrl && (
+              <iframe
+                src={playingVideo.bilibiliUrl}
+                className="w-full aspect-video"
+                scrolling="no"
+                frameBorder="no"
+                allowFullScreen
+              />
+            )}
+            
+            {/* 普通视频播放器 */}
+            {playingVideo.type === 'video' && playingVideo.videoUrl && (
+              <video
+                src={playingVideo.videoUrl}
+                controls
+                autoPlay
+                className="w-full aspect-video"
+                poster={playingVideo.image}
+              >
+                您的浏览器不支持视频播放
+              </video>
+            )}
           </div>
         </div>
       )}
