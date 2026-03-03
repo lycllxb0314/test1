@@ -15,9 +15,12 @@ export type UserRole =
   | 'secretary'        // 书记
   | 'vice_principal'   // 分管副校长
   // === 教师群体 ===
-  | 'head_teacher'     // 班主任
-  | 'subject_teacher'  // 科任教师（语文、数学、英语等主科教师）
-  | 'skill_teacher'    // 技能课教师（音乐、美术、体育、科学等）
+  // 班主任与科任1:1配对，共同负责一个班级
+  // 班主任是语文老师 → 科任就是数学老师
+  // 班主任是数学老师 → 科任就是语文老师
+  | 'head_teacher'     // 班主任（语文或数学老师）
+  | 'subject_teacher'  // 科任教师（语文或数学老师，与班主任互补配对）
+  | 'skill_teacher'    // 技能课教师（英语、音乐、美术、体育、科学、综合实践等）
   // === 家长 ===
   | 'parent';          // 家长
 
