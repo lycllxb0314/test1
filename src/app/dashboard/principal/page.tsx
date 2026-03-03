@@ -223,39 +223,7 @@ export default function PrincipalDashboard() {
       </div>
 
       {/* 校长快捷入口 */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Link href="/admin/carousel">
-          <Card className="border-0 shadow-md bg-gradient-to-r from-rose-500 to-orange-500 text-white cursor-pointer hover:shadow-lg transition">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/20 rounded-xl">
-                  <LayoutDashboard className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold">首页管理</p>
-                  <p className="text-sm text-white/80">轮播图与视频上传</p>
-                </div>
-                <ArrowRight className="h-5 w-5 ml-auto opacity-60" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/homepage">
-          <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-amber-100 rounded-xl">
-                  <Video className="h-6 w-6 text-amber-600" />
-                </div>
-                <div>
-                  <p className="font-bold text-gray-900">内容管理</p>
-                  <p className="text-sm text-gray-500">新闻与荣誉</p>
-                </div>
-                <ArrowRight className="h-5 w-5 ml-auto text-gray-400" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+      <div className="grid gap-4 md:grid-cols-3">
         <Link href="/academic/teachers">
           <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition">
             <CardContent className="p-4">

@@ -24,7 +24,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     name: '校长',
     description: '学校最高管理者，拥有所有模块的完全权限',
     modules: {
-      homepage: ['admin'],
       general: ['admin'],
       academic: ['admin'],
       moral: ['admin'],
@@ -36,7 +35,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     name: '书记',
     description: '负责党务和德育工作，拥有德育模块的完全权限',
     modules: {
-      homepage: ['admin'],
       moral: ['admin'],
       teacher: ['view', 'edit'],
       parent: ['view'],
@@ -46,7 +44,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     name: '副校长',
     description: '分管副校长，根据分管领域拥有相应权限',
     modules: {
-      homepage: ['manage'],
       general: ['manage'],
       academic: ['manage'],
       moral: ['manage'],
@@ -105,7 +102,6 @@ export const ADMINISTRATIVE_ROLE_PERMISSIONS: Record<AdministrativeRole, {
     description: '教务部门负责人，管理教务相关所有事务',
     additionalModules: {
       academic: ['admin'],
-      homepage: ['edit'],
     },
   },
   moral_director: {
@@ -114,7 +110,6 @@ export const ADMINISTRATIVE_ROLE_PERMISSIONS: Record<AdministrativeRole, {
     additionalModules: {
       moral: ['admin'],
       parent: ['manage'],
-      homepage: ['edit'],
     },
   },
   general_director: {
@@ -122,7 +117,6 @@ export const ADMINISTRATIVE_ROLE_PERMISSIONS: Record<AdministrativeRole, {
     description: '总务部门负责人，管理后勤相关所有事务',
     additionalModules: {
       general: ['admin'],
-      homepage: ['edit'],
     },
   },
   grade_leader: {
@@ -325,7 +319,6 @@ export function getAllRoleConfigs(): RoleConfig[] {
  * 模块名称映射
  */
 export const MODULE_NAMES: Record<ModuleType, string> = {
-  homepage: '主页管理',
   general: '总务后勤',
   academic: '教务教研',
   moral: '德育管理',
@@ -354,7 +347,6 @@ export const ROUTE_MODULE_MAP: Record<string, ModuleType> = {
   '/moral': 'moral',
   '/teacher': 'teacher',
   '/parent': 'parent',
-  '/homepage': 'homepage',
 };
 
 /**

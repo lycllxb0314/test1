@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: '龙岩师范附属小学 | 智慧校园管理平台',
     description:
-      '百年名校，薪火相传。以"明德、博学、笃行、创新"为校训，打造有温度的智慧校园。',
+      '百年名校，薪火相传。以"修身、力学、博雅、聪慧"为校训，打造有温度的智慧校园。',
     url: 'https://lysf.fx.edu.cn',
     siteName: '龙岩师范附属小学智慧校园',
     locale: 'zh_CN',

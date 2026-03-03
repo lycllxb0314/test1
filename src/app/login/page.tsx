@@ -86,7 +86,7 @@ export default function LoginPage() {
                         <Sparkles className="h-5 w-5" />
                         <span className="text-lg">统一门户 · 统一身份认证 · 统一数据</span>
                     </div>
-                    <p className="text-white/70 text-center max-w-md mt-8">百年名校，薪火相传。以"明德、博学、笃行、创新"为校训，
+                    <p className="text-white/70 text-center max-w-md mt-8">百年名校，薪火相传。以"修身、力学、博雅、聪慧"为校训，
                                                             打造有温度的智慧校园，为每一位师生提供贴心服务。
                                                           </p>
                     {}

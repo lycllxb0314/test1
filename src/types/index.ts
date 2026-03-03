@@ -69,8 +69,7 @@ export type ModuleType =
   | 'academic'     // 教务教研
   | 'moral'        // 德育管理
   | 'teacher'      // 教师空间
-  | 'parent'       // 家长端
-  | 'homepage';    // 主页内容管理
+  | 'parent';      // 家长端
 
 // 权限类型
 export type Permission = 

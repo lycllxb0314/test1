@@ -302,22 +302,6 @@ export const COMMUNICATION_API = {
 // ============================================================
 
 /**
- * 主页管理
- * 故事：学校对外展示窗口
- */
-export const HOMEPAGE_API = {
-  content: '/api/homepage',
-  newsList: '/api/homepage/news',
-  newsCreate: '/api/homepage/news',
-  newsUpdate: '/api/homepage/news',
-  newsDelete: '/api/homepage/news',
-  honorsList: '/api/homepage/honors',
-  honorsCreate: '/api/homepage/honors',
-  honorsUpdate: '/api/homepage/honors',
-  honorsDelete: '/api/homepage/honors',
-} as const;
-
-/**
  * 工具服务
  * 故事：系统辅助功能
  */
@@ -373,7 +357,6 @@ export const API = {
   communication: COMMUNICATION_API,
 
   // 系统层
-  homepage: HOMEPAGE_API,
   utility: UTILITY_API,
 } as const;
 
