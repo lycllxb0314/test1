@@ -45,7 +45,7 @@ const carouselItems: CarouselItem[] = [
   {
     type: 'bilibili',
     image: '/images/campus/science-academy-opening.png',
-    bilibiliUrl: 'https://player.bilibili.com/player.html?bvid=BV1WdPczBEVv&page=1&high_quality=1&danmaku=0',
+    bilibiliUrl: 'https://player.bilibili.com/player.html?bvid=BV1WdPczBEVv&page=1&high_quality=1&danmaku=0&autoplay=1&quality=116&mute=0',
     title: '少年科学院成立',
     subtitle: '中科院谢华安院士亲自指导',
     tag: '科创特色',
