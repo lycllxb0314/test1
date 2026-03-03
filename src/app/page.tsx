@@ -189,7 +189,7 @@ export default function HomePage() {
     <div className="min-h-screen pt-14" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
       
       {/* 顶部导航 - 固定 */}
-      <header className="fixed top-0 left-0 right-0 bg-[#8B5A2B] text-white shadow-sm z-50">
+      <header className="fixed top-0 left-0 right-0 bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white shadow-sm z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-6">
@@ -865,7 +865,7 @@ export default function HomePage() {
       </section>
 
       {/* 页脚 */}
-      <footer className="py-6 bg-[#5D3A1A] text-white/60 text-sm">
+      <footer className="py-6 bg-gradient-to-r from-[#A67C52] to-[#8B6914] text-white/80 text-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div>© 2026 福建省龙岩师范附属小学 版权所有</div>
