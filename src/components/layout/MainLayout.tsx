@@ -602,9 +602,12 @@ export function AppSidebar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <a
-                  href="https://lysf.fx.edu.cn"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // TODO: 配置正确的学校官网地址
+                    alert('学校官网地址待配置，请联系管理员设置正确的网址');
+                  }}
                   className={cn(
                     'flex w-full items-center gap-2 rounded-xl p-2 transition-all hover:bg-blue-50 hover:text-blue-600',
                     collapsed && 'justify-center'
@@ -673,7 +676,7 @@ export function AppSidebar() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <a href="https://lysf.fx.edu.cn" target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                  <a href="#" onClick={(e) => { e.preventDefault(); alert('学校官网地址待配置'); }} className="cursor-pointer">
                     <School className="mr-2 h-4 w-4" />
                     学校主页
                   </a>
