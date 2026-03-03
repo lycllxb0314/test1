@@ -87,8 +87,8 @@ export default function LoginPage() {
                         <span className="text-lg">统一门户 · 统一身份认证 · 统一数据</span>
                     </div>
                     <p className="text-white/70 text-center max-w-md mt-8">百年名校，薪火相传。以"明德、博学、笃行、创新"为校训，
-                                    打造有温度的智慧校园，为每一位师生提供贴心服务。
-                                  </p>
+                                                            打造有温度的智慧校园，为每一位师生提供贴心服务。
+                                                          </p>
                     {}
                     <div className="absolute bottom-12 left-12 right-12">
                         <div className="flex items-center justify-center gap-8 text-white/60 text-sm">
@@ -110,7 +110,7 @@ export default function LoginPage() {
                         href="/"
                         className="inline-flex items-center gap-2 text-gray-600 hover:text-primary mb-8 transition-colors">
                         <ArrowLeft className="h-4 w-4" />返回首页
-                                  </Link>
+                                                          </Link>
                     {}
                     <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
                         <img
@@ -126,7 +126,7 @@ export default function LoginPage() {
                         <CardHeader className="space-y-1 pb-4">
                             <CardTitle className="text-2xl font-bold text-center">欢迎登录</CardTitle>
                             <CardDescription className="text-center">请输入您的账号和密码
-                                              </CardDescription>
+                                                                              </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handleLogin} className="space-y-4">
@@ -177,15 +177,14 @@ export default function LoginPage() {
                                     disabled={isLoggingIn}>
                                     {isLoggingIn ? <>
                                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />登录中...
-                                                            </> : "登 录"}
+                                                                                                    </> : "登 录"}
                                 </Button>
                             </form>
                             {}
                             <div className="mt-6 p-4 bg-orange-50 rounded-lg">
-                                <p className="text-sm text-gray-600 text-center">首次登录默认密码为 <span data-inspector-line="200" data-inspector-column="28" data-inspector-relative-path="src/app/login/page.tsx" class="font-medium text-primary">lysf2026</span><span className="font-medium text-primary">lysf2024</span>
-                                </p>
+                                <p className="text-sm text-gray-600 text-center">首次登录默认密码为 <span className="font-medium text-primary">lysf2026</span></p>
                                 <p className="text-xs text-gray-500 text-center mt-2">如有账号问题，请联系教务处或年级组长
-                                                    </p>
+                                                                                        </p>
                             </div>
                         </CardContent>
                     </Card>
