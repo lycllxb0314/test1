@@ -568,7 +568,7 @@ export default function HomePage() {
                     key={activePath}
                     src={childHeartPaths[activePath].image}
                     alt={childHeartPaths[activePath].title}
-                    className="absolute inset-0 w-full h-full object-cover object-[center_center] transition-all duration-500"
+                    className="absolute inset-0 w-full h-full object-contain transition-all duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent">
                     <div className="absolute bottom-6 left-6 right-6">
