@@ -561,14 +561,14 @@ export default function HomePage() {
                 </p>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-0">
+              <div className="grid md:grid-cols-2 gap-0 items-center">
                 {/* 左侧大图 */}
-                <div className="relative h-64 md:h-80 overflow-hidden bg-[#F5EDE4]">
+                <div className="relative h-64 md:h-80 overflow-hidden bg-[#F5EDE4] self-center">
                   <img
                     key={activePath}
                     src={childHeartPaths[activePath].image}
                     alt={childHeartPaths[activePath].title}
-                    className="absolute inset-0 w-full h-full object-contain transition-all duration-500"
+                    className="absolute inset-0 w-full h-full object-cover transition-all duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent">
                     <div className="absolute bottom-6 left-6 right-6">
