@@ -65,6 +65,8 @@ import {
 } from 'lucide-react';
 import { useClasses, type ClassContainer, type TeacherCandidate, type StudentBasicInfo, type ParentBasicInfo } from '@/hooks/useClasses';
 import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
+import { useFrontendPagination } from '@/hooks/useApi';
+import { PAGINATION } from '@/lib/pagination-config';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
@@ -93,10 +95,6 @@ export default function ClassesPage() {
   // 筛选
   const [searchTerm, setSearchTerm] = useState('');
   const [gradeFilter, setGradeFilter] = useState('all');
-  
-  // 分页
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
   
   // 对话框
   const [showSubTeacherDialog, setShowSubTeacherDialog] = useState(false);
@@ -144,14 +142,10 @@ export default function ClassesPage() {
     return matchesSearch && matchesGrade;
   });
 
-  // 分页
-  const totalPages = Math.ceil(filteredClasses.length / pageSize);
-  const paginatedClasses = filteredClasses.slice((page - 1) * pageSize, page * pageSize);
-
-  // 筛选条件变化时重置页码
-  useEffect(() => {
-    setPage(1);
-  }, [searchTerm, gradeFilter]);
+  // 前端分页
+  const pagination = useFrontendPagination(filteredClasses, { 
+    defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
+  });
 
   // 打开详情（切换到详情视图）
   const handleOpenDetail = (cls: ClassContainer) => {
@@ -754,7 +748,7 @@ export default function ClassesPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedClasses.map((cls) => (
+                pagination.paginatedData.map((cls) => (
                 <TableRow 
                   key={cls.id} 
                   className="hover:bg-gray-50 cursor-pointer"
@@ -828,29 +822,44 @@ export default function ClassesPage() {
           </Table>
           
           {/* 分页 */}
-          {totalPages > 1 && (
+          {pagination.totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t">
-              <div className="text-sm text-gray-500">
-                显示 {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, filteredClasses.length)} 条，共 {filteredClasses.length} 条
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-500">
+                  显示 {(pagination.page - 1) * pagination.pageSize + 1} - {Math.min(pagination.page * pagination.pageSize, pagination.total)} 条，共 {pagination.total} 条
+                </div>
+                <Select 
+                  value={pagination.pageSize.toString()} 
+                  onValueChange={(value) => pagination.setPageSize(parseInt(value))}
+                >
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
+                      <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
+                  onClick={pagination.prevPage}
+                  disabled={pagination.page === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
                   上一页
                 </Button>
                 <span className="text-sm">
-                  第 {page} / {totalPages} 页
+                  第 {pagination.page} / {pagination.totalPages} 页
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
+                  onClick={pagination.nextPage}
+                  disabled={pagination.page >= pagination.totalPages}
                 >
                   下一页
                   <ChevronRight className="h-4 w-4" />

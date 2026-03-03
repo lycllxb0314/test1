@@ -71,10 +71,9 @@ import {
   type ParentBasicInfo,
   type ParentRelation,
 } from '@/hooks';
+import { useFrontendPagination } from '@/hooks/useApi';
+import { PAGINATION } from '@/lib/pagination-config';
 import { toast } from 'sonner';
-
-// 每页显示数量
-const PAGE_SIZE = 15;
 
 // 关系名称映射
 const RELATION_NAMES: Record<ParentRelation, string> = {
@@ -141,7 +140,6 @@ export default function ParentsPage() {
   const [gradeFilter, setGradeFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
   const [relationshipFilter, setRelationshipFilter] = useState('all');
-  const [page, setPage] = useState(1);
 
   // 详情弹窗
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -238,12 +236,10 @@ export default function ParentsPage() {
     });
   }, [parents, searchTerm, gradeFilter, classFilter, relationshipFilter]);
 
-  // 分页
-  const totalPages = Math.ceil(filteredParents.length / PAGE_SIZE);
-  const paginatedParents = filteredParents.slice(
-    (page - 1) * PAGE_SIZE,
-    page * PAGE_SIZE
-  );
+  // 前端分页
+  const pagination = useFrontendPagination(filteredParents, { 
+    defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
+  });
 
   // ==================== 操作处理 ====================
 
@@ -315,7 +311,7 @@ export default function ParentsPage() {
     setGradeFilter('all');
     setClassFilter('all');
     setRelationshipFilter('all');
-    setPage(1);
+    pagination.goToPage(1);
   };
 
   // 错误提示
@@ -437,13 +433,13 @@ export default function ParentsPage() {
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
-                  setPage(1);
+                  pagination.goToPage(1);
                 }}
                 className="pl-10"
               />
             </div>
 
-            <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setPage(1); }}>
+            <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); pagination.goToPage(1); }}>
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="全部年级" />
               </SelectTrigger>
@@ -455,7 +451,7 @@ export default function ParentsPage() {
               </SelectContent>
             </Select>
 
-            <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
+            <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); pagination.goToPage(1); }}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="全部班级" />
               </SelectTrigger>
@@ -467,7 +463,7 @@ export default function ParentsPage() {
               </SelectContent>
             </Select>
 
-            <Select value={relationshipFilter} onValueChange={(v) => { setRelationshipFilter(v); setPage(1); }}>
+            <Select value={relationshipFilter} onValueChange={(v) => { setRelationshipFilter(v); pagination.goToPage(1); }}>
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="全部关系" />
               </SelectTrigger>
@@ -515,7 +511,7 @@ export default function ParentsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedParents.map((parent) => (
+                  {pagination.paginatedData.map((parent) => (
                     <TableRow key={`${parent.id}-${parent.studentId}`} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -569,26 +565,41 @@ export default function ParentsPage() {
               </Table>
 
               {/* 分页 */}
-              {totalPages > 1 && (
+              {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t">
-                  <p className="text-sm text-gray-500">
-                    共 {filteredParents.length} 条记录，第 {page}/{totalPages} 页
-                  </p>
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm text-gray-500">
+                      共 {pagination.total} 条记录，第 {pagination.page}/{pagination.totalPages} 页
+                    </p>
+                    <Select 
+                      value={pagination.pageSize.toString()} 
+                      onValueChange={(value) => pagination.setPageSize(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={page <= 1}
-                      onClick={() => setPage(page - 1)}
+                      disabled={pagination.page <= 1}
+                      onClick={pagination.prevPage}
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <span className="text-sm px-2">{page} / {totalPages}</span>
+                    <span className="text-sm px-2">{pagination.page} / {pagination.totalPages}</span>
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={page >= totalPages}
-                      onClick={() => setPage(page + 1)}
+                      disabled={pagination.page >= pagination.totalPages}
+                      onClick={pagination.nextPage}
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>

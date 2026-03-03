@@ -127,15 +127,11 @@ export interface UseStudentsReturn {
   
   // === 统计 ===
   statistics: StudentStatistics;
-  pagination: PaginationInfo;
+  total: number; // 总数量（供前端分页使用）
   
   // === 筛选 ===
   filters: StudentFilters;
   setFilters: (filters: StudentFilters) => void;
-  
-  // === 分页控制 ===
-  setPage: (page: number) => void;
-  setPageSize: (pageSize: number) => void;
   
   // === 查询方法 ===
   fetchStudents: () => Promise<void>;
@@ -190,12 +186,11 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<StudentFilters>(initialFilters || {});
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    pageSize: PAGINATION.ENTITY_CONFIG.students.fetchPageSize, // 使用统一分页配置
-    total: 0,
-    totalPages: 0,
-  });
+  
+  // 总数量（用于前端分页）
+  const [total, setTotal] = useState(0);
+  // 使用统一分页配置的 maxTotal 作为获取上限
+  const fetchPageSize = PAGINATION.ENTITY_CONFIG.students.maxTotal;
   
   // 完整档案缓存
   const [profiles, setProfiles] = useState<Record<string, StudentFullProfile>>({});
@@ -228,7 +223,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     });
     
     return {
-      total: pagination.total, // 使用分页的total作为全局总数
+      total: total, // 使用total作为全局总数
       maleCount: apiStatistics?.maleCount ?? students.filter(s => s.gender === 'male').length,
       femaleCount: apiStatistics?.femaleCount ?? students.filter(s => s.gender === 'female').length,
       classCount: apiStatistics?.classCount ?? new Set(students.map(s => s.classId)).size,
@@ -236,18 +231,18 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       statusDistribution,
       familyTypeDistribution,
     };
-  }, [students, pagination.total, apiStatistics]);
+  }, [students, total, apiStatistics]);
   
-  // 获取学生列表
+  // 获取学生列表（全量获取，支持筛选）
   const fetchStudents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // 构建查询参数
+      // 构建查询参数 - 使用 maxTotal 作为 pageSize 获取全部数据
       const params = new URLSearchParams();
-      params.append('page', pagination.page.toString());
-      params.append('pageSize', pagination.pageSize.toString());
+      params.append('page', '1');
+      params.append('pageSize', fetchPageSize.toString());
       
       if (filters.search) {
         params.append('search', filters.search);
@@ -301,13 +296,9 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
         
         setStudents(formattedStudents);
         
-        // 更新分页信息
+        // 更新总数（用于前端分页）
         if (result.pagination) {
-          setPagination(prev => ({
-            ...prev,
-            total: result.pagination.total,
-            totalPages: result.pagination.totalPages,
-          }));
+          setTotal(result.pagination.total);
         }
         
         // 保存API返回的统计数据
@@ -321,7 +312,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.page, pagination.pageSize]);
+  }, [filters, fetchPageSize]);
   
   // 根据ID获取学生
   const getStudentById = useCallback((id: string) => 
@@ -642,30 +633,17 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     fetchStudents();
   }, [fetchStudents]);
   
-  // 分页控制方法
-  const setPage = useCallback((newPage: number) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
-  }, []);
-  
-  const setPageSize = useCallback((newPageSize: number) => {
-    setPagination(prev => ({ ...prev, page: 1, pageSize: newPageSize }));
-  }, []);
-  
   return {
     // 数据
     students,
     loading,
     error,
     statistics,
-    pagination,
+    total, // 总数量（供前端分页使用）
     
     // 筛选
     filters,
     setFilters,
-    
-    // 分页控制
-    setPage,
-    setPageSize,
     
     // 查询方法
     fetchStudents,

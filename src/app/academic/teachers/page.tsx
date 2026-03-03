@@ -71,6 +71,7 @@ import {
   TEACHER_ROLE_LABELS,
   TEACHER_ROLE_COLORS,
 } from '@/hooks/useTeachers';
+import { useFrontendPagination, PAGINATION } from '@/hooks';
 
 // 教师数据类型
 interface Teacher {
@@ -144,10 +145,6 @@ export default function TeachersPage() {
     getRoleColor,
   } = useTeachers();
   
-  // 分页状态
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-  
   // 搜索和筛选
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('all');
@@ -205,14 +202,24 @@ export default function TeachersPage() {
     });
   }, [teacherList, searchTerm, subjectFilter, roleFilter]);
 
-  // 分页后的教师列表
-  const totalPages = Math.ceil(filteredTeachers.length / pageSize);
-  const paginatedTeachers = filteredTeachers.slice((page - 1) * pageSize, page * pageSize);
+  // 前端分页（用户可选每页10/30/50条）
+  const {
+    paginatedData: paginatedTeachers,
+    page,
+    pageSize,
+    total,
+    totalPages,
+    pageSizeOptions,
+    goToPage,
+    prevPage,
+    nextPage,
+    setPageSize,
+  } = useFrontendPagination(filteredTeachers);
 
   // 筛选条件变化时重置页码
   useEffect(() => {
-    setPage(1);
-  }, [searchTerm, subjectFilter, roleFilter]);
+    goToPage(1);
+  }, [searchTerm, subjectFilter, roleFilter, goToPage]);
 
   // 获取状态标签
   const getStatusBadge = (status: string) => {
@@ -755,29 +762,45 @@ export default function TeachersPage() {
           </Table>
           
           {/* 分页 */}
-          {totalPages > 1 && (
+          {total > 0 && (
             <div className="flex items-center justify-between px-4 py-3 border-t">
-              <div className="text-sm text-gray-500">
-                显示 {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, filteredTeachers.length)} 条，共 {filteredTeachers.length} 条
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-500">
+                  显示 {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, total)} 条，共 {total} 条
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">每页</span>
+                  <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(parseInt(v))}>
+                    <SelectTrigger className="w-16 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pageSizeOptions.map(size => (
+                        <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-gray-500">条</span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={prevPage}
                   disabled={page === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
                   上一页
                 </Button>
                 <span className="text-sm">
-                  第 {page} / {totalPages} 页
+                  第 {page} / {totalPages || 1} 页
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
+                  onClick={nextPage}
+                  disabled={page >= totalPages}
                 >
                   下一页
                   <ChevronRight className="h-4 w-4" />

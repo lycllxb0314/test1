@@ -1328,6 +1328,275 @@ export function useWorkflowApprove() {
 }
 
 // ============================================
+// 统一分页Hook（核心架构）
+// ============================================
+
+/**
+ * 统一分页Hook选项
+ * 
+ * 设计理念：
+ * - 数据获取：后端全量获取（支持大数据量）
+ * - 前端展示：前端分页（用户可选每页10/30/50条）
+ * - 一个Hook完成所有操作，简化使用
+ */
+export interface UsePaginationOptions<T, F = Record<string, unknown>> {
+  /** 数据获取函数（接收筛选条件和分页参数，返回数据和总数） */
+  fetchFn: (filters: F, page: number, pageSize: number) => Promise<ApiResponse<T[]> & { pagination?: { total: number } }>;
+  /** 默认每页显示数量 */
+  defaultPageSize?: number;
+  /** 每页数量选项 */
+  pageSizeOptions?: readonly number[];
+  /** 初始筛选条件 */
+  initialFilters?: F;
+  /** 是否启用 */
+  enabled?: boolean;
+  /** 数据转换函数 */
+  transform?: (data: unknown[]) => T[];
+  /** 最大获取数量（用于全量获取） */
+  maxTotal?: number;
+  /** 依赖项（变化时重新获取） */
+  deps?: unknown[];
+  /** 成功回调 */
+  onSuccess?: (data: T[], total: number) => void;
+  /** 错误回调 */
+  onError?: (error: string) => void;
+}
+
+/**
+ * 统一分页Hook结果
+ */
+export interface UsePaginationResult<T, F = Record<string, unknown>> {
+  /** 当前页数据（前端分页后的数据） */
+  data: T[];
+  /** 全部数据（后端获取的所有数据） */
+  allData: T[];
+  /** 加载状态 */
+  loading: boolean;
+  /** 是否正在获取 */
+  isFetching: boolean;
+  /** 错误信息 */
+  error: string | null;
+  
+  // 分页信息
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  pageSizeOptions: readonly number[];
+  
+  // 分页操作
+  goToPage: (page: number) => void;
+  prevPage: () => void;
+  nextPage: () => void;
+  setPageSize: (size: number) => void;
+  
+  // 筛选
+  filters: F;
+  setFilters: (filters: Partial<F>) => void;
+  
+  // 刷新
+  refetch: () => Promise<void>;
+}
+
+/**
+ * 统一分页Hook
+ * 
+ * 整合数据获取和前端分页，一个Hook完成所有操作
+ * 
+ * 架构模式：
+ * 1. 后端全量获取数据（支持大数据量分批获取）
+ * 2. 前端分页展示（用户可选每页10/30/50条）
+ * 3. 支持筛选条件
+ * 
+ * @example
+ * ```tsx
+ * // 教师列表页面
+ * function TeachersPage() {
+ *   const { 
+ *     data,           // 当前页数据
+ *     loading, 
+ *     page, pageSize, total, totalPages,
+ *     goToPage, setPageSize,
+ *     filters, setFilters,
+ *     refetch 
+ *   } = usePagination<Teacher, TeacherFilters>({
+ *     fetchFn: async (filters, page, pageSize) => {
+ *       const params = new URLSearchParams({ ...filters, page, pageSize });
+ *       return fetch(`/api/teachers?${params}`).then(r => r.json());
+ *     },
+ *     initialFilters: { department: 'all' },
+ *   });
+ * 
+ *   return (
+ *     <div>
+ *       {loading ? <Loading /> : data.map(t => <TeacherCard key={t.id} teacher={t} />)}
+ *       <Pagination 
+ *         page={page} 
+ *         totalPages={totalPages}
+ *         onPageChange={goToPage}
+ *         pageSize={pageSize}
+ *         onPageSizeChange={setPageSize}
+ *       />
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+export function usePagination<T, F = Record<string, unknown>>(
+  options: UsePaginationOptions<T, F>
+): UsePaginationResult<T, F> {
+  const {
+    fetchFn,
+    defaultPageSize = PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE,
+    pageSizeOptions = PAGINATION.PAGE_SIZE_OPTIONS,
+    initialFilters = {} as F,
+    enabled = true,
+    transform,
+    maxTotal = PAGINATION.MAX_TOTAL,
+    deps = [],
+    onSuccess,
+    onError,
+  } = options;
+
+  // 数据状态
+  const [allData, setAllData] = useState<T[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 前端分页状态
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState(defaultPageSize);
+
+  // 筛选状态
+  const [filters, setFiltersState] = useState<F>(initialFilters);
+
+  // 计算总页数
+  const totalPages = useMemo(() => Math.ceil(total / pageSize), [total, pageSize]);
+
+  // 当前页数据
+  const data = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return allData.slice(start, end);
+  }, [allData, page, pageSize]);
+
+  // 引用
+  const mountedRef = useRef(true);
+  const fetchFnRef = useRef(fetchFn);
+  fetchFnRef.current = fetchFn;
+
+  // 获取数据
+  const fetchData = useCallback(async (forceRefresh = false) => {
+    if (!enabled) return;
+
+    setLoading(prev => forceRefresh ? true : (prev || true));
+    setIsFetching(true);
+    setError(null);
+
+    try {
+      // 使用 maxTotal 作为 pageSize 获取全部数据
+      const response = await fetchFnRef.current(filters, 1, maxTotal);
+
+      if (!mountedRef.current) return;
+
+      if (!response.success) {
+        throw new Error(response.error || '获取数据失败');
+      }
+
+      // 转换数据
+      const rawData = response.data || [];
+      const transformedData = transform ? transform(rawData) : rawData as T[];
+      
+      setAllData(transformedData);
+      setTotal(response.pagination?.total || transformedData.length);
+      
+      onSuccess?.(transformedData, response.pagination?.total || transformedData.length);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '获取数据失败';
+      setError(errorMsg);
+      onError?.(errorMsg);
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+        setIsFetching(false);
+      }
+    }
+  }, [enabled, filters, maxTotal, transform, onSuccess, onError]);
+
+  // 初始化和依赖变化时获取数据
+  useEffect(() => {
+    mountedRef.current = true;
+    fetchData();
+    return () => {
+      mountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, ...deps]);
+
+  // 筛选变化时重新获取并重置页码
+  useEffect(() => {
+    setPage(1);
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  // 分页操作
+  const goToPage = useCallback((newPage: number) => {
+    const validPage = Math.max(1, Math.min(newPage, totalPages || 1));
+    setPage(validPage);
+  }, [totalPages]);
+
+  const prevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1));
+  }, []);
+
+  const nextPage = useCallback(() => {
+    setPage(p => Math.min(totalPages, p + 1));
+  }, [totalPages]);
+
+  const setPageSize = useCallback((newSize: number) => {
+    setPageSizeState(newSize);
+    setPage(1); // 重置到第一页
+  }, []);
+
+  // 筛选操作
+  const setFilters = useCallback((newFilters: Partial<F>) => {
+    setFiltersState(prev => ({ ...prev, ...newFilters }));
+  }, []);
+
+  return {
+    // 数据
+    data,
+    allData,
+    loading,
+    isFetching,
+    error,
+    
+    // 分页信息
+    page,
+    pageSize,
+    total,
+    totalPages,
+    pageSizeOptions,
+    
+    // 分页操作
+    goToPage,
+    prevPage,
+    nextPage,
+    setPageSize,
+    
+    // 筛选
+    filters,
+    setFilters,
+    
+    // 刷新
+    refetch: () => fetchData(true),
+  };
+}
+
+// ============================================
 // 导出所有
 // ============================================
 

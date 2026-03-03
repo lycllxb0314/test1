@@ -29,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useStudents, type StudentStatus, type StudentInfo } from '@/hooks/useStudents';
+import { useFrontendPagination } from '@/hooks/useApi';
+import { PAGINATION } from '@/lib/pagination-config';
 import {
   Dialog,
   DialogContent,
@@ -99,19 +101,22 @@ const getGenderStyle = (gender: string) => {
 export default function StudentsPage() {
   const router = useRouter();
   
-  // 使用统一Hook获取学生列表
+  // 使用统一Hook获取学生列表（全量数据）
   const { 
     students, 
     statistics, 
-    pagination,
+    total,
     loading, 
     error, 
     refetch,
     deleteStudent,
-    setPage,
-    setPageSize,
     setFilters,
   } = useStudents();
+  
+  // 前端分页
+  const pagination = useFrontendPagination(students, { 
+    defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
+  });
   
   // 搜索和筛选状态
   const [searchTerm, setSearchTerm] = useState('');
@@ -341,7 +346,7 @@ export default function StudentsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student: StudentInfo) => {
+                  {pagination.paginatedData.map((student: StudentInfo) => {
                     const genderStyle = getGenderStyle(student.gender);
                     return (
                       <TableRow key={student.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => handleViewDetail(student.id)}>
@@ -404,16 +409,31 @@ export default function StudentsPage() {
               </Table>
 
               {/* 分页 */}
-              {pagination && pagination.total > 0 && (
+              {pagination.total > 0 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    显示 {(pagination.page - 1) * pagination.pageSize + 1} - {Math.min(pagination.page * pagination.pageSize, pagination.total)} 条，共 {pagination.total} 条
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      显示 {(pagination.page - 1) * pagination.pageSize + 1} - {Math.min(pagination.page * pagination.pageSize, pagination.total)} 条，共 {pagination.total} 条
+                    </div>
+                    <Select 
+                      value={pagination.pageSize.toString()} 
+                      onValueChange={(value) => pagination.setPageSize(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPage(pagination.page - 1)}
+                      onClick={pagination.prevPage}
                       disabled={pagination.page === 1}
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -425,7 +445,7 @@ export default function StudentsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPage(pagination.page + 1)}
+                      onClick={pagination.nextPage}
                       disabled={pagination.page >= pagination.totalPages}
                     >
                       下一页

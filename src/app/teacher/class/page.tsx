@@ -65,6 +65,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStudents, type StudentInfo } from '@/hooks/useStudents';
+import { useFrontendPagination } from '@/hooks/useApi';
+import { PAGINATION } from '@/lib/pagination-config';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
 
@@ -95,7 +97,6 @@ export default function ClassManagePage() {
   // 搜索状态
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [page, setPage] = useState(1);
 
   // 获取当前用户班级的学生
   const classId = user?.classId || '';
@@ -104,7 +105,7 @@ export default function ClassManagePage() {
   // 使用统一 Hook 获取学生列表
   const { 
     students: allStudents, 
-    pagination, 
+    total,
     loading, 
     error, 
     refetch,
@@ -127,6 +128,11 @@ export default function ClassManagePage() {
     
     return filtered;
   }, [allStudents, classId, searchTerm, statusFilter]);
+
+  // 前端分页
+  const pagination = useFrontendPagination(students, { 
+    defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
+  });
 
   // 学生操作状态
   const [mutationLoading, setMutationLoading] = useState(false);
@@ -227,7 +233,7 @@ export default function ClassManagePage() {
   }
 
   // 统计数据
-  const totalStudents = pagination.total;
+  const totalStudents = total;
   const presentCount = students.filter(s => s.status === '在校').length;
   const leaveCount = students.filter(s => s.status === '请假').length;
   const maleCount = students.filter(s => s.gender === 'male').length;
@@ -333,13 +339,13 @@ export default function ClassManagePage() {
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
-                    setPage(1);
+                    pagination.goToPage(1);
                   }}
                   className="pl-10"
                 />
               </div>
               {/* 状态筛选 */}
-              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); pagination.goToPage(1); }}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder="状态筛选" />
                 </SelectTrigger>
@@ -376,7 +382,7 @@ export default function ClassManagePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student) => {
+                  {pagination.paginatedData.map((student) => {
                     const genderStyle = getGenderStyle(student.gender);
                     return (
                       <TableRow key={student.id} className="hover:bg-gray-50">
@@ -439,15 +445,30 @@ export default function ClassManagePage() {
               {/* 分页 */}
               {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-gray-500">
-                    共 {pagination.total} 条记录，第 {pagination.page} / {pagination.totalPages} 页
-                  </p>
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm text-gray-500">
+                      共 {pagination.total} 条记录，第 {pagination.page} / {pagination.totalPages} 页
+                    </p>
+                    <Select 
+                      value={pagination.pageSize.toString()} 
+                      onValueChange={(value) => pagination.setPageSize(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       disabled={pagination.page <= 1}
-                      onClick={() => setPage(p => p - 1)}
+                      onClick={pagination.prevPage}
                     >
                       <ChevronLeft className="h-4 w-4" />
                       上一页
@@ -456,7 +477,7 @@ export default function ClassManagePage() {
                       variant="outline"
                       size="sm"
                       disabled={pagination.page >= pagination.totalPages}
-                      onClick={() => setPage(p => p + 1)}
+                      onClick={pagination.nextPage}
                     >
                       下一页
                       <ChevronRight className="h-4 w-4" />

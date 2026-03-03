@@ -102,12 +102,15 @@ export {
   usePaginatedQuery, 
   useFetchAll,
   useFrontendPagination,
+  usePagination,
   type UseQueryOptions, 
   type UseQueryResult, 
   type UseMutationResult, 
   type UsePaginatedResult,
   type UseFetchAllResult,
   type UseFrontendPaginationResult,
+  type UsePaginationOptions,
+  type UsePaginationResult,
   PAGINATION,
 } from './useApi';
 export { useIsMobile, useIsMobile as useMobile } from './use-mobile';
