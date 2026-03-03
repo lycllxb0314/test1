@@ -21,6 +21,8 @@ import {
   Bell,
   Newspaper,
   GraduationCap,
+  Sparkles,
+  Medal,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -90,7 +92,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
       
-      {/* 顶部导航 - 使用温暖的棕色 */}
+      {/* 顶部导航 */}
       <header className="bg-[#8B5A2B] text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
@@ -110,8 +112,7 @@ export default function HomePage() {
             <nav className="hidden md:flex items-center gap-1">
               <a href="#" className="px-4 py-2 text-sm bg-white/10 rounded-md">首 页</a>
               <a href="#news" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">新闻中心</a>
-              <a href="#child-heart" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">童心教育</a>
-              <a href="#honors" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">办学荣誉</a>
+              <a href="#philosophy" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">办学理念</a>
               <a href="#quick-links" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">快速入口</a>
             </nav>
 
@@ -132,7 +133,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Banner - 温暖的渐变，不要那么深沉 */}
+      {/* Banner */}
       <section className="bg-gradient-to-r from-[#C4956A] via-[#D4A574] to-[#C4956A] text-white py-12">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
@@ -152,7 +153,6 @@ export default function HomePage() {
               <p className="text-white/70 text-sm">当有情怀的老师，办有温度的学校</p>
             </div>
             
-            {/* 数据统计 */}
             <div className="grid grid-cols-2 gap-4 text-center">
               {[
                 { num: '60', label: '教学班', unit: '个' },
@@ -172,11 +172,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 新闻中心 + 校园公告 - 使用温暖的米色卡片 */}
+      {/* 新闻中心 + 校园公告 */}
       <section id="news" className="py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-6">
-            {/* 新闻中心 */}
             <div className="md:col-span-2 bg-white/80 rounded-xl shadow-sm border border-[#E8DDD0]/50 overflow-hidden">
               <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
                 <div className="flex items-center gap-2">
@@ -208,7 +207,6 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 校园公告 */}
             <div className="bg-white/80 rounded-xl shadow-sm border border-[#E8DDD0]/50 overflow-hidden">
               <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
                 <div className="flex items-center gap-2">
@@ -236,65 +234,71 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 童心教育 */}
-      <section id="child-heart" className="py-10 bg-[#FDF8F3]/70">
+      {/* ==================== 核心叙事板块：百年传承 · 童心育人 ==================== */}
+      <section id="philosophy" className="py-12 bg-gradient-to-b from-[#FDF8F3] to-[#F5EDE4]">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-[#B8860B]" />
-              <h2 className="text-xl font-bold text-[#3D2314]">童心教育</h2>
-              <span className="text-sm text-[#8B5A2B]/60 ml-2">核心办学品牌</span>
-            </div>
-            <a href="#" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</a>
+          
+          {/* 板块标题 */}
+          <div className="text-center mb-10">
+            <h2 
+              className="text-2xl md:text-3xl font-bold text-[#3D2314] mb-3"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              百年传承 · 童心育人
+            </h2>
+            <p className="text-[#8B5A2B]/70 text-sm max-w-2xl mx-auto">
+              从1914年到今天，我们始终坚守教育的初心，用爱心浇灌每一颗童心
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {childHeartPaths.map((path, index) => {
-              const Icon = path.icon;
-              return (
-                <div
-                  key={index}
-                  className="group bg-white rounded-xl p-5 text-center transition-all cursor-pointer hover:shadow-md border border-[#E8DDD0]/30 hover:border-[#D4A574]/50"
-                >
-                  <div className="w-12 h-12 bg-[#F5EDE4] rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#D4A574]/20 transition">
-                    <Icon className="h-6 w-6 text-[#8B5A2B] transition" />
-                  </div>
-                  <h3 className="font-medium text-[#3D2314] text-sm mb-1">
-                    {path.title}
-                  </h3>
-                  <p className="text-xs text-[#B8860B]">{path.subtitle}</p>
+          {/* 叙事流程导航 */}
+          <div className="flex justify-center items-center gap-2 md:gap-4 mb-10 flex-wrap">
+            {[
+              { label: '源起', sub: '校训', active: true },
+              { label: '理念', sub: '童心教育' },
+              { label: '实践', sub: '特色发展' },
+              { label: '成就', sub: '办学荣誉' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center">
+                <div className={`text-center px-4 py-2 rounded-lg ${
+                  item.active ? 'bg-[#8B5A2B] text-white' : 'bg-white/60 text-[#8B5A2B]'
+                }`}>
+                  <div className="text-xs font-medium">{item.label}</div>
+                  <div className="text-xs opacity-70">{item.sub}</div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* 校训 + 科创教育 */}
-      <section className="py-8">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* 校训 */}
-            <div className="bg-white/80 rounded-xl shadow-sm border border-[#E8DDD0]/50 p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <BookOpen className="h-5 w-5 text-[#8B5A2B]" />
-                <h2 className="font-bold text-[#3D2314]">校训</h2>
+                {i < 3 && (
+                  <ChevronRight className="h-4 w-4 text-[#D4A574] mx-1 hidden md:block" />
+                )}
               </div>
-              
-              <div className="text-center mb-6">
-                <h3 
-                  className="text-3xl font-bold text-[#8B5A2B] tracking-widest"
+            ))}
+          </div>
+
+          {/* 第一篇章：源起 - 校训 */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-[#8B5A2B] rounded-full flex items-center justify-center text-white text-sm font-bold">1</div>
+              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                源起 · 百年校训
+              </h3>
+              <span className="text-xs text-[#8B5A2B]/50 ml-2">1914年建校</span>
+            </div>
+            
+            <div className="bg-white/80 rounded-2xl p-6 md:p-8 border border-[#E8DDD0]/50 shadow-sm">
+              <div className="text-center mb-8">
+                <h4 
+                  className="text-3xl md:text-4xl font-bold text-[#8B5A2B] tracking-[0.3em] mb-4"
                   style={{ fontFamily: 'var(--font-serif)' }}
                 >
-                  修身·力学·博雅·聪慧
-                </h3>
+                  修身 · 力学 · 博雅 · 聪慧
+                </h4>
+                <p className="text-[#8B5A2B]/60 text-sm">百年校训，代代相传</p>
               </div>
 
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {schoolMotto.map((item, index) => (
-                  <div key={index} className="text-center">
+                  <div key={index} className="text-center p-4 bg-[#FDF8F3] rounded-xl">
                     <div 
-                      className="text-3xl font-bold text-[#3D2314] mb-1" 
+                      className="text-3xl font-bold text-[#3D2314] mb-2" 
                       style={{ fontFamily: 'var(--font-serif)' }}
                     >
                       {item.character}
@@ -304,90 +308,145 @@ export default function HomePage() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-[#E8DDD0]/50">
-                <div className="text-center p-3 bg-[#FDF8F3] rounded-lg">
-                  <span className="text-xs text-[#8B5A2B]/60 block mb-1">教风</span>
-                  <span className="text-sm font-medium text-[#3D2314]">身正为范 博学善教</span>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[#E8DDD0]/50">
+                <div className="flex items-center gap-3 p-4 bg-[#F5EDE4]/50 rounded-xl">
+                  <BookOpen className="h-5 w-5 text-[#8B5A2B]" />
+                  <div>
+                    <span className="text-xs text-[#8B5A2B]/60 block">教风</span>
+                    <span className="text-sm font-medium text-[#3D2314]">身正为范 博学善教</span>
+                  </div>
                 </div>
-                <div className="text-center p-3 bg-[#FDF8F3] rounded-lg">
-                  <span className="text-xs text-[#8B5A2B]/60 block mb-1">学风</span>
-                  <span className="text-sm font-medium text-[#3D2314]">品行高洁 好学善思</span>
+                <div className="flex items-center gap-3 p-4 bg-[#F5EDE4]/50 rounded-xl">
+                  <Star className="h-5 w-5 text-[#B8860B]" />
+                  <div>
+                    <span className="text-xs text-[#8B5A2B]/60 block">学风</span>
+                    <span className="text-sm font-medium text-[#3D2314]">品行高洁 好学善思</span>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* 科创教育 */}
-            <div className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-xl shadow-sm p-6 text-white">
-              <div className="flex items-center gap-2 mb-4">
-                <GraduationCap className="h-5 w-5 text-[#D4A574]" />
-                <h2 className="font-bold">少年科学院</h2>
-              </div>
+          {/* 第二篇章：理念 - 童心教育 */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-[#8B5A2B] rounded-full flex items-center justify-center text-white text-sm font-bold">2</div>
+              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                理念 · 童心教育
+              </h3>
+              <span className="text-xs text-[#8B5A2B]/50 ml-2">核心办学品牌</span>
+            </div>
+            
+            <div className="bg-white/60 rounded-2xl p-6 border border-[#E8DDD0]/30">
+              <p className="text-center text-[#8B5A2B]/70 mb-6 text-sm">
+                "珍视童心，张扬个性，全面发展" —— 以六大路径践行童心教育理念
+              </p>
               
-              <div className="mb-6">
-                <h3 className="text-xl font-bold mb-2">科学启智 · 创新育人</h3>
-                <p className="text-sm text-white/60">
-                  2025年12月正式成立，中科院谢华安院士指导
-                </p>
+              <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {childHeartPaths.map((path, index) => {
+                  const Icon = path.icon;
+                  return (
+                    <div
+                      key={index}
+                      className="bg-white rounded-xl p-5 text-center transition-all cursor-pointer hover:shadow-md border border-[#E8DDD0]/30 hover:border-[#D4A574]/50 group"
+                    >
+                      <div className="w-12 h-12 bg-[#F5EDE4] rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#D4A574]/20 transition">
+                        <Icon className="h-6 w-6 text-[#8B5A2B] transition" />
+                      </div>
+                      <h4 className="font-medium text-[#3D2314] text-sm mb-1">
+                        {path.title}
+                      </h4>
+                      <p className="text-xs text-[#B8860B]">{path.subtitle}</p>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          </div>
 
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                {[
-                  { num: '7', label: '国家级奖项' },
-                  { num: '58', label: '省级奖项' },
-                  { num: '1', label: '创新之星' },
-                ].map((item, i) => (
-                  <div key={i} className="bg-white/10 rounded-lg p-3 text-center">
-                    <div className="text-2xl font-bold text-[#D4A574]">{item.num}</div>
-                    <div className="text-xs text-white/50">{item.label}</div>
+          {/* 第三篇章：实践 - 特色发展 */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-[#8B5A2B] rounded-full flex items-center justify-center text-white text-sm font-bold">3</div>
+              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                实践 · 特色发展
+              </h3>
+              <span className="text-xs text-[#8B5A2B]/50 ml-2">创新育人</span>
+            </div>
+            
+            <div className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl p-6 md:p-8 text-white">
+              <div className="flex flex-col md:flex-row items-start gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="h-5 w-5 text-[#D4A574]" />
+                    <h4 className="font-bold text-lg">少年科学院</h4>
                   </div>
-                ))}
+                  <h5 className="text-xl font-bold mb-2 text-[#D4A574]">科学启智 · 创新育人</h5>
+                  <p className="text-sm text-white/60 mb-4">
+                    2025年12月正式成立，由中科院谢华安院士亲自指导，为孩子们搭建科学探索的舞台
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {['院士科普', '科创竞赛', '跨学科项目', '小院士评选'].map((tag, i) => (
+                      <span key={i} className="text-xs px-3 py-1 bg-white/10 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { num: '7', label: '国家级奖项' },
+                    { num: '58', label: '省级奖项' },
+                    { num: '1', label: '创新之星' },
+                  ].map((item, i) => (
+                    <div key={i} className="bg-white/10 rounded-xl p-4 text-center backdrop-blur-sm">
+                      <div className="text-2xl font-bold text-[#D4A574]">{item.num}</div>
+                      <div className="text-xs text-white/50">{item.label}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
+            </div>
+          </div>
 
-              <div className="flex flex-wrap gap-2">
-                {['院士科普', '科创竞赛', '跨学科项目', '小院士评选'].map((tag, i) => (
-                  <span key={i} className="text-xs px-3 py-1 bg-white/10 rounded-full">
-                    {tag}
-                  </span>
+          {/* 第四篇章：成就 - 办学荣誉 */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-[#8B5A2B] rounded-full flex items-center justify-center text-white text-sm font-bold">4</div>
+              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                成就 · 办学荣誉
+              </h3>
+              <span className="text-xs text-[#8B5A2B]/50 ml-2">国家、省、市三级认可</span>
+            </div>
+            
+            <div className="bg-white/60 rounded-2xl p-6 border border-[#E8DDD0]/30">
+              <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {honors.map((honor, index) => (
+                  <div
+                    key={index}
+                    className={`p-4 rounded-xl text-center transition hover:shadow-md ${
+                      honor.highlight 
+                        ? 'bg-gradient-to-br from-[#D4A574] to-[#C4956A] text-white shadow-sm' 
+                        : 'bg-white border border-[#E8DDD0]/50 text-[#3D2314]'
+                    }`}
+                  >
+                    <div className="font-medium text-sm mb-1">{honor.title}</div>
+                    {honor.year && (
+                      <div className={`text-xs ${honor.highlight ? 'text-white/80' : 'text-[#B8860B]'}`}>
+                        {honor.year}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
           </div>
+
         </div>
       </section>
-
-      {/* 办学荣誉 */}
-      <section id="honors" className="py-10 bg-[#FDF8F3]/70">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-[#B8860B]" />
-              <h2 className="text-xl font-bold text-[#3D2314]">办学荣誉</h2>
-              <span className="text-sm text-[#8B5A2B]/60 ml-2">国家、省、市三级认可</span>
-            </div>
-            <a href="#" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</a>
-          </div>
-
-          <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {honors.map((honor, index) => (
-              <div
-                key={index}
-                className={`p-4 rounded-xl text-center transition hover:shadow-md ${
-                  honor.highlight 
-                    ? 'bg-gradient-to-br from-[#D4A574] to-[#C4956A] text-white shadow-sm' 
-                    : 'bg-white border border-[#E8DDD0]/50 text-[#3D2314]'
-                }`}
-              >
-                <div className="font-medium text-sm mb-1">{honor.title}</div>
-                {honor.year && (
-                  <div className={`text-xs ${honor.highlight ? 'text-white/80' : 'text-[#B8860B]'}`}>
-                    {honor.year}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ==================== 核心叙事板块结束 ==================== */}
 
       {/* 快速入口 */}
       <section id="quick-links" className="py-8">
@@ -421,7 +480,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 联系方式 - 使用温暖的棕色 */}
+      {/* 联系方式 */}
       <section className="py-10 bg-[#C4956A] text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8">
@@ -455,7 +514,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 页脚 - 使用深棕色 */}
+      {/* 页脚 */}
       <footer className="py-6 bg-[#5D3A1A] text-white/60 text-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
