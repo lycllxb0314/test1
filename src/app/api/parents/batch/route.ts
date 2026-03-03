@@ -3,12 +3,17 @@
  * 
  * 功能：
  * - POST /api/parents/batch: 批量操作（开通账号、重置密码）
+ * 
+ * 家长账号说明：
+ * - 家长没有工号(employee_id)，仅通过手机号登录
+ * - parents表与users表通过phone字段关联
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { error, ErrorCode } from '@/lib/api-route-utils';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import bcrypt from 'bcryptjs';
 
 /**
  * 生成默认密码（手机号后6位）
@@ -18,14 +23,6 @@ function generateDefaultPassword(phone?: string): string {
     return phone.slice(-6);
   }
   return Math.random().toString(36).slice(-8);
-}
-
-/**
- * 简单的密码加密（实际生产环境应使用bcrypt）
- */
-function encryptPassword(password: string): string {
-  // 使用简单的base64编码，生产环境应使用bcrypt
-  return Buffer.from(password).toString('base64');
 }
 
 /**
@@ -67,18 +64,43 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
               continue;
             }
             
-            if (parent.has_account) {
+            // 检查手机号是否存在
+            if (!parent.phone) {
               results.failed++;
-              results.errors.push(`家长 ${parent.name} 已有账号`);
+              results.errors.push(`家长 ${parent.name} 没有手机号，无法开通账号`);
+              continue;
+            }
+            
+            // 检查是否已有账号（通过phone关联）
+            const { data: existingUser } = await client
+              .from('users')
+              .select('id')
+              .eq('phone', parent.phone)
+              .eq('role', 'parent')
+              .single();
+            
+            if (existingUser) {
+              // 已有账号，更新parents表状态
+              await client
+                .from('parents')
+                .update({
+                  has_account: true,
+                  account_id: existingUser.id,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', parentId);
+              
+              results.failed++;
+              results.errors.push(`家长 ${parent.name} 已有账号（手机号: ${parent.phone}）`);
               continue;
             }
             
             // 生成默认密码
             const defaultPassword = generateDefaultPassword(parent.phone);
-            const encryptedPassword = encryptPassword(defaultPassword);
+            const passwordHash = await bcrypt.hash(defaultPassword, 10);
             
-            // 创建用户账号
-            const accountId = `user-parent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            // 创建用户账号（家长没有employee_id，通过phone登录）
+            const accountId = crypto.randomUUID();
             const { error: userError } = await client
               .from('users')
               .insert({
@@ -86,7 +108,7 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
                 name: parent.name,
                 role: 'parent',
                 phone: parent.phone,
-                password: encryptedPassword,
+                password_hash: passwordHash,
                 status: 'active',
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
@@ -104,7 +126,7 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
               .update({
                 has_account: true,
                 account_id: accountId,
-                password: encryptedPassword,
+                password: defaultPassword, // 存储明文密码用于展示（可选，也可只存储hash）
                 updated_at: new Date().toISOString(),
               })
               .eq('id', parentId);
@@ -146,21 +168,21 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
               continue;
             }
             
-            if (!parent.has_account) {
+            if (!parent.has_account || !parent.phone) {
               results.failed++;
-              results.errors.push(`家长 ${parent.name} 未开通账号`);
+              results.errors.push(`家长 ${parent.name} 未开通账号或没有手机号`);
               continue;
             }
             
             // 生成新密码
             const newPassword = generateDefaultPassword(parent.phone);
-            const encryptedPassword = encryptPassword(newPassword);
+            const passwordHash = await bcrypt.hash(newPassword, 10);
             
-            // 更新家长密码
+            // 更新家长记录
             const { error: updateError } = await client
               .from('parents')
               .update({
-                password: encryptedPassword,
+                password: newPassword,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', parentId);
@@ -171,15 +193,20 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
               continue;
             }
             
-            // 更新用户表密码
-            if (parent.account_id) {
-              await client
-                .from('users')
-                .update({
-                  password: encryptedPassword,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', parent.account_id);
+            // 通过phone关联更新users表密码
+            const { error: userUpdateError } = await client
+              .from('users')
+              .update({
+                password_hash: passwordHash,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('phone', parent.phone)
+              .eq('role', 'parent');
+            
+            if (userUpdateError) {
+              results.failed++;
+              results.errors.push(`家长 ${parent.name} 更新用户表密码失败`);
+              continue;
             }
             
             results.success++;
@@ -202,7 +229,7 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
           try {
             const { data: parent, error: fetchError } = await client
               .from('parents')
-              .select('student_id, name')
+              .select('id, student_id, name')
               .eq('id', parentId)
               .single();
             
@@ -212,7 +239,7 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
               continue;
             }
             
-            // 取消该学生其他家长的主要联系人标记
+            // 先清除该学生的其他主要联系人
             await client
               .from('parents')
               .update({ is_primary: false })
@@ -221,15 +248,12 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
             // 设置当前家长为主要联系人
             const { error: updateError } = await client
               .from('parents')
-              .update({
-                is_primary: true,
-                updated_at: new Date().toISOString(),
-              })
+              .update({ is_primary: true, updated_at: new Date().toISOString() })
               .eq('id', parentId);
             
             if (updateError) {
               results.failed++;
-              results.errors.push(`家长 ${parent.name} 设置失败`);
+              results.errors.push(`家长 ${parent.name} 设置主要联系人失败`);
               continue;
             }
             
@@ -245,6 +269,29 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
         // 批量删除家长
         for (const parentId of parentIds) {
           try {
+            // 获取家长信息
+            const { data: parent, error: fetchError } = await client
+              .from('parents')
+              .select('id, name, has_account, account_id, phone')
+              .eq('id', parentId)
+              .single();
+            
+            if (fetchError || !parent) {
+              results.failed++;
+              results.errors.push(`家长 ${parentId} 不存在`);
+              continue;
+            }
+            
+            // 如果有账号，同时删除users表中的记录
+            if (parent.has_account && parent.phone) {
+              await client
+                .from('users')
+                .delete()
+                .eq('phone', parent.phone)
+                .eq('role', 'parent');
+            }
+            
+            // 删除家长记录
             const { error: deleteError } = await client
               .from('parents')
               .delete()
@@ -252,7 +299,7 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
             
             if (deleteError) {
               results.failed++;
-              results.errors.push(`删除家长 ${parentId} 失败`);
+              results.errors.push(`家长 ${parent.name} 删除失败`);
               continue;
             }
             
@@ -265,17 +312,17 @@ const handleBatchOperation = async (request: NextRequest, { user }: ExtendedRout
         break;
       
       default:
-        return NextResponse.json(error('未知操作类型', ErrorCode.VALIDATION_ERROR), { status: 400 });
+        return NextResponse.json(error('未知的操作类型', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
     return NextResponse.json({
       success: true,
-      message: `批量操作完成：成功 ${results.success} 条，失败 ${results.failed} 条`,
       data: results,
+      message: `${action} 完成：成功 ${results.success} 个，失败 ${results.failed} 个`,
     });
   } catch (err) {
-    console.error('Failed to batch operation:', err);
-    return NextResponse.json(error('批量操作失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    console.error('Batch operation error:', err);
+    return NextResponse.json(error('操作失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 };
 

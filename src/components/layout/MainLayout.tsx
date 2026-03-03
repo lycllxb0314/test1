@@ -71,10 +71,12 @@ import {
   ClipboardCheck,
   Activity,
   Edit3,
+  Key,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs } from '@/config/roles';
 import { ModuleType } from '@/types';
+import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 
 interface NavItem {
   name: string;
@@ -634,6 +636,17 @@ export function AppSidebar() {
                     网站首页
                   </Link>
                 </DropdownMenuItem>
+                {/* 家长修改密码 */}
+                {user.role === 'parent' && (
+                  <ChangePasswordDialog 
+                    trigger={
+                      <div className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:bg-accent">
+                        <Key className="mr-2 h-4 w-4" />
+                        修改密码
+                      </div>
+                    }
+                  />
+                )}
                 <DropdownMenuLabel className="text-xs text-gray-500">切换角色（演示）</DropdownMenuLabel>
                 {roleOptions.map((role) => (
                   <DropdownMenuItem
