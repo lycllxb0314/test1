@@ -101,16 +101,14 @@ const schoolMotto = [
   { character: '聪慧', meaning: '聪敏睿智' },
 ];
 
-// 新闻动态
+// 新闻动态（带图片）
 const newsItems = [
-  { title: '我校少年科学院正式成立，中科院谢华安院士出席揭牌仪式', date: '2025-12-15', category: '校园新闻' },
-  { title: '2025年全国学生数字素养大赛斩获"创新之星"最高奖', date: '2025-11-20', category: '荣誉喜报' },
-  { title: '童心教育实践成果入选福建省小学特色办学标杆案例', date: '2025-10-15', category: '教育教学' },
-  { title: '【学习强国】龙岩师范附小：百年老校的童心教育探索', date: '2025-12-10', category: '媒体附小', level: '国家级' },
-  { title: '【福建日报】传承红色基因，培育时代新人', date: '2025-11-28', category: '媒体附小', level: '省级' },
-  { title: '【闽西日报】智慧校园建设助力教育高质量发展', date: '2025-11-15', category: '媒体附小', level: '市级' },
-  { title: '龙岩师范附小庆祝建校112周年系列活动圆满举行', date: '2025-09-10', category: '校园新闻' },
-  { title: '我校学生在龙岩市"福籽同心爱中华"演讲比赛中获一等奖', date: '2025-09-05', category: '荣誉喜报' },
+  { title: '我校少年科学院正式成立，中科院谢华安院士出席揭牌仪式', date: '2025-12-15', category: '校园新闻', image: '/images/campus/science-academy-opening.png' },
+  { title: '2025年全国学生数字素养大赛斩获"创新之星"最高奖', date: '2025-11-20', category: '荣誉喜报', image: '/images/campus/art-festival.png' },
+  { title: '童心教育实践成果入选福建省小学特色办学标杆案例', date: '2025-10-15', category: '教育教学', image: '/images/campus/classroom-teaching.jpg' },
+  { title: '【学习强国】龙岩师范附小：百年老校的童心教育探索', date: '2025-12-10', category: '媒体附小', level: '国家级', image: '/images/campus/young-pioneers.png' },
+  { title: '【福建日报】传承红色基因，培育时代新人', date: '2025-11-28', category: '媒体附小', level: '省级', image: '/images/campus/sports-start.jpg' },
+  { title: '【闽西日报】智慧校园建设助力教育高质量发展', date: '2025-11-15', category: '媒体附小', level: '市级', image: '/images/campus/school-assembly.png' },
 ];
 
 // 校园公告
@@ -144,6 +142,7 @@ export default function HomePage() {
   const [activePath, setActivePath] = useState(0);
   const [activeSection, setActiveSection] = useState(0);
   const [playingVideo, setPlayingVideo] = useState<CarouselItem | null>(null);
+  const [activeNewsIndex, setActiveNewsIndex] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -164,6 +163,14 @@ export default function HomePage() {
     }, 4000);
     return () => clearInterval(timer);
   }, []);
+
+  // 新闻自动轮播
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveNewsIndex((prev) => (prev + 1) % newsItems.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [newsItems.length]);
 
   const goToSlide = (index: number) => {
     setCurrentSlide(index);
@@ -357,54 +364,7 @@ export default function HomePage() {
       <section id="news" className="py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-6">
-            {/* 新闻中心 */}
-            <div className="md:col-span-2 bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
-              <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
-                <div className="flex items-center gap-2">
-                  <Newspaper className="h-5 w-5 text-[#8B5A2B]" />
-                  <h2 className="font-bold text-[#3D2314]">新闻中心</h2>
-                </div>
-                <a href="#" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</a>
-              </div>
-              <div className="divide-y divide-[#E8DDD0]/30">
-                {newsItems.map((item, index) => (
-                  <a 
-                    key={index} 
-                    href="#" 
-                    className="flex items-center justify-between p-4 hover:bg-[#FDF8F3]/50 transition group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {item.category === '媒体附小' ? (
-                          <>
-                            <span className={`text-xs px-2 py-0.5 rounded-md font-medium shrink-0 ${
-                              item.level === '国家级' ? 'bg-red-50 text-red-600 border border-red-200' :
-                              item.level === '省级' ? 'bg-blue-50 text-blue-600 border border-blue-200' :
-                              'bg-green-50 text-green-600 border border-green-200'
-                            }`}>
-                              {item.level}
-                            </span>
-                            <span className="text-xs px-2 py-0.5 bg-[#D4A574]/20 text-[#8B5A2B] rounded-md font-medium shrink-0">
-                              媒体附小
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 bg-[#D4A574]/20 text-[#8B5A2B] rounded-md font-medium shrink-0">
-                            {item.category}
-                          </span>
-                        )}
-                        <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B]">
-                          {item.title}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-xs text-[#8B5A2B]/50 ml-4 whitespace-nowrap">{item.date}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            {/* 校园公告 */}
+            {/* 左侧：校园公告 */}
             <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
               <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
                 <div className="flex items-center gap-2">
@@ -424,6 +384,96 @@ export default function HomePage() {
                       {item.title}
                     </span>
                     <span className="text-xs text-[#8B5A2B]/50 ml-2 whitespace-nowrap">{item.date}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* 中间：新闻大图轮播 */}
+            <div className="relative rounded-2xl overflow-hidden shadow-lg shadow-[#D4A574]/10 group cursor-pointer">
+              <div className="relative h-80">
+                {newsItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className={`absolute inset-0 transition-opacity duration-700 ${
+                      index === activeNewsIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                    }`}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-5">
+                      <span className={`inline-block text-xs px-2 py-1 rounded-full mb-2 ${
+                        item.category === '媒体附小' 
+                          ? 'bg-[#D4A574] text-white' 
+                          : 'bg-[#8B5A2B] text-white'
+                      }`}>
+                        {item.category === '媒体附小' ? item.level : item.category}
+                      </span>
+                      <h3 className="text-white font-bold text-lg leading-tight line-clamp-2">
+                        {item.title}
+                      </h3>
+                      <p className="text-white/70 text-sm mt-1">{item.date}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* 轮播指示器 */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
+                {newsItems.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveNewsIndex(index)}
+                    className={`transition-all duration-300 rounded-full ${
+                      index === activeNewsIndex 
+                        ? 'w-6 h-1.5 bg-white' 
+                        : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/70'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 右侧：新闻中心 */}
+            <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
+              <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
+                <div className="flex items-center gap-2">
+                  <Newspaper className="h-5 w-5 text-[#8B5A2B]" />
+                  <h2 className="font-bold text-[#3D2314]">新闻中心</h2>
+                </div>
+                <a href="#" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</a>
+              </div>
+              <div className="divide-y divide-[#E8DDD0]/30">
+                {newsItems.slice(0, 5).map((item, index) => (
+                  <a 
+                    key={index} 
+                    href="#" 
+                    onClick={(e) => { e.preventDefault(); setActiveNewsIndex(index); }}
+                    className={`flex items-start gap-3 p-4 transition group ${
+                      index === activeNewsIndex ? 'bg-[#D4A574]/10' : 'hover:bg-[#FDF8F3]/50'
+                    }`}
+                  >
+                    <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 border border-[#E8DDD0]/50">
+                      <img src={item.image} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                          item.category === '媒体附小' 
+                            ? 'bg-[#D4A574]/20 text-[#8B5A2B]' 
+                            : 'bg-[#F5EDE4] text-[#8B5A2B]'
+                        }`}>
+                          {item.category === '媒体附小' ? item.level : item.category}
+                        </span>
+                      </div>
+                      <p className="text-sm text-[#3D2314] line-clamp-2 group-hover:text-[#8B5A2B]">
+                        {item.title}
+                      </p>
+                      <span className="text-xs text-[#8B5A2B]/50">{item.date}</span>
+                    </div>
                   </a>
                 ))}
               </div>
