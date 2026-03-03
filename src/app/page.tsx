@@ -194,41 +194,11 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (mounted && user) {
-      const timer = setTimeout(() => {
-        // 教师角色直接跳转到教师空间
-        if (user.role === 'subject_teacher' || user.role === 'skill_teacher' || user.role === 'head_teacher') {
-          router.push('/teacher');
-        } else if (user.role === 'parent') {
-          router.push('/parent');
-        } else {
-          router.push('/dashboard');
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [mounted, user, router]);
-
   const handleImageError = (id: string) => {
     setImageErrors(prev => ({ ...prev, [id]: true }));
   };
 
   if (!mounted) return null;
-
-  if (user) {
-    const isTeacher = user.role === 'subject_teacher' || user.role === 'skill_teacher' || user.role === 'head_teacher';
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-3 border-amber-700 border-t-transparent mx-auto" />
-          <p className="mt-4 text-gray-600">
-            正在跳转到{isTeacher ? '教师空间' : user.role === 'parent' ? '家长端' : '工作台'}...
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -261,11 +231,19 @@ export default function HomePage() {
               ))}
             </nav>
 
-            <Link href="/login">
-              <Button className="h-9 px-5 bg-amber-700 hover:bg-amber-800 text-white text-sm">
-                登录系统
-              </Button>
-            </Link>
+            {user ? (
+              <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
+                <Button className="h-9 px-5 bg-amber-700 hover:bg-amber-800 text-white text-sm">
+                  进入工作台
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button className="h-9 px-5 bg-amber-700 hover:bg-amber-800 text-white text-sm">
+                  登录系统
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -295,12 +273,21 @@ export default function HomePage() {
                 培养德智体美劳全面发展的社会主义建设者和接班人。
               </p>
 
-              <Link href="/login">
-                <Button className="h-11 px-6 bg-amber-700 hover:bg-amber-800 text-white">
-                  进入智慧校园
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+              {user ? (
+                <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
+                  <Button className="h-11 px-6 bg-amber-700 hover:bg-amber-800 text-white">
+                    进入工作台
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/login">
+                  <Button className="h-11 px-6 bg-amber-700 hover:bg-amber-800 text-white">
+                    进入智慧校园
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
             </div>
 
             {/* 右侧图片 - 办学成果展示 */}
