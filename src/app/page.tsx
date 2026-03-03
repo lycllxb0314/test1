@@ -25,8 +25,8 @@ import {
   Star,
   Baby,
   Award,
-  Cpu,
-  Rocket,
+  Medal,
+  Crown,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -167,8 +167,8 @@ const provincialHonors = [
 
 // 2025年最新资质
 const latestQualifications = [
-  { title: '2025年福建省"智慧校园试点校"', desc: '龙岩市小学段数字教育标杆校', icon: Cpu },
-  { title: '龙岩市首个小学少年科学院', desc: '中科院谢华安院士指导', icon: Rocket },
+  { title: '2025年福建省"智慧校园试点校"', desc: '龙岩市小学段数字教育标杆校', highlight: true },
+  { title: '龙岩市首个小学少年科学院', desc: '中科院谢华安院士指导', highlight: false },
 ];
 
 // 科创教育成果
@@ -469,7 +469,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-white/10 text-white/90 px-4 py-1.5 rounded-full text-sm mb-4">
-              <Cpu className="h-4 w-4" />
+              <Medal className="h-4 w-4" />
               <span>王牌办学特色 · 区域标杆</span>
             </div>
             <h2 
@@ -503,7 +503,7 @@ export default function HomePage() {
           <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8">
             <div className="flex flex-col md:flex-row items-center gap-6">
               <div className="w-20 h-20 bg-gradient-to-br from-[#B5651D] to-[#C67B5C] rounded-2xl flex items-center justify-center flex-shrink-0">
-                <Rocket className="h-10 w-10 text-white" />
+                <Crown className="h-10 w-10 text-white" />
               </div>
               <div className="flex-1 text-center md:text-left">
                 <h3 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
@@ -606,20 +606,26 @@ export default function HomePage() {
 
           {/* 2025年最新资质 */}
           <div className="grid md:grid-cols-2 gap-6 mb-12">
-            {latestQualifications.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <div key={index} className="flex items-center gap-5 p-6 bg-gradient-to-r from-[#B5651D]/5 to-[#C67B5C]/5 rounded-2xl border border-[#E8E4DD]">
-                  <div className="w-14 h-14 bg-[#B5651D] rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-[#2D2A26]">{item.title}</h3>
-                    <p className="text-sm text-[#5C5852]">{item.desc}</p>
-                  </div>
+            {latestQualifications.map((item, index) => (
+              <div 
+                key={index} 
+                className={`flex items-center gap-5 p-6 rounded-2xl border ${
+                  item.highlight 
+                    ? 'bg-gradient-to-r from-[#B5651D]/10 to-[#C67B5C]/10 border-[#B5651D]/30' 
+                    : 'bg-[#FAF8F5] border-[#E8E4DD]'
+                }`}
+              >
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  item.highlight ? 'bg-[#B5651D]' : 'bg-[#C67B5C]'
+                }`}>
+                  <Trophy className="h-7 w-7 text-white" />
                 </div>
-              );
-            })}
+                <div>
+                  <h3 className="text-lg font-bold text-[#2D2A26]">{item.title}</h3>
+                  <p className="text-sm text-[#5C5852]">{item.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
