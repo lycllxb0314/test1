@@ -11,6 +11,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -111,6 +113,7 @@ interface Class {
 }
 
 export default function ParentsPage() {
+  const router = useRouter();
   // 状态
   const [parents, setParents] = useState<Parent[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -562,7 +565,12 @@ export default function ParentsPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium">{parent.name}</span>
+                        <Link 
+                          href={`/academic/parents/${parent.id}`}
+                          className="font-medium text-purple-600 hover:text-purple-800 hover:underline cursor-pointer"
+                        >
+                          {parent.name}
+                        </Link>
                       </TableCell>
                       <TableCell>
                         <Badge className={getRelationshipColor(parent.relation_name)}>
@@ -610,7 +618,7 @@ export default function ParentsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setSelectedParent(parent); setDetailDialogOpen(true); }}>
+                            <DropdownMenuItem onClick={() => router.push(`/academic/parents/${parent.id}`)}>
                               <Eye className="h-4 w-4 mr-2" />
                               查看详情
                             </DropdownMenuItem>

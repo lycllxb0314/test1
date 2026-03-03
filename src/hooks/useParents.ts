@@ -42,14 +42,30 @@ export interface ParentInfo {
   wechat?: string;
   email?: string;
   
+  // === 个人信息（扩展） ===
+  gender?: string;              // 性别
+  birthDate?: string;           // 出生日期
+  idCard?: string;              // 身份证号
+  education?: string;           // 学历
+  politicalStatus?: string;     // 政治面貌
+  
+  // === 地址信息 ===
+  householdAddress?: string;    // 户籍地址
+  currentAddress?: string;      // 现居住址
+  
+  // === 紧急联系人 ===
+  emergencyContact?: string;    // 紧急联系人
+  emergencyPhone?: string;      // 紧急联系电话
+  
   // === 工作信息 ===
-  company?: string;
-  position?: string;
-  education?: string;
+  company?: string;             // 工作单位
+  position?: string;            // 职务/职业
+  occupation?: string;          // 职业
   
   // === 账号信息 ===
   userId?: string;
   hasAccount: boolean;
+  password?: string;            // 登录密码（明文，用于管理展示）
   lastLoginAt?: string;
   
   // === 学生绑定（核心关联） ===
@@ -66,6 +82,10 @@ export interface ParentInfo {
   // === 班主任信息 ===
   headTeacherId?: string;
   headTeacherName?: string;
+  
+  // === 其他信息 ===
+  status?: string;              // 状态
+  remark?: string;              // 备注
   
   // === 通知设置 ===
   notificationSettings?: {
