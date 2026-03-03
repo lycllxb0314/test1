@@ -762,7 +762,7 @@ export default function HomePage() {
       <footer className="py-6 bg-[#5D3A1A] text-white/60 text-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div>© 2024 福建省龙岩师范附属小学 版权所有</div>
+            <div>© 2026 福建省龙岩师范附属小学 版权所有</div>
             <div className="flex gap-6">
               <a href="#" className="hover:text-white/80 transition">隐私政策</a>
               <a href="#" className="hover:text-white/80 transition">使用条款</a>
