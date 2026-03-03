@@ -29,6 +29,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { roleConfigs, administrativeRoleConfigs } from '@/config/roles';
 
 // 轮播项类型定义
 interface CarouselItem {
@@ -221,11 +222,26 @@ export default function HomePage() {
             </nav>
 
             {user ? (
-              <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
-                <Button className="bg-white text-[#8B5A2B] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
-                  进入工作台
-                </Button>
-              </Link>
+              <div className="flex items-center gap-4">
+                {/* 用户信息显示 */}
+                <div className="hidden md:flex items-center gap-2 text-sm">
+                  <span className="font-medium">{user.name}</span>
+                  <span className="text-white/60">|</span>
+                  <span className="text-white/90">
+                    {roleConfigs[user.role]?.name || user.role}
+                    {user.additionalRoles && user.additionalRoles.length > 0 && (
+                      <span className="text-white/70 ml-1">
+                        （兼任：{administrativeRoleConfigs[user.additionalRoles[0]]?.name || user.additionalRoles[0]}）
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
+                  <Button className="bg-white text-[#8B5A2B] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
+                    进入工作台
+                  </Button>
+                </Link>
+              </div>
             ) : (
               <Link href="/login">
                 <Button className="bg-white text-[#8B5A2B] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
