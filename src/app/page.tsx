@@ -692,34 +692,65 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 快速入口 */}
-      <section id="quick-links" className="py-8">
+      {/* 智慧校园入口 */}
+      <section id="quick-links" className="py-12 bg-gradient-to-b from-[#F5EDE4] to-[#FDF8F3]">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center gap-2 mb-6">
-            <GraduationCap className="h-5 w-5 text-[#8B5A2B]" />
-            <h2 className="text-xl font-bold text-[#3D2314]">快速入口</h2>
+          {/* 标题区域 */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-[#8B5A2B]/10 px-4 py-1.5 rounded-full mb-3">
+              <Sparkles className="h-4 w-4 text-[#B8860B]" />
+              <span className="text-sm font-medium text-[#8B5A2B]">数字化 · 智能化 · 一体化</span>
+            </div>
+            <h2 className="text-2xl font-bold text-[#3D2314] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+              智慧校园服务平台
+            </h2>
+            <p className="text-[#8B5A2B]/70 text-sm max-w-xl mx-auto">
+              统一门户、统一身份认证、统一数据管理，为教师、家长提供一站式智慧服务
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-4">
+          {/* 入口卡片 */}
+          <div className="grid md:grid-cols-4 gap-5">
             {quickLinks.map((link, index) => {
               const Icon = link.icon;
               return (
                 <Link key={index} href="/login">
-                  <div className="bg-white/80 rounded-xl p-5 hover:shadow-md transition cursor-pointer group border border-[#E8DDD0]/50 hover:border-[#D4A574]/50">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-[#F5EDE4] rounded-xl flex items-center justify-center group-hover:bg-[#D4A574]/20 transition">
-                        <Icon className="h-6 w-6 text-[#8B5A2B] transition" />
+                  <div className="bg-white rounded-2xl p-6 hover:shadow-lg transition-all cursor-pointer group border border-[#E8DDD0]/50 hover:border-[#D4A574] hover:-translate-y-1">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-14 h-14 bg-gradient-to-br from-[#F5EDE4] to-[#E8DDD0] rounded-2xl flex items-center justify-center mb-4 group-hover:from-[#D4A574]/20 group-hover:to-[#D4A574]/10 transition-all">
+                        <Icon className="h-7 w-7 text-[#8B5A2B] group-hover:text-[#B8860B] transition" />
                       </div>
-                      <div>
-                        <h3 className="font-medium text-[#3D2314]">{link.title}</h3>
-                        <p className="text-sm text-[#8B5A2B]/60">{link.desc}</p>
+                      <h3 className="font-bold text-[#3D2314] mb-1">{link.title}</h3>
+                      <p className="text-sm text-[#8B5A2B]/60 mb-3">{link.desc}</p>
+                      <div className="flex items-center gap-1 text-[#D4A574] text-sm font-medium opacity-0 group-hover:opacity-100 transition">
+                        <span>进入系统</span>
+                        <ChevronRight className="h-4 w-4" />
                       </div>
-                      <ChevronRight className="h-5 w-5 text-[#E8DDD0] ml-auto group-hover:text-[#D4A574] transition" />
                     </div>
                   </div>
                 </Link>
               );
             })}
+          </div>
+
+          {/* 底部说明 */}
+          <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-[#8B5A2B]/60">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span>安全认证</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span>角色权限</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4" />
+              <span>智能分析</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span>数据互通</span>
+            </div>
           </div>
         </div>
       </section>
