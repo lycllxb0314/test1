@@ -464,59 +464,167 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 科创教育特色 */}
-      <section id="science-tech" className="py-20 bg-gradient-to-br from-[#1E3A5F] via-[#1E4976] to-[#2D5A87] text-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-white/10 text-white/90 px-4 py-1.5 rounded-full text-sm mb-4">
-              <Medal className="h-4 w-4" />
-              <span>王牌办学特色 · 区域标杆</span>
+      {/* 科创教育特色 - Bento Grid 风格 */}
+      <section id="science-tech" className="py-24 overflow-hidden">
+        {/* 背景装饰 */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-20 right-0 w-96 h-96 bg-[#B5651D]/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#C67B5C]/5 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-6 relative">
+          {/* 大标题 - 杂志风格 */}
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-[#B5651D]/30 max-w-[60px]" />
+              <span className="text-[#B5651D] text-sm font-medium tracking-wider">FEATURED PROGRAM</span>
             </div>
             <h2 
-              className="text-4xl font-bold mb-4"
+              className="text-6xl md:text-7xl font-bold text-[#2D2A26] leading-none"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
               科创教育
             </h2>
-            <p className="text-lg text-white/80">
+            <p className="text-xl text-[#8B8680] mt-4 max-w-xl">
               数字教育模式成为闽西区域标杆，全国领先
             </p>
           </div>
 
-          {/* 成果数据 */}
-          <div className="grid md:grid-cols-3 gap-6 mb-12">
-            {scienceTechAchievements.map((item, index) => (
-              <div 
-                key={index} 
-                className="text-center p-8 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20"
-              >
-                <div className="text-5xl font-bold text-white mb-1" style={{ fontFamily: 'var(--font-serif)' }}>
-                  {item.number}
-                  {item.unit && <span className="text-2xl text-white/70">{item.unit}</span>}
+          {/* Bento Grid 布局 */}
+          <div className="grid grid-cols-12 gap-5">
+            {/* 大卡片 - 少年科学院 */}
+            <div className="col-span-12 md:col-span-7 row-span-2 relative group">
+              <div className="h-full bg-gradient-to-br from-[#2D2A26] via-[#3D3A36] to-[#4D4A46] rounded-3xl p-8 md:p-10 overflow-hidden">
+                {/* 装饰图形 */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-[#B5651D]/20 rounded-full blur-2xl group-hover:bg-[#B5651D]/30 transition-all duration-700" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 border border-white/10 rounded-full" />
+                <div className="absolute top-20 right-20 w-32 h-32 border border-[#B5651D]/30 rounded-full" />
+                
+                <div className="relative z-10 h-full flex flex-col justify-between">
+                  <div>
+                    <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white/90 px-4 py-2 rounded-full text-sm mb-6">
+                      <Crown className="h-4 w-4 text-[#C67B5C]" />
+                      <span>龙岩市首个</span>
+                    </div>
+                    <h3 className="text-3xl md:text-4xl font-bold text-white mb-3" style={{ fontFamily: 'var(--font-serif)' }}>
+                      小学少年科学院
+                    </h3>
+                    <p className="text-white/60 text-lg">
+                      2025年12月正式成立，中科院谢华安院士指导
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-3 mt-8">
+                    {['院士科普', '科创竞赛', '跨学科项目', '小院士评选'].map((tag, i) => (
+                      <span key={i} className="px-5 py-2.5 bg-white/10 backdrop-blur-sm rounded-full text-sm text-white/80 border border-white/10">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-white/70">{item.label}</p>
+              </div>
+            </div>
+
+            {/* 数据卡片组 */}
+            <div className="col-span-12 md:col-span-5 grid grid-rows-3 gap-5">
+              {scienceTechAchievements.map((item, index) => (
+                <div 
+                  key={index} 
+                  className="bg-white rounded-2xl p-6 border border-[#E8E4DD] flex items-center gap-5 hover:border-[#B5651D]/30 hover:shadow-lg hover:shadow-[#B5651D]/5 transition-all duration-300"
+                >
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#B5651D] to-[#C67B5C] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Trophy className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-3xl font-bold text-[#B5651D]" style={{ fontFamily: 'var(--font-serif)' }}>
+                      {item.number}{item.unit}
+                    </div>
+                    <p className="text-[#8B8680] text-sm">{item.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 校训教风学风 - 杂志风格 */}
+      <section className="py-24 relative overflow-hidden">
+        {/* 背景纹理 */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#FAF8F5] via-white to-[#FAF8F5]" />
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-10 left-10 text-[20rem] font-bold text-[#B5651D]/5 leading-none" style={{ fontFamily: 'var(--font-serif)' }}>修</div>
+          <div className="absolute bottom-10 right-10 text-[20rem] font-bold text-[#C67B5C]/5 leading-none" style={{ fontFamily: 'var(--font-serif)' }}>慧</div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          {/* 校训 - 超大展示 */}
+          <div className="text-center mb-20">
+            <span className="inline-block px-4 py-1 bg-[#2D2A26] text-white text-xs tracking-widest mb-8">
+              百年传承 · 育人根本
+            </span>
+            
+            <h2 
+              className="text-7xl md:text-8xl lg:text-9xl font-bold text-[#2D2A26] leading-none tracking-tight"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              修身<span className="text-[#B5651D]">·</span>力学<span className="text-[#B5651D]">·</span>博雅<span className="text-[#B5651D]">·</span>聪慧
+            </h2>
+          </div>
+
+          {/* 四个校训解读 - 横向排列 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1 mb-20">
+            {schoolMotto.map((item, index) => (
+              <div key={index} className="group bg-white p-8 border border-[#E8E4DD] hover:bg-[#2D2A26] transition-all duration-500 cursor-default">
+                <div 
+                  className="text-6xl md:text-7xl font-bold mb-4 group-hover:text-white transition-colors"
+                  style={{ fontFamily: 'var(--font-serif)', color: '#B5651D' }}
+                >
+                  {item.character}
+                </div>
+                <div className="h-px w-12 bg-[#B5651D] mb-4 group-hover:bg-white/50 transition-colors" />
+                <p className="text-sm text-[#8B8680] group-hover:text-white/70 transition-colors leading-relaxed">
+                  {item.meaning}
+                </p>
               </div>
             ))}
           </div>
 
-          {/* 少年科学院 */}
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#B5651D] to-[#C67B5C] rounded-2xl flex items-center justify-center flex-shrink-0">
-                <Crown className="h-10 w-10 text-white" />
-              </div>
-              <div className="flex-1 text-center md:text-left">
-                <h3 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
-                  龙岩市首个小学少年科学院
+          {/* 教风与学风 - 并排对比 */}
+          <div className="grid md:grid-cols-2 gap-0 border border-[#E8E4DD] overflow-hidden">
+            {/* 教风 */}
+            <div className="bg-[#2D2A26] p-10 md:p-12 text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-[#B5651D]/10 rounded-full blur-2xl group-hover:bg-[#B5651D]/20 transition-all duration-700" />
+              <div className="relative z-10">
+                <span className="text-xs tracking-widest text-[#C67B5C] mb-4 block">教风 TEACHING STYLE</span>
+                <h3 
+                  className="text-2xl md:text-3xl font-bold mb-6 leading-relaxed"
+                  style={{ fontFamily: 'var(--font-serif)' }}
+                >
+                  身正为范<br/>博学善教<br/>儒雅灵性
                 </h3>
-                <p className="text-white/70 mb-4">
-                  2025年12月正式成立，聘请中国科学院谢华安院士担任指导专家
-                </p>
-                <div className="flex flex-wrap justify-center md:justify-start gap-2">
-                  {['院士科普', '科创竞赛', '跨学科项目', '小院士评选'].map((tag, i) => (
-                    <span key={i} className="px-4 py-1.5 bg-white/10 rounded-full text-sm text-white/90">
-                      {tag}
-                    </span>
+                <div className="flex flex-wrap gap-3">
+                  {teachingStyle.items.map((item, i) => (
+                    <span key={i} className="text-sm text-white/60 border-b border-white/20 pb-1">{item}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {/* 学风 */}
+            <div className="bg-white p-10 md:p-12 relative overflow-hidden group">
+              <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#B5651D]/5 rounded-full blur-2xl group-hover:bg-[#B5651D]/10 transition-all duration-700" />
+              <div className="relative z-10">
+                <span className="text-xs tracking-widest text-[#B5651D] mb-4 block">学风 STUDY STYLE</span>
+                <h3 
+                  className="text-2xl md:text-3xl font-bold mb-6 leading-relaxed text-[#2D2A26]"
+                  style={{ fontFamily: 'var(--font-serif)' }}
+                >
+                  品行高洁<br/>好学善思<br/>文雅活泼
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  {studyStyle.items.map((item, i) => (
+                    <span key={i} className="text-sm text-[#8B8680] border-b border-[#E8E4DD] pb-1">{item}</span>
                   ))}
                 </div>
               </div>
@@ -525,130 +633,71 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 校训教风学风 */}
-      <section className="py-20 bg-[#2D2A26] text-white">
-        <div className="max-w-7xl mx-auto px-6">
-          {/* 校训 */}
-          <div className="text-center mb-16">
-            <p className="text-[#C67B5C] text-sm mb-3 tracking-wider">百年传承 · 育人根本</p>
-            <h2 
-              className="text-4xl md:text-5xl font-bold mb-6"
-              style={{ fontFamily: 'var(--font-serif)' }}
-            >
-              修身 · 力学 · 博雅 · 聪慧
-            </h2>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-10">
-              {schoolMotto.map((item, index) => (
-                <div key={index} className="p-6 bg-white/5 rounded-xl border border-white/10">
-                  <div 
-                    className="text-4xl font-bold mb-2"
-                    style={{ fontFamily: 'var(--font-serif)', color: '#C67B5C' }}
-                  >
-                    {item.character}
-                  </div>
-                  <p className="text-sm text-white/70">{item.meaning}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 教风与学风 */}
-          <div className="grid md:grid-cols-2 gap-8 pt-10 border-t border-white/10">
-            <div className="text-center p-8 bg-white/5 rounded-xl">
-              <p className="text-[#C67B5C] text-sm mb-2">教风</p>
-              <h3 
-                className="text-xl font-bold mb-4"
-                style={{ fontFamily: 'var(--font-serif)' }}
-              >
-                {teachingStyle.title}
-              </h3>
-              <div className="flex justify-center gap-4">
-                {teachingStyle.items.map((item, i) => (
-                  <span key={i} className="text-sm text-white/70">{item}</span>
-                ))}
-              </div>
-            </div>
-            <div className="text-center p-8 bg-white/5 rounded-xl">
-              <p className="text-[#C67B5C] text-sm mb-2">学风</p>
-              <h3 
-                className="text-xl font-bold mb-4"
-                style={{ fontFamily: 'var(--font-serif)' }}
-              >
-                {studyStyle.title}
-              </h3>
-              <div className="flex justify-center gap-4">
-                {studyStyle.items.map((item, i) => (
-                  <span key={i} className="text-sm text-white/70">{item}</span>
-                ))}
-              </div>
-            </div>
-          </div>
+      {/* 办学资质与荣誉 - 荣誉墙设计 */}
+      <section id="honors" className="py-24 bg-[#2D2A26] relative overflow-hidden">
+        {/* 装饰元素 */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-1/4 w-px h-full bg-gradient-to-b from-transparent via-[#B5651D]/20 to-transparent" />
+          <div className="absolute top-0 right-1/4 w-px h-full bg-gradient-to-b from-transparent via-[#C67B5C]/20 to-transparent" />
         </div>
-      </section>
-
-      {/* 办学资质与荣誉 */}
-      <section id="honors" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-[#B5651D]/10 text-[#B5651D] px-4 py-1.5 rounded-full text-sm mb-4">
-              <Award className="h-4 w-4" />
-              <span>百年名校 · 权威认可</span>
+        
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          {/* 标题区 */}
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-4 mb-6">
+              <div className="h-px w-12 bg-[#B5651D]" />
+              <span className="text-[#C67B5C] text-sm tracking-widest">HONORS & AWARDS</span>
+              <div className="h-px w-12 bg-[#B5651D]" />
             </div>
             <h2 
-              className="text-3xl font-bold text-[#2D2A26] mb-2"
+              className="text-5xl md:text-6xl font-bold text-white mb-4"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              办学资质与荣誉
+              办学荣誉
             </h2>
-            <p className="text-[#5C5852]">国家、省、市三级权威认可</p>
+            <p className="text-white/50 text-lg">百年名校 · 国家、省、市三级权威认可</p>
           </div>
 
-          {/* 2025年最新资质 */}
-          <div className="grid md:grid-cols-2 gap-6 mb-12">
+          {/* 2025最新资质 - 突出展示 */}
+          <div className="grid md:grid-cols-2 gap-6 mb-16">
             {latestQualifications.map((item, index) => (
               <div 
                 key={index} 
-                className={`flex items-center gap-5 p-6 rounded-2xl border ${
-                  item.highlight 
-                    ? 'bg-gradient-to-r from-[#B5651D]/10 to-[#C67B5C]/10 border-[#B5651D]/30' 
-                    : 'bg-[#FAF8F5] border-[#E8E4DD]'
-                }`}
+                className="group relative bg-gradient-to-br from-[#B5651D] to-[#C67B5C] p-8 rounded-2xl overflow-hidden"
               >
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  item.highlight ? 'bg-[#B5651D]' : 'bg-[#C67B5C]'
-                }`}>
-                  <Trophy className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#2D2A26]">{item.title}</h3>
-                  <p className="text-sm text-[#5C5852]">{item.desc}</p>
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all duration-500" />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <span className="text-white/70 text-xs tracking-wider">2025 NEW</span>
+                    <Trophy className="h-8 w-8 text-white/80" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
+                  <p className="text-white/70">{item.desc}</p>
                 </div>
               </div>
             ))}
           </div>
 
+          {/* 荣誉分类展示 */}
           <div className="grid md:grid-cols-2 gap-8">
             {/* 国家级荣誉 */}
             <div>
-              <h3 className="text-lg font-bold text-[#2D2A26] mb-4 flex items-center gap-2">
-                <span className="w-1 h-5 bg-[#C62828] rounded-full" />
-                国家级核心荣誉
-              </h3>
-              <div className="space-y-3">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-3 h-3 bg-[#C62828] rounded-full animate-pulse" />
+                <h3 className="text-white font-bold tracking-wide">国家级核心荣誉</h3>
+              </div>
+              <div className="space-y-px">
                 {nationalHonors.map((honor, index) => (
                   <div 
                     key={index} 
-                    className={`p-4 rounded-xl border ${
-                      honor.highlight 
-                        ? 'bg-[#C62828]/5 border-[#C62828]/20' 
-                        : 'bg-[#FAF8F5] border-[#E8E4DD]'
-                    }`}
+                    className="group flex items-center justify-between p-5 bg-white/5 hover:bg-white/10 border-l-2 border-transparent hover:border-[#B5651D] transition-all duration-300 cursor-default"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-[#2D2A26]">{honor.title}</span>
-                      {honor.year && <span className="text-xs text-[#8B8680]">{honor.year}</span>}
-                    </div>
+                    <span className="text-white/90 group-hover:text-white transition-colors">{honor.title}</span>
+                    {honor.year && (
+                      <span className="text-xs text-[#B5651D] bg-[#B5651D]/10 px-3 py-1 rounded-full">
+                        {honor.year}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -656,24 +705,22 @@ export default function HomePage() {
 
             {/* 省级荣誉 */}
             <div>
-              <h3 className="text-lg font-bold text-[#2D2A26] mb-4 flex items-center gap-2">
-                <span className="w-1 h-5 bg-[#1565C0] rounded-full" />
-                省级核心荣誉
-              </h3>
-              <div className="space-y-3">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-3 h-3 bg-[#B5651D] rounded-full animate-pulse" />
+                <h3 className="text-white font-bold tracking-wide">省级核心荣誉</h3>
+              </div>
+              <div className="space-y-px">
                 {provincialHonors.map((honor, index) => (
                   <div 
                     key={index} 
-                    className={`p-4 rounded-xl border ${
-                      honor.highlight 
-                        ? 'bg-[#1565C0]/5 border-[#1565C0]/20' 
-                        : 'bg-[#FAF8F5] border-[#E8E4DD]'
-                    }`}
+                    className="group flex items-center justify-between p-5 bg-white/5 hover:bg-white/10 border-l-2 border-transparent hover:border-[#C67B5C] transition-all duration-300 cursor-default"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-[#2D2A26]">{honor.title}</span>
-                      {honor.year && <span className="text-xs text-[#8B8680]">{honor.year}</span>}
-                    </div>
+                    <span className="text-white/90 group-hover:text-white transition-colors">{honor.title}</span>
+                    {honor.year && (
+                      <span className="text-xs text-[#C67B5C] bg-[#C67B5C]/10 px-3 py-1 rounded-full">
+                        {honor.year}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -682,46 +729,64 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 师资队伍建设 */}
-      <section id="teacher" className="py-20 bg-[#FAF8F5]">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-[#B5651D]/10 text-[#B5651D] px-4 py-1.5 rounded-full text-sm mb-4">
-              <Users className="h-4 w-4" />
-              <span>当有情怀的老师</span>
+      {/* 师资队伍建设 - 现代卡片设计 */}
+      <section id="teacher" className="py-24 relative overflow-hidden">
+        <div className="absolute top-20 right-0 w-96 h-96 bg-[#B5651D]/5 rounded-full blur-3xl" />
+        
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          {/* 标题 */}
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-4">
+              <Users className="h-5 w-5 text-[#B5651D]" />
+              <span className="text-[#B5651D] text-sm tracking-wider">TEACHER DEVELOPMENT</span>
             </div>
             <h2 
-              className="text-3xl font-bold text-[#2D2A26] mb-2"
+              className="text-5xl md:text-6xl font-bold text-[#2D2A26] mb-4"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              师资队伍建设
+              师资队伍
             </h2>
-            <p className="text-[#5C5852]">青蓝工程 + 名师领航双轨培养体系</p>
+            <p className="text-[#8B8680] text-lg">青蓝工程 + 名师领航双轨培养体系</p>
           </div>
 
-          {/* 教师获奖统计 */}
-          <div className="grid grid-cols-3 gap-6 mb-12">
+          {/* 教师获奖统计 - 大数字展示 */}
+          <div className="grid md:grid-cols-3 gap-8 mb-16">
             {teacherStats.map((item, index) => (
-              <div key={index} className="bg-white p-8 rounded-2xl border border-[#E8E4DD] text-center">
-                <div className="text-4xl font-bold text-[#B5651D] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
-                  {item.number}
+              <div key={index} className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#B5651D] to-[#C67B5C] rounded-2xl transform group-hover:scale-105 transition-transform duration-300" style={{ opacity: 0.1 }} />
+                <div className="relative bg-white p-10 rounded-2xl border border-[#E8E4DD] text-center group-hover:border-[#B5651D]/30 transition-all duration-300">
+                  <div className="text-7xl font-bold text-[#B5651D] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+                    {item.number}
+                  </div>
+                  <p className="text-[#5C5852]">{item.label}</p>
                 </div>
-                <p className="text-sm text-[#5C5852]">{item.label}</p>
               </div>
             ))}
           </div>
 
-          {/* 学生成果 */}
+          {/* 学生成果 - 特色卡片 */}
+          <div className="mb-8">
+            <h3 className="text-lg font-bold text-[#2D2A26] mb-6 flex items-center gap-2">
+              <span className="w-8 h-px bg-[#B5651D]" />
+              学生竞赛成果
+            </h3>
+          </div>
           <div className="grid md:grid-cols-3 gap-6">
             {studentAchievements.map((item, index) => {
               const Icon = item.icon;
               return (
-                <div key={index} className="bg-white p-6 rounded-2xl border border-[#E8E4DD]">
-                  <div className="w-12 h-12 bg-[#B5651D]/10 rounded-xl flex items-center justify-center mb-4">
-                    <Icon className="h-6 w-6 text-[#B5651D]" />
+                <div 
+                  key={index} 
+                  className="group bg-white p-8 rounded-2xl border border-[#E8E4DD] hover:border-[#B5651D]/50 hover:shadow-xl hover:shadow-[#B5651D]/5 transition-all duration-300"
+                >
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="w-14 h-14 bg-[#2D2A26] rounded-xl flex items-center justify-center">
+                      <Icon className="h-7 w-7 text-[#C67B5C]" />
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-[#E8E4DD] group-hover:text-[#B5651D] group-hover:translate-x-1 transition-all" />
                   </div>
-                  <h4 className="font-bold text-[#2D2A26] mb-2">{item.title}</h4>
-                  <p className="text-[#B5651D] font-medium">{item.award}</p>
+                  <h4 className="text-lg font-bold text-[#2D2A26] mb-2 group-hover:text-[#B5651D] transition-colors">{item.title}</h4>
+                  <p className="text-[#B5651D] font-medium text-lg">{item.award}</p>
                 </div>
               );
             })}
