@@ -18,12 +18,13 @@
  * - 可被班级 Hook 引用和关联
  * - 提供按班级关联查询方法
  * 
- * ==================== 数据获取 ====================
- * - 使用统一分页配置 (src/lib/pagination-config.ts)
- * - 支持大数据量获取，确保获取所有教师数据
+ * ==================== 数据获取与分页架构 ====================
+ * - 后端全量获取数据（支持大数据量）
+ * - 内部集成前端分页（用户可选每页10/30/50条）
+ * - 支持筛选条件
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
 
 // ==================== 类型定义 ====================
@@ -245,16 +246,43 @@ export interface PaginationInfo {
   totalPages: number;
 }
 
+/** 前端分页控制 */
+export interface FrontendPaginationControl {
+  /** 当前页码 */
+  page: number;
+  /** 每页显示数量 */
+  pageSize: number;
+  /** 总数量 */
+  total: number;
+  /** 总页数 */
+  totalPages: number;
+  /** 每页数量选项 */
+  pageSizeOptions: readonly number[];
+  /** 跳转到指定页 */
+  goToPage: (page: number) => void;
+  /** 上一页 */
+  prevPage: () => void;
+  /** 下一页 */
+  nextPage: () => void;
+  /** 设置每页显示数量 */
+  setPageSize: (size: number) => void;
+}
+
 /** Hook 返回类型 */
 export interface UseTeachersReturn {
   // === 数据 ===
+  /** 当前页数据（前端分页后） */
   teachers: TeacherInfo[];
+  /** 全部数据（后端获取的所有数据） */
+  allTeachers: TeacherInfo[];
   loading: boolean;
   error: string | null;
   
   // === 统计 ===
   statistics: TeacherStatistics;
-  pagination: PaginationInfo;
+  
+  // === 前端分页（内部集成） ===
+  pagination: FrontendPaginationControl;
   
   // === 筛选 ===
   filters: TeacherFilters;
@@ -294,16 +322,21 @@ export interface UseTeachersReturn {
 // ==================== Hook 实现 ====================
 
 export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn {
-  const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
+  // === 数据状态 ===
+  const [allTeachers, setAllTeachers] = useState<TeacherInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // === 筛选状态 ===
   const [filters, setFilters] = useState<TeacherFilters>(initialFilters || {});
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    pageSize: 500,
-    total: 0,
-    totalPages: 0,
-  });
+  
+  // === 前端分页状态 ===
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState<number>(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE);
+  const pageSizeOptions = PAGINATION.PAGE_SIZE_OPTIONS;
+  
+  // 引用
+  const mountedRef = useRef(true);
   
   // 角色选项
   const roleOptions = useMemo(() => 
@@ -320,39 +353,82 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     })),
   []);
   
-  // 统计数据
+  // 统计数据（基于全部数据计算）
   const statistics = useMemo<TeacherStatistics>(() => {
     const byDepartment: Record<string, number> = {};
     const byTitle: Record<string, number> = {};
     
-    teachers.forEach(t => {
+    allTeachers.forEach(t => {
       byDepartment[t.department] = (byDepartment[t.department] || 0) + 1;
       byTitle[t.title] = (byTitle[t.title] || 0) + 1;
     });
     
     return {
-      total: teachers.length,
+      total: allTeachers.length,
       // 领导层
-      leaders: teachers.filter(t => 
+      leaders: allTeachers.filter(t => 
         t.primaryRole === 'principal' || t.primaryRole === 'secretary' || t.primaryRole === 'vice_principal'
       ).length,
       // 教师群体
-      headTeachers: teachers.filter(t => t.primaryRole === 'head_teacher').length,
-      subjectTeachers: teachers.filter(t => t.primaryRole === 'subject_teacher').length,
-      skillTeachers: teachers.filter(t => t.primaryRole === 'skill_teacher').length,
+      headTeachers: allTeachers.filter(t => t.primaryRole === 'head_teacher').length,
+      subjectTeachers: allTeachers.filter(t => t.primaryRole === 'subject_teacher').length,
+      skillTeachers: allTeachers.filter(t => t.primaryRole === 'skill_teacher').length,
       // 兼任职务统计
-      gradeLeaders: teachers.filter(t => t.additionalRoles.includes('grade_leader')).length,
-      researchGroupLeaders: teachers.filter(t => 
+      gradeLeaders: allTeachers.filter(t => t.additionalRoles.includes('grade_leader')).length,
+      researchGroupLeaders: allTeachers.filter(t => 
         t.additionalRoles.includes('research_group_leader') || t.additionalRoles.includes('research_group_deputy_leader')
       ).length,
-      youngPioneerCounselors: teachers.filter(t => 
+      youngPioneerCounselors: allTeachers.filter(t => 
         t.additionalRoles.includes('young_pioneer_counselor')
       ).length,
-      departments: new Set(teachers.map(t => t.department)).size,
+      departments: new Set(allTeachers.map(t => t.department)).size,
       byDepartment,
       byTitle,
     };
-  }, [teachers]);
+  }, [allTeachers]);
+  
+  // === 前端分页计算 ===
+  const total = allTeachers.length;
+  const totalPages = Math.ceil(total / pageSize);
+  
+  // 当前页数据
+  const teachers = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return allTeachers.slice(start, end);
+  }, [allTeachers, page, pageSize]);
+  
+  // 分页操作方法
+  const goToPage = useCallback((newPage: number) => {
+    const validPage = Math.max(1, Math.min(newPage, totalPages || 1));
+    setPage(validPage);
+  }, [totalPages]);
+  
+  const prevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1));
+  }, []);
+  
+  const nextPage = useCallback(() => {
+    setPage(p => Math.min(totalPages, p + 1));
+  }, [totalPages]);
+  
+  const handleSetPageSize = useCallback((newSize: number) => {
+    setPageSizeState(newSize);
+    setPage(1); // 重置到第一页
+  }, []);
+  
+  // 分页控制对象
+  const pagination: FrontendPaginationControl = useMemo(() => ({
+    page,
+    pageSize,
+    total,
+    totalPages,
+    pageSizeOptions,
+    goToPage,
+    prevPage,
+    nextPage,
+    setPageSize: handleSetPageSize,
+  }), [page, pageSize, total, totalPages, pageSizeOptions, goToPage, prevPage, nextPage, handleSetPageSize]);
   
   // 获取教师列表
   const fetchTeachers = useCallback(async () => {
@@ -424,15 +500,9 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           createdAt: t.created_at as string,
           updatedAt: t.updated_at as string,
         }));
-        setTeachers(formattedTeachers);
-        
-        if (result.pagination) {
-          setPagination(prev => ({
-            ...prev,
-            total: result.pagination.total,
-            totalPages: result.pagination.totalPages,
-          }));
-        }
+        setAllTeachers(formattedTeachers);
+        // 重置到第一页
+        setPage(1);
       }
     } catch (err) {
       console.error('获取教师数据失败:', err);
@@ -442,36 +512,36 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     }
   }, []);
   
-  // 根据ID获取教师
+  // 根据ID获取教师（基于全部数据）
   const getTeacherById = useCallback((id: string) => 
-    teachers.find(t => t.id === id),
-  [teachers]);
+    allTeachers.find(t => t.id === id),
+  [allTeachers]);
   
-  // 根据角色获取教师
+  // 根据角色获取教师（基于全部数据）
   const getTeachersByRole = useCallback((role: TeacherRole) => 
-    teachers.filter(t => t.primaryRole === role),
-  [teachers]);
+    allTeachers.filter(t => t.primaryRole === role),
+  [allTeachers]);
   
-  // 根据部门获取教师
+  // 根据部门获取教师（基于全部数据）
   const getTeachersByDepartment = useCallback((department: string) => 
-    teachers.filter(t => t.department === department),
-  [teachers]);
+    allTeachers.filter(t => t.department === department),
+  [allTeachers]);
   
-  // 根据班级获取班主任
+  // 根据班级获取班主任（基于全部数据）
   const getHeadTeacherByClass = useCallback((classId: string) => 
-    teachers.find(t => t.headTeacherClassId === classId),
-  [teachers]);
+    allTeachers.find(t => t.headTeacherClassId === classId),
+  [allTeachers]);
   
-  // 根据年级获取教师（可任教该年级的教师）
+  // 根据年级获取教师（基于全部数据）
   const getTeachersByGrade = useCallback((grade: number) => 
-    teachers.filter(t => t.teachableGrades.includes(grade)),
-  [teachers]);
+    allTeachers.filter(t => t.teachableGrades.includes(grade)),
+  [allTeachers]);
   
-  // 获取年段长
+  // 获取年段长（基于全部数据）
   const getGradeLeader = useCallback((grade: number) => 
-    teachers.find(t => t.additionalRoles.includes('grade_leader')),
+    allTeachers.find(t => t.additionalRoles.includes('grade_leader')),
     // TODO: 实际应该根据年级段长配置来查找
-  [teachers]);
+  [allTeachers]);
   
   // 创建教师
   const createTeacher = useCallback(async (data: Partial<TeacherInfo>): Promise<boolean> => {
@@ -506,7 +576,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
       
       if (response.ok) {
         // 更新本地状态
-        setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+        setAllTeachers(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
         return true;
       }
       return false;
@@ -526,7 +596,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
       const result = await response.json();
       
       if (result.success) {
-        setTeachers(prev => prev.filter(t => t.id !== id));
+        setAllTeachers(prev => prev.filter(t => t.id !== id));
         return true;
       }
       return false;
@@ -555,7 +625,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
       
       if (response.ok) {
         // 更新本地状态
-        setTeachers(prev => prev.map(t => 
+        setAllTeachers(prev => prev.map(t => 
           t.id === config.teacherId 
             ? { 
                 ...t, 
@@ -627,7 +697,9 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
   
   return {
     // 数据
+    // 数据
     teachers,
+    allTeachers,
     loading,
     error,
     statistics,

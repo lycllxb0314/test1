@@ -102,10 +102,9 @@ export default function ClassManagePage() {
   const classId = user?.classId || '';
   const className = user?.className || '我的班级';
 
-  // 使用统一 Hook 获取学生列表
+  // 使用统一 Hook 获取学生列表（全部数据）
   const { 
-    students: allStudents, 
-    total,
+    allStudents,
     loading, 
     error, 
     refetch,
@@ -129,10 +128,13 @@ export default function ClassManagePage() {
     return filtered;
   }, [allStudents, classId, searchTerm, statusFilter]);
 
-  // 前端分页
+  // 前端分页（基于筛选后的数据）
   const pagination = useFrontendPagination(students, { 
     defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
   });
+  
+  // 总数使用筛选后的数据长度
+  const totalStudents = students.length;
 
   // 学生操作状态
   const [mutationLoading, setMutationLoading] = useState(false);
@@ -233,7 +235,6 @@ export default function ClassManagePage() {
   }
 
   // 统计数据
-  const totalStudents = total;
   const presentCount = students.filter(s => s.status === '在校').length;
   const leaveCount = students.filter(s => s.status === '请假').length;
   const maleCount = students.filter(s => s.gender === 'male').length;

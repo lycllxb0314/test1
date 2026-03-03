@@ -23,7 +23,7 @@
  * - 支持大数据量获取，确保获取所有学生数据
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
 import type { 
   Parent, 
@@ -118,16 +118,43 @@ export interface PaginationInfo {
   totalPages: number;
 }
 
+/** 前端分页控制 */
+export interface FrontendPaginationControl {
+  /** 当前页码 */
+  page: number;
+  /** 每页显示数量 */
+  pageSize: number;
+  /** 总数量 */
+  total: number;
+  /** 总页数 */
+  totalPages: number;
+  /** 每页数量选项 */
+  pageSizeOptions: readonly number[];
+  /** 跳转到指定页 */
+  goToPage: (page: number) => void;
+  /** 上一页 */
+  prevPage: () => void;
+  /** 下一页 */
+  nextPage: () => void;
+  /** 设置每页显示数量 */
+  setPageSize: (size: number) => void;
+}
+
 /** Hook 返回类型 */
 export interface UseStudentsReturn {
   // === 数据 ===
+  /** 当前页数据（前端分页后） */
   students: StudentInfo[];
+  /** 全部数据（后端获取的所有数据） */
+  allStudents: StudentInfo[];
   loading: boolean;
   error: string | null;
   
   // === 统计 ===
   statistics: StudentStatistics;
-  total: number; // 总数量（供前端分页使用）
+  
+  // === 前端分页（内部集成） ===
+  pagination: FrontendPaginationControl;
   
   // === 筛选 ===
   filters: StudentFilters;
@@ -182,13 +209,19 @@ const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '�
 // ==================== Hook 实现 ====================
 
 export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn {
-  const [students, setStudents] = useState<StudentInfo[]>([]);
+  // === 数据状态 ===
+  const [allStudents, setAllStudents] = useState<StudentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // === 筛选状态 ===
   const [filters, setFilters] = useState<StudentFilters>(initialFilters || {});
   
-  // 总数量（用于前端分页）
-  const [total, setTotal] = useState(0);
+  // === 前端分页状态 ===
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState<number>(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE);
+  const pageSizeOptions = PAGINATION.PAGE_SIZE_OPTIONS;
+  
   // 使用统一分页配置的 maxTotal 作为获取上限
   const fetchPageSize = PAGINATION.ENTITY_CONFIG.students.maxTotal;
   
@@ -203,13 +236,16 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     classCount: number;
   } | null>(null);
   
-  // 统计数据（优先使用API返回的全局统计）
+  // 引用
+  const mountedRef = useRef(true);
+  
+  // 统计数据（优先使用API返回的全局统计，基于全部数据）
   const statistics = useMemo<StudentStatistics>(() => {
     const gradeDistribution: Record<number, number> = {};
     const statusDistribution: Record<string, number> = {};
     const familyTypeDistribution: Record<string, number> = {};
     
-    students.forEach(s => {
+    allStudents.forEach(s => {
       // 年级分布
       gradeDistribution[s.grade] = (gradeDistribution[s.grade] || 0) + 1;
       
@@ -223,15 +259,58 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     });
     
     return {
-      total: total, // 使用total作为全局总数
-      maleCount: apiStatistics?.maleCount ?? students.filter(s => s.gender === 'male').length,
-      femaleCount: apiStatistics?.femaleCount ?? students.filter(s => s.gender === 'female').length,
-      classCount: apiStatistics?.classCount ?? new Set(students.map(s => s.classId)).size,
+      total: allStudents.length, // 使用全部数据长度作为总数
+      maleCount: apiStatistics?.maleCount ?? allStudents.filter(s => s.gender === 'male').length,
+      femaleCount: apiStatistics?.femaleCount ?? allStudents.filter(s => s.gender === 'female').length,
+      classCount: apiStatistics?.classCount ?? new Set(allStudents.map(s => s.classId)).size,
       gradeDistribution,
       statusDistribution,
       familyTypeDistribution,
     };
-  }, [students, total, apiStatistics]);
+  }, [allStudents, apiStatistics]);
+  
+  // === 前端分页计算 ===
+  const total = allStudents.length;
+  const totalPages = Math.ceil(total / pageSize);
+  
+  // 当前页数据
+  const students = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return allStudents.slice(start, end);
+  }, [allStudents, page, pageSize]);
+  
+  // 分页操作方法
+  const goToPage = useCallback((newPage: number) => {
+    const validPage = Math.max(1, Math.min(newPage, totalPages || 1));
+    setPage(validPage);
+  }, [totalPages]);
+  
+  const prevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1));
+  }, []);
+  
+  const nextPage = useCallback(() => {
+    setPage(p => Math.min(totalPages, p + 1));
+  }, [totalPages]);
+  
+  const handleSetPageSize = useCallback((newSize: number) => {
+    setPageSizeState(newSize);
+    setPage(1); // 重置到第一页
+  }, []);
+  
+  // 分页控制对象
+  const pagination: FrontendPaginationControl = useMemo(() => ({
+    page,
+    pageSize,
+    total,
+    totalPages,
+    pageSizeOptions,
+    goToPage,
+    prevPage,
+    nextPage,
+    setPageSize: handleSetPageSize,
+  }), [page, pageSize, total, totalPages, pageSizeOptions, goToPage, prevPage, nextPage, handleSetPageSize]);
   
   // 获取学生列表（全量获取，支持筛选）
   const fetchStudents = useCallback(async () => {
@@ -294,12 +373,9 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           updatedAt: s.updated_at as string,
         }));
         
-        setStudents(formattedStudents);
-        
-        // 更新总数（用于前端分页）
-        if (result.pagination) {
-          setTotal(result.pagination.total);
-        }
+        setAllStudents(formattedStudents);
+        // 重置到第一页
+        setPage(1);
         
         // 保存API返回的统计数据
         if (result.statistics) {
@@ -314,40 +390,40 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     }
   }, [filters, fetchPageSize]);
   
-  // 根据ID获取学生
+  // 根据ID获取学生（基于全部数据）
   const getStudentById = useCallback((id: string) => 
-    students.find(s => s.id === id),
-  [students]);
+    allStudents.find(s => s.id === id),
+  [allStudents]);
   
-  // 根据班级获取学生（核心方法：班级归属查询）
+  // 根据班级获取学生（核心方法：班级归属查询，基于全部数据）
   const getStudentsByClass = useCallback((classId: string) => 
-    students.filter(s => s.classId === classId),
-  [students]);
+    allStudents.filter(s => s.classId === classId),
+  [allStudents]);
   
-  // 根据年级获取学生
+  // 根据年级获取学生（基于全部数据）
   const getStudentsByGrade = useCallback((grade: number) => 
-    students.filter(s => s.grade === grade),
-  [students]);
+    allStudents.filter(s => s.grade === grade),
+  [allStudents]);
   
-  // 根据状态获取学生
+  // 根据状态获取学生（基于全部数据）
   const getStudentsByStatus = useCallback((status: StudentStatus) => 
-    students.filter(s => s.status === status),
-  [students]);
+    allStudents.filter(s => s.status === status),
+  [allStudents]);
   
-  // 获取学生的家长列表
+  // 获取学生的家长列表（基于全部数据）
   const getParentsByStudent = useCallback((studentId: string): Parent[] => {
-    const student = students.find(s => s.id === studentId);
+    const student = allStudents.find(s => s.id === studentId);
     return student?.parents || [];
-  }, [students]);
+  }, [allStudents]);
   
-  // 获取学生的主要联系人（家长）
+  // 获取学生的主要联系人（家长，基于全部数据）
   const getPrimaryParent = useCallback((studentId: string): Parent | undefined => {
-    const student = students.find(s => s.id === studentId);
+    const student = allStudents.find(s => s.id === studentId);
     if (!student?.parents || student.parents.length === 0) return undefined;
     return student.parents.find(p => p.isPrimary) || student.parents[0];
-  }, [students]);
+  }, [allStudents]);
   
-  // 获取班级所有家长
+  // 获取班级所有家长（基于全部数据）
   const getParentsByClass = useCallback((classId: string): Parent[] => {
     const classStudents = students.filter(s => s.classId === classId);
     const parents: Parent[] = [];
@@ -407,7 +483,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           parents: result.data.parents || [],
           status: result.data.status || '在校',
         };
-        setStudents(prev => [...prev, newStudent]);
+        setAllStudents(prev => [...prev, newStudent]);
         return true;
       }
       return false;
@@ -439,7 +515,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const result = await response.json();
       
       if (result.success) {
-        setStudents(prev => prev.map(s => {
+        setAllStudents(prev => prev.map(s => {
           if (s.id === id) {
             return { ...s, ...data };
           }
@@ -464,7 +540,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const result = await response.json();
       
       if (result.success) {
-        setStudents(prev => prev.filter(s => s.id !== id));
+        setAllStudents(prev => prev.filter(s => s.id !== id));
         return true;
       }
       return false;
@@ -492,7 +568,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const result = await response.json();
       
       if (result.success) {
-        setStudents(prev => prev.map(s => {
+        setAllStudents(prev => prev.map(s => {
           if (ids.includes(s.id)) {
             return { ...s, ...data };
           }
@@ -636,10 +712,11 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   return {
     // 数据
     students,
+    allStudents,
     loading,
     error,
     statistics,
-    total, // 总数量（供前端分页使用）
+    pagination,
     
     // 筛选
     filters,

@@ -29,7 +29,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useStudents, type StudentStatus, type StudentInfo } from '@/hooks/useStudents';
-import { useFrontendPagination } from '@/hooks/useApi';
 import { PAGINATION } from '@/lib/pagination-config';
 import {
   Dialog,
@@ -101,22 +100,17 @@ const getGenderStyle = (gender: string) => {
 export default function StudentsPage() {
   const router = useRouter();
   
-  // 使用统一Hook获取学生列表（全量数据）
+  // 使用统一Hook获取学生列表（内置前端分页）
   const { 
-    students, 
+    students,           // 当前页数据
     statistics, 
-    total,
+    pagination,         // 分页控制（内置）
     loading, 
     error, 
     refetch,
     deleteStudent,
     setFilters,
   } = useStudents();
-  
-  // 前端分页
-  const pagination = useFrontendPagination(students, { 
-    defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
-  });
   
   // 搜索和筛选状态
   const [searchTerm, setSearchTerm] = useState('');
@@ -346,7 +340,7 @@ export default function StudentsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pagination.paginatedData.map((student: StudentInfo) => {
+                  {students.map((student: StudentInfo) => {
                     const genderStyle = getGenderStyle(student.gender);
                     return (
                       <TableRow key={student.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => handleViewDetail(student.id)}>

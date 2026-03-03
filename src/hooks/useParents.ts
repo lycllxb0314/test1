@@ -98,6 +98,28 @@ export interface ParentStatistics {
   classCount: number;
 }
 
+/** 前端分页控制 */
+export interface FrontendPaginationControl {
+  /** 当前页码 */
+  page: number;
+  /** 每页显示数量 */
+  pageSize: number;
+  /** 总数量 */
+  total: number;
+  /** 总页数 */
+  totalPages: number;
+  /** 每页数量选项 */
+  pageSizeOptions: readonly number[];
+  /** 跳转到指定页 */
+  goToPage: (page: number) => void;
+  /** 上一页 */
+  prevPage: () => void;
+  /** 下一页 */
+  nextPage: () => void;
+  /** 设置每页显示数量 */
+  setPageSize: (size: number) => void;
+}
+
 /** 家长通知设置 */
 export interface ParentNotificationSettings {
   homework: boolean;
@@ -120,12 +142,18 @@ export interface ParentMessage {
 /** Hook 返回类型 */
 export interface UseParentsReturn {
   // === 数据 ===
+  /** 当前页数据（前端分页后） */
   parents: ParentInfo[];
+  /** 全部数据（后端获取的所有数据） */
+  allParents: ParentInfo[];
   loading: boolean;
   error: string | null;
   
   // === 统计 ===
   statistics: ParentStatistics;
+  
+  // === 前端分页（内部集成） ===
+  pagination: FrontendPaginationControl;
   
   // === 筛选 ===
   filters: ParentFilters;
@@ -178,28 +206,33 @@ const RELATION_NAMES: Record<ParentRelation, string> = {
 // ==================== Hook 实现 ====================
 
 export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
-  const [parents, setParents] = useState<ParentInfo[]>([]);
+  const [allParents, setAllParents] = useState<ParentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ParentFilters>(initialFilters || {});
   const [messages, setMessages] = useState<ParentMessage[]>([]);
   
-  // 统计数据
+  // === 前端分页状态 ===
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState<number>(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE);
+  const pageSizeOptions = PAGINATION.PAGE_SIZE_OPTIONS;
+  
+  // 统计数据（基于全部数据）
   const statistics = useMemo<ParentStatistics>(() => {
     const relationDistribution: Record<string, number> = {};
     
-    parents.forEach(p => {
+    allParents.forEach(p => {
       relationDistribution[p.relation] = (relationDistribution[p.relation] || 0) + 1;
     });
     
     return {
-      total: parents.length,
-      hasAccountCount: parents.filter(p => p.hasAccount).length,
-      primaryParentCount: parents.filter(p => p.isPrimary).length,
+      total: allParents.length,
+      hasAccountCount: allParents.filter(p => p.hasAccount).length,
+      primaryParentCount: allParents.filter(p => p.isPrimary).length,
       relationDistribution,
-      classCount: new Set(parents.map(p => p.classId)).size,
+      classCount: new Set(allParents.map(p => p.classId)).size,
     };
-  }, [parents]);
+  }, [allParents]);
   
   // 获取家长列表
   const fetchParents = useCallback(async () => {
@@ -260,7 +293,7 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
           updatedAt: p.updated_at as string,
         }));
         
-        setParents(formattedParents);
+        setAllParents(formattedParents);
       }
     } catch (err) {
       console.error('获取家长数据失败:', err);
@@ -270,31 +303,111 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
     }
   }, [filters]);
   
-  // 根据ID获取家长
+  // === 筛选后的数据 ===
+  const filteredParents = useMemo(() => {
+    let result = allParents;
+    
+    // 搜索筛选
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      result = result.filter(p => 
+        p.name.toLowerCase().includes(searchLower) ||
+        p.studentName.toLowerCase().includes(searchLower) ||
+        (p.phone && p.phone.includes(filters.search!))
+      );
+    }
+    
+    // 班级筛选
+    if (filters.classId && filters.classId !== 'all') {
+      result = result.filter(p => p.classId === filters.classId);
+    }
+    
+    // 学生筛选
+    if (filters.studentId && filters.studentId !== 'all') {
+      result = result.filter(p => p.studentId === filters.studentId);
+    }
+    
+    // 关系筛选
+    if (filters.relation && filters.relation !== 'all') {
+      result = result.filter(p => p.relation === filters.relation);
+    }
+    
+    // 账号状态筛选
+    if (filters.hasAccount !== undefined && filters.hasAccount !== 'all') {
+      result = result.filter(p => p.hasAccount === filters.hasAccount);
+    }
+    
+    return result;
+  }, [allParents, filters]);
+  
+  // === 前端分页计算 ===
+  const total = filteredParents.length;
+  const totalPages = Math.ceil(total / pageSize);
+  
+  // 当前页数据
+  const parents = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredParents.slice(start, end);
+  }, [filteredParents, page, pageSize]);
+  
+  // 分页操作方法
+  const goToPage = useCallback((newPage: number) => {
+    const validPage = Math.max(1, Math.min(newPage, totalPages || 1));
+    setPage(validPage);
+  }, [totalPages]);
+  
+  const prevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1));
+  }, []);
+  
+  const nextPage = useCallback(() => {
+    setPage(p => Math.min(totalPages, p + 1));
+  }, [totalPages]);
+  
+  const handleSetPageSize = useCallback((newSize: number) => {
+    setPageSizeState(newSize);
+    setPage(1); // 重置到第一页
+  }, []);
+  
+  // 分页控制对象
+  const pagination: FrontendPaginationControl = useMemo(() => ({
+    page,
+    pageSize,
+    total,
+    totalPages,
+    pageSizeOptions,
+    goToPage,
+    prevPage,
+    nextPage,
+    setPageSize: handleSetPageSize,
+  }), [page, pageSize, total, totalPages, pageSizeOptions, goToPage, prevPage, nextPage, handleSetPageSize]);
+  
+  // 根据ID获取家长（从全部数据中查找）
   const getParentById = useCallback((id: string) => 
-    parents.find(p => p.id === id),
-  [parents]);
+    allParents.find(p => p.id === id),
+  [allParents]);
   
-  // 根据学生获取家长（核心方法：学生绑定查询）
+  // 根据学生获取家长（从全部数据中查找）
   const getParentsByStudent = useCallback((studentId: string) => 
-    parents.filter(p => p.studentId === studentId),
-  [parents]);
+    allParents.filter(p => p.studentId === studentId),
+  [allParents]);
   
-  // 获取学生的主要家长
+  // 获取学生的主要家长（从全部数据中查找）
   const getPrimaryParentByStudent = useCallback((studentId: string): ParentInfo | undefined => {
-    const studentParents = parents.filter(p => p.studentId === studentId);
+    const studentParents = allParents.filter(p => p.studentId === studentId);
     return studentParents.find(p => p.isPrimary) || studentParents[0];
-  }, [parents]);
+  }, [allParents]);
   
-  // 根据班级获取家长（通过学生关联）
+  // 根据班级获取家长（从全部数据中查找）
   const getParentsByClass = useCallback((classId: string) => 
-    parents.filter(p => p.classId === classId),
-  [parents]);
+    allParents.filter(p => p.classId === classId),
+  [allParents]);
   
-  // 根据年级获取家长
+  // 根据年级获取家长（从全部数据中查找）
   const getParentsByGrade = useCallback((grade: number) => 
-    parents.filter(p => p.grade === grade),
-  [parents]);
+    allParents.filter(p => p.grade === grade),
+  [allParents]);
   
   // 创建家长（studentId 必填）
   const createParent = useCallback(async (
@@ -341,7 +454,7 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
           isPrimary: result.data.is_primary || false,
           hasAccount: false,
         };
-        setParents(prev => [...prev, newParent]);
+        setAllParents(prev => [...prev, newParent]);
         return true;
       }
       return false;
@@ -373,7 +486,7 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
       const result = await response.json();
       
       if (result.success) {
-        setParents(prev => prev.map(p => {
+        setAllParents(prev => prev.map(p => {
           if (p.id === id) {
             return { 
               ...p, 
@@ -402,7 +515,7 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
       const result = await response.json();
       
       if (result.success) {
-        setParents(prev => prev.filter(p => p.id !== id));
+        setAllParents(prev => prev.filter(p => p.id !== id));
         return true;
       }
       return false;
@@ -425,7 +538,7 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
       
       if (result.success) {
         // 更新本地状态：将同学生的其他家长设为非主要
-        setParents(prev => prev.map(p => {
+        setAllParents(prev => prev.map(p => {
           if (p.studentId === studentId) {
             return { ...p, isPrimary: p.id === parentId };
           }
@@ -450,7 +563,7 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
       const result = await response.json();
       
       if (result.success) {
-        setParents(prev => prev.map(p => {
+        setAllParents(prev => prev.map(p => {
           if (p.id === parentId) {
             return { ...p, hasAccount: true, userId: result.data?.userId };
           }
@@ -495,7 +608,7 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
       const result = await response.json();
       
       if (result.success) {
-        setParents(prev => prev.map(p => {
+        setAllParents(prev => prev.map(p => {
           if (p.id === parentId) {
             return { 
               ...p, 
@@ -579,10 +692,12 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
   
   return {
     // 数据
+    allParents,
     parents,
     loading,
     error,
     statistics,
+    pagination,
     
     // 筛选
     filters,

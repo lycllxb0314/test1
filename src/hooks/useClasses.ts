@@ -188,16 +188,39 @@ export interface PaginationInfo {
   totalPages: number;
 }
 
+/** 前端分页控制 */
+export interface FrontendPaginationControl {
+  /** 当前页码 */
+  page: number;
+  /** 每页显示数量 */
+  pageSize: number;
+  /** 总数量 */
+  total: number;
+  /** 总页数 */
+  totalPages: number;
+  /** 每页数量选项 */
+  pageSizeOptions: readonly number[];
+  /** 跳转到指定页 */
+  goToPage: (page: number) => void;
+  /** 上一页 */
+  prevPage: () => void;
+  /** 下一页 */
+  nextPage: () => void;
+  /** 设置每页显示数量 */
+  setPageSize: (size: number) => void;
+}
+
 /** Hook 返回类型 */
 export interface UseClassesReturn {
   // === 数据 ===
-  classes: ClassContainer[];
+  allClasses: ClassContainer[];     // 全部班级数据（用于统计等）
+  classes: ClassContainer[];        // 当前页班级数据
   loading: boolean;
   error: string | null;
   
   // === 统计 ===
   statistics: ClassStatistics;
-  pagination: PaginationInfo;
+  pagination: FrontendPaginationControl;  // 前端分页控制
   
   // === 筛选 ===
   filters: ClassFilters;
@@ -235,41 +258,40 @@ const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '�
 // ==================== Hook 实现 ====================
 
 export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
-  const [classes, setClasses] = useState<ClassContainer[]>([]);
+  const [allClasses, setAllClasses] = useState<ClassContainer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ClassFilters>(initialFilters || {});
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    pageSize: PAGINATION.ENTITY_CONFIG.classes.fetchPageSize, // 使用统一分页配置
-    total: 0,
-    totalPages: 0,
-  });
   
-  // 统计数据
+  // === 前端分页状态 ===
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState<number>(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE);
+  const pageSizeOptions = PAGINATION.PAGE_SIZE_OPTIONS;
+  
+  // 统计数据（基于全部数据）
   const statistics = useMemo<ClassStatistics>(() => {
     const gradeDistribution: Record<number, number> = {};
     
-    classes.forEach(c => {
+    allClasses.forEach(c => {
       gradeDistribution[c.grade] = (gradeDistribution[c.grade] || 0) + 1;
     });
     
-    const totalStudents = classes.reduce((sum, c) => sum + c.studentCount, 0);
-    const totalParents = classes.reduce((sum, c) => sum + c.parentCount, 0);
+    const totalStudents = allClasses.reduce((sum, c) => sum + c.studentCount, 0);
+    const totalParents = allClasses.reduce((sum, c) => sum + c.parentCount, 0);
     
     return {
-      totalClasses: classes.length,
-      activeClasses: classes.filter(c => c.status === 'active').length,
-      inactiveClasses: classes.filter(c => c.status !== 'active').length,
+      totalClasses: allClasses.length,
+      activeClasses: allClasses.filter(c => c.status === 'active').length,
+      inactiveClasses: allClasses.filter(c => c.status !== 'active').length,
       totalStudents,
       totalParents,
-      classesWithSubTeacher: classes.filter(c => c.subTeacherId).length,
-      classesWithoutSubTeacher: classes.filter(c => !c.subTeacherId).length,
+      classesWithSubTeacher: allClasses.filter(c => c.subTeacherId).length,
+      classesWithoutSubTeacher: allClasses.filter(c => !c.subTeacherId).length,
       gradeDistribution,
-      avgStudentsPerClass: classes.length > 0 ? Math.round(totalStudents / classes.length) : 0,
-      avgParentsPerClass: classes.length > 0 ? Math.round(totalParents / classes.length) : 0,
+      avgStudentsPerClass: allClasses.length > 0 ? Math.round(totalStudents / allClasses.length) : 0,
+      avgParentsPerClass: allClasses.length > 0 ? Math.round(totalParents / allClasses.length) : 0,
     };
-  }, [classes]);
+  }, [allClasses]);
   
   // 获取班级列表（含学生和家长）
   const fetchClasses = useCallback(async () => {
@@ -460,16 +482,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
         }
       );
       
-      setClasses(classContainers);
-      
-      // 更新分页信息
-      if (classesData.pagination) {
-        setPagination(prev => ({
-          ...prev,
-          total: classesData.pagination.total,
-          totalPages: classesData.pagination.totalPages,
-        }));
-      }
+      setAllClasses(classContainers);
     } catch (err) {
       console.error('获取班级数据失败:', err);
       setError(err instanceof Error ? err.message : '获取班级数据失败');
@@ -478,38 +491,112 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
     }
   }, []);
   
-  // 根据ID获取班级
+  // 筛选后的数据
+  const filteredClasses = useMemo(() => {
+    let result = allClasses;
+    
+    // 搜索筛选
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      result = result.filter(c => 
+        c.name.toLowerCase().includes(searchLower) ||
+        c.headTeacherName.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // 年级筛选
+    if (filters.grade && filters.grade !== 'all') {
+      result = result.filter(c => c.grade === filters.grade);
+    }
+    
+    // 状态筛选
+    if (filters.status && filters.status !== 'all') {
+      result = result.filter(c => c.status === filters.status);
+    }
+    
+    // 班主任筛选
+    if (filters.headTeacherId) {
+      result = result.filter(c => c.headTeacherId === filters.headTeacherId);
+    }
+    
+    return result;
+  }, [allClasses, filters]);
+  
+  // === 前端分页计算 ===
+  const total = filteredClasses.length;
+  const totalPages = Math.ceil(total / pageSize);
+  
+  // 前端分页后的当前页数据
+  const classes = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredClasses.slice(start, end);
+  }, [filteredClasses, page, pageSize]);
+  
+  // 分页操作方法
+  const goToPage = useCallback((newPage: number) => {
+    const validPage = Math.max(1, Math.min(newPage, totalPages || 1));
+    setPage(validPage);
+  }, [totalPages]);
+  
+  const prevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1));
+  }, []);
+  
+  const nextPage = useCallback(() => {
+    setPage(p => Math.min(totalPages, p + 1));
+  }, [totalPages]);
+  
+  const handleSetPageSize = useCallback((newSize: number) => {
+    setPageSizeState(newSize);
+    setPage(1); // 重置到第一页
+  }, []);
+  
+  // 分页控制对象
+  const pagination: FrontendPaginationControl = useMemo(() => ({
+    page,
+    pageSize,
+    total,
+    totalPages,
+    pageSizeOptions,
+    goToPage,
+    prevPage,
+    nextPage,
+    setPageSize: handleSetPageSize,
+  }), [page, pageSize, total, totalPages, pageSizeOptions, goToPage, prevPage, nextPage, handleSetPageSize]);
+  
+  // 根据ID获取班级（从全部数据中查找）
   const getClassById = useCallback((id: string) => 
-    classes.find(c => c.id === id),
-  [classes]);
+    allClasses.find(c => c.id === id),
+  [allClasses]);
   
-  // 根据年级获取班级
+  // 根据年级获取班级（从全部数据中查找）
   const getClassesByGrade = useCallback((grade: number) => 
-    classes.filter(c => c.grade === grade),
-  [classes]);
+    allClasses.filter(c => c.grade === grade),
+  [allClasses]);
   
-  // 根据班主任获取班级
+  // 根据班主任获取班级（从全部数据中查找）
   const getClassesByHeadTeacher = useCallback((teacherId: string) => 
-    classes.filter(c => c.headTeacherId === teacherId),
-  [classes]);
+    allClasses.filter(c => c.headTeacherId === teacherId),
+  [allClasses]);
   
-  // 获取班级学生列表
+  // 获取班级学生列表（从全部数据中查找）
   const getStudentsByClass = useCallback((classId: string) => {
-    const cls = classes.find(c => c.id === classId);
+    const cls = allClasses.find(c => c.id === classId);
     return cls?.students || [];
-  }, [classes]);
+  }, [allClasses]);
   
-  // 获取班级家长列表
+  // 获取班级家长列表（从全部数据中查找）
   const getParentsByClass = useCallback((classId: string) => {
-    const cls = classes.find(c => c.id === classId);
+    const cls = allClasses.find(c => c.id === classId);
     return cls?.parents || [];
-  }, [classes]);
+  }, [allClasses]);
   
-  // 获取班级主要家长列表
+  // 获取班级主要家长列表（从全部数据中查找）
   const getPrimaryParentsByClass = useCallback((classId: string) => {
-    const cls = classes.find(c => c.id === classId);
+    const cls = allClasses.find(c => c.id === classId);
     return cls?.parents.filter(p => p.isPrimary) || [];
-  }, [classes]);
+  }, [allClasses]);
   
   // 创建班级
   const createClass = useCallback(async (data: Partial<ClassContainer>): Promise<boolean> => {
@@ -546,7 +633,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       
       if (result.success) {
         // 更新本地状态
-        setClasses(prev => prev.map(c => {
+        setAllClasses(prev => prev.map(c => {
           if (c.id === id) {
             return { ...c, ...data };
           }
@@ -571,7 +658,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       const result = await response.json();
       
       if (result.success) {
-        setClasses(prev => prev.filter(c => c.id !== id));
+        setAllClasses(prev => prev.filter(c => c.id !== id));
         return true;
       }
       return false;
@@ -593,7 +680,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       const data = await response.json();
       
       if (data.success) {
-        setClasses(prev => prev.map(c => {
+        setAllClasses(prev => prev.map(c => {
           if (c.id === classId) {
             return {
               ...c,
@@ -624,7 +711,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       const data = await response.json();
       
       if (data.success) {
-        setClasses(prev => prev.map(c => {
+        setAllClasses(prev => prev.map(c => {
           if (c.id === classId) {
             return {
               ...c,
@@ -655,7 +742,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       const data = await response.json();
       
       if (data.success) {
-        setClasses(prev => prev.map(c => {
+        setAllClasses(prev => prev.map(c => {
           if (c.id === classId) {
             return {
               ...c,
@@ -692,7 +779,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
     classId: string,
     candidates: TeacherCandidate[]
   ): TeacherCandidate[] => {
-    const targetClass = classes.find(c => c.id === classId);
+    const targetClass = allClasses.find(c => c.id === classId);
     if (!targetClass) return [];
     
     const targetGrade = targetClass.grade;
@@ -741,7 +828,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       // 同为推荐或非推荐，按姓名排序
       return a.name.localeCompare(b.name);
     });
-  }, [classes]);
+  }, [allClasses]);
   
   // 初始化加载
   useEffect(() => {
@@ -750,6 +837,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
   
   return {
     // 数据
+    allClasses,
     classes,
     loading,
     error,

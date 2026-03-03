@@ -65,8 +65,6 @@ import {
 } from 'lucide-react';
 import { useClasses, type ClassContainer, type TeacherCandidate, type StudentBasicInfo, type ParentBasicInfo } from '@/hooks/useClasses';
 import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
-import { useFrontendPagination } from '@/hooks/useApi';
-import { PAGINATION } from '@/lib/pagination-config';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
@@ -75,15 +73,20 @@ export default function ClassesPage() {
   // Hooks
   const { 
     classes, 
+    allClasses,
     loading: classesLoading, 
     statistics,
+    pagination,
     getRecommendedSubTeachers,
     assignSubTeacher,
     updateHeadTeacher,
+    filters,
+    setFilters,
   } = useClasses();
   
   const { 
     teachers, 
+    allTeachers,
     loading: teachersLoading,
   } = useTeachers();
   
@@ -91,10 +94,6 @@ export default function ClassesPage() {
   
   // 视图模式：null = 列表，ClassContainer = 详情
   const [viewingClass, setViewingClass] = useState<ClassContainer | null>(null);
-  
-  // 筛选
-  const [searchTerm, setSearchTerm] = useState('');
-  const [gradeFilter, setGradeFilter] = useState('all');
   
   // 对话框
   const [showSubTeacherDialog, setShowSubTeacherDialog] = useState(false);
@@ -110,7 +109,7 @@ export default function ClassesPage() {
 
   // 将教师数据转换为候选人格式
   const teacherCandidates: TeacherCandidate[] = useMemo(() => {
-    return teachers.map((t: TeacherInfo) => ({
+    return allTeachers.map((t: TeacherInfo) => ({
       id: t.id,
       name: t.name,
       subject: t.subject,
@@ -124,28 +123,14 @@ export default function ClassesPage() {
       currentClassId: t.headTeacherClassId,
       currentClassName: t.headTeacherClassName,
     }));
-  }, [teachers]);
+  }, [allTeachers]);
 
   // 获取班主任候选人
   const headTeacherCandidates = useMemo(() => {
-    return teachers.filter((t: TeacherInfo) => 
+    return allTeachers.filter((t: TeacherInfo) => 
       t.primaryRole === 'head_teacher' || t.primaryRole === 'subject_teacher'
     );
-  }, [teachers]);
-
-  // 筛选班级
-  const filteredClasses = classes.filter(c => {
-    const matchesSearch = c.name.includes(searchTerm) || 
-                         c.headTeacherName.includes(searchTerm) ||
-                         (c.subTeacherName && c.subTeacherName.includes(searchTerm));
-    const matchesGrade = gradeFilter === 'all' || c.grade === parseInt(gradeFilter);
-    return matchesSearch && matchesGrade;
-  });
-
-  // 前端分页
-  const pagination = useFrontendPagination(filteredClasses, { 
-    defaultPageSize: PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE 
-  });
+  }, [allTeachers]);
 
   // 打开详情（切换到详情视图）
   const handleOpenDetail = (cls: ClassContainer) => {
@@ -692,12 +677,15 @@ export default function ClassesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="搜索班级名称、班主任或科任..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={filters.search || ''}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 className="pl-10"
               />
             </div>
-            <Select value={gradeFilter} onValueChange={setGradeFilter}>
+            <Select 
+              value={filters.grade?.toString() || 'all'} 
+              onValueChange={(value) => setFilters({ ...filters, grade: value === 'all' ? 'all' : parseInt(value) })}
+            >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="年级" />
               </SelectTrigger>
@@ -741,14 +729,14 @@ export default function ClassesPage() {
                     <p className="mt-2 text-gray-500">加载中...</p>
                   </TableCell>
                 </TableRow>
-              ) : filteredClasses.length === 0 ? (
+              ) : classes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     暂无班级数据
                   </TableCell>
                 </TableRow>
               ) : (
-                pagination.paginatedData.map((cls) => (
+                classes.map((cls) => (
                 <TableRow 
                   key={cls.id} 
                   className="hover:bg-gray-50 cursor-pointer"
@@ -836,7 +824,7 @@ export default function ClassesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
+                    {pagination.pageSizeOptions.map((size: number) => (
                       <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
                     ))}
                   </SelectContent>
