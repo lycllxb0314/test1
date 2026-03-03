@@ -538,7 +538,7 @@ export default function HomePage() {
               {/* 科创教育 */}
               <div className="md:col-span-2 bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white">
                 <div className="grid md:grid-cols-2">
-                  <div className="relative h-48 md:h-auto">
+                  <div className="relative h-56 md:h-72">
                     <img
                       src="/images/campus/robot-award.jpg"
                       alt="科创获奖"
@@ -583,7 +583,7 @@ export default function HomePage() {
               {/* 右侧卡片 */}
               <div className="space-y-5">
                 <div className="bg-white/80 rounded-xl border border-[#E8DDD0]/50 overflow-hidden">
-                  <div className="relative h-28">
+                  <div className="relative h-36 md:h-44">
                     <img
                       src="/images/campus/teacher-day-award.png"
                       alt="人文德育"
@@ -611,7 +611,7 @@ export default function HomePage() {
                 </div>
                 
                 <div className="bg-white/80 rounded-xl border border-[#E8DDD0]/50 overflow-hidden">
-                  <div className="relative h-28">
+                  <div className="relative h-36 md:h-44">
                     <img
                       src="/images/campus/wrc-competition.jpg"
                       alt="艺体心理"
