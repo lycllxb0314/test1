@@ -87,32 +87,52 @@ const childHeartPaths = [
 // 校训内涵
 const schoolMotto = [
   { 
-    character: '明德', 
-    meaning: '明德修身，立德树人',
-    desc: '以德为先，培养学生健全人格与家国情怀'
+    character: '修身', 
+    meaning: '修身立德，涵养品格',
+    desc: '培养健全人格，塑造美好心灵'
   },
   { 
-    character: '博学', 
-    meaning: '博学笃志，广闻强识',
-    desc: '拓宽视野，培养学生终身学习的能力'
+    character: '力学', 
+    meaning: '勤奋学习，追求卓越',
+    desc: '激发学习热情，培养探究精神'
   },
   { 
-    character: '笃行', 
-    meaning: '笃行致远，知行合一',
-    desc: '注重实践，培养学生解决问题的能力'
+    character: '博雅', 
+    meaning: '博采众长，雅正通达',
+    desc: '拓宽知识视野，提升综合素养'
   },
   { 
-    character: '创新', 
-    meaning: '开拓进取，勇于创新',
-    desc: '激发潜能，培养学生创新精神与实践能力'
+    character: '聪慧', 
+    meaning: '聪敏睿智，灵动创新',
+    desc: '发展思维能力，培养创新意识'
   },
 ];
+
+// 教风
+const teachingStyle = {
+  title: '身正为范 博学善教 儒雅灵性',
+  items: [
+    { word: '身正为范', desc: '以德立身，为人师表' },
+    { word: '博学善教', desc: '学识渊博，教法精湛' },
+    { word: '儒雅灵性', desc: '温文尔雅，灵动智慧' },
+  ],
+};
+
+// 学风
+const studyStyle = {
+  title: '品行高洁 好学善思 文雅活泼',
+  items: [
+    { word: '品行高洁', desc: '品德高尚，行为端正' },
+    { word: '好学善思', desc: '热爱学习，善于思考' },
+    { word: '文雅活泼', desc: '举止文雅，性格开朗' },
+  ],
+};
 
 // 五育数据
 const fiveEducation = [
   {
     category: '德育',
-    motto: '明德',
+    path: '引领童心',
     goal: '培养有理想、有道德、有担当的时代新人',
     practice: '少先队活动、主题班会、社会实践、红色教育',
     color: '#B22222',
@@ -125,7 +145,7 @@ const fiveEducation = [
   },
   {
     category: '智育',
-    motto: '博学',
+    path: '发展童心',
     goal: '培养善思考、会学习、能创新的智慧少年',
     practice: '课堂教学、学科竞赛、科技创新、阅读工程',
     color: '#1565C0',
@@ -138,7 +158,7 @@ const fiveEducation = [
   },
   {
     category: '体育',
-    motto: '笃行',
+    path: '点亮童心',
     goal: '培养体魄健、意志坚、精神强的阳光少年',
     practice: '体育课堂、阳光大课间、体育社团、田径运动会',
     color: '#E65100',
@@ -151,7 +171,7 @@ const fiveEducation = [
   },
   {
     category: '美育',
-    motto: '创新',
+    path: '涵养童心',
     goal: '培养有审美、会表达、能创造的艺术素养',
     practice: '艺术课堂、社团活动、校园艺术节、传统文化',
     color: '#6A1B9A',
@@ -164,7 +184,7 @@ const fiveEducation = [
   },
   {
     category: '劳育',
-    motto: '笃行',
+    path: '润泽童心',
     goal: '培养爱劳动、会劳动、懂劳动的时代新人',
     practice: '劳动课程、校园种植、家务劳动、劳动技能大赛',
     color: '#2E7D32',
@@ -532,33 +552,81 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 校训 - 价值主张 */}
+      {/* 校训教风学风 - 价值主张 */}
       <section className="py-16 bg-gray-900 text-white">
         <div className="max-w-6xl mx-auto px-4">
+          {/* 校训 */}
           <div className="text-center mb-12">
             <p className="text-amber-400 text-sm mb-4">百年传承 · 育人根本</p>
             <h2 
               className="text-3xl md:text-4xl font-bold mb-4"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              明德 · 博学 · 笃行 · 创新
+              修身 · 力学 · 博雅 · 聪慧
             </h2>
-            <p className="text-gray-400">校训精神，引领童心成长</p>
+            <p className="text-gray-400 mb-8">校训精神，引领童心成长</p>
+
+            <div className="grid md:grid-cols-4 gap-6">
+              {schoolMotto.map((item, index) => (
+                <div key={index} className="text-center p-4 bg-gray-800/50 rounded-lg">
+                  <div 
+                    className="text-4xl font-bold mb-2"
+                    style={{ fontFamily: 'var(--font-serif)', color: '#D4A574' }}
+                  >
+                    {item.character}
+                  </div>
+                  <p className="text-sm font-medium text-gray-300 mb-1">{item.meaning}</p>
+                  <p className="text-xs text-gray-500">{item.desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-8">
-            {schoolMotto.map((item, index) => (
-              <div key={index} className="text-center">
-                <div 
-                  className="text-5xl font-bold mb-3"
-                  style={{ fontFamily: 'var(--font-serif)', color: '#D4A574' }}
-                >
-                  {item.character}
-                </div>
-                <p className="text-sm font-medium text-gray-300 mb-2">{item.meaning}</p>
-                <p className="text-xs text-gray-500">{item.desc}</p>
+          {/* 教风与学风 */}
+          <div className="grid md:grid-cols-2 gap-8 mt-12 pt-12 border-t border-gray-800">
+            {/* 教风 */}
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 text-amber-400 text-sm mb-3">
+                <Users className="h-4 w-4" />
+                <span>教风</span>
               </div>
-            ))}
+              <h3 
+                className="text-xl font-bold mb-4"
+                style={{ fontFamily: 'var(--font-serif)' }}
+              >
+                身正为范 · 博学善教 · 儒雅灵性
+              </h3>
+              <div className="flex justify-center gap-6">
+                {teachingStyle.items.map((item, index) => (
+                  <div key={index} className="text-center">
+                    <p className="text-amber-300 font-medium text-sm">{item.word}</p>
+                    <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 学风 */}
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 text-amber-400 text-sm mb-3">
+                <BookOpen className="h-4 w-4" />
+                <span>学风</span>
+              </div>
+              <h3 
+                className="text-xl font-bold mb-4"
+                style={{ fontFamily: 'var(--font-serif)' }}
+              >
+                品行高洁 · 好学善思 · 文雅活泼
+              </h3>
+              <div className="flex justify-center gap-6">
+                {studyStyle.items.map((item, index) => (
+                  <div key={index} className="text-center">
+                    <p className="text-amber-300 font-medium text-sm">{item.word}</p>
+                    <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -696,7 +764,7 @@ export default function HomePage() {
                     </span>
                   </div>
                   <h3 className="text-lg font-bold text-gray-900">{edu.category}</h3>
-                  <p className="text-sm text-gray-500">对应校训：{edu.motto}</p>
+                  <p className="text-sm text-gray-500">童心路径：{edu.path}</p>
                 </div>
 
                 {/* 右侧 */}
