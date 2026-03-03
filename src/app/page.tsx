@@ -432,69 +432,86 @@ export default function HomePage() {
 
           {/* 历史沿革 - 横向S型曲线时间轴 */}
           <div className="mb-12 overflow-x-auto">
-            <div className="min-w-[800px] relative px-8 py-4">
-              {/* S型曲线 */}
-              <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+            <div className="relative mx-auto" style={{ width: '800px', height: '280px' }}>
+              {/* SVG曲线和圆点 */}
+              <svg 
+                className="absolute top-0 left-0"
+                width="800"
+                height="280"
+                viewBox="0 0 800 280"
+              >
+                {/* S型曲线 */}
                 <path
-                  d="M 40 120 Q 120 40, 200 120 T 360 120 T 520 120 T 680 120 T 840 120"
+                  d="M 0,60 
+                     C 50,60 110,180 160,180 
+                     C 210,180 270,60 320,60 
+                     C 370,60 430,180 480,180 
+                     C 530,180 590,60 640,60
+                     C 690,60 750,180 800,180"
                   fill="none"
-                  stroke="url(#timelineGradient)"
-                  strokeWidth="3"
+                  stroke="#D4A574"
+                  strokeWidth="2.5"
                   strokeLinecap="round"
                 />
-                <defs>
-                  <linearGradient id="timelineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#D4A574" stopOpacity="0.3" />
-                    <stop offset="50%" stopColor="#D4A574" stopOpacity="0.8" />
-                    <stop offset="100%" stopColor="#D4A574" stopOpacity="0.3" />
-                  </linearGradient>
-                </defs>
+                
+                {/* 圆点 */}
+                <circle cx="0" cy="60" r="6" fill="#D4A574" />
+                <circle cx="160" cy="180" r="6" fill="#D4A574" />
+                <circle cx="320" cy="60" r="6" fill="#D4A574" />
+                <circle cx="480" cy="180" r="6" fill="#D4A574" />
+                <circle cx="640" cy="60" r="7" fill="#D4A574" />
+                <circle cx="640" cy="60" r="12" fill="none" stroke="#D4A574" strokeWidth="1.5" strokeOpacity="0.3" />
               </svg>
               
-              {/* 时间节点 */}
-              <div className="relative flex justify-between items-start h-[240px]">
-                {[
-                  { year: '1914', title: '创办', desc: '闽西基础教育标杆校', position: 'top' },
-                  { year: '2006', title: '迁址', desc: '登高山南麓新校区', position: 'bottom' },
-                  { year: '2010', title: '童心', desc: '特色示范学校', position: 'top' },
-                  { year: '2025.7', title: '智慧', desc: '省智慧校园试点校', position: 'bottom' },
-                  { year: '2025.12', title: '科创', desc: '少年科学院成立', position: 'top', isNew: true },
-                ].map((item, index) => (
-                  <div 
-                    key={index} 
-                    className={`relative flex flex-col items-center ${item.position === 'bottom' ? 'pt-[160px]' : 'pt-4'}`}
-                  >
-                    {/* 卡片 */}
-                    <div className={`relative px-4 py-3 rounded-xl shadow-sm ${
-                      item.isNew 
-                        ? 'bg-gradient-to-br from-[#D4A574] to-[#B8860B] text-white shadow-lg' 
-                        : 'bg-white border border-[#E8DDD0]'
-                    }`}>
-                      <div className={`text-lg font-bold ${item.isNew ? 'text-white' : 'text-[#8B5A2B]'}`}>
-                        {item.year}
-                      </div>
-                      <div className={`text-sm font-medium ${item.isNew ? 'text-white' : 'text-[#3D2314]'}`}>
-                        {item.title}
-                      </div>
-                      <div className={`text-xs mt-1 whitespace-nowrap ${item.isNew ? 'text-white/70' : 'text-[#8B5A2B]/60'}`}>
-                        {item.desc}
-                      </div>
-                      {item.isNew && (
-                        <span className="absolute -top-2 -right-2 text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">
-                          NEW
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* 连接线 */}
-                    <div className={`w-0.5 ${item.position === 'bottom' ? 'h-8 -mt-8 mb-2' : 'h-8 mt-2'}`}></div>
-                    
-                    {/* 圆点 */}
-                    <div className={`absolute ${item.position === 'bottom' ? 'top-[140px]' : 'top-[140px]'} w-4 h-4 rounded-full ${
-                      item.isNew ? 'bg-[#D4A574] ring-4 ring-[#D4A574]/20' : 'bg-[#D4A574]'
-                    }`}></div>
-                  </div>
-                ))}
+              {/* 1914 - 上 (圆点在 0,60，卡片在上方) */}
+              <div className="absolute flex flex-col items-center" style={{ left: '0px', top: '60px', transform: 'translateX(-50%)' }}>
+                <div className="bg-white border border-[#E8DDD0] rounded-lg px-3 py-2 shadow-sm text-center">
+                  <div className="text-sm font-bold text-[#8B5A2B]">1914</div>
+                  <div className="text-xs font-medium text-[#3D2314]">创办</div>
+                  <div className="text-[10px] text-[#8B5A2B]/60">闽西基础教育标杆</div>
+                </div>
+                <div className="w-0.5 h-6 bg-[#D4A574]/50"></div>
+              </div>
+              
+              {/* 2006 - 下 (圆点在 160,180，卡片在下方) */}
+              <div className="absolute flex flex-col items-center" style={{ left: '160px', top: '180px' }}>
+                <div className="w-0.5 h-6 bg-[#D4A574]/50"></div>
+                <div className="bg-white border border-[#E8DDD0] rounded-lg px-3 py-2 shadow-sm text-center">
+                  <div className="text-sm font-bold text-[#8B5A2B]">2006</div>
+                  <div className="text-xs font-medium text-[#3D2314]">迁址</div>
+                  <div className="text-[10px] text-[#8B5A2B]/60">登高山南麓新校区</div>
+                </div>
+              </div>
+              
+              {/* 2010 - 上 (圆点在 320,60，卡片在上方) */}
+              <div className="absolute flex flex-col items-center" style={{ left: '320px', top: '60px', transform: 'translateX(-50%)' }}>
+                <div className="bg-white border border-[#E8DDD0] rounded-lg px-3 py-2 shadow-sm text-center">
+                  <div className="text-sm font-bold text-[#8B5A2B]">2010</div>
+                  <div className="text-xs font-medium text-[#3D2314]">童心</div>
+                  <div className="text-[10px] text-[#8B5A2B]/60">特色示范学校</div>
+                </div>
+                <div className="w-0.5 h-6 bg-[#D4A574]/50"></div>
+              </div>
+              
+              {/* 2025.7 - 下 (圆点在 480,180，卡片在下方) */}
+              <div className="absolute flex flex-col items-center" style={{ left: '480px', top: '180px' }}>
+                <div className="w-0.5 h-6 bg-[#D4A574]/50"></div>
+                <div className="bg-white border border-[#E8DDD0] rounded-lg px-3 py-2 shadow-sm text-center">
+                  <div className="text-sm font-bold text-[#8B5A2B]">2025.7</div>
+                  <div className="text-xs font-medium text-[#3D2314]">智慧</div>
+                  <div className="text-[10px] text-[#8B5A2B]/60">省智慧校园试点校</div>
+                </div>
+              </div>
+              
+              {/* 2025.12 - 上 (圆点在 640,60，卡片在上方) */}
+              <div className="absolute flex flex-col items-center" style={{ left: '640px', top: '60px', transform: 'translateX(-50%)' }}>
+                <div className="relative bg-gradient-to-br from-[#D4A574] to-[#B8860B] rounded-lg px-3 py-2 shadow-lg text-center">
+                  <div className="text-sm font-bold text-white">2025.12</div>
+                  <div className="text-xs font-medium text-white">科创</div>
+                  <div className="text-[10px] text-white/70">少年科学院成立</div>
+                  <span className="absolute -top-1.5 -right-1.5 text-[8px] bg-red-500 text-white px-1 py-0.5 rounded-full">NEW</span>
+                </div>
+                <div className="w-0.5 h-6 bg-[#D4A574]/50"></div>
               </div>
             </div>
           </div>
