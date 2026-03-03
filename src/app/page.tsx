@@ -41,6 +41,12 @@ const childHeartPaths = [
     desc: '通过少先队活动、主题班会、社会实践等，培养学生的家国情怀与道德品质',
     color: '#C62828',
     examples: ['入队仪式', '红色教育', '主题班会', '社会实践'],
+    images: [
+      { src: '/images/campus/scarf-ceremony.png', title: '入队仪式' },
+      { src: '/images/campus/young-pioneers.png', title: '少先队活动' },
+      { src: '/images/campus/recitation-grade6.jpg', title: '红色教育' },
+      { src: '/images/campus/fire-safety-class.jpg', title: '安全教育' },
+    ],
   },
   {
     icon: Lightbulb,
@@ -49,6 +55,12 @@ const childHeartPaths = [
     desc: '打造高效课堂，激发学习兴趣，培养思维能力与创新精神',
     color: '#1565C0',
     examples: ['学科教学', '科技创新', '思维训练', '探究学习'],
+    images: [
+      { src: '/images/campus/science-academy.png', title: '少年科学院' },
+      { src: '/images/campus/robot-interaction.jpg', title: '科技创新' },
+      { src: '/images/campus/wrc-finals-team.jpg', title: '学科竞赛' },
+      { src: '/images/campus/english-contest.png', title: '学科活动' },
+    ],
   },
   {
     icon: Palette,
@@ -57,6 +69,12 @@ const childHeartPaths = [
     desc: '丰富校园活动，让孩子们在参与中体验快乐，在活动中绽放光彩',
     color: '#AD1457',
     examples: ['艺术节', '运动会', '科技节', '读书节'],
+    images: [
+      { src: '/images/campus/festival-stage.png', title: '校园艺术节' },
+      { src: '/images/campus/dance-contest.png', title: '文艺汇演' },
+      { src: '/images/campus/sports-race.jpg', title: '田径运动会' },
+      { src: '/images/campus/group-exercise.jpg', title: '阳光大课间' },
+    ],
   },
   {
     icon: Heart,
@@ -65,6 +83,12 @@ const childHeartPaths = [
     desc: '关注学生心理健康，建立心理档案，开展心理辅导，守护孩子心灵成长',
     color: '#6A1B9A',
     examples: ['心理辅导', '情绪管理', '团体活动', '个体咨询'],
+    images: [
+      { src: '/images/campus/festival-opening.png', title: '心理健康周' },
+      { src: '/images/campus/orchestra.png', title: '艺术疗愈' },
+      { src: '/images/campus/eye-exercise.jpg', title: '健康教育' },
+      { src: '/images/campus/lion-dance-activity.jpg', title: '传统文化' },
+    ],
   },
   {
     icon: BookHeart,
@@ -73,6 +97,12 @@ const childHeartPaths = [
     desc: '建设书香校园，培养阅读习惯，让书籍成为孩子成长的良伴',
     color: '#2E7D32',
     examples: ['阅读课程', '图书漂流', '读书分享', '经典诵读'],
+    images: [
+      { src: '/images/campus/conference-hall.png', title: '阅读分享会' },
+      { src: '/images/campus/teacher-award.png', title: '读书节活动' },
+      { src: '/images/campus/brain-science-training.jpg', title: '经典诵读' },
+      { src: '/images/campus/researcher-guidance.png', title: '作家进校园' },
+    ],
   },
   {
     icon: Landmark,
@@ -81,6 +111,12 @@ const childHeartPaths = [
     desc: '营造温馨和谐、富有童趣的校园环境，让每一面墙壁都会说话',
     color: '#E65100',
     examples: ['班级文化', '走廊文化', '校园景观', '文化传承'],
+    images: [
+      { src: '/images/campus/labor-food-display.jpg', title: '劳动技能大赛' },
+      { src: '/images/campus/labor-cooking.jpg', title: '劳动实践' },
+      { src: '/images/campus/planting.jpg', title: '校园种植' },
+      { src: '/images/campus/succulent.jpg', title: '劳动教育' },
+    ],
   },
 ];
 
@@ -510,41 +546,71 @@ export default function HomePage() {
               <p className="text-gray-500 text-sm mt-2">贯穿校本部所有教学、管理、德育工作的核心框架</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {childHeartPaths.map((path, index) => {
+            <div className="space-y-8">
+              {childHeartPaths.map((path, pathIndex) => {
                 const Icon = path.icon;
                 return (
                   <div 
-                    key={index} 
-                    className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-amber-200 transition-all duration-300 group"
+                    key={pathIndex} 
+                    className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg hover:border-amber-200 transition-all duration-300"
                   >
-                    <div className="flex items-start gap-4 mb-4">
-                      <div 
-                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                        style={{ background: path.color }}
-                      >
-                        <Icon className="h-7 w-7 text-white" />
+                    <div className="grid md:grid-cols-12 gap-6">
+                      {/* 左侧：标题和描述 */}
+                      <div className="md:col-span-4 p-6">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div 
+                            className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                            style={{ background: path.color }}
+                          >
+                            <Icon className="h-7 w-7 text-white" />
+                          </div>
+                          <div>
+                            <h4 className="text-lg font-bold text-gray-900">
+                              {path.title}
+                            </h4>
+                            <p className="text-sm font-medium" style={{ color: path.color }}>{path.subtitle}</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                          {path.desc}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {path.examples.map((example, i) => (
+                            <span 
+                              key={i}
+                              className="text-xs px-2.5 py-1 rounded-full font-medium"
+                              style={{ background: `${path.color}15`, color: path.color }}
+                            >
+                              {example}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-lg font-bold text-gray-900 group-hover:text-amber-700 transition-colors">
-                          {path.title}
-                        </h4>
-                        <p className="text-sm font-medium" style={{ color: path.color }}>{path.subtitle}</p>
+
+                      {/* 右侧：图片展示 */}
+                      <div className="md:col-span-8 p-4 bg-gray-50">
+                        <div className="grid grid-cols-4 gap-3">
+                          {path.images.map((img, imgIndex) => (
+                            <div key={imgIndex}>
+                              <div className="aspect-[4/3] bg-gray-200 rounded-lg overflow-hidden">
+                                {!imageErrors[`path-${pathIndex}-${imgIndex}`] ? (
+                                  <img
+                                    src={img.src}
+                                    alt={img.title}
+                                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                    onError={() => handleImageError(`path-${pathIndex}-${imgIndex}`)}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-300">
+                                    <GraduationCap className="h-6 w-6 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-600 mt-1.5 text-center">{img.title}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                      {path.desc}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {path.examples.map((example, i) => (
-                        <span 
-                          key={i}
-                          className="text-xs px-2.5 py-1 rounded-full font-medium"
-                          style={{ background: `${path.color}15`, color: path.color }}
-                        >
-                          {example}
-                        </span>
-                      ))}
                     </div>
                   </div>
                 );
