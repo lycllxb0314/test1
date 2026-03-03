@@ -377,15 +377,19 @@ export default function HomePage() {
 
           {/* 第一篇章：源起 - 校训 */}
           <div className="mb-10">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#8B5A2B] to-[#A06B3D] rounded-full flex items-center justify-center text-white shadow-md">
-                <span className="text-sm font-bold">1</span>
+            <div className="flex items-center gap-4 mb-5">
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-[#D4A574] tracking-widest">CHAPTER</span>
+                <span className="text-3xl font-bold text-[#8B5A2B]" style={{ fontFamily: 'var(--font-serif)' }}>壹</span>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
-                  源起 · 百年校训
-                </h3>
-                <span className="text-xs text-[#8B5A2B]/50">1914年建校</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                    源起 · 百年校训
+                  </h3>
+                  <div className="h-px flex-1 bg-gradient-to-r from-[#D4A574] to-transparent"></div>
+                </div>
+                <span className="text-xs text-[#8B5A2B]/50 mt-1 block">1914年建校</span>
               </div>
             </div>
             
@@ -450,15 +454,19 @@ export default function HomePage() {
 
           {/* 第二篇章：理念 - 童心教育 */}
           <div className="mb-10">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#8B5A2B] to-[#A06B3D] rounded-full flex items-center justify-center text-white shadow-md">
-                <span className="text-sm font-bold">2</span>
+            <div className="flex items-center gap-4 mb-5">
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-[#D4A574] tracking-widest">CHAPTER</span>
+                <span className="text-3xl font-bold text-[#8B5A2B]" style={{ fontFamily: 'var(--font-serif)' }}>贰</span>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
-                  理念 · 童心教育
-                </h3>
-                <span className="text-xs text-[#8B5A2B]/50">核心办学品牌</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                    理念 · 童心教育
+                  </h3>
+                  <div className="h-px flex-1 bg-gradient-to-r from-[#D4A574] to-transparent"></div>
+                </div>
+                <span className="text-xs text-[#8B5A2B]/50 mt-1 block">核心办学品牌</span>
               </div>
             </div>
             
@@ -522,15 +530,19 @@ export default function HomePage() {
 
           {/* 第三篇章：成果 - 特色与荣誉 */}
           <div>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#8B5A2B] to-[#A06B3D] rounded-full flex items-center justify-center text-white shadow-md">
-                <span className="text-sm font-bold">3</span>
+            <div className="flex items-center gap-4 mb-5">
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-[#D4A574] tracking-widest">CHAPTER</span>
+                <span className="text-3xl font-bold text-[#8B5A2B]" style={{ fontFamily: 'var(--font-serif)' }}>叁</span>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
-                  成果 · 特色办学
-                </h3>
-                <span className="text-xs text-[#8B5A2B]/50">区域标杆，全国领先</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                    成果 · 特色办学
+                  </h3>
+                  <div className="h-px flex-1 bg-gradient-to-r from-[#D4A574] to-transparent"></div>
+                </div>
+                <span className="text-xs text-[#8B5A2B]/50 mt-1 block">区域标杆，全国领先</span>
               </div>
             </div>
             
