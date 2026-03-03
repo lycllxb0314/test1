@@ -106,6 +106,9 @@ const newsItems = [
   { title: '我校少年科学院正式成立，中科院谢华安院士出席揭牌仪式', date: '2025-12-15', category: '校园新闻' },
   { title: '2025年全国学生数字素养大赛斩获"创新之星"最高奖', date: '2025-11-20', category: '荣誉喜报' },
   { title: '童心教育实践成果入选福建省小学特色办学标杆案例', date: '2025-10-15', category: '教育教学' },
+  { title: '【学习强国】龙岩师范附小：百年老校的童心教育探索', date: '2025-12-10', category: '媒体附小', level: '国家级' },
+  { title: '【福建日报】传承红色基因，培育时代新人', date: '2025-11-28', category: '媒体附小', level: '省级' },
+  { title: '【闽西日报】智慧校园建设助力教育高质量发展', date: '2025-11-15', category: '媒体附小', level: '市级' },
   { title: '龙岩师范附小庆祝建校112周年系列活动圆满举行', date: '2025-09-10', category: '校园新闻' },
   { title: '我校学生在龙岩市"福籽同心爱中华"演讲比赛中获一等奖', date: '2025-09-05', category: '荣誉喜报' },
 ];
@@ -371,9 +374,24 @@ export default function HomePage() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-0.5 bg-[#D4A574]/20 text-[#8B5A2B] rounded-md font-medium shrink-0">
-                          {item.category}
-                        </span>
+                        {item.category === '媒体附小' ? (
+                          <>
+                            <span className={`text-xs px-2 py-0.5 rounded-md font-medium shrink-0 ${
+                              item.level === '国家级' ? 'bg-red-50 text-red-600 border border-red-200' :
+                              item.level === '省级' ? 'bg-blue-50 text-blue-600 border border-blue-200' :
+                              'bg-green-50 text-green-600 border border-green-200'
+                            }`}>
+                              {item.level}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 bg-[#D4A574]/20 text-[#8B5A2B] rounded-md font-medium shrink-0">
+                              媒体附小
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 bg-[#D4A574]/20 text-[#8B5A2B] rounded-md font-medium shrink-0">
+                            {item.category}
+                          </span>
+                        )}
                         <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B]">
                           {item.title}
                         </span>
