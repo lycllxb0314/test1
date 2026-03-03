@@ -7,7 +7,6 @@ import {
   Heart,
   BookOpen,
   Users,
-  Trophy,
   Phone,
   MapPin,
   Shield,
@@ -22,7 +21,9 @@ import {
   Newspaper,
   GraduationCap,
   Sparkles,
-  Medal,
+  Award,
+  Music,
+  Brain,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -61,14 +62,12 @@ const notices = [
   { title: '2025-2026学年第一学期期末工作安排', date: '2026-01-05' },
 ];
 
-// 荣誉
+// 办学荣誉（精简版）
 const honors = [
-  { title: '全国文明校园', year: '连续8届', highlight: true },
-  { title: '福建省示范小学', year: '2018年', highlight: false },
-  { title: '全国心理健康教育特色学校', year: '', highlight: false },
-  { title: '福建省文明校园', year: '连续8届', highlight: true },
-  { title: '全国艺术教育先进单位', year: '', highlight: false },
-  { title: '福建省素质教育先进校', year: '', highlight: false },
+  { title: '全国文明校园', year: '连续8届' },
+  { title: '福建省示范小学', year: '' },
+  { title: '全国心理健康教育特色学校', year: '' },
+  { title: '全国艺术教育先进单位', year: '' },
 ];
 
 // 快速入口
@@ -254,19 +253,16 @@ export default function HomePage() {
           {/* 叙事流程导航 */}
           <div className="flex justify-center items-center gap-2 md:gap-4 mb-10 flex-wrap">
             {[
-              { label: '源起', sub: '校训', active: true },
+              { label: '源起', sub: '校训' },
               { label: '理念', sub: '童心教育' },
-              { label: '实践', sub: '特色发展' },
-              { label: '成就', sub: '办学荣誉' },
+              { label: '成果', sub: '特色荣誉' },
             ].map((item, i) => (
               <div key={i} className="flex items-center">
-                <div className={`text-center px-4 py-2 rounded-lg ${
-                  item.active ? 'bg-[#8B5A2B] text-white' : 'bg-white/60 text-[#8B5A2B]'
-                }`}>
+                <div className="text-center px-4 py-2 rounded-lg bg-[#8B5A2B] text-white">
                   <div className="text-xs font-medium">{item.label}</div>
                   <div className="text-xs opacity-70">{item.sub}</div>
                 </div>
-                {i < 3 && (
+                {i < 2 && (
                   <ChevronRight className="h-4 w-4 text-[#D4A574] mx-1 hidden md:block" />
                 )}
               </div>
@@ -364,83 +360,126 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 第三篇章：实践 - 特色发展 */}
-          <div className="mb-8">
+          {/* 第三篇章：成果 - 特色与荣誉 */}
+          <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-[#8B5A2B] rounded-full flex items-center justify-center text-white text-sm font-bold">3</div>
               <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
-                实践 · 特色发展
+                成果 · 特色办学
               </h3>
-              <span className="text-xs text-[#8B5A2B]/50 ml-2">创新育人</span>
+              <span className="text-xs text-[#8B5A2B]/50 ml-2">区域标杆，全国领先</span>
             </div>
             
-            <div className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl p-6 md:p-8 text-white">
-              <div className="flex flex-col md:flex-row items-start gap-6">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sparkles className="h-5 w-5 text-[#D4A574]" />
-                    <h4 className="font-bold text-lg">少年科学院</h4>
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* 科创教育 - 重点突出 */}
+              <div className="md:col-span-2 bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl p-6 text-white">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="h-5 w-5 text-[#D4A574]" />
+                  <h4 className="font-bold">科创教育</h4>
+                  <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-2">王牌特色</span>
+                </div>
+                
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex-1">
+                    <p className="text-sm text-white/70 mb-4">
+                      2025年成立龙岩市首个小学少年科学院，中科院谢华安院士亲自指导
+                    </p>
+                    
+                    {/* 核心成就 */}
+                    <div className="bg-white/10 rounded-xl p-4 mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Award className="h-4 w-4 text-[#D4A574]" />
+                        <span className="text-sm font-medium text-[#D4A574]">2025年全国学生数字素养大赛</span>
+                      </div>
+                      <p className="text-lg font-bold">斩获"创新之星"最高奖项</p>
+                      <p className="text-xs text-white/50">三年内第三次闯入国家级赛事，第二次摘得最高荣誉</p>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {['院士科普', '科创竞赛', '跨学科项目', '小院士评选'].map((tag, i) => (
+                        <span key={i} className="text-xs px-3 py-1 bg-white/10 rounded-full">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <h5 className="text-xl font-bold mb-2 text-[#D4A574]">科学启智 · 创新育人</h5>
-                  <p className="text-sm text-white/60 mb-4">
-                    2025年12月正式成立，由中科院谢华安院士亲自指导，为孩子们搭建科学探索的舞台
-                  </p>
                   
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {['院士科普', '科创竞赛', '跨学科项目', '小院士评选'].map((tag, i) => (
-                      <span key={i} className="text-xs px-3 py-1 bg-white/10 rounded-full">
-                        {tag}
-                      </span>
-                    ))}
+                  {/* 数据 */}
+                  <div className="flex gap-3">
+                    <div className="bg-white/10 rounded-xl p-4 text-center backdrop-blur-sm flex-1">
+                      <div className="text-3xl font-bold text-[#D4A574]">7</div>
+                      <div className="text-xs text-white/50">国家级奖项</div>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-4 text-center backdrop-blur-sm flex-1">
+                      <div className="text-3xl font-bold text-[#D4A574]">58</div>
+                      <div className="text-xs text-white/50">省级奖项</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 右侧：人文德育 + 艺体心理 */}
+              <div className="space-y-4">
+                {/* 人文德育 */}
+                <div className="bg-white/80 rounded-xl p-5 border border-[#E8DDD0]/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen className="h-5 w-5 text-[#8B5A2B]" />
+                    <h4 className="font-bold text-[#3D2314]">人文德育</h4>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
+                      <span className="text-[#5D4037]">"小目标促成长"省级德育典型案例</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
+                      <span className="text-[#5D4037]">演讲征文比赛多项一等奖</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
+                      <span className="text-[#5D4037]">"八大良好习惯"养成教育</span>
+                    </div>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { num: '7', label: '国家级奖项' },
-                    { num: '58', label: '省级奖项' },
-                    { num: '1', label: '创新之星' },
-                  ].map((item, i) => (
-                    <div key={i} className="bg-white/10 rounded-xl p-4 text-center backdrop-blur-sm">
-                      <div className="text-2xl font-bold text-[#D4A574]">{item.num}</div>
-                      <div className="text-xs text-white/50">{item.label}</div>
+                {/* 艺体心理 */}
+                <div className="bg-white/80 rounded-xl p-5 border border-[#E8DDD0]/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Music className="h-5 w-5 text-[#8B5A2B]" />
+                    <h4 className="font-bold text-[#3D2314]">艺体心理</h4>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
+                      <span className="text-[#5D4037]">全国艺术教育先进单位</span>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
+                      <span className="text-[#5D4037]">心理健康教育全省领先</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-[#D4A574] rounded-full"></div>
+                      <span className="text-[#5D4037]">体质健康合格率全市第一梯队</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* 第四篇章：成就 - 办学荣誉 */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-[#8B5A2B] rounded-full flex items-center justify-center text-white text-sm font-bold">4</div>
-              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
-                成就 · 办学荣誉
-              </h3>
-              <span className="text-xs text-[#8B5A2B]/50 ml-2">国家、省、市三级认可</span>
-            </div>
             
-            <div className="bg-white/60 rounded-2xl p-6 border border-[#E8DDD0]/30">
-              <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
-                {honors.map((honor, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-xl text-center transition hover:shadow-md ${
-                      honor.highlight 
-                        ? 'bg-gradient-to-br from-[#D4A574] to-[#C4956A] text-white shadow-sm' 
-                        : 'bg-white border border-[#E8DDD0]/50 text-[#3D2314]'
-                    }`}
-                  >
-                    <div className="font-medium text-sm mb-1">{honor.title}</div>
-                    {honor.year && (
-                      <div className={`text-xs ${honor.highlight ? 'text-white/80' : 'text-[#B8860B]'}`}>
-                        {honor.year}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+            {/* 办学荣誉 - 精简横排 */}
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              {honors.map((honor, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full border border-[#E8DDD0]/50"
+                >
+                  <Award className="h-4 w-4 text-[#B8860B]" />
+                  <span className="text-sm text-[#3D2314]">{honor.title}</span>
+                  {honor.year && (
+                    <span className="text-xs text-[#B8860B]">{honor.year}</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
