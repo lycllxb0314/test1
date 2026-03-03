@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   GraduationCap,
@@ -10,18 +9,80 @@ import {
   BookOpen,
   Users,
   Trophy,
-  Bell,
   ArrowRight,
   Building2,
   Phone,
   MapPin,
   Clock,
+  Sparkles,
+  Sun,
+  Palette,
+  Music,
+  Leaf,
+  Brain,
+  BookHeart,
+  Landmark,
+  Star,
+  Baby,
+  Smile,
+  Shield,
   Target,
   Lightbulb,
   Footprints,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+
+// 童心教育六大实施路径
+const childHeartPaths = [
+  {
+    icon: Shield,
+    title: '有效德育引领童心',
+    subtitle: '以德育心',
+    desc: '通过少先队活动、主题班会、社会实践等，培养学生的家国情怀与道德品质',
+    color: '#C62828',
+    examples: ['入队仪式', '红色教育', '主题班会', '社会实践'],
+  },
+  {
+    icon: Lightbulb,
+    title: '高效课堂发展童心',
+    subtitle: '以智启心',
+    desc: '打造高效课堂，激发学习兴趣，培养思维能力与创新精神',
+    color: '#1565C0',
+    examples: ['学科教学', '科技创新', '思维训练', '探究学习'],
+  },
+  {
+    icon: Palette,
+    title: '多彩活动点亮童心',
+    subtitle: '以趣悦心',
+    desc: '丰富校园活动，让孩子们在参与中体验快乐，在活动中绽放光彩',
+    color: '#AD1457',
+    examples: ['艺术节', '运动会', '科技节', '读书节'],
+  },
+  {
+    icon: Heart,
+    title: '心理健康呵护童心',
+    subtitle: '以爱护心',
+    desc: '关注学生心理健康，建立心理档案，开展心理辅导，守护孩子心灵成长',
+    color: '#6A1B9A',
+    examples: ['心理辅导', '情绪管理', '团体活动', '个体咨询'],
+  },
+  {
+    icon: BookHeart,
+    title: '快乐阅读涵养童心',
+    subtitle: '以书润心',
+    desc: '建设书香校园，培养阅读习惯，让书籍成为孩子成长的良伴',
+    color: '#2E7D32',
+    examples: ['阅读课程', '图书漂流', '读书分享', '经典诵读'],
+  },
+  {
+    icon: Landmark,
+    title: '校园文化润泽童心',
+    subtitle: '以境育心',
+    desc: '营造温馨和谐、富有童趣的校园环境，让每一面墙壁都会说话',
+    color: '#E65100',
+    examples: ['班级文化', '走廊文化', '校园景观', '文化传承'],
+  },
+];
 
 // 校训内涵
 const schoolMotto = [
@@ -47,7 +108,7 @@ const schoolMotto = [
   },
 ];
 
-// 五育数据 - 与校训对应
+// 五育数据
 const fiveEducation = [
   {
     category: '德育',
@@ -185,7 +246,6 @@ const smartCampusSystems = [
 ];
 
 export default function HomePage() {
-  const router = useRouter();
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -204,7 +264,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-white">
       
       {/* 顶部导航 */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-3">
@@ -248,54 +308,86 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero 区域 - 身份认同 */}
-      <section className="bg-amber-50 py-16 md:py-20">
-        <div className="max-w-6xl mx-auto px-4">
+      {/* Hero 区域 - 童心教育核心理念 */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50">
+        {/* 装饰元素 */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-20 -right-20 w-80 h-80 bg-amber-200/30 rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-96 h-96 bg-orange-200/30 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="relative max-w-6xl mx-auto px-4 py-16 md:py-24">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              {/* 核心身份 */}
-              <p className="text-sm text-amber-700 mb-3">福建省龙岩市教育局直属小学</p>
+              {/* 办学宗旨 */}
+              <div className="inline-flex items-center gap-2 bg-amber-100/80 text-amber-800 px-4 py-1.5 rounded-full text-sm mb-6">
+                <Sparkles className="h-4 w-4" />
+                <span>为每个儿童的身心发展奠基</span>
+              </div>
+              
+              {/* 学校名称 */}
               <h1 
-                className="text-4xl md:text-5xl font-bold text-gray-900 mb-4"
+                className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
                 福建省龙岩师范附属小学
               </h1>
               
-              {/* 办学理念 - 核心价值主张 */}
-              <p className="text-lg text-gray-700 mb-6" style={{ fontFamily: 'var(--font-serif)' }}>
-                温暖成长，智慧育人
-              </p>
+              {/* 核心办学理念 */}
+              <div className="mb-6">
+                <p 
+                  className="text-2xl md:text-3xl text-gray-800 font-medium mb-2"
+                  style={{ fontFamily: 'var(--font-serif)' }}
+                >
+                  珍视童心，张扬个性，全面发展
+                </p>
+                <div className="flex items-center gap-2 text-amber-700">
+                  <Baby className="h-5 w-5" />
+                  <span className="text-lg font-medium">童心教育</span>
+                </div>
+              </div>
               
-              {/* 存在价值 */}
-              <p className="text-gray-600 mb-8 leading-relaxed">
-                一所百年名校的坚守：以&quot;明德、博学、笃行、创新&quot;为校训，
-                培养德智体美劳全面发展的社会主义建设者和接班人。
-              </p>
+              {/* 办学核心方向 */}
+              <div className="bg-white/60 backdrop-blur-sm border border-amber-200/50 rounded-lg p-4 mb-8">
+                <p className="text-gray-700 text-sm leading-relaxed">
+                  <span className="text-amber-700 font-medium">办学核心方向：</span>
+                  当有情怀的老师，办有温度的学校
+                </p>
+              </div>
 
-              {user ? (
-                <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
-                  <Button className="h-11 px-6 bg-amber-700 hover:bg-amber-800 text-white">
-                    进入工作台
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              ) : (
-                <Link href="/login">
-                  <Button className="h-11 px-6 bg-amber-700 hover:bg-amber-800 text-white">
-                    进入智慧校园
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              )}
+              {/* 行动按钮 */}
+              <div className="flex flex-wrap gap-4">
+                {user ? (
+                  <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
+                    <Button className="h-12 px-8 bg-amber-700 hover:bg-amber-800 text-white text-base">
+                      进入工作台
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link href="/login">
+                      <Button className="h-12 px-8 bg-amber-700 hover:bg-amber-800 text-white text-base">
+                        进入智慧校园
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </Button>
+                    </Link>
+                    <a href="#child-heart">
+                      <Button variant="outline" className="h-12 px-8 border-amber-300 text-amber-700 hover:bg-amber-50">
+                        了解童心教育
+                      </Button>
+                    </a>
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* 右侧图片 - 办学成果展示 */}
+            {/* 右侧图片墙 */}
             <div className="grid grid-cols-2 gap-3">
               {campusActivities.map((activity, index) => (
                 <div 
                   key={index}
-                  className="relative bg-gray-100 overflow-hidden"
+                  className="relative bg-gray-100 overflow-hidden rounded-lg shadow-lg"
                   style={{ aspectRatio: '4/3' }}
                 >
                   {!imageErrors[`hero-${index}`] ? (
@@ -306,12 +398,13 @@ export default function HomePage() {
                       onError={() => handleImageError(`hero-${index}`)}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <GraduationCap className="h-8 w-8 text-gray-400" />
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100">
+                      <Baby className="h-8 w-8 text-amber-400" />
                     </div>
                   )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
-                    <p className="text-white text-xs truncate">{activity.title}</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-white text-sm font-medium">{activity.title}</p>
                   </div>
                 </div>
               ))}
@@ -320,29 +413,149 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 校训 - 价值主张 */}
+      {/* 童心教育核心内涵 */}
       <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-4">
+              <Star className="h-4 w-4" />
+              <span>核心教育理念</span>
+            </div>
             <h2 
-              className="text-2xl font-bold text-gray-900 mb-4"
+              className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              童心教育
+            </h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              尊重儿童<span className="text-amber-700 font-medium">天真</span>、
+              <span className="text-amber-700 font-medium">纯朴</span>、
+              <span className="text-amber-700 font-medium">活泼</span>、
+              <span className="text-amber-700 font-medium">自然</span>的生命状态，
+              创设富有<span className="text-amber-700 font-medium">爱心</span>、
+              <span className="text-amber-700 font-medium">童趣</span>、
+              <span className="text-amber-700 font-medium">自由</span>、
+              <span className="text-amber-700 font-medium">和谐</span>的育人环境，
+              立足儿童实际、遵循身心发展规律，让孩子<span className="text-amber-700 font-medium">本真</span>、
+              <span className="text-amber-700 font-medium">快乐</span>、
+              <span className="text-amber-700 font-medium">阳光</span>地成长。
+            </p>
+          </div>
+
+          {/* 四个关键词展示 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {[
+              { icon: Smile, word: '本真', desc: '保持天性，真实成长' },
+              { icon: Sun, word: '快乐', desc: '享受童年，快乐学习' },
+              { icon: Sparkles, word: '阳光', desc: '积极向上，阳光成长' },
+              { icon: Heart, word: '有爱', desc: '关爱呵护，温暖相伴' },
+            ].map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <div key={index} className="text-center p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-100">
+                  <div className="w-14 h-14 mx-auto mb-4 bg-amber-100 rounded-full flex items-center justify-center">
+                    <Icon className="h-7 w-7 text-amber-700" />
+                  </div>
+                  <h3 
+                    className="text-xl font-bold text-gray-900 mb-2"
+                    style={{ fontFamily: 'var(--font-serif)' }}
+                  >
+                    {item.word}
+                  </h3>
+                  <p className="text-sm text-gray-600">{item.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* 六大实施路径 - 核心特色 */}
+      <section id="child-heart" className="py-16 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-4">
+              <Target className="h-4 w-4" />
+              <span>十余年持续优化的核心执行标准</span>
+            </div>
+            <h2 
+              className="text-3xl md:text-4xl font-bold text-gray-900 mb-4"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              童心教育六大实施路径
+            </h2>
+            <p className="text-gray-600">
+              贯穿校本部所有教学、管理、德育工作的核心框架
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {childHeartPaths.map((path, index) => {
+              const Icon = path.icon;
+              return (
+                <div 
+                  key={index} 
+                  className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 group"
+                >
+                  <div className="flex items-start gap-4 mb-4">
+                    <div 
+                      className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: path.color }}
+                    >
+                      <Icon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-amber-700 transition-colors">
+                        {path.title}
+                      </h3>
+                      <p className="text-sm" style={{ color: path.color }}>{path.subtitle}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                    {path.desc}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {path.examples.map((example, i) => (
+                      <span 
+                        key={i}
+                        className="text-xs px-2 py-1 rounded-full"
+                        style={{ background: `${path.color}15`, color: path.color }}
+                      >
+                        {example}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* 校训 - 价值主张 */}
+      <section className="py-16 bg-gray-900 text-white">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <p className="text-amber-400 text-sm mb-4">百年传承 · 育人根本</p>
+            <h2 
+              className="text-3xl md:text-4xl font-bold mb-4"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
               明德 · 博学 · 笃行 · 创新
             </h2>
-            <p className="text-gray-600">校训精神，育人根本</p>
+            <p className="text-gray-400">校训精神，引领童心成长</p>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-4 gap-8">
             {schoolMotto.map((item, index) => (
-              <div key={index} className="text-center md:text-left">
+              <div key={index} className="text-center">
                 <div 
-                  className="text-4xl font-bold mb-2"
-                  style={{ fontFamily: 'var(--font-serif)', color: '#B8860B' }}
+                  className="text-5xl font-bold mb-3"
+                  style={{ fontFamily: 'var(--font-serif)', color: '#D4A574' }}
                 >
                   {item.character}
                 </div>
-                <p className="text-sm font-medium text-gray-800 mb-1">{item.meaning}</p>
+                <p className="text-sm font-medium text-gray-300 mb-2">{item.meaning}</p>
                 <p className="text-xs text-gray-500">{item.desc}</p>
               </div>
             ))}
@@ -350,19 +563,25 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 学校概况 - 身份认同 */}
-      <section id="about" className="py-16 bg-gray-50">
+      {/* 学校概况 */}
+      <section id="about" className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4">
-          <h2 
-            className="text-2xl font-bold text-gray-900 mb-8"
-            style={{ fontFamily: 'var(--font-serif)' }}
-          >
-            学校概况
-          </h2>
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
+              <Building2 className="h-4 w-4" />
+              <span>百年名校</span>
+            </div>
+            <h2 
+              className="text-2xl font-bold text-gray-900"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              学校概况
+            </h2>
+          </div>
 
           <div className="grid md:grid-cols-2 gap-12 items-start">
             <div>
-              <div className="bg-gray-100 aspect-[4/3] mb-4">
+              <div className="bg-gray-100 aspect-[4/3] mb-4 rounded-lg overflow-hidden">
                 {!imageErrors['about-main'] ? (
                   <img
                     src="/images/campus/festival-stage.png"
@@ -371,8 +590,8 @@ export default function HomePage() {
                     onError={() => handleImageError('about-main')}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Building2 className="h-12 w-12 text-gray-400" />
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
+                    <Building2 className="h-12 w-12 text-amber-300" />
                   </div>
                 )}
               </div>
@@ -381,7 +600,10 @@ export default function HomePage() {
             <div className="space-y-6">
               {/* 历史沿革 */}
               <div>
-                <h3 className="text-sm font-bold text-gray-800 mb-2">历史沿革</h3>
+                <h3 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+                  <span className="w-1 h-4 bg-amber-700 rounded-full" />
+                  历史沿革
+                </h3>
                 <p className="text-gray-600 text-sm leading-relaxed">
                   福建省龙岩师范附属小学创建于1914年，坐落于福建省龙岩市新罗区龙川东路，
                   是龙岩市教育局直属小学，福建省示范小学。学校占地面积约35亩，
@@ -391,10 +613,13 @@ export default function HomePage() {
               
               {/* 办学规模 */}
               <div>
-                <h3 className="text-sm font-bold text-gray-800 mb-2">办学规模</h3>
+                <h3 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+                  <span className="w-1 h-4 bg-amber-700 rounded-full" />
+                  办学规模
+                </h3>
                 <div className="flex gap-6">
                   <div>
-                    <span className="text-2xl font-bold text-amber-700" style={{ fontFamily: 'var(--font-serif)' }}>56</span>
+                    <span className="text-2xl font-bold text-amber-700" style={{ fontFamily: 'var(--font-serif)' }}>60</span>
                     <span className="text-sm text-gray-600 ml-1">个教学班</span>
                   </div>
                   <div>
@@ -410,20 +635,23 @@ export default function HomePage() {
 
               {/* 师资力量 */}
               <div>
-                <h3 className="text-sm font-bold text-gray-800 mb-2">师资力量</h3>
+                <h3 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+                  <span className="w-1 h-4 bg-amber-700 rounded-full" />
+                  师资力量
+                </h3>
                 <p className="text-gray-600 text-sm leading-relaxed mb-3">
                   学校拥有一支师德高尚、业务精湛的教师队伍。
                 </p>
                 <div className="flex gap-4">
-                  <div className="flex-1 bg-white p-3 border-l-3 border-red-700">
+                  <div className="flex-1 bg-gray-50 p-3 border-l-3 border-red-700">
                     <span className="text-lg font-bold text-red-700">15人</span>
                     <p className="text-xs text-gray-500">省级骨干教师</p>
                   </div>
-                  <div className="flex-1 bg-white p-3 border-l-3 border-blue-800">
+                  <div className="flex-1 bg-gray-50 p-3 border-l-3 border-blue-800">
                     <span className="text-lg font-bold text-blue-800">32人</span>
                     <p className="text-xs text-gray-500">市级骨干教师</p>
                   </div>
-                  <div className="flex-1 bg-white p-3 border-l-3 border-amber-700">
+                  <div className="flex-1 bg-gray-50 p-3 border-l-3 border-amber-700">
                     <span className="text-lg font-bold text-amber-700">28人</span>
                     <p className="text-xs text-gray-500">高级教师</p>
                   </div>
@@ -434,17 +662,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 五育并举 - 育人路径 */}
-      <section id="education" className="py-16 bg-white">
+      {/* 五育并举 */}
+      <section id="education" className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="mb-12">
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
+              <GraduationCap className="h-4 w-4" />
+              <span>育人体系</span>
+            </div>
             <h2 
               className="text-2xl font-bold text-gray-900 mb-2"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              育人体系
+              五育并举
             </h2>
-            <p className="text-gray-600">五育并举，全面落实立德树人根本任务</p>
+            <p className="text-gray-600">全面落实立德树人根本任务，助力童心全面发展</p>
           </div>
 
           <div className="space-y-12">
@@ -453,7 +685,7 @@ export default function HomePage() {
                 {/* 左侧 */}
                 <div className="md:col-span-3">
                   <div 
-                    className="w-16 h-16 flex items-center justify-center mb-3"
+                    className="w-16 h-16 flex items-center justify-center mb-3 rounded-lg"
                     style={{ background: edu.color }}
                   >
                     <span 
@@ -474,7 +706,7 @@ export default function HomePage() {
                   <div className="grid grid-cols-4 gap-3">
                     {edu.images.map((img, imgIndex) => (
                       <div key={imgIndex}>
-                        <div className="aspect-[4/3] bg-gray-100">
+                        <div className="aspect-[4/3] bg-gray-100 rounded overflow-hidden">
                           {!imageErrors[`edu-${eduIndex}-${imgIndex}`] ? (
                             <img
                               src={img.src}
@@ -483,7 +715,7 @@ export default function HomePage() {
                               onError={() => handleImageError(`edu-${eduIndex}-${imgIndex}`)}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
                               <GraduationCap className="h-6 w-6 text-gray-400" />
                             </div>
                           )}
@@ -499,10 +731,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 教师发展 - 育人保障 */}
-      <section id="teacher" className="py-16 bg-gray-50">
+      {/* 教师发展 */}
+      <section id="teacher" className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <div className="mb-12">
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
+              <Users className="h-4 w-4" />
+              <span>有情怀的老师</span>
+            </div>
             <h2 
               className="text-2xl font-bold text-gray-900 mb-2"
               style={{ fontFamily: 'var(--font-serif)' }}
@@ -514,7 +750,7 @@ export default function HomePage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {teacherDevelopment.map((item, index) => (
-              <div key={index} className="bg-white border border-gray-200">
+              <div key={index} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="aspect-[16/10] bg-gray-100">
                   {!imageErrors[`teacher-${index}`] ? (
                     <img
@@ -524,8 +760,8 @@ export default function HomePage() {
                       onError={() => handleImageError(`teacher-${index}`)}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Users className="h-8 w-8 text-gray-400" />
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50">
+                      <Users className="h-8 w-8 text-amber-300" />
                     </div>
                   )}
                 </div>
@@ -538,24 +774,28 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 荣誉展示 - 办学成果 */}
+      {/* 办学成果 */}
       <section className="py-16 bg-gray-800">
         <div className="max-w-6xl mx-auto px-4">
           <div className="mb-12">
+            <div className="inline-flex items-center gap-2 text-amber-400 text-sm mb-2">
+              <Trophy className="h-4 w-4" />
+              <span>百年耕耘</span>
+            </div>
             <h2 
               className="text-2xl font-bold text-white mb-2"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
               办学成果
             </h2>
-            <p className="text-gray-400">百年耕耘，硕果累累</p>
+            <p className="text-gray-400">硕果累累，荣誉见证</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             {honors.map((honor, index) => (
-              <div key={index} className="flex items-center gap-4 p-4 bg-gray-700/50">
-                <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Trophy className="h-4 w-4 text-white" />
+              <div key={index} className="flex items-center gap-4 p-4 bg-gray-700/50 rounded-lg">
+                <div className="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Trophy className="h-5 w-5 text-white" />
                 </div>
                 <div>
                   <h4 className="text-white font-medium">{honor.title}</h4>
@@ -568,21 +808,27 @@ export default function HomePage() {
       </section>
 
       {/* 新闻动态 */}
-      <section id="news" className="py-16 bg-white">
+      <section id="news" className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4">
-          <h2 
-            className="text-2xl font-bold text-gray-900 mb-8"
-            style={{ fontFamily: 'var(--font-serif)' }}
-          >
-            新闻动态
-          </h2>
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
+              <BookOpen className="h-4 w-4" />
+              <span>校园动态</span>
+            </div>
+            <h2 
+              className="text-2xl font-bold text-gray-900"
+              style={{ fontFamily: 'var(--font-serif)' }}
+            >
+              新闻动态
+            </h2>
+          </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             {newsList.map((news) => (
-              <div key={news.id} className="flex gap-4 p-4 border border-gray-200 bg-white">
+              <div key={news.id} className="flex gap-4 p-4 border border-gray-200 bg-white rounded-lg hover:shadow-md transition-shadow">
                 <div className="flex-shrink-0">
                   <span 
-                    className="inline-block px-2 py-1 text-xs text-white"
+                    className="inline-block px-2 py-1 text-xs text-white rounded"
                     style={{ background: news.type === '喜讯' ? '#B22222' : '#666' }}
                   >
                     {news.type}
@@ -598,10 +844,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 智慧校园入口 - 服务延伸 */}
-      <section className="py-16 bg-amber-50">
+      {/* 智慧校园入口 */}
+      <section className="py-16 bg-gradient-to-br from-amber-50 to-orange-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="mb-12">
+            <div className="inline-flex items-center gap-2 text-amber-700 text-sm mb-2">
+              <Sparkles className="h-4 w-4" />
+              <span>数字化赋能</span>
+            </div>
             <h2 
               className="text-2xl font-bold text-gray-900 mb-2"
               style={{ fontFamily: 'var(--font-serif)' }}
@@ -616,12 +866,12 @@ export default function HomePage() {
               const Icon = item.icon;
               return (
                 <Link key={index} href="/login">
-                  <div className="bg-white p-6 border border-gray-200 h-full">
-                    <div className="w-10 h-10 rounded flex items-center justify-center mb-3" style={{ background: item.color }}>
-                      <Icon className="h-5 w-5 text-white" />
+                  <div className="bg-white p-6 border border-gray-200 rounded-lg h-full hover:shadow-lg transition-shadow">
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4" style={{ background: item.color }}>
+                      <Icon className="h-6 w-6 text-white" />
                     </div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-1">{item.title}</h3>
-                    <p className="text-xs text-gray-600 mb-2">{item.desc}</p>
+                    <h3 className="text-base font-bold text-gray-900 mb-1">{item.title}</h3>
+                    <p className="text-sm text-gray-600 mb-2">{item.desc}</p>
                     <p className="text-xs text-gray-400">适用：{item.forWho}</p>
                   </div>
                 </Link>
@@ -632,22 +882,22 @@ export default function HomePage() {
       </section>
 
       {/* 联系方式 */}
-      <section className="py-12 bg-gray-100">
+      <section className="py-12 bg-white border-t border-gray-200">
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-8">
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4" style={{ fontFamily: 'var(--font-serif)' }}>联系我们</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-4 w-4 text-gray-400" />
+                  <MapPin className="h-4 w-4 text-amber-600" />
                   <span className="text-gray-600">福建省龙岩市新罗区龙川东路11号</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-gray-400" />
+                  <Phone className="h-4 w-4 text-amber-600" />
                   <span className="text-gray-600">0597-2321234</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Clock className="h-4 w-4 text-gray-400" />
+                  <Clock className="h-4 w-4 text-amber-600" />
                   <span className="text-gray-600">周一至周五 8:00 - 17:30</span>
                 </div>
               </div>
