@@ -45,7 +45,7 @@ const carouselItems: CarouselItem[] = [
   {
     type: 'bilibili',
     image: '/images/campus/science-academy-opening.png',
-    bilibiliUrl: '//player.bilibili.com/player.html?isOutside=true&aid=116165980456643&bvid=BV1WdPczBEVv&cid=36430479858&p=1',
+    bilibiliUrl: 'https://player.bilibili.com/player.html?bvid=BV1WdPczBEVv&page=1&high_quality=1&danmaku=0',
     title: '学校宣传视频',
     subtitle: '龙岩师范附属小学',
     tag: '学校风采',
@@ -897,6 +897,7 @@ export default function HomePage() {
                 scrolling="no"
                 frameBorder="no"
                 allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               />
             )}
             
