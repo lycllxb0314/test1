@@ -100,16 +100,15 @@ const getGenderStyle = (gender: string) => {
 export default function ClassManagePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isHeadTeacher } = usePermissions();
+  const { canManageClass, isHeadTeacher, isSubTeacher } = usePermissions();
 
   // 搜索状态
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
-
-  // 获取当前用户班级信息
-  const classId = user?.classId || '';
-  const className = user?.className || '我的班级';
+  
+  // 班级选择状态（科任教师可能有多个班级）
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
 
   // 使用统一 Hook 获取学生列表
   const { 
@@ -129,6 +128,24 @@ export default function ClassManagePage() {
   } = useClasses();
 
   const loading = studentsLoading || classesLoading;
+
+  // 班主任：自己的班级；科任：选择的班级
+  const classId = useMemo(() => {
+    if (isHeadTeacher()) {
+      return user?.classId || '';
+    }
+    // 科任教师使用选中的班级，默认选第一个
+    return selectedClassId || (user?.subTeacherClasses?.[0]?.classId || '');
+  }, [user, selectedClassId, isHeadTeacher]);
+
+  const className = useMemo(() => {
+    if (isHeadTeacher()) {
+      return user?.className || '我的班级';
+    }
+    // 科任教师从 subTeacherClasses 获取班级名称
+    const cls = user?.subTeacherClasses?.find(c => c.classId === classId);
+    return cls?.className || '我的班级';
+  }, [user, classId, isHeadTeacher]);
 
   // 获取当前班级详情
   const currentClass = useMemo(() => {
@@ -168,11 +185,11 @@ export default function ClassManagePage() {
 
   // 权限检查
   useEffect(() => {
-    if (user && !isHeadTeacher()) {
-      toast.error('您不是班主任，无法访问此页面');
+    if (user && !canManageClass()) {
+      toast.error('您不是班主任或科任教师，无法访问此页面');
       router.push('/teacher');
     }
-  }, [user, isHeadTeacher, router]);
+  }, [user, canManageClass, router]);
 
   // 查看详情
   const handleViewDetail = (studentId: string) => {
@@ -269,8 +286,25 @@ export default function ClassManagePage() {
       <Card className="border-0 shadow-lg overflow-hidden rounded-none">
         <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6">
           <div className="flex items-start justify-between text-white">
-            <div>
-              <h1 className="text-3xl font-bold">{className}</h1>
+            <div className="flex-1">
+              <div className="flex items-center gap-4">
+                <h1 className="text-3xl font-bold">{className}</h1>
+                {/* 科任教师班级选择器 */}
+                {isSubTeacher() && user?.subTeacherClasses && user.subTeacherClasses.length > 1 && (
+                  <Select value={classId} onValueChange={setSelectedClassId}>
+                    <SelectTrigger className="w-[180px] bg-white/20 border-white/30 text-white">
+                      <SelectValue placeholder="切换班级" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {user.subTeacherClasses.map((cls) => (
+                        <SelectItem key={cls.classId} value={cls.classId}>
+                          {cls.className}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
               <div className="mt-2 flex items-center gap-4 text-purple-100">
                 <span className="flex items-center gap-1">
                   <GraduationCap className="h-4 w-4" />
@@ -301,22 +335,29 @@ export default function ClassManagePage() {
           {/* 班主任 */}
           <div className="flex items-center gap-4 p-4 bg-purple-50 rounded-lg border border-purple-100">
             <Avatar className="h-12 w-12 border-2 border-purple-200">
-              <AvatarImage src={user?.avatar} />
+              <AvatarImage src={isHeadTeacher() ? user?.avatar : currentClass?.headTeacher?.avatar} />
               <AvatarFallback className="bg-purple-100 text-purple-700 text-lg">
-                {user?.name?.charAt(0) || '班'}
+                {(isHeadTeacher() ? user?.name : currentClass?.headTeacherName)?.charAt(0) || '班'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <div className="text-sm text-purple-600 font-medium">班主任</div>
-              <div className="font-bold text-lg text-gray-900">{user?.name || '我'}</div>
-              {user?.department && (
+              <div className="font-bold text-lg text-gray-900">
+                {isHeadTeacher() ? user?.name || '我' : currentClass?.headTeacherName || '未配置'}
+              </div>
+              {isHeadTeacher() && user?.department && (
                 <div className="text-sm text-gray-500">{user.department}</div>
               )}
+              {!isHeadTeacher() && currentClass?.headTeacher?.title && (
+                <div className="text-sm text-gray-500">{currentClass.headTeacher.title}</div>
+              )}
             </div>
-            <div className="flex items-center gap-1 text-purple-600">
-              <Star className="h-4 w-4" />
-              <span className="text-sm">班级管理员</span>
-            </div>
+            {isHeadTeacher() && (
+              <div className="flex items-center gap-1 text-purple-600">
+                <Star className="h-4 w-4" />
+                <span className="text-sm">班级管理员</span>
+              </div>
+            )}
           </div>
           
           {/* 科任（副班主任） */}
@@ -326,25 +367,36 @@ export default function ClassManagePage() {
               : 'bg-gray-50 border-gray-200'
           }`}>
             <Avatar className="h-12 w-12 border-2 border-blue-200">
-              <AvatarImage src={currentClass?.subTeacher?.avatar} />
+              <AvatarImage src={isSubTeacher() ? user?.avatar : currentClass?.subTeacher?.avatar} />
               <AvatarFallback className={`text-lg ${
-                currentClass?.subTeacherName 
+                (isSubTeacher() ? user?.name : currentClass?.subTeacherName)
                   ? 'bg-blue-100 text-blue-700' 
                   : 'bg-gray-100 text-gray-400'
               }`}>
-                {currentClass?.subTeacherName?.charAt(0) || '?'}
+                {(isSubTeacher() ? user?.name : currentClass?.subTeacherName)?.charAt(0) || '?'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <div className="text-sm text-blue-600 font-medium">科任（副班主任）</div>
               <div className="font-bold text-lg text-gray-900">
-                {currentClass?.subTeacherName || '未配置'}
+                {isSubTeacher() 
+                  ? user?.name || '我' 
+                  : currentClass?.subTeacherName || '未配置'
+                }
               </div>
-              {currentClass?.subTeacher?.subject && (
-                <div className="text-sm text-gray-500">{currentClass.subTeacher.subject}教师</div>
+              {(isSubTeacher() ? user?.subjects?.[0] : currentClass?.subTeacher?.subject) && (
+                <div className="text-sm text-gray-500">
+                  {(isSubTeacher() ? user?.subjects?.[0] : currentClass?.subTeacher?.subject)}教师
+                </div>
               )}
             </div>
-            {currentClass?.subTeacherName && (
+            {isSubTeacher() && (
+              <div className="flex items-center gap-1 text-blue-600">
+                <UserCog className="h-4 w-4" />
+                <span className="text-sm">协同管理</span>
+              </div>
+            )}
+            {!isSubTeacher() && currentClass?.subTeacherName && (
               <div className="flex items-center gap-1 text-blue-600">
                 <UserCog className="h-4 w-4" />
                 <span className="text-sm">协同管理</span>

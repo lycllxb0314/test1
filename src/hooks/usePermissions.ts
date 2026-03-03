@@ -124,6 +124,20 @@ export function usePermissions() {
     };
 
     /**
+     * 检查是否为科任教师（副班主任）
+     */
+    const isSubTeacher = (): boolean => {
+      return currentRole === 'subject_teacher';
+    };
+
+    /**
+     * 检查是否可以访问班级管理（班主任或科任）
+     */
+    const canManageClass = (): boolean => {
+      return isHeadTeacher() || isSubTeacher();
+    };
+
+    /**
      * 检查是否为年段长（兼任职务）
      */
     const isGradeLeader = (): boolean => {
@@ -142,6 +156,11 @@ export function usePermissions() {
       // 班主任只能查看自己的班级
       if (currentRole === 'head_teacher' && user.classId === classId) {
         return true;
+      }
+      
+      // 科任教师可以查看自己负责的班级
+      if (currentRole === 'subject_teacher' && user.subTeacherClasses) {
+        return user.subTeacherClasses.some(c => c.classId === classId);
       }
       
       // 年段长可以查看管理的年级的班级
@@ -168,6 +187,11 @@ export function usePermissions() {
       // 班主任只能编辑自己班级的学生
       if (currentRole === 'head_teacher' && user?.classId === studentClassId) {
         return true;
+      }
+      
+      // 科任教师可以编辑自己负责班级的学生
+      if (currentRole === 'subject_teacher' && user?.subTeacherClasses) {
+        return user.subTeacherClasses.some(c => c.classId === studentClassId);
       }
       
       return false;
@@ -200,6 +224,8 @@ export function usePermissions() {
       isTeacher,
       isDirector,
       isHeadTeacher,
+      isSubTeacher,
+      canManageClass,
       isGradeLeader,
 
       // 业务权限检查
