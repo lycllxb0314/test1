@@ -103,12 +103,12 @@ const schoolMotto = [
 
 // 新闻动态（带图片）
 const newsItems = [
-  { title: '我校少年科学院正式成立，中科院谢华安院士出席揭牌仪式', date: '2025-12-15', category: '校园新闻', image: '/images/campus/science-academy-opening.png' },
-  { title: '2025年全国学生数字素养大赛斩获"创新之星"最高奖', date: '2025-11-20', category: '荣誉喜报', image: '/images/campus/art-festival.png' },
-  { title: '童心教育实践成果入选福建省小学特色办学标杆案例', date: '2025-10-15', category: '教育教学', image: '/images/campus/classroom-teaching.jpg' },
-  { title: '【学习强国】龙岩师范附小：百年老校的童心教育探索', date: '2025-12-10', category: '媒体附小', level: '国家级', image: '/images/campus/young-pioneers.png' },
-  { title: '【福建日报】传承红色基因，培育时代新人', date: '2025-11-28', category: '媒体附小', level: '省级', image: '/images/campus/sports-start.jpg' },
-  { title: '【闽西日报】智慧校园建设助力教育高质量发展', date: '2025-11-15', category: '媒体附小', level: '市级', image: '/images/campus/school-assembly.png' },
+  { title: '我校少年科学院正式成立，中科院谢华安院士出席揭牌仪式', summary: '中国科学院谢华安院士亲临学校，为少年科学院揭牌，激励同学们勇攀科学高峰。', date: '2025-12-15', category: '校园新闻', image: '/images/campus/science-academy-opening.png' },
+  { title: '2025年全国学生数字素养大赛斩获"创新之星"最高奖', summary: '我校学子在全国学生数字素养大赛中表现出色，荣获最高荣誉"创新之星"奖项。', date: '2025-11-20', category: '荣誉喜报', image: '/images/campus/art-festival.png' },
+  { title: '童心教育实践成果入选福建省小学特色办学标杆案例', summary: '学校"童心教育"办学理念与实践成果获得省级认可，成为全省小学特色办学标杆。', date: '2025-10-15', category: '教育教学', image: '/images/campus/classroom-teaching.jpg' },
+  { title: '【学习强国】龙岩师范附小：百年老校的童心教育探索', summary: '学习强国平台专题报道我校百年办学历程与童心教育理念，展现百年名校风采。', date: '2025-12-10', category: '媒体附小', level: '国家级', image: '/images/campus/young-pioneers.png' },
+  { title: '【福建日报】传承红色基因，培育时代新人', summary: '福建日报深度报道我校红色教育实践，传承革命精神，培育新时代接班人。', date: '2025-11-28', category: '媒体附小', level: '省级', image: '/images/campus/sports-start.jpg' },
+  { title: '【闽西日报】智慧校园建设助力教育高质量发展', summary: '闽西日报报道我校智慧校园建设成果，数字化赋能教育教学，提升办学品质。', date: '2025-11-15', category: '媒体附小', level: '市级', image: '/images/campus/school-assembly.png' },
 ];
 
 // 校园公告
@@ -390,8 +390,9 @@ export default function HomePage() {
             </div>
 
             {/* 中间：新闻大图轮播 */}
-            <div className="relative rounded-2xl overflow-hidden shadow-lg shadow-[#D4A574]/10 group cursor-pointer">
-              <div className="relative h-80">
+            <div className="rounded-2xl overflow-hidden shadow-lg shadow-[#D4A574]/10 bg-white">
+              {/* 图片区域 */}
+              <div className="relative h-52">
                 {newsItems.map((item, index) => (
                   <div
                     key={index}
@@ -404,36 +405,44 @@ export default function HomePage() {
                       alt={item.title}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-5">
-                      <span className={`inline-block text-xs px-2 py-1 rounded-full mb-2 ${
-                        item.category === '媒体附小' 
-                          ? 'bg-[#D4A574] text-white' 
-                          : 'bg-[#8B5A2B] text-white'
-                      }`}>
-                        {item.category === '媒体附小' ? item.level : item.category}
-                      </span>
-                      <h3 className="text-white font-bold text-lg leading-tight line-clamp-2">
-                        {item.title}
-                      </h3>
-                      <p className="text-white/70 text-sm mt-1">{item.date}</p>
-                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                   </div>
                 ))}
+                {/* 轮播指示器 */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
+                  {newsItems.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setActiveNewsIndex(index)}
+                      className={`transition-all duration-300 rounded-full ${
+                        index === activeNewsIndex 
+                          ? 'w-6 h-1.5 bg-white' 
+                          : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/70'
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
-              {/* 轮播指示器 */}
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
-                {newsItems.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setActiveNewsIndex(index)}
-                    className={`transition-all duration-300 rounded-full ${
-                      index === activeNewsIndex 
-                        ? 'w-6 h-1.5 bg-white' 
-                        : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/70'
-                    }`}
-                  />
-                ))}
+              {/* 标题+摘要区域 */}
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    newsItems[activeNewsIndex].category === '媒体附小' 
+                      ? 'bg-[#D4A574] text-white' 
+                      : 'bg-[#8B5A2B] text-white'
+                  }`}>
+                    {newsItems[activeNewsIndex].category === '媒体附小' 
+                      ? newsItems[activeNewsIndex].level 
+                      : newsItems[activeNewsIndex].category}
+                  </span>
+                  <span className="text-xs text-[#8B5A2B]/60">{newsItems[activeNewsIndex].date}</span>
+                </div>
+                <h3 className="font-bold text-[#3D2314] text-lg leading-snug mb-2 line-clamp-2 hover:text-[#8B5A2B] cursor-pointer transition">
+                  {newsItems[activeNewsIndex].title}
+                </h3>
+                <p className="text-sm text-[#8B5A2B]/70 leading-relaxed line-clamp-2">
+                  {newsItems[activeNewsIndex].summary}
+                </p>
               </div>
             </div>
 
