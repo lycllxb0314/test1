@@ -7,7 +7,6 @@ import {
   Newspaper,
   ChevronLeft,
   ChevronRight,
-  Bell,
 } from 'lucide-react';
 
 // 新闻数据
