@@ -310,7 +310,7 @@ export default function HomePage() {
                   { num: '60', label: '教学班', unit: '个' },
                   { num: '3000+', label: '学生', unit: '' },
                   { num: '194', label: '教师', unit: '人' },
-                  { num: '111', label: '办学历史', unit: '年' },
+                  { num: '112', label: '办学历史', unit: '年' },
                 ].map((item, i) => (
                   <div key={i} className="bg-white/15 backdrop-blur-sm rounded-lg p-3 text-center text-white min-w-[80px]">
                     <div className="text-xl font-bold">
