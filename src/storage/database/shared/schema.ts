@@ -446,6 +446,46 @@ export const students = pgTable("students", {
 	unique("students_student_no_key").on(table.studentNo),
 ]);
 
+// 家长表 - 家长信息依附于学生存在
+export const parents = pgTable("parents", {
+	id: varchar({ length: 50 }).primaryKey().notNull(),
+	studentId: varchar("student_id", { length: 50 }).notNull(),  // 关联学生ID
+	studentName: varchar("student_name", { length: 50 }).notNull(), // 学生姓名（冗余，便于查询）
+	classId: varchar("class_id", { length: 50 }),               // 班级ID（冗余，便于查询）
+	className: varchar("class_name", { length: 50 }),            // 班级名称（冗余）
+	name: varchar({ length: 50 }).notNull(),                     // 家长姓名
+	relation: varchar({ length: 20 }).notNull(),                 // 关系：father, mother, grandfather, grandmother, other
+	relationName: varchar("relation_name", { length: 20 }),      // 关系中文名：父亲、母亲等
+	phone: varchar({ length: 20 }),                              // 联系电话
+	wechat: varchar({ length: 50 }),                             // 微信号
+	idCard: varchar("id_card", { length: 20 }),                  // 身份证号（用于企业微信关联）
+	occupation: varchar({ length: 100 }),                        // 职业
+	workUnit: varchar("work_unit", { length: 200 }),             // 工作单位
+	isPrimary: boolean("is_primary").default(false),             // 是否主要联系人
+	// 账号相关
+	hasAccount: boolean("has_account").default(false),           // 是否已开通账号
+	accountId: varchar("account_id", { length: 50 }),            // 关联的账号ID（users表）
+	password: varchar({ length: 100 }),                          // 登录密码（加密存储）
+	lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: 'string' }), // 最后登录时间
+	// 状态
+	status: varchar({ length: 20 }).default('active'),           // 状态：active, inactive
+	// 通知设置
+	notifySettings: jsonb("notify_settings").default({           // 通知偏好设置
+		sms: true,
+		wechat: true,
+		app: true,
+	}),
+	// 备注
+	remark: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_parents_student").using("btree", table.studentId.asc().nullsLast().op("text_ops")),
+	index("idx_parents_class").using("btree", table.classId.asc().nullsLast().op("text_ops")),
+	index("idx_parents_phone").using("btree", table.phone.asc().nullsLast().op("text_ops")),
+	index("idx_parents_has_account").using("btree", table.hasAccount.asc().nullsLast().op("bool_ops")),
+]);
+
 export const teachers = pgTable("teachers", {
 	id: varchar({ length: 50 }).primaryKey().notNull(),
 	name: varchar({ length: 50 }).notNull(),
