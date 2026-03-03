@@ -390,7 +390,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           })() as TeacherRole,
           additionalRoles: (t.additional_roles as AdministrativeRole[]) || [],
           weeklyHours: (t.total_weekly_hours as number) || 13,
-          currentHours: 0,
+          currentHours: (t.used_hours as number) || 0,  // 从 schedule_slots 统计的已排课时
           // teachable_subjects：数据库字段为空，从 primary_subject + secondary_subjects 构建
           teachableSubjects: (() => {
             const ts = t.teachable_subjects as string[] | undefined;

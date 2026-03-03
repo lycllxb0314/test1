@@ -2,6 +2,10 @@
  * 教师API路由
  * 
  * 数据源：Supabase 数据库（唯一数据源）
+ * 
+ * 课时统计说明：
+ * - total_weekly_hours: 教师的最大周课时量（配置值）
+ * - used_hours: 从 schedule_slots 表实时统计的已排课时（唯一数据源）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -88,6 +92,19 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
       }
     });
     
+    // 从 schedule_slots 表统计每个教师的已排课时（统一数据源）
+    const { data: scheduleSlots } = await client
+      .from('schedule_slots')
+      .select('teacher_id');
+    
+    // 构建教师已排课时映射
+    const teacherUsedHoursMap: Record<string, number> = {};
+    (scheduleSlots || []).forEach(slot => {
+      if (slot.teacher_id) {
+        teacherUsedHoursMap[slot.teacher_id] = (teacherUsedHoursMap[slot.teacher_id] || 0) + 1;
+      }
+    });
+    
     // 转换下划线格式为驼峰格式（包含课时配置字段）
     const formattedData = (data || []).map(t => {
       const headTeacherInfo = headTeacherClassMap[t.id];
@@ -98,6 +115,9 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         t.primary_subject,
         ...(t.secondary_subjects || [])
       ].filter(Boolean);
+      
+      // 从 schedule_slots 获取已排课时（统一数据源）
+      const used_hours = teacherUsedHoursMap[t.id] || 0;
       
       return {
         id: t.id,
@@ -123,6 +143,7 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         // 计算字段：可任教科目 = 主教学科 + 兼教学科
         teachable_subjects,
         total_weekly_hours: t.total_weekly_hours,
+        used_hours,  // 已排课时（从 schedule_slots 实时统计）
         main_class_count: t.main_class_count,
         main_subject_hours: t.main_subject_hours,
         teachable_grades: t.teachable_grades,
