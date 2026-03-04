@@ -140,8 +140,33 @@ export {
   type MessagePriority,
   type MessageStatus,
   type MessageRecipient,
+  type UseMessagesReturn,
+  // 辅助函数
+  getMessageEventLabel,
+  getMessagePriorityLabel,
+  getMessagePriorityColor,
+  getMessageStatusLabel,
+  getMessageStatusColor,
 } from './useMessages';
 export { MESSAGE_EVENT_CONFIGS } from '@/types/messages';
+
+// 审批系统 Hook
+export {
+  useApprovals,
+  // 类型
+  type ApprovalListType,
+  type ApprovalStatistics,
+  type UseApprovalsReturn,
+  // 辅助函数
+  getApprovalStatusLabel,
+  getApprovalStatusColor,
+  getApprovalStatusIcon,
+  canUserApprove,
+  canUserWithdraw,
+  canUserView,
+  getApprovalTypeLabel,
+  getApprovalTypeColor,
+} from './useApprovals';
 
 // 群组系统 Hook
 export {
@@ -151,9 +176,16 @@ export {
   type GroupInfo,
   type GroupMember,
   type GroupConfig,
-  type UserGroupMembership,
   type GroupFilters,
   type GroupStatistics,
+  type GroupCandidate,
   type UseGroupsReturn,
+  // 辅助函数
+  getGroupTypeLabel,
+  getGroupTypeColor,
+  isUserInGroup,
+  isGroupAdmin,
+  getGroupAdmins,
+  getGroupRegularMembers,
 } from './useGroups';
-export { GROUP_CONFIGS } from '@/types';
+export { GROUP_CONFIGS, type UserGroupMembership } from '@/types';

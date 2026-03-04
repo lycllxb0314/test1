@@ -1,20 +1,22 @@
 /**
- * 群组管理 Hook
+ * 群组管理 Hook v2
  * 
  * 功能：
  * - 获取群组列表
  * - 获取群组成员
  * - 添加/移除成员
  * - 设置群组管理员
+ * - 群组统计
+ * 
+ * @module hooks/useGroups
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import { useQuery, useMutation } from './useApi';
-import { GROUP_CONFIGS, type GroupType, type GroupInfo, type GroupMember, type UserGroupMembership } from '@/types';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { GROUP_CONFIGS, type GroupType, type GroupInfo, type GroupMember } from '@/types';
 
 // ==================== 类型定义 ====================
 
-export type { GroupType, GroupInfo, GroupMember, UserGroupMembership };
+export type { GroupType, GroupInfo, GroupMember };
 export type GroupConfig = typeof GROUP_CONFIGS[GroupType];
 
 export interface GroupFilters {
@@ -26,100 +28,168 @@ export interface GroupStatistics {
   totalGroups: number;
   totalMembers: number;
   groupsByType: Record<GroupType, number>;
+  membersByType: Record<GroupType, number>;
 }
 
 export interface UseGroupsReturn {
-  // 数据
+  // === 数据 ===
   groups: GroupInfo[];
   members: GroupMember[];
-  candidates: Array<{
-    id: string;
-    name: string;
-    role: string;
-    employee_id?: string;
-  }>;
+  candidates: GroupCandidate[];
   
-  // 加载状态
-  isLoadingGroups: boolean;
-  isLoadingMembers: boolean;
-  isLoadingCandidates: boolean;
+  // === 加载状态 ===
+  loading: boolean;
+  loadingMembers: boolean;
+  loadingCandidates: boolean;
+  error: string | null;
   
-  // 操作
+  // === 操作 ===
+  fetchGroups: () => Promise<void>;
   fetchMembers: (groupType: GroupType) => Promise<void>;
   fetchCandidates: (groupType: GroupType, search?: string) => Promise<void>;
   addMembers: (groupType: GroupType, userIds: string[]) => Promise<{ success: boolean; error?: string }>;
   removeMember: (groupType: GroupType, userId: string) => Promise<{ success: boolean; error?: string }>;
   setAdmin: (groupType: GroupType, userId: string, isAdmin: boolean) => Promise<{ success: boolean; error?: string }>;
   
-  // 统计
+  // === 统计 ===
   statistics: GroupStatistics;
   
-  // 工具函数
+  // === 工具函数 ===
   getGroupName: (type: GroupType) => string;
   getGroupConfig: (type: GroupType) => GroupConfig | undefined;
+  getGroupMembers: (type: GroupType) => GroupMember[];
+  currentGroupType: GroupType | null;
 }
+
+export interface GroupCandidate {
+  id: string;
+  name: string;
+  role: string;
+  employee_id?: string;
+  department?: string;
+}
+
+// 默认统计
+const DEFAULT_STATISTICS: GroupStatistics = {
+  totalGroups: Object.keys(GROUP_CONFIGS).length,
+  totalMembers: 0,
+  groupsByType: {} as Record<GroupType, number>,
+  membersByType: {} as Record<GroupType, number>,
+};
 
 // ==================== Hook 实现 ====================
 
 export function useGroups(): UseGroupsReturn {
-  // 群组列表
-  const { 
-    data: groupsData, 
-    loading: isLoadingGroups,
-    refetch: refetchGroups,
-  } = useQuery<{ groups: GroupInfo[] }>(
-    async () => {
-      const response = await fetch('/api/groups?action=list');
-      if (!response.ok) throw new Error('获取群组列表失败');
-      return { success: true, data: await response.json() };
-    }
-  );
+  // === 群组列表状态 ===
+  const [groups, setGroups] = useState<GroupInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 群组成员状态
+  // === 群组成员状态 ===
   const [members, setMembers] = useState<GroupMember[]>([]);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
   const [currentGroupType, setCurrentGroupType] = useState<GroupType | null>(null);
 
-  // 候选人状态
-  const [candidates, setCandidates] = useState<Array<{ id: string; name: string; role: string; employee_id?: string }>>([]);
-  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
+  // === 候选人状态 ===
+  const [candidates, setCandidates] = useState<GroupCandidate[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
 
-  // 获取成员列表
-  const fetchMembers = useCallback(async (groupType: GroupType) => {
-    setIsLoadingMembers(true);
-    setCurrentGroupType(groupType);
+  // 引用
+  const mountedRef = useRef(true);
+
+  // === 获取群组列表 ===
+  const fetchGroups = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      const response = await fetch(`/api/groups?action=members&groupType=${groupType}`);
-      if (!response.ok) throw new Error('获取群组成员失败');
-      const data = await response.json();
-      setMembers(data.members || []);
-    } catch (error) {
-      console.error('获取群组成员失败:', error);
-      setMembers([]);
+      const response = await fetch('/api/groups?action=list');
+      const result = await response.json();
+
+      if (!mountedRef.current) return;
+
+      if (result.success || result.groups) {
+        setGroups(result.groups || result.data || []);
+      } else {
+        setError(result.error || '获取群组列表失败');
+      }
+    } catch (err) {
+      if (!mountedRef.current) return;
+      console.error('获取群组列表失败:', err);
+      setError(err instanceof Error ? err.message : '获取群组列表失败');
     } finally {
-      setIsLoadingMembers(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
-  // 获取候选人列表
+  // === 获取成员列表 ===
+  const fetchMembers = useCallback(async (groupType: GroupType) => {
+    setLoadingMembers(true);
+    setCurrentGroupType(groupType);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/groups?action=members&groupType=${groupType}`);
+      const result = await response.json();
+
+      if (!mountedRef.current) return;
+
+      if (result.members) {
+        setMembers(result.members);
+      } else if (result.success && result.data) {
+        setMembers(result.data);
+      } else {
+        setMembers([]);
+        setError(result.error || '获取群组成员失败');
+      }
+    } catch (err) {
+      if (!mountedRef.current) return;
+      console.error('获取群组成员失败:', err);
+      setError(err instanceof Error ? err.message : '获取群组成员失败');
+      setMembers([]);
+    } finally {
+      if (mountedRef.current) {
+        setLoadingMembers(false);
+      }
+    }
+  }, []);
+
+  // === 获取候选人列表 ===
   const fetchCandidates = useCallback(async (groupType: GroupType, search?: string) => {
-    setIsLoadingCandidates(true);
+    setLoadingCandidates(true);
+    setError(null);
+
     try {
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
       const response = await fetch(`/api/groups?action=candidates&groupType=${groupType}${searchParam}`);
-      if (!response.ok) throw new Error('获取候选人失败');
-      const data = await response.json();
-      setCandidates(data.candidates || []);
-    } catch (error) {
-      console.error('获取候选人失败:', error);
+      const result = await response.json();
+
+      if (!mountedRef.current) return;
+
+      if (result.candidates) {
+        setCandidates(result.candidates);
+      } else if (result.success && result.data) {
+        setCandidates(result.data);
+      } else {
+        setCandidates([]);
+      }
+    } catch (err) {
+      if (!mountedRef.current) return;
+      console.error('获取候选人失败:', err);
       setCandidates([]);
     } finally {
-      setIsLoadingCandidates(false);
+      if (mountedRef.current) {
+        setLoadingCandidates(false);
+      }
     }
   }, []);
 
-  // 添加成员
+  // === 添加成员 ===
   const addMembers = useCallback(async (groupType: GroupType, userIds: string[]) => {
+    setError(null);
+
     try {
       const response = await fetch('/api/groups', {
         method: 'POST',
@@ -130,44 +200,58 @@ export function useGroups(): UseGroupsReturn {
           userIds,
         }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        return { success: false, error: data.error || '添加成员失败' };
-      }
-      // 刷新数据
-      refetchGroups();
-      if (currentGroupType === groupType) {
-        fetchMembers(groupType);
-      }
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : '添加成员失败' };
-    }
-  }, [refetchGroups, currentGroupType, fetchMembers]);
 
-  // 移除成员
+      const result = await response.json();
+
+      if (!mountedRef.current) return { success: false, error: '组件已卸载' };
+
+      if (result.success) {
+        // 刷新数据
+        await fetchGroups();
+        if (currentGroupType === groupType) {
+          await fetchMembers(groupType);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: result.error || '添加成员失败' };
+      }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : '添加成员失败' };
+    }
+  }, [fetchGroups, fetchMembers, currentGroupType]);
+
+  // === 移除成员 ===
   const removeMember = useCallback(async (groupType: GroupType, userId: string) => {
+    setError(null);
+
     try {
       const response = await fetch(`/api/groups?groupType=${groupType}&userId=${userId}`, {
         method: 'DELETE',
       });
-      const data = await response.json();
-      if (!response.ok) {
-        return { success: false, error: data.error || '移除成员失败' };
-      }
-      // 刷新数据
-      refetchGroups();
-      if (currentGroupType === groupType) {
-        fetchMembers(groupType);
-      }
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : '移除成员失败' };
-    }
-  }, [refetchGroups, currentGroupType, fetchMembers]);
 
-  // 设置管理员
+      const result = await response.json();
+
+      if (!mountedRef.current) return { success: false, error: '组件已卸载' };
+
+      if (result.success) {
+        // 刷新数据
+        await fetchGroups();
+        if (currentGroupType === groupType) {
+          await fetchMembers(groupType);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: result.error || '移除成员失败' };
+      }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : '移除成员失败' };
+    }
+  }, [fetchGroups, fetchMembers, currentGroupType]);
+
+  // === 设置管理员 ===
   const setAdmin = useCallback(async (groupType: GroupType, userId: string, isAdmin: boolean) => {
+    setError(null);
+
     try {
       const response = await fetch('/api/groups', {
         method: 'POST',
@@ -179,84 +263,140 @@ export function useGroups(): UseGroupsReturn {
           isAdmin,
         }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        return { success: false, error: data.error || '设置管理员失败' };
-      }
-      // 刷新数据
-      refetchGroups();
-      if (currentGroupType === groupType) {
-        fetchMembers(groupType);
-      }
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : '设置管理员失败' };
-    }
-  }, [refetchGroups, currentGroupType, fetchMembers]);
 
-  // 计算统计数据
-  const statistics: GroupStatistics = {
-    totalGroups: Object.keys(GROUP_CONFIGS).length,
-    totalMembers: groupsData?.groups?.reduce((sum, g) => sum + g.memberCount, 0) || 0,
-    groupsByType: groupsData?.groups?.reduce((acc, g) => {
-      acc[g.type] = g.memberCount;
-      return acc;
-    }, {} as Record<GroupType, number>) || {} as Record<GroupType, number>,
-  };
+      const result = await response.json();
+
+      if (!mountedRef.current) return { success: false, error: '组件已卸载' };
+
+      if (result.success) {
+        // 刷新数据
+        await fetchGroups();
+        if (currentGroupType === groupType) {
+          await fetchMembers(groupType);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: result.error || '设置管理员失败' };
+      }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : '设置管理员失败' };
+    }
+  }, [fetchGroups, fetchMembers, currentGroupType]);
+
+  // === 工具函数 ===
+  const getGroupName = useCallback((type: GroupType): string => {
+    return GROUP_CONFIGS[type]?.name || type;
+  }, []);
+
+  const getGroupConfig = useCallback((type: GroupType): GroupConfig | undefined => {
+    return GROUP_CONFIGS[type];
+  }, []);
+
+  const getGroupMembers = useCallback((type: GroupType): GroupMember[] => {
+    if (currentGroupType === type) {
+      return members;
+    }
+    return [];
+  }, [currentGroupType, members]);
+
+  // === 计算统计数据 ===
+  const statistics: GroupStatistics = useMemo(() => {
+    const groupsByType = {} as Record<GroupType, number>;
+    const membersByType = {} as Record<GroupType, number>;
+    let totalMembers = 0;
+
+    groups.forEach(g => {
+      groupsByType[g.type as GroupType] = (groupsByType[g.type as GroupType] || 0) + 1;
+      membersByType[g.type as GroupType] = (membersByType[g.type as GroupType] || 0) + (g.memberCount || 0);
+      totalMembers += g.memberCount || 0;
+    });
+
+    return {
+      totalGroups: groups.length,
+      totalMembers,
+      groupsByType,
+      membersByType,
+    };
+  }, [groups]);
+
+  // === 初始加载 ===
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
+  // === 清理 ===
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   return {
-    groups: groupsData?.groups || [],
+    // 数据
+    groups,
     members,
     candidates,
-    isLoadingGroups,
-    isLoadingMembers,
-    isLoadingCandidates,
+    
+    // 加载状态
+    loading,
+    loadingMembers,
+    loadingCandidates,
+    error,
+    
+    // 操作
+    fetchGroups,
     fetchMembers,
     fetchCandidates,
     addMembers,
     removeMember,
     setAdmin,
+    
+    // 统计
     statistics,
-    getGroupName: (type: GroupType) => GROUP_CONFIGS[type]?.name || type,
-    getGroupConfig: (type: GroupType) => GROUP_CONFIGS[type],
+    
+    // 工具函数
+    getGroupName,
+    getGroupConfig,
+    getGroupMembers,
+    currentGroupType,
   };
 }
 
 // ==================== 辅助函数 ====================
 
-/**
- * 获取用户所属群组
- */
-export async function getUserGroups(userId: string): Promise<UserGroupMembership[]> {
-  try {
-    const response = await fetch(`/api/users/${userId}/groups`);
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.groups || [];
-  } catch {
-    return [];
-  }
+/** 获取群组类型标签 */
+export function getGroupTypeLabel(type: GroupType): string {
+  return GROUP_CONFIGS[type]?.name || type;
 }
 
-/**
- * 检查用户是否有某个模块的管理权限（考虑群组权限）
- */
-export function hasModuleAdminPermission(
-  userRole: string,
-  additionalRoles: string[],
-  userGroups: UserGroupMembership[],
-  moduleType: string
-): boolean {
-  // 首先检查主角色和兼职角色的权限
-  // ... 这里需要结合现有的权限系统
-  
-  // 然后检查群组权限
-  for (const group of userGroups) {
-    const config = GROUP_CONFIGS[group.groupType];
-    if (config?.modulePermissions[moduleType as keyof typeof config.modulePermissions]?.includes('admin')) {
-      return true;
-    }
-  }
-  
-  return false;
+/** 获取群组类型颜色 */
+export function getGroupTypeColor(type: GroupType): string {
+  const colors: Record<GroupType, string> = {
+    principal_office: 'bg-red-100 text-red-600',
+    academic_office: 'bg-blue-100 text-blue-600',
+    moral_office: 'bg-green-100 text-green-600',
+    general_office: 'bg-orange-100 text-orange-600',
+  };
+  return colors[type] || 'bg-gray-100 text-gray-600';
+}
+
+/** 检查用户是否在群组中 */
+export function isUserInGroup(members: GroupMember[], userId: string): boolean {
+  return members.some(m => m.userId === userId);
+}
+
+/** 检查用户是否是群组管理员 */
+export function isGroupAdmin(members: GroupMember[], userId: string): boolean {
+  const member = members.find(m => m.userId === userId);
+  return member?.isAdmin || false;
+}
+
+/** 获取群组管理员列表 */
+export function getGroupAdmins(members: GroupMember[]): GroupMember[] {
+  return members.filter(m => m.isAdmin);
+}
+
+/** 获取群组普通成员列表 */
+export function getGroupRegularMembers(members: GroupMember[]): GroupMember[] {
+  return members.filter(m => !m.isAdmin);
 }

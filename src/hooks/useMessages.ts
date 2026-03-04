@@ -1,14 +1,17 @@
 /**
- * 消息系统 Hook
+ * 消息系统 Hook v2
  * 
  * 提供完整的消息管理功能：
  * - 获取当前用户的消息列表
  * - 发送消息（支持全员、角色、班级、个人）
  * - 更新消息状态（已读、归档、置顶）
  * - 消息筛选和统计
+ * - 实时轮询更新
+ * 
+ * @module hooks/useMessages
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
 import type {
   UserMessage,
@@ -19,12 +22,7 @@ import type {
   MessagePriority,
   MessageStatus,
   MessageRecipient,
-  MESSAGE_EVENT_CONFIGS,
 } from '@/types/messages';
-import { useTeachers, type TeacherInfo } from './useTeachers';
-import { useStudents, type StudentInfo } from './useStudents';
-import { useClasses, type ClassContainer } from './useClasses';
-import { useParents, type ParentInfo } from './useParents';
 
 // ==================== 类型定义 ====================
 
@@ -32,7 +30,6 @@ import { useParents, type ParentInfo } from './useParents';
 export interface UseMessagesReturn {
   // === 数据 ===
   messages: UserMessage[];
-  allMessages: UserMessage[];
   loading: boolean;
   error: string | null;
   statistics: MessageStatistics;
@@ -45,15 +42,17 @@ export interface UseMessagesReturn {
   goToPage: (page: number) => void;
   nextPage: () => void;
   prevPage: () => void;
+  setPageSize: (size: number) => void;
 
   // === 筛选 ===
   filters: MessageQueryParams;
   setFilters: (filters: Partial<MessageQueryParams>) => void;
+  clearFilters: () => void;
 
   // === 消息操作 ===
   fetchMessages: () => Promise<void>;
   refetch: () => Promise<void>;
-  sendMessage: (request: SendMessageRequest) => Promise<boolean>;
+  sendMessage: (request: SendMessageRequest) => Promise<{ success: boolean; error?: string }>;
   markAsRead: (messageId: string) => Promise<boolean>;
   markAsUnread: (messageId: string) => Promise<boolean>;
   archiveMessage: (messageId: string) => Promise<boolean>;
@@ -63,83 +62,56 @@ export interface UseMessagesReturn {
   markAllAsRead: () => Promise<boolean>;
 
   // === 快捷发送 ===
-  sendToAll: (title: string, content: string, event: MessageEvent, priority?: MessagePriority) => Promise<boolean>;
-  sendToRoles: (roles: string[], title: string, content: string, event: MessageEvent, priority?: MessagePriority) => Promise<boolean>;
-  sendToClasses: (classIds: string[], title: string, content: string, event: MessageEvent, priority?: MessagePriority) => Promise<boolean>;
-  sendToUsers: (userIds: string[], title: string, content: string, event: MessageEvent, priority?: MessagePriority) => Promise<boolean>;
+  sendToAll: (title: string, content: string, event?: MessageEvent, priority?: MessagePriority) => Promise<{ success: boolean; error?: string }>;
+  sendToRoles: (roles: string[], title: string, content: string, event?: MessageEvent, priority?: MessagePriority) => Promise<{ success: boolean; error?: string }>;
+  sendToClasses: (classIds: string[], title: string, content: string, event?: MessageEvent, priority?: MessagePriority) => Promise<{ success: boolean; error?: string }>;
+  sendToUsers: (userIds: string[], title: string, content: string, event?: MessageEvent, priority?: MessagePriority) => Promise<{ success: boolean; error?: string }>;
 
-  // === 数据源（用于选择接收者） ===
-  teachers: TeacherInfo[];
-  students: StudentInfo[];
-  classes: ClassContainer[];
-  parents: ParentInfo[];
-  dataLoading: boolean;
+  // === 实时更新 ===
+  startPolling: (interval?: number) => void;
+  stopPolling: () => void;
+  isPolling: boolean;
 }
+
+// 默认统计
+const DEFAULT_STATISTICS: MessageStatistics = {
+  total: 0,
+  unread: 0,
+  read: 0,
+  archived: 0,
+  byEvent: {} as Record<MessageEvent, number>,
+  byPriority: {} as Record<MessagePriority, number>,
+};
+
+// 默认筛选
+const DEFAULT_FILTERS: MessageQueryParams = {};
 
 // ==================== Hook 实现 ====================
 
 export function useMessages(initialFilters?: MessageQueryParams): UseMessagesReturn {
   // === 消息数据状态 ===
-  const [allMessages, setAllMessages] = useState<UserMessage[]>([]);
+  const [messages, setMessages] = useState<UserMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statistics, setStatistics] = useState<MessageStatistics>({
-    total: 0,
-    unread: 0,
-    read: 0,
-    archived: 0,
-    byEvent: {} as Record<MessageEvent, number>,
-    byPriority: {} as Record<MessagePriority, number>,
-  });
+  const [statistics, setStatistics] = useState<MessageStatistics>(DEFAULT_STATISTICS);
 
   // === 分页状态 ===
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE);
+  const [pageSize, setPageSizeState] = useState<number>(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE);
   const [total, setTotal] = useState(0);
 
   // === 筛选状态 ===
-  const [filters, setFiltersState] = useState<MessageQueryParams>(initialFilters || {});
+  const [filters, setFiltersState] = useState<MessageQueryParams>(initialFilters || DEFAULT_FILTERS);
 
-  // === 数据源 Hooks ===
-  const { allTeachers, loading: teachersLoading } = useTeachers();
-  const { allStudents, loading: studentsLoading } = useStudents();
-  const { allClasses, loading: classesLoading } = useClasses();
-  const { allParents, loading: parentsLoading } = useParents();
-
-  const dataLoading = teachersLoading || studentsLoading || classesLoading || parentsLoading;
+  // === 轮询状态 ===
+  const [isPolling, setIsPolling] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 引用
   const mountedRef = useRef(true);
 
   // === 计算属性 ===
-  const totalPages = Math.ceil(total / pageSize);
-
-  // 筛选后的消息
-  const messages = useMemo(() => {
-    let result = allMessages;
-
-    if (filters.event) {
-      result = result.filter(m => m.event === filters.event);
-    }
-    if (filters.status) {
-      result = result.filter(m => m.status === filters.status);
-    }
-    if (filters.priority) {
-      result = result.filter(m => m.priority === filters.priority);
-    }
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      result = result.filter(m => 
-        m.title.toLowerCase().includes(search) ||
-        m.content.toLowerCase().includes(search)
-      );
-    }
-    if (filters.unreadOnly) {
-      result = result.filter(m => m.status === 'unread');
-    }
-
-    return result;
-  }, [allMessages, filters]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   // === 获取消息列表 ===
   const fetchMessages = useCallback(async () => {
@@ -159,18 +131,23 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
       const response = await fetch(`/api/messages?${params.toString()}`);
       const result = await response.json();
 
+      if (!mountedRef.current) return;
+
       if (result.success) {
-        setAllMessages(result.data || []);
+        setMessages(result.data || []);
         setTotal(result.pagination?.total || 0);
-        setStatistics(result.statistics || statistics);
+        setStatistics(result.statistics || DEFAULT_STATISTICS);
       } else {
         setError(result.error || '获取消息失败');
       }
     } catch (err) {
+      if (!mountedRef.current) return;
       console.error('Failed to fetch messages:', err);
       setError(err instanceof Error ? err.message : '获取消息失败');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [filters, page, pageSize]);
 
@@ -183,12 +160,15 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
   useEffect(() => {
     return () => {
       mountedRef.current = false;
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
     };
   }, []);
 
   // === 分页操作 ===
   const goToPage = useCallback((newPage: number) => {
-    setPage(Math.max(1, Math.min(newPage, totalPages || 1)));
+    setPage(Math.max(1, Math.min(newPage, totalPages)));
   }, [totalPages]);
 
   const nextPage = useCallback(() => {
@@ -199,10 +179,20 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
     setPage(p => Math.max(1, p - 1));
   }, []);
 
+  const setPageSize = useCallback((size: number) => {
+    setPageSizeState(size);
+    setPage(1);
+  }, []);
+
   // === 筛选操作 ===
   const setFilters = useCallback((newFilters: Partial<MessageQueryParams>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }));
-    setPage(1); // 重置页码
+    setPage(1);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFiltersState(DEFAULT_FILTERS);
+    setPage(1);
   }, []);
 
   const refetch = useCallback(() => {
@@ -210,7 +200,7 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
   }, [fetchMessages]);
 
   // === 发送消息 ===
-  const sendMessage = useCallback(async (request: SendMessageRequest): Promise<boolean> => {
+  const sendMessage = useCallback(async (request: SendMessageRequest): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -222,15 +212,13 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
 
       if (result.success) {
         await refetch();
-        return true;
+        return { success: true };
       } else {
-        setError(result.error || '发送失败');
-        return false;
+        return { success: false, error: result.error || '发送失败' };
       }
     } catch (err) {
       console.error('Failed to send message:', err);
-      setError(err instanceof Error ? err.message : '发送失败');
-      return false;
+      return { success: false, error: err instanceof Error ? err.message : '发送失败' };
     }
   }, [refetch]);
 
@@ -306,99 +294,96 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
   // === 全部标记已读 ===
   const markAllAsRead = useCallback(async (): Promise<boolean> => {
     try {
-      const unreadMessages = allMessages.filter(m => m.status === 'unread');
-      
-      await Promise.all(
-        unreadMessages.map(m => 
-          fetch(`/api/messages/${m.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'read' }),
-          })
-        )
-      );
+      const response = await fetch('/api/messages/mark-all-read', {
+        method: 'POST',
+      });
 
-      await refetch();
-      return true;
+      const result = await response.json();
+
+      if (result.success) {
+        await refetch();
+        return true;
+      } else {
+        setError(result.error || '操作失败');
+        return false;
+      }
     } catch (err) {
       console.error('Failed to mark all as read:', err);
       setError(err instanceof Error ? err.message : '操作失败');
       return false;
     }
-  }, [allMessages, refetch]);
+  }, [refetch]);
 
   // === 快捷发送方法 ===
   const sendToAll = useCallback((
     title: string, 
     content: string, 
-    event: MessageEvent, 
+    event: MessageEvent = 'personal_message',
     priority: MessagePriority = 'normal'
-  ): Promise<boolean> => {
-    return sendMessage({
-      title,
-      content,
-      event,
-      priority,
-      recipients: { type: 'all' },
-    });
+  ) => {
+    const recipients: MessageRecipient = { type: 'all' };
+    return sendMessage({ title, content, event, priority, recipients });
   }, [sendMessage]);
 
   const sendToRoles = useCallback((
     roles: string[], 
     title: string, 
     content: string, 
-    event: MessageEvent, 
+    event: MessageEvent = 'personal_message',
     priority: MessagePriority = 'normal'
-  ): Promise<boolean> => {
-    return sendMessage({
-      title,
-      content,
-      event,
-      priority,
-      recipients: { type: 'role', roles },
-    });
+  ) => {
+    const recipients: MessageRecipient = { type: 'role', roles };
+    return sendMessage({ title, content, event, priority, recipients });
   }, [sendMessage]);
 
   const sendToClasses = useCallback((
     classIds: string[], 
     title: string, 
     content: string, 
-    event: MessageEvent, 
+    event: MessageEvent = 'personal_message',
     priority: MessagePriority = 'normal'
-  ): Promise<boolean> => {
-    return sendMessage({
-      title,
-      content,
-      event,
-      priority,
-      recipients: { type: 'class', classIds },
-    });
+  ) => {
+    const recipients: MessageRecipient = { type: 'class', classIds };
+    return sendMessage({ title, content, event, priority, recipients });
   }, [sendMessage]);
 
   const sendToUsers = useCallback((
     userIds: string[], 
     title: string, 
     content: string, 
-    event: MessageEvent, 
+    event: MessageEvent = 'personal_message',
     priority: MessagePriority = 'normal'
-  ): Promise<boolean> => {
-    return sendMessage({
-      title,
-      content,
-      event,
-      priority,
-      recipients: { type: 'individual', userIds },
-    });
+  ) => {
+    const recipients: MessageRecipient = { type: 'individual', userIds };
+    return sendMessage({ title, content, event, priority, recipients });
   }, [sendMessage]);
+
+  // === 轮询更新 ===
+  const startPolling = useCallback((interval: number = 30000) => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    setIsPolling(true);
+    pollingIntervalRef.current = setInterval(() => {
+      fetchMessages();
+    }, interval);
+  }, [fetchMessages]);
+
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setIsPolling(false);
+  }, []);
 
   return {
     // 数据
     messages,
-    allMessages,
     loading,
     error,
     statistics,
-
+    
     // 分页
     page,
     pageSize,
@@ -407,11 +392,13 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
     goToPage,
     nextPage,
     prevPage,
-
+    setPageSize,
+    
     // 筛选
     filters,
     setFilters,
-
+    clearFilters,
+    
     // 消息操作
     fetchMessages,
     refetch,
@@ -423,31 +410,99 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
     unpinMessage,
     deleteMessage,
     markAllAsRead,
-
+    
     // 快捷发送
     sendToAll,
     sendToRoles,
     sendToClasses,
     sendToUsers,
-
-    // 数据源
-    teachers: allTeachers,
-    students: allStudents,
-    classes: allClasses,
-    parents: allParents,
-    dataLoading,
+    
+    // 实时更新
+    startPolling,
+    stopPolling,
+    isPolling,
   };
 }
 
-// ==================== 导出类型 ====================
+// ==================== 辅助函数 ====================
 
-export type {
-  UserMessage,
-  SendMessageRequest,
-  MessageQueryParams,
-  MessageStatistics,
-  MessageEvent,
-  MessagePriority,
+/** 获取消息事件标签 */
+export function getMessageEventLabel(event: MessageEvent): string {
+  const labels: Partial<Record<MessageEvent, string>> = {
+    system_announcement: '系统公告',
+    maintenance_notice: '维护通知',
+    policy_update: '政策更新',
+    schedule_change: '调课通知',
+    exam_notice: '考试通知',
+    grade_publish: '成绩发布',
+    homework_assign: '作业布置',
+    activity_notice: '活动通知',
+    honor_notice: '荣誉通知',
+    moral_evaluation: '德育评价',
+    parent_meeting: '家长会通知',
+    student_absence: '学生缺勤',
+    habit_record: '习惯记录',
+    leave_approval: '请假审批',
+    repair_notice: '报修通知',
+    asset_notice: '资产通知',
+    safety_alert: '安全警报',
+    personal_message: '个人消息',
+    task_assign: '任务分配',
+    task_reminder: '任务提醒',
+  };
+  return labels[event] || event;
+}
+
+/** 获取消息优先级标签 */
+export function getMessagePriorityLabel(priority: MessagePriority): string {
+  const labels: Record<MessagePriority, string> = {
+    low: '低',
+    normal: '普通',
+    high: '高',
+    urgent: '紧急',
+  };
+  return labels[priority] || priority;
+}
+
+/** 获取消息优先级颜色 */
+export function getMessagePriorityColor(priority: MessagePriority): string {
+  const colors: Record<MessagePriority, string> = {
+    low: 'bg-gray-100 text-gray-600',
+    normal: 'bg-blue-100 text-blue-600',
+    high: 'bg-orange-100 text-orange-600',
+    urgent: 'bg-red-100 text-red-600',
+  };
+  return colors[priority] || 'bg-gray-100 text-gray-600';
+}
+
+/** 获取消息状态标签 */
+export function getMessageStatusLabel(status: MessageStatus): string {
+  const labels: Record<MessageStatus, string> = {
+    unread: '未读',
+    read: '已读',
+    archived: '已归档',
+  };
+  return labels[status] || status;
+}
+
+/** 获取消息状态颜色 */
+export function getMessageStatusColor(status: MessageStatus): string {
+  const colors: Record<MessageStatus, string> = {
+    unread: 'bg-blue-100 text-blue-600',
+    read: 'bg-gray-100 text-gray-600',
+    archived: 'bg-yellow-100 text-yellow-600',
+  };
+  return colors[status] || 'bg-gray-100 text-gray-600';
+}
+
+// 重新导出类型
+export type { 
+  UserMessage, 
+  SendMessageRequest, 
+  MessageQueryParams, 
+  MessageStatistics, 
+  MessageEvent, 
+  MessagePriority, 
   MessageStatus,
   MessageRecipient,
 };

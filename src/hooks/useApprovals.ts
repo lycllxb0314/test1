@@ -1,14 +1,17 @@
 /**
- * 审批流程 Hook
+ * 审批流程 Hook v2
  * 
  * 提供完整的审批管理功能：
  * - 获取待审批/已审批/我发起的列表
  * - 提交审批申请
- * - 执行审批操作
- * - 撤回审批
+ * - 执行审批操作（通过/驳回/退回/撤回）
+ * - 统计数据
+ * - 实时轮询更新
+ * 
+ * @module hooks/useApprovals
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
 import type {
   ApprovalInstance,
@@ -16,7 +19,6 @@ import type {
   SubmitApprovalRequest,
   ApprovalActionRequest,
   PendingApprovalQuery,
-  Announcement,
 } from '@/types/approval';
 
 // ==================== 类型定义 ====================
@@ -24,12 +26,29 @@ import type {
 /** 审批列表类型 */
 export type ApprovalListType = 'pending' | 'processed' | 'my';
 
+/** 审批统计 */
+export interface ApprovalStatistics {
+  pending: number;
+  processed: number;
+  my: number;
+  /** 按类型统计 */
+  byType: {
+    announcement: number;
+    news: number;
+    internal_notice: number;
+    parent_notice: number;
+  };
+  /** 按状态统计 */
+  byStatus: Record<ApprovalStatus, number>;
+}
+
 /** 审批 Hook 返回类型 */
 export interface UseApprovalsReturn {
   // === 数据 ===
   approvals: ApprovalInstance[];
   loading: boolean;
   error: string | null;
+  currentType: ApprovalListType;
 
   // === 分页 ===
   page: number;
@@ -37,10 +56,13 @@ export interface UseApprovalsReturn {
   total: number;
   totalPages: number;
   goToPage: (page: number) => void;
+  nextPage: () => void;
+  prevPage: () => void;
 
   // === 筛选 ===
   filters: PendingApprovalQuery;
   setFilters: (filters: Partial<PendingApprovalQuery>) => void;
+  clearFilters: () => void;
 
   // === 操作 ===
   fetchApprovals: (type: ApprovalListType) => Promise<void>;
@@ -51,13 +73,38 @@ export interface UseApprovalsReturn {
   withdrawApproval: (instanceId: string) => Promise<boolean>;
 
   // === 统计 ===
-  statistics: {
-    pending: number;
-    processed: number;
-    my: number;
-  };
+  statistics: ApprovalStatistics;
   refreshStatistics: () => Promise<void>;
+
+  // === 实时更新 ===
+  startPolling: (interval?: number) => void;
+  stopPolling: () => void;
+  isPolling: boolean;
 }
+
+// 默认统计
+const DEFAULT_STATISTICS: ApprovalStatistics = {
+  pending: 0,
+  processed: 0,
+  my: 0,
+  byType: {
+    announcement: 0,
+    news: 0,
+    internal_notice: 0,
+    parent_notice: 0,
+  },
+  byStatus: {
+    draft: 0,
+    pending: 0,
+    in_progress: 0,
+    approved: 0,
+    rejected: 0,
+    withdrawn: 0,
+  },
+};
+
+// 默认筛选
+const DEFAULT_FILTERS: PendingApprovalQuery = {};
 
 // ==================== Hook 实现 ====================
 
@@ -74,33 +121,39 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
   const [total, setTotal] = useState(0);
 
   // === 筛选 ===
-  const [filters, setFiltersState] = useState<PendingApprovalQuery>({});
+  const [filters, setFiltersState] = useState<PendingApprovalQuery>(DEFAULT_FILTERS);
 
   // === 统计 ===
-  const [statistics, setStatistics] = useState({
-    pending: 0,
-    processed: 0,
-    my: 0,
-  });
+  const [statistics, setStatistics] = useState<ApprovalStatistics>(DEFAULT_STATISTICS);
 
-  const totalPages = Math.ceil(total / pageSize);
+  // === 轮询 ===
+  const [isPolling, setIsPolling] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 引用
+  const mountedRef = useRef(true);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   // === 获取审批列表 ===
   const fetchApprovals = useCallback(async (type: ApprovalListType) => {
     setLoading(true);
     setError(null);
     setCurrentType(type);
+    setPage(1); // 切换类型时重置页码
 
     try {
       const params = new URLSearchParams();
       params.append('type', type);
       if (filters.status) params.append('status', filters.status);
       if (filters.department) params.append('department', filters.department);
-      params.append('page', '1'); // 始终从第一页开始
+      params.append('page', '1');
       params.append('pageSize', pageSize.toString());
 
       const response = await fetch(`/api/approvals?${params.toString()}`);
       const result = await response.json();
+
+      if (!mountedRef.current) return;
 
       if (result.success) {
         setApprovals(result.data || []);
@@ -109,12 +162,15 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
         setError(result.error || '获取审批列表失败');
       }
     } catch (err) {
+      if (!mountedRef.current) return;
       console.error('Failed to fetch approvals:', err);
       setError(err instanceof Error ? err.message : '获取审批列表失败');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
-  }, [filters, pageSize]); // 移除 page 依赖，因为总是从第一页开始
+  }, [filters, pageSize]);
 
   // === 刷新统计数据 ===
   const refreshStatistics = useCallback(async () => {
@@ -131,11 +187,14 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
         myRes.json(),
       ]);
 
-      setStatistics({
+      if (!mountedRef.current) return;
+
+      setStatistics(prev => ({
+        ...prev,
         pending: pending.pagination?.total || 0,
         processed: processed.pagination?.total || 0,
         my: my.pagination?.total || 0,
-      });
+      }));
     } catch (err) {
       console.error('Failed to refresh statistics:', err);
     }
@@ -181,6 +240,8 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
 
       const result = await response.json();
 
+      if (!mountedRef.current) return false;
+
       if (result.success) {
         await fetchApprovals(currentType);
         await refreshStatistics();
@@ -190,6 +251,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
         return false;
       }
     } catch (err) {
+      if (!mountedRef.current) return false;
       console.error('Failed to execute approval action:', err);
       setError(err instanceof Error ? err.message : '操作失败');
       return false;
@@ -211,13 +273,46 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
 
   // === 分页操作 ===
   const goToPage = useCallback((newPage: number) => {
-    setPage(Math.max(1, Math.min(newPage, totalPages || 1)));
+    setPage(Math.max(1, Math.min(newPage, totalPages)));
   }, [totalPages]);
+
+  const nextPage = useCallback(() => {
+    setPage(p => Math.min(totalPages, p + 1));
+  }, [totalPages]);
+
+  const prevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1));
+  }, []);
 
   // === 筛选操作 ===
   const setFilters = useCallback((newFilters: Partial<PendingApprovalQuery>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }));
     setPage(1);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFiltersState(DEFAULT_FILTERS);
+    setPage(1);
+  }, []);
+
+  // === 轮询 ===
+  const startPolling = useCallback((interval: number = 30000) => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    setIsPolling(true);
+    pollingIntervalRef.current = setInterval(() => {
+      fetchApprovals(currentType);
+      refreshStatistics();
+    }, interval);
+  }, [fetchApprovals, currentType, refreshStatistics]);
+
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setIsPolling(false);
   }, []);
 
   // === 初始加载 ===
@@ -226,30 +321,53 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     refreshStatistics();
   }, [initialType, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // === 类型切换时重新加载 ===
+  // 清理
   useEffect(() => {
-    // 当 fetchApprovals 被调用时（通过按钮点击），会自动触发
-  }, [currentType]);
+    return () => {
+      mountedRef.current = false;
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   return {
+    // 数据
     approvals,
     loading,
     error,
+    currentType,
+    
+    // 分页
     page,
     pageSize,
     total,
     totalPages,
     goToPage,
+    nextPage,
+    prevPage,
+    
+    // 筛选
     filters,
     setFilters,
+    clearFilters,
+    
+    // 操作
     fetchApprovals,
     submitApproval,
     approveApproval,
     rejectApproval,
     returnApproval,
     withdrawApproval,
+    
+    // 统计
     statistics,
     refreshStatistics,
+    
+    // 实时更新
+    startPolling,
+    stopPolling,
+    isPolling,
   };
 }
 
@@ -281,6 +399,19 @@ export function getApprovalStatusColor(status: ApprovalStatus): string {
   return colors[status] || 'bg-gray-100 text-gray-600';
 }
 
+/** 获取审批状态图标 */
+export function getApprovalStatusIcon(status: ApprovalStatus): string {
+  const icons: Record<ApprovalStatus, string> = {
+    draft: '📝',
+    pending: '⏳',
+    in_progress: '🔄',
+    approved: '✅',
+    rejected: '❌',
+    withdrawn: '↩️',
+  };
+  return icons[status] || '📋';
+}
+
 /** 检查当前用户是否可以审批 */
 export function canUserApprove(
   instance: ApprovalInstance, 
@@ -307,4 +438,41 @@ export function canUserWithdraw(
   userId: string
 ): boolean {
   return instance.applicantId === userId && instance.status === 'in_progress';
+}
+
+/** 检查当前用户是否可以查看详情 */
+export function canUserView(
+  instance: ApprovalInstance, 
+  userId: string
+): boolean {
+  // 申请人可以查看
+  if (instance.applicantId === userId) return true;
+  
+  // 审批人可以查看
+  const allApproverIds = instance.nodeRecords?.flatMap(n => n.approverIds || []) || [];
+  if (allApproverIds.includes(userId)) return true;
+  
+  return false;
+}
+
+/** 获取审批类型标签 */
+export function getApprovalTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    announcement: '校园公告',
+    news: '新闻动态',
+    internal_notice: '内部通知',
+    parent_notice: '家长通知',
+  };
+  return labels[type] || type;
+}
+
+/** 获取审批类型颜色 */
+export function getApprovalTypeColor(type: string): string {
+  const colors: Record<string, string> = {
+    announcement: 'bg-blue-100 text-blue-600',
+    news: 'bg-purple-100 text-purple-600',
+    internal_notice: 'bg-orange-100 text-orange-600',
+    parent_notice: 'bg-green-100 text-green-600',
+  };
+  return colors[type] || 'bg-gray-100 text-gray-600';
 }
