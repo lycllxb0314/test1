@@ -79,7 +79,8 @@ export default function PrincipalDashboard() {
     if (activeTab === 'approvals') {
       fetchApprovals('pending');
     }
-  }, [activeTab, fetchApprovals]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // 获取角色名称
   const getRoleName = (role: string) => {
