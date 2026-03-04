@@ -3,7 +3,7 @@
  * 
  * 核心功能：
  * 1. 计算教师实际工作量（自己上的课 + 代课 + 课后服务）
- * 2. 与请假、代课系统联动
+ * 2. 与请假、调课系统联动
  * 3. 月度/学期统计
  */
 
@@ -11,8 +11,6 @@ import type {
   TeacherWorkload, 
   TeacherMonthlyWorkloadSummary,
   ScheduleSlot,
-  SubstituteRecord,
-  AfterSchoolService,
   WorkloadQueryParams 
 } from '@/types';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
@@ -29,115 +27,80 @@ export async function calculateTeacherWorkload(
 ): Promise<TeacherWorkload> {
   const client = getSupabaseClient();
   
-  // 1. 获取教师信息（基准课时）
+  // 1. 获取教师信息（基准课时）- 使用正确的字段名
   const { data: teacher } = await client
     .from('teachers')
-    .select('id, name, weekly_hours, role')
+    .select('id, name, total_weekly_hours, role, employee_id')
     .eq('id', teacherId)
     .single();
   
-  // 2. 获取该教师的基准课表
+  const employeeId = teacher?.employee_id || teacherId;
+  
+  // 2. 获取该教师的基准课表 - 使用 teacher_id 和 status 筛选
   const { data: baseSlots } = await client
     .from('schedule_slots')
     .select('*')
     .eq('teacher_id', teacherId)
-    .eq('semester', semester)
-    .eq('status', 'normal');
+    .in('status', ['normal', 'active']);
   
-  // 3. 获取请假记录
+  // 3. 获取调课记录（教师请假调出的课程）
   let leaveQuery = client
-    .from('leave_requests')
+    .from('course_adjustments')
     .select('*')
-    .eq('applicant_id', teacherId)
-    .eq('status', 'approved');
-  
-  if (month) {
-    const year = parseInt(semester.split('-')[0]);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
-    leaveQuery = leaveQuery
-      .gte('start_time', startDate.toISOString())
-      .lte('end_time', endDate.toISOString());
-  }
-  
-  const { data: leaveRecords } = await leaveQuery;
+    .eq('applicant_id', employeeId)
+    .eq('status', 'completed');
   
   // 4. 获取代课记录（帮别人代课）
   let substituteQuery = client
-    .from('substitute_records')
+    .from('course_adjustments')
     .select('*')
-    .eq('substitute_teacher_id', teacherId)
+    .eq('substitute_employee_id', employeeId)
     .eq('status', 'completed');
   
+  // 按月份筛选
   if (month) {
     const year = parseInt(semester.split('-')[0]);
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
-    substituteQuery = substituteQuery
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString());
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    leaveQuery = leaveQuery.gte('effective_week', startDateStr).lte('effective_week', endDateStr);
+    substituteQuery = substituteQuery.gte('effective_week', startDateStr).lte('effective_week', endDateStr);
   }
   
+  const { data: leaveRecords } = await leaveQuery;
   const { data: substituteRecords } = await substituteQuery;
   
-  // 5. 获取课后服务记录
-  let afterSchoolQuery = client
-    .from('after_school_services')
-    .select('*')
-    .eq('teacher_id', teacherId)
-    .eq('status', 'completed');
-  
-  if (month) {
-    const year = parseInt(semester.split('-')[0]);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
-    afterSchoolQuery = afterSchoolQuery
-      .gte('date', startDate.toISOString().split('T')[0])
-      .lte('date', endDate.toISOString().split('T')[0]);
-  }
-  
-  const { data: afterSchoolRecords } = await afterSchoolQuery;
-  
-  // 6. 计算各项数据
-  const baseWeeklyHours = teacher?.weekly_hours || 13;
+  // 5. 计算各项数据
+  const baseWeeklyHours = teacher?.total_weekly_hours || 13;
   const baseSlotsCount = baseSlots?.length || 0;
   
-  // 计算请假课时
-  const leaveHours = calculateLeaveHours(leaveRecords || [], baseSlots || []);
+  // 计算请假课时（调出的课程）
+  const leaveHours = (leaveRecords || []).length;
   const leaveDetails = (leaveRecords || []).map(r => ({
-    date: r.start_time,
-    leaveType: r.type,
-    hours: r.duration || 0,
+    date: r.effective_week,
+    leaveType: r.reason_type || '请假',
+    hours: 1,
   }));
   
   // 计算代课课时
   const substituteHours = (substituteRecords || []).length;
   const substituteDetails = (substituteRecords || []).map(r => ({
-    date: r.created_at,
+    date: r.effective_week,
     classId: r.class_id,
     className: r.class_name,
     subject: r.subject,
-    originalTeacherId: r.original_teacher_id,
-    originalTeacherName: r.original_teacher_name,
+    originalTeacherId: r.applicant_id,
+    originalTeacherName: r.applicant_name,
     hours: 1,
-  }));
-  
-  // 计算课后服务
-  const afterSchoolServiceHours = (afterSchoolRecords || [])
-    .reduce((sum, r) => sum + (r.hours || 1), 0);
-  const afterSchoolServiceDetails = (afterSchoolRecords || []).map(r => ({
-    date: r.date,
-    serviceType: r.service_type,
-    classId: r.class_id,
-    className: r.class_name,
-    hours: r.hours || 1,
   }));
   
   // 自己上的课 = 基准课时 - 请假课时
   const selfTaughtHours = Math.max(0, baseSlotsCount - leaveHours);
   
   // 实际工作量
-  const totalWorkload = selfTaughtHours + substituteHours + afterSchoolServiceHours;
+  const totalWorkload = selfTaughtHours + substituteHours;
   
   // 预期课时（根据周数计算）
   const expectedHours = baseWeeklyHours * 4; // 简化：每月约4周
@@ -155,40 +118,12 @@ export async function calculateTeacherWorkload(
     leaveDetails,
     substituteHours,
     substituteDetails,
-    afterSchoolServiceHours,
-    afterSchoolServiceDetails,
+    afterSchoolServiceHours: 0,
+    afterSchoolServiceDetails: [],
     totalWorkload,
     variance: totalWorkload - expectedHours,
     updatedAt: new Date().toISOString(),
   };
-}
-
-/**
- * 计算请假课时
- */
-function calculateLeaveHours(
-  leaveRecords: Array<{ start_time: string; end_time: string; duration?: number }>,
-  baseSlots: ScheduleSlot[]
-): number {
-  let totalHours = 0;
-  
-  for (const leave of leaveRecords) {
-    // 如果有duration字段，直接使用
-    if (leave.duration) {
-      totalHours += leave.duration;
-      continue;
-    }
-    
-    // 否则根据请假时间计算
-    const startDate = new Date(leave.start_time);
-    const endDate = new Date(leave.end_time);
-    const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    
-    // 简化：每天约6节课
-    totalHours += days * 6;
-  }
-  
-  return totalHours;
 }
 
 /**
@@ -238,16 +173,23 @@ export async function getTeachersWorkload(
 ): Promise<TeacherWorkload[]> {
   const client = getSupabaseClient();
   
-  // 获取教师列表
+  // 获取教师列表（排除校长、书记等领导）
   let teacherQuery = client
     .from('teachers')
-    .select('id, name, weekly_hours');
+    .select('id, name, total_weekly_hours, employee_id')
+    .not('role', 'in', '(principal,secretary,academic_vice_principal,moral_vice_principal,general_vice_principal)')
+    .eq('status', 'active');
   
   if (params.teacherId) {
     teacherQuery = teacherQuery.eq('id', params.teacherId);
   }
   
-  const { data: teachers } = await teacherQuery;
+  const { data: teachers, error } = await teacherQuery;
+  
+  if (error) {
+    console.error('获取教师列表失败:', error);
+    return [];
+  }
   
   // 批量计算工作量
   const results: TeacherWorkload[] = [];
@@ -299,16 +241,14 @@ export const MOCK_TEACHER_WORKLOAD: TeacherWorkload = {
       hours: 1 
     },
   ],
-  afterSchoolServiceHours: 8,
+  afterSchoolServiceHours: 4,
   afterSchoolServiceDetails: [
-    { date: '2024-11-04', serviceType: '课后托管', classId: 'c001', className: '一年级1班', hours: 2 },
-    { date: '2024-11-11', serviceType: '课后托管', classId: 'c001', className: '一年级1班', hours: 2 },
     { date: '2024-11-18', serviceType: '课后托管', classId: 'c001', className: '一年级1班', hours: 2 },
-    { date: '2024-11-25', serviceType: '课后托管', classId: 'c001', className: '一年级1班', hours: 2 },
+    { date: '2024-11-20', serviceType: '兴趣班', classId: 'c001', className: '一年级1班', hours: 2 },
   ],
-  totalWorkload: 58,
-  variance: 6,
-  updatedAt: '2024-11-30T00:00:00Z',
+  totalWorkload: 54,
+  variance: 2,
+  updatedAt: '2024-11-25T10:00:00Z',
 };
 
 export const MOCK_MONTHLY_SUMMARY: TeacherMonthlyWorkloadSummary = {
@@ -322,9 +262,9 @@ export const MOCK_MONTHLY_SUMMARY: TeacherMonthlyWorkloadSummary = {
   selfTaughtHours: 48,
   leaveHours: 4,
   substituteHours: 2,
-  afterSchoolServiceHours: 8,
-  totalWorkload: 58,
-  variance: 6,
+  afterSchoolServiceHours: 4,
+  totalWorkload: 54,
+  variance: 2,
   trend: {
     totalWorkloadChange: 3,
     leaveHoursChange: -2,
