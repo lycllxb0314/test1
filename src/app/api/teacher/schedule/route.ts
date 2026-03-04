@@ -137,6 +137,91 @@ async function getPersonalSchedule(client: any, teacherId: string) {
     (classes || []).map((c: any) => [c.id, { id: c.id, name: c.name, grade: c.grade }])
   );
   
+  // ====== 查询调课记录 ======
+  // 当前学期：2025-2026第二学期
+  const currentSemester = '2025-2026-2';
+  const effectiveWeekStart = new Date('2025-02-17'); // 第二学期开学日期
+  const effectiveWeekEnd = new Date('2025-07-01'); // 学期结束日期
+  
+  // 查询教师作为请假人（被代课）的调课记录
+  const { data: adjustedRecordsAsApplicant, error: adjError1 } = await client
+    .from('schedule_adjustments')
+    .select(`
+      id,
+      class_id,
+      subject,
+      week_day,
+      period_index,
+      effective_week,
+      applicant_id,
+      substitute_id,
+      status,
+      substitute:teachers!schedule_adjustments_substitute_id_fkey(id, name, primary_subject, employee_id)
+    `)
+    .eq('applicant_id', teacherId)
+    .eq('semester', currentSemester)
+    .in('status', ['approved', 'pending'])
+    .gte('effective_week', effectiveWeekStart.toISOString())
+    .lt('effective_week', effectiveWeekEnd.toISOString());
+  
+  if (adjError1) {
+    console.error('查询调课记录(作为请假人)失败:', adjError1);
+  }
+  
+  // 查询教师作为代课人的调课记录
+  const { data: adjustedRecordsAsSubstitute, error: adjError2 } = await client
+    .from('schedule_adjustments')
+    .select(`
+      id,
+      class_id,
+      subject,
+      week_day,
+      period_index,
+      effective_week,
+      applicant_id,
+      substitute_id,
+      status,
+      applicant:teachers!schedule_adjustments_applicant_id_fkey(id, name, primary_subject, employee_id)
+    `)
+    .eq('substitute_id', teacherId)
+    .eq('semester', currentSemester)
+    .in('status', ['approved', 'pending'])
+    .gte('effective_week', effectiveWeekStart.toISOString())
+    .lt('effective_week', effectiveWeekEnd.toISOString());
+  
+  if (adjError2) {
+    console.error('查询调课记录(作为代课人)失败:', adjError2);
+  }
+  
+  // 构建调课记录映射
+  // key: `${week_day}-${period_index}`, value: 调课记录
+  const adjustmentMap = new Map<string, any>();
+  
+  // 被代课的记录（教师请假，别人代课）
+  (adjustedRecordsAsApplicant || []).forEach((adj: any) => {
+    const key = `${adj.week_day}-${adj.period_index}`;
+    adjustmentMap.set(key, {
+      ...adj,
+      isAdjusted: true,
+      adjustmentType: 'substituted', // 被代课
+      substituteTeacher: adj.substitute,
+    });
+  });
+  
+  // 代课的记录（帮别人代课）
+  (adjustedRecordsAsSubstitute || []).forEach((adj: any) => {
+    const key = `${adj.week_day}-${adj.period_index}`;
+    // 如果这个位置已经在被代课记录中，则不覆盖
+    if (!adjustmentMap.has(key)) {
+      adjustmentMap.set(key, {
+        ...adj,
+        isAdjusted: true,
+        adjustmentType: 'substituting', // 代课
+        originalTeacher: adj.applicant,
+      });
+    }
+  });
+  
   // 构建课表矩阵（6行5列）
   const scheduleMatrix: (any | null)[][] = [];
   for (let period = 0; period < 6; period++) {
@@ -145,12 +230,34 @@ async function getPersonalSchedule(client: any, teacherId: string) {
       const slot = (slots || []).find(
         (s: any) => s.week_day === day + 1 && s.period_index === period
       );
+      const adjKey = `${day + 1}-${period}`;
+      const adjustment = adjustmentMap.get(adjKey);
+      
       if (slot) {
         const cls = classMap.get(slot.class_id);
         row.push({
           ...slot,
           className: cls?.name || slot.class_name,
           grade: cls?.grade,
+          // 如果有调课记录，添加调课信息
+          isAdjusted: !!adjustment,
+          adjustment: adjustment || null,
+        });
+      } else if (adjustment && adjustment.adjustmentType === 'substituting') {
+        // 代课的课程（这个时间槽原本不属于该教师，但他去代课了）
+        const adjClass = classMap.get(adjustment.class_id);
+        row.push({
+          id: `adj-${adjustment.id}`,
+          class_id: adjustment.class_id,
+          subject: adjustment.subject,
+          teacher_id: teacherId,
+          teacher_name: teacher.name,
+          week_day: day + 1,
+          period_index: period,
+          className: adjClass?.name || '',
+          grade: adjClass?.grade,
+          isAdjusted: true,
+          adjustment: adjustment,
         });
       } else {
         row.push(null);
@@ -163,10 +270,14 @@ async function getPersonalSchedule(client: any, teacherId: string) {
   const byWeekday: Record<number, any[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
   (slots || []).forEach((slot: any) => {
     const cls = classMap.get(slot.class_id);
+    const adjKey = `${slot.week_day}-${slot.period_index}`;
+    const adjustment = adjustmentMap.get(adjKey);
     byWeekday[slot.week_day].push({
       ...slot,
       className: cls?.name || slot.class_name,
       grade: cls?.grade,
+      isAdjusted: !!adjustment,
+      adjustment: adjustment || null,
     });
   });
   
@@ -182,6 +293,11 @@ async function getPersonalSchedule(client: any, teacherId: string) {
     slots: slots || [],
     totalHours: (slots || []).length,
     classes: Array.from(classMap.values()),
+    // 添加调课统计信息
+    adjustmentStats: {
+      substitutedCount: (adjustedRecordsAsApplicant || []).length, // 被代课次数
+      substitutingCount: (adjustedRecordsAsSubstitute || []).length, // 代课次数
+    },
   }));
 }
 

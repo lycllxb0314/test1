@@ -364,6 +364,10 @@ function WeekView({ slots, loading, getSlotContent, currentEmployeeId }: WeekVie
                                   <RefreshCcw className="h-2.5 w-2.5 mr-0.5" />
                                   {slot.adjustmentType === 'substitute' ? '代课' : '调课'}
                                 </Badge>
+                                {/* DEBUG: 显示关键字段值 */}
+                                <div className="text-[8px] text-gray-400 mt-1">
+                                  eId:{slot.employeeId?.slice(-4)} aId:{slot.applicantId?.slice(-4)}
+                                </div>
                                 {slot.adjustmentType === 'substitute' && (
                                   <div className="mt-0.5">
                                     {/* 如果 employeeId === applicantId，说明当前课程的教师是请假人（被代课） */}

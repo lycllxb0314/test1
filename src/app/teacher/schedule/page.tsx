@@ -33,6 +33,15 @@ interface SlotData {
   period_index: number;
   class_name?: string;
   grade?: number;
+  // 调课相关字段
+  isAdjusted?: boolean;
+  adjustment?: {
+    id: string;
+    adjustmentType: 'substituted' | 'substituting';
+    substituteTeacher?: { id: string; name: string; primary_subject: string } | null;
+    originalTeacher?: { id: string; name: string; primary_subject: string } | null;
+    status: string;
+  } | null;
 }
 
 interface TeacherInfo {
@@ -183,6 +192,15 @@ export default function TeacherSchedulePage() {
                 </div>
                 {matrix[periodIdx]?.map((slot, dayIdx) => {
                   const colors = slot ? getSubjectColor(slot.subject) : null;
+                  // 判断是否被代课
+                  const isSubstituted = slot?.isAdjusted && slot?.adjustment?.adjustmentType === 'substituted';
+                  // 判断是否是代课
+                  const isSubstituting = slot?.isAdjusted && slot?.adjustment?.adjustmentType === 'substituting';
+                  // 代课人信息
+                  const substituteTeacher = slot?.adjustment?.substituteTeacher;
+                  // 原教师信息
+                  const originalTeacher = slot?.adjustment?.originalTeacher;
+                  
                   return (
                     <div
                       key={`${dayIdx}-${periodIdx}`}
@@ -190,17 +208,35 @@ export default function TeacherSchedulePage() {
                         slot 
                           ? `${colors?.bg} ${colors?.border} border shadow-sm` 
                           : 'bg-stone-50 border border-dashed border-stone-200'
-                      }`}
+                      } ${isSubstituted ? 'ring-2 ring-amber-400 ring-offset-1' : ''} ${isSubstituting ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
                     >
                       <div className="h-full flex flex-col items-center justify-center px-1">
                         {slot ? (
                           <>
-                            <span className={`text-sm font-bold ${colors?.text} truncate max-w-full`}>
-                              {slot.subject}
-                            </span>
-                            <span className="text-xs text-stone-500 truncate max-w-full">
-                              {type === 'personal' ? slot.class_name : (showTeacher ? slot.teacher_name : '')}
-                            </span>
+                            <div className="flex items-center gap-1 w-full justify-center">
+                              <span className={`text-sm font-bold ${colors?.text} truncate max-w-full`}>
+                                {slot.subject}
+                              </span>
+                              {isSubstituted && (
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded">请假</span>
+                              )}
+                              {isSubstituting && (
+                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">代课</span>
+                              )}
+                            </div>
+                            {isSubstituted && substituteTeacher ? (
+                              <span className="text-xs text-amber-600 truncate max-w-full">
+                                代课: {substituteTeacher.name}
+                              </span>
+                            ) : isSubstituting && originalTeacher ? (
+                              <span className="text-xs text-blue-600 truncate max-w-full">
+                                原: {originalTeacher.name}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-stone-500 truncate max-w-full">
+                                {type === 'personal' ? slot.class_name : (showTeacher ? slot.teacher_name : '')}
+                              </span>
+                            )}
                           </>
                         ) : (
                           <div className="w-6 h-6 rounded-full border border-dashed border-stone-300 flex items-center justify-center text-stone-400 text-sm font-light">
@@ -232,6 +268,15 @@ export default function TeacherSchedulePage() {
                 </div>
                 {matrix[periodIdx]?.map((slot, dayIdx) => {
                   const colors = slot ? getSubjectColor(slot.subject) : null;
+                  // 判断是否被代课
+                  const isSubstituted = slot?.isAdjusted && slot?.adjustment?.adjustmentType === 'substituted';
+                  // 判断是否是代课
+                  const isSubstituting = slot?.isAdjusted && slot?.adjustment?.adjustmentType === 'substituting';
+                  // 代课人信息
+                  const substituteTeacher = slot?.adjustment?.substituteTeacher;
+                  // 原教师信息
+                  const originalTeacher = slot?.adjustment?.originalTeacher;
+                  
                   return (
                     <div
                       key={`${dayIdx}-${periodIdx}`}
@@ -239,17 +284,35 @@ export default function TeacherSchedulePage() {
                         slot 
                           ? `${colors?.bg} ${colors?.border} border shadow-sm` 
                           : 'bg-stone-50 border border-dashed border-stone-200'
-                      }`}
+                      } ${isSubstituted ? 'ring-2 ring-amber-400 ring-offset-1' : ''} ${isSubstituting ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
                     >
                       <div className="h-full flex flex-col items-center justify-center px-1">
                         {slot ? (
                           <>
-                            <span className={`text-sm font-bold ${colors?.text} truncate max-w-full`}>
-                              {slot.subject}
-                            </span>
-                            <span className="text-xs text-stone-500 truncate max-w-full">
-                              {type === 'personal' ? slot.class_name : (showTeacher ? slot.teacher_name : '')}
-                            </span>
+                            <div className="flex items-center gap-1 w-full justify-center">
+                              <span className={`text-sm font-bold ${colors?.text} truncate max-w-full`}>
+                                {slot.subject}
+                              </span>
+                              {isSubstituted && (
+                                <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded">请假</span>
+                              )}
+                              {isSubstituting && (
+                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">代课</span>
+                              )}
+                            </div>
+                            {isSubstituted && substituteTeacher ? (
+                              <span className="text-xs text-amber-600 truncate max-w-full">
+                                代课: {substituteTeacher.name}
+                              </span>
+                            ) : isSubstituting && originalTeacher ? (
+                              <span className="text-xs text-blue-600 truncate max-w-full">
+                                原: {originalTeacher.name}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-stone-500 truncate max-w-full">
+                                {type === 'personal' ? slot.class_name : (showTeacher ? slot.teacher_name : '')}
+                              </span>
+                            )}
                           </>
                         ) : (
                           <div className="w-6 h-6 rounded-full border border-dashed border-stone-300 flex items-center justify-center text-stone-400 text-sm font-light">
@@ -290,14 +353,42 @@ export default function TeacherSchedulePage() {
                 ) : (
                   daySlots.map((slot, idx) => {
                     const colors = getSubjectColor(slot.subject);
+                    const isSubstituted = slot.isAdjusted && slot.adjustment?.adjustmentType === 'substituted';
+                    const isSubstituting = slot.isAdjusted && slot.adjustment?.adjustmentType === 'substituting';
+                    const substituteTeacher = slot.adjustment?.substituteTeacher;
+                    const originalTeacher = slot.adjustment?.originalTeacher;
+                    
                     return (
-                      <div key={idx} className={`p-2 rounded-lg ${colors.bg} ${colors.border} border`}>
-                        <div className={`text-xs font-bold ${colors.text}`}>
-                          第{slot.period_index + 1}节 {slot.subject}
+                      <div 
+                        key={idx} 
+                        className={`p-2 rounded-lg ${colors.bg} ${colors.border} border relative
+                          ${isSubstituted ? 'ring-2 ring-amber-400' : ''} 
+                          ${isSubstituting ? 'ring-2 ring-blue-400' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className={`text-xs font-bold ${colors.text}`}>
+                            第{slot.period_index + 1}节 {slot.subject}
+                          </div>
+                          {isSubstituted && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded">请假</span>
+                          )}
+                          {isSubstituting && (
+                            <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">代课</span>
+                          )}
                         </div>
-                        <div className="text-xs text-stone-500 mt-0.5">
-                          {slot.class_name}
-                        </div>
+                        {isSubstituted && substituteTeacher ? (
+                          <div className="text-xs text-amber-600 mt-0.5">
+                            代课: {substituteTeacher.name}
+                          </div>
+                        ) : isSubstituting && originalTeacher ? (
+                          <div className="text-xs text-blue-600 mt-0.5">
+                            原: {originalTeacher.name}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-stone-500 mt-0.5">
+                            {slot.class_name}
+                          </div>
+                        )}
                       </div>
                     );
                   })
