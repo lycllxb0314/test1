@@ -535,6 +535,13 @@ async function sendApprovalNotification(
 
 /**
  * 发送内部通知
+ * 
+ * 支持多种接收者类型：
+ * - all: 全员通知
+ * - role: 按角色通知（检查主角色和兼任角色）
+ * - class: 按班级通知（通知班级的家长）
+ * - individual: 指定个人
+ * - group: 按部门群组通知
  */
 async function sendInternalNotification(
   supabase: ReturnType<typeof getSupabaseClient>,
@@ -555,24 +562,52 @@ async function sendInternalNotification(
       .from('users')
       .select('id');
     userIds = users?.map((u: any) => u.id) || [];
+    
   } else if (recipients.type === 'role' && recipients.roles) {
-    // 按角色发送
+    // 按角色发送 - 需要检查主角色和兼任角色
     const { data: users } = await supabase
       .from('users')
       .select('id')
       .in('role', recipients.roles);
     userIds = users?.map((u: any) => u.id) || [];
-  } else if (recipients.type === 'class' && recipients.classIds) {
-    // 按班级发送（发送给学生和家长）
-    const { data: students } = await supabase
-      .from('students')
-      .select('id, parent_id')
-      .in('class_id', recipients.classIds);
     
-    userIds = students?.flatMap((s: any) => [s.id, s.parent_id].filter(Boolean)) || [];
+    // 还需要检查兼任角色（additional_roles 是数组）
+    for (const role of recipients.roles) {
+      const { data: additionalRoleUsers } = await supabase
+        .from('users')
+        .select('id')
+        .contains('additional_roles', [role]);
+      
+      if (additionalRoleUsers) {
+        userIds.push(...additionalRoleUsers.map((u: any) => u.id));
+      }
+    }
+    
+  } else if (recipients.type === 'class' && recipients.classIds) {
+    // 按班级发送：通知该班级学生的家长
+    // 1. 获取班级学生的家长 account_id
+    const { data: parents } = await supabase
+      .from('parents')
+      .select('account_id')
+      .in('class_id', recipients.classIds)
+      .eq('has_account', true)
+      .not('account_id', 'is', null);
+    
+    const accountIds = parents?.map((p: any) => p.account_id).filter(Boolean) || [];
+    
+    if (accountIds.length > 0) {
+      // 2. 通过 account_id 关联 users 表获取用户 UUID
+      const { data: users } = await supabase
+        .from('users')
+        .select('id')
+        .in('id::text', accountIds);
+      userIds = users?.map((u: any) => u.id) || [];
+    }
+    
   } else if (recipients.type === 'individual' && recipients.userIds) {
     // 发送给指定用户（直接使用用户ID）
     userIds = recipients.userIds;
+    
   } else if (recipients.type === 'group' && recipients.groupIds) {
     // 按群组发送 - group_members.user_id 存的是工号，需要关联 users 表获取 UUID
     const { data: members } = await supabase
@@ -580,7 +615,7 @@ async function sendInternalNotification(
       .select('user_id')
       .in('group_id', recipients.groupIds);
     
-    const employeeIds = members?.map((m: any) => m.user_id) || [];
+    const employeeIds = members?.map((m: any) => m.user_id).filter(Boolean) || [];
     
     if (employeeIds.length > 0) {
       // 通过工号获取用户 UUID
@@ -597,7 +632,7 @@ async function sendInternalNotification(
 
   if (userIds.length === 0) return;
 
-  // 创建消息
+  // 创建消息（为每个接收者创建独立的消息记录）
   const messages = userIds.map((userId: string) => ({
     id: crypto.randomUUID(),
     title: `【内部通知】${title}`,
@@ -607,6 +642,7 @@ async function sendInternalNotification(
     sender_id: authorId,
     sender_name: authorName,
     recipient_id: userId,
+    recipient_type: 'individual',
     is_read: false,
     metadata: { announcement_id: announcementId },
   }));

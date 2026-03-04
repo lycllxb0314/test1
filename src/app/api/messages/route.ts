@@ -33,22 +33,29 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
   try {
     const client = getSupabaseClient();
 
+    // 获取用户的完整角色信息（包括兼任角色）
+    const { data: userData } = await client
+      .from('users')
+      .select('role, additional_roles, class_id, sub_teacher_classes')
+      .eq('id', userId)
+      .single();
+    
+    // 用户所有角色（主角色 + 兼任角色）
+    const userAllRoles: string[] = [userRole];
+    if (userData?.additional_roles && Array.isArray(userData.additional_roles)) {
+      userAllRoles.push(...(userData.additional_roles as string[]));
+    }
+
     // 获取用户所属班级
     let userClassIds: string[] = [];
     let userGrades: number[] = [];
     
-    if (userRole === 'head_teacher' || userRole === 'subject_teacher') {
-      const { data: teacherData } = await client
-        .from('users')
-        .select('class_id, sub_teacher_classes')
-        .eq('id', userId)
-        .single();
-      
-      if (teacherData?.class_id) {
-        userClassIds.push(teacherData.class_id);
+    if (['head_teacher', 'subject_teacher', 'skill_teacher'].includes(userRole)) {
+      if (userData?.class_id) {
+        userClassIds.push(userData.class_id);
       }
-      if (teacherData?.sub_teacher_classes) {
-        userClassIds.push(...(teacherData.sub_teacher_classes as string[]));
+      if (userData?.sub_teacher_classes) {
+        userClassIds.push(...(userData.sub_teacher_classes as string[]));
       }
       
       if (userClassIds.length > 0) {
@@ -59,19 +66,16 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
         userGrades = (classData || []).map((c: { grade: number }) => c.grade);
       }
     } else if (userRole === 'parent') {
+      // 家长通过 account_id 关联
       const { data: parentData } = await client
         .from('parents')
-        .select('student_id')
-        .eq('user_id', userId);
+        .select('student_id, class_id')
+        .eq('account_id', userId);
       
       if (parentData && parentData.length > 0) {
-        const studentIds = parentData.map((p: { student_id: string }) => p.student_id);
-        const { data: studentData } = await client
-          .from('students')
-          .select('class_id')
-          .in('id', studentIds);
-        
-        userClassIds = (studentData || []).map((s: { class_id: string }) => s.class_id);
+        parentData.forEach((p: { student_id: string; class_id: string }) => {
+          if (p.class_id) userClassIds.push(p.class_id);
+        });
         
         if (userClassIds.length > 0) {
           const { data: classData } = await client
@@ -119,12 +123,31 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
         const classIds = msg.class_ids as string[] | null;
         const grades = msg.grades as number[] | null;
         const userIds = msg.user_ids as string[] | null;
+        // 兼容旧字段：recipient_id 是单个用户 UUID
+        const recipientId = msg.recipient_id as string | null;
 
+        // 全员消息
         if (recipientType === 'all') return true;
-        if (recipientType === 'role' && roles?.includes(userRole)) return true;
+        
+        // 按角色发送：检查用户所有角色（主角色 + 兼任角色）
+        if (recipientType === 'role' && roles) {
+          if (roles.some(r => userAllRoles.includes(r))) return true;
+        }
+        
+        // 按班级发送
         if (recipientType === 'class' && classIds?.some(id => userClassIds.includes(id))) return true;
+        
+        // 按年级发送
         if (recipientType === 'grade' && grades?.some(g => userGrades.includes(g))) return true;
-        if (recipientType === 'individual' && userIds?.includes(userId)) return true;
+        
+        // 指定个人：兼容新旧字段
+        if (recipientType === 'individual') {
+          if (userIds?.includes(userId)) return true;
+          if (recipientId === userId) return true;
+        }
+        
+        // 兼容没有 recipient_type 的旧消息（直接检查 recipient_id）
+        if (!recipientType && recipientId === userId) return true;
 
         return false;
       })
