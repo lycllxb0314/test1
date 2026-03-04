@@ -108,6 +108,7 @@ export default function LeaveApplyPage() {
   const [needAdjustment, setNeedAdjustment] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<AffectedSlot[]>([]);
   const [approvers, setApprovers] = useState<ApproverSelection[]>([]);
+  const [signType, setSignType] = useState<SignType>('countersign'); // 签批方式：会签/或签
   
   // === 数据状态 ===
   const [weeklySlots, setWeeklySlots] = useState<WeeklySlot[]>([]);
@@ -136,6 +137,13 @@ export default function LeaveApplyPage() {
       setDuration(durationDays);
     }
   }, [startDate, endDate, durationDays]);
+  
+  // 同步签批方式到已选审批人
+  useEffect(() => {
+    if (approvers.length > 0) {
+      setApprovers(prev => prev.map(a => ({ ...a, signType })));
+    }
+  }, [signType]);
   
   // 加载本周课表
   const loadWeeklySlots = async () => {
@@ -582,6 +590,31 @@ export default function LeaveApplyPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* 签批方式选择 */}
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                <Label className="text-sm font-medium mb-2 block">签批方式</Label>
+                <RadioGroup 
+                  value={signType} 
+                  onValueChange={(v) => setSignType(v as SignType)}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="countersign" id="countersign" />
+                    <Label htmlFor="countersign" className="cursor-pointer">
+                      <span className="font-medium">会签</span>
+                      <span className="text-xs text-muted-foreground ml-1">（所有审批人都需同意）</span>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="parallel" id="parallel" />
+                    <Label htmlFor="parallel" className="cursor-pointer">
+                      <span className="font-medium">或签</span>
+                      <span className="text-xs text-muted-foreground ml-1">（任一审批人同意即可）</span>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
               {availableApprovers.length === 0 ? (
                 <div className="text-center py-4 text-muted-foreground">
                   暂无可用审批人
@@ -593,7 +626,7 @@ export default function LeaveApplyPage() {
                     return (
                       <div
                         key={approver.employeeId}
-                        onClick={() => toggleApprover(approver, 'countersign')}
+                        onClick={() => toggleApprover(approver, signType)}
                         className={cn(
                           "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all",
                           isSelected 
@@ -619,7 +652,7 @@ export default function LeaveApplyPage() {
                         <div className="flex items-center gap-2">
                           {isSelected && (
                             <Badge variant="secondary" className="text-xs">
-                              会签
+                              {signType === 'countersign' ? '会签' : '或签'}
                             </Badge>
                           )}
                           <div className={cn(
@@ -653,7 +686,7 @@ export default function LeaveApplyPage() {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    * 多人审批为会签方式，需全部通过
+                    * 签批方式：{signType === 'countersign' ? '会签（所有审批人都需同意）' : '或签（任一审批人同意即可）'}
                   </p>
                 </div>
               )}
@@ -693,6 +726,14 @@ export default function LeaveApplyPage() {
                   {approvers.length > 0 ? `${approvers.length} 人` : '-'}
                 </span>
               </div>
+              {approvers.length > 1 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">签批方式</span>
+                  <span className="font-medium">
+                    {signType === 'countersign' ? '会签' : '或签'}
+                  </span>
+                </div>
+              )}
               
               <Separator />
               
