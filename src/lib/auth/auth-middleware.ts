@@ -115,7 +115,9 @@ export async function validateSessionLegacy(userId: string): Promise<AuthResult>
         subjects,
         avatar,
         children,
-        status
+        status,
+        employee_id,
+        additional_roles
       `)
       .eq('id', userId)
       .eq('status', 'active')
@@ -135,6 +137,7 @@ export async function validateSessionLegacy(userId: string): Promise<AuthResult>
         id: user.id,
         name: user.name,
         role: user.role,
+        employeeId: user.employee_id,
         phone: user.phone,
         email: user.email,
         department: user.department,
@@ -144,6 +147,7 @@ export async function validateSessionLegacy(userId: string): Promise<AuthResult>
         subjects: user.subjects,
         avatar: user.avatar,
         children: user.children,
+        additionalRoles: user.additional_roles,
       },
     };
   } catch (error) {

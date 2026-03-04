@@ -17,6 +17,33 @@ import type {
   MessageStatus,
 } from '@/types/messages';
 
+// 将数据库 type 字段映射到 MessageEvent 类型
+function mapTypeToEvent(dbType: string): MessageEvent {
+  const typeMap: Record<string, MessageEvent> = {
+    notification: 'system_announcement',
+    announcement: 'system_announcement',
+    task: 'task_assign',
+    approval: 'leave_approval',
+    schedule: 'schedule_change',
+    exam: 'exam_notice',
+    grade: 'grade_publish',
+    homework: 'homework_assign',
+    activity: 'activity_notice',
+    honor: 'honor_notice',
+    moral: 'moral_evaluation',
+    meeting: 'parent_meeting',
+    absence: 'student_absence',
+    habit: 'habit_record',
+    repair: 'repair_notice',
+    asset: 'asset_notice',
+    safety: 'safety_alert',
+    message: 'personal_message',
+    reminder: 'task_reminder',
+  };
+  
+  return typeMap[dbType] || 'personal_message';
+}
+
 // GET: 获取消息列表
 const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const { searchParams } = new URL(request.url);
@@ -58,7 +85,7 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     // 获取用户的完整角色信息（包括兼任角色）
     const { data: userData } = await client
       .from('users')
-      .select('role, additional_roles, class_id, sub_teacher_classes')
+      .select('role, additional_roles, class_id')
       .eq('id', userId)
       .single();
     
@@ -75,9 +102,6 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     if (['head_teacher', 'subject_teacher', 'skill_teacher'].includes(userRole)) {
       if (userData?.class_id) {
         userClassIds.push(userData.class_id);
-      }
-      if (userData?.sub_teacher_classes) {
-        userClassIds.push(...(userData.sub_teacher_classes as string[]));
       }
       
       if (userClassIds.length > 0) {
@@ -114,10 +138,10 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    // 查询发给当前用户的消息
+    // 查询发给当前用户的消息 - 只选择数据库中存在的字段
     const { data: messages, error: msgError, count } = await client
       .from('messages')
-      .select('*', { count: 'exact' })
+      .select('id, title, content, type, priority, sender_id, sender_name, sender_avatar, recipient_id, is_read, is_archived, metadata, created_at, updated_at, read_at, archived_at, recipient_type, roles, class_ids, grades, user_ids, sender_role, sent_at, expires_at', { count: 'exact' })
       .eq('recipient_id', userId)
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -140,17 +164,26 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       ])
     );
 
-    // 处理消息
+    // 处理消息 - 映射数据库字段到前端格式
     const userMessages: UserMessage[] = (messages || [])
       .map((msg: Record<string, unknown>) => {
         const readInfo = readMap.get(msg.id as string);
-        const status: MessageStatus = (readInfo?.status as MessageStatus) || (readInfo?.readAt ? 'read' : 'unread');
+        // 数据库中 is_read 字段表示阅读状态，message_reads 表中的状态优先
+        const dbIsRead = msg.is_read as boolean;
+        const status: MessageStatus = (readInfo?.status as MessageStatus) || (readInfo?.readAt || dbIsRead ? 'read' : 'unread');
+        
+        // 将数据库的 type 字段映射为 event 字段
+        // 数据库 type 可能的值: notification, task, approval, schedule 等
+        // 需要映射到 MessageEvent 类型
+        const dbType = (msg.type || 'personal_message') as string;
+        const eventType = mapTypeToEvent(dbType);
+        
         return {
           id: msg.id as string,
           title: msg.title as string,
           content: msg.content as string,
-          event: msg.event as MessageEvent,
-          priority: msg.priority as MessagePriority,
+          event: eventType,
+          priority: (msg.priority || 'normal') as MessagePriority,
           senderId: msg.sender_id as string,
           senderName: msg.sender_name as string,
           senderRole: msg.sender_role as string,

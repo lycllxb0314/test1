@@ -150,7 +150,9 @@ export default function LeaveApplyPage() {
     setLoading(true);
     try {
       const weekStart = getWeekMonday();
-      const res = await fetch(`/api/schedule/weekly?employeeId=${user?.employeeId}&weekStartDate=${weekStart}`);
+      const res = await fetch(`/api/schedule/weekly?employeeId=${user?.employeeId}&weekStartDate=${weekStart}`, {
+        credentials: 'include',
+      });
       const result = await res.json();
       
       if (result.success) {
@@ -166,7 +168,9 @@ export default function LeaveApplyPage() {
   // 加载审批人
   const loadApprovers = async () => {
     try {
-      const res = await fetch('/api/users/approvers');
+      const res = await fetch('/api/users/approvers', {
+        credentials: 'include',
+      });
       const result = await res.json();
       
       if (result.success) {
