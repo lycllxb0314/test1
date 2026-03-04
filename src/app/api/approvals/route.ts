@@ -16,6 +16,71 @@ import {
   SubmitApprovalRequest 
 } from '@/types/approval';
 
+// ==================== 辅助函数 ====================
+
+/** 映射公告数据 */
+function mapAnnouncement(a: any): Announcement {
+  return {
+    id: a.id,
+    title: a.title,
+    summary: a.summary,
+    content: a.content,
+    type: a.type,
+    category: a.category,
+    mediaLevel: a.media_level,
+    authorId: a.author_id,
+    authorName: a.author_name,
+    department: a.department,
+    coverImage: a.cover_image,
+    images: a.images || [],
+    attachments: a.attachments || [],
+    isExternal: a.is_external,
+    publishStatus: a.publish_status,
+    publishedAt: a.published_at,
+    scheduledPublishAt: a.scheduled_publish_at,
+    unpublishedAt: a.unpublished_at,
+    autoUnpublish: a.auto_unpublish,
+    autoUnpublishAt: a.auto_unpublish_at,
+    externalId: a.external_id,
+    status: a.status,
+    viewCount: a.view_count,
+    isPinned: a.is_pinned,
+    pinOrder: a.pin_order,
+    metadata: a.metadata,
+    createdAt: a.created_at,
+    updatedAt: a.updated_at,
+  };
+}
+
+/** 映射节点记录 */
+function mapNodeRecord(nr: any): any {
+  return {
+    id: nr.id,
+    instanceId: nr.instance_id,
+    nodeOrder: nr.node_order,
+    nodeName: nr.node_name,
+    nodeType: nr.node_type,
+    status: nr.status,
+    approverIds: nr.approver_ids || [],
+    approvedBy: (nr.approved_by || []).map((a: any) => ({
+      userId: a.userId || a.user_id,
+      userName: a.userName || a.user_name,
+      action: a.action,
+      comment: a.comment,
+      time: a.time,
+    })),
+    finalApproverId: nr.final_approver_id,
+    finalApproverName: nr.final_approver_name,
+    action: nr.action,
+    comment: nr.comment,
+    createdAt: nr.created_at,
+    updatedAt: nr.updated_at,
+    finishedAt: nr.finished_at,
+  };
+}
+
+// ==================== API 处理 ====================
+
 /**
  * 获取审批列表
  * 
@@ -49,8 +114,102 @@ export async function GET(request: NextRequest) {
       .select('*, node_records:approval_node_records(*)', { count: 'exact' });
 
     if (type === 'my') {
-      // 我发起的
-      query = query.eq('applicant_id', user.id);
+      // 我发起的 - 需要合并审批实例和无需审批的通知（如家长通知）
+      // 1. 查询审批实例
+      const { data: approvalData, error: approvalError, count: approvalCount } = await supabase
+        .from('approval_instances')
+        .select('*, node_records:approval_node_records(*)', { count: 'exact' })
+        .eq('applicant_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (approvalError) throw approvalError;
+
+      // 2. 查询无需审批的通知（parent_notice 和 internal_notice）
+      const { data: directAnnouncements, error: directError, count: directCount } = await supabase
+        .from('announcements')
+        .select('*', { count: 'exact' })
+        .eq('author_id', user.id)
+        .in('type', ['parent_notice', 'internal_notice'])
+        .order('created_at', { ascending: false });
+
+      if (directError) throw directError;
+
+      // 3. 获取审批实例关联的公告信息
+      const announcements: Record<string, Announcement> = {};
+      if (approvalData && approvalData.length > 0) {
+        const businessIds = approvalData.map((d: any) => d.business_id);
+        const { data: announcementData } = await supabase
+          .from('announcements')
+          .select('*')
+          .in('id', businessIds);
+
+        announcementData?.forEach((a: any) => {
+          announcements[a.id] = mapAnnouncement(a);
+        });
+      }
+
+      // 4. 转换审批实例
+      const instances: ApprovalInstance[] = (approvalData || []).map((item: any) => ({
+        id: item.id,
+        flowId: item.flow_id,
+        flowName: item.flow_name,
+        businessType: item.business_type,
+        businessId: item.business_id,
+        title: item.title,
+        applicantId: item.applicant_id,
+        applicantName: item.applicant_name,
+        applicantDepartment: item.applicant_department,
+        currentNodeOrder: item.current_node_order,
+        status: item.status,
+        submitAt: item.submit_at,
+        finishAt: item.finish_at,
+        metadata: item.metadata,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        nodeRecords: item.node_records?.map((nr: any) => mapNodeRecord(nr)),
+        business: announcements[item.business_id],
+      }));
+
+      // 5. 转换无需审批的通知为伪审批实例格式
+      const directInstances: ApprovalInstance[] = (directAnnouncements || []).map((a: any) => ({
+        id: `direct-${a.id}`,
+        flowId: undefined,
+        flowName: a.type === 'parent_notice' ? '家长通知' : '内部通知',
+        businessType: a.type,
+        businessId: a.id,
+        title: a.title,
+        applicantId: a.author_id,
+        applicantName: a.author_name,
+        applicantDepartment: a.department,
+        currentNodeOrder: 0,
+        status: 'approved' as const,
+        submitAt: a.created_at,
+        finishAt: a.created_at,
+        metadata: a.metadata,
+        createdAt: a.created_at,
+        updatedAt: a.updated_at,
+        nodeRecords: [],
+        business: mapAnnouncement(a),
+      }));
+
+      // 6. 合并并按时间排序
+      const allInstances = [...instances, ...directInstances]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // 7. 分页
+      const totalCount = (approvalCount || 0) + (directCount || 0);
+      const paginatedInstances = allInstances.slice(offset, offset + pageSize);
+
+      return NextResponse.json({
+        success: true,
+        data: paginatedInstances,
+        pagination: {
+          page,
+          pageSize,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / pageSize),
+        },
+      });
     } else if (type === 'pending') {
       // 待我审批的 - 需要检查当前节点是否包含当前用户
       // 先获取所有进行中的实例
@@ -130,36 +289,7 @@ export async function GET(request: NextRequest) {
         .in('id', businessIds);
 
       announcementData?.forEach((a: any) => {
-        announcements[a.id] = {
-          id: a.id,
-          title: a.title,
-          summary: a.summary,
-          content: a.content,
-          type: a.type,
-          category: a.category,
-          mediaLevel: a.media_level,
-          authorId: a.author_id,
-          authorName: a.author_name,
-          department: a.department,
-          coverImage: a.cover_image,
-          images: a.images || [],
-          attachments: a.attachments || [],
-          isExternal: a.is_external,
-          publishStatus: a.publish_status,
-          publishedAt: a.published_at,
-          scheduledPublishAt: a.scheduled_publish_at,
-          unpublishedAt: a.unpublished_at,
-          autoUnpublish: a.auto_unpublish,
-          autoUnpublishAt: a.auto_unpublish_at,
-          externalId: a.external_id,
-          status: a.status,
-          viewCount: a.view_count,
-          isPinned: a.is_pinned,
-          pinOrder: a.pin_order,
-          metadata: a.metadata,
-          createdAt: a.created_at,
-          updatedAt: a.updated_at,
-        };
+        announcements[a.id] = mapAnnouncement(a);
       });
     }
 
@@ -180,29 +310,7 @@ export async function GET(request: NextRequest) {
       metadata: item.metadata,
       createdAt: item.created_at,
       updatedAt: item.updated_at,
-      nodeRecords: item.node_records?.map((nr: any) => ({
-        id: nr.id,
-        instanceId: nr.instance_id,
-        nodeOrder: nr.node_order,
-        nodeName: nr.node_name,
-        nodeType: nr.node_type,
-        status: nr.status,
-        approverIds: nr.approver_ids || [],
-        approvedBy: (nr.approved_by || []).map((a: any) => ({
-          userId: a.userId || a.user_id,
-          userName: a.userName || a.user_name,
-          action: a.action,
-          comment: a.comment,
-          time: a.time,
-        })),
-        finalApproverId: nr.final_approver_id,
-        finalApproverName: nr.final_approver_name,
-        action: nr.action,
-        comment: nr.comment,
-        createdAt: nr.created_at,
-        updatedAt: nr.updated_at,
-        finishedAt: nr.finished_at,
-      })),
+      nodeRecords: item.node_records?.map((nr: any) => mapNodeRecord(nr)),
       business: announcements[item.business_id],
     }));
 
