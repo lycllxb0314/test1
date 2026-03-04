@@ -9,13 +9,19 @@
  */
 
 import { NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// 默认密码（生产环境应使用加密密码）
-const DEFAULT_PASSWORD = 'lysf2024';
+// 默认密码（用于没有设置密码的用户）
+const DEFAULT_PASSWORD = 'lysf2026';
 
 // 账号前缀
 const ACCOUNT_PREFIX = 'ly';
+
+// 密码加密函数
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
 
 interface MigrationResult {
   step: string;
@@ -88,9 +94,12 @@ export async function POST() {
       const role = mapTeacherRole(teacher.role);
       const additionalRoles = teacher.additional_roles || [];
 
-      // 生成工号
-      const employeeId = `${ACCOUNT_PREFIX}${String(accountIndex).padStart(4, '0')}`;
+      // 生成工号（如果教师已有工号则使用现有的）
+      const employeeId = teacher.employee_id || `${ACCOUNT_PREFIX}${String(accountIndex).padStart(4, '0')}`;
       accountIndex++;
+
+      // 使用教师的原始密码（需要加密）
+      const hashedPassword = await hashPassword(teacher.password || DEFAULT_PASSWORD);
 
       userAccounts.push({
         // 不指定 ID，让数据库自动生成 UUID
@@ -98,7 +107,7 @@ export async function POST() {
         name: teacher.name,
         role: role,
         additional_roles: additionalRoles,
-        password_hash: DEFAULT_PASSWORD,
+        password_hash: hashedPassword,
         phone: teacher.phone,
         email: teacher.email,
         status: teacher.status || 'active',
@@ -108,7 +117,7 @@ export async function POST() {
 
       accounts.push({
         account: employeeId,
-        password: DEFAULT_PASSWORD,
+        password: teacher.password || DEFAULT_PASSWORD,
         name: teacher.name,
         role: getRoleLabel(role),
       });

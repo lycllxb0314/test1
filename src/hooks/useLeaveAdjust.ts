@@ -1,18 +1,9 @@
 /**
- * 请假调课 Hook
- * 
- * 提供完整的请假调课功能：
- * - 提交请假申请（选择课程、选择审批人）
- * - 获取本周课表（基准课表 + 调课信息）
- * - 年段长处理调课
- * - 工作量统计
- * 
- * @module hooks/useLeaveAdjust
+ * 请假调课 Hook - 极简版
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAuthHeaders, getAccessToken } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import type {
   LeaveRequest,
@@ -28,6 +19,24 @@ import type {
   AffectedSlot,
   ApproverSelection,
 } from '@/types/leave-adjust';
+
+// 直接从 localStorage 获取 token
+const getToken = () => {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('smart_campus_token') || localStorage.getItem('accessToken') || '';
+};
+
+// 构建认证头
+const authHeaders = () => {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 // ==================== 类型定义 ====================
 
@@ -114,9 +123,6 @@ function getWeekNumber(mondayDate: string): number {
 export function useLeaveAdjust(): UseLeaveAdjustReturn {
   const { user } = useAuth();
   
-  // === Token 就绪状态 ===
-  const [tokenReady, setTokenReady] = useState(false);
-  
   // === 请假申请状态 ===
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [leaveLoading, setLeaveLoading] = useState(false);
@@ -137,24 +143,6 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
   // 引用
   const mountedRef = useRef(true);
   
-  // 检查 token 是否就绪
-  useEffect(() => {
-    const checkToken = () => {
-      const token = getAccessToken();
-      if (token) {
-        setTokenReady(true);
-      }
-    };
-    
-    // 立即检查
-    checkToken();
-    
-    // 定期检查（用于处理登录后的情况）
-    const interval = setInterval(checkToken, 1000);
-    
-    return () => clearInterval(interval);
-  }, []);
-  
   useEffect(() => {
     return () => {
       mountedRef.current = false;
@@ -170,7 +158,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
     try {
       const response = await fetch('/api/leave-requests', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',
         body: JSON.stringify({
           ...request,
@@ -204,7 +192,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       const response = await fetch(`/api/leave-requests/${id}`, {
         method: 'DELETE',
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       
       const result = await response.json();
@@ -240,7 +228,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       
       const response = await fetch(`/api/leave-requests?${searchParams.toString()}`, {
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       
@@ -274,7 +262,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       
       const response = await fetch(`/api/schedule/weekly?${searchParams.toString()}`, {
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       
@@ -334,13 +322,8 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
   // 调课状态参数
   const [adjustmentParams, setAdjustmentParams] = useState<AdjustmentQueryParams>({ status: 'pending' });
   
-  // 使用 useEffect 直接发起调课请求（参考消息中心策略）
+  // 使用 useEffect 直接发起调课请求
   useEffect(() => {
-    // 如果没有 token，不发起请求
-    if (!tokenReady) {
-      return;
-    }
-    
     let cancelled = false;
     
     const doFetch = async () => {
@@ -355,7 +338,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
         
         const response = await fetch(`/api/course-adjustments/process?${searchParams.toString()}`, {
           credentials: 'include',
-          headers: getAuthHeaders(),
+          headers: authHeaders(),
         });
         
         if (cancelled) return;
@@ -384,7 +367,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
     return () => {
       cancelled = true;
     };
-  }, [tokenReady, adjustmentParams.status, adjustmentParams.applicantId, adjustmentParams.adjusterId, adjustmentParams.effectiveWeek, adjustmentRefreshKey]);
+  }, [adjustmentParams.status, adjustmentParams.applicantId, adjustmentParams.adjusterId, adjustmentParams.effectiveWeek, adjustmentRefreshKey]);
   
   // 手动刷新调课列表
   const refreshAdjustments = useCallback(() => {
@@ -416,7 +399,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
     try {
       const response = await fetch('/api/course-adjustments/process', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',
         body: JSON.stringify({
           ...request,
@@ -461,7 +444,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       
       const response = await fetch(`/api/teacher-workload?${searchParams.toString()}`, {
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       
@@ -491,7 +474,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
         `/api/teacher-workload/calculate?employeeId=${employeeId}&weekStartDate=${weekStartDate}`,
         {
           credentials: 'include',
-          headers: getAuthHeaders(),
+          headers: authHeaders(),
         }
       );
       const result = await response.json();
@@ -519,7 +502,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
         `/api/teachers/available?subject=${subject}&weekDay=${weekDay}&periodIndex=${periodIndex}&weekStartDate=${weekStartDate}`,
         {
           credentials: 'include',
-          headers: getAuthHeaders(),
+          headers: authHeaders(),
         }
       );
       const result = await response.json();
@@ -538,7 +521,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
     try {
       const response = await fetch('/api/users/approvers', {
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       

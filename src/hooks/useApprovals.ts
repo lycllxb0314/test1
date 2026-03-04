@@ -1,15 +1,9 @@
 /**
- * 审批流程 Hook v3 - 简化版
- * 
- * 参考消息中心的策略：
- * - 使用 useEffect 直接发起请求
- * - 使用 refreshKey 状态触发刷新
- * - 使用 cancelled 标志防止组件卸载后更新
+ * 审批流程 Hook v4 - 极简版
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
-import { getAuthHeaders, getAccessToken } from '@/lib/auth-client';
 import type {
   ApprovalInstance,
   ApprovalStatus,
@@ -17,6 +11,24 @@ import type {
   ApprovalActionRequest,
   PendingApprovalQuery,
 } from '@/types/approval';
+
+// 直接从 localStorage 获取 token
+const getToken = () => {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('smart_campus_token') || localStorage.getItem('accessToken') || '';
+};
+
+// 构建认证头
+const authHeaders = () => {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 // ==================== 类型定义 ====================
 
@@ -172,7 +184,6 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
   const [error, setError] = useState<string | null>(null);
   const [currentType, setCurrentType] = useState<ApprovalListType>(initialType);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [tokenReady, setTokenReady] = useState(false);
 
   // === 分页 ===
   const [page, setPage] = useState(1);
@@ -190,32 +201,9 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  
-  // 检查 token 是否就绪
-  useEffect(() => {
-    const checkToken = () => {
-      const token = getAccessToken();
-      if (token) {
-        setTokenReady(true);
-      }
-    };
-    
-    // 立即检查
-    checkToken();
-    
-    // 定期检查（用于处理登录后的情况）
-    const interval = setInterval(checkToken, 1000);
-    
-    return () => clearInterval(interval);
-  }, []);
 
-  // === 使用 useEffect 直接发起请求（参考消息中心策略）===
+  // === 主请求逻辑 ===
   useEffect(() => {
-    // 如果没有 token，不发起请求
-    if (!tokenReady) {
-      return;
-    }
-    
     let cancelled = false;
     
     const doFetch = async () => {
@@ -232,7 +220,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
 
         const response = await fetch(`/api/approvals?${params.toString()}`, {
           credentials: 'include',
-          headers: getAuthHeaders(),
+          headers: authHeaders(),
         });
 
         if (cancelled) return;
@@ -266,7 +254,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     return () => {
       cancelled = true;
     };
-  }, [tokenReady, currentType, page, pageSize, filters.status, filters.department, refreshKey]);
+  }, [currentType, page, pageSize, filters.status, filters.department, refreshKey]);
 
   // === 切换类型（只改变状态，不返回 Promise）===
   const fetchApprovals = useCallback((type: ApprovalListType) => {
@@ -337,7 +325,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     try {
       const response = await fetch('/api/approvals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',
         body: JSON.stringify(request),
       });
@@ -367,7 +355,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     try {
       const response = await fetch('/api/approvals/action', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',
         body: JSON.stringify({ instanceId, action, comment } as ApprovalActionRequest),
       });

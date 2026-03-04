@@ -1,10 +1,9 @@
 /**
- * 消息系统 Hook v5 - 简化版
+ * 消息系统 Hook v6 - 极简版
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
-import { getAuthHeaders, getAccessToken } from '@/lib/auth-client';
 import type {
   UserMessage,
   SendMessageRequest,
@@ -15,6 +14,24 @@ import type {
   MessageStatus,
   MessageRecipient,
 } from '@/types/messages';
+
+// 直接从 localStorage 获取 token
+const getToken = () => {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('smart_campus_token') || localStorage.getItem('accessToken') || '';
+};
+
+// 构建认证头
+const authHeaders = () => {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 export type {
   UserMessage,
@@ -123,37 +140,13 @@ export function useMessages(): UseMessagesReturn {
   const [filters, setFiltersState] = useState<MessageQueryParams>(DEFAULT_FILTERS);
   const [isPolling, setIsPolling] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [tokenReady, setTokenReady] = useState(false);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  
-  // 检查 token 是否就绪
-  useEffect(() => {
-    const checkToken = () => {
-      const token = getAccessToken();
-      if (token) {
-        setTokenReady(true);
-      }
-    };
-    
-    // 立即检查
-    checkToken();
-    
-    // 定期检查（用于处理登录后的情况）
-    const interval = setInterval(checkToken, 1000);
-    
-    return () => clearInterval(interval);
-  }, []);
 
-  // 主请求逻辑 - 使用 useEffect 直接发起请求，不使用 useCallback
+  // 主请求逻辑
   useEffect(() => {
-    // 如果没有 token，不发起请求
-    if (!tokenReady) {
-      return;
-    }
-    
     let cancelled = false;
     
     const doFetch = async () => {
@@ -172,7 +165,7 @@ export function useMessages(): UseMessagesReturn {
 
         const response = await fetch(`/api/messages?${params.toString()}`, {
           credentials: 'include',
-          headers: getAuthHeaders(),
+          headers: authHeaders(),
         });
 
         if (cancelled) return;
@@ -207,7 +200,7 @@ export function useMessages(): UseMessagesReturn {
     return () => {
       cancelled = true;
     };
-  }, [tokenReady, page, pageSize, filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, refreshKey]);
+  }, [page, pageSize, filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, refreshKey]);
 
   // 手动刷新
   const refetch = useCallback(async () => {
@@ -250,7 +243,7 @@ export function useMessages(): UseMessagesReturn {
     try {
       const response = await fetch('/api/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',
         body: JSON.stringify(request),
       });
@@ -271,7 +264,7 @@ export function useMessages(): UseMessagesReturn {
       const response = await fetch(`/api/messages/${messageId}/read`, { 
         method: 'PATCH', 
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -284,7 +277,7 @@ export function useMessages(): UseMessagesReturn {
       const response = await fetch(`/api/messages/${messageId}/unread`, { 
         method: 'PATCH', 
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -297,7 +290,7 @@ export function useMessages(): UseMessagesReturn {
       const response = await fetch(`/api/messages/${messageId}/archive`, { 
         method: 'PATCH', 
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -310,7 +303,7 @@ export function useMessages(): UseMessagesReturn {
       const response = await fetch(`/api/messages/${messageId}/pin`, { 
         method: 'PATCH', 
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -323,7 +316,7 @@ export function useMessages(): UseMessagesReturn {
       const response = await fetch(`/api/messages/${messageId}/unpin`, { 
         method: 'PATCH', 
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -336,7 +329,7 @@ export function useMessages(): UseMessagesReturn {
       const response = await fetch(`/api/messages/${messageId}`, { 
         method: 'DELETE', 
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -349,7 +342,7 @@ export function useMessages(): UseMessagesReturn {
       const response = await fetch('/api/messages/read-all', { 
         method: 'PATCH', 
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
