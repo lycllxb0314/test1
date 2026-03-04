@@ -155,7 +155,7 @@ export default function SchoolSchedulePage() {
       // 加载概览数据
       const summaryRes = await fetch('/api/academic/school-schedule?mode=summary');
       const summaryData = await summaryRes.json();
-      if (summaryData.success) {
+      if (summaryData.success && summaryData.data) {
         setSummary(summaryData.data);
       }
       
@@ -165,15 +165,19 @@ export default function SchoolSchedulePage() {
         const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
         const res = await fetch(`/api/academic/school-schedule?mode=all-classes${gradeParam}${searchParam}`);
         const data = await res.json();
-        if (data.success) {
-          setClassData(data.data);
+        if (data.success && data.data?.data) {
+          setClassData(data.data.data);
+        } else {
+          setClassData([]);
         }
       } else if (viewMode === 'teachers') {
         const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
         const res = await fetch(`/api/academic/school-schedule?mode=all-teachers${searchParam}`);
         const data = await res.json();
-        if (data.success) {
-          setTeacherData(data.data);
+        if (data.success && data.data?.data) {
+          setTeacherData(data.data.data);
+        } else {
+          setTeacherData([]);
         }
       }
     } catch (err) {
@@ -215,7 +219,7 @@ export default function SchoolSchedulePage() {
     try {
       const res = await fetch(`/api/academic/school-schedule?mode=class&classId=${classInfo.id}`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.data) {
         setDetailDialog({
           type: 'class',
           data: data.data.class,
@@ -233,7 +237,7 @@ export default function SchoolSchedulePage() {
     try {
       const res = await fetch(`/api/academic/school-schedule?mode=teacher&teacherId=${teacher.id}`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.data) {
         setDetailDialog({
           type: 'teacher',
           data: data.data.teacher,

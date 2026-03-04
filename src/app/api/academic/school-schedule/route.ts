@@ -141,10 +141,27 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
 
 // 获取所有教师课表
 async function getAllTeachersSchedule(client: any, search: string | null) {
-  // 获取所有有课表的教师
+  // 先获取有课程的教师ID
+  const { data: slotsData } = await client
+    .from('schedule_slots')
+    .select('teacher_id');
+  
+  const teacherIdsWithSlots = [...new Set((slotsData || []).map((s: any) => s.teacher_id).filter(Boolean))];
+  
+  if (teacherIdsWithSlots.length === 0) {
+    return NextResponse.json(success({
+      mode: 'all-teachers',
+      data: [],
+      totalTeachers: 0,
+      totalSlots: 0,
+    }));
+  }
+  
+  // 获取有课程的教师
   let teacherQuery = client
     .from('teachers')
     .select('id, name, primary_subject, employee_id')
+    .in('id', teacherIdsWithSlots)
     .order('primary_subject')
     .order('name');
   
@@ -158,13 +175,11 @@ async function getAllTeachersSchedule(client: any, search: string | null) {
     return NextResponse.json(error('获取教师失败', ErrorCode.DATABASE_ERROR), { status: 500 });
   }
   
-  const teacherIds = teachers?.map((t: any) => t.id) || [];
-  
   // 获取所有课表数据
   const { data: slots, error: slotsError } = await client
     .from('schedule_slots')
     .select('*')
-    .in('teacher_id', teacherIds);
+    .in('teacher_id', teacherIdsWithSlots);
   
   if (slotsError) {
     return NextResponse.json(error('获取课表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
