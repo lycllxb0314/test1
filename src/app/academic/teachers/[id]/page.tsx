@@ -49,7 +49,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { TeacherProfile } from '@/types';
-import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement, TEACHER_ROLE_LABELS, TEACHER_ROLE_COLORS, ADMINISTRATIVE_ROLE_LABELS, ADMINISTRATIVE_ROLE_COLORS, type AdministrativeRole, type TeacherRole } from '@/hooks';
+import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement, TEACHER_ROLE_LABELS, TEACHER_ROLE_COLORS, ADMINISTRATIVE_ROLE_LABELS, ADMINISTRATIVE_ROLE_COLORS, type AdministrativeRole, type TeacherRole, type TeacherRoleConfig } from '@/hooks';
 import { GROUP_CONFIGS, type GroupType, type UserGroupMembership } from '@/types';
 import { toast } from 'sonner';
 import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
@@ -136,6 +136,11 @@ interface FormData {
   department: string;
   subjects: string;
   status: 'active' | 'on_leave' | 'retired' | 'transferred';
+  // 角色与课时配置
+  primaryRole: TeacherRole;
+  additionalRoles: AdministrativeRole[];
+  weeklyHours: number;
+  teachableGrades: number[];
 }
 
 export default function TeacherDetailPage() {
@@ -149,6 +154,7 @@ export default function TeacherDetailPage() {
     loading, 
     refetch,
     updateTeacher,
+    updateTeacherRole,
     // 履历管理
     fetchRecords, addRecord, updateRecord, deleteRecord,
     // 荣誉管理
@@ -275,6 +281,10 @@ export default function TeacherDetailPage() {
     department: '',
     subjects: '',
     status: 'active',
+    primaryRole: 'subject_teacher',
+    additionalRoles: [],
+    weeklyHours: 13,
+    teachableGrades: [1, 2, 3, 4, 5, 6],
   });
 
   // 当数据加载完成后初始化表单
@@ -301,12 +311,16 @@ export default function TeacherDetailPage() {
         department: teacher.department ?? '',
         subjects: teacher.teachableSubjects?.join('、') ?? teacher.subject ?? '',
         status: (teacher.status === 'active' ? 'active' : 'active') as 'active' | 'on_leave' | 'retired' | 'transferred',
+        primaryRole: teacher.primaryRole ?? 'subject_teacher',
+        additionalRoles: teacher.additionalRoles ?? [],
+        weeklyHours: teacher.weeklyHours ?? 13,
+        teachableGrades: teacher.teachableGrades ?? [1, 2, 3, 4, 5, 6],
       });
     }
   }, [teacher]);
 
   // 处理表单字段变化
-  const handleFieldChange = (field: keyof FormData, value: string) => {
+  const handleFieldChange = (field: keyof FormData, value: string | number | AdministrativeRole[] | number[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -314,31 +328,42 @@ export default function TeacherDetailPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // 调用API更新数据
-      const success = await updateProfile({
-        name: formData.name,
-        gender: formData.gender as '男' | '女',
-        birthDate: formData.birthDate,
-        ethnicity: formData.ethnicity,
-        politicalStatus: formData.politicalStatus,
-        nativePlace: formData.nativePlace,
-        phone: formData.phone,
-        email: formData.email,
-        emergencyContact: formData.emergencyContact,
-        emergencyPhone: formData.emergencyPhone,
-        address: formData.address,
-        education: formData.education,
-        school: formData.school,
-        major: formData.major,
-        graduationDate: formData.graduationDate,
-        title: formData.title,
-        titleDate: formData.titleDate,
-        department: formData.department,
-        subject: formData.subjects.split('、')[0] || '',
-        teachableSubjects: formData.subjects.split('、').filter(s => s.trim()),
-      });
+      // 并行保存基本信息和角色配置
+      const [basicSuccess, roleSuccess] = await Promise.all([
+        updateProfile({
+          name: formData.name,
+          gender: formData.gender as '男' | '女',
+          birthDate: formData.birthDate,
+          ethnicity: formData.ethnicity,
+          politicalStatus: formData.politicalStatus,
+          nativePlace: formData.nativePlace,
+          phone: formData.phone,
+          email: formData.email,
+          emergencyContact: formData.emergencyContact,
+          emergencyPhone: formData.emergencyPhone,
+          address: formData.address,
+          education: formData.education,
+          school: formData.school,
+          major: formData.major,
+          graduationDate: formData.graduationDate,
+          title: formData.title,
+          titleDate: formData.titleDate,
+          department: formData.department,
+          subject: formData.subjects.split('、')[0] || '',
+          teachableSubjects: formData.subjects.split('、').filter(s => s.trim()),
+        }),
+        updateTeacherRole({
+          teacherId: teacherId,
+          primaryRole: formData.primaryRole,
+          additionalRoles: formData.additionalRoles,
+          primarySubject: formData.subjects.split('、')[0] || '',
+          secondarySubjects: formData.subjects.split('、').slice(1).filter(s => s.trim()),
+          totalWeeklyHours: formData.weeklyHours,
+          teachableGrades: formData.teachableGrades,
+        } as TeacherRoleConfig),
+      ]);
       
-      if (success) {
+      if (basicSuccess && roleSuccess) {
         setIsEditing(false);
         toast.success('保存成功');
         refetch(); // 刷新数据
@@ -379,6 +404,10 @@ export default function TeacherDetailPage() {
         status: (teacher.status === 'active' || teacher.status === 'on_leave' || teacher.status === 'retired' || teacher.status === 'transferred') 
           ? teacher.status 
           : 'active',
+        primaryRole: teacher.primaryRole ?? 'subject_teacher',
+        additionalRoles: teacher.additionalRoles ?? [],
+        weeklyHours: teacher.weeklyHours ?? 13,
+        teachableGrades: teacher.teachableGrades ?? [1, 2, 3, 4, 5, 6],
       });
     }
     setIsEditing(false);
@@ -913,28 +942,83 @@ export default function TeacherDetailPage() {
                 {/* 角色信息 */}
                 <div className="space-y-2">
                   <Label className="text-muted-foreground text-sm">角色身份</Label>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge className={`text-sm px-3 py-1 ${TEACHER_ROLE_COLORS[teacher.primaryRole]?.bg || 'bg-gray-100'} ${TEACHER_ROLE_COLORS[teacher.primaryRole]?.text || 'text-gray-700'}`}>
-                      {TEACHER_ROLE_LABELS[teacher.primaryRole] || teacher.primaryRole}
-                    </Badge>
-                    {teacher.additionalRoles && teacher.additionalRoles.length > 0 && (
-                      teacher.additionalRoles.map((role, idx) => (
-                        <Badge key={idx} variant="outline" className={`text-sm px-3 py-1 ${ADMINISTRATIVE_ROLE_COLORS[role as AdministrativeRole]?.bg || ''} ${ADMINISTRATIVE_ROLE_COLORS[role as AdministrativeRole]?.text || ''} border-0`}>
-                          {ADMINISTRATIVE_ROLE_LABELS[role as AdministrativeRole] || role}（兼）
-                        </Badge>
-                      ))
-                    )}
-                  </div>
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <Select 
+                        value={formData.primaryRole} 
+                        onValueChange={(v) => handleFieldChange('primaryRole', v)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="principal">校长</SelectItem>
+                          <SelectItem value="secretary">书记</SelectItem>
+                          <SelectItem value="vice_principal">副校长</SelectItem>
+                          <SelectItem value="head_teacher">班主任</SelectItem>
+                          <SelectItem value="subject_teacher">科任教师</SelectItem>
+                          <SelectItem value="skill_teacher">技能课教师</SelectItem>
+                          <SelectItem value="subject_head">学科组长</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">兼任职务</p>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(ADMINISTRATIVE_ROLE_LABELS).map(([role, label]) => (
+                            <label key={role} className="flex items-center gap-1.5 px-2 py-1 rounded border hover:bg-muted/50 cursor-pointer text-sm">
+                              <input
+                                type="checkbox"
+                                checked={formData.additionalRoles.includes(role as AdministrativeRole)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    handleFieldChange('additionalRoles', [...formData.additionalRoles, role as AdministrativeRole] as AdministrativeRole[]);
+                                  } else {
+                                    handleFieldChange('additionalRoles', formData.additionalRoles.filter(r => r !== role) as AdministrativeRole[]);
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className={`text-sm px-3 py-1 ${TEACHER_ROLE_COLORS[teacher.primaryRole]?.bg || 'bg-gray-100'} ${TEACHER_ROLE_COLORS[teacher.primaryRole]?.text || 'text-gray-700'}`}>
+                        {TEACHER_ROLE_LABELS[teacher.primaryRole] || teacher.primaryRole}
+                      </Badge>
+                      {teacher.additionalRoles && teacher.additionalRoles.length > 0 && (
+                        teacher.additionalRoles.map((role, idx) => (
+                          <Badge key={idx} variant="outline" className={`text-sm px-3 py-1 ${ADMINISTRATIVE_ROLE_COLORS[role as AdministrativeRole]?.bg || ''} ${ADMINISTRATIVE_ROLE_COLORS[role as AdministrativeRole]?.text || ''} border-0`}>
+                            {ADMINISTRATIVE_ROLE_LABELS[role as AdministrativeRole] || role}（兼）
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {/* 课时配置 */}
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                   <div>
                     <Label className="text-muted-foreground text-sm">周课时量</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xl font-bold">{teacher.weeklyHours}</span>
-                      <span className="text-muted-foreground">节/周</span>
-                    </div>
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        max={30}
+                        value={formData.weeklyHours}
+                        onChange={(e) => handleFieldChange('weeklyHours', parseInt(e.target.value) || 0)}
+                        className="mt-1"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xl font-bold">{teacher.weeklyHours}</span>
+                        <span className="text-muted-foreground">节/周</span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-sm">已安排课时</Label>
@@ -955,31 +1039,62 @@ export default function TeacherDetailPage() {
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-sm">可任教科目</Label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {teacher.teachableSubjects && teacher.teachableSubjects.length > 0 ? (
-                        teacher.teachableSubjects.map((subject, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">
-                            {subject}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-gray-400 text-sm">未设置</span>
-                      )}
-                    </div>
+                    {isEditing ? (
+                      <Input
+                        value={formData.subjects}
+                        onChange={(e) => handleFieldChange('subjects', e.target.value)}
+                        placeholder="多个学科用顿号分隔"
+                        className="mt-1"
+                      />
+                    ) : (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {teacher.teachableSubjects && teacher.teachableSubjects.length > 0 ? (
+                          teacher.teachableSubjects.map((subject, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {subject}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-sm">未设置</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label className="text-muted-foreground text-sm">可任教年级</Label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {teacher.teachableGrades && teacher.teachableGrades.length > 0 ? (
-                        teacher.teachableGrades.map((grade, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
+                    {isEditing ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {[1, 2, 3, 4, 5, 6].map((grade) => (
+                          <label key={grade} className="flex items-center gap-1 px-2 py-1 rounded border hover:bg-muted/50 cursor-pointer text-sm">
+                            <input
+                              type="checkbox"
+                              checked={formData.teachableGrades.includes(grade)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  handleFieldChange('teachableGrades', [...formData.teachableGrades, grade].sort() as number[]);
+                                } else {
+                                  handleFieldChange('teachableGrades', formData.teachableGrades.filter(g => g !== grade) as number[]);
+                                }
+                              }}
+                              className="rounded"
+                            />
                             {grade}年级
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-gray-400 text-sm">未设置</span>
-                      )}
-                    </div>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {teacher.teachableGrades && teacher.teachableGrades.length > 0 ? (
+                          teacher.teachableGrades.map((grade, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {grade}年级
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-sm">未设置</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
