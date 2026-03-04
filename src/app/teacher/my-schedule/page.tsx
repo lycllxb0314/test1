@@ -32,6 +32,8 @@ interface WeeklySlot {
   adjustmentNote?: string;
   originalTeacherName?: string;
   originalEmployeeId?: string;
+  applicantId?: string;
+  applicantName?: string;
 }
 
 interface WeekInfo {
@@ -364,8 +366,11 @@ function WeekView({ slots, loading, getSlotContent, currentEmployeeId }: WeekVie
                                 </Badge>
                                 {slot.adjustmentType === 'substitute' && (() => {
                                   // 判断当前用户身份
-                                  const isSubstitute = slot.actualEmployeeId === currentEmployeeId && slot.employeeId !== currentEmployeeId;
-                                  const isOriginalTeacher = slot.employeeId === currentEmployeeId && slot.actualEmployeeId !== currentEmployeeId;
+                                  // 使用 applicantId（请假人ID）和 actualEmployeeId（实际代课人ID）判断
+                                  const isOriginalTeacher = slot.applicantId === currentEmployeeId || 
+                                    (slot.employeeId === currentEmployeeId && slot.actualEmployeeId !== currentEmployeeId);
+                                  const isSubstitute = slot.actualEmployeeId === currentEmployeeId && 
+                                    slot.applicantId !== currentEmployeeId;
                                   
                                   if (isOriginalTeacher) {
                                     // 被代课人看到代课人信息
@@ -509,8 +514,11 @@ function ListView({ slots, loading, currentEmployeeId }: ListViewProps) {
                             {slot.adjustmentType === 'substitute' ? '代课' : '调课'}
                           </Badge>
                           {slot.adjustmentType === 'substitute' && (() => {
-                            const isSubstitute = slot.actualEmployeeId === currentEmployeeId && slot.employeeId !== currentEmployeeId;
-                            const isOriginalTeacher = slot.employeeId === currentEmployeeId && slot.actualEmployeeId !== currentEmployeeId;
+                            // 使用 applicantId（请假人ID）和 actualEmployeeId（实际代课人ID）判断
+                            const isOriginalTeacher = slot.applicantId === currentEmployeeId || 
+                              (slot.employeeId === currentEmployeeId && slot.actualEmployeeId !== currentEmployeeId);
+                            const isSubstitute = slot.actualEmployeeId === currentEmployeeId && 
+                              slot.applicantId !== currentEmployeeId;
                             
                             if (isOriginalTeacher) {
                               return (
