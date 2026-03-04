@@ -60,10 +60,51 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { DEPARTMENTS, type SubmitApprovalRequest, type AnnouncementType, type NewsCategory } from '@/types/approval';
+import { 
+  DEPARTMENTS, 
+  type SubmitApprovalRequest, 
+  type AnnouncementType, 
+  type AnnouncementCategory, 
+  type NewsCategory, 
+  type InternalNoticeCategory,
+  type MediaLevel 
+} from '@/types/approval';
 import { useTeachers } from '@/hooks/useTeachers';
 import { useClasses } from '@/hooks/useClasses';
 import { useGroups } from '@/hooks/useGroups';
+
+// ==================== 分类选项配置 ====================
+
+/** 根据类型获取分类选项 */
+const CATEGORY_OPTIONS: Record<AnnouncementType, { value: string; label: string }[]> = {
+  announcement: [
+    { value: '重要通知', label: '重要通知' },
+    { value: '活动预告', label: '活动预告' },
+    { value: '规章制度', label: '规章制度' },
+    { value: '招生信息', label: '招生信息' },
+    { value: '放假通知', label: '放假通知' },
+  ],
+  news: [
+    { value: '校园新闻', label: '校园新闻' },
+    { value: '荣誉喜报', label: '荣誉喜报' },
+    { value: '教育教学', label: '教育教学' },
+    { value: '媒体附小', label: '媒体附小' },
+  ],
+  internal_notice: [
+    { value: '会议通知', label: '会议通知' },
+    { value: '工作安排', label: '工作安排' },
+    { value: '通知公告', label: '通知公告' },
+    { value: '培训学习', label: '培训学习' },
+    { value: '其他通知', label: '其他通知' },
+  ],
+};
+
+/** 媒体级别选项（新闻动态-媒体附小分类下使用） */
+const MEDIA_LEVEL_OPTIONS = [
+  { value: '国家级', label: '国家级' },
+  { value: '省级', label: '省级' },
+  { value: '市级', label: '市级' },
+];
 
 // ==================== 类型定义 ====================
 
@@ -110,7 +151,8 @@ export function PublishNotificationDialog({
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<AnnouncementType>('announcement');
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState<AnnouncementCategory | NewsCategory | InternalNoticeCategory | ''>('');
+  const [mediaLevel, setMediaLevel] = useState<MediaLevel | ''>('');
   const [recipientConfig, setRecipientConfig] = useState<RecipientConfig>({ type: 'all' });
   const [isExternal, setIsExternal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -163,7 +205,8 @@ export function PublishNotificationDialog({
         summary: summary.trim() || undefined,
         content: content.trim(),
         type,
-        category: category.trim() as NewsCategory || undefined,
+        category: category ? category as AnnouncementCategory | NewsCategory | InternalNoticeCategory : undefined,
+        mediaLevel: mediaLevel || undefined,
         department,
         coverImage: coverImage || undefined,
         images: images.length > 0 ? images : undefined,
@@ -187,6 +230,7 @@ export function PublishNotificationDialog({
         setSummary('');
         setContent('');
         setCategory('');
+        setMediaLevel('');
         setRecipientConfig({ type: 'all' });
         setIsExternal(false);
         setCoverImage(null);
@@ -606,7 +650,12 @@ export function PublishNotificationDialog({
                   <Label>类型</Label>
                   <Select
                     value={type}
-                    onValueChange={(v) => setType(v as AnnouncementType)}
+                    onValueChange={(v) => {
+                      setType(v as AnnouncementType);
+                      // 类型改变时重置分类和媒体级别
+                      setCategory('');
+                      setMediaLevel('');
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -623,20 +672,43 @@ export function PublishNotificationDialog({
                   <Label>分类</Label>
                   <Select
                     value={category}
-                    onValueChange={setCategory}
+                    onValueChange={(v) => setCategory(v as AnnouncementCategory | NewsCategory | InternalNoticeCategory)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="选择分类" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="校园新闻">校园新闻</SelectItem>
-                      <SelectItem value="荣誉喜报">荣誉喜报</SelectItem>
-                      <SelectItem value="教育教学">教育教学</SelectItem>
-                      <SelectItem value="媒体附小">媒体附小</SelectItem>
+                      {CATEGORY_OPTIONS[type].map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+
+              {/* 媒体级别选择（新闻动态-媒体附小分类下显示） */}
+              {type === 'news' && category === '媒体附小' && (
+                <div className="space-y-2 mt-4">
+                  <Label>媒体级别</Label>
+                  <Select
+                    value={mediaLevel}
+                    onValueChange={(v) => setMediaLevel(v as MediaLevel)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择媒体级别" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MEDIA_LEVEL_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </CardContent>
           </Card>
 

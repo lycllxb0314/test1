@@ -142,6 +142,32 @@ export interface ApprovalActionRecord {
  */
 export type AnnouncementType = 'announcement' | 'news' | 'internal_notice';
 
+/** 校园公告分类 */
+export type AnnouncementCategory = 
+  | '重要通知'
+  | '活动预告'
+  | '规章制度'
+  | '招生信息'
+  | '放假通知';
+
+/** 新闻动态分类 */
+export type NewsCategory = 
+  | '校园新闻'
+  | '荣誉喜报' 
+  | '教育教学'
+  | '媒体附小';
+
+/** 内部通知分类 */
+export type InternalNoticeCategory =
+  | '会议通知'
+  | '工作安排'
+  | '通知公告'
+  | '培训学习'
+  | '其他通知';
+
+/** 媒体级别（媒体附小分类下使用） */
+export type MediaLevel = '国家级' | '省级' | '市级';
+
 /** 信息状态 */
 export type AnnouncementStatus = 
   | 'draft'           // 草稿
@@ -159,16 +185,6 @@ export type PublishStatus =
   | 'published'       // 已发布
   | 'unpublished';    // 已下架
 
-/** 新闻分类 */
-export type NewsCategory = 
-  | '校园新闻' 
-  | '荣誉喜报' 
-  | '教育教学' 
-  | '媒体附小';
-
-/** 媒体级别（媒体附小分类下使用） */
-export type MediaLevel = '国家级' | '省级' | '市级';
-
 /** 公告/新闻/通知 - 与官网首页数据格式对齐 */
 export interface Announcement {
   id: string;
@@ -176,7 +192,7 @@ export interface Announcement {
   summary?: string; // 摘要，用于首页展示
   content: string;
   type: AnnouncementType;
-  category?: NewsCategory;
+  category?: AnnouncementCategory | NewsCategory | InternalNoticeCategory;
   mediaLevel?: MediaLevel; // 媒体级别（媒体附小分类下使用）
   authorId?: string;
   authorName?: string;
@@ -245,7 +261,7 @@ export interface SubmitApprovalRequest {
   summary?: string; // 摘要
   content: string;
   type: AnnouncementType;
-  category?: NewsCategory;
+  category?: AnnouncementCategory | NewsCategory | InternalNoticeCategory;
   mediaLevel?: MediaLevel;
   department: string;
   coverImage?: string;
