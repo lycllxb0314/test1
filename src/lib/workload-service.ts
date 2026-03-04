@@ -27,10 +27,10 @@ export async function calculateTeacherWorkload(
 ): Promise<TeacherWorkload> {
   const client = getSupabaseClient();
   
-  // 1. 获取教师信息（基准课时）- 使用正确的字段名
+  // 1. 获取教师信息
   const { data: teacher } = await client
     .from('teachers')
-    .select('id, name, total_weekly_hours, role, employee_id')
+    .select('id, name, employee_id')
     .eq('id', teacherId)
     .single();
   
@@ -73,7 +73,6 @@ export async function calculateTeacherWorkload(
   const { data: substituteRecords } = await substituteQuery;
   
   // 5. 计算各项数据
-  const baseWeeklyHours = teacher?.total_weekly_hours || 13;
   const baseSlotsCount = baseSlots?.length || 0;
   
   // 计算请假课时（调出的课程）
@@ -96,14 +95,17 @@ export async function calculateTeacherWorkload(
     hours: 1,
   }));
   
+  // 周课时 = 实际安排的课时数量
+  const weeklyHours = baseSlotsCount;
+  
   // 自己上的课 = 基准课时 - 请假课时
   const selfTaughtHours = Math.max(0, baseSlotsCount - leaveHours);
   
   // 实际工作量
   const totalWorkload = selfTaughtHours + substituteHours;
   
-  // 预期课时（根据周数计算）
-  const expectedHours = baseWeeklyHours * 4; // 简化：每月约4周
+  // 月应上课时 = 周课时 * 4（每月约4周）
+  const expectedHours = weeklyHours * 4;
   
   return {
     id: `wl-${teacherId}-${semester}${month || ''}`,
@@ -111,7 +113,7 @@ export async function calculateTeacherWorkload(
     teacherName: teacher?.name || '',
     semester,
     month,
-    baseWeeklyHours,
+    baseWeeklyHours: weeklyHours,  // 改为实际周课时
     expectedHours,
     selfTaughtHours,
     leaveHours,

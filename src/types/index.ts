@@ -3372,9 +3372,9 @@ export interface TeacherWorkload {
   month?: number;                      // 月度统计时使用（1-12）
   
   // === 基准课时 ===
-  /** 基准周课时（教务主任配置） */
+  /** 周课时（实际安排的课时数量，从课表查询） */
   baseWeeklyHours: number;
-  /** 本期应上课时 */
+  /** 月应上课时 = 周课时 * 4 */
   expectedHours: number;
   
   // === 实际授课 ===
