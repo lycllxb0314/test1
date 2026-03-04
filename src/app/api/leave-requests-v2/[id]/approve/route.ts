@@ -206,11 +206,12 @@ export const POST = protectedRoute(async (
       let gradeLeaderName = null;
       
       if (applicantGrade) {
-        // 从 users 表查找 additional_roles 包含 grade_leader 且管理该年级的用户
+        // 从 users 表查找 additional_roles 包含 'grade_leader' 且 managed_grades 包含该年级的用户
         const { data: gradeLeaders } = await client
           .from('users')
-          .select('employee_id, name, additional_roles')
-          .contains('additional_roles', [{ role: 'grade_leader', grades: [applicantGrade] }]);
+          .select('employee_id, name')
+          .contains('additional_roles', ['grade_leader'])
+          .contains('managed_grades', [applicantGrade]);
         
         if (gradeLeaders && gradeLeaders.length > 0) {
           gradeLeaderId = gradeLeaders[0].employee_id;
@@ -222,8 +223,8 @@ export const POST = protectedRoute(async (
       if (!gradeLeaderId) {
         const { data: allGradeLeaders } = await client
           .from('users')
-          .select('employee_id, name, additional_roles')
-          .contains('additional_roles', [{ role: 'grade_leader' }]);
+          .select('employee_id, name')
+          .contains('additional_roles', ['grade_leader']);
         
         if (allGradeLeaders && allGradeLeaders.length > 0) {
           gradeLeaderId = allGradeLeaders[0].employee_id;
