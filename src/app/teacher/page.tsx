@@ -418,7 +418,7 @@ export default function TeacherPage() {
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {adjustments.map((adjust) => (
+                        {adjustments.map((adjust: any) => (
                           <Card key={adjust.id} className="border-l-4 border-l-amber-500 hover:shadow-md transition-shadow cursor-pointer"
                                 onClick={() => handleOpenAdjustDialog(adjust)}>
                             <CardContent className="p-4">
@@ -426,28 +426,28 @@ export default function TeacherPage() {
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-2">
                                     <Badge variant="outline" className="text-amber-700 border-amber-300">
-                                      {GRADE_NAMES[adjust.grade] || `${adjust.grade}年级`}
+                                      {adjust.grade ? (GRADE_NAMES[adjust.grade] || `${adjust.grade}年级`) : '未知年级'}
                                     </Badge>
                                     <Badge variant="secondary">
-                                      {adjust.subject}
+                                      {adjust.subject || '未知科目'}
                                     </Badge>
                                     <span className="text-sm text-gray-500">
-                                      {adjust.applicant_name} 请假
+                                      {adjust.applicantName} 请假
                                     </span>
                                   </div>
                                   
                                   <div className="text-sm space-y-1">
                                     <p className="flex items-center gap-2">
                                       <Clock className="h-4 w-4 text-gray-400" />
-                                      <span>第{adjust.effective_week}周 {WEEK_DAY_NAMES[adjust.week_day]} 第{adjust.period_index + 1}节</span>
+                                      <span>第{adjust.effectiveWeek || '?'}周 {adjust.weekDay ? WEEK_DAY_NAMES[adjust.weekDay] : '?'} 第{(adjust.periodIndex ?? 0) + 1}节</span>
                                     </p>
                                     <p className="flex items-center gap-2">
                                       <GraduationCap className="h-4 w-4 text-gray-400" />
-                                      <span>{adjust.class_name}</span>
+                                      <span>{adjust.className || '未知班级'}</span>
                                     </p>
                                     <p className="flex items-center gap-2">
                                       <BookOpen className="h-4 w-4 text-gray-400" />
-                                      <span>{adjust.subject}</span>
+                                      <span>{adjust.subject || '未知科目'}</span>
                                     </p>
                                   </div>
                                   

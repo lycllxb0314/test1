@@ -58,6 +58,18 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const adjustmentWeekDay = adjustment.week_day || weekDay;
     const adjustmentPeriodIndex = adjustment.period_index || periodIndex;
     
+    // 如果关键信息缺失，尝试从 original_slot 获取
+    const originalSlot = adjustment.original_slot || {};
+    const finalGrade = adjustmentGrade || originalSlot.grade || 0;
+    const finalSubject = adjustmentSubject || originalSlot.subject || '';
+    const finalWeekDay = adjustmentWeekDay || originalSlot.weekDay || 0;
+    const finalPeriodIndex = adjustmentPeriodIndex || originalSlot.periodIndex || 0;
+    
+    // 如果仍然缺少关键信息，返回错误
+    if (!finalGrade && !finalSubject) {
+      return NextResponse.json(error('调课记录缺少课程信息，无法推荐教师', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
+    
     // 获取当前学年学期
     const now = new Date();
     const { data: currentSemester } = await client
@@ -70,9 +82,8 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const academicYear = currentSemester?.academic_year || '2024-2025';
     const semester = currentSemester?.semester || '1';
     
-    // 1. 获取该年级所有教师
-    // 使用 current_teaching_grades 字段筛选
-    const { data: gradeTeachers, error: teachersError } = await client
+    // 1. 获取该年级所有教师（如果没有年级信息，获取所有教师）
+    let gradeTeachersQuery = client
       .from('teachers')
       .select(`
         id,
@@ -85,8 +96,14 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         department,
         title
       `)
-      .eq('status', 'active')
-      .contains('current_teaching_grades', [adjustmentGrade]);
+      .eq('status', 'active');
+    
+    // 如果有年级信息，按年级筛选
+    if (finalGrade > 0) {
+      gradeTeachersQuery = gradeTeachersQuery.contains('current_teaching_grades', [finalGrade]);
+    }
+    
+    const { data: gradeTeachers, error: teachersError } = await gradeTeachersQuery;
     
     if (teachersError) {
       console.error('获取年级教师失败:', teachersError);
@@ -114,18 +131,21 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     
     // 4. 检查每个教师在请假时段是否有课
     // 获取该时间段已有课的教师
-    const { data: busyTeachers } = await client
-      .from('schedule_slots')
-      .select('employee_id')
-      .eq('week_day', adjustmentWeekDay)
-      .eq('period_index', adjustmentPeriodIndex);
-    
-    const busyTeacherIds = new Set((busyTeachers || []).map(t => t.employee_id));
+    let busyTeacherIds = new Set<string>();
+    if (finalWeekDay > 0) {
+      const { data: busyTeachers } = await client
+        .from('schedule_slots')
+        .select('employee_id')
+        .eq('week_day', finalWeekDay)
+        .eq('period_index', finalPeriodIndex);
+      
+      busyTeacherIds = new Set((busyTeachers || []).map(t => t.employee_id));
+    }
     
     // 5. 构建推荐列表
     const recommendations = availableTeachers.map(teacher => {
-      const isSameSubject = teacher.primary_subject === adjustmentSubject || 
-                           (teacher.secondary_subjects || []).includes(adjustmentSubject);
+      const isSameSubject = teacher.primary_subject === finalSubject || 
+                           (teacher.secondary_subjects || []).includes(finalSubject);
       const isBusy = busyTeacherIds.has(teacher.employee_id);
       const workload = workloadMap[teacher.employee_id] || { total: 0, substitute: 0 };
       
@@ -181,13 +201,13 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     return NextResponse.json(success({
       adjustment: {
         id: adjustment.id,
-        grade: adjustmentGrade,
-        subject: adjustmentSubject,
-        weekDay: adjustmentWeekDay,
-        periodIndex: adjustmentPeriodIndex,
+        grade: finalGrade,
+        subject: finalSubject,
+        weekDay: finalWeekDay,
+        periodIndex: finalPeriodIndex,
         className: adjustment.class_name,
         applicantName: adjustment.applicant_name,
-        effectiveWeek: adjustment.effective_week,
+        effectiveWeek: adjustment.effective_week_number || getWeekNumber(new Date(adjustment.effective_week)),
       },
       recommended: available.slice(0, 5), // 最多推荐5个
       available,
@@ -200,3 +220,11 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });
+
+// 辅助函数：获取周数
+function getWeekNumber(date: Date): number {
+  if (!date || isNaN(date.getTime())) return 1;
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+}

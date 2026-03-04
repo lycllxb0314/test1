@@ -41,7 +41,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       query = query.eq('applicant_id', applicantId);
     }
     if (effectiveWeek) {
-      query = query.eq('effective_week', effectiveWeek);
+      query = query.eq('effective_week_number', parseInt(effectiveWeek));
     }
     
     const { data, error: dbError } = await query;
@@ -51,7 +51,50 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       return NextResponse.json(error('获取调课列表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
-    return NextResponse.json(success(data || [], 'database'));
+    // 转换字段名：下划线 -> 驼峰
+    const formattedData = (data || []).map(item => ({
+      id: item.id,
+      leaveRequestId: item.leave_request_id,
+      workflowInstanceId: item.workflow_instance_id,
+      applicantId: item.applicant_id,
+      applicantName: item.applicant_name,
+      adjusterId: item.adjuster_id,
+      adjusterName: item.adjuster_name,
+      adjustType: item.adjust_type,
+      originalSlot: item.original_slot,
+      adjustResult: item.adjust_result,
+      reason: item.reason,
+      reasonType: item.reason_type,
+      status: item.status,
+      // 课程信息
+      grade: item.grade,
+      classId: item.class_id,
+      className: item.class_name,
+      subject: item.subject,
+      weekDay: item.week_day,
+      periodIndex: item.period_index,
+      periodName: item.period_name,
+      // 生效时间
+      effectiveWeek: item.effective_week_number || getWeekNumber(new Date(item.effective_week)),
+      effectiveWeekDate: item.effective_week,
+      effectiveYear: item.effective_year,
+      // 代课教师
+      substituteEmployeeId: item.substitute_employee_id,
+      substituteName: item.substitute_name,
+      // 审批信息
+      approvedBy: item.approved_by,
+      approvedByName: item.approved_by_name,
+      approvedAt: item.approved_at,
+      // 同步状态
+      syncStatus: item.sync_status,
+      notifyStatus: item.notify_status,
+      // 时间戳
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
+      completedAt: item.completed_at,
+    }));
+    
+    return NextResponse.json(success(formattedData, 'database'));
     
   } catch (err) {
     console.error('获取调课列表失败:', err);

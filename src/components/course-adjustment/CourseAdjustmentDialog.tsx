@@ -39,20 +39,44 @@ import { toast } from 'sonner';
 // 调课记录类型
 interface CourseAdjustment {
   id: string;
-  leave_request_id?: string;
-  applicant_id: string;
-  applicant_name: string;
-  grade: number;
-  class_id: string;
-  class_name: string;
-  subject: string;
-  week_day: number;
-  period_index: number;
-  period_name?: string;
-  effective_week: string;
+  leaveRequestId?: string;
+  workflowInstanceId?: string;
+  applicantId: string;
+  applicantName: string;
+  adjusterId?: string;
+  adjusterName?: string;
+  adjustType?: string;
+  originalSlot?: any;
+  adjustResult?: any;
   reason?: string;
+  reasonType?: string;
   status: string;
-  created_at: string;
+  // 课程信息
+  grade?: number;
+  classId?: string;
+  className?: string;
+  subject?: string;
+  weekDay?: number;
+  periodIndex?: number;
+  periodName?: string;
+  // 生效时间
+  effectiveWeek?: number | string;
+  effectiveWeekDate?: string;
+  effectiveYear?: string;
+  // 代课教师
+  substituteEmployeeId?: string;
+  substituteName?: string;
+  // 审批信息
+  approvedBy?: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  // 同步状态
+  syncStatus?: any;
+  notifyStatus?: any;
+  // 时间戳
+  createdAt?: string;
+  updatedAt?: string;
+  completedAt?: string;
 }
 
 // 推荐教师类型
@@ -122,11 +146,11 @@ export function CourseAdjustmentDialog({
     try {
       const params = new URLSearchParams({
         adjustmentId: adjustment.id,
-        grade: String(adjustment.grade),
-        subject: adjustment.subject,
-        weekDay: String(adjustment.week_day),
-        periodIndex: String(adjustment.period_index),
-        effectiveWeek: adjustment.effective_week,
+        grade: String(adjustment.grade || 0),
+        subject: adjustment.subject || '',
+        weekDay: String(adjustment.weekDay || 0),
+        periodIndex: String(adjustment.periodIndex || 0),
+        effectiveWeek: String(adjustment.effectiveWeek || ''),
       });
       
       const response = await fetch(`/api/course-adjustments/recommend-teachers?${params}`);
@@ -229,24 +253,25 @@ export function CourseAdjustmentDialog({
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">请假教师：</span>
-                <span className="font-medium">{adjustment.applicant_name}</span>
+                <span className="font-medium">{adjustment.applicantName}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">年级班级：</span>
                 <span className="font-medium">
-                  {GRADE_NAMES[adjustment.grade] || `${adjustment.grade}年级`}
-                  {adjustment.class_name}
+                  {adjustment.grade ? (GRADE_NAMES[adjustment.grade] || `${adjustment.grade}年级`) : '未知年级'}
+                  {adjustment.className || '未知班级'}
                 </span>
               </div>
               <div>
                 <span className="text-muted-foreground">科目：</span>
-                <span className="font-medium">{adjustment.subject}</span>
+                <span className="font-medium">{adjustment.subject || '未知'}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">时间：</span>
                 <span className="font-medium">
-                  第{adjustment.effective_week}周 周{WEEK_DAY_NAMES[adjustment.week_day]}
-                  第{adjustment.period_index + 1}节
+                  第{adjustment.effectiveWeek || '?'}周 
+                  {adjustment.weekDay ? `周${WEEK_DAY_NAMES[adjustment.weekDay]}` : '未知'}
+                  {adjustment.periodIndex !== undefined ? ` 第${adjustment.periodIndex + 1}节` : ''}
                 </span>
               </div>
               {adjustment.reason && (

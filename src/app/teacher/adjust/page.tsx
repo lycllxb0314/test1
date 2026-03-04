@@ -39,25 +39,26 @@ type AdjustStatus = 'pending' | 'processing' | 'completed' | 'cancelled';
 
 interface CourseAdjustmentItem {
   id: string;
-  leave_request_id?: string;
-  applicant_id: string;
-  applicant_name: string;
+  leaveRequestId?: string;
+  applicantId: string;
+  applicantName: string;
   grade: number;
-  class_id: string;
-  class_name: string;
+  classId: string;
+  className: string;
   subject: string;
-  week_day: number;
-  period_index: number;
-  period_name?: string;
-  effective_week: string;
+  weekDay: number;
+  periodIndex: number;
+  periodName?: string;
+  effectiveWeek: string | number;
   status: AdjustStatus;
-  adjust_type?: 'substitute' | 'swap' | 'cancel' | 'makeup';
-  substitute_employee_id?: string;
-  substitute_name?: string;
+  adjustType?: 'substitute' | 'swap' | 'cancel' | 'makeup';
+  substituteEmployeeId?: string;
+  substituteName?: string;
   reason?: string;
-  created_at: string;
-  updated_at?: string;
-  completed_at?: string;
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+  originalSlot?: any;
 }
 
 // 星期几映射
@@ -295,22 +296,22 @@ export default function GradeLeaderAdjustPage() {
                           <Badge variant="outline" className="text-orange-600 border-orange-200">
                             {gradeNames[adjust.grade] || `${adjust.grade}年级`}
                           </Badge>
-                          <span className="text-sm text-gray-500">{adjust.created_at}</span>
+                          <span className="text-sm text-gray-500">{adjust.createdAt}</span>
                         </div>
                         <div className="flex items-center gap-4 mb-2">
                           <div className="flex items-center gap-1">
                             <User className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">{adjust.applicant_name}</span>
+                            <span className="font-medium">{adjust.applicantName}</span>
                             <span className="text-sm text-gray-500">({adjust.subject})</span>
                           </div>
                           <div className="flex items-center gap-1 text-sm text-gray-600">
                             <Calendar className="h-4 w-4" />
-                            第{adjust.effective_week}周
+                            第{adjust.effectiveWeek}周
                           </div>
                         </div>
                         <div className="text-sm text-gray-600 mb-2">
                           <span className="font-medium">原课程：</span>
-                          {adjust.class_name} · {weekDayNames[adjust.week_day]} 第{adjust.period_index + 1}节 · {adjust.subject}
+                          {adjust.className} · {weekDayNames[adjust.weekDay]} 第{adjust.periodIndex + 1}节 · {adjust.subject}
                         </div>
                         {adjust.reason && (
                           <div className="text-sm text-gray-500">
@@ -354,23 +355,23 @@ export default function GradeLeaderAdjustPage() {
                         <div className="flex items-center gap-2 mb-2">
                           {getStatusBadge(adjust.status)}
                           <Badge variant="outline" className="text-green-600 border-green-200">
-                            {getAdjustTypeName(adjust.adjust_type)}
+                            {getAdjustTypeName(adjust.adjustType)}
                           </Badge>
-                          <span className="text-sm text-gray-500">{adjust.completed_at}</span>
+                          <span className="text-sm text-gray-500">{adjust.completedAt}</span>
                         </div>
                         <div className="flex items-center gap-4 mb-2">
                           <div className="flex items-center gap-1">
                             <User className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">{adjust.applicant_name}</span>
+                            <span className="font-medium">{adjust.applicantName}</span>
                           </div>
-                          {adjust.substitute_name && (
+                          {adjust.substituteName && (
                             <div className="text-sm text-gray-600">
-                              <span className="text-green-600 font-medium">{adjust.substitute_name}</span> 代课
+                              <span className="text-green-600 font-medium">{adjust.substituteName}</span> 代课
                             </div>
                           )}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {adjust.class_name} · {weekDayNames[adjust.week_day]} 第{adjust.period_index + 1}节
+                          {adjust.className} · {weekDayNames[adjust.weekDay]} 第{adjust.periodIndex + 1}节
                         </div>
                         {adjust.reason && (
                           <div className="text-sm text-gray-500 mt-1">备注：{adjust.reason}</div>
@@ -394,10 +395,10 @@ export default function GradeLeaderAdjustPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           {getStatusBadge(adjust.status)}
-                          <span className="text-sm text-gray-500">{adjust.created_at}</span>
+                          <span className="text-sm text-gray-500">{adjust.createdAt}</span>
                         </div>
                         <div className="text-sm">
-                          {adjust.applicant_name} · {adjust.class_name} · {adjust.subject}
+                          {adjust.applicantName} · {adjust.className} · {adjust.subject}
                         </div>
                       </div>
                       {adjust.status === 'pending' && (
@@ -441,7 +442,7 @@ export default function GradeLeaderAdjustPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">申请人</span>
-                  <span>{selectedAdjust.applicant_name}</span>
+                  <span>{selectedAdjust.applicantName}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">年级</span>
@@ -449,7 +450,7 @@ export default function GradeLeaderAdjustPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">班级</span>
-                  <span>{selectedAdjust.class_name}</span>
+                  <span>{selectedAdjust.className}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">课程</span>
@@ -457,13 +458,13 @@ export default function GradeLeaderAdjustPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">时间</span>
-                  <span>第{selectedAdjust.effective_week}周 {weekDayNames[selectedAdjust.week_day]} 第{selectedAdjust.period_index + 1}节</span>
+                  <span>第{selectedAdjust.effectiveWeek}周 {weekDayNames[selectedAdjust.weekDay]} 第{selectedAdjust.periodIndex + 1}节</span>
                 </div>
-                {selectedAdjust.substitute_name && (
+                {selectedAdjust.substituteName && (
                   <>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">代课教师</span>
-                      <span className="text-green-600 font-medium">{selectedAdjust.substitute_name}</span>
+                      <span className="text-green-600 font-medium">{selectedAdjust.substituteName}</span>
                     </div>
                   </>
                 )}
