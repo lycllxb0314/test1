@@ -226,6 +226,7 @@ export default function TeacherProfilePage() {
   
   // 密码修改状态
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -352,8 +353,12 @@ export default function TeacherProfilePage() {
 
   // 修改密码
   const handleChangePassword = async () => {
+    if (!oldPassword) {
+      toast.error('请输入旧密码');
+      return;
+    }
     if (!newPassword || newPassword.length < 6) {
-      toast.error('密码长度至少6位');
+      toast.error('新密码长度至少6位');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -363,16 +368,21 @@ export default function TeacherProfilePage() {
     
     setPasswordLoading(true);
     try {
-      const response = await fetch(`/api/teachers/${user?.id}/password`, {
+      const token = localStorage.getItem('smart_campus_token');
+      const response = await fetch('/api/users/change-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newPassword }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ oldPassword, newPassword }),
       });
       
       const result = await response.json();
       if (result.success) {
-        toast.success('密码修改成功');
+        toast.success(result.message || '密码修改成功');
         setShowPasswordDialog(false);
+        setOldPassword('');
         setNewPassword('');
         setConfirmPassword('');
       } else {
@@ -1235,10 +1245,20 @@ export default function TeacherProfilePage() {
               修改密码
             </DialogTitle>
             <DialogDescription>
-              请输入新密码
+              请输入旧密码和新密码
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="oldPassword">旧密码</Label>
+              <Input
+                id="oldPassword"
+                type="password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                placeholder="请输入旧密码"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="newPassword">新密码</Label>
               <Input

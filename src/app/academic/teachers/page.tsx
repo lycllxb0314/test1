@@ -56,6 +56,7 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Key,
 } from 'lucide-react';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { BatchToolbar, SelectColumn, type BatchAction } from '@/components/common/BatchToolbar';
@@ -155,6 +156,9 @@ export default function TeachersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   
   // 当前编辑/删除的教师
   const [currentTeacher, setCurrentTeacher] = useState<TeacherInfo | null>(null);
@@ -277,6 +281,56 @@ export default function TeachersPage() {
     });
     setAddDialogOpen(true);
   }, []);
+
+  // 打开重置密码对话框
+  const openResetPasswordDialog = useCallback((teacher: TeacherInfo) => {
+    setCurrentTeacher(teacher);
+    setNewPassword('');
+    setResetPasswordDialogOpen(true);
+  }, []);
+
+  // 重置密码
+  const handleResetPassword = useCallback(async () => {
+    if (!currentTeacher || !newPassword) {
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      alert('密码长度不能少于6位');
+      return;
+    }
+
+    setResetPasswordLoading(true);
+    try {
+      const token = localStorage.getItem('smart_campus_token');
+      const response = await fetch('/api/users/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          targetEmployeeId: currentTeacher.employeeId,
+          newPassword: newPassword,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(result.message || '密码重置成功');
+        setResetPasswordDialogOpen(false);
+        setNewPassword('');
+      } else {
+        alert(result.error || '密码重置失败');
+      }
+    } catch (error) {
+      console.error('重置密码失败:', error);
+      alert('密码重置失败');
+    } finally {
+      setResetPasswordLoading(false);
+    }
+  }, [currentTeacher, newPassword]);
 
   // 保存教师（新增）
   const handleSave = useCallback(async () => {
@@ -690,6 +744,11 @@ export default function TeachersPage() {
                           查看/编辑
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => openResetPasswordDialog(teacher)}>
+                          <Key className="h-4 w-4 mr-2" />
+                          重置密码
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem 
                           onClick={() => openDeleteDialog(teacher)}
                           className="text-red-600 focus:text-red-600"
@@ -918,6 +977,45 @@ export default function TeachersPage() {
         description={`确定要删除选中的 ${selectedIds.size} 名教师吗？此操作不可撤销。`}
         loading={loading}
       />
+
+      {/* 重置密码对话框 */}
+      <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>重置教师密码</DialogTitle>
+            <DialogDescription>
+              为教师 {currentTeacher?.name}（{currentTeacher?.employeeId}）设置新密码
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">新密码</Label>
+              <Input
+                id="newPassword"
+                type="text"
+                placeholder="请输入新密码（至少6位）"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetPasswordDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleResetPassword} disabled={resetPasswordLoading || newPassword.length < 6}>
+              {resetPasswordLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                '确认重置'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
