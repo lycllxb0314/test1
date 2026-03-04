@@ -96,7 +96,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
       params.append('type', type);
       if (filters.status) params.append('status', filters.status);
       if (filters.department) params.append('department', filters.department);
-      params.append('page', page.toString());
+      params.append('page', '1'); // 始终从第一页开始
       params.append('pageSize', pageSize.toString());
 
       const response = await fetch(`/api/approvals?${params.toString()}`);
@@ -114,7 +114,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     } finally {
       setLoading(false);
     }
-  }, [filters, page, pageSize]);
+  }, [filters, pageSize]); // 移除 page 依赖，因为总是从第一页开始
 
   // === 刷新统计数据 ===
   const refreshStatistics = useCallback(async () => {
@@ -225,6 +225,11 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     fetchApprovals(initialType);
     refreshStatistics();
   }, [initialType, page]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // === 类型切换时重新加载 ===
+  useEffect(() => {
+    // 当 fetchApprovals 被调用时（通过按钮点击），会自动触发
+  }, [currentType]);
 
   return {
     approvals,

@@ -89,14 +89,22 @@ export async function GET(request: NextRequest) {
       query = query.in('id', pendingInstanceIds.length > 0 ? pendingInstanceIds : ['00000000-0000-0000-0000-000000000000']);
     } else if (type === 'processed') {
       // 我已处理的 - 查找在 approved_by 中包含当前用户 ID 的记录
-      const { data: records, error } = await supabase
+      // 获取所有节点记录，在应用层过滤
+      const { data: allRecords, error: recordsError } = await supabase
         .from('approval_node_records')
-        .select('instance_id')
-        .contains('approved_by', [{ user_id: user.id }]);
+        .select('instance_id, approved_by');
+      
+      if (recordsError) throw recordsError;
+      
+      const instanceIds = [...new Set(
+        (allRecords || [])
+          .filter((r: any) => {
+            const approvedBy = r.approved_by || [];
+            return approvedBy.some((a: any) => a.user_id === user.id);
+          })
+          .map((r: any) => r.instance_id)
+      )];
 
-      if (error) throw error;
-
-      const instanceIds = [...new Set(records?.map((r: any) => r.instance_id) || [])];
       query = query.in('id', instanceIds.length > 0 ? instanceIds : ['00000000-0000-0000-0000-000000000000']);
     }
 
