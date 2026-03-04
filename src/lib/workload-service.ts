@@ -173,6 +173,27 @@ export async function getTeachersWorkload(
 ): Promise<TeacherWorkload[]> {
   const client = getSupabaseClient();
   
+  // 如果有年级筛选，先获取该年级的教师ID列表
+  let gradeTeacherIds: string[] | null = null;
+  if (params.grade) {
+    const { data: classesData } = await client
+      .from('classes')
+      .select('head_teacher_id, sub_teacher_id')
+      .eq('grade', params.grade);
+    
+    if (classesData && classesData.length > 0) {
+      const ids = new Set<string>();
+      classesData.forEach(c => {
+        if (c.head_teacher_id) ids.add(c.head_teacher_id);
+        if (c.sub_teacher_id) ids.add(c.sub_teacher_id);
+      });
+      gradeTeacherIds = Array.from(ids);
+    } else {
+      // 该年级没有班级，返回空
+      return [];
+    }
+  }
+  
   // 获取教师列表（排除校长、书记等领导）
   let teacherQuery = client
     .from('teachers')
@@ -182,6 +203,11 @@ export async function getTeachersWorkload(
   
   if (params.teacherId) {
     teacherQuery = teacherQuery.eq('id', params.teacherId);
+  }
+  
+  // 年级筛选
+  if (gradeTeacherIds) {
+    teacherQuery = teacherQuery.in('id', gradeTeacherIds);
   }
   
   const { data: teachers, error } = await teacherQuery;

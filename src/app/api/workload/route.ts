@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   const teacherId = searchParams.get('teacherId');
   const semester = searchParams.get('semester') || '2024-2025-1';
   const month = searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined;
+  const grade = searchParams.get('grade') ? parseInt(searchParams.get('grade')!) : undefined;
 
   try {
     switch (action) {
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
           teacherId: teacherId || undefined,
           semester,
           month,
+          grade,
         });
         
         return NextResponse.json({
@@ -89,6 +91,7 @@ export async function GET(request: NextRequest) {
         const workloads = await getTeachersWorkload({
           semester,
           month,
+          grade,
         });
         
         return NextResponse.json({

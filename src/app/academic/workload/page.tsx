@@ -62,10 +62,22 @@ const semesters = [
   { value: '2024-2025-2', label: '2024-2025学年第二学期' },
 ];
 
+// 年级选项
+const grades = [
+  { value: 0, label: '全部年级' },
+  { value: 1, label: '一年级' },
+  { value: 2, label: '二年级' },
+  { value: 3, label: '三年级' },
+  { value: 4, label: '四年级' },
+  { value: 5, label: '五年级' },
+  { value: 6, label: '六年级' },
+];
+
 export default function WorkloadPage() {
   const [loading, setLoading] = useState(true);
   const [semester, setSemester] = useState('2024-2025-1');
   const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
+  const [grade, setGrade] = useState<number>(0); // 0表示全部年级
   
   // 数据
   const [workloads, setWorkloads] = useState<TeacherWorkload[]>([]);
@@ -85,16 +97,20 @@ export default function WorkloadPage() {
   // 加载数据
   useEffect(() => {
     fetchWorkloadData();
-  }, [semester, month]);
+  }, [semester, month, grade]);
 
   const fetchWorkloadData = async () => {
     try {
       setLoading(true);
       
+      // 构建查询URL
+      let url = `/api/workload?action=batch&semester=${semester}&month=${month}`;
+      if (grade > 0) {
+        url += `&grade=${grade}`;
+      }
+      
       // 批量获取教师工作量
-      const response = await fetch(
-        `/api/workload?action=batch&semester=${semester}&month=${month}`
-      );
+      const response = await fetch(url);
       const result = await response.json();
       
       if (result.success) {
@@ -199,6 +215,20 @@ export default function WorkloadPage() {
                 <SelectContent>
                   {months.map(m => (
                     <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">年级:</span>
+              <Select value={grade.toString()} onValueChange={(v) => setGrade(parseInt(v))}>
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {grades.map(g => (
+                    <SelectItem key={g.value} value={g.value.toString()}>{g.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
