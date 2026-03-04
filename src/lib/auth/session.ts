@@ -125,6 +125,7 @@ export async function login(
     classId: dbUser.class_id,
     className: dbUser.class_name,
     children: dbUser.children,
+    additionalRoles: dbUser.additional_roles as AdministrativeRole[] | undefined,
   };
 
   // 5. 如果是科任教师，查询其负责的班级

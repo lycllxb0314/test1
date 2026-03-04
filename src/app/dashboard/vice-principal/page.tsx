@@ -88,7 +88,7 @@ export default function VicePrincipalDashboard() {
     refresh: refreshLeaveApprovals,
   } = useLeaveApproval();
 
-  // 初始化加载
+  // 初始化加载 - 使用 eslint-disable 避免函数引用导致的无限循环
   useEffect(() => {
     if (activeTab === 'approvals') {
       if (approvalSubTab === 'announcement') {
@@ -97,7 +97,8 @@ export default function VicePrincipalDashboard() {
         fetchLeaveApprovals('pending');
       }
     }
-  }, [activeTab, approvalSubTab, fetchApprovals, fetchLeaveApprovals]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, approvalSubTab]);
 
   // 发布处理
   const handleSubmit = async (request: SubmitApprovalRequest) => {

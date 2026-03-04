@@ -55,7 +55,7 @@ export default function TeacherPage() {
   const isHeadTeacher = user?.role === 'head_teacher' || user?.role === 'principal' || user?.role === 'academic_vice_principal' || user?.role === 'moral_vice_principal' || user?.role === 'general_vice_principal';
   
   // 判断是否是年段长（兼任角色）
-  const additionalRoles = (user as any)?.additionalRoles as string[] | undefined;
+  const additionalRoles = user?.additionalRoles;
   const isGradeLeader = additionalRoles?.includes('grade_leader');
 
   // 消息 Hook
@@ -108,7 +108,8 @@ export default function TeacherPage() {
     } else if (activeTab === 'adjust' && isGradeLeader) {
       fetchPendingAdjustments();
     }
-  }, [activeTab, fetchApprovals, fetchPendingAdjustments, isGradeLeader]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isGradeLeader]);
 
   // 发布处理 - 教师只能发布班级通知给家长
   const handleSubmit = async (request: SubmitApprovalRequest) => {

@@ -49,6 +49,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { LeaveFlowTracker, type LeaveFlowStatus } from '@/components/leave/LeaveFlowTracker';
 
 // 请假类型
 type LeaveType = '病假' | '事假' | '公假' | '婚假' | '产假' | '丧假';
@@ -304,6 +305,55 @@ export default function TeacherLeavePage() {
     setShowDetailDialog(true);
   };
 
+  // 转换为流程状态
+  const convertToFlowStatus = (app: LeaveApplication): LeaveFlowStatus => {
+    // 计算当前步骤
+    let currentStep = 0;
+    let flowStatus: 'pending' | 'approved' | 'rejected' | 'completed' = 'pending';
+    
+    if (app.status === 'submitted') {
+      // 检查审批状态
+      const approvalNode = app.flowNodes.find(n => n.type === 'approval');
+      if (approvalNode?.status === 'processing') {
+        currentStep = 1; // 审批中
+      } else if (approvalNode?.status === 'approved') {
+        currentStep = 2; // 审批通过
+        flowStatus = 'approved';
+      }
+      
+      // 检查调课状态
+      const adjustNode = app.flowNodes.find(n => n.type === 'course_adjust');
+      if (adjustNode?.status === 'processing' || adjustNode?.status === 'approved') {
+        currentStep = 3; // 调课中
+      }
+    } else if (app.status === 'approved') {
+      currentStep = 4; // 已完成
+      flowStatus = 'completed';
+    } else if (app.status === 'rejected') {
+      currentStep = 2;
+      flowStatus = 'rejected';
+    }
+    
+    // 提取审批人信息
+    const approvalNode = app.flowNodes.find(n => n.type === 'approval');
+    const adjustNode = app.flowNodes.find(n => n.type === 'course_adjust');
+    
+    return {
+      currentStep,
+      status: flowStatus,
+      submittedAt: app.createdAt,
+      applicantName: user?.name,
+      approverName: approvalNode?.approverName,
+      approverRole: '校长室',
+      approvedAt: approvalNode?.approvedAt,
+      rejectedAt: app.status === 'rejected' ? app.createdAt : undefined,
+      rejectReason: approvalNode?.comment,
+      adjusterName: adjustNode?.approverName || '年段长',
+      adjustedAt: adjustNode?.approvedAt,
+      syncedAt: app.status === 'approved' ? app.createdAt : undefined,
+    };
+  };
+
   // 统计
   const stats = {
     total: applications.length,
@@ -448,7 +498,7 @@ export default function TeacherLeavePage() {
 
       {/* 详情对话框 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>申请详情</DialogTitle>
           </DialogHeader>
@@ -480,57 +530,11 @@ export default function TeacherLeavePage() {
                 <p className="mt-1 text-sm bg-gray-50 p-3 rounded-lg">{selectedApp.reason}</p>
               </div>
 
-              {/* 审批进度 */}
-              <div className="border-t pt-4">
-                <Label className="text-sm font-medium text-gray-700 mb-4 block">审批进度</Label>
-                <div className="space-y-3">
-                  {selectedApp.flowNodes.map((node, index) => (
-                    <div 
-                      key={node.id}
-                      className={`relative flex items-start gap-3 ${index < selectedApp.flowNodes.length - 1 ? 'pb-4' : ''}`}
-                    >
-                      {/* 连接线 */}
-                      {index < selectedApp.flowNodes.length - 1 && (
-                        <div className="absolute left-2.5 top-6 bottom-0 w-0.5 bg-gray-200" />
-                      )}
-                      
-                      {/* 状态图标 */}
-                      <div className="relative z-10">
-                        {getNodeStatusIcon(node.status)}
-                      </div>
-                      
-                      {/* 节点内容 */}
-                      <div className={`flex-1 p-3 rounded-lg border ${getNodeTypeColor(node.type)} ${node.isCurrent ? 'ring-2 ring-blue-300' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{node.name}</span>
-                            {node.isCurrent && (
-                              <Badge className="bg-blue-500 text-white text-xs">当前</Badge>
-                            )}
-                          </div>
-                          {node.approverName && (
-                            <span className="text-xs text-gray-500">{node.approverName}</span>
-                          )}
-                        </div>
-                        {node.approvedAt && (
-                          <p className="text-xs text-gray-500 mt-1">{node.approvedAt}</p>
-                        )}
-                        {node.comment && (
-                          <p className="text-xs text-gray-600 mt-1 bg-white/50 p-2 rounded">
-                            "{node.comment}"
-                          </p>
-                        )}
-                        {node.type === 'sync' && node.status === 'approved' && (
-                          <div className="mt-2 text-xs text-indigo-600 flex items-center gap-1">
-                            <CheckCircle className="h-3 w-3" />
-                            已同步至教师课表、班级课表、电子白板、教师考勤
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* 流程进度追踪 */}
+              <LeaveFlowTracker 
+                status={convertToFlowStatus(selectedApp)} 
+                showDetails={true}
+              />
             </div>
           )}
           

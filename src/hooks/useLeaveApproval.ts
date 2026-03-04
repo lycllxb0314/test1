@@ -1,7 +1,10 @@
 /**
- * 请假审批 Hook
+ * 请假审批 Hook v2 - 简化版
  * 
- * 用于审批人获取待审批请假列表、执行审批操作
+ * 参考消息中心的策略：
+ * - 使用 useEffect 直接发起请求
+ * - 使用 refreshKey 状态触发刷新
+ * - 使用 cancelled 标志防止组件卸载后更新
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -43,10 +46,10 @@ export interface UseLeaveApprovalReturn {
   statistics: LeaveApprovalStatistics;
   
   // 操作
-  fetchApprovals: (status: 'pending' | 'approved' | 'my') => Promise<void>;
+  fetchApprovals: (status: 'pending' | 'approved' | 'my') => void;
   approve: (id: string) => Promise<{ success: boolean; message: string }>;
   reject: (id: string, reason: string) => Promise<{ success: boolean; message: string }>;
-  refresh: () => Promise<void>;
+  refresh: () => void;
 }
 
 // ==================== Hook 实现 ====================
@@ -60,35 +63,67 @@ export function useLeaveApproval(): UseLeaveApprovalReturn {
     approved: 0,
     rejected: 0,
   });
+  
+  // 查询参数和刷新键
+  const [queryStatus, setQueryStatus] = useState<'pending' | 'approved' | 'my'>('pending');
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // 获取待审批列表
-  const fetchApprovals = useCallback(async (status: 'pending' | 'approved' | 'my' = 'pending') => {
-    setLoading(true);
-    setError(null);
+  // 使用 useEffect 直接发起请求（参考消息中心策略）
+  useEffect(() => {
+    let cancelled = false;
     
-    try {
-      const response = await fetch(`/api/leave-requests-v2/pending?status=${status}`, {
-        credentials: 'include',
-      });
+    const doFetch = async () => {
+      setLoading(true);
+      setError(null);
       
-      const result = await response.json();
-      
-      if (result.success) {
-        setApprovals(result.data || []);
+      try {
+        const response = await fetch(`/api/leave-requests-v2/pending?status=${queryStatus}`, {
+          credentials: 'include',
+        });
         
-        // 更新统计
-        if (status === 'pending') {
-          setStatistics(prev => ({ ...prev, pending: result.total }));
+        if (cancelled) return;
+        
+        const result = await response.json();
+        
+        if (!cancelled) {
+          if (result.success) {
+            setApprovals(result.data || []);
+            
+            // 更新统计
+            if (queryStatus === 'pending') {
+              setStatistics(prev => ({ ...prev, pending: result.total }));
+            }
+          } else {
+            setApprovals([]);
+            setError(result.error || '获取失败');
+          }
+          setLoading(false);
         }
-      } else {
-        setError(result.error || '获取失败');
+      } catch (err) {
+        if (!cancelled) {
+          console.error('获取待审批请假列表失败:', err);
+          setApprovals([]);
+          setError('获取失败');
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      console.error('获取待审批请假列表失败:', err);
-      setError('获取失败');
-    } finally {
-      setLoading(false);
-    }
+    };
+    
+    doFetch();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [queryStatus, refreshKey]);
+
+  // 切换查询状态
+  const fetchApprovals = useCallback((status: 'pending' | 'approved' | 'my') => {
+    setQueryStatus(status);
+  }, []);
+
+  // 手动刷新
+  const refresh = useCallback(() => {
+    setRefreshKey(k => k + 1);
   }, []);
 
   // 审批通过
@@ -104,6 +139,7 @@ export function useLeaveApproval(): UseLeaveApprovalReturn {
       const result = await response.json();
       
       if (result.success) {
+        refresh();
         return { success: true, message: result.data?.message || '审批通过' };
       } else {
         return { success: false, message: result.error || '审批失败' };
@@ -112,7 +148,7 @@ export function useLeaveApproval(): UseLeaveApprovalReturn {
       console.error('审批失败:', err);
       return { success: false, message: '审批失败' };
     }
-  }, []);
+  }, [refresh]);
 
   // 审批驳回
   const reject = useCallback(async (id: string, reason: string): Promise<{ success: boolean; message: string }> => {
@@ -127,6 +163,7 @@ export function useLeaveApproval(): UseLeaveApprovalReturn {
       const result = await response.json();
       
       if (result.success) {
+        refresh();
         return { success: true, message: '已驳回' };
       } else {
         return { success: false, message: result.error || '驳回失败' };
@@ -135,12 +172,7 @@ export function useLeaveApproval(): UseLeaveApprovalReturn {
       console.error('驳回失败:', err);
       return { success: false, message: '驳回失败' };
     }
-  }, []);
-
-  // 刷新
-  const refresh = useCallback(async () => {
-    await fetchApprovals('pending');
-  }, [fetchApprovals]);
+  }, [refresh]);
 
   return {
     approvals,

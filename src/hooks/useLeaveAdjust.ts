@@ -124,6 +124,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
   // === 调课状态 ===
   const [adjustments, setAdjustments] = useState<CourseAdjustment[]>([]);
   const [adjustmentLoading, setAdjustmentLoading] = useState(false);
+  const [adjustmentRefreshKey, setAdjustmentRefreshKey] = useState(0);
   
   // === 工作量状态 ===
   const [workloads, setWorkloads] = useState<TeacherWorkload[]>([]);
@@ -299,43 +300,75 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
 
   // ==================== 调课处理 ====================
   
+  // 调课状态参数
+  const [adjustmentParams, setAdjustmentParams] = useState<AdjustmentQueryParams>({ status: 'pending' });
+  
+  // 使用 useEffect 直接发起调课请求（参考消息中心策略）
+  useEffect(() => {
+    let cancelled = false;
+    
+    const doFetch = async () => {
+      setAdjustmentLoading(true);
+      
+      try {
+        const searchParams = new URLSearchParams();
+        if (adjustmentParams.status) searchParams.append('status', adjustmentParams.status);
+        if (adjustmentParams.applicantId) searchParams.append('applicantId', adjustmentParams.applicantId);
+        if (adjustmentParams.adjusterId) searchParams.append('adjusterId', adjustmentParams.adjusterId);
+        if (adjustmentParams.effectiveWeek) searchParams.append('effectiveWeek', adjustmentParams.effectiveWeek);
+        
+        const response = await fetch(`/api/course-adjustments/process?${searchParams.toString()}`);
+        
+        if (cancelled) return;
+        
+        const result = await response.json();
+        
+        if (!cancelled) {
+          if (result.success) {
+            setAdjustments(result.data || []);
+          } else {
+            setAdjustments([]);
+          }
+          setAdjustmentLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('获取调课列表失败:', err);
+          setAdjustments([]);
+          setAdjustmentLoading(false);
+        }
+      }
+    };
+    
+    doFetch();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [adjustmentParams, adjustmentRefreshKey]);
+  
+  // 手动刷新调课列表
+  const refreshAdjustments = useCallback(() => {
+    setAdjustmentRefreshKey(k => k + 1);
+  }, []);
+  
   /**
    * 获取调课列表
    */
   const fetchAdjustments = useCallback(async (params?: AdjustmentQueryParams): Promise<void> => {
-    setAdjustmentLoading(true);
-    try {
-      const searchParams = new URLSearchParams();
-      if (params?.status) searchParams.append('status', params.status);
-      if (params?.applicantId) searchParams.append('applicantId', params.applicantId);
-      if (params?.adjusterId) searchParams.append('adjusterId', params.adjusterId);
-      if (params?.effectiveWeek) searchParams.append('effectiveWeek', params.effectiveWeek);
-      searchParams.append('page', String(params?.page || 1));
-      searchParams.append('pageSize', String(params?.pageSize || 20));
-      
-      const response = await fetch(`/api/course-adjustments?${searchParams.toString()}`);
-      const result = await response.json();
-      
-      if (!mountedRef.current) return;
-      
-      if (result.success) {
-        setAdjustments(result.data || []);
-      }
-    } catch (err) {
-      console.error('获取调课列表失败:', err);
-    } finally {
-      if (mountedRef.current) {
-        setAdjustmentLoading(false);
-      }
+    if (params) {
+      setAdjustmentParams(params);
+    } else {
+      refreshAdjustments();
     }
-  }, []);
+  }, [refreshAdjustments]);
   
   /**
    * 获取待处理的调课（年段长使用）
    */
   const fetchPendingAdjustments = useCallback(async (): Promise<void> => {
-    await fetchAdjustments({ status: 'pending' });
-  }, [fetchAdjustments]);
+    setAdjustmentParams({ status: 'pending' });
+  }, []);
   
   /**
    * 处理调课（年段长使用）
@@ -357,7 +390,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       if (result.success) {
         toast.success('调课处理成功');
         // 刷新调课列表
-        await fetchPendingAdjustments();
+        refreshAdjustments();
         return true;
       } else {
         toast.error(result.error || '处理失败');
@@ -368,7 +401,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       toast.error('处理失败，请重试');
       return false;
     }
-  }, [user, fetchPendingAdjustments]);
+  }, [user, refreshAdjustments]);
 
   // ==================== 工作量统计 ====================
   
