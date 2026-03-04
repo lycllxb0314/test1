@@ -60,7 +60,7 @@ export async function PUT(request: NextRequest) {
     // 3. 检查当前用户是否有权限审批
     const approverIds = currentNodeRecord.approver_ids || [];
     const approvedBy = currentNodeRecord.approved_by || [];
-    const approvedUserIds = approvedBy.map((a: any) => a.user_id);
+    const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
 
     if (!approverIds.includes(user.id)) {
       return NextResponse.json({
@@ -78,8 +78,8 @@ export async function PUT(request: NextRequest) {
 
     const now = new Date().toISOString();
     const newApproval = {
-      user_id: user.id,
-      user_name: user.name,
+      userId: user.id,
+      userName: user.name,
       action,
       comment,
       time: now,
@@ -145,8 +145,8 @@ async function handleOrSignApprove(
     .update({
       status: 'approved',
       approved_by: [...nodeRecord.approved_by, approval],
-      final_approver_id: approval.user_id,
-      final_approver_name: approval.user_name,
+      final_approver_id: approval.userId,
+      final_approver_name: approval.userName,
       action: 'approved',
       comment: approval.comment,
       finished_at: now,
@@ -172,7 +172,7 @@ async function handleCountersignApprove(
   const allApproverIds = nodeRecord.approver_ids || [];
   
   // 检查是否所有人都已审批
-  const approvedUserIds = newApprovedBy.map((a: any) => a.user_id);
+  const approvedUserIds = newApprovedBy.map((a: any) => a.userId || a.user_id);
   const allApproved = allApproverIds.every((id: string) => approvedUserIds.includes(id));
 
   if (allApproved) {
@@ -282,7 +282,7 @@ async function completeApproval(instance: any, now: string) {
     .from('announcements')
     .update({
       status: 'published',
-      is_published: true,
+      publish_status: 'published',
       published_at: now,
     })
     .eq('id', instance.business_id);
@@ -319,8 +319,8 @@ async function handleReject(
     .update({
       status: 'rejected',
       approved_by: [...nodeRecord.approved_by, approval],
-      final_approver_id: approval.user_id,
-      final_approver_name: approval.user_name,
+      final_approver_id: approval.userId,
+      final_approver_name: approval.userName,
       action: 'rejected',
       comment: approval.comment,
       finished_at: now,
