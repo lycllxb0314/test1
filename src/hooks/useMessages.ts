@@ -11,7 +11,7 @@
  * @module hooks/useMessages
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
 import type {
   UserMessage,
@@ -101,10 +101,11 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
   const [total, setTotal] = useState(0);
 
   // === 筛选状态 ===
-  // 合并初始筛选，但只在初始化时执行一次
+  // 使用 useMemo 稳定 filters 对象
+  const stableInitialFilters = useMemo(() => initialFilters || {}, []);
   const [filters, setFiltersState] = useState<MessageQueryParams>(() => ({
     ...DEFAULT_FILTERS,
-    ...initialFilters,
+    ...stableInitialFilters,
   }));
 
   // === 轮询状态 ===
@@ -113,6 +114,9 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
 
   // 引用
   const mountedRef = useRef(true);
+  
+  // 请求计数器，用于触发重新请求
+  const [requestVersion, setRequestVersion] = useState(0);
 
   // === 计算属性 ===
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -134,7 +138,7 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
       if (filters.unreadOnly) params.append('unreadOnly', 'true');
       params.append('page', page.toString());
       params.append('pageSize', pageSize.toString());
-
+      
       const response = await fetch(`/api/messages?${params.toString()}`);
       const result = await response.json();
 
@@ -161,12 +165,32 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
         setLoading(false);
       }
     }
-  }, [filters, page, pageSize]);
+  // 只依赖必要的值，不依赖对象引用
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    filters.event, 
+    filters.status, 
+    filters.priority, 
+    filters.search, 
+    filters.unreadOnly,
+    page, 
+    pageSize,
+    requestVersion
+  ]);
 
-  // 初始加载
+  // 初始加载和参数变化时重新加载
   useEffect(() => {
     fetchMessages();
-  }, [fetchMessages]);
+  // 只在 requestVersion 变化时触发，避免无限循环
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestVersion]);
+  
+  // 手动触发刷新
+  const refetch = useCallback(async () => {
+    setRequestVersion(v => v + 1);
+    // 返回一个 resolved Promise
+    return Promise.resolve();
+  }, []);
 
   // 清理
   useEffect(() => {
@@ -181,35 +205,37 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
   // === 分页操作 ===
   const goToPage = useCallback((newPage: number) => {
     setPage(Math.max(1, Math.min(newPage, totalPages)));
+    setRequestVersion(v => v + 1);
   }, [totalPages]);
 
   const nextPage = useCallback(() => {
     setPage(p => Math.min(totalPages, p + 1));
+    setRequestVersion(v => v + 1);
   }, [totalPages]);
 
   const prevPage = useCallback(() => {
     setPage(p => Math.max(1, p - 1));
+    setRequestVersion(v => v + 1);
   }, []);
 
   const setPageSize = useCallback((size: number) => {
     setPageSizeState(size);
     setPage(1);
+    setRequestVersion(v => v + 1);
   }, []);
 
   // === 筛选操作 ===
   const setFilters = useCallback((newFilters: Partial<MessageQueryParams>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }));
     setPage(1);
+    setRequestVersion(v => v + 1);
   }, []);
 
   const clearFilters = useCallback(() => {
     setFiltersState(DEFAULT_FILTERS);
     setPage(1);
+    setRequestVersion(v => v + 1);
   }, []);
-
-  const refetch = useCallback(() => {
-    return fetchMessages();
-  }, [fetchMessages]);
 
   // === 发送消息 ===
   const sendMessage = useCallback(async (request: SendMessageRequest): Promise<{ success: boolean; error?: string }> => {

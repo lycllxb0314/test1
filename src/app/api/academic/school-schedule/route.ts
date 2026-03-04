@@ -57,18 +57,10 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
 
 // 获取所有班级课表
 async function getAllClassesSchedule(client: any, gradeFilter: string | null, search: string | null) {
-  // 获取所有班级
+  // 1. 获取所有班级
   let classQuery = client
     .from('classes')
-    .select(`
-      id,
-      name,
-      grade,
-      head_teacher_id,
-      sub_teacher_id,
-      head_teacher:teachers!classes_head_teacher_id_fkey(id, name, primary_subject),
-      sub_teacher:teachers!classes_sub_teacher_id_fkey(id, name, primary_subject)
-    `)
+    .select('id, name, grade, head_teacher_id, sub_teacher_id')
     .order('grade')
     .order('name');
   
@@ -83,10 +75,37 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
   const { data: classes, error: classesError } = await classQuery;
   
   if (classesError) {
+    console.error('获取班级失败:', classesError);
     return NextResponse.json(error('获取班级失败', ErrorCode.DATABASE_ERROR), { status: 500 });
   }
   
-  // 获取所有班级的课表
+  // 2. 获取班主任和副班主任的ID列表
+  const teacherIds = new Set<string>();
+  for (const cls of classes || []) {
+    if (cls.head_teacher_id) teacherIds.add(cls.head_teacher_id);
+    if (cls.sub_teacher_id) teacherIds.add(cls.sub_teacher_id);
+  }
+  
+  // 3. 获取教师信息
+  let teachers: any[] = [];
+  if (teacherIds.size > 0) {
+    const { data: teachersData, error: teachersError } = await client
+      .from('teachers')
+      .select('id, name, primary_subject')
+      .in('id', Array.from(teacherIds));
+    
+    if (!teachersError && teachersData) {
+      teachers = teachersData;
+    }
+  }
+  
+  // 教师ID到教师信息映射
+  const teacherMap = new Map<string, any>();
+  for (const t of teachers) {
+    teacherMap.set(t.id, t);
+  }
+  
+  // 4. 获取所有班级的课表
   const classIds = classes?.map((c: any) => c.id) || [];
   
   const { data: slots, error: slotsError } = await client
@@ -95,6 +114,7 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
     .in('class_id', classIds);
   
   if (slotsError) {
+    console.error('获取课表失败:', slotsError);
     return NextResponse.json(error('获取课表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
   }
   
@@ -107,15 +127,30 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
     slotsByClass.get(slot.class_id)!.push(slot);
   }
   
-  // 按年级分组
+  // 按年级分组，并关联教师信息
   const scheduleByGrade = new Map<number, any[]>();
   for (const cls of classes || []) {
     const grade = cls.grade;
     if (!scheduleByGrade.has(grade)) {
       scheduleByGrade.set(grade, []);
     }
+    
+    // 关联班主任和副班主任信息
+    const headTeacher = cls.head_teacher_id ? teacherMap.get(cls.head_teacher_id) : null;
+    const subTeacher = cls.sub_teacher_id ? teacherMap.get(cls.sub_teacher_id) : null;
+    
     scheduleByGrade.get(grade)!.push({
       ...cls,
+      head_teacher: headTeacher ? {
+        id: headTeacher.id,
+        name: headTeacher.name,
+        primary_subject: headTeacher.primary_subject,
+      } : null,
+      sub_teacher: subTeacher ? {
+        id: subTeacher.id,
+        name: subTeacher.name,
+        primary_subject: subTeacher.primary_subject,
+      } : null,
       slots: slotsByClass.get(cls.id) || [],
     });
   }
@@ -295,21 +330,43 @@ async function getClassSchedule(client: any, classId: string) {
   // 获取班级信息
   const { data: cls, error: classError } = await client
     .from('classes')
-    .select(`
-      id,
-      name,
-      grade,
-      head_teacher_id,
-      sub_teacher_id,
-      head_teacher:teachers!classes_head_teacher_id_fkey(id, name, primary_subject),
-      sub_teacher:teachers!classes_sub_teacher_id_fkey(id, name, primary_subject)
-    `)
+    .select('id, name, grade, head_teacher_id, sub_teacher_id')
     .eq('id', classId)
     .single();
   
   if (classError || !cls) {
     return NextResponse.json(error('班级不存在', ErrorCode.NOT_FOUND), { status: 404 });
   }
+  
+  // 获取班主任和副班主任信息
+  const teacherIds = [cls.head_teacher_id, cls.sub_teacher_id].filter(Boolean);
+  let teacherMap = new Map<string, any>();
+  
+  if (teacherIds.length > 0) {
+    const { data: teachers } = await client
+      .from('teachers')
+      .select('id, name, primary_subject')
+      .in('id', teacherIds);
+    
+    (teachers || []).forEach((t: any) => teacherMap.set(t.id, t));
+  }
+  
+  const headTeacher = cls.head_teacher_id ? teacherMap.get(cls.head_teacher_id) : null;
+  const subTeacher = cls.sub_teacher_id ? teacherMap.get(cls.sub_teacher_id) : null;
+  
+  const classInfo = {
+    ...cls,
+    head_teacher: headTeacher ? {
+      id: headTeacher.id,
+      name: headTeacher.name,
+      primary_subject: headTeacher.primary_subject,
+    } : null,
+    sub_teacher: subTeacher ? {
+      id: subTeacher.id,
+      name: subTeacher.name,
+      primary_subject: subTeacher.primary_subject,
+    } : null,
+  };
   
   // 获取班级课表
   const { data: slots, error: slotsError } = await client
@@ -336,7 +393,7 @@ async function getClassSchedule(client: any, classId: string) {
   
   return NextResponse.json(success({
     mode: 'class',
-    class: cls,
+    class: classInfo,
     scheduleMatrix,
     slots: slots || [],
   }));
