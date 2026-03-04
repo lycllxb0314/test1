@@ -44,6 +44,7 @@ export default function AcademicDashboard() {
   const {
     messages,
     loading: messagesLoading,
+    error: messagesError,
     statistics,
     page,
     pageSize,
@@ -234,6 +235,7 @@ export default function AcademicDashboard() {
           <MessagePanel
             messages={messages}
             loading={messagesLoading}
+            error={messagesError}
             unreadCount={statistics.unread}
             statistics={statistics}
             pagination={{

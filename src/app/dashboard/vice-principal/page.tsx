@@ -44,6 +44,7 @@ export default function VicePrincipalDashboard() {
   const {
     messages,
     loading: messagesLoading,
+    error: messagesError,
     statistics,
     page,
     pageSize,
@@ -233,6 +234,7 @@ export default function VicePrincipalDashboard() {
           <MessagePanel
             messages={messages}
             loading={messagesLoading}
+            error={messagesError}
             unreadCount={statistics.unread}
             statistics={statistics}
             pagination={{

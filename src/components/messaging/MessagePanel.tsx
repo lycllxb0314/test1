@@ -84,6 +84,8 @@ interface MessagePanelProps {
   messages: UserMessage[];
   /** 加载状态 */
   loading: boolean;
+  /** 错误信息 */
+  error?: string | null;
   /** 未读数量 */
   unreadCount: number;
   /** 统计数据 */
@@ -154,6 +156,7 @@ const STATUS_ICONS: Record<MessageStatus, React.ElementType> = {
 export function MessagePanel({
   messages,
   loading,
+  error,
   unreadCount,
   statistics,
   pagination,
@@ -250,6 +253,16 @@ export function MessagePanel({
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <div className="text-center py-8 text-red-500">
+                <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">{error}</p>
+                {error.includes('未登录') && (
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => window.location.href = '/login'}>
+                    去登录
+                  </Button>
+                )}
               </div>
             ) : filteredMessages.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -375,6 +388,16 @@ export function MessagePanel({
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <div className="text-center py-12 text-red-500">
+                <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                <p>{error}</p>
+                {error.includes('未登录') && (
+                  <Button variant="outline" className="mt-4" onClick={() => window.location.href = '/login'}>
+                    去登录
+                  </Button>
+                )}
               </div>
             ) : filteredMessages.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">

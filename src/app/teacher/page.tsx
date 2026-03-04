@@ -41,6 +41,7 @@ export default function TeacherPage() {
   const {
     messages,
     loading: messagesLoading,
+    error: messagesError,
     statistics,
     page,
     pageSize,
@@ -195,6 +196,7 @@ export default function TeacherPage() {
           <MessagePanel
             messages={messages}
             loading={messagesLoading}
+            error={messagesError}
             unreadCount={statistics.unread}
             statistics={statistics}
             pagination={{

@@ -26,6 +26,7 @@ export default function ParentDashboard() {
   const {
     messages,
     loading: messagesLoading,
+    error: messagesError,
     statistics,
     page,
     pageSize,
@@ -146,6 +147,7 @@ export default function ParentDashboard() {
       <MessagePanel
         messages={messages}
         loading={messagesLoading}
+        error={messagesError}
         unreadCount={statistics.unread}
         statistics={statistics}
         pagination={{

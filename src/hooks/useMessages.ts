@@ -83,7 +83,7 @@ const DEFAULT_STATISTICS: MessageStatistics = {
   byPriority: {} as Record<MessagePriority, number>,
 };
 
-// 默认筛选
+// 默认筛选 - 使用常量避免每次渲染创建新对象
 const DEFAULT_FILTERS: MessageQueryParams = {};
 
 // ==================== Hook 实现 ====================
@@ -101,7 +101,11 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
   const [total, setTotal] = useState(0);
 
   // === 筛选状态 ===
-  const [filters, setFiltersState] = useState<MessageQueryParams>(initialFilters || DEFAULT_FILTERS);
+  // 合并初始筛选，但只在初始化时执行一次
+  const [filters, setFiltersState] = useState<MessageQueryParams>(() => ({
+    ...DEFAULT_FILTERS,
+    ...initialFilters,
+  }));
 
   // === 轮询状态 ===
   const [isPolling, setIsPolling] = useState(false);
@@ -115,6 +119,9 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
 
   // === 获取消息列表 ===
   const fetchMessages = useCallback(async () => {
+    // 防止重复请求
+    if (!mountedRef.current) return;
+    
     setLoading(true);
     setError(null);
 
@@ -137,12 +144,17 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
         setMessages(result.data || []);
         setTotal(result.pagination?.total || 0);
         setStatistics(result.statistics || DEFAULT_STATISTICS);
+        setError(null);
       } else {
+        // 认证失败或其他错误
+        setMessages([]);
+        setTotal(0);
         setError(result.error || '获取消息失败');
       }
     } catch (err) {
       if (!mountedRef.current) return;
       console.error('Failed to fetch messages:', err);
+      setMessages([]);
       setError(err instanceof Error ? err.message : '获取消息失败');
     } finally {
       if (mountedRef.current) {

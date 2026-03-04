@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -123,71 +123,6 @@ const leaveTypeConfig: Record<LeaveType, {
   },
 };
 
-// 模拟请假申请数据
-const mockApplications: LeaveApplication[] = [
-  {
-    id: 'leave-001',
-    type: '病假',
-    startDate: '2024-03-18',
-    endDate: '2024-03-19',
-    duration: 2,
-    reason: '身体不适，需就医检查',
-    attachments: ['/uploads/sick-leave-001.pdf'],
-    status: 'approved',
-    createdAt: '2024-03-15 08:30:00',
-    flowNodes: [
-      { id: 'start', name: '开始', type: 'start', status: 'approved' },
-      { id: 'approval_grade', name: '年级组长审批', type: 'approval', status: 'approved', approver: 'head_teacher', approverName: '张小燕', approvedAt: '2024-03-15 10:00:00', comment: '同意请假' },
-      { id: 'condition', name: '判断请假类型', type: 'condition', status: 'approved' },
-      { id: 'arrange_class', name: '年段长调课安排', type: 'course_adjust', status: 'approved', approver: 'grade_leader', approverName: '林国强', approvedAt: '2024-03-15 14:00:00' },
-      { id: 'sync', name: '数据同步', type: 'sync', status: 'approved' },
-      { id: 'end', name: '结束', type: 'end', status: 'approved' },
-    ],
-    currentNodeIndex: 5,
-  },
-  {
-    id: 'leave-002',
-    type: '事假',
-    startDate: '2024-03-22',
-    endDate: '2024-03-22',
-    duration: 1,
-    reason: '家中有事需要处理',
-    attachments: [],
-    status: 'submitted',
-    createdAt: '2024-03-16 09:15:00',
-    flowNodes: [
-      { id: 'start', name: '开始', type: 'start', status: 'approved' },
-      { id: 'approval_grade', name: '年级组长审批', type: 'approval', status: 'processing', approver: 'head_teacher', approverName: '张小燕', isCurrent: true },
-      { id: 'condition', name: '判断请假类型', type: 'condition', status: 'pending' },
-      { id: 'arrange_class', name: '年段长调课安排', type: 'course_adjust', status: 'pending' },
-      { id: 'sync', name: '数据同步', type: 'sync', status: 'pending' },
-      { id: 'end', name: '结束', type: 'end', status: 'pending' },
-    ],
-    currentNodeIndex: 1,
-  },
-  {
-    id: 'leave-003',
-    type: '公假',
-    startDate: '2024-03-25',
-    endDate: '2024-03-25',
-    duration: 1,
-    reason: '参加区教研活动',
-    attachments: ['/uploads/meeting-notice.pdf'],
-    status: 'submitted',
-    createdAt: '2024-03-17 14:20:00',
-    flowNodes: [
-      { id: 'start', name: '开始', type: 'start', status: 'approved' },
-      { id: 'approval_grade', name: '年级组长审批', type: 'approval', status: 'approved', approver: 'head_teacher', approverName: '张小燕', approvedAt: '2024-03-17 15:00:00', comment: '同意' },
-      { id: 'condition', name: '判断请假类型', type: 'condition', status: 'approved' },
-      { id: 'approval_dean', name: '教务主任审批', type: 'approval', status: 'processing', approver: 'academic_director', approverName: '刘婷婷', isCurrent: true },
-      { id: 'arrange_class', name: '年段长调课安排', type: 'course_adjust', status: 'pending' },
-      { id: 'sync', name: '数据同步', type: 'sync', status: 'pending' },
-      { id: 'end', name: '结束', type: 'end', status: 'pending' },
-    ],
-    currentNodeIndex: 3,
-  },
-];
-
 // 获取状态徽章
 const getStatusBadge = (status: string) => {
   const statusMap: Record<string, { label: string; className: string }> = {
@@ -229,20 +164,104 @@ const getNodeTypeColor = (type: string) => {
 export default function TeacherLeavePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [applications, setApplications] = useState<LeaveApplication[]>(mockApplications);
-  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [applications, setApplications] = useState<LeaveApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedApp, setSelectedApp] = useState<LeaveApplication | null>(null);
-  
-  // 新申请表单
-  const [newForm, setNewForm] = useState({
-    type: '' as LeaveType,
-    startDate: '',
-    endDate: '',
-    duration: 1,
-    reason: '',
-    attachments: [] as string[],
-  });
+
+  // 获取请假列表
+  const fetchApplications = async () => {
+    if (!user?.employeeId) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/leave-requests-v2?my=true`);
+      const result = await response.json();
+      
+      if (result.success) {
+        // 转换 API 数据为页面格式
+        const mappedApps = (result.data || []).map((item: Record<string, unknown>) => ({
+          id: item.id as string,
+          type: item.type as LeaveType,
+          startDate: (item.start_date || item.startDate) as string,
+          endDate: (item.end_date || item.endDate) as string,
+          duration: (item.duration || 1) as number,
+          reason: (item.reason || '') as string,
+          attachments: (item.attachments || []) as string[],
+          status: mapStatus(item.status as string),
+          createdAt: (item.created_at || item.createdAt) as string,
+          flowNodes: buildFlowNodesFromData(item),
+          currentNodeIndex: (item.current_step || 1) as number,
+        }));
+        setApplications(mappedApps);
+      } else {
+        setError(result.error || '获取请假列表失败');
+      }
+    } catch (err) {
+      console.error('获取请假列表失败:', err);
+      setError('获取请假列表失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 状态映射
+  const mapStatus = (status: string): 'draft' | 'submitted' | 'approved' | 'rejected' | 'cancelled' => {
+    const map: Record<string, 'draft' | 'submitted' | 'approved' | 'rejected' | 'cancelled'> = {
+      draft: 'draft',
+      pending: 'submitted',
+      approved: 'approved',
+      rejected: 'rejected',
+      cancelled: 'cancelled',
+    };
+    return map[status] || 'submitted';
+  };
+
+  // 从 API 数据构建流程节点
+  const buildFlowNodesFromData = (item: Record<string, unknown>): ApprovalNodeItem[] => {
+    // 简化：根据状态构建节点
+    const status = item.status as string;
+    const nodes: ApprovalNodeItem[] = [
+      { id: 'start', name: '开始', type: 'start', status: 'approved' },
+    ];
+    
+    // 审批人信息
+    const approvers = (item.approver_selection || []) as Array<{ userName: string; employeeId: string }>;
+    if (approvers.length > 0) {
+      nodes.push({
+        id: 'approval_1',
+        name: '校长室审批',
+        type: 'approval',
+        status: status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : status === 'pending' ? 'processing' : 'pending',
+        approverName: approvers[0]?.userName || '待审批',
+        isCurrent: status === 'pending',
+      });
+    }
+    
+    // 调课节点
+    const adjustmentStatus = item.adjustment_status as string;
+    nodes.push({
+      id: 'arrange_class',
+      name: '年段长调课安排',
+      type: 'course_adjust',
+      status: adjustmentStatus === 'completed' ? 'approved' : adjustmentStatus === 'processing' ? 'processing' : 'pending',
+    });
+    
+    nodes.push(
+      { id: 'sync', name: '数据同步', type: 'sync', status: adjustmentStatus === 'completed' ? 'approved' : 'pending' },
+      { id: 'end', name: '结束', type: 'end', status: status === 'approved' && adjustmentStatus === 'completed' ? 'approved' : 'pending' }
+    );
+    
+    return nodes;
+  };
+
+  // 初始加载
+  useEffect(() => {
+    fetchApplications();
+  }, [user?.employeeId]);
 
   // 计算请假天数
   const calculateDuration = (start: string, end: string) => {
@@ -254,75 +273,29 @@ export default function TeacherLeavePage() {
     return diffDays;
   };
 
-  // 提交新申请
-  const handleSubmit = () => {
-    if (!newForm.type || !newForm.startDate || !newForm.endDate || !newForm.reason) {
-      return;
-    }
-
-    // 根据请假类型和天数构建流程节点
-    const flowNodes = buildFlowNodes(newForm.type, newForm.duration);
-
-    const newApp: LeaveApplication = {
-      id: `leave-${Date.now()}`,
-      type: newForm.type,
-      startDate: newForm.startDate,
-      endDate: newForm.endDate,
-      duration: newForm.duration,
-      reason: newForm.reason,
-      attachments: newForm.attachments,
-      status: 'submitted',
-      createdAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      flowNodes,
-      currentNodeIndex: 1,
-    };
-
-    setApplications([newApp, ...applications]);
-    setShowNewDialog(false);
-    setNewForm({
-      type: '' as LeaveType,
-      startDate: '',
-      endDate: '',
-      duration: 1,
-      reason: '',
-      attachments: [],
-    });
+  // 跳转到新建申请页面
+  const handleNewApplication = () => {
+    router.push('/teacher/leave-apply');
   };
 
-  // 根据请假类型和天数构建流程节点
-  const buildFlowNodes = (type: LeaveType, duration: number): ApprovalNodeItem[] => {
-    const baseNodes: ApprovalNodeItem[] = [
-      { id: 'start', name: '开始', type: 'start', status: 'approved' },
-      { id: 'approval_grade', name: '年级组长审批', type: 'approval', status: 'processing', approver: 'head_teacher', approverName: '张小燕', isCurrent: true },
-    ];
-
-    // 根据请假类型和天数判断是否需要教务主任审批
-    const needDeanApproval = 
-      (type === '病假' && duration > 3) ||
-      (type === '事假' && duration > 3) ||
-      type === '公假';
-
-    if (needDeanApproval) {
-      baseNodes.push(
-        { id: 'condition', name: '判断请假类型', type: 'condition', status: 'pending' },
-        { id: 'approval_dean', name: '教务主任审批', type: 'approval', status: 'pending', approver: 'academic_director', approverName: '刘婷婷' }
-      );
+  // 撤销申请 - 调用API
+  const handleCancel = async (id: string) => {
+    try {
+      const response = await fetch(`/api/leave-requests-v2/${id}/cancel`, {
+        method: 'POST',
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        // 刷新列表
+        fetchApplications();
+      } else {
+        alert(result.error || '撤销失败');
+      }
+    } catch (err) {
+      console.error('撤销失败:', err);
+      alert('撤销失败');
     }
-
-    baseNodes.push(
-      { id: 'arrange_class', name: '年段长调课安排', type: 'course_adjust', status: 'pending', approver: 'grade_leader', approverName: '林国强' },
-      { id: 'sync', name: '数据同步', type: 'sync', status: 'pending' },
-      { id: 'end', name: '结束', type: 'end', status: 'pending' }
-    );
-
-    return baseNodes;
-  };
-
-  // 撤销申请
-  const handleCancel = (id: string) => {
-    setApplications(prev => prev.map(app => 
-      app.id === id ? { ...app, status: 'cancelled' as const } : app
-    ));
   };
 
   // 查看详情
@@ -472,153 +445,6 @@ export default function TeacherLeavePage() {
           </Tabs>
         </CardContent>
       </Card>
-
-      {/* 新建申请对话框 */}
-      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-500" />
-              新建请假申请
-            </DialogTitle>
-            <DialogDescription>
-              填写请假信息，提交后将按照审批流程进行处理
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* 请假类型 */}
-            <div className="space-y-2">
-              <Label>请假类型 <span className="text-red-500">*</span></Label>
-              <Select
-                value={newForm.type}
-                onValueChange={(v) => setNewForm(prev => ({ ...prev, type: v as LeaveType }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择请假类型" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(leaveTypeConfig).map(([type, config]) => (
-                    <SelectItem key={type} value={type}>
-                      <div>
-                        <span className="font-medium">{type}</span>
-                        <span className="text-gray-400 text-xs ml-2">{config.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {newForm.type && (
-                <p className="text-xs text-gray-500 mt-1">
-                  {leaveTypeConfig[newForm.type].attachmentDesc}
-                </p>
-              )}
-            </div>
-
-            {/* 请假时间 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>开始日期 <span className="text-red-500">*</span></Label>
-                <Input
-                  type="date"
-                  value={newForm.startDate}
-                  onChange={(e) => {
-                    const duration = calculateDuration(e.target.value, newForm.endDate);
-                    setNewForm(prev => ({ ...prev, startDate: e.target.value, duration }));
-                  }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>结束日期 <span className="text-red-500">*</span></Label>
-                <Input
-                  type="date"
-                  value={newForm.endDate}
-                  onChange={(e) => {
-                    const duration = calculateDuration(newForm.startDate, e.target.value);
-                    setNewForm(prev => ({ ...prev, endDate: e.target.value, duration }));
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* 请假天数 */}
-            <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-              <Calendar className="h-5 w-5 text-blue-500" />
-              <span className="text-sm text-blue-700">
-                请假天数：<strong>{newForm.duration}</strong> 天
-              </span>
-            </div>
-
-            {/* 请假原因 */}
-            <div className="space-y-2">
-              <Label>请假原因 <span className="text-red-500">*</span></Label>
-              <Textarea
-                value={newForm.reason}
-                onChange={(e) => setNewForm(prev => ({ ...prev, reason: e.target.value }))}
-                placeholder="请详细说明请假原因..."
-                rows={3}
-              />
-            </div>
-
-            {/* 附件上传 */}
-            <div className="space-y-2">
-              <Label>
-                附件材料
-                {newForm.type && leaveTypeConfig[newForm.type].requireAttachment && (
-                  <span className="text-red-500 ml-1">*</span>
-                )}
-              </Label>
-              <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">点击或拖拽上传附件</p>
-                <p className="text-xs text-gray-400 mt-1">支持 PDF、JPG、PNG 格式</p>
-              </div>
-            </div>
-
-            {/* 流程预览 */}
-            <div className="border-t pt-4">
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">审批流程预览</Label>
-              <div className="flex items-center gap-1 text-xs text-gray-500 overflow-x-auto pb-2">
-                {newForm.type ? (
-                  <>
-                    <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded">开始</span>
-                    <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">年级组长</span>
-                    <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                    {((newForm.type === '病假' && newForm.duration > 3) ||
-                      (newForm.type === '事假' && newForm.duration > 3) ||
-                      newForm.type === '公假') && (
-                      <>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">教务主任</span>
-                        <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                      </>
-                    )}
-                    <span className="px-2 py-1 bg-teal-100 text-teal-700 rounded">调课安排</span>
-                    <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded">数据同步</span>
-                    <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded">结束</span>
-                  </>
-                ) : (
-                  <span className="text-gray-400">请选择请假类型后查看流程</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewDialog(false)}>取消</Button>
-            <Button 
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-              onClick={handleSubmit}
-              disabled={!newForm.type || !newForm.startDate || !newForm.endDate || !newForm.reason}
-            >
-              <Send className="h-4 w-4 mr-1" />
-              提交申请
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* 详情对话框 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>

@@ -57,6 +57,7 @@ export default function SecretaryDashboard() {
     deleteMessage,
     markAllAsRead,
     sendMessage,
+    error: messagesError,
   } = useMessages();
 
   // 审批 Hook
@@ -233,6 +234,7 @@ export default function SecretaryDashboard() {
           <MessagePanel
             messages={messages}
             loading={messagesLoading}
+            error={messagesError}
             unreadCount={statistics.unread}
             statistics={statistics}
             pagination={{

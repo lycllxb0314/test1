@@ -51,38 +51,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       const savedUser = localStorage.getItem('smart_campus_user');
+      
+      // 尝试通过 API 验证当前会话（JWT token 在 cookie 中会自动发送）
+      try {
+        const response = await fetch('/api/auth/current');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          // 会话有效，更新用户数据
+          setUser(result.data);
+          localStorage.setItem('smart_campus_user', JSON.stringify(result.data));
+          setIsLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      }
+      
+      // API 验证失败，检查 localStorage 是否有缓存数据
       if (savedUser) {
         try {
           const parsedUser = JSON.parse(savedUser);
-          
-          // 兼容旧数据结构（如果存的是 { user: {...} }，提取内部 user）
           const userData = parsedUser.user || parsedUser;
           
-          // 验证用户是否仍然有效
           if (userData.id) {
-            try {
-              const response = await fetch(`/api/auth/current?userId=${userData.id}`);
-              const result = await response.json();
-              
-              if (result.success && result.data) {
-                setUser(result.data);
-                localStorage.setItem('smart_campus_user', JSON.stringify(result.data));
-              } else {
-                // 用户已失效，清除本地存储
-                localStorage.removeItem('smart_campus_user');
-              }
-            } catch {
-              // API调用失败，使用本地存储的用户信息（离线模式）
-              setUser(userData);
-            }
+            // 使用本地缓存的用户数据（离线模式或 token 过期）
+            setUser(userData);
           } else {
-            // 无效数据，清除
             localStorage.removeItem('smart_campus_user');
           }
         } catch {
           localStorage.removeItem('smart_campus_user');
         }
       }
+      
       setIsLoading(false);
     };
     

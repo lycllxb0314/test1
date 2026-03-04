@@ -42,6 +42,7 @@ export default function GeneralDashboard() {
   const {
     messages,
     loading: messagesLoading,
+    error: messagesError,
     statistics,
     page,
     pageSize,
@@ -231,6 +232,7 @@ export default function GeneralDashboard() {
           <MessagePanel
             messages={messages}
             loading={messagesLoading}
+            error={messagesError}
             unreadCount={statistics.unread}
             statistics={statistics}
             pagination={{
