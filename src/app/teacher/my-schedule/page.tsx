@@ -251,11 +251,13 @@ export default function MySchedulePage() {
           slots={slots} 
           loading={loading}
           getSlotContent={getSlotContent}
+          currentEmployeeId={user?.employeeId}
         />
       ) : (
         <ListView 
           slots={slots} 
           loading={loading}
+          currentEmployeeId={user?.employeeId}
         />
       )}
       
@@ -291,9 +293,10 @@ interface WeekViewProps {
   slots: WeeklySlot[];
   loading: boolean;
   getSlotContent: (weekDay: number, periodIndex: number) => WeeklySlot | null;
+  currentEmployeeId?: string;
 }
 
-function WeekView({ slots, loading, getSlotContent }: WeekViewProps) {
+function WeekView({ slots, loading, getSlotContent, currentEmployeeId }: WeekViewProps) {
   if (loading) {
     return (
       <Card>
@@ -357,13 +360,46 @@ function WeekView({ slots, loading, getSlotContent }: WeekViewProps) {
                               <div className="mt-1">
                                 <Badge variant="outline" className="text-[10px] px-1 h-4 bg-orange-50 border-orange-300 text-orange-600">
                                   <RefreshCcw className="h-2.5 w-2.5 mr-0.5" />
-                                  {slot.adjustmentType === '代课' ? '代课' : '调课'}
+                                  {slot.adjustmentType === 'substitute' ? '代课' : '调课'}
                                 </Badge>
-                                {slot.adjustmentType === '代课' && slot.actualTeacherName && (
-                                  <div className="text-[10px] text-stone-400 mt-0.5">
-                                    代课：{slot.actualTeacherName}
-                                  </div>
-                                )}
+                                {slot.adjustmentType === 'substitute' && (() => {
+                                  // 判断当前用户身份
+                                  const isSubstitute = slot.actualEmployeeId === currentEmployeeId && slot.employeeId !== currentEmployeeId;
+                                  const isOriginalTeacher = slot.employeeId === currentEmployeeId && slot.actualEmployeeId !== currentEmployeeId;
+                                  
+                                  if (isOriginalTeacher) {
+                                    // 被代课人看到代课人信息
+                                    return (
+                                      <>
+                                        <div className="text-[10px] text-orange-600 mt-0.5 font-medium">
+                                          您已请假
+                                        </div>
+                                        <div className="text-[10px] text-stone-400">
+                                          代课人：{slot.actualTeacherName}
+                                        </div>
+                                      </>
+                                    );
+                                  } else if (isSubstitute) {
+                                    // 代课人看到原教师信息
+                                    return (
+                                      <div className="text-[10px] text-stone-400 mt-0.5">
+                                        原教师：{slot.originalTeacherName || slot.teacherName}
+                                      </div>
+                                    );
+                                  } else {
+                                    // 其他人看到双方信息
+                                    return (
+                                      <>
+                                        <div className="text-[10px] text-stone-400 mt-0.5">
+                                          代课：{slot.actualTeacherName}
+                                        </div>
+                                        <div className="text-[10px] text-stone-400">
+                                          原教师：{slot.originalTeacherName || slot.teacherName}
+                                        </div>
+                                      </>
+                                    );
+                                  }
+                                })()}
                               </div>
                             )}
                           </div>
@@ -390,9 +426,10 @@ function WeekView({ slots, loading, getSlotContent }: WeekViewProps) {
 interface ListViewProps {
   slots: WeeklySlot[];
   loading: boolean;
+  currentEmployeeId?: string;
 }
 
-function ListView({ slots, loading }: ListViewProps) {
+function ListView({ slots, loading, currentEmployeeId }: ListViewProps) {
   if (loading) {
     return (
       <Card>
@@ -466,10 +503,31 @@ function ListView({ slots, loading }: ListViewProps) {
                       </div>
                       
                       {slot.isAdjusted && (
-                        <Badge variant="outline" className="bg-orange-50 border-orange-300 text-orange-600">
-                          <RefreshCcw className="h-3 w-3 mr-1" />
-                          {slot.adjustmentType === '代课' ? '代课' : '调课'}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge variant="outline" className="bg-orange-50 border-orange-300 text-orange-600">
+                            <RefreshCcw className="h-3 w-3 mr-1" />
+                            {slot.adjustmentType === 'substitute' ? '代课' : '调课'}
+                          </Badge>
+                          {slot.adjustmentType === 'substitute' && (() => {
+                            const isSubstitute = slot.actualEmployeeId === currentEmployeeId && slot.employeeId !== currentEmployeeId;
+                            const isOriginalTeacher = slot.employeeId === currentEmployeeId && slot.actualEmployeeId !== currentEmployeeId;
+                            
+                            if (isOriginalTeacher) {
+                              return (
+                                <span className="text-xs text-orange-600 font-medium">
+                                  代课人：{slot.actualTeacherName}
+                                </span>
+                              );
+                            } else if (isSubstitute) {
+                              return (
+                                <span className="text-xs text-muted-foreground">
+                                  原教师：{slot.originalTeacherName || slot.teacherName}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       )}
                     </div>
                   );

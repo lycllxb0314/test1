@@ -114,15 +114,18 @@ async function getBatchWorkload(
     }
     
     // 获取教师基准课表课时（从课程表统计）
+    // 注意：schedule_slots 表使用 employee_id 字段
     const { data: schedules } = await client
       .from('schedule_slots')
-      .select('teacher_id')
-      .in('teacher_id', teachers?.map((t: any) => t.employee_id) || []);
+      .select('employee_id')
+      .in('employee_id', teachers?.map((t: any) => t.employee_id) || []);
     
-    // 统计每个教师的周课时
+    // 统计每个教师的周课时（schedule_slots 中每条记录代表一节课）
     const scheduleCount: Record<string, number> = {};
     schedules?.forEach((s: any) => {
-      scheduleCount[s.teacher_id] = (scheduleCount[s.teacher_id] || 0) + 1;
+      if (s.employee_id) {
+        scheduleCount[s.employee_id] = (scheduleCount[s.employee_id] || 0) + 1;
+      }
     });
     
     // 组装数据
@@ -130,9 +133,10 @@ async function getBatchWorkload(
       // 汇总该教师该月的所有周工作量
       const teacherWorkloads = workloads?.filter((w: any) => w.employee_id === teacher.employee_id) || [];
       
-      const totalLessons = scheduleCount[teacher.employee_id] || 0;
-      const weeklyLessons = Math.round(totalLessons / 20); // 假设20周
-      const monthLessons = weeklyLessons * 4; // 月应上课时
+      // schedule_slots 存储的是每周课程安排，每条记录代表一节课
+      // 所以 totalLessons 就是每周课时数
+      const weeklyLessons = scheduleCount[teacher.employee_id] || 0;
+      const monthLessons = weeklyLessons * 4; // 月应上课时（每周课时 × 4周）
       
       const substituteLessons = teacherWorkloads.reduce((sum: number, w: any) => sum + (w.substitute_lessons || 0), 0);
       const adjustedLessons = teacherWorkloads.reduce((sum: number, w: any) => sum + (w.adjusted_lessons || 0), 0);
@@ -209,11 +213,11 @@ async function getTeacherWorkload(
       .lte('week_end_date', monthEnd.toISOString().split('T')[0])
       .order('week_number');
     
-    // 获取教师的课表
+    // 获取教师的课表（使用 employee_id 字段）
     const { data: schedules } = await client
       .from('schedule_slots')
       .select('*')
-      .eq('teacher_id', teacherId);
+      .eq('employee_id', teacherId);
     
     // 获取请假记录
     const { data: leaves } = await client
@@ -232,9 +236,10 @@ async function getTeacherWorkload(
       .lte('effective_week', monthEnd.toISOString().split('T')[0]);
     
     // 计算总课时
-    const totalLessons = schedules?.length || 0;
-    const weeklyLessons = Math.round(totalLessons / 20);
-    const monthLessons = weeklyLessons * 4;
+    // schedule_slots 存储的是每周课程安排，每条记录代表一节课
+    // 所以 schedules?.length 就是每周课时数
+    const weeklyLessons = schedules?.length || 0;
+    const monthLessons = weeklyLessons * 4; // 月应上课时（每周课时 × 4周）
     
     const substituteLessons = workloads?.reduce((sum: number, w: any) => sum + (w.substitute_lessons || 0), 0) || 0;
     const adjustedLessons = workloads?.reduce((sum: number, w: any) => sum + (w.adjusted_lessons || 0), 0) || 0;
@@ -249,10 +254,41 @@ async function getTeacherWorkload(
       semester,
       month,
       
+      // 基准课时
+      baseWeeklyHours: weeklyLessons,
+      expectedHours: monthLessons,
+      
+      // 实际授课
+      selfTaughtHours: monthLessons - adjustedLessons,
+      leaveHours: adjustedLessons,
+      leaveDetails: leaves?.map((l: any) => ({
+        date: l.start_date,
+        leaveType: l.type || l.leave_type,
+        hours: l.duration || 1,
+      })) || [],
+      
+      // 代课
+      substituteHours: substituteLessons,
+      substituteDetails: substitutes?.map((s: any) => ({
+        date: s.effective_week,
+        classId: s.class_id,
+        className: s.class_name,
+        subject: s.subject,
+        originalTeacherId: s.applicant_id,
+        originalTeacherName: s.applicant_name,
+        hours: 1,
+      })) || [],
+      
+      // 课后服务
+      afterSchoolServiceHours: 0,
+      afterSchoolServiceDetails: [],
+      
+      // 统计
       totalWorkload: actualLessons,
       standardWorkload: 16 * 4,
       variance: actualLessons - 16 * 4,
       
+      // 其他字段（保持兼容）
       details: {
         baseLessons: monthLessons,
         actualLessons,
@@ -291,6 +327,8 @@ async function getTeacherWorkload(
         subject: s.subject,
         applicantName: s.applicant_name,
       })),
+      
+      updatedAt: new Date().toISOString(),
     };
     
     return NextResponse.json(success(result, 'database'));

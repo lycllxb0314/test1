@@ -119,10 +119,12 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
           periodName: slot.period_name,
           subject: slot.subject,
           
-          // 基准课表教师
+          // 基准课表教师（原教师）
           teacherId: slot.teacher_id,
           teacherName: slot.teacher_name,
           employeeId: slot.employee_id,
+          originalTeacherName: slot.teacher_name,
+          originalEmployeeId: slot.employee_id,
           
           // 调课信息
           isAdjusted: true,
@@ -224,6 +226,8 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
             teacherId: null,
             teacherName: adj.applicant_name,
             employeeId: adj.applicant_id,
+            originalTeacherName: adj.applicant_name,
+            originalEmployeeId: adj.applicant_id,
             
             // 调课信息
             isAdjusted: true,
