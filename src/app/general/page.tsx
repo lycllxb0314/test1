@@ -1,324 +1,363 @@
 'use client';
 
+/**
+ * 总务处工作台
+ * 
+ * 主要功能：
+ * - 消息面板：消息通知、任务提醒
+ * - 发布中心：发布总务相关公告/新闻（需审批）
+ * - 审批中心：处理待审批内容（如总务主任）
+ */
+
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
+import { useMessages } from '@/hooks/useMessages';
+import { useApprovals } from '@/hooks/useApprovals';
+import { MessagePanel } from '@/components/messaging/MessagePanel';
+import { PublishNotificationDialog } from '@/components/approval/PublishNotificationDialog';
+import { ApprovalActionDialog, ApprovalCard } from '@/components/approval/ApprovalActionDialog';
+import type { ApprovalInstance, SubmitApprovalRequest } from '@/types/approval';
 import {
-  Package,
-  Wrench,
-  ShoppingCart,
-  DollarSign,
-  Shield,
-  Users,
-  AlertTriangle,
-  Clock,
-  TrendingUp,
-  ArrowRight,
-  Plus,
   Bell,
+  Users,
+  Wrench,
   CheckCircle,
-  XCircle,
-  Cpu,
-  DoorOpen,
-  UserPlus,
-  Loader2,
+  Clock,
+  FileText,
+  Plus,
 } from 'lucide-react';
-import { useSchoolStats } from '@/hooks/useSchoolStats';
 
-// 维修申请接口
-interface RepairRequest {
-  id: string;
-  requester: string;
-  item: string;
-  type: string;
-  location: string;
-  description: string;
-  status: string;
-  priority: string;
-  createdAt: string;
-}
+export default function GeneralDashboard() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('messages');
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [selectedInstance, setSelectedInstance] = useState<ApprovalInstance | null>(null);
+  const [approvalOpen, setApprovalOpen] = useState(false);
 
-// 资产接口
-interface Asset {
-  id: string;
-  name: string;
-  category: string;
-  specification: string;
-  department: string;
-  status: string;
-  value: number;
-}
+  // 消息 Hook
+  const {
+    messages,
+    loading: messagesLoading,
+    statistics,
+    page,
+    pageSize,
+    total,
+    totalPages,
+    goToPage,
+    refetch,
+    markAsRead,
+    markAsUnread,
+    archiveMessage,
+    deleteMessage,
+    markAllAsRead,
+    sendMessage,
+  } = useMessages();
 
-export default function GeneralPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
-  const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const { data: schoolStats, loading: statsLoading } = useSchoolStats();
+  // 审批 Hook
+  const {
+    approvals,
+    loading: approvalsLoading,
+    fetchApprovals,
+    submitApproval,
+    approveApproval,
+    rejectApproval,
+    returnApproval,
+    withdrawApproval,
+    statistics: approvalStats,
+  } = useApprovals('pending');
 
-  // 从API获取维修申请
+  // 初始化加载
   useEffect(() => {
-    fetch('/api/repair-requests?status=pending')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setRepairRequests(data.data || []);
-        }
-      })
-      .catch(console.error);
-  }, []);
-
-  // 从API获取资产
-  useEffect(() => {
-    fetch('/api/assets')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setAssets(data.data || []);
-        }
-      })
-      .catch(console.error);
-  }, []);
-
-  // 统计数据
-  const stats = [
-    { title: '资产总数', value: assets.length.toString() || '0', change: '+12%', icon: Package, color: 'bg-blue-500', trend: 'up' },
-    { title: '待处理维修', value: repairRequests.filter(r => r.status === 'pending').length.toString() || '0', change: '+3', icon: Wrench, color: 'bg-orange-500', trend: 'up' },
-    { title: '本月采购', value: '¥58,000', change: '-5%', icon: ShoppingCart, color: 'bg-green-500', trend: 'down' },
-    { title: '本月支出', value: '¥128,500', change: '+8%', icon: DollarSign, color: 'bg-purple-500', trend: 'up' },
-  ];
-
-  // 快捷操作
-  const quickActions = [
-    { name: '资产入库', href: '/general/assets', icon: Package, color: 'bg-blue-100 text-blue-600' },
-    { name: '设备控制', href: '/general/devices', icon: Cpu, color: 'bg-indigo-100 text-indigo-600' },
-    { name: '报修申请', href: '/general/repairs', icon: Wrench, color: 'bg-orange-100 text-orange-600' },
-    { name: '采购申请', href: '/general/purchase', icon: ShoppingCart, color: 'bg-green-100 text-green-600' },
-    { name: '费用报销', href: '/general/finance', icon: DollarSign, color: 'bg-purple-100 text-purple-600' },
-    { name: '门禁管理', href: '/general/access', icon: DoorOpen, color: 'bg-teal-100 text-teal-600' },
-    { name: '访客登记', href: '/general/access/visitors', icon: UserPlus, color: 'bg-cyan-100 text-cyan-600' },
-  ];
-
-  // 安全提醒
-  const securityAlerts = [
-    { id: '1', type: '巡查异常', message: '保安巡查发现北门照明损坏', time: '30分钟前', level: 'high' },
-    { id: '2', type: '设施提醒', message: '食堂灭火器即将到期', time: '2小时前', level: 'medium' },
-    { id: '3', type: '安全通知', message: '本周五将进行全校安全检查', time: '1天前', level: 'low' },
-  ];
-
-  // 获取警告级别颜色
-  const getAlertLevelColor = (level: string) => {
-    switch (level) {
-      case 'high': return 'bg-red-50 border-red-200 text-red-700';
-      case 'medium': return 'bg-yellow-50 border-yellow-200 text-yellow-700';
-      default: return 'bg-blue-50 border-blue-200 text-blue-700';
+    if (activeTab === 'approvals') {
+      fetchApprovals('pending');
     }
+  }, [activeTab, fetchApprovals]);
+
+  // 发布处理
+  const handleSubmit = async (request: SubmitApprovalRequest) => {
+    const result = await submitApproval(request);
+    if (result.success) {
+      refetch();
+    }
+    return result;
+  };
+
+  // 审批操作处理
+  const handleApprove = async (instanceId: string, comment?: string) => {
+    return await approveApproval(instanceId, comment);
+  };
+
+  const handleReject = async (instanceId: string, comment?: string) => {
+    return await rejectApproval(instanceId, comment);
+  };
+
+  const handleReturn = async (instanceId: string, comment?: string) => {
+    return await returnApproval(instanceId, comment);
+  };
+
+  const handleWithdraw = async (instanceId: string) => {
+    return await withdrawApproval(instanceId);
+  };
+
+  // 打开审批详情
+  const handleOpenApproval = (instance: ApprovalInstance) => {
+    setSelectedInstance(instance);
+    setApprovalOpen(true);
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-orange-50/30 via-white to-amber-50/30 min-h-screen">
+    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-green-50/30 via-white to-emerald-50/30 min-h-screen">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">总务后勤管理</h1>
-          <p className="text-gray-500 mt-1">资产管理 · 报修维护 · 采购管理 · 安全保障</p>
+          <h1 className="text-2xl font-bold text-gray-900">总务处工作台</h1>
+          <p className="text-gray-500 mt-1">
+            龙岩师范附属小学 · 后勤保障 · 资产管理 · 校园安全
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2">
-            <Bell className="h-4 w-4" />
-            安全提醒
-            <Badge className="bg-red-500 text-white text-xs ml-1">3</Badge>
-          </Button>
-          <Button className="bg-primary hover:bg-primary/90 text-white gap-2">
-            <Plus className="h-4 w-4" />
-            新建申请
-          </Button>
+          <Badge variant="outline" className="gap-1">
+            <Users className="h-3 w-3" />
+            {user?.name}
+          </Badge>
+          <Badge className="bg-green-500 text-white gap-1">
+            <Wrench className="h-3 w-3" />
+            总务处
+          </Badge>
         </div>
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => (
-          <Card key={index} className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className={`p-3 rounded-xl ${stat.color} text-white`}>
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                <span className={`text-sm font-medium ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                  {stat.change}
-                </span>
+      <div className="grid gap-4 md:grid-cols-5">
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">未读消息</p>
+                <p className="text-2xl font-bold text-orange-600">{statistics.unread}</p>
               </div>
-              <div className="mt-4">
-                <p className="text-sm text-gray-500">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <div className="p-2 rounded-lg bg-orange-100">
+                <Bell className="h-5 w-5 text-orange-600" />
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">总消息数</p>
+                <p className="text-2xl font-bold text-blue-600">{statistics.total}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-blue-100">
+                <Bell className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('approvals')}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">待审批</p>
+                <p className="text-2xl font-bold text-red-600">{approvalStats.pending}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-red-100">
+                <CheckCircle className="h-5 w-5 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">已处理</p>
+                <p className="text-2xl font-bold text-green-600">{approvalStats.processed}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-green-100">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">我发起</p>
+                <p className="text-2xl font-bold text-purple-600">{approvalStats.my}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-purple-100">
+                <FileText className="h-5 w-5 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* 快捷操作 */}
-      <Card className="border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">快捷操作</CardTitle>
-          <CardDescription>常用功能快速入口</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {quickActions.map((action, index) => (
-              <Link
-                key={index}
-                href={action.href}
-                className="flex flex-col items-center p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <div className={`p-3 rounded-lg ${action.color} mb-3`}>
-                  <action.icon className="h-6 w-6" />
-                </div>
-                <span className="text-sm font-medium text-gray-700">{action.name}</span>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* 发布按钮 */}
+      <div className="flex justify-end">
+        <Button onClick={() => setPublishOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          发布公告/新闻
+        </Button>
+      </div>
 
-      {/* 双栏布局 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* 待处理维修 */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">待处理维修</CardTitle>
-              <CardDescription>需要处理的维修申请</CardDescription>
-            </div>
-            <Link href="/general/repairs">
-              <Button variant="ghost" size="sm" className="text-primary">
-                查看全部 <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {repairRequests.slice(0, 5).map((repair) => (
-                <div
-                  key={repair.id}
-                  className="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-lg ${
-                      repair.status === 'pending' ? 'bg-yellow-100' :
-                      repair.status === 'in_progress' ? 'bg-blue-100' : 'bg-green-100'
-                    }`}>
-                      <Wrench className={`h-4 w-4 ${
-                        repair.status === 'pending' ? 'text-yellow-600' :
-                        repair.status === 'in_progress' ? 'text-blue-600' : 'text-green-600'
-                      }`} />
-                    </div>
+      {/* 主要内容区域 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="messages" className="gap-2">
+            <Bell className="h-4 w-4" />
+            消息中心
+          </TabsTrigger>
+          <TabsTrigger value="approvals" className="gap-2">
+            <CheckCircle className="h-4 w-4" />
+            审批中心
+            {approvalStats.pending > 0 && (
+              <Badge className="ml-1 bg-red-500 text-white text-xs">
+                {approvalStats.pending}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 消息面板 */}
+        <TabsContent value="messages" className="mt-4">
+          <MessagePanel
+            messages={messages}
+            loading={messagesLoading}
+            unreadCount={statistics.unread}
+            statistics={statistics}
+            pagination={{
+              page,
+              pageSize,
+              total,
+              totalPages,
+            }}
+            onRefresh={refetch}
+            onMarkAsRead={markAsRead}
+            onMarkAsUnread={markAsUnread}
+            onArchive={archiveMessage}
+            onDelete={deleteMessage}
+            onMarkAllAsRead={markAllAsRead}
+            onPageChange={goToPage}
+            onSendMessage={sendMessage}
+            showSendButton={true}
+          />
+        </TabsContent>
+
+        {/* 审批中心 */}
+        <TabsContent value="approvals" className="mt-4">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* 待审批列表 */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{repair.item}</span>
-                        {repair.priority === 'urgent' && (
-                          <Badge className="bg-red-100 text-red-600 text-xs">紧急</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500">{repair.location}</p>
+                      <CardTitle>待审批</CardTitle>
+                      <CardDescription>需要您审批的公告/新闻</CardDescription>
                     </div>
+                    <Button variant="outline" size="sm" onClick={() => fetchApprovals('pending')}>
+                      刷新
+                    </Button>
                   </div>
-                  <div className="text-right">
-                    <Badge variant="outline" className={
-                      repair.status === 'pending' ? 'border-yellow-300 text-yellow-700' :
-                      repair.status === 'in_progress' ? 'border-blue-300 text-blue-700' : 'border-green-300 text-green-700'
-                    }>
-                      {repair.status === 'pending' ? '待处理' : repair.status === 'in_progress' ? '处理中' : '已完成'}
-                    </Badge>
-                    <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                      <Clock className="h-3 w-3" />
-                      {repair.createdAt.split(' ')[0]}
+                </CardHeader>
+                <CardContent>
+                  {approvalsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  ) : approvals.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>暂无待审批内容</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {approvals.map((instance) => (
+                        <ApprovalCard
+                          key={instance.id}
+                          instance={instance}
+                          currentUserId={user?.id || ''}
+                          onClick={() => handleOpenApproval(instance)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* 安全提醒 */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">安全提醒</CardTitle>
-              <CardDescription>校园安全预警信息</CardDescription>
-            </div>
-            <Link href="/general/security">
-              <Button variant="ghost" size="sm" className="text-primary">
-                查看全部 <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {securityAlerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`flex items-start gap-3 p-4 rounded-xl border ${getAlertLevelColor(alert.level)}`}
-                >
-                  <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{alert.type}</span>
-                    </div>
-                    <p className="text-sm opacity-80">{alert.message}</p>
-                    <div className="flex items-center gap-1 mt-2 text-xs opacity-60">
-                      <Clock className="h-3 w-3" />
-                      {alert.time}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            {/* 快捷操作 */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">快捷操作</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start gap-2"
+                    onClick={() => fetchApprovals('processed')}
+                  >
+                    <Clock className="h-4 w-4" />
+                    查看已处理
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start gap-2"
+                    onClick={() => fetchApprovals('my')}
+                  >
+                    <FileText className="h-4 w-4" />
+                    我发起的
+                  </Button>
+                </CardContent>
+              </Card>
 
-      {/* 资产概览 */}
-      <Card className="border-0 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-lg">资产概览</CardTitle>
-            <CardDescription>学校资产统计</CardDescription>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">审批说明</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-gray-600 space-y-2">
+                  <p>• 发布到学校主页需经审批</p>
+                  <p>• 流程：总务主任 → 校长室</p>
+                  <p>• <strong>或签</strong>：任一人通过即可</p>
+                  <p>• <strong>会签</strong>：所有人都需通过</p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-          <Link href="/general/assets">
-            <Button variant="ghost" size="sm" className="text-primary">
-              查看全部 <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </Link>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            {assets.slice(0, 6).map((asset: Asset) => (
-              <div
-                key={asset.id}
-                className="p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <Badge variant="outline">{asset.category}</Badge>
-                  <Badge className={asset.status === '在用' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
-                    {asset.status}
-                  </Badge>
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-1">{asset.name}</h4>
-                <p className="text-sm text-gray-500 mb-2">{asset.specification}</p>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">{asset.department}</span>
-                  <span className="font-medium text-gray-900">¥{asset.value.toLocaleString()}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* 发布对话框 */}
+      <PublishNotificationDialog
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        onSubmit={handleSubmit}
+        department="general_office"
+        showExternalOption={true}
+        showApprovalFlow={true}
+        recipientTypes={['all', 'role', 'class', 'individual', 'group']}
+      />
+
+      {/* 审批详情对话框 */}
+      <ApprovalActionDialog
+        open={approvalOpen}
+        onOpenChange={setApprovalOpen}
+        instance={selectedInstance}
+        currentUserId={user?.id || ''}
+        onApprove={handleApprove}
+        onReject={handleReject}
+        onReturn={handleReturn}
+        onWithdraw={handleWithdraw}
+      />
     </div>
   );
 }

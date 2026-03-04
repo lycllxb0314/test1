@@ -259,25 +259,7 @@ export default function DashboardPage() {
           </Link>
         )}
 
-        {isAdmin && (
-          <Link href="/workflow">
-            <Card className="group cursor-pointer border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-              <div className="h-2 bg-gradient-to-r from-amber-400 to-amber-500" />
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white">
-                    <Workflow className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">审批中心</h3>
-                    <p className="text-sm text-gray-500">请假·报修·采购审批</p>
-                  </div>
-                  <Badge className="bg-red-100 text-red-600 text-xs">3</Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        )}
+
       </div>
 
       {/* 快捷操作 & 待办事项 */}

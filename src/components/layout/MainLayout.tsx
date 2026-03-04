@@ -219,16 +219,6 @@ const gradeLeaderNav: NavItem[] = [
   { name: '年级课表', href: '/teacher/grade-schedule', icon: Calendar, description: '查看年级课表' },
 ];
 
-// 工作流管理导航
-const workflowNav: NavItem[] = [
-  { name: '审批中心', href: '/workflow', icon: LayoutDashboard, description: '统一审批中心' },
-  { name: '流程配置', href: '/workflow/config', icon: Settings, description: '配置审批流程' },
-  { name: '请假审批', href: '/workflow/leave', icon: FileText, description: '请假申请审批' },
-  { name: '报销审批', href: '/workflow/expense', icon: DollarSign, description: '报销申请审批' },
-  { name: '报修审批', href: '/workflow/repair', icon: Wrench, description: '报修申请审批' },
-  { name: '采购审批', href: '/workflow/purchase', icon: ShoppingCart, description: '采购申请审批' },
-];
-
 // 家长端导航
 const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
@@ -244,7 +234,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout, switchRole } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const [activeModule, setActiveModule] = useState<ModuleType | 'workflow' | null>(null);
+  const [activeModule, setActiveModule] = useState<ModuleType | null>(null);
   const [expandedItems, setExpandedItems] = useState<string[]>([]); // 展开的三级菜单项
 
   // 根据当前路径确定活跃模块
@@ -259,8 +249,6 @@ export function AppSidebar() {
       setActiveModule('teacher');
     } else if (pathname.startsWith('/parent')) {
       setActiveModule('parent');
-    } else if (pathname.startsWith('/workflow')) {
-      setActiveModule('workflow');
     } else {
       setActiveModule(null);
     }
@@ -301,8 +289,6 @@ export function AppSidebar() {
         return teacherBaseNav;
       case 'parent':
         return parentNav;
-      case 'workflow':
-        return workflowNav;
       default:
         return [];
     }
@@ -523,38 +509,6 @@ export function AppSidebar() {
                 {collapsed && <TooltipContent side="right">家长端</TooltipContent>}
               </Tooltip>
             )}
-
-            {/* 审批中心 - 学校领导层和兼任主任职务的人 */}
-            {(user.role === 'principal' || user.role === 'secretary' || user.role === 'vice_principal' || 
-              additionalRoles?.includes('academic_director') || 
-              additionalRoles?.includes('moral_director') || 
-              additionalRoles?.includes('general_director')) && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setActiveModule(activeModule === 'workflow' ? null : 'workflow')}
-                    className={cn(
-                      'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-                      activeModule === 'workflow'
-                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
-                        : 'text-gray-700 hover:bg-amber-50 hover:text-amber-600'
-                    )}
-                  >
-                    <Workflow className="h-5 w-5" />
-                    {!collapsed && (
-                      <>
-                        <span className="flex-1 text-left">审批中心</span>
-                        <ChevronRight className={cn(
-                          'h-4 w-4 transition-transform',
-                          activeModule === 'workflow' && 'rotate-90'
-                        )} />
-                      </>
-                    )}
-                  </button>
-                </TooltipTrigger>
-                {collapsed && <TooltipContent side="right">审批中心</TooltipContent>}
-              </Tooltip>
-            )}
           </nav>
 
           {/* 底部：折叠按钮 + 用户信息 */}
@@ -679,7 +633,6 @@ export function AppSidebar() {
                 {activeModule === 'moral' && '德育管理'}
                 {activeModule === 'teacher' && '教师空间'}
                 {activeModule === 'parent' && '家长端'}
-                {activeModule === 'workflow' && '审批中心'}
               </span>
               <button
                 onClick={() => setActiveModule(null)}

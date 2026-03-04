@@ -360,3 +360,24 @@ export function clearAuthCookies(response: NextResponse): void {
   response.cookies.set(REFRESH_TOKEN_COOKIE, '', cookieOptions);
   response.cookies.set(USER_ID_COOKIE, '', cookieOptions);
 }
+
+/**
+ * 从请求中获取用户信息
+ * 
+ * 用于 API 路由中验证用户身份
+ */
+export async function getUserFromSession(request: NextRequest): Promise<User | null> {
+  const { accessToken, refreshToken } = extractTokens(request);
+  
+  if (!accessToken) {
+    return null;
+  }
+  
+  const result = await validateSession(accessToken, refreshToken || undefined);
+  
+  if (!result.success || !result.user) {
+    return null;
+  }
+  
+  return result.user;
+}
