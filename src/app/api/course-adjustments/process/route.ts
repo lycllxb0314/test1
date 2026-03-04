@@ -141,15 +141,97 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
         .eq('status', 'pending');
       
       if (!pendingCount || pendingCount.length === 0) {
-        // 所有调课已完成
+        // 所有调课已完成，更新请假申请状态到"已完成"
         await client
           .from('leave_requests')
           .update({
+            status: 'completed',
             adjustment_status: 'completed',
             adjusted_by: user.employeeId,
             adjusted_at: new Date().toISOString(),
+            current_step: 4, // 数据同步完成
+            updated_at: new Date().toISOString(),
           })
           .eq('id', adjustment.leave_request_id);
+        
+        // 通知申请人流程结束
+        await client.from('messages').insert({
+          title: `【流程结束】请假调课已完成`,
+          content: `您的请假调课流程已全部完成，相关数据已同步到教务系统。`,
+          event: 'leave_approval',
+          priority: 'normal',
+          sender_id: 'system',
+          sender_name: '系统通知',
+          sender_role: 'system',
+          recipient_id: adjustment.applicant_id,
+          metadata: { leaveRequestId: adjustment.leave_request_id },
+        });
+      }
+    }
+    
+    // 更新教师工作量
+    if (action === 'substitute' && substituteEmployeeId) {
+      const now = new Date().toISOString();
+      const currentWeek = getWeekNumber(new Date());
+      const weekStart = getWeekMonday(new Date());
+      const weekEnd = getWeekSunday(new Date());
+      
+      // 获取当前学年学期
+      const { data: currentSemester } = await client
+        .from('semesters')
+        .select('*')
+        .lte('start_date', weekStart)
+        .gte('end_date', weekStart)
+        .single();
+      
+      const academicYear = currentSemester?.academic_year || '2024-2025';
+      const semester = currentSemester?.semester || '1';
+      
+      // 1. 更新代课教师工作量（增加代课课时）
+      const { data: existingWorkload } = await client
+        .from('teacher_workload')
+        .select('*')
+        .eq('employee_id', substituteEmployeeId)
+        .eq('academic_year', academicYear)
+        .eq('semester', semester)
+        .eq('week_number', currentWeek)
+        .single();
+      
+      if (existingWorkload) {
+        await client
+          .from('teacher_workload')
+          .update({
+            substitute_lessons: (existingWorkload.substitute_lessons || 0) + 1,
+            total_lessons: (existingWorkload.total_lessons || 0) + 1,
+            updated_at: now,
+          })
+          .eq('id', existingWorkload.id);
+      } else {
+        // 获取代课教师姓名
+        const { data: subTeacher } = await client
+          .from('teachers')
+          .select('name, primary_subject')
+          .eq('employee_id', substituteEmployeeId)
+          .single();
+        
+        await client
+          .from('teacher_workload')
+          .insert({
+            employee_id: substituteEmployeeId,
+            teacher_name: substituteName || subTeacher?.name || '',
+            primary_subject: subTeacher?.primary_subject || '',
+            academic_year: academicYear,
+            semester: semester,
+            week_number: currentWeek,
+            week_start_date: weekStart,
+            week_end_date: weekEnd,
+            total_lessons: 1,
+            actual_lessons: 0,
+            substitute_lessons: 1,
+            adjusted_lessons: 0,
+            created_at: now,
+            updated_at: now,
+          });
       }
     }
     
@@ -210,3 +292,34 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });
+
+/**
+ * 辅助函数：获取周数
+ */
+function getWeekNumber(date: Date): number {
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+}
+
+/**
+ * 辅助函数：获取周一日期
+ */
+function getWeekMonday(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+}
+
+/**
+ * 辅助函数：获取周日日期
+ */
+function getWeekSunday(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? 0 : 7);
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+}
