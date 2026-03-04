@@ -305,6 +305,14 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
         fetch(`/api/teachers?pageSize=${PAGINATION.ENTITY_CONFIG.teachers.fetchPageSize}`),
       ]);
       
+      // 检查响应状态
+      if (!classesRes.ok) {
+        throw new Error(`获取班级数据失败: ${classesRes.status}`);
+      }
+      if (!teachersRes.ok) {
+        throw new Error(`获取教师数据失败: ${teachersRes.status}`);
+      }
+      
       const classesData = await classesRes.json();
       const teachersData = await teachersRes.json();
       
@@ -319,6 +327,13 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       
       while (true) {
         const studentsRes = await fetch(`/api/students?page=${page}&pageSize=${batchSize}`);
+        
+        // 检查响应状态
+        if (!studentsRes.ok) {
+          console.error(`获取学生数据失败: ${studentsRes.status}`);
+          break;
+        }
+        
         const studentsData = await studentsRes.json();
         
         if (!studentsData.success || !studentsData.data || studentsData.data.length === 0) {
