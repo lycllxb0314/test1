@@ -94,6 +94,7 @@ const handleUpdateMessage = async (
             message_id: id,
             user_id: userId,
             read_at: new Date().toISOString(),
+            status: 'read',
           }, { onConflict: 'message_id,user_id' });
         
         if (readError) {
@@ -105,9 +106,11 @@ const handleUpdateMessage = async (
       case 'unread':
         await client
           .from('message_reads')
-          .delete()
-          .eq('message_id', id)
-          .eq('user_id', userId);
+          .upsert({
+            message_id: id,
+            user_id: userId,
+            status: 'unread',
+          }, { onConflict: 'message_id,user_id' });
         break;
 
       case 'archive':
