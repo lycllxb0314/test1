@@ -150,11 +150,11 @@ export async function login(
     }
   }
 
-  // 6. 查询用户所属群组
+  // 6. 查询用户所属群组（通过工号关联）
   const { data: groupMemberships } = await client
     .from('group_members')
     .select('group_id, group_type, is_admin, join_type')
-    .eq('user_id', dbUser.id);
+    .eq('user_id', dbUser.employee_id);
 
   if (groupMemberships && groupMemberships.length > 0) {
     user.groups = groupMemberships.map((gm: { group_id: string; group_type: string; is_admin: boolean; join_type: string }) => ({
@@ -281,11 +281,11 @@ export async function validateSession(
     }
   }
 
-  // 查询用户所属群组
+  // 查询用户所属群组（通过工号关联）
   const { data: groupMemberships } = await client
     .from('group_members')
     .select('group_id, group_type, is_admin, join_type')
-    .eq('user_id', payload.userId);
+    .eq('user_id', data.employee_id);
 
   if (groupMemberships && groupMemberships.length > 0) {
     user.groups = groupMemberships.map((gm: { group_id: string; group_type: string; is_admin: boolean; join_type: string }) => ({

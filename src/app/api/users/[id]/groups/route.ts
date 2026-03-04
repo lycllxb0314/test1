@@ -24,7 +24,19 @@ export async function GET(
       return NextResponse.json({ error: '缺少用户ID' }, { status: 400 });
     }
 
-    // 获取用户所属群组
+    // 先通过用户 ID 获取工号（employee_id）
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('employee_id')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user?.employee_id) {
+      console.error('获取用户工号失败:', userError);
+      return NextResponse.json({ groups: [] }); // 用户不存在或无工号，返回空数组
+    }
+
+    // 通过工号查询用户所属群组
     const { data: memberships, error } = await supabase
       .from('group_members')
       .select(`
@@ -34,7 +46,7 @@ export async function GET(
         join_type,
         joined_at
       `)
-      .eq('user_id', userId);
+      .eq('user_id', user.employee_id);
 
     if (error) {
       console.error('获取用户群组失败:', error);
@@ -75,9 +87,9 @@ export async function PUT(
     }
 
     const supabase = getSupabaseClient();
-    const { id: userId } = await params;
+    const { id: targetUserId } = await params;
     
-    if (!userId) {
+    if (!targetUserId) {
       return NextResponse.json({ error: '缺少用户ID' }, { status: 400 });
     }
     
@@ -85,11 +97,22 @@ export async function PUT(
     const { groups } = body;
     const currentUserId = user.userId;
 
-    // 只有校长室成员可以修改用户群组
+    // 获取当前用户的工号
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('employee_id')
+      .eq('id', currentUserId)
+      .single();
+
+    if (!currentUser?.employee_id) {
+      return NextResponse.json({ error: '当前用户信息不完整' }, { status: 400 });
+    }
+
+    // 只有校长室成员可以修改用户群组（通过工号查询）
     const { data: isPrincipalOffice } = await supabase
       .from('group_members')
       .select('id')
-      .eq('user_id', currentUserId)
+      .eq('user_id', currentUser.employee_id)
       .eq('group_type', 'principal_office')
       .single();
 
@@ -97,11 +120,24 @@ export async function PUT(
       return NextResponse.json({ error: '无权限修改用户群组' }, { status: 403 });
     }
 
-    // 获取用户当前的群组成员身份
+    // 获取目标用户的工号
+    const { data: targetUser } = await supabase
+      .from('users')
+      .select('employee_id')
+      .eq('id', targetUserId)
+      .single();
+
+    if (!targetUser?.employee_id) {
+      return NextResponse.json({ error: '目标用户不存在' }, { status: 404 });
+    }
+
+    const targetEmployeeId = targetUser.employee_id;
+
+    // 获取用户当前的群组成员身份（通过工号查询）
     const { data: currentMemberships } = await supabase
       .from('group_members')
       .select('id, group_type, join_type')
-      .eq('user_id', userId);
+      .eq('user_id', targetEmployeeId);
 
     const currentGroupTypes = new Set((currentMemberships || []).map((m: { group_type: string }) => m.group_type));
     const newGroupTypes = new Set(groups as GroupType[]);
@@ -120,14 +156,14 @@ export async function PUT(
         .in('id', toRemove);
     }
 
-    // 添加新的群组成员
+    // 添加新的群组成员（使用工号）
     const toAdd = [...newGroupTypes].filter(gt => !currentGroupTypes.has(gt));
     
     if (toAdd.length > 0) {
       const membersToAdd = toAdd.map(groupType => ({
         group_id: groupType,
         group_type: groupType,
-        user_id: userId,
+        user_id: targetEmployeeId,  // 使用工号
         is_admin: false,
         join_type: 'manual',
         joined_at: new Date().toISOString(),
