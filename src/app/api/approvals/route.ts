@@ -274,8 +274,8 @@ export async function POST(request: NextRequest) {
     let initialStatus = 'draft';
     let publishStatus = 'pending';
     
-    // 内部通知不需要审批，直接发布
-    if (type === 'internal_notice') {
+    // 内部通知和家长通知不需要审批，直接发布
+    if (type === 'internal_notice' || type === 'parent_notice') {
       initialStatus = 'published';
       publishStatus = 'published';
     } else if (scheduledPublishAt) {
@@ -312,7 +312,7 @@ export async function POST(request: NextRequest) {
 
     if (announcementError) throw announcementError;
 
-    // 2. 内部通知：直接发送给指定接收者
+    // 2. 内部通知和家长通知：直接发送给指定接收者，无需审批
     if (type === 'internal_notice') {
       await sendInternalNotification(supabase, announcementId, title, content, user.id, user.name, recipients);
       
@@ -322,6 +322,20 @@ export async function POST(request: NextRequest) {
           announcementId,
           status: 'published',
           message: '内部通知发布成功',
+        },
+      });
+    }
+
+    // 家长通知：发送给指定班级的家长
+    if (type === 'parent_notice') {
+      await sendParentNotification(supabase, announcementId, title, content, user.id, user.name, recipients);
+      
+      return NextResponse.json({
+        success: true,
+        data: {
+          announcementId,
+          status: 'published',
+          message: '家长通知发布成功',
         },
       });
     }
@@ -652,6 +666,66 @@ async function sendInternalNotification(
     title: `【内部通知】${title}`,
     content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
     type: 'internal_notice',
+    priority: 'normal',
+    sender_id: authorId,
+    sender_name: authorName,
+    recipient_id: userId,
+    recipient_type: 'individual',
+    is_read: false,
+    metadata: { announcement_id: announcementId },
+  }));
+
+  await supabase.from('messages').insert(messages);
+}
+
+/**
+ * 发送家长通知
+ * 
+ * 支持接收者类型：
+ * - class: 按班级通知（通知班级的家长）
+ */
+async function sendParentNotification(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  announcementId: string,
+  title: string,
+  content: string,
+  authorId: string,
+  authorName: string,
+  recipients?: SubmitApprovalRequest['recipients']
+) {
+  if (!recipients || !recipients.classIds || recipients.classIds.length === 0) return;
+
+  // 获取班级学生的家长 account_id
+  const { data: parents } = await supabase
+    .from('parents')
+    .select('account_id')
+    .in('class_id', recipients.classIds)
+    .eq('has_account', true)
+    .not('account_id', 'is', null);
+  
+  const accountIds = parents?.map((p: any) => p.account_id).filter(Boolean) || [];
+  
+  if (accountIds.length === 0) return;
+
+  // 通过 account_id 关联 users 表获取用户 UUID
+  const { data: users } = await supabase
+    .from('users')
+    .select('id')
+    .in('id::text', accountIds);
+  
+  const userIds = users?.map((u: any) => u.id) || [];
+  
+  // 去重
+  const uniqueUserIds = [...new Set(userIds)];
+
+  if (uniqueUserIds.length === 0) return;
+
+  // 创建消息（为每个接收者创建独立的消息记录）
+  const messages = uniqueUserIds.map((userId: string) => ({
+    id: crypto.randomUUID(),
+    title: `【家长通知】${title}`,
+    content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+    type: 'parent_notice',
     priority: 'normal',
     sender_id: authorId,
     sender_name: authorName,
