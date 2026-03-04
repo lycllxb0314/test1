@@ -87,13 +87,16 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       }
     }
 
-    // 分页查询
+    // 直接按用户ID查询消息（最常见的情况：recipient_id = userId）
+    // 这样可以避免分页后再筛选的问题
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
+    // 查询发给当前用户的消息
     const { data: messages, error: msgError, count } = await client
       .from('messages')
       .select('*', { count: 'exact' })
+      .eq('recipient_id', userId)
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -115,42 +118,8 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       ])
     );
 
-    // 筛选和处理消息
+    // 处理消息
     const userMessages: UserMessage[] = (messages || [])
-      .filter((msg: Record<string, unknown>) => {
-        const recipientType = msg.recipient_type as string;
-        const roles = msg.roles as string[] | null;
-        const classIds = msg.class_ids as string[] | null;
-        const grades = msg.grades as number[] | null;
-        const userIds = msg.user_ids as string[] | null;
-        // 兼容旧字段：recipient_id 是单个用户 UUID
-        const recipientId = msg.recipient_id as string | null;
-
-        // 全员消息
-        if (recipientType === 'all') return true;
-        
-        // 按角色发送：检查用户所有角色（主角色 + 兼任角色）
-        if (recipientType === 'role' && roles) {
-          if (roles.some(r => userAllRoles.includes(r))) return true;
-        }
-        
-        // 按班级发送
-        if (recipientType === 'class' && classIds?.some(id => userClassIds.includes(id))) return true;
-        
-        // 按年级发送
-        if (recipientType === 'grade' && grades?.some(g => userGrades.includes(g))) return true;
-        
-        // 指定个人：兼容新旧字段
-        if (recipientType === 'individual') {
-          if (userIds?.includes(userId)) return true;
-          if (recipientId === userId) return true;
-        }
-        
-        // 兼容没有 recipient_type 的旧消息（直接检查 recipient_id）
-        if (!recipientType && recipientId === userId) return true;
-
-        return false;
-      })
       .map((msg: Record<string, unknown>) => {
         const readInfo = readMap.get(msg.id as string);
         const status: MessageStatus = (readInfo?.status as MessageStatus) || (readInfo?.readAt ? 'read' : 'unread');
@@ -164,7 +133,7 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
           senderName: msg.sender_name as string,
           senderRole: msg.sender_role as string,
           recipients: {
-            type: msg.recipient_type as 'all' | 'role' | 'class' | 'grade' | 'individual',
+            type: (msg.recipient_type || 'individual') as 'all' | 'role' | 'class' | 'grade' | 'individual',
             roles: msg.roles as string[] | undefined,
             classIds: msg.class_ids as string[] | undefined,
             grades: msg.grades as number[] | undefined,
