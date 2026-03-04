@@ -60,6 +60,16 @@ export const POST = protectedRoute(async (
     }
 
     const now = new Date().toISOString();
+    
+    // 获取申请人UUID（用于发送消息）
+    const { data: applicantUser } = await client
+      .from('users')
+      .select('id')
+      .eq('employee_id', leaveRequest.applicant_id)
+      .single();
+    
+    // 当前用户UUID
+    const approverUUID = user.id;
 
     if (action === 'reject') {
       // 驳回
@@ -80,17 +90,20 @@ export const POST = protectedRoute(async (
       }
 
       // 通知申请人
-      await client.from('messages').insert({
-        title: `【已驳回】请假申请`,
-        content: `您的${leaveRequest.type}申请已被${user.name}驳回。${rejectReason ? `原因：${rejectReason}` : ''}`,
-        event: 'leave_approval',
-        priority: 'high',
-        sender_id: user.employeeId,
-        sender_name: user.name,
-        sender_role: user.role,
-        recipient_id: leaveRequest.applicant_id,
-        metadata: { leaveRequestId, action: 'rejected' },
-      });
+      if (applicantUser) {
+        await client.from('messages').insert({
+          title: `【已驳回】请假申请`,
+          content: `您的${leaveRequest.type}申请已被${user.name}驳回。${rejectReason ? `原因：${rejectReason}` : ''}`,
+          type: 'leave_rejected',
+          priority: 'high',
+          sender_id: approverUUID,
+          sender_name: user.name,
+          recipient_id: applicantUser.id,
+          recipient_type: 'individual',
+          metadata: { leaveRequestId, action: 'rejected' },
+          created_at: now,
+        });
+      }
 
       return NextResponse.json(success({ status: 'rejected' }, 'database'));
     }
@@ -142,17 +155,20 @@ export const POST = protectedRoute(async (
       }
 
       // 通知申请人当前进度
-      await client.from('messages').insert({
-        title: `【审批中】请假申请进度更新`,
-        content: `${user.name}已同意您的${leaveRequest.type}申请，等待其他审批人审批。`,
-        event: 'leave_approval',
-        priority: 'normal',
-        sender_id: user.employeeId,
-        sender_name: user.name,
-        sender_role: user.role,
-        recipient_id: leaveRequest.applicant_id,
-        metadata: { leaveRequestId, action: 'approving' },
-      });
+      if (applicantUser) {
+        await client.from('messages').insert({
+          title: `【审批中】请假申请进度更新`,
+          content: `${user.name}已同意您的${leaveRequest.type}申请，等待其他审批人审批。`,
+          type: 'leave_approval',
+          priority: 'normal',
+          sender_id: approverUUID,
+          sender_name: user.name,
+          recipient_id: applicantUser.id,
+          recipient_type: 'individual',
+          metadata: { leaveRequestId, action: 'approving' },
+          created_at: now,
+        });
+      }
 
       return NextResponse.json(success({ 
         status: 'pending', 
@@ -182,17 +198,20 @@ export const POST = protectedRoute(async (
     // === 审批通过后，触发后续流程 ===
     
     // 1. 通知申请人审批通过
-    await client.from('messages').insert({
-      title: `【已通过】请假申请`,
-      content: `您的${leaveRequest.type}申请（${leaveRequest.start_date}至${leaveRequest.end_date}）已审批通过。`,
-      event: 'leave_approval',
-      priority: 'high',
-      sender_id: user.employeeId,
-      sender_name: user.name,
-      sender_role: user.role,
-      recipient_id: leaveRequest.applicant_id,
-      metadata: { leaveRequestId, action: 'approved' },
-    });
+    if (applicantUser) {
+      await client.from('messages').insert({
+        title: `【已通过】请假申请`,
+        content: `您的${leaveRequest.type}申请（${leaveRequest.start_date}至${leaveRequest.end_date}）已审批通过。`,
+        type: 'leave_approved',
+        priority: 'high',
+        sender_id: approverUUID,
+        sender_name: user.name,
+        recipient_id: applicantUser.id,
+        recipient_type: 'individual',
+        metadata: { leaveRequestId, action: 'approved' },
+        created_at: now,
+      });
+    }
 
     // 2. 如果需要调课，创建调课任务并通知年段长
     if (leaveRequest.need_adjustment && leaveRequest.affected_slots?.length > 0) {
@@ -202,46 +221,46 @@ export const POST = protectedRoute(async (
       const applicantGrade = leaveRequest.applicant_grade;
       
       // 查找对应年级的年段长（兼任角色）
-      let gradeLeaderId = null;
+      let gradeLeaderUUID = null;
       let gradeLeaderName = null;
       
       if (applicantGrade) {
         // 从 users 表查找 additional_roles 包含 'grade_leader' 且 managed_grades 包含该年级的用户
         const { data: gradeLeaders } = await client
           .from('users')
-          .select('employee_id, name')
+          .select('id, employee_id, name')
           .contains('additional_roles', ['grade_leader'])
           .contains('managed_grades', [applicantGrade]);
         
         if (gradeLeaders && gradeLeaders.length > 0) {
-          gradeLeaderId = gradeLeaders[0].employee_id;
+          gradeLeaderUUID = gradeLeaders[0].id;
           gradeLeaderName = gradeLeaders[0].name;
         }
       }
 
       // 如果没找到年级对应的年段长，查找所有年段长
-      if (!gradeLeaderId) {
+      if (!gradeLeaderUUID) {
         const { data: allGradeLeaders } = await client
           .from('users')
-          .select('employee_id, name')
+          .select('id, employee_id, name')
           .contains('additional_roles', ['grade_leader']);
         
         if (allGradeLeaders && allGradeLeaders.length > 0) {
-          gradeLeaderId = allGradeLeaders[0].employee_id;
+          gradeLeaderUUID = allGradeLeaders[0].id;
           gradeLeaderName = allGradeLeaders[0].name;
         }
       }
 
       // 如果还是没有年段长，通知教务处
-      if (!gradeLeaderId) {
+      if (!gradeLeaderUUID) {
         const { data: academicStaff } = await client
           .from('users')
-          .select('employee_id, name')
+          .select('id, employee_id, name')
           .eq('role', 'academic_vice_principal')
           .limit(1);
         
         if (academicStaff && academicStaff.length > 0) {
-          gradeLeaderId = academicStaff[0].employee_id;
+          gradeLeaderUUID = academicStaff[0].id;
           gradeLeaderName = academicStaff[0].name;
         }
       }
@@ -276,7 +295,7 @@ export const POST = protectedRoute(async (
 
       if (adjustError) {
         console.error('创建调课记录失败:', adjustError);
-      } else if (gradeLeaderId) {
+      } else if (gradeLeaderUUID) {
         // 更新请假申请的调课状态
         await client
           .from('leave_requests')
@@ -290,17 +309,18 @@ export const POST = protectedRoute(async (
         await client.from('messages').insert({
           title: `【调课任务】${leaveRequest.applicant_name}请假调课`,
           content: `${leaveRequest.applicant_name}的${leaveRequest.type}申请已审批通过，需安排${affectedSlots.length}节课的代课教师。请及时处理。`,
-          event: 'course_adjustment',
+          type: 'course_adjustment',
           priority: 'high',
-          sender_id: 'system',
+          sender_id: null, // 系统消息
           sender_name: '系统通知',
-          sender_role: 'system',
-          recipient_id: gradeLeaderId,
+          recipient_id: gradeLeaderUUID,
+          recipient_type: 'individual',
           metadata: {
             leaveRequestId,
             adjustmentIds: insertedAdjustments?.map((a: any) => a.id),
             affectedSlotsCount: affectedSlots.length,
           },
+          created_at: now,
         });
       }
     }
