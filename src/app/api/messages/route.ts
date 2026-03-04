@@ -27,6 +27,28 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
   const searchFilter = searchParams.get('search') || undefined;
   const unreadOnly = searchParams.get('unreadOnly') === 'true';
 
+  // 如果用户未登录，返回空列表而不是错误
+  if (!user) {
+    return NextResponse.json({
+      success: true,
+      data: [],
+      pagination: {
+        page,
+        pageSize,
+        total: 0,
+        totalPages: 0,
+      },
+      statistics: {
+        total: 0,
+        unread: 0,
+        read: 0,
+        archived: 0,
+        byEvent: {},
+        byPriority: {},
+      },
+    });
+  }
+
   const userId = user.id;
   const userRole = user.role;
 
@@ -251,5 +273,5 @@ const handleSendMessage = async (request: NextRequest, { user }: ExtendedRouteCo
   }
 };
 
-export const GET = protectedRoute(handleGetMessages);
+export const GET = protectedRoute(handleGetMessages, { optional: true });
 export const POST = protectedRoute(handleSendMessage);

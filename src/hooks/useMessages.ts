@@ -160,7 +160,6 @@ export function useMessages(_initialFilters?: MessageQueryParams): UseMessagesRe
   // Refs
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(true);
-  const initialLoadDone = useRef(false);
 
   // 计算属性
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -212,20 +211,9 @@ export function useMessages(_initialFilters?: MessageQueryParams): UseMessagesRe
     }
   }, [filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, page, pageSize]);
 
-  // 初始加载 - 只执行一次
+  // 统一处理加载：初始加载和状态变化时都触发
   useEffect(() => {
-    if (!initialLoadDone.current) {
-      initialLoadDone.current = true;
-      fetchMessages();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 当筛选或分页变化时触发请求（跳过初始渲染）
-  useEffect(() => {
-    if (initialLoadDone.current) {
-      fetchMessages();
-    }
+    fetchMessages();
   }, [fetchMessages]);
 
   // 清理
