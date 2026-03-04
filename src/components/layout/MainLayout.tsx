@@ -114,6 +114,7 @@ const academicNav: NavItem[] = [
   { name: '班级管理', href: '/academic/classes', icon: School, description: '班级信息管理' },
   { name: '手动排课', href: '/academic/manual-schedule', icon: Edit3, description: '编排班级课表', 
     children: [
+      { name: '全校课表', href: '/academic/school-schedule', icon: Calendar, description: '全校课表总览', badge: '总览' },
       { name: '一年级', href: '/academic/manual-schedule/1', icon: Edit3, description: '一年级排课' },
       { name: '二年级', href: '/academic/manual-schedule/2', icon: Edit3, description: '二年级排课' },
       { name: '三年级', href: '/academic/manual-schedule/3', icon: Edit3, description: '三年级排课' },
