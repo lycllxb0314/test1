@@ -208,6 +208,10 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
           approvers: body.approverSelection,
           signType: body.approverSelection[0]?.signType || 'countersign',
           applicant_employee_id: applicantId,
+          // 添加调课相关信息
+          needAdjustment: body.needAdjustment || false,
+          affectedSlots: body.affectedSlots || [],
+          applicantGrade: applicantGrade,
         },
         created_at: new Date().toISOString(),
       };

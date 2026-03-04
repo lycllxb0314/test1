@@ -301,14 +301,26 @@ async function completeApproval(instance: any, now: string) {
 
   // 根据业务类型更新对应表
   if (instance.business_type === 'leave_request') {
+    // 检查是否需要调课
+    const needAdjustment = instance.metadata?.needAdjustment || instance.metadata?.need_adjustment;
+    const affectedSlots = instance.metadata?.affectedSlots || instance.metadata?.affected_slots || [];
+    
     // 更新请假申请状态
+    const updateData: any = {
+      status: 'approved',
+      approved_at: now,
+      updated_at: now,
+      current_step: 2, // 进入调课阶段
+    };
+    
+    // 如果需要调课，设置调课状态
+    if (needAdjustment && affectedSlots.length > 0) {
+      updateData.adjustment_status = 'pending';
+    }
+    
     await supabase
       .from('leave_requests')
-      .update({
-        status: 'approved',
-        approved_at: now,
-        updated_at: now,
-      })
+      .update(updateData)
       .eq('id', instance.business_id);
     
     // 发送通知给申请人
@@ -324,7 +336,7 @@ async function completeApproval(instance: any, now: string) {
     });
     
     // 如果需要调课，创建调课记录并通知年段长
-    if (instance.metadata?.needAdjustment || instance.metadata?.need_adjustment) {
+    if (needAdjustment && affectedSlots.length > 0) {
       await createCourseAdjustmentsAndNotify(instance, supabase);
     }
   } else {

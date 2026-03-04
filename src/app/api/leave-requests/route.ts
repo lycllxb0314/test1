@@ -206,6 +206,10 @@ export async function POST(request: NextRequest) {
         approvers: approverSelection,
         signType: signType,
         applicant_employee_id: body.applicantId, // 保存工号
+        // 添加调课相关信息
+        needAdjustment: body.needAdjustment || false,
+        affectedSlots: body.affectedSlots || [],
+        applicantGrade: body.applicantGrade || null,
       },
       created_at: new Date().toISOString(),
     };
