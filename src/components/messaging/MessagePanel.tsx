@@ -35,8 +35,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import {
   Bell,
   Search,
@@ -50,7 +48,6 @@ import {
   Trash2,
   Mail,
   MailOpen,
-  Send,
   Users,
   User,
   Clock,
@@ -77,7 +74,6 @@ import type {
   MessageEvent, 
   MessagePriority, 
   MessageStatus,
-  SendMessageRequest,
 } from '@/types/messages';
 import { MESSAGE_EVENT_CONFIGS } from '@/types/messages';
 
@@ -110,16 +106,6 @@ interface MessagePanelProps {
   onDelete?: (id: string) => void;
   onMarkAllAsRead?: () => void;
   onPageChange?: (page: number) => void;
-  /** 发送消息 */
-  onSendMessage?: (request: SendMessageRequest) => Promise<boolean>;
-  /** 是否显示发送按钮 */
-  showSendButton?: boolean;
-  /** 可选的接收者列表（用于发送消息） */
-  recipients?: {
-    roles?: Array<{ id: string; name: string }>;
-    classes?: Array<{ id: string; name: string }>;
-    users?: Array<{ id: string; name: string; role?: string }>;
-  };
   /** 样式变体 */
   variant?: 'default' | 'compact' | 'sidebar';
 }
@@ -178,9 +164,6 @@ export function MessagePanel({
   onDelete,
   onMarkAllAsRead,
   onPageChange,
-  onSendMessage,
-  showSendButton = false,
-  recipients,
   variant = 'default',
 }: MessagePanelProps) {
   // 状态
@@ -189,20 +172,6 @@ export function MessagePanel({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedMessage, setSelectedMessage] = useState<UserMessage | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  
-  // 发送消息表单
-  const [sendForm, setSendForm] = useState({
-    title: '',
-    content: '',
-    event: 'personal_message' as MessageEvent,
-    priority: 'normal' as MessagePriority,
-    recipientType: 'individual' as 'all' | 'role' | 'class' | 'individual',
-    selectedRoles: [] as string[],
-    selectedClasses: [] as string[],
-    selectedUsers: [] as string[],
-  });
-  const [sending, setSending] = useState(false);
 
   // 筛选消息
   const filteredMessages = useMemo(() => {
@@ -246,56 +215,6 @@ export function MessagePanel({
     setDetailDialogOpen(true);
     if (message.status === 'unread' && onMarkAsRead) {
       onMarkAsRead(message.id);
-    }
-  };
-
-  // 发送消息
-  const handleSendMessage = async () => {
-    if (!onSendMessage) return;
-    if (!sendForm.title.trim() || !sendForm.content.trim()) return;
-
-    setSending(true);
-    try {
-      let recipients: SendMessageRequest['recipients'] = { type: 'individual', userIds: [] };
-
-      switch (sendForm.recipientType) {
-        case 'all':
-          recipients = { type: 'all' };
-          break;
-        case 'role':
-          recipients = { type: 'role', roles: sendForm.selectedRoles };
-          break;
-        case 'class':
-          recipients = { type: 'class', classIds: sendForm.selectedClasses };
-          break;
-        case 'individual':
-          recipients = { type: 'individual', userIds: sendForm.selectedUsers };
-          break;
-      }
-
-      const success = await onSendMessage({
-        title: sendForm.title,
-        content: sendForm.content,
-        event: sendForm.event,
-        priority: sendForm.priority,
-        recipients,
-      });
-
-      if (success) {
-        setSendDialogOpen(false);
-        setSendForm({
-          title: '',
-          content: '',
-          event: 'personal_message',
-          priority: 'normal',
-          recipientType: 'individual',
-          selectedRoles: [],
-          selectedClasses: [],
-          selectedUsers: [],
-        });
-      }
-    } finally {
-      setSending(false);
     }
   };
 
@@ -399,12 +318,6 @@ export function MessagePanel({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {showSendButton && (
-                <Button size="sm" onClick={() => setSendDialogOpen(true)}>
-                  <Send className="h-4 w-4 mr-1" />
-                  发送消息
-                </Button>
-              )}
               {unreadCount > 0 && onMarkAllAsRead && (
                 <Button variant="outline" size="sm" onClick={onMarkAllAsRead}>
                   <CheckCheck className="h-4 w-4 mr-1" />
@@ -570,30 +483,28 @@ export function MessagePanel({
 
           {/* 分页 */}
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
-                第 {pagination.page} / {pagination.totalPages} 页，共 {pagination.total} 条
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pagination.page <= 1}
-                  onClick={() => onPageChange?.(pagination.page - 1)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  上一页
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pagination.page >= pagination.totalPages}
-                  onClick={() => onPageChange?.(pagination.page + 1)}
-                >
-                  下一页
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page <= 1}
+                onClick={() => onPageChange?.(pagination.page - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                上一页
+              </Button>
+              <span className="text-sm text-muted-foreground px-4">
+                {pagination.page} / {pagination.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => onPageChange?.(pagination.page + 1)}
+              >
+                下一页
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           )}
         </CardContent>
@@ -625,114 +536,6 @@ export function MessagePanel({
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               关闭
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 发送消息对话框 */}
-      <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="h-5 w-5" />
-              发送消息
-            </DialogTitle>
-            <DialogDescription>
-              选择接收者并发送消息
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>接收对象</Label>
-              <Select 
-                value={sendForm.recipientType} 
-                onValueChange={(v) => setSendForm(prev => ({ ...prev, recipientType: v as typeof sendForm.recipientType }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全员通知</SelectItem>
-                  <SelectItem value="role">按角色</SelectItem>
-                  <SelectItem value="class">按班级</SelectItem>
-                  <SelectItem value="individual">指定人员</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>消息类型</Label>
-                <Select 
-                  value={sendForm.event} 
-                  onValueChange={(v) => setSendForm(prev => ({ ...prev, event: v as MessageEvent }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="personal_message">个人消息</SelectItem>
-                    <SelectItem value="system_announcement">系统公告</SelectItem>
-                    <SelectItem value="activity_notice">活动通知</SelectItem>
-                    <SelectItem value="task_assign">任务分配</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>优先级</Label>
-                <Select 
-                  value={sendForm.priority} 
-                  onValueChange={(v) => setSendForm(prev => ({ ...prev, priority: v as MessagePriority }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">低</SelectItem>
-                    <SelectItem value="normal">普通</SelectItem>
-                    <SelectItem value="high">高</SelectItem>
-                    <SelectItem value="urgent">紧急</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>消息标题</Label>
-              <Input
-                value={sendForm.title}
-                onChange={(e) => setSendForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="请输入消息标题"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>消息内容</Label>
-              <Textarea
-                value={sendForm.content}
-                onChange={(e) => setSendForm(prev => ({ ...prev, content: e.target.value }))}
-                placeholder="请输入消息内容"
-                rows={5}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSendDialogOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleSendMessage} disabled={sending}>
-              {sending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  发送中...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  发送
-                </>
-              )}
             </Button>
           </DialogFooter>
         </DialogContent>

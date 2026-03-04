@@ -248,8 +248,6 @@ export default function SecretaryDashboard() {
             onDelete={deleteMessage}
             onMarkAllAsRead={markAllAsRead}
             onPageChange={goToPage}
-            onSendMessage={sendMessage}
-            showSendButton={true}
           />
         </TabsContent>
 

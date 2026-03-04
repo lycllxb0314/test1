@@ -277,8 +277,6 @@ export default function PrincipalDashboard() {
             onDelete={deleteMessage}
             onMarkAllAsRead={markAllAsRead}
             onPageChange={goToPage}
-            onSendMessage={sendMessage}
-            showSendButton={true}
           />
         </TabsContent>
 

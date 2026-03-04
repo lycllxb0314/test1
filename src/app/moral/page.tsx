@@ -246,8 +246,6 @@ export default function MoralDashboard() {
             onDelete={deleteMessage}
             onMarkAllAsRead={markAllAsRead}
             onPageChange={goToPage}
-            onSendMessage={sendMessage}
-            showSendButton={true}
           />
         </TabsContent>
 

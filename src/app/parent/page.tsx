@@ -161,7 +161,6 @@ export default function ParentDashboard() {
         onDelete={deleteMessage}
         onMarkAllAsRead={markAllAsRead}
         onPageChange={goToPage}
-        showSendButton={false}
       />
     </div>
   );
