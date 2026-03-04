@@ -34,6 +34,71 @@ export type AdministrativeRole =
   | 'research_group_deputy_leader' // 教研组副组长
   | 'young_pioneer_counselor';  // 少先队大队辅导员
 
+// ==================== 群组容器 ====================
+
+/** 群组类型（行政部门） */
+export type GroupType = 
+  | 'principal_office'    // 校长室
+  | 'academic_office'     // 教务处
+  | 'moral_office'        // 德育处
+  | 'general_office';     // 总务处
+
+/** 群组配置 */
+export interface GroupConfig {
+  id: GroupType;
+  name: string;
+  description: string;
+  /** 群组拥有的模块权限 */
+  modulePermissions: Partial<Record<ModuleType, Permission[]>>;
+  /** 自动包含的角色（这些角色的用户自动加入群组） */
+  autoIncludeRoles: UserRole[];
+  /** 对应的行政职务（该职务负责人自动成为群组管理员） */
+  directorRole?: AdministrativeRole;
+}
+
+/** 群组信息 */
+export interface GroupInfo {
+  id: string;
+  type: GroupType;
+  name: string;
+  description?: string;
+  /** 群组管理员（部门负责人） */
+  directorId?: string;
+  directorName?: string;
+  /** 群组成员数量 */
+  memberCount: number;
+  /** 创建时间 */
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 群组成员 */
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  groupType: GroupType;
+  groupName: string;
+  userId: string;
+  userName: string;
+  userRole: UserRole;
+  employeeId?: string;
+  /** 是否为群组管理员 */
+  isAdmin: boolean;
+  /** 加入方式：auto=自动加入（因角色），manual=手动添加 */
+  joinType: 'auto' | 'manual';
+  /** 加入时间 */
+  joinedAt: string;
+}
+
+/** 用户群组信息（嵌入用户数据） */
+export interface UserGroupMembership {
+  groupId: string;
+  groupType: GroupType;
+  groupName: string;
+  isAdmin: boolean;
+  joinType: 'auto' | 'manual';
+}
+
 // 角色配置
 export interface RoleConfig {
   id: UserRole;
@@ -3832,3 +3897,53 @@ export interface ComprehensiveTabData {
     starCount: number;
   }[];
 }
+
+// ==================== 群组配置常量 ====================
+
+/** 群组配置映射 */
+export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
+  principal_office: {
+    id: 'principal_office',
+    name: '校长室',
+    description: '学校最高行政管理部门',
+    modulePermissions: {
+      academic: ['view', 'edit', 'admin'],
+      moral: ['view', 'edit', 'admin'],
+      general: ['view', 'edit', 'admin'],
+      teacher: ['view', 'edit', 'admin'],
+      parent: ['view', 'edit', 'admin'],
+    },
+    autoIncludeRoles: ['principal', 'secretary', 'vice_principal'],
+    directorRole: undefined, // 校长室没有单一负责人
+  },
+  academic_office: {
+    id: 'academic_office',
+    name: '教务处',
+    description: '负责教学管理、课程安排、教师培训等',
+    modulePermissions: {
+      academic: ['view', 'edit', 'admin'],
+    },
+    autoIncludeRoles: [],
+    directorRole: 'academic_director',
+  },
+  moral_office: {
+    id: 'moral_office',
+    name: '德育处',
+    description: '负责学生德育、班级管理、少先队等',
+    modulePermissions: {
+      moral: ['view', 'edit', 'admin'],
+    },
+    autoIncludeRoles: [],
+    directorRole: 'moral_director',
+  },
+  general_office: {
+    id: 'general_office',
+    name: '总务处',
+    description: '负责后勤保障、资产管理、安全保卫等',
+    modulePermissions: {
+      general: ['view', 'edit', 'admin'],
+    },
+    autoIncludeRoles: [],
+    directorRole: 'general_director',
+  },
+};

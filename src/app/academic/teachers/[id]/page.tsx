@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 import { TeacherProfile } from '@/types';
 import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement } from '@/hooks';
+import { GROUP_CONFIGS, type GroupType, type UserGroupMembership } from '@/types';
 import { toast } from 'sonner';
 import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
 
@@ -170,6 +171,10 @@ export default function TeacherDetailPage() {
   const [achievements, setAchievements] = useState<TeacherAchievement[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
   
+  // 群组数据
+  const [userGroups, setUserGroups] = useState<UserGroupMembership[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  
   // 对话框状态
   const [dialogType, setDialogType] = useState<'honor' | 'training' | 'achievement' | 'record' | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -197,10 +202,53 @@ export default function TeacherDetailPage() {
     }
   }, [teacherId, fetchRecords, fetchHonors, fetchTrainings, fetchAchievements]);
   
+  // 加载用户群组数据
+  const loadUserGroups = useCallback(async () => {
+    if (!teacherId) return;
+    setLoadingGroups(true);
+    try {
+      const response = await fetch(`/api/users/${teacherId}/groups`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserGroups(data.groups || []);
+      }
+    } catch (err) {
+      console.error('加载用户群组失败:', err);
+    } finally {
+      setLoadingGroups(false);
+    }
+  }, [teacherId]);
+  
+  // 更新用户群组
+  const updateUserGroups = useCallback(async (groupTypes: GroupType[]) => {
+    if (!teacherId) return false;
+    try {
+      const response = await fetch(`/api/users/${teacherId}/groups`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groups: groupTypes }),
+      });
+      if (response.ok) {
+        await loadUserGroups();
+        toast.success('部门设置已更新');
+        return true;
+      } else {
+        const error = await response.json();
+        toast.error(error.error || '更新失败');
+        return false;
+      }
+    } catch (err) {
+      console.error('更新用户群组失败:', err);
+      toast.error('更新失败');
+      return false;
+    }
+  }, [teacherId, loadUserGroups]);
+  
   // 初始化加载
   useEffect(() => {
     loadTeacherDetails();
-  }, [loadTeacherDetails]);
+    loadUserGroups();
+  }, [loadTeacherDetails, loadUserGroups]);
   
   const updateProfile = async (data: Partial<TeacherInfo>) => {
     return await updateTeacher(teacherId, data);
@@ -850,6 +898,79 @@ export default function TeacherDetailPage() {
                     <p className="font-medium">{teacher.isHeadTeacher ? `是（${teacher.headTeacherClassName || '未分配班级'}）` : '否'}</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+            
+            {/* 部门设置 */}
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Building className="h-5 w-5 text-primary" />
+                  部门设置
+                </CardTitle>
+                <CardDescription>
+                  归入部门后，将继承部门负责人权限（如归入教务处可获得教务管理权限）
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {loadingGroups ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {Object.entries(GROUP_CONFIGS).map(([type, config]) => {
+                      const isInGroup = userGroups.some(g => g.groupType === type);
+                      const groupInfo = userGroups.find(g => g.groupType === type);
+                      const isAuto = groupInfo?.joinType === 'auto';
+                      
+                      return (
+                        <div 
+                          key={type}
+                          className={`flex items-center justify-between p-3 rounded-lg border ${
+                            isInGroup ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${isInGroup ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                            <div>
+                              <p className="font-medium text-sm">{config.name}</p>
+                              <p className="text-xs text-muted-foreground">{config.description}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isAuto && (
+                              <Badge variant="outline" className="text-xs">自动</Badge>
+                            )}
+                            {isInGroup ? (
+                              <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
+                                已归入
+                              </Badge>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={async () => {
+                                  const currentTypes = userGroups.map(g => g.groupType);
+                                  const newTypes = [...currentTypes, type as GroupType];
+                                  await updateUserGroups(newTypes);
+                                }}
+                              >
+                                归入
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {userGroups.length > 0 && (
+                      <div className="pt-2 text-xs text-muted-foreground">
+                        <p>💡 归入部门后，将自动获得该部门对应模块的管理权限</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

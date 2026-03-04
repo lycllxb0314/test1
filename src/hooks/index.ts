@@ -142,3 +142,18 @@ export {
   type MessageRecipient,
 } from './useMessages';
 export { MESSAGE_EVENT_CONFIGS } from '@/types/messages';
+
+// 群组系统 Hook
+export {
+  useGroups,
+  // 类型
+  type GroupType,
+  type GroupInfo,
+  type GroupMember,
+  type GroupConfig,
+  type UserGroupMembership,
+  type GroupFilters,
+  type GroupStatistics,
+  type UseGroupsReturn,
+} from './useGroups';
+export { GROUP_CONFIGS } from '@/types';
