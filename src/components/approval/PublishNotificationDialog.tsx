@@ -764,56 +764,58 @@ export function PublishNotificationDialog({
             </Card>
           )}
 
-          {/* 接收对象 */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">接收对象</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Tabs
-                value={recipientConfig.type}
-                onValueChange={(v) => setRecipientConfig({ type: v as RecipientConfig['type'] })}
-              >
-                <TabsList className="grid grid-cols-5 h-auto">
-                  {recipientTypes.includes('all') && (
-                    <TabsTrigger value="all" className="text-xs">
-                      <Users className="h-3 w-3 mr-1" />
-                      全员
-                    </TabsTrigger>
-                  )}
-                  {recipientTypes.includes('role') && (
-                    <TabsTrigger value="role" className="text-xs">
-                      <UserCheck className="h-3 w-3 mr-1" />
-                      角色
-                    </TabsTrigger>
-                  )}
-                  {recipientTypes.includes('class') && (
-                    <TabsTrigger value="class" className="text-xs">
-                      <GraduationCap className="h-3 w-3 mr-1" />
-                      班级
-                    </TabsTrigger>
-                  )}
-                  {recipientTypes.includes('individual') && (
-                    <TabsTrigger value="individual" className="text-xs">
-                      个人
-                    </TabsTrigger>
-                  )}
-                  {recipientTypes.includes('group') && (
-                    <TabsTrigger value="group" className="text-xs">
-                      <Building2 className="h-3 w-3 mr-1" />
-                      部门
-                    </TabsTrigger>
-                  )}
-                </TabsList>
+          {/* 接收对象 - 仅内部通知需要选择接收对象 */}
+          {type === 'internal_notice' && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">接收对象</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Tabs
+                  value={recipientConfig.type}
+                  onValueChange={(v) => setRecipientConfig({ type: v as RecipientConfig['type'] })}
+                >
+                  <TabsList className="grid grid-cols-5 h-auto">
+                    {recipientTypes.includes('all') && (
+                      <TabsTrigger value="all" className="text-xs">
+                        <Users className="h-3 w-3 mr-1" />
+                        全员
+                      </TabsTrigger>
+                    )}
+                    {recipientTypes.includes('role') && (
+                      <TabsTrigger value="role" className="text-xs">
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        角色
+                      </TabsTrigger>
+                    )}
+                    {recipientTypes.includes('class') && (
+                      <TabsTrigger value="class" className="text-xs">
+                        <GraduationCap className="h-3 w-3 mr-1" />
+                        班级
+                      </TabsTrigger>
+                    )}
+                    {recipientTypes.includes('individual') && (
+                      <TabsTrigger value="individual" className="text-xs">
+                        个人
+                      </TabsTrigger>
+                    )}
+                    {recipientTypes.includes('group') && (
+                      <TabsTrigger value="group" className="text-xs">
+                        <Building2 className="h-3 w-3 mr-1" />
+                        部门
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
 
-                {recipientTypes.map((t) => (
-                  <TabsContent key={t} value={t} className="mt-4">
-                    {renderRecipientSelector()}
-                  </TabsContent>
-                ))}
-              </Tabs>
-            </CardContent>
-          </Card>
+                  {recipientTypes.map((t) => (
+                    <TabsContent key={t} value={t} className="mt-4">
+                      {renderRecipientSelector()}
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </CardContent>
+            </Card>
+          )}
 
           {/* 外部发布选项 */}
           {showExternalOption && (

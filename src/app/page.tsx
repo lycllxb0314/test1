@@ -171,42 +171,43 @@ export default function HomePage() {
   }, []);
 
   // 获取门户数据
-  useEffect(() => {
-    const fetchPortalData = async () => {
-      try {
-        const response = await fetch('/api/portal/announcements?limit=10');
-        const result = await response.json();
-        
-        if (result.success) {
-          // 映射新闻数据
-          if (result.data.news && result.data.news.length > 0) {
-            setNewsItems(result.data.news.map((item: any) => ({
-              id: item.id,
-              title: item.title,
-              summary: item.summary || '',
-              date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
-              category: item.category || '校园新闻',
-              level: item.mediaLevel,
-              image: item.coverImage || '/images/campus/school-assembly.png',
-            })));
-          }
-          
-          // 映射公告数据
-          if (result.data.announcements && result.data.announcements.length > 0) {
-            setNotices(result.data.announcements.map((item: any) => ({
-              id: item.id,
-              title: item.title,
-              date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
-            })));
-          }
+  const fetchPortalData = async () => {
+    try {
+      const response = await fetch('/api/portal/announcements?limit=10');
+      const result = await response.json();
+      
+      if (result.success) {
+        // 映射新闻数据
+        if (result.data.news && result.data.news.length > 0) {
+          setNewsItems(result.data.news.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            summary: item.summary || '',
+            date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
+            category: item.category || '校园新闻',
+            level: item.mediaLevel,
+            image: item.coverImage || '/images/campus/school-assembly.png',
+          })));
         }
-      } catch (error) {
-        console.error('Failed to fetch portal data:', error);
-      } finally {
-        setDataLoading(false);
+        
+        // 映射公告数据
+        if (result.data.announcements && result.data.announcements.length > 0) {
+          setNotices(result.data.announcements.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
+          })));
+        }
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch portal data:', error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
 
+  // 初始加载门户数据
+  useEffect(() => {
     fetchPortalData();
   }, []);
 
