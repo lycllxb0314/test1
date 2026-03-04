@@ -1,7 +1,5 @@
 /**
- * 消息系统 Hook v4
- * 
- * 简化版本，避免无限循环问题
+ * 消息系统 Hook v5 - 简化版
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -17,7 +15,6 @@ import type {
   MessageRecipient,
 } from '@/types/messages';
 
-// 重新导出类型
 export type {
   UserMessage,
   SendMessageRequest,
@@ -28,8 +25,6 @@ export type {
   MessageStatus,
   MessageRecipient,
 };
-
-// ==================== 辅助函数 ====================
 
 export function getMessageEventLabel(event: MessageEvent): string {
   const labels: Record<MessageEvent, string> = {
@@ -58,44 +53,20 @@ export function getMessageEventLabel(event: MessageEvent): string {
 }
 
 export function getMessagePriorityLabel(priority: MessagePriority): string {
-  const labels: Record<MessagePriority, string> = {
-    low: '低',
-    normal: '普通',
-    high: '高',
-    urgent: '紧急',
-  };
-  return labels[priority] || priority;
+  return { low: '低', normal: '普通', high: '高', urgent: '紧急' }[priority] || priority;
 }
 
 export function getMessagePriorityColor(priority: MessagePriority): string {
-  const colors: Record<MessagePriority, string> = {
-    low: 'text-muted-foreground',
-    normal: 'text-foreground',
-    high: 'text-orange-500',
-    urgent: 'text-red-500',
-  };
-  return colors[priority] || 'text-foreground';
+  return { low: 'text-muted-foreground', normal: 'text-foreground', high: 'text-orange-500', urgent: 'text-red-500' }[priority] || 'text-foreground';
 }
 
 export function getMessageStatusLabel(status: MessageStatus): string {
-  const labels: Record<MessageStatus, string> = {
-    unread: '未读',
-    read: '已读',
-    archived: '已归档',
-  };
-  return labels[status] || status;
+  return { unread: '未读', read: '已读', archived: '已归档' }[status] || status;
 }
 
 export function getMessageStatusColor(status: MessageStatus): string {
-  const colors: Record<MessageStatus, string> = {
-    unread: 'bg-blue-500',
-    read: 'bg-green-500',
-    archived: 'bg-gray-500',
-  };
-  return colors[status] || 'bg-gray-500';
+  return { unread: 'bg-blue-500', read: 'bg-green-500', archived: 'bg-gray-500' }[status] || 'bg-gray-500';
 }
-
-// ==================== 类型定义 ====================
 
 export interface UseMessagesReturn {
   messages: UserMessage[];
@@ -133,22 +104,16 @@ export interface UseMessagesReturn {
 }
 
 const DEFAULT_STATISTICS: MessageStatistics = {
-  total: 0,
-  unread: 0,
-  read: 0,
-  archived: 0,
+  total: 0, unread: 0, read: 0, archived: 0,
   byEvent: {} as Record<MessageEvent, number>,
   byPriority: {} as Record<MessagePriority, number>,
 };
 
 const DEFAULT_FILTERS: MessageQueryParams = {};
 
-// ==================== Hook 实现 ====================
-
-export function useMessages(_initialFilters?: MessageQueryParams): UseMessagesReturn {
-  // === 状态 ===
+export function useMessages(): UseMessagesReturn {
   const [messages, setMessages] = useState<UserMessage[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statistics, setStatistics] = useState<MessageStatistics>(DEFAULT_STATISTICS);
   const [page, setPage] = useState(1);
@@ -156,82 +121,76 @@ export function useMessages(_initialFilters?: MessageQueryParams): UseMessagesRe
   const [total, setTotal] = useState(0);
   const [filters, setFiltersState] = useState<MessageQueryParams>(DEFAULT_FILTERS);
   const [isPolling, setIsPolling] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Refs
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const mountedRef = useRef(true);
 
-  // 计算属性
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  // === 获取消息列表 ===
-  const fetchMessages = useCallback(async () => {
-    if (!mountedRef.current) return;
+  // 主请求逻辑 - 使用 useEffect 直接发起请求，不使用 useCallback
+  useEffect(() => {
+    let cancelled = false;
     
-    setLoading(true);
-    setError(null);
+    const doFetch = async () => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const params = new URLSearchParams();
-      if (filters.event) params.append('event', filters.event);
-      if (filters.status) params.append('status', filters.status);
-      if (filters.priority) params.append('priority', filters.priority);
-      if (filters.search) params.append('search', filters.search);
-      if (filters.unreadOnly) params.append('unreadOnly', 'true');
-      params.append('page', page.toString());
-      params.append('pageSize', pageSize.toString());
+      try {
+        const params = new URLSearchParams();
+        if (filters.event) params.append('event', filters.event);
+        if (filters.status) params.append('status', filters.status);
+        if (filters.priority) params.append('priority', filters.priority);
+        if (filters.search) params.append('search', filters.search);
+        if (filters.unreadOnly) params.append('unreadOnly', 'true');
+        params.append('page', page.toString());
+        params.append('pageSize', pageSize.toString());
 
-      const response = await fetch(`/api/messages?${params.toString()}`, {
-        credentials: 'include',
-      });
+        const response = await fetch(`/api/messages?${params.toString()}`, {
+          credentials: 'include',
+        });
 
-      if (!mountedRef.current) return;
+        if (cancelled) return;
 
-      const result = await response.json();
+        const result = await response.json();
 
-      if (result.success) {
-        setMessages(result.data || []);
-        setTotal(result.pagination?.total || 0);
-        setStatistics(result.statistics || DEFAULT_STATISTICS);
-        setError(null);
-      } else {
-        setMessages([]);
-        setTotal(0);
-        setError(result.error || '获取消息失败');
-      }
-    } catch (err) {
-      if (!mountedRef.current) return;
-      console.error('Failed to fetch messages:', err);
-      setMessages([]);
-      setError(err instanceof Error ? err.message : '获取消息失败');
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, page, pageSize]);
-
-  // 统一处理加载：初始加载和状态变化时都触发
-  useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
-
-  // 清理
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+        if (!cancelled) {
+          if (result.success) {
+            setMessages(result.data || []);
+            setTotal(result.pagination?.total || 0);
+            setStatistics(result.statistics || DEFAULT_STATISTICS);
+            setError(null);
+          } else {
+            setMessages([]);
+            setTotal(0);
+            setError(result.error || '获取消息失败');
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to fetch messages:', err);
+          setMessages([]);
+          setError(err instanceof Error ? err.message : '获取消息失败');
+          setLoading(false);
+        }
       }
     };
+
+    doFetch();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page, pageSize, filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, refreshKey]);
+
+  // 手动刷新
+  const refetch = useCallback(async () => {
+    setRefreshKey(k => k + 1);
   }, []);
 
-  // === 手动刷新 ===
-  const refetch = useCallback(async () => {
-    await fetchMessages();
-  }, [fetchMessages]);
+  const fetchMessages = refetch;
 
-  // === 分页操作 ===
+  // 分页操作
   const goToPage = useCallback((newPage: number) => {
     setPage(Math.max(1, Math.min(newPage, totalPages)));
   }, [totalPages]);
@@ -249,7 +208,7 @@ export function useMessages(_initialFilters?: MessageQueryParams): UseMessagesRe
     setPage(1);
   }, []);
 
-  // === 筛选操作 ===
+  // 筛选操作
   const setFilters = useCallback((newFilters: Partial<MessageQueryParams>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }));
     setPage(1);
@@ -260,7 +219,7 @@ export function useMessages(_initialFilters?: MessageQueryParams): UseMessagesRe
     setPage(1);
   }, []);
 
-  // === 发送消息 ===
+  // 发送消息
   const sendMessage = useCallback(async (request: SendMessageRequest): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await fetch('/api/messages', {
@@ -269,214 +228,100 @@ export function useMessages(_initialFilters?: MessageQueryParams): UseMessagesRe
         credentials: 'include',
         body: JSON.stringify(request),
       });
-
       const result = await response.json();
-
       if (result.success) {
-        await refetch();
+        refetch();
         return { success: true };
-      } else {
-        return { success: false, error: result.error || '发送失败' };
       }
+      return { success: false, error: result.error || '发送失败' };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : '发送失败' };
     }
   }, [refetch]);
 
-  // === 状态更新操作 ===
+  // 状态更新操作
   const markAsRead = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/read`, { 
-        method: 'PATCH',
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/messages/${messageId}/read`, { method: 'PATCH', credentials: 'include' });
       const result = await response.json();
-      if (result.success) {
-        await refetch();
-        return true;
-      }
+      if (result.success) { refetch(); return true; }
       return false;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }, [refetch]);
 
   const markAsUnread = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/unread`, { 
-        method: 'PATCH',
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/messages/${messageId}/unread`, { method: 'PATCH', credentials: 'include' });
       const result = await response.json();
-      if (result.success) {
-        await refetch();
-        return true;
-      }
+      if (result.success) { refetch(); return true; }
       return false;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }, [refetch]);
 
   const archiveMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/archive`, { 
-        method: 'PATCH',
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/messages/${messageId}/archive`, { method: 'PATCH', credentials: 'include' });
       const result = await response.json();
-      if (result.success) {
-        await refetch();
-        return true;
-      }
+      if (result.success) { refetch(); return true; }
       return false;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }, [refetch]);
 
   const pinMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/pin`, { 
-        method: 'PATCH',
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/messages/${messageId}/pin`, { method: 'PATCH', credentials: 'include' });
       const result = await response.json();
-      if (result.success) {
-        await refetch();
-        return true;
-      }
+      if (result.success) { refetch(); return true; }
       return false;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }, [refetch]);
 
   const unpinMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/unpin`, { 
-        method: 'PATCH',
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/messages/${messageId}/unpin`, { method: 'PATCH', credentials: 'include' });
       const result = await response.json();
-      if (result.success) {
-        await refetch();
-        return true;
-      }
+      if (result.success) { refetch(); return true; }
       return false;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }, [refetch]);
 
   const deleteMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}`, { 
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/messages/${messageId}`, { method: 'DELETE', credentials: 'include' });
       const result = await response.json();
-      if (result.success) {
-        await refetch();
-        return true;
-      }
+      if (result.success) { refetch(); return true; }
       return false;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }, [refetch]);
 
   const markAllAsRead = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await fetch('/api/messages/read-all', { 
-        method: 'PATCH',
-        credentials: 'include',
-      });
+      const response = await fetch('/api/messages/read-all', { method: 'PATCH', credentials: 'include' });
       const result = await response.json();
-      if (result.success) {
-        await refetch();
-        return true;
-      }
+      if (result.success) { refetch(); return true; }
       return false;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }, [refetch]);
 
-  // === 快捷发送 ===
-  const sendToAll = useCallback(async (
-    title: string,
-    content: string,
-    event: MessageEvent = 'personal_message',
-    priority?: MessagePriority
-  ): Promise<{ success: boolean; error?: string }> => {
-    return sendMessage({
-      recipients: { type: 'all' },
-      title,
-      content,
-      event,
-      priority,
-    });
-  }, [sendMessage]);
+  // 快捷发送
+  const sendToAll = useCallback((title: string, content: string, event: MessageEvent = 'personal_message', priority?: MessagePriority) =>
+    sendMessage({ recipients: { type: 'all' }, title, content, event, priority }), [sendMessage]);
 
-  const sendToRoles = useCallback(async (
-    roles: string[],
-    title: string,
-    content: string,
-    event: MessageEvent = 'personal_message',
-    priority?: MessagePriority
-  ): Promise<{ success: boolean; error?: string }> => {
-    return sendMessage({
-      recipients: { type: 'role', roles },
-      title,
-      content,
-      event,
-      priority,
-    });
-  }, [sendMessage]);
+  const sendToRoles = useCallback((roles: string[], title: string, content: string, event: MessageEvent = 'personal_message', priority?: MessagePriority) =>
+    sendMessage({ recipients: { type: 'role', roles }, title, content, event, priority }), [sendMessage]);
 
-  const sendToClasses = useCallback(async (
-    classIds: string[],
-    title: string,
-    content: string,
-    event: MessageEvent = 'personal_message',
-    priority?: MessagePriority
-  ): Promise<{ success: boolean; error?: string }> => {
-    return sendMessage({
-      recipients: { type: 'class', classIds },
-      title,
-      content,
-      event,
-      priority,
-    });
-  }, [sendMessage]);
+  const sendToClasses = useCallback((classIds: string[], title: string, content: string, event: MessageEvent = 'personal_message', priority?: MessagePriority) =>
+    sendMessage({ recipients: { type: 'class', classIds }, title, content, event, priority }), [sendMessage]);
 
-  const sendToUsers = useCallback(async (
-    userIds: string[],
-    title: string,
-    content: string,
-    event: MessageEvent = 'personal_message',
-    priority?: MessagePriority
-  ): Promise<{ success: boolean; error?: string }> => {
-    return sendMessage({
-      recipients: { type: 'individual', userIds },
-      title,
-      content,
-      event,
-      priority,
-    });
-  }, [sendMessage]);
+  const sendToUsers = useCallback((userIds: string[], title: string, content: string, event: MessageEvent = 'personal_message', priority?: MessagePriority) =>
+    sendMessage({ recipients: { type: 'individual', userIds }, title, content, event, priority }), [sendMessage]);
 
-  // === 实时更新 ===
+  // 轮询
   const startPolling = useCallback((interval: number = 30000) => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     setIsPolling(true);
-    pollingIntervalRef.current = setInterval(() => {
-      fetchMessages();
-    }, interval);
-  }, [fetchMessages]);
+    pollingIntervalRef.current = setInterval(() => setRefreshKey(k => k + 1), interval);
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
@@ -486,38 +331,21 @@ export function useMessages(_initialFilters?: MessageQueryParams): UseMessagesRe
     setIsPolling(false);
   }, []);
 
+  // 清理
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    };
+  }, []);
+
   return {
-    messages,
-    loading,
-    error,
-    statistics,
-    page,
-    pageSize,
-    total,
-    totalPages,
-    goToPage,
-    nextPage,
-    prevPage,
-    setPageSize,
-    filters,
-    setFilters,
-    clearFilters,
-    fetchMessages,
-    refetch,
-    sendMessage,
-    markAsRead,
-    markAsUnread,
-    archiveMessage,
-    pinMessage,
-    unpinMessage,
-    deleteMessage,
-    markAllAsRead,
-    sendToAll,
-    sendToRoles,
-    sendToClasses,
-    sendToUsers,
-    startPolling,
-    stopPolling,
-    isPolling,
+    messages, loading, error, statistics,
+    page, pageSize, total, totalPages,
+    goToPage, nextPage, prevPage, setPageSize,
+    filters, setFilters, clearFilters,
+    fetchMessages, refetch,
+    sendMessage, markAsRead, markAsUnread, archiveMessage, pinMessage, unpinMessage, deleteMessage, markAllAsRead,
+    sendToAll, sendToRoles, sendToClasses, sendToUsers,
+    startPolling, stopPolling, isPolling,
   };
 }
