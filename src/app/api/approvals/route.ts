@@ -125,20 +125,29 @@ export async function GET(request: NextRequest) {
         announcements[a.id] = {
           id: a.id,
           title: a.title,
+          summary: a.summary,
           content: a.content,
           type: a.type,
           category: a.category,
+          mediaLevel: a.media_level,
           authorId: a.author_id,
           authorName: a.author_name,
           department: a.department,
           coverImage: a.cover_image,
+          images: a.images || [],
           attachments: a.attachments || [],
-          isPublished: a.is_published,
           isExternal: a.is_external,
+          publishStatus: a.publish_status,
           publishedAt: a.published_at,
+          scheduledPublishAt: a.scheduled_publish_at,
+          unpublishedAt: a.unpublished_at,
+          autoUnpublish: a.auto_unpublish,
+          autoUnpublishAt: a.auto_unpublish_at,
           externalId: a.external_id,
           status: a.status,
           viewCount: a.view_count,
+          isPinned: a.is_pinned,
+          pinOrder: a.pin_order,
           metadata: a.metadata,
           createdAt: a.created_at,
           updatedAt: a.updated_at,
@@ -205,6 +214,11 @@ export async function GET(request: NextRequest) {
 
 /**
  * 提交审批申请
+ * 
+ * 支持三种类型：
+ * - announcement: 校园公告 - 需审批，发布到学校主页
+ * - news: 新闻动态 - 需审批，发布到学校主页
+ * - internal_notice: 内部通知 - 无需审批，仅内部可见
  */
 export async function POST(request: NextRequest) {
   try {
@@ -221,38 +235,84 @@ export async function POST(request: NextRequest) {
     const body: SubmitApprovalRequest = await request.json();
     const { 
       title, 
+      summary,
       content, 
       type, 
       category,
+      mediaLevel,
       department, 
       coverImage, 
+      images,
       attachments,
       isExternal,
+      scheduledPublishAt,
+      autoUnpublish,
+      autoUnpublishAt,
+      isPinned,
+      recipients,
       customFlow 
     } = body;
 
-    // 1. 创建公告/新闻
+    // 1. 创建公告/新闻/通知
     const announcementId = crypto.randomUUID();
+    
+    // 确定初始状态
+    let initialStatus = 'draft';
+    let publishStatus = 'pending';
+    
+    // 内部通知不需要审批，直接发布
+    if (type === 'internal_notice') {
+      initialStatus = 'published';
+      publishStatus = 'published';
+    } else if (scheduledPublishAt) {
+      // 定时发布
+      initialStatus = 'approved';
+      publishStatus = 'scheduled';
+    }
+
     const { error: announcementError } = await supabase
       .from('announcements')
       .insert({
         id: announcementId,
         title,
+        summary,
         content,
         type,
         category,
+        media_level: mediaLevel,
         author_id: user.id,
         author_name: user.name,
         department,
         cover_image: coverImage,
+        images: images || [],
         attachments: attachments || [],
         is_external: isExternal,
-        status: 'pending_approval',
+        status: initialStatus,
+        publish_status: publishStatus,
+        scheduled_publish_at: scheduledPublishAt,
+        auto_unpublish: autoUnpublish || false,
+        auto_unpublish_at: autoUnpublishAt,
+        is_pinned: isPinned || false,
+        recipients: recipients,
       });
 
     if (announcementError) throw announcementError;
 
-    // 2. 获取审批流程
+    // 2. 内部通知：直接发送给指定接收者
+    if (type === 'internal_notice') {
+      await sendInternalNotification(supabase, announcementId, title, content, user.id, user.name, recipients);
+      
+      return NextResponse.json({
+        success: true,
+        data: {
+          announcementId,
+          status: 'published',
+          message: '内部通知发布成功',
+        },
+      });
+    }
+
+    // 3. 获取审批流程
     const flowType = type === 'announcement' ? 'announcement_approval' : 'news_approval';
     
     // 检查是否需要审批（校长室不需要）
@@ -260,29 +320,30 @@ export async function POST(request: NextRequest) {
 
     if (!needsApproval) {
       // 校长室直接发布
+      const now = new Date().toISOString();
       await supabase
         .from('announcements')
         .update({ 
-          status: 'published', 
-          is_published: true, 
-          published_at: new Date().toISOString() 
+          status: scheduledPublishAt ? 'approved' : 'published', 
+          publish_status: scheduledPublishAt ? 'scheduled' : 'published',
+          published_at: scheduledPublishAt ? undefined : now,
         })
         .eq('id', announcementId);
 
       // 发送通知给相关人员
-      await sendNotifications(user.id, title, content, department);
+      await sendNotifications(user.id, title, summary || content, department);
 
       return NextResponse.json({
         success: true,
         data: {
           announcementId,
-          status: 'published',
-          message: '发布成功',
+          status: scheduledPublishAt ? 'scheduled' : 'published',
+          message: scheduledPublishAt ? '已设置定时发布' : '发布成功',
         },
       });
     }
 
-    // 3. 获取审批流程
+    // 4. 获取审批流程
     const { data: flow, error: flowError } = await supabase
       .from('approval_flows')
       .select('*, nodes:approval_flow_nodes(*)')
@@ -467,6 +528,77 @@ async function sendApprovalNotification(
     recipient_id: userId,
     is_read: false,
     metadata: { instance_id: instanceId },
+  }));
+
+  await supabase.from('messages').insert(messages);
+}
+
+/**
+ * 发送内部通知
+ */
+async function sendInternalNotification(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  announcementId: string,
+  title: string,
+  content: string,
+  authorId: string,
+  authorName: string,
+  recipients?: SubmitApprovalRequest['recipients']
+) {
+  if (!recipients) return;
+
+  let userIds: string[] = [];
+
+  if (recipients.type === 'all') {
+    // 发送给所有人
+    const { data: users } = await supabase
+      .from('users')
+      .select('id');
+    userIds = users?.map((u: any) => u.id) || [];
+  } else if (recipients.type === 'role' && recipients.roles) {
+    // 按角色发送
+    const { data: users } = await supabase
+      .from('users')
+      .select('id')
+      .in('role', recipients.roles);
+    userIds = users?.map((u: any) => u.id) || [];
+  } else if (recipients.type === 'class' && recipients.classIds) {
+    // 按班级发送（发送给学生和家长）
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, parent_id')
+      .in('class_id', recipients.classIds);
+    
+    userIds = students?.flatMap((s: any) => [s.id, s.parent_id].filter(Boolean)) || [];
+  } else if (recipients.type === 'individual' && recipients.userIds) {
+    // 发送给指定用户
+    userIds = recipients.userIds;
+  } else if (recipients.type === 'group' && recipients.groupIds) {
+    // 按群组发送
+    const { data: members } = await supabase
+      .from('group_members')
+      .select('user_id')
+      .in('group_id', recipients.groupIds);
+    userIds = members?.map((m: any) => m.user_id) || [];
+  }
+
+  // 去重
+  userIds = [...new Set(userIds)];
+
+  if (userIds.length === 0) return;
+
+  // 创建消息
+  const messages = userIds.map((userId: string) => ({
+    id: crypto.randomUUID(),
+    title: `【内部通知】${title}`,
+    content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+    type: 'internal_notice',
+    priority: 'normal',
+    sender_id: authorId,
+    sender_name: authorName,
+    recipient_id: userId,
+    is_read: false,
+    metadata: { announcement_id: announcementId },
   }));
 
   await supabase.from('messages').insert(messages);

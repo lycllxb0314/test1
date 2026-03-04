@@ -102,8 +102,24 @@ const schoolMotto = [
   { character: '聪慧', meaning: '聪敏睿智' },
 ];
 
-// 新闻动态（带图片）
-const newsItems = [
+// 新闻动态（带图片）- 默认静态数据，会被 API 数据覆盖
+interface NewsItem {
+  id?: string;
+  title: string;
+  summary: string;
+  date: string;
+  category: string;
+  level?: string;
+  image: string;
+}
+
+interface NoticeItem {
+  id?: string;
+  title: string;
+  date: string;
+}
+
+const defaultNewsItems: NewsItem[] = [
   { title: '我校少年科学院正式成立，中科院谢华安院士出席揭牌仪式', summary: '中国科学院谢华安院士亲临学校，为少年科学院揭牌，激励同学们勇攀科学高峰。', date: '2025-12-15', category: '校园新闻', image: '/images/campus/science-academy-opening.png' },
   { title: '2025年全国学生数字素养大赛斩获"创新之星"最高奖', summary: '我校学子在全国学生数字素养大赛中表现出色，荣获最高荣誉"创新之星"奖项。', date: '2025-11-20', category: '荣誉喜报', image: '/images/campus/art-festival.png' },
   { title: '童心教育实践成果入选福建省小学特色办学标杆案例', summary: '学校"童心教育"办学理念与实践成果获得省级认可，成为全省小学特色办学标杆。', date: '2025-10-15', category: '教育教学', image: '/images/campus/classroom-teaching.jpg' },
@@ -112,8 +128,8 @@ const newsItems = [
   { title: '【闽西日报】智慧校园建设助力教育高质量发展', summary: '闽西日报报道我校智慧校园建设成果，数字化赋能教育教学，提升办学品质。', date: '2025-11-15', category: '媒体附小', level: '市级', image: '/images/campus/school-assembly.png' },
 ];
 
-// 校园公告
-const notices = [
+// 校园公告 - 默认静态数据，会被 API 数据覆盖
+const defaultNotices: NoticeItem[] = [
   { title: '2026年春季学期开学通知', date: '2026-02-01' },
   { title: '寒假安全致家长一封信', date: '2026-01-15' },
   { title: '期末考试安排及寒假放假通知', date: '2026-01-10' },
@@ -144,9 +160,54 @@ export default function HomePage() {
   const [activeSection, setActiveSection] = useState(0);
   const [playingVideo, setPlayingVideo] = useState<CarouselItem | null>(null);
   const [activeNewsIndex, setActiveNewsIndex] = useState(0);
+  
+  // 动态数据状态
+  const [newsItems, setNewsItems] = useState(defaultNewsItems);
+  const [notices, setNotices] = useState(defaultNotices);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // 获取门户数据
+  useEffect(() => {
+    const fetchPortalData = async () => {
+      try {
+        const response = await fetch('/api/portal/announcements?limit=10');
+        const result = await response.json();
+        
+        if (result.success) {
+          // 映射新闻数据
+          if (result.data.news && result.data.news.length > 0) {
+            setNewsItems(result.data.news.map((item: any) => ({
+              id: item.id,
+              title: item.title,
+              summary: item.summary || '',
+              date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
+              category: item.category || '校园新闻',
+              level: item.mediaLevel,
+              image: item.coverImage || '/images/campus/school-assembly.png',
+            })));
+          }
+          
+          // 映射公告数据
+          if (result.data.announcements && result.data.announcements.length > 0) {
+            setNotices(result.data.announcements.map((item: any) => ({
+              id: item.id,
+              title: item.title,
+              date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch portal data:', error);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    fetchPortalData();
   }, []);
 
   // 自动轮播
@@ -392,16 +453,16 @@ export default function HomePage() {
               </div>
               <div className="divide-y divide-[#E8DDD0]/30">
                 {notices.map((item, index) => (
-                  <a 
-                    key={index} 
-                    href="#" 
+                  <Link 
+                    key={item.id || index} 
+                    href={item.id ? `/notices/${item.id}` : '#'}
                     className="flex items-center justify-between p-4 hover:bg-[#FDF8F3]/50 transition group"
                   >
                     <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B]">
                       {item.title}
                     </span>
                     <span className="text-xs text-[#8B5A2B]/50 ml-2 whitespace-nowrap">{item.date}</span>
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -474,10 +535,10 @@ export default function HomePage() {
               </div>
               <div className="divide-y divide-[#E8DDD0]/30">
                 {newsItems.slice(0, 5).map((item, index) => (
-                  <a 
-                    key={index} 
-                    href="#" 
-                    onClick={(e) => { e.preventDefault(); setActiveNewsIndex(index); }}
+                  <Link 
+                    key={item.id || index} 
+                    href={item.id ? `/news/${item.id}` : '#'}
+                    onClick={(e) => { if (!item.id) { e.preventDefault(); setActiveNewsIndex(index); } }}
                     className={`flex items-start gap-3 p-4 transition group ${
                       index === activeNewsIndex ? 'bg-[#D4A574]/10' : 'hover:bg-[#FDF8F3]/50'
                     }`}
@@ -500,7 +561,7 @@ export default function HomePage() {
                       </p>
                       <span className="text-xs text-[#8B5A2B]/50">{item.date}</span>
                     </div>
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>

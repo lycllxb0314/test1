@@ -4,6 +4,7 @@
  * 支持多种审批场景：
  * - 公告审批：部门发布公告需经审批后发布到学校主页
  * - 新闻审批：部门发布新闻需经审批后发布到学校主页
+ * - 内部通知：仅内部可见，不发布到学校主页，无需审批
  */
 
 // ==================== 审批流程类型 ====================
@@ -82,7 +83,7 @@ export interface ApprovalInstance {
   id: string;
   flowId?: string;
   flowName?: string;
-  businessType: 'announcement' | 'news';
+  businessType: AnnouncementType;
   businessId: string;
   title: string;
   applicantId?: string;
@@ -132,37 +133,85 @@ export interface ApprovalActionRecord {
   time: string;
 }
 
-// ==================== 公告/新闻 ====================
+// ==================== 公告/新闻/通知 ====================
 
-/** 公告/新闻类型 */
-export type AnnouncementType = 'announcement' | 'news';
+/** 信息类型 
+ * - announcement: 校园公告 - 发布到学校主页门户
+ * - news: 新闻动态 - 发布到学校主页门户
+ * - internal_notice: 内部通知 - 仅内部可见，不发布到主页
+ */
+export type AnnouncementType = 'announcement' | 'news' | 'internal_notice';
 
-/** 公告状态 */
+/** 信息状态 */
 export type AnnouncementStatus = 
   | 'draft'           // 草稿
   | 'pending_approval' // 待审批
   | 'approved'        // 已通过
   | 'rejected'        // 已驳回
-  | 'published';      // 已发布
+  | 'scheduled'       // 已定时（等待定时发布）
+  | 'published'       // 已发布
+  | 'unpublished';    // 已下架
 
-/** 公告/新闻 */
+/** 信息发布状态（用于主页展示） */
+export type PublishStatus = 
+  | 'pending'         // 待发布
+  | 'scheduled'       // 定时发布中
+  | 'published'       // 已发布
+  | 'unpublished';    // 已下架
+
+/** 新闻分类 */
+export type NewsCategory = 
+  | '校园新闻' 
+  | '荣誉喜报' 
+  | '教育教学' 
+  | '媒体附小';
+
+/** 媒体级别（媒体附小分类下使用） */
+export type MediaLevel = '国家级' | '省级' | '市级';
+
+/** 公告/新闻/通知 - 与官网首页数据格式对齐 */
 export interface Announcement {
   id: string;
   title: string;
+  summary?: string; // 摘要，用于首页展示
   content: string;
   type: AnnouncementType;
-  category?: string;
+  category?: NewsCategory;
+  mediaLevel?: MediaLevel; // 媒体级别（媒体附小分类下使用）
   authorId?: string;
   authorName?: string;
   department: string; // 发布部门
+  /** 封面图 */
   coverImage?: string;
+  /** 内容图片列表 */
+  images?: string[];
+  /** 附件列表 */
   attachments: Attachment[];
-  isPublished: boolean;
-  isExternal: boolean; // 是否发布到外部学校主页
+  /** 是否发布到学校主页门户（校园公告、新闻动态为 true，内部通知为 false） */
+  isExternal: boolean;
+  /** 发布状态 */
+  publishStatus: PublishStatus;
+  /** 发布时间（实际发布时间） */
   publishedAt?: string;
+  /** 定时发布时间 */
+  scheduledPublishAt?: string;
+  /** 下架时间 */
+  unpublishedAt?: string;
+  /** 是否自动下架 */
+  autoUnpublish: boolean;
+  /** 自动下架时间 */
+  autoUnpublishAt?: string;
+  /** 外部系统ID（如果同步到外部网站） */
   externalId?: string;
+  /** 审批状态 */
   status: AnnouncementStatus;
+  /** 浏览次数 */
   viewCount: number;
+  /** 是否置顶 */
+  isPinned: boolean;
+  /** 置顶排序 */
+  pinOrder?: number;
+  /** 扩展元数据 */
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -172,10 +221,20 @@ export interface Announcement {
 
 /** 附件 */
 export interface Attachment {
+  id?: string;
   name: string;
   url: string;
   size: number;
-  type: string;
+  type: string; // MIME type
+}
+
+/** 图片 */
+export interface ImageAttachment {
+  id?: string;
+  url: string;
+  alt?: string;
+  caption?: string;
+  order?: number;
 }
 
 // ==================== API 请求/响应类型 ====================
@@ -183,13 +242,33 @@ export interface Attachment {
 /** 提交审批请求 */
 export interface SubmitApprovalRequest {
   title: string;
+  summary?: string; // 摘要
   content: string;
   type: AnnouncementType;
-  category?: string;
+  category?: NewsCategory;
+  mediaLevel?: MediaLevel;
   department: string;
   coverImage?: string;
+  images?: string[];
   attachments?: Attachment[];
-  isExternal: boolean; // 是否发布到外部
+  /** 是否发布到学校主页门户（校园公告、新闻动态为 true，内部通知为 false） */
+  isExternal: boolean;
+  /** 定时发布时间 */
+  scheduledPublishAt?: string;
+  /** 是否自动下架 */
+  autoUnpublish?: boolean;
+  /** 自动下架时间 */
+  autoUnpublishAt?: string;
+  /** 是否置顶 */
+  isPinned?: boolean;
+  /** 接收对象配置（内部通知使用） */
+  recipients?: {
+    type: 'all' | 'role' | 'class' | 'individual' | 'group';
+    roles?: string[];
+    classIds?: string[];
+    userIds?: string[];
+    groupIds?: string[];
+  };
   /** 自定义审批流程（可选） */
   customFlow?: {
     skipDepartmentDirector?: boolean; // 是否跳过部门主任

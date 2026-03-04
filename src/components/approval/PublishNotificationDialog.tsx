@@ -50,10 +50,17 @@ import {
   UserCheck,
   ChevronRight,
   Info,
+  Image as ImageIcon,
+  FileText,
+  X,
+  Upload,
+  Calendar,
+  Clock,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { DEPARTMENTS, type SubmitApprovalRequest, type AnnouncementType } from '@/types/approval';
+import { DEPARTMENTS, type SubmitApprovalRequest, type AnnouncementType, type NewsCategory } from '@/types/approval';
 import { useTeachers } from '@/hooks/useTeachers';
 import { useClasses } from '@/hooks/useClasses';
 import { useGroups } from '@/hooks/useGroups';
@@ -100,6 +107,7 @@ export function PublishNotificationDialog({
 
   // === 表单状态 ===
   const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<AnnouncementType>('announcement');
   const [category, setCategory] = useState('');
@@ -107,6 +115,19 @@ export function PublishNotificationDialog({
   const [isExternal, setIsExternal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // === 图片和文件上传 ===
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  // === 定时发布设置 ===
+  const [scheduledPublish, setScheduledPublish] = useState(false);
+  const [scheduledPublishAt, setScheduledPublishAt] = useState('');
+  const [autoUnpublish, setAutoUnpublish] = useState(false);
+  const [autoUnpublishAt, setAutoUnpublishAt] = useState('');
 
   // === 审批流程配置 ===
   const [skipDepartmentDirector, setSkipDepartmentDirector] = useState(false);
@@ -117,7 +138,7 @@ export function PublishNotificationDialog({
     return DEPARTMENTS.find(d => d.id === department) || DEPARTMENTS[0];
   }, [department]);
 
-  const needsApproval = departmentConfig?.requiresApproval && isExternal;
+  const needsApproval = departmentConfig?.requiresApproval && isExternal && type !== 'internal_notice';
 
   // === 表单验证 ===
   const isValid = useMemo(() => {
@@ -139,11 +160,19 @@ export function PublishNotificationDialog({
     try {
       const request: SubmitApprovalRequest = {
         title: title.trim(),
+        summary: summary.trim() || undefined,
         content: content.trim(),
         type,
-        category: category.trim() || undefined,
+        category: category.trim() as NewsCategory || undefined,
         department,
-        isExternal,
+        coverImage: coverImage || undefined,
+        images: images.length > 0 ? images : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
+        isExternal: type === 'internal_notice' ? false : isExternal,
+        scheduledPublishAt: scheduledPublish ? scheduledPublishAt : undefined,
+        autoUnpublish,
+        autoUnpublishAt: autoUnpublish ? autoUnpublishAt : undefined,
+        recipients: type === 'internal_notice' ? recipientConfig : undefined,
         customFlow: needsApproval ? {
           skipDepartmentDirector,
           approvalType,
@@ -155,10 +184,18 @@ export function PublishNotificationDialog({
       if (result.success) {
         // 重置表单
         setTitle('');
+        setSummary('');
         setContent('');
         setCategory('');
         setRecipientConfig({ type: 'all' });
         setIsExternal(false);
+        setCoverImage(null);
+        setImages([]);
+        setAttachments([]);
+        setScheduledPublish(false);
+        setScheduledPublishAt('');
+        setAutoUnpublish(false);
+        setAutoUnpublishAt('');
         setSkipDepartmentDirector(false);
         setApprovalType('or_sign');
         onOpenChange(false);
@@ -170,6 +207,82 @@ export function PublishNotificationDialog({
     } finally {
       setLoading(false);
     }
+  };
+
+  // === 文件上传处理 ===
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isCover: boolean = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'image');
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        if (isCover) {
+          setCoverImage(result.data.url);
+        } else {
+          setImages(prev => [...prev, result.data.url]);
+        }
+      } else {
+        setError(result.error || '上传失败');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '上传失败');
+    } finally {
+      setUploadingImage(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'document');
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setAttachments(prev => [...prev, {
+          name: result.data.name,
+          url: result.data.url,
+          size: result.data.size,
+          type: result.data.type,
+        }]);
+      } else {
+        setError(result.error || '上传失败');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '上传失败');
+    } finally {
+      setUploadingFile(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   // === 角色选项 ===
@@ -359,6 +472,17 @@ export function PublishNotificationDialog({
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="summary">摘要（可选）</Label>
+                <Textarea
+                  id="summary"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  placeholder="请输入摘要，用于首页展示（选填）"
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="content">内容 *</Label>
                 <Textarea
                   id="content"
@@ -367,6 +491,114 @@ export function PublishNotificationDialog({
                   placeholder="请输入通知内容"
                   rows={6}
                 />
+              </div>
+
+              {/* 图片上传 */}
+              <div className="space-y-2">
+                <Label>封面图</Label>
+                <div className="flex gap-3 items-start">
+                  {coverImage ? (
+                    <div className="relative w-32 h-24 rounded-lg overflow-hidden border">
+                      <img src={coverImage} alt="封面" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setCoverImage(null)}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="w-32 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload(e, true)}
+                        disabled={uploadingImage}
+                      />
+                      {uploadingImage ? (
+                        <span className="text-xs text-muted-foreground">上传中...</span>
+                      ) : (
+                        <>
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground mt-1">上传封面</span>
+                        </>
+                      )}
+                    </label>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    建议尺寸: 800x600<br />
+                    支持 JPG、PNG、GIF、WebP
+                  </p>
+                </div>
+              </div>
+
+              {/* 内容图片 */}
+              <div className="space-y-2">
+                <Label>内容图片</Label>
+                <div className="flex flex-wrap gap-3">
+                  {images.map((img, index) => (
+                    <div key={index} className="relative w-24 h-24 rounded-lg overflow-hidden border">
+                      <img src={img} alt={`图片${index + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleImageUpload(e, false)}
+                      disabled={uploadingImage}
+                    />
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground mt-1">添加图片</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 附件上传 */}
+              <div className="space-y-2">
+                <Label>附件</Label>
+                <div className="space-y-2">
+                  {attachments.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({(file.size / 1024).toFixed(1)}KB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(index)}
+                        className="p-1 text-red-500 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="flex items-center gap-2 p-3 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploadingFile}
+                    />
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {uploadingFile ? '上传中...' : '添加附件'}
+                    </span>
+                  </label>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -382,21 +614,83 @@ export function PublishNotificationDialog({
                     <SelectContent>
                       <SelectItem value="announcement">校园公告</SelectItem>
                       <SelectItem value="news">新闻动态</SelectItem>
+                      <SelectItem value="internal_notice">内部通知</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
                   <Label>分类</Label>
-                  <Input
+                  <Select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    placeholder="如：重要通知、活动预告"
-                  />
+                    onValueChange={setCategory}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择分类" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="校园新闻">校园新闻</SelectItem>
+                      <SelectItem value="荣誉喜报">荣誉喜报</SelectItem>
+                      <SelectItem value="教育教学">教育教学</SelectItem>
+                      <SelectItem value="媒体附小">媒体附小</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* 发布设置 */}
+          {type !== 'internal_notice' && isExternal && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  发布设置
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 定时发布 */}
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="scheduled"
+                    checked={scheduledPublish}
+                    onCheckedChange={(checked) => setScheduledPublish(checked as boolean)}
+                  />
+                  <Label htmlFor="scheduled" className="flex items-center gap-2 cursor-pointer">
+                    <Clock className="h-4 w-4" />
+                    定时发布
+                  </Label>
+                </div>
+                {scheduledPublish && (
+                  <Input
+                    type="datetime-local"
+                    value={scheduledPublishAt}
+                    onChange={(e) => setScheduledPublishAt(e.target.value)}
+                  />
+                )}
+
+                {/* 自动下架 */}
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="autoUnpublish"
+                    checked={autoUnpublish}
+                    onCheckedChange={(checked) => setAutoUnpublish(checked as boolean)}
+                  />
+                  <Label htmlFor="autoUnpublish" className="cursor-pointer">
+                    自动下架
+                  </Label>
+                </div>
+                {autoUnpublish && (
+                  <Input
+                    type="datetime-local"
+                    value={autoUnpublishAt}
+                    onChange={(e) => setAutoUnpublishAt(e.target.value)}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* 接收对象 */}
           <Card>
