@@ -203,8 +203,22 @@ export function PublishNotificationDialog({
 
   // === 获取部门配置 ===
   const departmentConfig = useMemo(() => {
+    // 教师模式返回 null，使用专门的教师信息显示
+    if (isTeacherMode) {
+      return null;
+    }
     return DEPARTMENTS.find(d => d.id === department) || DEPARTMENTS[0];
-  }, [department]);
+  }, [department, isTeacherMode]);
+
+  // === 教师模式信息 ===
+  const teacherInfo = useMemo(() => {
+    if (!isTeacherMode) return null;
+    const isHeadTeacher = user?.role === 'head_teacher';
+    return {
+      name: isHeadTeacher ? '班主任' : '科任教师',
+      description: isHeadTeacher ? '发布通知给本班家长' : '发布通知给班级学生家长',
+    };
+  }, [isTeacherMode, user?.role]);
 
   // === 根据类型自动判断是否发布到学校主页 ===
   // 校园公告、新闻动态 → 发布到主页（isExternal = true）
@@ -559,7 +573,10 @@ export function PublishNotificationDialog({
             发布通知
           </DialogTitle>
           <DialogDescription>
-            发布部门：{departmentConfig?.name} · {departmentConfig?.description}
+            {isTeacherMode && teacherInfo 
+              ? `发布身份：${teacherInfo.name} · ${teacherInfo.description}`
+              : `发布部门：${departmentConfig?.name} · ${departmentConfig?.description}`
+            }
           </DialogDescription>
         </DialogHeader>
 
