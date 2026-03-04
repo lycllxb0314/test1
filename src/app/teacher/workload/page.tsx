@@ -42,6 +42,8 @@ import { toast } from 'sonner';
 // ==================== 类型定义 ====================
 
 interface WorkloadStats {
+  teacherName: string;
+  employeeId: string;
   totalHours: number;
   teachingHours: number;
   substituteHours: number;
@@ -126,39 +128,26 @@ export default function WorkloadPage() {
     loadStats();
   }, [user?.employeeId, selectedSemester]);
   
-  // === 模拟数据（实际应从API获取）===
-  const mockStats: WorkloadStats = {
-    totalHours: 18,
-    teachingHours: 16,
-    substituteHours: 2,
+  // === 默认空数据 ===
+  const emptyStats: WorkloadStats = {
+    teacherName: user?.name || '',
+    employeeId: user?.employeeId || '',
+    totalHours: 0,
+    teachingHours: 0,
+    substituteHours: 0,
     adjustedHours: 0,
-    weeklyTrend: [
-      { week: '2024-12-02', weekLabel: '第14周', totalHours: 16, teachingHours: 16, substituteHours: 0 },
-      { week: '2024-12-09', weekLabel: '第15周', totalHours: 18, teachingHours: 16, substituteHours: 2 },
-      { week: '2024-12-16', weekLabel: '第16周', totalHours: 16, teachingHours: 16, substituteHours: 0 },
-      { week: '2024-12-23', weekLabel: '第17周', totalHours: 14, teachingHours: 14, substituteHours: 0 },
-      { week: '2024-12-30', weekLabel: '第18周', totalHours: 16, teachingHours: 16, substituteHours: 0 },
-    ],
-    subjectDistribution: [
-      { subject: '语文', hours: 8, percentage: 44.4 },
-      { subject: '数学', hours: 6, percentage: 33.3 },
-      { subject: '道德与法治', hours: 2, percentage: 11.1 },
-      { subject: '班会', hours: 2, percentage: 11.1 },
-    ],
-    classDistribution: [
-      { className: '三年(1)班', hours: 6 },
-      { className: '三年(2)班', hours: 6 },
-      { className: '三年(3)班', hours: 4 },
-      { className: '三年(4)班', hours: 2 },
-    ],
+    weeklyTrend: [],
+    subjectDistribution: [],
+    classDistribution: [],
   };
   
-  const displayStats = stats || mockStats;
+  // 优先使用真实数据，无数据时使用空数据结构
+  const displayStats = stats || emptyStats;
   
   // === 计算趋势 ===
   const currentWeek = displayStats.weeklyTrend[displayStats.weeklyTrend.length - 1];
   const prevWeek = displayStats.weeklyTrend[displayStats.weeklyTrend.length - 2];
-  const hoursChange = prevWeek ? currentWeek.totalHours - prevWeek.totalHours : 0;
+  const hoursChange = (currentWeek && prevWeek) ? currentWeek.totalHours - prevWeek.totalHours : 0;
   
   // === 渲染 ===
   return (
@@ -171,7 +160,12 @@ export default function WorkloadPage() {
             工作量统计
           </h1>
           <p className="text-muted-foreground mt-1">
-            查看教学工作量统计与分析
+            {displayStats.teacherName && (
+              <span className="font-medium text-foreground">{displayStats.teacherName}</span>
+            )}
+            {displayStats.employeeId && (
+              <span className="text-muted-foreground ml-2">({displayStats.employeeId})</span>
+            )}
           </p>
         </div>
         
@@ -235,7 +229,7 @@ export default function WorkloadPage() {
                 <div className="text-sm text-muted-foreground">正常教学课时</div>
                 <div className="text-3xl font-bold mt-1">{displayStats.teachingHours}</div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  占比 {((displayStats.teachingHours / displayStats.totalHours) * 100).toFixed(1)}%
+                  占比 {displayStats.totalHours > 0 ? ((displayStats.teachingHours / displayStats.totalHours) * 100).toFixed(1) : 0}%
                 </div>
               </div>
               <div className="w-12 h-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
@@ -307,27 +301,34 @@ export default function WorkloadPage() {
                 <CardDescription>各学科教学课时占比</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={displayStats.subjectDistribution}
-                        dataKey="hours"
-                        nameKey="subject"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        label={({ subject, percentage }) => `${subject} ${percentage}%`}
-                      >
-                        {displayStats.subjectDistribution.map((entry, index) => (
-                          <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="h-64 flex items-center justify-center">
+                  {displayStats.subjectDistribution.length === 0 ? (
+                    <div className="text-center text-muted-foreground">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p>暂无课表数据</p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={displayStats.subjectDistribution}
+                          dataKey="hours"
+                          nameKey="subject"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          label={({ subject, percentage }) => `${subject} ${percentage}%`}
+                        >
+                          {displayStats.subjectDistribution.map((entry, index) => (
+                            <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -339,16 +340,23 @@ export default function WorkloadPage() {
                 <CardDescription>各班级教学课时</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStats.classDistribution} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="className" type="category" width={80} />
-                      <Tooltip />
-                      <Bar dataKey="hours" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="h-64 flex items-center justify-center">
+                  {displayStats.classDistribution.length === 0 ? (
+                    <div className="text-center text-muted-foreground">
+                      <Users className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p>暂无班级数据</p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={displayStats.classDistribution} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" />
+                        <YAxis dataKey="className" type="category" width={80} />
+                        <Tooltip />
+                        <Bar dataKey="hours" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </CardContent>
             </Card>

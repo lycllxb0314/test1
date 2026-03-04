@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -226,6 +227,7 @@ const getNodeTypeColor = (type: string) => {
 };
 
 export default function TeacherLeavePage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [applications, setApplications] = useState<LeaveApplication[]>(mockApplications);
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -350,7 +352,7 @@ export default function TeacherLeavePage() {
         </div>
         <Button 
           className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
-          onClick={() => setShowNewDialog(true)}
+          onClick={() => router.push('/teacher/leave-apply')}
         >
           <Plus className="h-4 w-4" />
           新建申请
