@@ -256,8 +256,12 @@ async function handleSingleApprove(
  */
 async function moveToNextNode(instance: any, now: string) {
   const supabase = getSupabaseClient();
+  console.log('=== moveToNextNode 开始 ===');
+  console.log('instance.id:', instance.id);
+  console.log('instance.current_node_order:', instance.current_node_order);
+  
   // 获取下一个节点
-  const { data: nextNode } = await supabase
+  const { data: nextNode, error: nextNodeError } = await supabase
     .from('approval_node_records')
     .select('*')
     .eq('instance_id', instance.id)
@@ -266,8 +270,11 @@ async function moveToNextNode(instance: any, now: string) {
     .limit(1)
     .single();
 
+  console.log('nextNode query result:', { nextNode, error: nextNodeError });
+
   if (nextNode) {
     // 还有下一个节点
+    console.log('有下一个节点:', nextNode.node_order);
     await supabase
       .from('approval_instances')
       .update({
@@ -280,6 +287,7 @@ async function moveToNextNode(instance: any, now: string) {
     await sendApprovalNotification(instance.id, nextNode.approver_ids, instance.title, instance.applicant_name);
   } else {
     // 没有下一个节点，审批完成
+    console.log('没有下一个节点，调用 completeApproval');
     await completeApproval(instance, now);
   }
 }
@@ -289,6 +297,12 @@ async function moveToNextNode(instance: any, now: string) {
  */
 async function completeApproval(instance: any, now: string) {
   const supabase = getSupabaseClient();
+  
+  console.log('=== completeApproval 开始 ===');
+  console.log('instance.business_type:', instance.business_type);
+  console.log('instance.business_id:', instance.business_id);
+  console.log('instance.metadata:', JSON.stringify(instance.metadata, null, 2));
+  
   // 更新审批实例状态
   await supabase
     .from('approval_instances')
@@ -304,6 +318,10 @@ async function completeApproval(instance: any, now: string) {
     // 检查是否需要调课
     const needAdjustment = instance.metadata?.needAdjustment || instance.metadata?.need_adjustment;
     const affectedSlots = instance.metadata?.affectedSlots || instance.metadata?.affected_slots || [];
+    
+    console.log('needAdjustment:', needAdjustment);
+    console.log('affectedSlots:', JSON.stringify(affectedSlots, null, 2));
+    console.log('affectedSlots.length:', affectedSlots.length);
     
     // 更新请假申请状态
     const updateData: any = {
@@ -337,7 +355,10 @@ async function completeApproval(instance: any, now: string) {
     
     // 如果需要调课，创建调课记录并通知年段长
     if (needAdjustment && affectedSlots.length > 0) {
+      console.log('调用 createCourseAdjustmentsAndNotify...');
       await createCourseAdjustmentsAndNotify(instance, supabase);
+    } else {
+      console.log('不需要调课，跳过创建调课记录');
     }
   } else {
     // 默认处理公告类型
@@ -572,8 +593,12 @@ async function sendApprovalNotification(
  * 创建调课记录并通知年段长
  */
 async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
+  console.log('=== createCourseAdjustmentsAndNotify 开始 ===');
+  console.log('instance.business_id:', instance.business_id);
+  
   try {
     // 1. 获取请假申请详情
+    console.log('查询请假申请...');
     const { data: leaveRequest, error: leaveError } = await supabase
       .from('leave_requests')
       .select('*')
@@ -584,6 +609,9 @@ async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
       console.error('获取请假申请失败:', leaveError);
       return;
     }
+    
+    console.log('请假申请获取成功:', leaveRequest.id, leaveRequest.applicant_name);
+    console.log('affected_slots:', JSON.stringify(leaveRequest.affected_slots, null, 2));
 
     // 2. 检查是否已有调课记录
     const { data: existingAdjustments } = await supabase
@@ -604,6 +632,7 @@ async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
     }
 
     // 4. 创建调课记录
+    console.log('准备创建调课记录，数量:', affectedSlots.length);
     const adjustmentRecords = affectedSlots.map((slot: any) => ({
       id: crypto.randomUUID(),
       leave_request_id: instance.business_id,
@@ -624,7 +653,7 @@ async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
       period_index: slot.periodIndex,
       subject: slot.subject,
       reason: leaveRequest.reason,
-      reason_type: leaveRequest.type,
+      reason_type: mapLeaveTypeToReasonType(leaveRequest.type),
       created_at: new Date().toISOString(),
     }));
 
@@ -688,6 +717,21 @@ async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
   } catch (error) {
     console.error('创建调课记录失败:', error);
   }
+}
+
+/**
+ * 将中文请假类型映射为数据库约束允许的英文值
+ */
+function mapLeaveTypeToReasonType(leaveType: string): string {
+  const typeMap: Record<string, string> = {
+    '病假': 'leave',
+    '事假': 'personal',
+    '公假': 'training',
+    '婚假': 'personal',
+    '产假': 'leave',
+    '丧假': 'personal',
+  };
+  return typeMap[leaveType] || 'other';
 }
 
 /**

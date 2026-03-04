@@ -165,7 +165,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
           employeeId: slot.employeeId,
         },
         reason: body.reason,
-        reason_type: body.type,
+        reason_type: mapLeaveTypeToReasonType(body.type),
       }));
       
       const { error: adjustError } = await client
@@ -357,6 +357,21 @@ function calculateDuration(startDate: string, endDate: string): number {
   const end = new Date(endDate);
   const diff = end.getTime() - start.getTime();
   return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+}
+
+/**
+ * 将中文请假类型映射为数据库约束允许的英文值
+ */
+function mapLeaveTypeToReasonType(leaveType: string): string {
+  const typeMap: Record<string, string> = {
+    '病假': 'leave',
+    '事假': 'personal',
+    '公假': 'training',
+    '婚假': 'personal',
+    '产假': 'leave',
+    '丧假': 'personal',
+  };
+  return typeMap[leaveType] || 'other';
 }
 
 function getWeekMonday(date: Date): string {

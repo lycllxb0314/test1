@@ -190,6 +190,7 @@ export default function LeaveApplyPage() {
       classId: slot.classId,
       className: slot.className,
       subject: slot.subject,
+      grade: slot.grade,
     };
     
     setSelectedSlots(prev => {

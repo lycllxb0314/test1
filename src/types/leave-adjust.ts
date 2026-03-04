@@ -37,6 +37,7 @@ export interface AffectedSlot {
   classId: string;
   className: string;
   subject: string;
+  grade?: number;           // 年级（1-6）
   // 周次信息（请假期间的哪一周）
   weekStartDate?: string;   // 周一日期
 }

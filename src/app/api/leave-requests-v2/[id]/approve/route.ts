@@ -285,7 +285,7 @@ export const POST = protectedRoute(async (
           employeeId: slot.employeeId,
         },
         reason: leaveRequest.reason,
-        reason_type: leaveRequest.type,
+        reason_type: mapLeaveTypeToReasonType(leaveRequest.type),
       }));
 
       const { data: insertedAdjustments, error: adjustError } = await client
@@ -335,6 +335,21 @@ export const POST = protectedRoute(async (
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });
+
+/**
+ * 将中文请假类型映射为数据库约束允许的英文值
+ */
+function mapLeaveTypeToReasonType(leaveType: string): string {
+  const typeMap: Record<string, string> = {
+    '病假': 'leave',
+    '事假': 'personal',
+    '公假': 'training',
+    '婚假': 'personal',
+    '产假': 'leave',
+    '丧假': 'personal',
+  };
+  return typeMap[leaveType] || 'other';
+}
 
 /**
  * 辅助函数：获取周一日期
