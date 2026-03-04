@@ -114,9 +114,7 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
 
   // 引用
   const mountedRef = useRef(true);
-  
-  // 请求计数器，用于触发重新请求
-  const [requestVersion, setRequestVersion] = useState(0);
+  const fetchingRef = useRef(false);
 
   // === 计算属性 ===
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -124,8 +122,9 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
   // === 获取消息列表 ===
   const fetchMessages = useCallback(async () => {
     // 防止重复请求
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || fetchingRef.current) return;
     
+    fetchingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -161,12 +160,12 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
       setMessages([]);
       setError(err instanceof Error ? err.message : '获取消息失败');
     } finally {
+      fetchingRef.current = false;
       if (mountedRef.current) {
         setLoading(false);
       }
     }
-  // 只依赖必要的值，不依赖对象引用
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // 依赖所有影响请求的值
   }, [
     filters.event, 
     filters.status, 
@@ -175,22 +174,17 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
     filters.unreadOnly,
     page, 
     pageSize,
-    requestVersion
   ]);
 
   // 初始加载和参数变化时重新加载
   useEffect(() => {
     fetchMessages();
-  // 只在 requestVersion 变化时触发，避免无限循环
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestVersion]);
+  }, [fetchMessages]);
   
   // 手动触发刷新
   const refetch = useCallback(async () => {
-    setRequestVersion(v => v + 1);
-    // 返回一个 resolved Promise
-    return Promise.resolve();
-  }, []);
+    await fetchMessages();
+  }, [fetchMessages]);
 
   // 清理
   useEffect(() => {
@@ -205,36 +199,30 @@ export function useMessages(initialFilters?: MessageQueryParams): UseMessagesRet
   // === 分页操作 ===
   const goToPage = useCallback((newPage: number) => {
     setPage(Math.max(1, Math.min(newPage, totalPages)));
-    setRequestVersion(v => v + 1);
   }, [totalPages]);
 
   const nextPage = useCallback(() => {
     setPage(p => Math.min(totalPages, p + 1));
-    setRequestVersion(v => v + 1);
   }, [totalPages]);
 
   const prevPage = useCallback(() => {
     setPage(p => Math.max(1, p - 1));
-    setRequestVersion(v => v + 1);
   }, []);
 
   const setPageSize = useCallback((size: number) => {
     setPageSizeState(size);
     setPage(1);
-    setRequestVersion(v => v + 1);
   }, []);
 
   // === 筛选操作 ===
   const setFilters = useCallback((newFilters: Partial<MessageQueryParams>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }));
     setPage(1);
-    setRequestVersion(v => v + 1);
   }, []);
 
   const clearFilters = useCallback(() => {
     setFiltersState(DEFAULT_FILTERS);
     setPage(1);
-    setRequestVersion(v => v + 1);
   }, []);
 
   // === 发送消息 ===

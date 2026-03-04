@@ -38,30 +38,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const classId = searchParams.get('classId');
     const employeeId = searchParams.get('employeeId');
     
-    // 1. 如果有 employeeId 参数，先查询教师信息获取 teacher_id (UUID)
-    let teacherId: string | null = null;
-    if (employeeId) {
-      const { data: teacherData, error: teacherError } = await client
-        .from('teachers')
-        .select('id')
-        .eq('employee_id', employeeId)
-        .single();
-      
-      if (teacherError || !teacherData) {
-        console.error('查询教师信息失败:', teacherError);
-        // 教师不存在，返回空结果
-        return NextResponse.json(success({
-          weekStartDate,
-          weekEndDate: getWeekEndDate(weekStartDate),
-          weekNumber: getWeekNumber(weekStartDate),
-          slots: [],
-          adjustments: [],
-        }));
-      }
-      teacherId = teacherData.id;
-    }
-    
-    // 2. 获取基准课表
+    // 1. 获取基准课表（schedule_slots 表中有 employee_id 字段，可以直接使用）
     let scheduleQuery = client
       .from('schedule_slots')
       .select('*');
@@ -69,9 +46,9 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     if (classId) {
       scheduleQuery = scheduleQuery.eq('class_id', classId);
     }
-    if (teacherId) {
-      // 使用 teacher_id (UUID) 来过滤，而不是 employee_id
-      scheduleQuery = scheduleQuery.eq('teacher_id', teacherId);
+    if (employeeId) {
+      // 直接使用 employee_id 过滤
+      scheduleQuery = scheduleQuery.eq('employee_id', employeeId);
     }
     
     const { data: baseSlots, error: scheduleError } = await scheduleQuery;
@@ -110,20 +87,17 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       // 继续执行，不影响基准课表显示
     }
     
-    // 4. 构建调课映射（key: classId-weekDay-periodIndex）
+    // 3. 构建调课映射（key: classId-weekDay-periodIndex）
     const adjustmentMap = new Map<string, any>();
     (adjustments || []).forEach(adj => {
       const key = `${adj.class_id}-${adj.week_day}-${adj.period_index}`;
       adjustmentMap.set(key, adj);
     });
     
-    // 5. 合并生成实际课表
+    // 4. 合并生成实际课表
     const slots = (baseSlots || []).map(slot => {
       const key = `${slot.class_id}-${slot.week_day}-${slot.period_index}`;
       const adj = adjustmentMap.get(key);
-      
-      // 如果有传入 employeeId 参数，使用它；否则尝试从 slot 获取
-      const slotEmployeeId = employeeId || slot.employee_id;
       
       if (adj) {
         // 有调课
@@ -140,7 +114,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
           // 基准课表教师
           teacherId: slot.teacher_id,
           teacherName: slot.teacher_name,
-          employeeId: slotEmployeeId,
+          employeeId: slot.employee_id,
           
           // 调课信息
           isAdjusted: true,
@@ -149,7 +123,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
           adjustmentReason: adj.reason,
           
           // 实际任课教师
-          actualEmployeeId: adj.substitute_employee_id || slotEmployeeId,
+          actualEmployeeId: adj.substitute_employee_id || slot.employee_id,
           actualTeacherName: adj.substitute_name || slot.teacher_name,
           
           // 调课详情
@@ -173,7 +147,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         // 基准课表教师
         teacherId: slot.teacher_id,
         teacherName: slot.teacher_name,
-        employeeId: slotEmployeeId,
+        employeeId: slot.employee_id,
         
         // 调课信息
         isAdjusted: false,
@@ -182,7 +156,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         adjustmentReason: null,
         
         // 实际任课教师
-        actualEmployeeId: slotEmployeeId,
+        actualEmployeeId: slot.employee_id,
         actualTeacherName: slot.teacher_name,
         
         // 调课详情
