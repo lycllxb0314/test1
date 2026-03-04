@@ -693,30 +693,42 @@ async function sendParentNotification(
   authorName: string,
   recipients?: SubmitApprovalRequest['recipients']
 ) {
-  if (!recipients || !recipients.classIds || recipients.classIds.length === 0) return;
+  if (!recipients || !recipients.classIds || recipients.classIds.length === 0) {
+    console.log('[sendParentNotification] No recipients or classIds');
+    return;
+  }
+
+  console.log('[sendParentNotification] Looking for parents in classes:', recipients.classIds);
 
   // 获取班级学生的家长 account_id
-  const { data: parents } = await supabase
+  const { data: parents, error: parentsError } = await supabase
     .from('parents')
-    .select('account_id')
+    .select('id, name, account_id, class_id')
     .in('class_id', recipients.classIds)
     .eq('has_account', true)
     .not('account_id', 'is', null);
   
+  if (parentsError) {
+    console.error('[sendParentNotification] Error fetching parents:', parentsError);
+    return;
+  }
+
+  console.log('[sendParentNotification] Found parents with accounts:', parents?.length || 0);
+  
   const accountIds = parents?.map((p: any) => p.account_id).filter(Boolean) || [];
   
-  if (accountIds.length === 0) return;
+  if (accountIds.length === 0) {
+    console.log('[sendParentNotification] No account IDs found');
+    return;
+  }
 
-  // 通过 account_id 关联 users 表获取用户 UUID
-  const { data: users } = await supabase
-    .from('users')
-    .select('id')
-    .in('id::text', accountIds);
-  
-  const userIds = users?.map((u: any) => u.id) || [];
-  
-  // 去重
-  const uniqueUserIds = [...new Set(userIds)];
+  console.log('[sendParentNotification] Account IDs:', accountIds);
+
+  // 直接使用 account_id 作为用户 ID（account_id 就是 users 表的 id）
+  // account_id 存储的是 UUID 字符串，可以直接用于消息的 recipient_id
+  const uniqueUserIds = [...new Set(accountIds)];
+
+  console.log('[sendParentNotification] Unique user IDs:', uniqueUserIds.length);
 
   if (uniqueUserIds.length === 0) return;
 
@@ -735,5 +747,11 @@ async function sendParentNotification(
     metadata: { announcement_id: announcementId },
   }));
 
-  await supabase.from('messages').insert(messages);
+  const { error: insertError } = await supabase.from('messages').insert(messages);
+  
+  if (insertError) {
+    console.error('[sendParentNotification] Error inserting messages:', insertError);
+  } else {
+    console.log('[sendParentNotification] Successfully sent', messages.length, 'messages');
+  }
 }

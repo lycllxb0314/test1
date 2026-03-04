@@ -4,10 +4,8 @@
  * 发布通知组件
  * 
  * 支持：
- * - 发布通知给指定对象（教师、部门群组、家长等）
- * - 选择是否同时发布到外部学校主页
- * - 根据部门自动判断是否需要审批
- * - 自定义审批流程（跳过部门主任、或签/会签）
+ * - 部门模式：发布校园公告、新闻动态、内部通知（完整功能）
+ * - 教师模式：发布家长通知（简化功能）
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -177,25 +175,23 @@ export function PublishNotificationDialog({
   // 教师模式默认发送给本班家长
   const [recipientConfig, setRecipientConfig] = useState<RecipientConfig>({ 
     type: isTeacherMode ? 'class' : 'all',
-    classIds: isTeacherMode && user?.classId ? [user.classId] : [],
+    classIds: [],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // === 图片和文件上传 ===
-  const [coverImage, setCoverImage] = useState<string | null>(null);
   const [images, setImages] = useState<string[]>([]);
-  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
 
-  // === 定时发布设置 ===
+  // === 部门模式专用状态 ===
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [scheduledPublish, setScheduledPublish] = useState(false);
   const [scheduledPublishAt, setScheduledPublishAt] = useState('');
   const [autoUnpublish, setAutoUnpublish] = useState(false);
   const [autoUnpublishAt, setAutoUnpublishAt] = useState('');
-
-  // === 审批流程配置 ===
   const [skipDepartmentDirector, setSkipDepartmentDirector] = useState(false);
   const [approvalType, setApprovalType] = useState<'or_sign' | 'countersign'>('or_sign');
   const [selectedLeaders, setSelectedLeaders] = useState<ApproverLeaderRole[]>([]);
@@ -203,10 +199,7 @@ export function PublishNotificationDialog({
 
   // === 获取部门配置 ===
   const departmentConfig = useMemo(() => {
-    // 教师模式返回 null，使用专门的教师信息显示
-    if (isTeacherMode) {
-      return null;
-    }
+    if (isTeacherMode) return null;
     return DEPARTMENTS.find(d => d.id === department) || DEPARTMENTS[0];
   }, [department, isTeacherMode]);
 
@@ -220,26 +213,24 @@ export function PublishNotificationDialog({
     };
   }, [isTeacherMode, user?.role]);
 
+  // === 获取当前班级信息 ===
+  const myClass = useMemo(() => {
+    if (!isTeacherMode || !user?.classId) return null;
+    return allClasses.find(c => c.id === user.classId);
+  }, [isTeacherMode, user?.classId, allClasses]);
+
   // === 根据类型自动判断是否发布到学校主页 ===
-  // 校园公告、新闻动态 → 发布到主页（isExternal = true）
-  // 内部通知、家长通知 → 不发布到主页（isExternal = false）
   const isExternal = type === 'announcement' || type === 'news';
 
   // === 是否需要审批 ===
-  // 校园公告、新闻动态：需要审批（校长室除外）
-  // 内部通知、家长通知：不需要审批
   const needsApproval = !isTeacherMode && departmentConfig?.requiresApproval && isExternal;
 
   // === 教师模式：对话框打开时自动设置本班为接收者 ===
   useEffect(() => {
     if (open && isTeacherMode && user?.classId) {
-      setRecipientConfig(prev => {
-        // 如果已经有班级了，不覆盖
-        if (prev.classIds && prev.classIds.length > 0) return prev;
-        return {
-          type: 'class',
-          classIds: [user.classId!],
-        };
+      setRecipientConfig({
+        type: 'class',
+        classIds: [user.classId],
       });
     }
   }, [open, isTeacherMode, user?.classId]);
@@ -271,14 +262,19 @@ export function PublishNotificationDialog({
   // === 表单验证 ===
   const isValid = useMemo(() => {
     if (!title.trim() || !content.trim()) return false;
-    if (recipientConfig.type === 'role' && (!recipientConfig.roles || recipientConfig.roles.length === 0)) return false;
-    if (recipientConfig.type === 'class' && (!recipientConfig.classIds || recipientConfig.classIds.length === 0)) return false;
-    if (recipientConfig.type === 'individual' && (!recipientConfig.userIds || recipientConfig.userIds.length === 0)) return false;
-    if (recipientConfig.type === 'group' && (!recipientConfig.groupIds || recipientConfig.groupIds.length === 0)) return false;
-    // 审批流程需要选择至少一个审批领导
-    if (needsApproval && selectedLeaders.length === 0) return false;
+    if (!isTeacherMode) {
+      // 部门模式的验证
+      if (recipientConfig.type === 'role' && (!recipientConfig.roles || recipientConfig.roles.length === 0)) return false;
+      if (recipientConfig.type === 'class' && (!recipientConfig.classIds || recipientConfig.classIds.length === 0)) return false;
+      if (recipientConfig.type === 'individual' && (!recipientConfig.userIds || recipientConfig.userIds.length === 0)) return false;
+      if (recipientConfig.type === 'group' && (!recipientConfig.groupIds || recipientConfig.groupIds.length === 0)) return false;
+      if (needsApproval && selectedLeaders.length === 0) return false;
+    } else {
+      // 教师模式：必须有班级
+      if (!recipientConfig.classIds || recipientConfig.classIds.length === 0) return false;
+    }
     return true;
-  }, [title, content, recipientConfig, needsApproval, selectedLeaders]);
+  }, [title, content, recipientConfig, needsApproval, selectedLeaders, isTeacherMode]);
 
   // === 提交处理 ===
   const handleSubmit = async () => {
@@ -317,27 +313,7 @@ export function PublishNotificationDialog({
 
       if (result.success) {
         // 重置表单
-        setTitle('');
-        setSummary('');
-        setContent('');
-        setCategory('');
-        setMediaLevel('');
-        // 重置接收者配置：教师模式重置为本班，部门模式重置为全部
-        setRecipientConfig({ 
-          type: isTeacherMode ? 'class' : 'all',
-          classIds: isTeacherMode && user?.classId ? [user.classId] : [],
-        });
-        setCoverImage(null);
-        setImages([]);
-        setAttachments([]);
-        setScheduledPublish(false);
-        setScheduledPublishAt('');
-        setAutoUnpublish(false);
-        setAutoUnpublishAt('');
-        setSkipDepartmentDirector(false);
-        setApprovalType('or_sign');
-        setSelectedLeaders([]);
-        setApprovalMode('or_sign');
+        resetForm();
         onOpenChange(false);
       } else {
         setError(result.error || '发布失败');
@@ -349,7 +325,32 @@ export function PublishNotificationDialog({
     }
   };
 
-  // === 文件上传处理 ===
+  // === 重置表单 ===
+  const resetForm = () => {
+    setTitle('');
+    setSummary('');
+    setContent('');
+    setCategory('');
+    setMediaLevel('');
+    setRecipientConfig({ 
+      type: isTeacherMode ? 'class' : 'all',
+      classIds: isTeacherMode && user?.classId ? [user.classId] : [],
+    });
+    setCoverImage(null);
+    setImages([]);
+    setAttachments([]);
+    setScheduledPublish(false);
+    setScheduledPublishAt('');
+    setAutoUnpublish(false);
+    setAutoUnpublishAt('');
+    setSkipDepartmentDirector(false);
+    setApprovalType('or_sign');
+    setSelectedLeaders([]);
+    setApprovalMode('or_sign');
+    setError(null);
+  };
+
+  // === 图片上传处理 ===
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isCover: boolean = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -367,7 +368,7 @@ export function PublishNotificationDialog({
 
       const result = await response.json();
       if (result.success) {
-        if (isCover) {
+        if (isCover && !isTeacherMode) {
           setCoverImage(result.data.url);
         } else {
           setImages(prev => [...prev, result.data.url]);
@@ -383,6 +384,7 @@ export function PublishNotificationDialog({
     }
   };
 
+  // === 文件上传处理（仅部门模式） ===
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -437,6 +439,137 @@ export function PublishNotificationDialog({
     { value: 'skill_teacher', label: '技能课教师' },
     { value: 'parent', label: '家长' },
   ];
+
+  // ==================== 教师模式简化界面 ====================
+  if (isTeacherMode) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-primary" />
+              发布家长通知
+            </DialogTitle>
+            <DialogDescription>
+              {teacherInfo?.name} · {myClass ? `${myClass.grade}${myClass.name}` : '未分配班级'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* 错误提示 */}
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
+
+            {/* 接收班级 */}
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">接收对象：</span>
+                <span className="font-medium">
+                  {myClass ? `${myClass.grade}${myClass.name} 全体家长` : '未分配班级'}
+                </span>
+              </div>
+            </div>
+
+            {/* 通知分类 */}
+            <div className="space-y-2">
+              <Label>通知分类</Label>
+              <Select value={category} onValueChange={(v) => setCategory(v as ParentNoticeCategory)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择分类" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.parent_notice.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 标题 */}
+            <div className="space-y-2">
+              <Label htmlFor="title">通知标题 *</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="请输入通知标题"
+              />
+            </div>
+
+            {/* 内容 */}
+            <div className="space-y-2">
+              <Label htmlFor="content">通知内容 *</Label>
+              <Textarea
+                id="content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="请输入通知内容"
+                rows={6}
+              />
+            </div>
+
+            {/* 图片上传（可选） */}
+            <div className="space-y-2">
+              <Label>配图（可选）</Label>
+              <div className="flex flex-wrap gap-3">
+                {images.map((img, index) => (
+                  <div key={index} className="relative w-20 h-20 rounded-lg overflow-hidden border">
+                    <img src={img} alt={`图片${index + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                {images.length < 9 && (
+                  <label className="w-20 h-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                    />
+                    {uploadingImage ? (
+                      <span className="text-xs text-muted-foreground">上传中...</span>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground mt-1">添加图片</span>
+                      </>
+                    )}
+                  </label>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">最多上传9张图片</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSubmit} disabled={!isValid || loading}>
+              {loading ? '发送中...' : '发送通知'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // ==================== 部门模式完整界面 ====================
+  // ... 以下保持原有的部门模式代码 ...
 
   // === 渲染接收者选择 ===
   const renderRecipientSelector = () => {
@@ -502,7 +635,7 @@ export function PublishNotificationDialog({
                       });
                     }}
                   />
-                  <span>{cls.name}</span>
+                  <span>{cls.grade}{cls.name}</span>
                 </label>
               ))}
             </div>
@@ -513,34 +646,41 @@ export function PublishNotificationDialog({
         return (
           <div className="space-y-3">
             <Label>选择教师</Label>
-            <Select
-              value={recipientConfig.userIds?.[0] || ''}
-              onValueChange={(value) => {
-                setRecipientConfig({
-                  ...recipientConfig,
-                  userIds: value ? [value] : [],
-                });
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="选择教师" />
-              </SelectTrigger>
-              <SelectContent>
-                {allTeachers.map((teacher) => (
-                  <SelectItem key={teacher.id} value={teacher.id}>
-                    {teacher.name} ({teacher.subject})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+              {allTeachers.map((teacher) => (
+                <label
+                  key={teacher.id}
+                  className={cn(
+                    'flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-sm',
+                    recipientConfig.userIds?.includes(teacher.id)
+                      ? 'border-primary bg-primary/5'
+                      : 'hover:bg-gray-50'
+                  )}
+                >
+                  <Checkbox
+                    checked={recipientConfig.userIds?.includes(teacher.id)}
+                    onCheckedChange={(checked) => {
+                      const userIds = recipientConfig.userIds || [];
+                      setRecipientConfig({
+                        ...recipientConfig,
+                        userIds: checked
+                          ? [...userIds, teacher.id]
+                          : userIds.filter((id) => id !== teacher.id),
+                      });
+                    }}
+                  />
+                  <span>{teacher.name}</span>
+                </label>
+              ))}
+            </div>
           </div>
         );
 
       case 'group':
         return (
           <div className="space-y-3">
-            <Label>选择部门群组</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <Label>选择群组</Label>
+            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
               {groups.map((group) => (
                 <label
                   key={group.id}
@@ -564,8 +704,10 @@ export function PublishNotificationDialog({
                     }}
                   />
                   <div>
-                    <p className="text-sm font-medium">{group.name}</p>
-                    <p className="text-xs text-gray-500">{group.memberCount} 人</p>
+                    <span className="text-sm font-medium">{group.name}</span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {group.memberCount || 0}人
+                    </span>
                   </div>
                 </label>
               ))}
@@ -575,8 +717,8 @@ export function PublishNotificationDialog({
 
       default:
         return (
-          <div className="flex items-center gap-2 p-4 rounded-lg bg-blue-50 text-blue-700">
-            <Info className="h-4 w-4" />
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+            <Users className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm">将通知所有用户</span>
           </div>
         );
@@ -592,14 +734,19 @@ export function PublishNotificationDialog({
             发布通知
           </DialogTitle>
           <DialogDescription>
-            {isTeacherMode && teacherInfo 
-              ? `发布身份：${teacherInfo.name} · ${teacherInfo.description}`
-              : `发布部门：${departmentConfig?.name} · ${departmentConfig?.description}`
-            }
+            发布部门：{departmentConfig?.name} · {departmentConfig?.description}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* 错误提示 */}
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
           {/* 基本信息 */}
           <Card>
             <CardHeader className="pb-3">
@@ -638,7 +785,7 @@ export function PublishNotificationDialog({
                 />
               </div>
 
-              {/* 图片上传 */}
+              {/* 封面图 */}
               <div className="space-y-2">
                 <Label>封面图</Label>
                 <div className="flex gap-3 items-start">
@@ -700,32 +847,36 @@ export function PublishNotificationDialog({
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => handleImageUpload(e, false)}
+                      onChange={handleImageUpload}
                       disabled={uploadingImage}
                     />
-                    <Upload className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground mt-1">添加图片</span>
+                    {uploadingImage ? (
+                      <span className="text-xs text-muted-foreground">上传中...</span>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground mt-1">添加图片</span>
+                      </>
+                    )}
                   </label>
                 </div>
               </div>
 
-              {/* 附件上传 */}
+              {/* 附件 */}
               <div className="space-y-2">
                 <Label>附件</Label>
                 <div className="space-y-2">
                   {attachments.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm truncate max-w-[200px]">{file.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ({(file.size / 1024).toFixed(1)}KB)
-                        </span>
-                      </div>
+                    <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm flex-1 truncate">{file.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {(file.size / 1024).toFixed(1)}KB
+                      </span>
                       <button
                         type="button"
                         onClick={() => removeAttachment(index)}
-                        className="p-1 text-red-500 hover:text-red-600"
+                        className="p-1 text-destructive hover:bg-destructive/10 rounded"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -738,74 +889,66 @@ export function PublishNotificationDialog({
                       onChange={handleFileUpload}
                       disabled={uploadingFile}
                     />
-                    <Upload className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {uploadingFile ? '上传中...' : '添加附件'}
-                    </span>
+                    {uploadingFile ? (
+                      <span className="text-sm text-muted-foreground">上传中...</span>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">上传附件</span>
+                      </>
+                    )}
                   </label>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>类型</Label>
-                  {isTeacherMode ? (
-                    // 教师模式：固定为家长通知
-                    <div className="flex items-center h-10 px-3 rounded-md border bg-muted/50 text-sm">
-                      <GraduationCap className="h-4 w-4 mr-2 text-primary" />
-                      家长通知
-                    </div>
-                  ) : (
-                    // 部门模式：可选择类型
-                    <Select
-                      value={type}
-                      onValueChange={(v) => {
-                        setType(v as AnnouncementType);
-                        // 类型改变时重置分类和媒体级别
-                        setCategory('');
-                        setMediaLevel('');
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="announcement">校园公告</SelectItem>
-                        <SelectItem value="news">新闻动态</SelectItem>
-                        <SelectItem value="internal_notice">内部通知</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>分类</Label>
-                  <Select
-                    value={category}
-                    onValueChange={(v) => setCategory(v as AnnouncementCategory | NewsCategory | InternalNoticeCategory | ParentNoticeCategory)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="选择分类" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORY_OPTIONS[type].map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* 通知类型与分类 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">通知类型与分类</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>通知类型</Label>
+                <Select value={type} onValueChange={(v) => setType(v as AnnouncementType)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="announcement">校园公告</SelectItem>
+                    <SelectItem value="news">新闻动态</SelectItem>
+                    <SelectItem value="internal_notice">内部通知</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {type === 'announcement' && '校园公告将发布到学校主页门户，需要审批'}
+                  {type === 'news' && '新闻动态将发布到学校主页门户，需要审批'}
+                  {type === 'internal_notice' && '内部通知仅发送给指定对象，无需审批'}
+                </p>
               </div>
 
-              {/* 媒体级别选择（新闻动态-媒体附小分类下显示） */}
+              <div className="space-y-2">
+                <Label>分类</Label>
+                <Select value={category} onValueChange={(v) => setCategory(v as any)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择分类" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_OPTIONS[type]?.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 媒体级别（仅新闻动态-媒体附小分类） */}
               {type === 'news' && category === '媒体附小' && (
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2">
                   <Label>媒体级别</Label>
-                  <Select
-                    value={mediaLevel}
-                    onValueChange={(v) => setMediaLevel(v as MediaLevel)}
-                  >
+                  <Select value={mediaLevel} onValueChange={(v) => setMediaLevel(v as MediaLevel)}>
                     <SelectTrigger>
                       <SelectValue placeholder="选择媒体级别" />
                     </SelectTrigger>
@@ -822,255 +965,169 @@ export function PublishNotificationDialog({
             </CardContent>
           </Card>
 
-          {/* 发布设置 - 仅校园公告和新闻动态 */}
-          {isExternal && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  发布设置
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* 定时发布 */}
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    id="scheduled"
-                    checked={scheduledPublish}
-                    onCheckedChange={(checked) => setScheduledPublish(checked as boolean)}
-                  />
-                  <Label htmlFor="scheduled" className="flex items-center gap-2 cursor-pointer">
-                    <Clock className="h-4 w-4" />
-                    定时发布
-                  </Label>
-                </div>
-                {scheduledPublish && (
-                  <Input
-                    type="datetime-local"
-                    value={scheduledPublishAt}
-                    onChange={(e) => setScheduledPublishAt(e.target.value)}
-                  />
-                )}
-
-                {/* 自动下架 */}
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    id="autoUnpublish"
-                    checked={autoUnpublish}
-                    onCheckedChange={(checked) => setAutoUnpublish(checked as boolean)}
-                  />
-                  <Label htmlFor="autoUnpublish" className="cursor-pointer">
-                    自动下架
-                  </Label>
-                </div>
-                {autoUnpublish && (
-                  <Input
-                    type="datetime-local"
-                    value={autoUnpublishAt}
-                    onChange={(e) => setAutoUnpublishAt(e.target.value)}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 接收对象 - 仅内部通知需要选择接收对象 */}
+          {/* 接收对象（仅内部通知） */}
           {type === 'internal_notice' && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">接收对象</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Tabs
-                  value={recipientConfig.type}
-                  onValueChange={(v) => setRecipientConfig({ type: v as RecipientConfig['type'] })}
-                >
-                  <TabsList className="grid grid-cols-5 h-auto">
-                    {recipientTypes.includes('all') && (
-                      <TabsTrigger value="all" className="text-xs">
-                        <Users className="h-3 w-3 mr-1" />
-                        全员
-                      </TabsTrigger>
-                    )}
-                    {recipientTypes.includes('role') && (
-                      <TabsTrigger value="role" className="text-xs">
-                        <UserCheck className="h-3 w-3 mr-1" />
-                        角色
-                      </TabsTrigger>
-                    )}
-                    {recipientTypes.includes('class') && (
-                      <TabsTrigger value="class" className="text-xs">
-                        <GraduationCap className="h-3 w-3 mr-1" />
-                        班级
-                      </TabsTrigger>
-                    )}
-                    {recipientTypes.includes('individual') && (
-                      <TabsTrigger value="individual" className="text-xs">
-                        个人
-                      </TabsTrigger>
-                    )}
-                    {recipientTypes.includes('group') && (
-                      <TabsTrigger value="group" className="text-xs">
-                        <Building2 className="h-3 w-3 mr-1" />
-                        部门
-                      </TabsTrigger>
-                    )}
-                  </TabsList>
+                <div className="space-y-2">
+                  <Label>通知对象类型</Label>
+                  <Select
+                    value={recipientConfig.type}
+                    onValueChange={(v) => {
+                      setRecipientConfig({
+                        type: v as RecipientConfig['type'],
+                        roles: [],
+                        classIds: [],
+                        userIds: [],
+                        groupIds: [],
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全体教师</SelectItem>
+                      <SelectItem value="role">按角色</SelectItem>
+                      <SelectItem value="class">按班级</SelectItem>
+                      <SelectItem value="individual">指定教师</SelectItem>
+                      <SelectItem value="group">群组</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                  {recipientTypes.map((t) => (
-                    <TabsContent key={t} value={t} className="mt-4">
-                      {renderRecipientSelector()}
-                    </TabsContent>
-                  ))}
-                </Tabs>
+                {renderRecipientSelector()}
               </CardContent>
             </Card>
           )}
 
-          {/* 审批流程选择 - 仅校园公告和新闻动态需要审批 */}
-          {showApprovalFlow && needsApproval && (
-            <Card className="border-amber-200 bg-amber-50/50">
+          {/* 发布设置 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">发布设置</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>定时发布</Label>
+                  <p className="text-xs text-muted-foreground">设置后将在指定时间发布</p>
+                </div>
+                <Checkbox
+                  checked={scheduledPublish}
+                  onCheckedChange={(checked) => setScheduledPublish(checked as boolean)}
+                />
+              </div>
+
+              {scheduledPublish && (
+                <div className="space-y-2">
+                  <Label>发布时间</Label>
+                  <Input
+                    type="datetime-local"
+                    value={scheduledPublishAt}
+                    onChange={(e) => setScheduledPublishAt(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>自动下架</Label>
+                  <p className="text-xs text-muted-foreground">设置后将在指定时间自动下架</p>
+                </div>
+                <Checkbox
+                  checked={autoUnpublish}
+                  onCheckedChange={(checked) => setAutoUnpublish(checked as boolean)}
+                />
+              </div>
+
+              {autoUnpublish && (
+                <div className="space-y-2">
+                  <Label>下架时间</Label>
+                  <Input
+                    type="datetime-local"
+                    value={autoUnpublishAt}
+                    onChange={(e) => setAutoUnpublishAt(e.target.value)}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 审批流程 */}
+          {needsApproval && (
+            <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                  审批流程
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">审批流程</CardTitle>
                 <CardDescription>
-                  发布到外部需要审批通过后才能展示
+                  此通知需要审批后才能发布
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* 流程预览 */}
-                <div className="flex items-center gap-2 text-sm flex-wrap">
-                  <Badge variant="outline">提交</Badge>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                  {!skipDepartmentDirector && (
-                    <>
-                      <Badge variant="outline">
-                        {departmentConfig?.shortName}主任
-                      </Badge>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
-                    </>
-                  )}
-                  {selectedLeaders.length > 0 ? (
-                    <>
-                      {selectedLeaders.map((leader, index) => {
-                        const leaderInfo = availableLeaders.find(l => l.role === leader);
-                        return (
-                          <React.Fragment key={leader}>
-                            {index > 0 && (
-                              <span className="text-xs text-muted-foreground mx-1">
-                                {approvalMode === 'or_sign' ? '或' : '且'}
-                              </span>
-                            )}
-                            <Badge variant={index === 0 ? 'default' : 'secondary'}>
-                              {leaderInfo?.label}
-                            </Badge>
-                          </React.Fragment>
-                        );
-                      })}
-                    </>
-                  ) : (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      请选择审批人
-                    </Badge>
-                  )}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>跳过部门主任</Label>
+                    <p className="text-xs text-muted-foreground">直接提交给校级领导审批</p>
+                  </div>
+                  <Checkbox
+                    checked={skipDepartmentDirector}
+                    onCheckedChange={(checked) => setSkipDepartmentDirector(checked as boolean)}
+                  />
                 </div>
 
-                {/* 自定义选项 */}
-                <div className="space-y-4 pt-2">
-                  {/* 跳过部门主任 */}
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={skipDepartmentDirector}
-                      onCheckedChange={(checked) => setSkipDepartmentDirector(checked as boolean)}
-                    />
-                    <span className="text-sm">跳过部门主任，直接提交领导审批</span>
-                  </label>
-
-                  {/* 选择审批领导 */}
+                <div className="space-y-2">
+                  <Label>审批领导</Label>
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">选择审批领导</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {recommendedVicePrincipal && (
-                        <span className="text-amber-600">
-                          💡 建议：{availableLeaders.find(l => l.role === recommendedVicePrincipal)?.label}
-                        </span>
-                      )}
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableLeaders.map((leader) => (
-                        <label
-                          key={leader.role}
-                          className={cn(
-                            "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
-                            selectedLeaders.includes(leader.role)
-                              ? "border-primary bg-primary/5"
-                              : "hover:border-gray-300"
-                          )}
-                        >
-                          <Checkbox
-                            checked={selectedLeaders.includes(leader.role)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedLeaders([...selectedLeaders, leader.role]);
-                              } else {
-                                setSelectedLeaders(selectedLeaders.filter(l => l !== leader.role));
-                              }
-                            }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium">{leader.label}</div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {leader.description}
-                            </div>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 审批模式 */}
-                  {selectedLeaders.length > 1 && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">审批方式</Label>
-                      <RadioGroup
-                        value={approvalMode}
-                        onValueChange={(v) => setApprovalMode(v as ApprovalMode)}
-                        className="flex gap-4"
+                    {availableLeaders.map((leader) => (
+                      <label
+                        key={leader.role}
+                        className={cn(
+                          'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                          selectedLeaders.includes(leader.role)
+                            ? 'border-primary bg-primary/5'
+                            : 'hover:bg-gray-50'
+                        )}
                       >
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <RadioGroupItem value="or_sign" />
-                          <div>
-                            <span className="text-sm">或签</span>
-                            <span className="text-xs text-muted-foreground ml-1">
-                              （任一人通过即可）
-                            </span>
-                          </div>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <RadioGroupItem value="countersign" />
-                          <div>
-                            <span className="text-sm">会签</span>
-                            <span className="text-xs text-muted-foreground ml-1">
-                              （所有人都需通过）
-                            </span>
-                          </div>
-                        </label>
-                      </RadioGroup>
+                        <Checkbox
+                          checked={selectedLeaders.includes(leader.role)}
+                          onCheckedChange={(checked) => {
+                            setSelectedLeaders(
+                              checked
+                                ? [...selectedLeaders, leader.role]
+                                : selectedLeaders.filter((l) => l !== leader.role)
+                            );
+                          }}
+                        />
+                        <div>
+                          <span className="text-sm font-medium">{leader.label}</span>
+                          <p className="text-xs text-muted-foreground">{leader.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>审批方式</Label>
+                  <RadioGroup
+                    value={approvalMode}
+                    onValueChange={(v) => setApprovalMode(v as ApprovalMode)}
+                    className="flex gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="or_sign" id="or_sign" />
+                      <Label htmlFor="or_sign" className="text-sm">或签（任一领导通过即可）</Label>
                     </div>
-                  )}
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="countersign" id="countersign" />
+                      <Label htmlFor="countersign" className="text-sm">会签（所有领导都需通过）</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* 错误提示 */}
-          {error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 text-red-600">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm">{error}</span>
-            </div>
           )}
         </div>
 
@@ -1078,13 +1135,8 @@ export function PublishNotificationDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!isValid || loading}
-            className="gap-2"
-          >
-            <Send className="h-4 w-4" />
-            {loading ? '发布中...' : (needsApproval ? '提交审批' : '发布')}
+          <Button onClick={handleSubmit} disabled={!isValid || loading}>
+            {loading ? '提交中...' : needsApproval ? '提交审批' : '发布'}
           </Button>
         </DialogFooter>
       </DialogContent>
