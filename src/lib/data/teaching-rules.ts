@@ -18,7 +18,9 @@ export type TeacherRole =
   // === 领导层（主要角色就是领导职务）===
   | 'principal'                 // 校长
   | 'secretary'                 // 书记
-  | 'vice_principal'            // 副校长
+  | 'academic_vice_principal'   // 教学副校长
+  | 'moral_vice_principal'      // 德育副校长
+  | 'general_vice_principal'    // 总务副校长
   // === 教师群体 ===
   | 'head_teacher'              // 班主任
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
@@ -38,7 +40,9 @@ export type AdministrativeRole =
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   principal: '校长',
   secretary: '书记',
-  vice_principal: '副校长',
+  academic_vice_principal: '教学副校长',
+  moral_vice_principal: '德育副校长',
+  general_vice_principal: '总务副校长',
   head_teacher: '班主任',
   subject_teacher: '科任教师',
   skill_teacher: '技能课教师',
@@ -111,11 +115,25 @@ export const TEACHING_HOURS_RULES: TeachingHoursRule[] = [
   
   // 副校长（分管工作为主，课时可适当减少）
   {
-    role: 'vice_principal',
+    role: 'academic_vice_principal',
     classCount: 1,
     mainSubjectHours: [2, 4],
     totalHours: 6,
-    description: '副校长以分管工作为主，可承担部分教学任务，周课时约4-6节',
+    description: '教学副校长以分管教务为主，可承担部分教学任务，周课时约4-6节',
+  },
+  {
+    role: 'moral_vice_principal',
+    classCount: 1,
+    mainSubjectHours: [2, 4],
+    totalHours: 6,
+    description: '德育副校长以分管德育为主，可承担部分教学任务，周课时约4-6节',
+  },
+  {
+    role: 'general_vice_principal',
+    classCount: 0,
+    mainSubjectHours: [0, 2],
+    totalHours: 4,
+    description: '总务副校长以分管总务为主，课时较少，周课时约2-4节',
   },
   
   // === 教师群体 ===
@@ -203,13 +221,22 @@ export function calculateSuggestedHours(
       description: '校长/书记以行政工作为主，周课时2-6节'
     };
   }
-  if (role === 'vice_principal') {
+  if (role === 'academic_vice_principal' || role === 'moral_vice_principal') {
     return { 
       mainSubjectHours: 3, 
       totalHours: 6,
       minHours: 4,
       maxHours: 8,
-      description: '副校长以分管工作为主，周课时4-8节'
+      description: '教学/德育副校长以分管工作为主，周课时4-8节'
+    };
+  }
+  if (role === 'general_vice_principal') {
+    return { 
+      mainSubjectHours: 1, 
+      totalHours: 4,
+      minHours: 2,
+      maxHours: 6,
+      description: '总务副校长以分管总务为主，周课时2-6节'
     };
   }
   
@@ -302,11 +329,19 @@ export function validateTeachingHours(
     return { valid: true, message: '课时量已配置', warnings };
   }
   
-  if (role === 'vice_principal') {
+  if (role === 'academic_vice_principal' || role === 'moral_vice_principal') {
     if (totalHours >= 4 && totalHours <= 8) {
       return { valid: true, message: '课时量配置合理', warnings: [] };
     }
-    warnings.push(`副校长周课时建议4-8节，当前${totalHours}节`);
+    warnings.push(`教学/德育副校长周课时建议4-8节，当前${totalHours}节`);
+    return { valid: true, message: '课时量已配置', warnings };
+  }
+  
+  if (role === 'general_vice_principal') {
+    if (totalHours >= 2 && totalHours <= 6) {
+      return { valid: true, message: '课时量配置合理', warnings: [] };
+    }
+    warnings.push(`总务副校长周课时建议2-6节，当前${totalHours}节`);
     return { valid: true, message: '课时量已配置', warnings };
   }
   

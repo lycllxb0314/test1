@@ -34,7 +34,9 @@ export type TeacherRole =
   // === 领导层（主要角色就是领导职务）===
   | 'principal'                 // 校长
   | 'secretary'                 // 书记
-  | 'vice_principal'            // 副校长
+  | 'academic_vice_principal'   // 教学副校长
+  | 'moral_vice_principal'      // 德育副校长
+  | 'general_vice_principal'    // 总务副校长
   // === 教师群体 ===
   | 'head_teacher'              // 班主任
   | 'subject_teacher'           // 科任教师（语文、数学、英语等主科教师）
@@ -55,7 +57,9 @@ export type AdministrativeRole =
 export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
   principal: '校长',
   secretary: '书记',
-  vice_principal: '副校长',
+  academic_vice_principal: '教学副校长',
+  moral_vice_principal: '德育副校长',
+  general_vice_principal: '总务副校长',
   head_teacher: '班主任',
   subject_teacher: '科任教师',
   skill_teacher: '技能课教师',
@@ -77,7 +81,9 @@ export const ADMINISTRATIVE_ROLE_LABELS: Record<AdministrativeRole, string> = {
 export const TEACHER_ROLE_COLORS: Record<TeacherRole, { bg: string; text: string }> = {
   principal: { bg: 'bg-red-100', text: 'text-red-700' },
   secretary: { bg: 'bg-red-100', text: 'text-red-700' },
-  vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  academic_vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  moral_vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  general_vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
   head_teacher: { bg: 'bg-amber-100', text: 'text-amber-700' },
   subject_teacher: { bg: 'bg-blue-100', text: 'text-blue-700' },
   skill_teacher: { bg: 'bg-green-100', text: 'text-green-700' },
@@ -452,7 +458,11 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
       total: allTeachers.length,
       // 领导层
       leaders: allTeachers.filter(t => 
-        t.primaryRole === 'principal' || t.primaryRole === 'secretary' || t.primaryRole === 'vice_principal'
+        t.primaryRole === 'principal' || 
+        t.primaryRole === 'secretary' ||
+        t.primaryRole === 'academic_vice_principal' ||
+        t.primaryRole === 'moral_vice_principal' ||
+        t.primaryRole === 'general_vice_principal'
       ).length,
       // 教师群体
       headTeachers: allTeachers.filter(t => t.primaryRole === 'head_teacher').length,

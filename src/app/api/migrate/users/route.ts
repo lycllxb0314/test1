@@ -250,7 +250,9 @@ function mapTeacherRole(dbRole: string): string {
   const roleMap: Record<string, string> = {
     'principal': 'principal',
     'secretary': 'secretary',
-    'vice_principal': 'vice_principal',
+    'academic_vice_principal': 'academic_vice_principal',
+    'moral_vice_principal': 'moral_vice_principal',
+    'general_vice_principal': 'general_vice_principal',
     'head_teacher': 'head_teacher',
     'subject_teacher': 'subject_teacher',
     'skill_teacher': 'skill_teacher',
@@ -270,7 +272,9 @@ function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
     'principal': '校长',
     'secretary': '书记',
-    'vice_principal': '副校长',
+    'academic_vice_principal': '教学副校长',
+    'moral_vice_principal': '德育副校长',
+    'general_vice_principal': '总务副校长',
     'head_teacher': '班主任',
     'subject_teacher': '科任教师',
     'skill_teacher': '技能课教师',

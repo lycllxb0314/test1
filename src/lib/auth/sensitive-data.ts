@@ -72,7 +72,9 @@ import { AdministrativeRole } from '@/types';
 const GLOBAL_ACCESS_ROLES: UserRole[] = [
   'principal',          // 校长
   'secretary',          // 书记
-  'vice_principal',     // 副校长
+  'academic_vice_principal',   // 教学副校长
+  'moral_vice_principal',      // 德育副校长
+  'general_vice_principal',    // 总务副校长
 ];
 
 /**
@@ -293,7 +295,9 @@ function getRoleDisplayName(role: UserRole | AdministrativeRole): string {
     // 主要角色
     principal: '校长',
     secretary: '书记',
-    vice_principal: '副校长',
+    academic_vice_principal: '教学副校长',
+    moral_vice_principal: '德育副校长',
+    general_vice_principal: '总务副校长',
     head_teacher: '班主任',
     subject_teacher: '科任教师',
     skill_teacher: '技能课教师',

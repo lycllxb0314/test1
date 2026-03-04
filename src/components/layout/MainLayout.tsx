@@ -368,12 +368,14 @@ export function AppSidebar() {
                     href={
                       user.role === 'secretary' ? '/dashboard/secretary' :
                       user.role === 'principal' ? '/dashboard/principal' :
-                      user.role === 'vice_principal' ? '/dashboard/vice-principal' :
+                      user.role === 'academic_vice_principal' ? '/dashboard/academic-vice-principal' :
+                      user.role === 'moral_vice_principal' ? '/dashboard/moral-vice-principal' :
+                      user.role === 'general_vice_principal' ? '/dashboard/general-vice-principal' :
                       '/dashboard'
                     }
                     className={cn(
                       'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-                      (pathname === '/dashboard' || pathname.startsWith('/dashboard/secretary') || pathname.startsWith('/dashboard/principal') || pathname.startsWith('/dashboard/vice-principal'))
+                      (pathname === '/dashboard' || pathname.startsWith('/dashboard/secretary') || pathname.startsWith('/dashboard/principal') || pathname.startsWith('/dashboard/academic-vice-principal') || pathname.startsWith('/dashboard/moral-vice-principal') || pathname.startsWith('/dashboard/general-vice-principal'))
                         ? 'bg-primary text-white shadow-lg shadow-primary/25'
                         : 'text-gray-700 hover:bg-gray-100'
                     )}
@@ -383,7 +385,9 @@ export function AppSidebar() {
                       <span>
                         {user.role === 'secretary' ? '书记工作台' :
                          user.role === 'principal' ? '校长工作台' :
-                         user.role === 'vice_principal' ? '副校长工作台' : '工作台'}
+                         user.role === 'academic_vice_principal' ? '教学副校长工作台' :
+                         user.role === 'moral_vice_principal' ? '德育副校长工作台' :
+                         user.role === 'general_vice_principal' ? '总务副校长工作台' : '工作台'}
                       </span>
                     )}
                   </Link>
@@ -392,7 +396,9 @@ export function AppSidebar() {
                   <TooltipContent side="right">
                     {user.role === 'secretary' ? '书记工作台' :
                      user.role === 'principal' ? '校长工作台' :
-                     user.role === 'vice_principal' ? '副校长工作台' : '工作台'}
+                     user.role === 'academic_vice_principal' ? '教学副校长工作台' :
+                     user.role === 'moral_vice_principal' ? '德育副校长工作台' :
+                     user.role === 'general_vice_principal' ? '总务副校长工作台' : '工作台'}
                   </TooltipContent>
                 )}
               </Tooltip>

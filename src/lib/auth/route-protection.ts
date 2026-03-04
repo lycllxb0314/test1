@@ -200,7 +200,7 @@ export function protectedRoute<T extends NativeRouteContext = NativeRouteContext
  */
 export function adminOnlyRoute(handler: ProtectedRouteHandler) {
   return protectedRoute(handler, {
-    roles: ['principal', 'secretary', 'vice_principal'],
+    roles: ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'],
     // 兼任主任职务的管理员也允许
     customCheck: (user) => {
       const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;

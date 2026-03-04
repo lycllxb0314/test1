@@ -198,7 +198,15 @@ export const roleFieldPermissions: RoleMaskPermission[] = [
     permissions: { phone: true, id_card: true, home_address: true, bank_account: true },
   },
   {
-    role: 'vice_principal',
+    role: 'academic_vice_principal',
+    permissions: { phone: true, id_card: true, home_address: true, bank_account: false },
+  },
+  {
+    role: 'moral_vice_principal',
+    permissions: { phone: true, id_card: true, home_address: true, bank_account: false },
+  },
+  {
+    role: 'general_vice_principal',
     permissions: { phone: true, id_card: true, home_address: true, bank_account: false },
   },
   // 教师群体

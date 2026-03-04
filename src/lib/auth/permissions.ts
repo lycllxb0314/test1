@@ -41,13 +41,29 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
       parent: ['view'],
     },
   },
-  vice_principal: {
-    name: '副校长',
-    description: '分管副校长，根据分管领域拥有相应权限',
+  academic_vice_principal: {
+    name: '教学副校长',
+    description: '分管教务工作的副校长，负责教学质量管理',
+    modules: {
+      academic: ['manage'],
+      teacher: ['manage'],
+      parent: ['view'],
+    },
+  },
+  moral_vice_principal: {
+    name: '德育副校长',
+    description: '分管德育工作的副校长，负责学生德育和家校沟通',
+    modules: {
+      moral: ['manage'],
+      teacher: ['manage'],
+      parent: ['manage'],
+    },
+  },
+  general_vice_principal: {
+    name: '总务副校长',
+    description: '分管总务工作的副校长，负责后勤保障',
     modules: {
       general: ['manage'],
-      academic: ['manage'],
-      moral: ['manage'],
       teacher: ['manage'],
       parent: ['view'],
     },
@@ -284,7 +300,7 @@ export function hasPermission(role: UserRole, module: ModuleType, permission: Pe
  */
 export function isAdminRole(role: UserRole, additionalRoles?: AdministrativeRole[]): boolean {
   // 学校领导层
-  if (['principal', 'secretary', 'vice_principal'].includes(role)) {
+  if (['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'].includes(role)) {
     return true;
   }
   // 兼任主任职务

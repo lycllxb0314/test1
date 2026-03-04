@@ -85,7 +85,9 @@ export default function PrincipalDashboard() {
     const roleNames: Record<string, string> = {
       principal: '校长',
       secretary: '书记',
-      vice_principal: '副校长',
+      academic_vice_principal: '教学副校长',
+      moral_vice_principal: '德育副校长',
+      general_vice_principal: '总务副校长',
     };
     return roleNames[role] || '领导';
   };

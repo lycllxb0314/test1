@@ -954,11 +954,12 @@ export default function TeacherDetailPage() {
                         <SelectContent>
                           <SelectItem value="principal">校长</SelectItem>
                           <SelectItem value="secretary">书记</SelectItem>
-                          <SelectItem value="vice_principal">副校长</SelectItem>
+                          <SelectItem value="academic_vice_principal">教学副校长</SelectItem>
+                          <SelectItem value="moral_vice_principal">德育副校长</SelectItem>
+                          <SelectItem value="general_vice_principal">总务副校长</SelectItem>
                           <SelectItem value="head_teacher">班主任</SelectItem>
                           <SelectItem value="subject_teacher">科任教师</SelectItem>
                           <SelectItem value="skill_teacher">技能课教师</SelectItem>
-                          <SelectItem value="subject_head">学科组长</SelectItem>
                         </SelectContent>
                       </Select>
                       <div className="space-y-1">

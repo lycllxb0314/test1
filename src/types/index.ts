@@ -13,7 +13,9 @@ export type UserRole =
   // === 学校领导层（主要角色就是领导职务）===
   | 'principal'        // 校长
   | 'secretary'        // 书记
-  | 'vice_principal'   // 分管副校长
+  | 'academic_vice_principal'   // 教学副校长（分管教务）
+  | 'moral_vice_principal'      // 德育副校长（分管德育）
+  | 'general_vice_principal'    // 总务副校长（分管总务）
   // === 教师群体 ===
   // 班主任与科任1:1配对，共同负责一个班级
   // 班主任是语文老师 → 科任就是数学老师
@@ -3914,7 +3916,7 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
       teacher: ['view', 'edit', 'admin'],
       parent: ['view', 'edit', 'admin'],
     },
-    autoIncludeRoles: ['principal', 'secretary', 'vice_principal'],
+    autoIncludeRoles: ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'],
     directorRole: undefined, // 校长室没有单一负责人
   },
   academic_office: {

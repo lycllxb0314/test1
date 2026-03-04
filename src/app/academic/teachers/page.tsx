@@ -100,7 +100,9 @@ const roleFilterOptions = [
   // 领导层
   { value: 'principal', label: '校长' },
   { value: 'secretary', label: '书记' },
-  { value: 'vice_principal', label: '副校长' },
+  { value: 'academic_vice_principal', label: '教学副校长' },
+  { value: 'moral_vice_principal', label: '德育副校长' },
+  { value: 'general_vice_principal', label: '总务副校长' },
   // 教师角色
   { value: 'head_teacher', label: '班主任' },
   { value: 'subject_teacher', label: '科任教师' },

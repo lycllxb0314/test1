@@ -187,7 +187,7 @@ export function RequireRole({
 export function RequireAdmin({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute
-      roles={['principal', 'secretary', 'vice_principal']}
+      roles={['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal']}
     >
       {children}
     </ProtectedRoute>
@@ -213,7 +213,7 @@ export function RequireTeacher({ children }: { children: ReactNode }) {
 export function RequireMoral({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute
-      roles={['principal', 'secretary', 'vice_principal', 'head_teacher']}
+      roles={['principal', 'secretary', 'moral_vice_principal', 'head_teacher']}
       customCheck={(user) => {
         // 检查是否有兼任德育相关职务
         const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
@@ -221,7 +221,7 @@ export function RequireMoral({ children }: { children: ReactNode }) {
             additionalRoles?.includes('young_pioneer_counselor')) {
           return true;
         }
-        return ['principal', 'secretary', 'vice_principal', 'head_teacher'].includes(user.role);
+        return ['principal', 'secretary', 'moral_vice_principal', 'head_teacher'].includes(user.role);
       }}
     >
       {children}
@@ -235,7 +235,7 @@ export function RequireMoral({ children }: { children: ReactNode }) {
 export function RequireAcademic({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute
-      roles={['principal', 'vice_principal']}
+      roles={['principal', 'academic_vice_principal']}
       customCheck={(user) => {
         // 检查是否有任教务相关职务
         const additionalRoles = (user as any).additionalRoles as AdministrativeRole[] | undefined;
@@ -245,7 +245,7 @@ export function RequireAcademic({ children }: { children: ReactNode }) {
             additionalRoles?.includes('research_group_deputy_leader')) {
           return true;
         }
-        return ['principal', 'vice_principal'].includes(user.role);
+        return ['principal', 'academic_vice_principal'].includes(user.role);
       }}
     >
       {children}

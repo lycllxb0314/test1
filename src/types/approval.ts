@@ -5,6 +5,10 @@
  * - 公告审批：部门发布公告需经审批后发布到学校主页
  * - 新闻审批：部门发布新闻需经审批后发布到学校主页
  * - 内部通知：仅内部可见，不发布到学校主页，无需审批
+ * 
+ * 审批流程支持灵活配置：
+ * - 可选择审批人：分管副校长、校长、书记中的任意组合
+ * - 可选择审批模式：或签（任一人通过即可）、会签（所有人都要通过）
  */
 
 // ==================== 审批流程类型 ====================
@@ -19,14 +23,29 @@ export type ApprovalNodeType =
   | 'submit'       // 提交节点
   | 'approve'      // 单人审批
   | 'or_sign'      // 或签（任一人通过即可）
-  | 'countersign'; // 会签（所有人都要通过）
+  | 'countersign'  // 会签（所有人都要通过）
+  | 'leader_approve'; // 领导审批（动态选择审批人）
 
 /** 审批人类型 */
 export type ApproverType = 
-  | 'applicant'    // 申请人自己
-  | 'role'         // 按角色审批
-  | 'user'         // 指定用户
-  | 'group_leader'; // 群组负责人
+  | 'applicant'           // 申请人自己
+  | 'role'                // 按角色审批
+  | 'user'                // 指定用户
+  | 'group_leader'        // 群组负责人
+  | 'selected_leaders';   // 选定的领导（从副校长、校长、书记中选择）
+
+/** 可选审批领导角色 */
+export type ApproverLeaderRole = 
+  | 'principal'                   // 校长
+  | 'secretary'                   // 书记
+  | 'academic_vice_principal'     // 教学副校长
+  | 'moral_vice_principal'        // 德育副校长
+  | 'general_vice_principal';     // 总务副校长
+
+/** 审批模式 */
+export type ApprovalMode = 
+  | 'or_sign'      // 或签：任一人通过即可
+  | 'countersign'; // 会签：所有人都要通过
 
 /** 审批实例状态 */
 export type ApprovalStatus = 
@@ -73,6 +92,10 @@ export interface ApprovalFlowNode {
   approverType: ApproverType;
   approverRoles: string[];
   approverUserIds: string[];
+  /** 选定的领导角色（用于 leader_approve 类型） */
+  selectedLeaderRoles?: ApproverLeaderRole[];
+  /** 审批模式：或签/会签 */
+  approvalMode?: ApprovalMode;
   isRequired: boolean;
   timeoutHours?: number;
   createdAt: string;
@@ -93,6 +116,10 @@ export interface ApprovalInstance {
   status: ApprovalStatus;
   submitAt?: string;
   finishAt?: string;
+  /** 审批配置：选定的领导角色 */
+  selectedLeaders?: ApproverLeaderRole[];
+  /** 审批配置：审批模式 */
+  approvalMode?: ApprovalMode;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -288,8 +315,12 @@ export interface SubmitApprovalRequest {
   /** 自定义审批流程（可选） */
   customFlow?: {
     skipDepartmentDirector?: boolean; // 是否跳过部门主任
-    approvalType?: 'or_sign' | 'countersign'; // 校长室审批类型
+    approvalType?: 'or_sign' | 'countersign'; // 校长室审批类型（废弃，使用 approvalMode）
     specificApprovers?: string[]; // 指定审批人ID
+    /** 选定的审批领导角色 */
+    selectedLeaders?: ApproverLeaderRole[];
+    /** 审批模式：或签/会签 */
+    approvalMode?: ApprovalMode;
   };
 }
 

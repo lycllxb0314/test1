@@ -65,7 +65,9 @@ const PRIMARY_ROLE_OPTIONS: TeacherRole[] = [
   // 领导层
   'principal',
   'secretary',
-  'vice_principal',
+  'academic_vice_principal',
+  'moral_vice_principal',
+  'general_vice_principal',
   // 教师群体
   'head_teacher',
   'subject_teacher',

@@ -15,7 +15,9 @@ import { SUBJECT_HOURS, GRADE_CHINESE } from '@/lib/schedule-config';
 const POSITION_REDUCTION: Record<string, number> = {
   principal: 13,
   secretary: 13,
-  vice_principal: 10,
+  academic_vice_principal: 6,
+  moral_vice_principal: 6,
+  general_vice_principal: 6,
   academic_director: 6,
   moral_director: 6,
   general_director: 6,
@@ -61,7 +63,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const { data: teachers, error: teachersError } = await client
       .from('teachers')
       .select('id, name, primary_subject, total_weekly_hours, additional_roles')
-      .not('role', 'in', '(principal,secretary,vice_principal)')
+      .not('role', 'in', '(principal,secretary,academic_vice_principal,moral_vice_principal,general_vice_principal)')
       .order('primary_subject')
       .order('name');
     

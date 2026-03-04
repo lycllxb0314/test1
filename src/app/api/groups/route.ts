@@ -132,7 +132,7 @@ export const GET = protectedRoute(async (
       let query = supabase
         .from('users')
         .select('id, name, role, employee_id')
-        .in('role', ['principal', 'secretary', 'vice_principal', 'head_teacher', 'subject_teacher', 'skill_teacher'])
+        .in('role', ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal', 'head_teacher', 'subject_teacher', 'skill_teacher'])
         .eq('status', 'active')
         .order('name');
       

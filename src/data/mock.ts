@@ -33,7 +33,7 @@ export const mockUsers: MockUser[] = [
   {
     id: '3',
     name: '王秀芳',
-    role: 'vice_principal',
+    role: 'academic_vice_principal',
     phone: '138****1003',
     email: 'wangxf@lysf.fx.edu.cn',
     department: '副校长室',
@@ -44,7 +44,7 @@ export const mockUsers: MockUser[] = [
   {
     id: '4',
     name: '陈志强',
-    role: 'vice_principal',
+    role: 'moral_vice_principal',
     phone: '138****1004',
     email: 'chenzq@lysf.fx.edu.cn',
     department: '副校长室',

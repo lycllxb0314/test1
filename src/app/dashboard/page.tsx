@@ -65,8 +65,8 @@ export default function DashboardPage() {
 
   const roleConfig = roleConfigs[user.role];
   const isHeadTeacher = user.role === 'head_teacher';
-  const isLeader = ['principal', 'secretary', 'vice_principal'].includes(user.role);
-  const isAdmin = ['principal', 'secretary', 'vice_principal', 'admin'].includes(user.role);
+  const isLeader = ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'].includes(user.role);
+  const isAdmin = ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal', 'admin'].includes(user.role);
 
   // 获取当前时间问候
   const getGreeting = () => {

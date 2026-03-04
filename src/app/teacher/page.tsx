@@ -35,7 +35,7 @@ export default function TeacherPage() {
   const [publishOpen, setPublishOpen] = useState(false);
 
   // 判断是否是班主任
-  const isHeadTeacher = user?.role === 'head_teacher' || user?.role === 'principal' || user?.role === 'vice_principal';
+  const isHeadTeacher = user?.role === 'head_teacher' || user?.role === 'principal' || user?.role === 'academic_vice_principal' || user?.role === 'moral_vice_principal' || user?.role === 'general_vice_principal';
 
   // 消息 Hook
   const {

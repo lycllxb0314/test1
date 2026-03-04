@@ -36,11 +36,27 @@ export const roleConfigs: Record<UserRole, RoleConfig> = {
     permissions: ['view', 'edit', 'approve', 'manage', 'admin'],
     avatar: '👨‍💼',
   },
-  vice_principal: {
-    id: 'vice_principal',
-    name: '分管副校长',
-    description: '分管特定领域的副校长',
-    modules: ['general', 'academic', 'moral', 'teacher'],
+  academic_vice_principal: {
+    id: 'academic_vice_principal',
+    name: '教学副校长',
+    description: '分管教务工作的副校长，负责教学质量管理',
+    modules: ['academic', 'teacher'],
+    permissions: ['view', 'edit', 'approve', 'manage'],
+    avatar: '👨‍💼',
+  },
+  moral_vice_principal: {
+    id: 'moral_vice_principal',
+    name: '德育副校长',
+    description: '分管德育工作的副校长，负责学生德育和家校沟通',
+    modules: ['moral', 'teacher', 'parent'],
+    permissions: ['view', 'edit', 'approve', 'manage'],
+    avatar: '👨‍💼',
+  },
+  general_vice_principal: {
+    id: 'general_vice_principal',
+    name: '总务副校长',
+    description: '分管总务工作的副校长，负责后勤保障',
+    modules: ['general', 'teacher'],
     permissions: ['view', 'edit', 'approve', 'manage'],
     avatar: '👨‍💼',
   },
@@ -182,7 +198,9 @@ export function isHeadTeacher(role: UserRole): boolean {
   return role === 'head_teacher' || 
          role === 'principal' || 
          role === 'secretary' || 
-         role === 'vice_principal';
+         role === 'academic_vice_principal' ||
+         role === 'moral_vice_principal' ||
+         role === 'general_vice_principal';
 }
 
 /**
@@ -192,12 +210,36 @@ export function isTeacher(role: UserRole): boolean {
   return ['head_teacher', 'subject_teacher', 'skill_teacher'].includes(role);
 }
 
+/** 副校长角色列表 */
+export const VICE_PRINCIPAL_ROLES: UserRole[] = [
+  'academic_vice_principal',
+  'moral_vice_principal', 
+  'general_vice_principal'
+];
+
+/** 领导层角色列表 */
+export const LEADER_ROLES: UserRole[] = [
+  'principal',
+  'secretary',
+  ...VICE_PRINCIPAL_ROLES
+];
+
+/**
+ * 根据部门获取对应的分管副校长角色
+ */
+export function getVicePrincipalByDepartment(department: string): UserRole | null {
+  if (department === '教务处') return 'academic_vice_principal';
+  if (department === '德育处') return 'moral_vice_principal';
+  if (department === '总务处') return 'general_vice_principal';
+  return null;
+}
+
 /**
  * 判断是否可以访问教务系统（仅教务处及校领导）
  */
 export function canAccessAcademic(role: UserRole, additionalRoles?: AdministrativeRole[]): boolean {
   // 主要角色权限
-  const hasDirectAccess = ['principal', 'secretary', 'vice_principal'].includes(role);
+  const hasDirectAccess = ['principal', 'secretary', 'academic_vice_principal'].includes(role);
   if (hasDirectAccess) return true;
   
   // 兼任职务权限
@@ -218,7 +260,7 @@ export function canAccessAcademic(role: UserRole, additionalRoles?: Administrati
  */
 export function canAccessMoral(role: UserRole, additionalRoles?: AdministrativeRole[]): boolean {
   // 主要角色权限
-  const hasDirectAccess = ['principal', 'secretary', 'vice_principal', 'head_teacher'].includes(role);
+  const hasDirectAccess = ['principal', 'secretary', 'moral_vice_principal', 'head_teacher'].includes(role);
   if (hasDirectAccess) return true;
   
   // 兼任职务权限
@@ -237,7 +279,7 @@ export function canAccessMoral(role: UserRole, additionalRoles?: AdministrativeR
  */
 export function canAccessGeneral(role: UserRole, additionalRoles?: AdministrativeRole[]): boolean {
   // 主要角色权限
-  const hasDirectAccess = ['principal', 'secretary', 'vice_principal'].includes(role);
+  const hasDirectAccess = ['principal', 'secretary', 'general_vice_principal'].includes(role);
   if (hasDirectAccess) return true;
   
   // 兼任职务权限

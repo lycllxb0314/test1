@@ -10,7 +10,7 @@
  * - 自定义审批流程（跳过部门主任、或签/会签）
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -67,7 +67,9 @@ import {
   type AnnouncementCategory, 
   type NewsCategory, 
   type InternalNoticeCategory,
-  type MediaLevel 
+  type MediaLevel,
+  type ApproverLeaderRole,
+  type ApprovalMode,
 } from '@/types/approval';
 import { useTeachers } from '@/hooks/useTeachers';
 import { useClasses } from '@/hooks/useClasses';
@@ -170,6 +172,8 @@ export function PublishNotificationDialog({
   // === 审批流程配置 ===
   const [skipDepartmentDirector, setSkipDepartmentDirector] = useState(false);
   const [approvalType, setApprovalType] = useState<'or_sign' | 'countersign'>('or_sign');
+  const [selectedLeaders, setSelectedLeaders] = useState<ApproverLeaderRole[]>([]);
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>('or_sign');
 
   // === 获取部门配置 ===
   const departmentConfig = useMemo(() => {
@@ -186,6 +190,30 @@ export function PublishNotificationDialog({
   // 内部通知：不需要审批
   const needsApproval = departmentConfig?.requiresApproval && isExternal;
 
+  // === 可选审批领导列表 ===
+  const availableLeaders: { role: ApproverLeaderRole; label: string; description: string }[] = [
+    { role: 'principal', label: '校长', description: '学校最高管理者' },
+    { role: 'secretary', label: '书记', description: '党委书记' },
+    { role: 'academic_vice_principal', label: '教学副校长', description: '分管教务' },
+    { role: 'moral_vice_principal', label: '德育副校长', description: '分管德育' },
+    { role: 'general_vice_principal', label: '总务副校长', description: '分管总务' },
+  ];
+
+  // === 根据部门自动推荐分管副校长 ===
+  const recommendedVicePrincipal = useMemo((): ApproverLeaderRole | null => {
+    if (department === 'academic_office') return 'academic_vice_principal';
+    if (department === 'moral_office') return 'moral_vice_principal';
+    if (department === 'general_office') return 'general_vice_principal';
+    return null;
+  }, [department]);
+
+  // === 自动选择推荐的分管副校长 ===
+  useEffect(() => {
+    if (needsApproval && recommendedVicePrincipal && selectedLeaders.length === 0) {
+      setSelectedLeaders([recommendedVicePrincipal]);
+    }
+  }, [needsApproval, recommendedVicePrincipal]);
+
   // === 表单验证 ===
   const isValid = useMemo(() => {
     if (!title.trim() || !content.trim()) return false;
@@ -193,8 +221,10 @@ export function PublishNotificationDialog({
     if (recipientConfig.type === 'class' && (!recipientConfig.classIds || recipientConfig.classIds.length === 0)) return false;
     if (recipientConfig.type === 'individual' && (!recipientConfig.userIds || recipientConfig.userIds.length === 0)) return false;
     if (recipientConfig.type === 'group' && (!recipientConfig.groupIds || recipientConfig.groupIds.length === 0)) return false;
+    // 审批流程需要选择至少一个审批领导
+    if (needsApproval && selectedLeaders.length === 0) return false;
     return true;
-  }, [title, content, recipientConfig]);
+  }, [title, content, recipientConfig, needsApproval, selectedLeaders]);
 
   // === 提交处理 ===
   const handleSubmit = async () => {
@@ -223,6 +253,8 @@ export function PublishNotificationDialog({
         customFlow: needsApproval ? {
           skipDepartmentDirector,
           approvalType,
+          selectedLeaders,
+          approvalMode,
         } : undefined,
       };
 
@@ -245,6 +277,8 @@ export function PublishNotificationDialog({
         setAutoUnpublishAt('');
         setSkipDepartmentDirector(false);
         setApprovalType('or_sign');
+        setSelectedLeaders([]);
+        setApprovalMode('or_sign');
         onOpenChange(false);
       } else {
         setError(result.error || '发布失败');
@@ -336,7 +370,9 @@ export function PublishNotificationDialog({
   const roleOptions = [
     { value: 'principal', label: '校长' },
     { value: 'secretary', label: '书记' },
-    { value: 'vice_principal', label: '副校长' },
+    { value: 'academic_vice_principal', label: '教学副校长' },
+    { value: 'moral_vice_principal', label: '德育副校长' },
+    { value: 'general_vice_principal', label: '总务副校长' },
     { value: 'head_teacher', label: '班主任' },
     { value: 'subject_teacher', label: '科任教师' },
     { value: 'skill_teacher', label: '技能课教师' },
@@ -834,7 +870,7 @@ export function PublishNotificationDialog({
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* 流程预览 */}
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm flex-wrap">
                   <Badge variant="outline">提交</Badge>
                   <ChevronRight className="h-4 w-4 text-gray-400" />
                   {!skipDepartmentDirector && (
@@ -845,36 +881,114 @@ export function PublishNotificationDialog({
                       <ChevronRight className="h-4 w-4 text-gray-400" />
                     </>
                   )}
-                  <Badge variant="outline">校长室</Badge>
+                  {selectedLeaders.length > 0 ? (
+                    <>
+                      {selectedLeaders.map((leader, index) => {
+                        const leaderInfo = availableLeaders.find(l => l.role === leader);
+                        return (
+                          <React.Fragment key={leader}>
+                            {index > 0 && (
+                              <span className="text-xs text-muted-foreground mx-1">
+                                {approvalMode === 'or_sign' ? '或' : '且'}
+                              </span>
+                            )}
+                            <Badge variant={index === 0 ? 'default' : 'secondary'}>
+                              {leaderInfo?.label}
+                            </Badge>
+                          </React.Fragment>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      请选择审批人
+                    </Badge>
+                  )}
                 </div>
 
                 {/* 自定义选项 */}
-                <div className="space-y-3 pt-2">
+                <div className="space-y-4 pt-2">
+                  {/* 跳过部门主任 */}
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
                       checked={skipDepartmentDirector}
                       onCheckedChange={(checked) => setSkipDepartmentDirector(checked as boolean)}
                     />
-                    <span className="text-sm">跳过部门主任，直接提交校长室审批</span>
+                    <span className="text-sm">跳过部门主任，直接提交领导审批</span>
                   </label>
 
+                  {/* 选择审批领导 */}
                   <div className="space-y-2">
-                    <Label className="text-sm">校长室审批方式</Label>
-                    <RadioGroup
-                      value={approvalType}
-                      onValueChange={(v) => setApprovalType(v as 'or_sign' | 'countersign')}
-                      className="flex gap-4"
-                    >
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <RadioGroupItem value="or_sign" />
-                        <span className="text-sm">或签（任一人通过即可）</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <RadioGroupItem value="countersign" />
-                        <span className="text-sm">会签（所有人都需通过）</span>
-                      </label>
-                    </RadioGroup>
+                    <Label className="text-sm font-medium">选择审批领导</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {recommendedVicePrincipal && (
+                        <span className="text-amber-600">
+                          💡 建议：{availableLeaders.find(l => l.role === recommendedVicePrincipal)?.label}
+                        </span>
+                      )}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableLeaders.map((leader) => (
+                        <label
+                          key={leader.role}
+                          className={cn(
+                            "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
+                            selectedLeaders.includes(leader.role)
+                              ? "border-primary bg-primary/5"
+                              : "hover:border-gray-300"
+                          )}
+                        >
+                          <Checkbox
+                            checked={selectedLeaders.includes(leader.role)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedLeaders([...selectedLeaders, leader.role]);
+                              } else {
+                                setSelectedLeaders(selectedLeaders.filter(l => l !== leader.role));
+                              }
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium">{leader.label}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {leader.description}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   </div>
+
+                  {/* 审批模式 */}
+                  {selectedLeaders.length > 1 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">审批方式</Label>
+                      <RadioGroup
+                        value={approvalMode}
+                        onValueChange={(v) => setApprovalMode(v as ApprovalMode)}
+                        className="flex gap-4"
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <RadioGroupItem value="or_sign" />
+                          <div>
+                            <span className="text-sm">或签</span>
+                            <span className="text-xs text-muted-foreground ml-1">
+                              （任一人通过即可）
+                            </span>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <RadioGroupItem value="countersign" />
+                          <div>
+                            <span className="text-sm">会签</span>
+                            <span className="text-xs text-muted-foreground ml-1">
+                              （所有人都需通过）
+                            </span>
+                          </div>
+                        </label>
+                      </RadioGroup>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

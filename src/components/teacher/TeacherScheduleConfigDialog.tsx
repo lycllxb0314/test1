@@ -319,7 +319,7 @@ export function TeacherScheduleConfigDialog({
                   {form.role === 'head_teacher' && '班主任只能带1个班'}
                   {form.role === 'subject_teacher' && '科任教师通常带2个班'}
                   {form.role === 'skill_teacher' && '技能课教师跨多个班级'}
-                  {(form.role === 'principal' || form.role === 'secretary' || form.role === 'vice_principal') && '领导层课时可适当减少'}
+                  {(form.role === 'principal' || form.role === 'secretary' || form.role === 'academic_vice_principal' || form.role === 'moral_vice_principal' || form.role === 'general_vice_principal') && '领导层课时可适当减少'}
                 </p>
               </div>
 

@@ -23,7 +23,9 @@ export { AuthContext };
 const roleNameToRole: Record<string, UserRole> = {
   '校长': 'principal',
   '书记': 'secretary',
-  '副校长': 'vice_principal',
+  '教学副校长': 'academic_vice_principal',
+  '德育副校长': 'moral_vice_principal',
+  '总务副校长': 'general_vice_principal',
   '班主任': 'head_teacher',
   '科任教师': 'subject_teacher',
   '技能课教师': 'skill_teacher',
@@ -152,7 +154,9 @@ export function useAuth() {
 export const roleOptions = [
   { value: 'principal', label: '校长', description: '全校最高管理者' },
   { value: 'secretary', label: '书记', description: '党委书记' },
-  { value: 'vice_principal', label: '副校长', description: '分管副校长' },
+  { value: 'academic_vice_principal', label: '教学副校长', description: '分管教务工作' },
+  { value: 'moral_vice_principal', label: '德育副校长', description: '分管德育工作' },
+  { value: 'general_vice_principal', label: '总务副校长', description: '分管总务工作' },
   { value: 'head_teacher', label: '班主任', description: '班级管理教师' },
   { value: 'subject_teacher', label: '科任教师', description: '语数英等主科教师' },
   { value: 'skill_teacher', label: '技能课教师', description: '音乐、美术、体育等教师' },

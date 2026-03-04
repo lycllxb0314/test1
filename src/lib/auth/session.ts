@@ -28,7 +28,9 @@ import {
 const roleNameToRole: Record<string, UserRole> = {
   '校长': 'principal',
   '书记': 'secretary',
-  '副校长': 'vice_principal',
+  '教学副校长': 'academic_vice_principal',
+  '德育副校长': 'moral_vice_principal',
+  '总务副校长': 'general_vice_principal',
   '班主任': 'head_teacher',
   '科任教师': 'subject_teacher',
   '技能课教师': 'skill_teacher',
