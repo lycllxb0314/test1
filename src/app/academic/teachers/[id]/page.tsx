@@ -49,7 +49,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { TeacherProfile } from '@/types';
-import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement } from '@/hooks';
+import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement, TEACHER_ROLE_LABELS, TEACHER_ROLE_COLORS, ADMINISTRATIVE_ROLE_LABELS, ADMINISTRATIVE_ROLE_COLORS, type AdministrativeRole } from '@/hooks';
 import { GROUP_CONFIGS, type GroupType, type UserGroupMembership } from '@/types';
 import { toast } from 'sonner';
 import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
@@ -896,6 +896,90 @@ export default function TeacherDetailPage() {
                   <div>
                     <Label className="text-muted-foreground">是否班主任</Label>
                     <p className="font-medium">{teacher.isHeadTeacher ? `是（${teacher.headTeacherClassName || '未分配班级'}）` : '否'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* 角色与课时配置 */}
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  角色与课时配置
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 角色信息 */}
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-sm">角色身份</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge className={`text-sm px-3 py-1 ${TEACHER_ROLE_COLORS[teacher.primaryRole]?.bg || 'bg-gray-100'} ${TEACHER_ROLE_COLORS[teacher.primaryRole]?.text || 'text-gray-700'}`}>
+                      {TEACHER_ROLE_LABELS[teacher.primaryRole] || teacher.primaryRole}
+                    </Badge>
+                    {teacher.additionalRoles && teacher.additionalRoles.length > 0 && (
+                      teacher.additionalRoles.map((role, idx) => (
+                        <Badge key={idx} variant="outline" className={`text-sm px-3 py-1 ${ADMINISTRATIVE_ROLE_COLORS[role as AdministrativeRole]?.bg || ''} ${ADMINISTRATIVE_ROLE_COLORS[role as AdministrativeRole]?.text || ''} border-0`}>
+                          {ADMINISTRATIVE_ROLE_LABELS[role as AdministrativeRole] || role}（兼）
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+                
+                {/* 课时配置 */}
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                  <div>
+                    <Label className="text-muted-foreground text-sm">周课时量</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xl font-bold">{teacher.weeklyHours}</span>
+                      <span className="text-muted-foreground">节/周</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">已安排课时</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-xl font-bold ${
+                        teacher.currentHours > teacher.weeklyHours ? 'text-red-600' :
+                        teacher.currentHours === teacher.weeklyHours ? 'text-green-600' :
+                        'text-gray-900'
+                      }`}>{teacher.currentHours}</span>
+                      <span className="text-muted-foreground">节</span>
+                      {teacher.currentHours > teacher.weeklyHours && (
+                        <Badge className="bg-red-100 text-red-700 text-xs">超课时</Badge>
+                      )}
+                      {teacher.currentHours === teacher.weeklyHours && (
+                        <Badge className="bg-green-100 text-green-700 text-xs">已满</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">可任教科目</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {teacher.teachableSubjects && teacher.teachableSubjects.length > 0 ? (
+                        teacher.teachableSubjects.map((subject, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {subject}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 text-sm">未设置</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">可任教年级</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {teacher.teachableGrades && teacher.teachableGrades.length > 0 ? (
+                        teacher.teachableGrades.map((grade, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {grade}年级
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 text-sm">未设置</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
