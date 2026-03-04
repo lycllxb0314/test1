@@ -419,46 +419,45 @@ export default function TeacherPage() {
                     ) : (
                       <div className="space-y-3">
                         {adjustments.map((adjust: any) => (
-                          <Card key={adjust.id} className="border-l-4 border-l-amber-500 hover:shadow-md transition-shadow cursor-pointer"
-                                onClick={() => handleOpenAdjustDialog(adjust)}>
+                          <Card 
+                            key={adjust.id} 
+                            className="border-l-4 border-l-warning hover:shadow-md transition-shadow cursor-pointer bg-card"
+                            onClick={() => handleOpenAdjustDialog(adjust)}
+                          >
                             <CardContent className="p-4">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant="outline" className="text-amber-700 border-amber-300">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center flex-wrap gap-2 mb-3">
+                                    <Badge variant="outline" className="border-warning/50 text-warning">
                                       {adjust.grade ? (GRADE_NAMES[adjust.grade] || `${adjust.grade}年级`) : '未知年级'}
                                     </Badge>
                                     <Badge variant="secondary">
                                       {adjust.subject || '未知科目'}
                                     </Badge>
-                                    <span className="text-sm text-gray-500">
+                                    <Badge variant="outline" className="text-muted-foreground">
                                       {adjust.applicantName} 请假
-                                    </span>
+                                    </Badge>
                                   </div>
                                   
-                                  <div className="text-sm space-y-1">
-                                    <p className="flex items-center gap-2">
-                                      <Clock className="h-4 w-4 text-gray-400" />
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                      <Clock className="h-4 w-4 shrink-0" />
                                       <span>第{adjust.effectiveWeek || '?'}周 {adjust.weekDay ? WEEK_DAY_NAMES[adjust.weekDay] : '?'} 第{(adjust.periodIndex ?? 0) + 1}节</span>
-                                    </p>
-                                    <p className="flex items-center gap-2">
-                                      <GraduationCap className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                      <GraduationCap className="h-4 w-4 shrink-0" />
                                       <span>{adjust.className || '未知班级'}</span>
-                                    </p>
-                                    <p className="flex items-center gap-2">
-                                      <BookOpen className="h-4 w-4 text-gray-400" />
-                                      <span>{adjust.subject || '未知科目'}</span>
-                                    </p>
+                                    </div>
                                   </div>
                                   
                                   {adjust.reason && (
-                                    <p className="text-sm text-gray-500 mt-2">
+                                    <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
                                       原因：{adjust.reason}
                                     </p>
                                   )}
                                 </div>
                                 
-                                <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white">
+                                <Button size="sm" variant="default" className="shrink-0">
                                   处理调课
                                 </Button>
                               </div>

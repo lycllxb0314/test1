@@ -127,13 +127,13 @@ const leaveTypeConfig: Record<LeaveType, {
 // 获取状态徽章
 const getStatusBadge = (status: string) => {
   const statusMap: Record<string, { label: string; className: string }> = {
-    draft: { label: '草稿', className: 'bg-gray-100 text-gray-600' },
-    submitted: { label: '审批中', className: 'bg-blue-100 text-blue-600' },
-    approved: { label: '已通过', className: 'bg-green-100 text-green-600' },
-    rejected: { label: '已驳回', className: 'bg-red-100 text-red-600' },
-    cancelled: { label: '已撤销', className: 'bg-gray-100 text-gray-500' },
+    draft: { label: '草稿', className: 'bg-muted text-muted-foreground' },
+    submitted: { label: '审批中', className: 'bg-primary/10 text-primary' },
+    approved: { label: '已通过', className: 'bg-green-500/10 text-green-600' },
+    rejected: { label: '已驳回', className: 'bg-destructive/10 text-destructive' },
+    cancelled: { label: '已撤销', className: 'bg-muted text-muted-foreground' },
   };
-  const { label, className } = statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-600' };
+  const { label, className } = statusMap[status] || { label: status, className: 'bg-muted text-muted-foreground' };
   return <Badge className={className}>{label}</Badge>;
 };
 
@@ -363,18 +363,18 @@ export default function TeacherLeavePage() {
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-blue-50/30 via-white to-purple-50/30 min-h-screen">
+    <div className="p-6 lg:p-8 space-y-6 bg-muted/30 min-h-screen">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <FileText className="h-7 w-7 text-blue-500" />
-            <h1 className="text-2xl font-bold text-gray-900">请假调课</h1>
+            <FileText className="h-7 w-7 text-primary" />
+            <h1 className="text-2xl font-bold text-foreground">请假调课</h1>
           </div>
-          <p className="text-gray-500 mt-1">提交请假申请，查看审批进度</p>
+          <p className="text-muted-foreground mt-1">提交请假申请，查看审批进度</p>
         </div>
         <Button 
-          className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
+          className="gap-2"
           onClick={() => router.push('/teacher/leave-apply')}
         >
           <Plus className="h-4 w-4" />
@@ -388,24 +388,11 @@ export default function TeacherLeavePage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">全部申请</p>
-                <p className="text-3xl font-bold text-gray-700">{stats.total}</p>
+                <p className="text-sm text-muted-foreground">全部申请</p>
+                <p className="text-3xl font-bold text-foreground">{stats.total}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-gray-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">审批中</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.pending}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-blue-600" />
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                <FileText className="h-6 w-6 text-muted-foreground" />
               </div>
             </div>
           </CardContent>
@@ -414,10 +401,23 @@ export default function TeacherLeavePage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">已通过</p>
+                <p className="text-sm text-muted-foreground">审批中</p>
+                <p className="text-3xl font-bold text-primary">{stats.pending}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">已通过</p>
                 <p className="text-3xl font-bold text-green-600">{stats.approved}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
             </div>
@@ -427,11 +427,11 @@ export default function TeacherLeavePage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">已驳回</p>
-                <p className="text-3xl font-bold text-red-600">{stats.rejected}</p>
+                <p className="text-sm text-muted-foreground">已驳回</p>
+                <p className="text-3xl font-bold text-destructive">{stats.rejected}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-                <XCircle className="h-6 w-6 text-red-600" />
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <XCircle className="h-6 w-6 text-destructive" />
               </div>
             </div>
           </CardContent>
@@ -511,23 +511,23 @@ export default function TeacherLeavePage() {
                   {getStatusBadge(selectedApp.status)}
                   <Badge variant="outline">{selectedApp.type}</Badge>
                 </div>
-                <span className="text-sm text-gray-500">{selectedApp.createdAt}</span>
+                <span className="text-sm text-muted-foreground">{selectedApp.createdAt}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-gray-500">请假时间</Label>
+                  <Label className="text-xs text-muted-foreground">请假时间</Label>
                   <p className="font-medium">{selectedApp.startDate} 至 {selectedApp.endDate}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">请假天数</Label>
+                  <Label className="text-xs text-muted-foreground">请假天数</Label>
                   <p className="font-medium">{selectedApp.duration} 天</p>
                 </div>
               </div>
 
               <div>
-                <Label className="text-xs text-gray-500">请假原因</Label>
-                <p className="mt-1 text-sm bg-gray-50 p-3 rounded-lg">{selectedApp.reason}</p>
+                <Label className="text-xs text-muted-foreground">请假原因</Label>
+                <p className="mt-1 text-sm bg-muted/50 p-3 rounded-lg">{selectedApp.reason}</p>
               </div>
 
               {/* 流程进度追踪 */}
@@ -557,7 +557,38 @@ function ApplicationCard({
   onViewDetail: (app: LeaveApplication) => void;
   onCancel: (id: string) => void;
 }) {
-  const currentNode = app.flowNodes[app.currentNodeIndex];
+  // 使用与 LeaveFlowTracker 相同的步骤定义
+  const flowSteps = [
+    { key: 'submitted', title: '提交申请' },
+    { key: 'approving', title: '审批中' },
+    { key: 'approved', title: '审批通过' },
+    { key: 'adjusting', title: '调课安排' },
+    { key: 'completed', title: '流程完成' },
+  ];
+
+  // 计算当前步骤索引（与 convertToFlowStatus 逻辑一致）
+  const getCurrentStepIndex = (): number => {
+    if (app.status === 'approved') return 4;
+    if (app.status === 'rejected') return 2;
+    
+    // submitted 状态
+    const approvalNode = app.flowNodes.find(n => n.type === 'approval');
+    const adjustNode = app.flowNodes.find(n => n.type === 'course_adjust');
+    
+    if (adjustNode?.status === 'processing' || adjustNode?.status === 'approved') {
+      return 3; // 调课安排中
+    }
+    if (approvalNode?.status === 'approved') {
+      return 2; // 审批通过
+    }
+    if (approvalNode?.status === 'processing') {
+      return 1; // 审批中
+    }
+    return 0; // 刚提交
+  };
+
+  const currentStepIndex = getCurrentStepIndex();
+  const currentStep = flowSteps[currentStepIndex];
 
   return (
     <Card className="border hover:shadow-md transition-shadow">
@@ -567,36 +598,54 @@ function ApplicationCard({
             <div className="flex items-center gap-2 mb-2">
               {getStatusBadge(app.status)}
               <Badge variant="outline">{app.type}</Badge>
-              <span className="text-sm text-gray-500">{app.createdAt}</span>
+              <span className="text-sm text-muted-foreground">{app.createdAt}</span>
             </div>
             
-            <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 {app.startDate} 至 {app.endDate}
               </div>
-              <span className="text-gray-400">|</span>
+              <span className="text-border">|</span>
               <span>{app.duration} 天</span>
             </div>
             
-            <p className="text-sm text-gray-600 line-clamp-1">{app.reason}</p>
+            <p className="text-sm text-muted-foreground line-clamp-1">{app.reason}</p>
 
-            {/* 进度条 */}
+            {/* 流程步骤 - 与详情页保持一致 */}
             <div className="mt-3">
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                <span>审批进度</span>
-                <span>{app.currentNodeIndex + 1} / {app.flowNodes.length}</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-300"
-                  style={{ width: `${((app.currentNodeIndex + 1) / app.flowNodes.length) * 100}%` }}
-                />
+              <div className="flex items-center gap-1">
+                {flowSteps.map((step, index) => (
+                  <React.Fragment key={step.key}>
+                    <div
+                      className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
+                        index < currentStepIndex
+                          ? 'bg-green-500/10 text-green-600'
+                          : index === currentStepIndex
+                          ? app.status === 'rejected' && index === 2
+                            ? 'bg-destructive/10 text-destructive'
+                            : 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {index < currentStepIndex ? (
+                        <CheckCircle className="h-3 w-3" />
+                      ) : index === currentStepIndex ? (
+                        index + 1
+                      ) : (
+                        index + 1
+                      )}
+                    </div>
+                    {index < flowSteps.length - 1 && (
+                      <div className={`h-0.5 w-4 ${index < currentStepIndex ? 'bg-green-500/50' : 'bg-border'}`} />
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
               <div className="flex items-center gap-1 mt-2 text-xs">
-                <Clock className="h-3 w-3 text-blue-500" />
-                <span className="text-blue-600">
-                  当前：{currentNode?.name || '已完成'}
+                <Clock className="h-3 w-3 text-primary" />
+                <span className={app.status === 'rejected' ? 'text-destructive' : 'text-primary'}>
+                  当前：{app.status === 'rejected' ? '已驳回' : currentStep?.title || '已完成'}
                 </span>
               </div>
             </div>
