@@ -59,6 +59,12 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     }
     
     // 3. 获取本周调课信息
+    // 注意：effective_week 是 timestamp 类型，需要使用范围查询或日期转换
+    // 使用 gte 和 lt 查询指定日期范围内的记录
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 7);
+    const weekEndStr = weekEndDate.toISOString().split('T')[0];
+    
     const { data: adjustments, error: adjustError } = await client
       .from('course_adjustments')
       .select(`
@@ -77,9 +83,11 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         substitute_employee_id,
         substitute_name,
         reason,
+        effective_week,
         created_at
       `)
-      .eq('effective_week', weekStartDate)
+      .gte('effective_week', weekStartDate)
+      .lt('effective_week', weekEndStr)
       .eq('status', 'completed');
     
     if (adjustError) {
@@ -186,7 +194,8 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
           substitute_name,
           reason
         `)
-        .eq('effective_week', weekStartDate)
+        .gte('effective_week', weekStartDate)
+        .lt('effective_week', weekEndStr)
         .eq('substitute_employee_id', employeeId)
         .eq('status', 'completed');
       

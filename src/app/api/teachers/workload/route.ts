@@ -43,12 +43,18 @@ export async function GET(request: NextRequest) {
     console.log('[workload] 查询到课表记录:', scheduleSlots?.length || 0);
 
     // 2. 获取本周调课信息（该教师请假，需要调出的课程）
+    // effective_week 是 timestamp 类型，需要使用日期范围查询
+    const weekEndDate = new Date(currentWeekStart);
+    weekEndDate.setDate(weekEndDate.getDate() + 7);
+    const weekEndStr = weekEndDate.toISOString().split('T')[0];
+    
     // applicant_id 是请假申请人
     const { data: adjustments, error: adjError } = await supabase
       .from('course_adjustments')
       .select('*')
       .eq('applicant_id', employeeId)
-      .eq('effective_week', currentWeekStart);
+      .gte('effective_week', currentWeekStart)
+      .lt('effective_week', weekEndStr);
 
     if (adjError) {
       console.error('[workload] 获取调课信息失败:', adjError);
@@ -62,7 +68,8 @@ export async function GET(request: NextRequest) {
       .from('course_adjustments')
       .select('*')
       .eq('substitute_employee_id', employeeId)
-      .eq('effective_week', currentWeekStart);
+      .gte('effective_week', currentWeekStart)
+      .lt('effective_week', weekEndStr);
 
     if (subError) {
       console.error('[workload] 获取代课信息失败:', subError);
@@ -112,12 +119,18 @@ export async function GET(request: NextRequest) {
       weekDate.setDate(weekDate.getDate() - i * 7);
       const weekStart = weekDate.toISOString().split('T')[0];
       
-      // 获取该周的调课数据
+      // 计算周末日期
+      const weekEnd = new Date(weekDate);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekEndStr = weekEnd.toISOString().split('T')[0];
+      
+      // 获取该周的调课数据（使用日期范围查询）
       const { data: weekAdjustments } = await supabase
         .from('course_adjustments')
         .select('*')
         .or(`applicant_id.eq.${employeeId},substitute_employee_id.eq.${employeeId}`)
-        .eq('effective_week', weekStart);
+        .gte('effective_week', weekStart)
+        .lt('effective_week', weekEndStr);
 
       const adjOut = weekAdjustments?.filter(a => a.applicant_id === employeeId && a.status === 'completed').length || 0;
       const subIn = weekAdjustments?.filter(a => a.substitute_employee_id === employeeId && a.status === 'completed').length || 0;

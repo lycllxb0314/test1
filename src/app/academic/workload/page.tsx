@@ -458,7 +458,7 @@ export default function WorkloadPage() {
 
                 {/* 请假详情 */}
                 <TabsContent value="leave">
-                  {teacherDetail.leaveDetails.length === 0 ? (
+                  {!teacherDetail.leaveDetails || teacherDetail.leaveDetails.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">本月无请假记录</div>
                   ) : (
                     <Table>
@@ -488,7 +488,7 @@ export default function WorkloadPage() {
 
                 {/* 代课详情 */}
                 <TabsContent value="substitute">
-                  {teacherDetail.substituteDetails.length === 0 ? (
+                  {!teacherDetail.substituteDetails || teacherDetail.substituteDetails.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">本月无代课记录</div>
                   ) : (
                     <Table>
@@ -524,7 +524,7 @@ export default function WorkloadPage() {
 
                 {/* 课后服务 */}
                 <TabsContent value="afterSchool">
-                  {teacherDetail.afterSchoolServiceDetails.length === 0 ? (
+                  {!teacherDetail.afterSchoolServiceDetails || teacherDetail.afterSchoolServiceDetails.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">本月无课后服务记录</div>
                   ) : (
                     <Table>
