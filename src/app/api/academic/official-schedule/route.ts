@@ -90,12 +90,26 @@ const updateOfficialSlot = async (request: NextRequest, { user }: ExtendedRouteC
       );
     }
     
+    // 获取教师的 employee_id
+    let employeeId = null;
+    if (teacherId) {
+      const { data: teacherData } = await client
+        .from('teachers')
+        .select('employee_id')
+        .eq('id', teacherId)
+        .single();
+      employeeId = teacherData?.employee_id || null;
+    }
+    
     const updateData: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
     
     if (subject) updateData.subject = subject;
-    if (teacherId) updateData.teacher_id = teacherId;
+    if (teacherId) {
+      updateData.teacher_id = teacherId;
+      updateData.employee_id = employeeId;
+    }
     if (teacherName) updateData.teacher_name = teacherName;
     
     const { data, error: dbError } = await client

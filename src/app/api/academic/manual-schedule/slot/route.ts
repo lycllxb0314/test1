@@ -61,6 +61,17 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
       return NextResponse.json(error('缺少必要参数', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
+    // 获取教师的 employee_id
+    let employeeId = null;
+    if (teacherId) {
+      const { data: teacherData } = await client
+        .from('teachers')
+        .select('employee_id')
+        .eq('id', teacherId)
+        .single();
+      employeeId = teacherData?.employee_id || null;
+    }
+    
     // 使用 upsert 避免重复插入（基于唯一约束）
     // 先删除该位置的旧记录，再插入新记录
     await client
@@ -82,6 +93,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
         subject,
         teacher_id: teacherId || null,
         teacher_name: teacherName || null,
+        employee_id: employeeId,
       });
     
     if (insertError) {

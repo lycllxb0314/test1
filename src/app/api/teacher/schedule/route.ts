@@ -1,0 +1,317 @@
+/**
+ * 教师课表 API
+ * 
+ * 功能：
+ * - 获取当前登录教师的个人课表
+ * - 获取教师任教的班级列表
+ * - 获取任教班级的课表
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+
+// GET: 获取教师课表数据
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+  try {
+    const client = getSupabaseClient();
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get('mode') || 'personal';
+    const classId = searchParams.get('classId');
+    
+    // 获取教师 ID
+    // 用户可能是教师角色，通过 employee_id 关联到 teachers 表
+    // 或者如果是直接使用教师 ID，可以通过查询参数传递
+    let teacherId = searchParams.get('teacherId');
+    let employeeId = searchParams.get('employeeId'); // 支持通过工号查询
+    
+    // 如果没有通过参数传递，尝试从用户信息获取
+    if (!teacherId && !employeeId) {
+      // 检查用户角色是否为教师相关角色
+      const teacherRoles = ['head_teacher', 'subject_teacher', 'skill_teacher', 
+                            'principal', 'secretary', 'academic_vice_principal', 
+                            'moral_vice_principal', 'general_vice_principal'];
+      
+      if (teacherRoles.includes(user.role)) {
+        // 优先使用 employee_id（工号）
+        if (user.employeeId) {
+          employeeId = user.employeeId;
+        }
+        
+        // 如果有工号，查询对应的教师 ID
+        if (employeeId) {
+          const { data: teacher } = await client
+            .from('teachers')
+            .select('id, name, primary_subject, employee_id')
+            .eq('employee_id', employeeId)
+            .single();
+          
+          if (teacher) {
+            teacherId = teacher.id;
+          }
+        } else if (user.name) {
+          // 没有工号，尝试通过姓名匹配
+          const { data: teacher } = await client
+            .from('teachers')
+            .select('id, name, primary_subject, employee_id')
+            .eq('name', user.name)
+            .single();
+          
+          if (teacher) {
+            teacherId = teacher.id;
+            employeeId = teacher.employee_id;
+          }
+        }
+      }
+    } else if (employeeId && !teacherId) {
+      // 如果只提供了 employeeId，查询对应的教师 ID
+      const { data: teacher } = await client
+        .from('teachers')
+        .select('id')
+        .eq('employee_id', employeeId)
+        .single();
+      
+      if (teacher) {
+        teacherId = teacher.id;
+      }
+    }
+    
+    if (!teacherId) {
+      return NextResponse.json(error('未找到教师信息，请确保账号已关联教师档案', ErrorCode.NOT_FOUND), { status: 404 });
+    }
+
+    switch (mode) {
+      case 'personal':
+        return await getPersonalSchedule(client, teacherId);
+      
+      case 'classes':
+        return await getTeachingClasses(client, teacherId);
+      
+      case 'class-schedule':
+        if (!classId) {
+          return NextResponse.json(error('缺少班级ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
+        }
+        return await getClassSchedule(client, classId);
+      
+      default:
+        return NextResponse.json(error('无效的查询模式', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
+  } catch (err) {
+    console.error('获取教师课表失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});
+
+// 获取教师个人课表
+async function getPersonalSchedule(client: any, teacherId: string) {
+  // 获取教师信息
+  const { data: teacher, error: teacherError } = await client
+    .from('teachers')
+    .select('id, name, primary_subject, employee_id')
+    .eq('id', teacherId)
+    .single();
+  
+  if (teacherError || !teacher) {
+    return NextResponse.json(error('教师不存在', ErrorCode.NOT_FOUND), { status: 404 });
+  }
+  
+  // 获取该教师的所有课程
+  const { data: slots, error: slotsError } = await client
+    .from('schedule_slots')
+    .select('*')
+    .eq('teacher_id', teacherId);
+  
+  if (slotsError) {
+    return NextResponse.json(error('获取课表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+  }
+  
+  // 获取涉及的班级信息
+  const classIds = [...new Set((slots || []).map((s: any) => s.class_id))];
+  const { data: classes } = await client
+    .from('classes')
+    .select('id, name, grade')
+    .in('id', classIds);
+  
+  const classMap = new Map<string, { id: string; name: string; grade: number }>(
+    (classes || []).map((c: any) => [c.id, { id: c.id, name: c.name, grade: c.grade }])
+  );
+  
+  // 构建课表矩阵（6行5列）
+  const scheduleMatrix: (any | null)[][] = [];
+  for (let period = 0; period < 6; period++) {
+    const row: (any | null)[] = [];
+    for (let day = 0; day < 5; day++) {
+      const slot = (slots || []).find(
+        (s: any) => s.week_day === day + 1 && s.period_index === period
+      );
+      if (slot) {
+        const cls = classMap.get(slot.class_id);
+        row.push({
+          ...slot,
+          className: cls?.name || slot.class_name,
+          grade: cls?.grade,
+        });
+      } else {
+        row.push(null);
+      }
+    }
+    scheduleMatrix.push(row);
+  }
+  
+  // 按星期分组（用于列表视图）
+  const byWeekday: Record<number, any[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+  (slots || []).forEach((slot: any) => {
+    const cls = classMap.get(slot.class_id);
+    byWeekday[slot.week_day].push({
+      ...slot,
+      className: cls?.name || slot.class_name,
+      grade: cls?.grade,
+    });
+  });
+  
+  // 排序
+  Object.keys(byWeekday).forEach(day => {
+    byWeekday[parseInt(day)].sort((a, b) => a.period_index - b.period_index);
+  });
+  
+  return NextResponse.json(success({
+    teacher,
+    scheduleMatrix,
+    byWeekday,
+    slots: slots || [],
+    totalHours: (slots || []).length,
+    classes: Array.from(classMap.values()),
+  }));
+}
+
+// 获取教师任教的班级列表
+async function getTeachingClasses(client: any, teacherId: string) {
+  // 从 schedule_slots 获取该教师任教的班级
+  const { data: slots, error: slotsError } = await client
+    .from('schedule_slots')
+    .select('class_id, subject, class_name, grade')
+    .eq('teacher_id', teacherId);
+  
+  if (slotsError) {
+    return NextResponse.json(error('获取任教班级失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+  }
+  
+  // 按班级分组，统计每个班级的课时和科目
+  const classMap = new Map<string, {
+    classId: string;
+    className: string;
+    grade: number;
+    subjects: string[];
+    totalHours: number;
+  }>();
+  
+  (slots || []).forEach((slot: any) => {
+    const existing = classMap.get(slot.class_id);
+    if (existing) {
+      existing.totalHours++;
+      if (!existing.subjects.includes(slot.subject)) {
+        existing.subjects.push(slot.subject);
+      }
+    } else {
+      classMap.set(slot.class_id, {
+        classId: slot.class_id,
+        className: slot.class_name || `班级${slot.class_id}`,
+        grade: slot.grade || 1,
+        subjects: [slot.subject],
+        totalHours: 1,
+      });
+    }
+  });
+  
+  // 获取班级详细信息（班主任等）
+  const classIds = Array.from(classMap.keys());
+  const { data: classesInfo } = await client
+    .from('classes')
+    .select(`
+      id,
+      name,
+      grade,
+      head_teacher_id,
+      head_teacher:teachers!classes_head_teacher_id_fkey(id, name, primary_subject)
+    `)
+    .in('id', classIds);
+  
+  // 合并信息
+  const teachingClasses = Array.from(classMap.values()).map(cls => {
+    const info = (classesInfo || []).find((c: any) => c.id === cls.classId);
+    return {
+      ...cls,
+      className: info?.name || cls.className,
+      grade: info?.grade || cls.grade,
+      headTeacher: info?.head_teacher || null,
+    };
+  });
+  
+  // 按年级排序
+  teachingClasses.sort((a, b) => a.grade - b.grade);
+  
+  return NextResponse.json(success({
+    teachingClasses,
+    totalClasses: teachingClasses.length,
+  }));
+}
+
+// 获取班级课表
+async function getClassSchedule(client: any, classId: string) {
+  // 获取班级信息
+  const { data: cls, error: classError } = await client
+    .from('classes')
+    .select(`
+      id,
+      name,
+      grade,
+      head_teacher_id,
+      sub_teacher_id,
+      head_teacher:teachers!classes_head_teacher_id_fkey(id, name, primary_subject),
+      sub_teacher:teachers!classes_sub_teacher_id_fkey(id, name, primary_subject)
+    `)
+    .eq('id', classId)
+    .single();
+  
+  if (classError || !cls) {
+    return NextResponse.json(error('班级不存在', ErrorCode.NOT_FOUND), { status: 404 });
+  }
+  
+  // 获取班级课表
+  const { data: slots, error: slotsError } = await client
+    .from('schedule_slots')
+    .select('*')
+    .eq('class_id', classId);
+  
+  if (slotsError) {
+    return NextResponse.json(error('获取课表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+  }
+  
+  // 构建课表矩阵
+  const scheduleMatrix: (any | null)[][] = [];
+  for (let period = 0; period < 6; period++) {
+    const row: (any | null)[] = [];
+    for (let day = 0; day < 5; day++) {
+      const slot = (slots || []).find(
+        (s: any) => s.week_day === day + 1 && s.period_index === period
+      );
+      row.push(slot || null);
+    }
+    scheduleMatrix.push(row);
+  }
+  
+  // 统计各科目课时
+  const subjectCount: Record<string, number> = {};
+  (slots || []).forEach((s: any) => {
+    subjectCount[s.subject] = (subjectCount[s.subject] || 0) + 1;
+  });
+  
+  return NextResponse.json(success({
+    class: cls,
+    scheduleMatrix,
+    slots: slots || [],
+    subjectCount,
+    totalSlots: (slots || []).length,
+  }));
+}

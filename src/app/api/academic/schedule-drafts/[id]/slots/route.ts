@@ -39,6 +39,15 @@ const createSlot = async (
       );
     }
     
+    // 获取教师的 employee_id
+    let employeeId = null;
+    const { data: teacherData } = await client
+      .from('teachers')
+      .select('employee_id')
+      .eq('id', teacherId)
+      .single();
+    employeeId = teacherData?.employee_id || null;
+    
     // 验证草稿存在且为草稿状态
     const { data: draft, error: draftError } = await client
       .from('schedule_drafts')
@@ -90,6 +99,7 @@ const createSlot = async (
         subject,
         teacher_id: teacherId,
         teacher_name: teacherName,
+        employee_id: employeeId,
         draft_id: draftId,
         status: 'active',
       })
