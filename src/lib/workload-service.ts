@@ -98,14 +98,14 @@ export async function calculateTeacherWorkload(
   // 周课时 = 实际安排的课时数量
   const weeklyHours = baseSlotsCount;
   
-  // 自己上的课 = 基准课时 - 请假课时
-  const selfTaughtHours = Math.max(0, baseSlotsCount - leaveHours);
-  
-  // 实际工作量
-  const totalWorkload = selfTaughtHours + substituteHours;
-  
   // 月应上课时 = 周课时 * 4（每月约4周）
   const expectedHours = weeklyHours * 4;
+  
+  // 自己上的课 = 月应上课时 - 请假课时
+  const selfTaughtHours = Math.max(0, expectedHours - leaveHours);
+  
+  // 实际工作量 = 应上课时 - 请假课时 + 代课课时
+  const totalWorkload = expectedHours - leaveHours + substituteHours;
   
   return {
     id: `wl-${teacherId}-${semester}${month || ''}`,

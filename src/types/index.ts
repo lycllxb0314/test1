@@ -3378,7 +3378,7 @@ export interface TeacherWorkload {
   expectedHours: number;
   
   // === 实际授课 ===
-  /** 自己上的课 */
+  /** 自己上的课 = 月应上课时 - 请假课时 */
   selfTaughtHours: number;
   /** 请假课时 */
   leaveHours: number;
@@ -3416,7 +3416,7 @@ export interface TeacherWorkload {
   }>;
   
   // === 统计 ===
-  /** 实际工作量 = 自己上的课 + 代课 + 课后服务 */
+  /** 实际工作量 = 月应上课时 - 请假课时 + 代课课时 */
   totalWorkload: number;
   /** 与预期差异 */
   variance: number;
