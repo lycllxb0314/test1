@@ -262,21 +262,42 @@ async function getClassSchedule(client: any, classId: string) {
   // 获取班级信息
   const { data: cls, error: classError } = await client
     .from('classes')
-    .select(`
-      id,
-      name,
-      grade,
-      head_teacher_id,
-      sub_teacher_id,
-      head_teacher:teachers!classes_head_teacher_id_fkey(id, name, primary_subject),
-      sub_teacher:teachers!classes_sub_teacher_id_fkey(id, name, primary_subject)
-    `)
+    .select('id, name, grade, head_teacher_id, sub_teacher_id')
     .eq('id', classId)
     .single();
   
   if (classError || !cls) {
+    console.error('查询班级错误:', classError);
     return NextResponse.json(error('班级不存在', ErrorCode.NOT_FOUND), { status: 404 });
   }
+  
+  // 获取班主任和副班主任信息
+  let headTeacher = null;
+  let subTeacher = null;
+  
+  if (cls.head_teacher_id) {
+    const { data: headTeacherData } = await client
+      .from('teachers')
+      .select('id, name, primary_subject')
+      .eq('id', cls.head_teacher_id)
+      .single();
+    headTeacher = headTeacherData;
+  }
+  
+  if (cls.sub_teacher_id) {
+    const { data: subTeacherData } = await client
+      .from('teachers')
+      .select('id, name, primary_subject')
+      .eq('id', cls.sub_teacher_id)
+      .single();
+    subTeacher = subTeacherData;
+  }
+  
+  const classInfo = {
+    ...cls,
+    head_teacher: headTeacher,
+    sub_teacher: subTeacher,
+  };
   
   // 获取班级课表
   const { data: slots, error: slotsError } = await client
@@ -308,7 +329,7 @@ async function getClassSchedule(client: any, classId: string) {
   });
   
   return NextResponse.json(success({
-    class: cls,
+    class: classInfo,
     scheduleMatrix,
     slots: slots || [],
     subjectCount,
