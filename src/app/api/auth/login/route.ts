@@ -45,12 +45,14 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // 创建响应
+    // 创建响应 - 同时返回 accessToken 以便前端可以使用 Authorization header
     const response = NextResponse.json({
       success: true,
       data: {
         user: result.user,
         tokens: result.tokens ? {
+          accessToken: result.tokens.accessToken,
+          refreshToken: result.tokens.refreshToken,
           expiresIn: result.tokens.expiresIn,
           refreshExpiresIn: result.tokens.refreshExpiresIn,
         } : undefined,

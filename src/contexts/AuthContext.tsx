@@ -109,6 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = result.data.user;
         setUser(userData);
         localStorage.setItem('smart_campus_user', JSON.stringify(userData));
+        
+        // 保存 token 到 localStorage（用于 Authorization header）
+        if (result.data.tokens?.accessToken) {
+          localStorage.setItem('smart_campus_token', result.data.tokens.accessToken);
+          localStorage.setItem('smart_campus_refresh_token', result.data.tokens.refreshToken);
+        }
+        
         setIsLoading(false);
         return true;
       }
@@ -126,6 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('smart_campus_user');
+    localStorage.removeItem('smart_campus_token');
+    localStorage.removeItem('smart_campus_refresh_token');
   }, []);
 
   // 切换角色（仅用于开发测试）

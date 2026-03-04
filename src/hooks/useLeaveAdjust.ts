@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAuthHeaders } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import type {
   LeaveRequest,
@@ -148,7 +149,8 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
     try {
       const response = await fetch('/api/leave-requests', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({
           ...request,
           applicantId: user?.employeeId,
@@ -180,6 +182,8 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
     try {
       const response = await fetch(`/api/leave-requests/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
+        headers: getAuthHeaders(),
       });
       
       const result = await response.json();
@@ -213,7 +217,10 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       searchParams.append('page', String(params?.page || 1));
       searchParams.append('pageSize', String(params?.pageSize || 20));
       
-      const response = await fetch(`/api/leave-requests?${searchParams.toString()}`);
+      const response = await fetch(`/api/leave-requests?${searchParams.toString()}`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       
       if (!mountedRef.current) return;
@@ -244,7 +251,10 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       if (params?.classId) searchParams.append('classId', params.classId);
       if (params?.employeeId) searchParams.append('employeeId', params.employeeId);
       
-      const response = await fetch(`/api/schedule/weekly?${searchParams.toString()}`);
+      const response = await fetch(`/api/schedule/weekly?${searchParams.toString()}`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       
       if (!mountedRef.current) return;
@@ -317,7 +327,10 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
         if (adjustmentParams.adjusterId) searchParams.append('adjusterId', adjustmentParams.adjusterId);
         if (adjustmentParams.effectiveWeek) searchParams.append('effectiveWeek', adjustmentParams.effectiveWeek);
         
-        const response = await fetch(`/api/course-adjustments/process?${searchParams.toString()}`);
+        const response = await fetch(`/api/course-adjustments/process?${searchParams.toString()}`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         
         if (cancelled) return;
         
@@ -377,7 +390,8 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
     try {
       const response = await fetch('/api/course-adjustments/process', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({
           ...request,
           adjusterId: user?.employeeId,
@@ -419,7 +433,10 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       if (params?.academicYear) searchParams.append('academicYear', params.academicYear);
       if (params?.semester) searchParams.append('semester', params.semester);
       
-      const response = await fetch(`/api/teacher-workload?${searchParams.toString()}`);
+      const response = await fetch(`/api/teacher-workload?${searchParams.toString()}`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       
       if (!mountedRef.current) return;
@@ -445,7 +462,11 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
   ): Promise<TeacherWorkload | null> => {
     try {
       const response = await fetch(
-        `/api/teacher-workload/calculate?employeeId=${employeeId}&weekStartDate=${weekStartDate}`
+        `/api/teacher-workload/calculate?employeeId=${employeeId}&weekStartDate=${weekStartDate}`,
+        {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        }
       );
       const result = await response.json();
       
@@ -469,7 +490,11 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
   ): Promise<{ employeeId: string; name: string; subject: string }[]> => {
     try {
       const response = await fetch(
-        `/api/teachers/available?subject=${subject}&weekDay=${weekDay}&periodIndex=${periodIndex}&weekStartDate=${weekStartDate}`
+        `/api/teachers/available?subject=${subject}&weekDay=${weekDay}&periodIndex=${periodIndex}&weekStartDate=${weekStartDate}`,
+        {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        }
       );
       const result = await response.json();
       
@@ -485,7 +510,10 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
    */
   const getApproverOptions = useCallback(async (): Promise<{ role: string; employeeId: string; name: string }[]> => {
     try {
-      const response = await fetch('/api/users/approvers');
+      const response = await fetch('/api/users/approvers', {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       
       return result.success ? result.data : [];

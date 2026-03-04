@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
+import { getAuthHeaders } from '@/lib/auth-client';
 import type {
   UserMessage,
   SendMessageRequest,
@@ -147,6 +148,7 @@ export function useMessages(): UseMessagesReturn {
 
         const response = await fetch(`/api/messages?${params.toString()}`, {
           credentials: 'include',
+          headers: getAuthHeaders(),
         });
 
         if (cancelled) return;
@@ -224,7 +226,7 @@ export function useMessages(): UseMessagesReturn {
     try {
       const response = await fetch('/api/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         credentials: 'include',
         body: JSON.stringify(request),
       });
@@ -242,7 +244,11 @@ export function useMessages(): UseMessagesReturn {
   // 状态更新操作
   const markAsRead = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/read`, { method: 'PATCH', credentials: 'include' });
+      const response = await fetch(`/api/messages/${messageId}/read`, { 
+        method: 'PATCH', 
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
       return false;
@@ -251,7 +257,11 @@ export function useMessages(): UseMessagesReturn {
 
   const markAsUnread = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/unread`, { method: 'PATCH', credentials: 'include' });
+      const response = await fetch(`/api/messages/${messageId}/unread`, { 
+        method: 'PATCH', 
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
       return false;
@@ -260,7 +270,11 @@ export function useMessages(): UseMessagesReturn {
 
   const archiveMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/archive`, { method: 'PATCH', credentials: 'include' });
+      const response = await fetch(`/api/messages/${messageId}/archive`, { 
+        method: 'PATCH', 
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
       return false;
@@ -269,7 +283,11 @@ export function useMessages(): UseMessagesReturn {
 
   const pinMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/pin`, { method: 'PATCH', credentials: 'include' });
+      const response = await fetch(`/api/messages/${messageId}/pin`, { 
+        method: 'PATCH', 
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
       return false;
@@ -278,7 +296,11 @@ export function useMessages(): UseMessagesReturn {
 
   const unpinMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/unpin`, { method: 'PATCH', credentials: 'include' });
+      const response = await fetch(`/api/messages/${messageId}/unpin`, { 
+        method: 'PATCH', 
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
       return false;
@@ -287,7 +309,11 @@ export function useMessages(): UseMessagesReturn {
 
   const deleteMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}`, { method: 'DELETE', credentials: 'include' });
+      const response = await fetch(`/api/messages/${messageId}`, { 
+        method: 'DELETE', 
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
       return false;
@@ -296,7 +322,11 @@ export function useMessages(): UseMessagesReturn {
 
   const markAllAsRead = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await fetch('/api/messages/read-all', { method: 'PATCH', credentials: 'include' });
+      const response = await fetch('/api/messages/read-all', { 
+        method: 'PATCH', 
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
       return false;

@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
+import { getAuthHeaders } from '@/lib/auth-client';
 import type {
   ApprovalInstance,
   ApprovalStatus,
@@ -205,7 +206,10 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
         params.append('page', page.toString());
         params.append('pageSize', pageSize.toString());
 
-        const response = await fetch(`/api/approvals?${params.toString()}`);
+        const response = await fetch(`/api/approvals?${params.toString()}`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
 
         if (cancelled) return;
 
@@ -309,7 +313,8 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     try {
       const response = await fetch('/api/approvals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify(request),
       });
 
@@ -338,7 +343,8 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     try {
       const response = await fetch('/api/approvals/action', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        credentials: 'include',
         body: JSON.stringify({ instanceId, action, comment } as ApprovalActionRequest),
       });
 
