@@ -5,7 +5,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Wrench, 
-  Clock, 
   AlertTriangle,
   ArrowLeft 
 } from 'lucide-react';
@@ -15,8 +14,7 @@ import Link from 'next/link';
 const MAINTENANCE_CONFIG = {
   enabled: true, // 设为 false 可恢复正常访问
   title: '系统正在升级维护中',
-  message: '总务后勤系统正在进行功能升级，预计维护时间：2024年3月4日 08:00 - 18:00',
-  estimatedTime: '预计今日18:00恢复',
+  message: '总务后勤系统正在进行功能升级，请稍后再访问。',
   contactInfo: '如有紧急事务，请联系总务处：0597-XXX-XXXX',
 };
 
@@ -45,12 +43,6 @@ export default function GeneralLayout({
             <p className="text-gray-600 mb-6 leading-relaxed">
               {MAINTENANCE_CONFIG.message}
             </p>
-
-            {/* 预计恢复时间 */}
-            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-4">
-              <Clock className="h-4 w-4" />
-              <span>{MAINTENANCE_CONFIG.estimatedTime}</span>
-            </div>
 
             {/* 联系信息 */}
             <div className="flex items-center justify-center gap-2 text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-3 mb-6">
