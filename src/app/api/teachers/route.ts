@@ -148,6 +148,7 @@ const handleGetTeachers = async (request: NextRequest, { user }: ExtendedRouteCo
         main_class_count: t.main_class_count,
         main_subject_hours: t.main_subject_hours,
         teachable_grades: t.teachable_grades,
+        current_teaching_grades: t.current_teaching_grades || [], // 当前任教学段（从课程表动态计算）
         head_teacher_class_id: t.head_teacher_class_ids?.[0],
         subject_head_class_id: t.subject_head_class_id,
         // 教师详情扩展字段

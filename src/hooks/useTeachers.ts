@@ -222,7 +222,8 @@ export interface TeacherInfo {
   weeklyHours: number;          // 周课时量
   currentHours: number;         // 已安排课时
   teachableSubjects: string[];  // 可任教科目
-  teachableGrades: number[];    // 可任教年级
+  teachableGrades: number[];    // 可任教年级（配置）
+  currentTeachingGrades: number[]; // 当前任教学段（从课程表动态计算）
   
   // === 班级关系（独立实体，但与班级强相关） ===
   isHeadTeacher: boolean;       // 是否班主任
