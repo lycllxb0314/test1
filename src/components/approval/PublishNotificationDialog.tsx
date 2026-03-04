@@ -230,6 +230,20 @@ export function PublishNotificationDialog({
   // 内部通知、家长通知：不需要审批
   const needsApproval = !isTeacherMode && departmentConfig?.requiresApproval && isExternal;
 
+  // === 教师模式：对话框打开时自动设置本班为接收者 ===
+  useEffect(() => {
+    if (open && isTeacherMode && user?.classId) {
+      setRecipientConfig(prev => {
+        // 如果已经有班级了，不覆盖
+        if (prev.classIds && prev.classIds.length > 0) return prev;
+        return {
+          type: 'class',
+          classIds: [user.classId!],
+        };
+      });
+    }
+  }, [open, isTeacherMode, user?.classId]);
+
   // === 可选审批领导列表 ===
   const availableLeaders: { role: ApproverLeaderRole; label: string; description: string }[] = [
     { role: 'principal', label: '校长', description: '学校最高管理者' },
@@ -289,7 +303,8 @@ export function PublishNotificationDialog({
         scheduledPublishAt: scheduledPublish ? scheduledPublishAt : undefined,
         autoUnpublish,
         autoUnpublishAt: autoUnpublish ? autoUnpublishAt : undefined,
-        recipients: type === 'internal_notice' ? recipientConfig : undefined,
+        // 内部通知和家长通知都需要传递接收者信息
+        recipients: (type === 'internal_notice' || type === 'parent_notice') ? recipientConfig : undefined,
         customFlow: needsApproval ? {
           skipDepartmentDirector,
           approvalType,
@@ -307,7 +322,11 @@ export function PublishNotificationDialog({
         setContent('');
         setCategory('');
         setMediaLevel('');
-        setRecipientConfig({ type: 'all' });
+        // 重置接收者配置：教师模式重置为本班，部门模式重置为全部
+        setRecipientConfig({ 
+          type: isTeacherMode ? 'class' : 'all',
+          classIds: isTeacherMode && user?.classId ? [user.classId] : [],
+        });
         setCoverImage(null);
         setImages([]);
         setAttachments([]);
