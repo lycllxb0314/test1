@@ -206,7 +206,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
           duration: body.duration || calculateDuration(body.startDate, body.endDate),
           reason: body.reason,
           approvers: body.approverSelection,
-          signType: body.approverSelection[0]?.signType || 'parallel',
+          signType: body.approverSelection[0]?.signType || 'countersign',
           applicant_employee_id: applicantId,
         },
         created_at: new Date().toISOString(),
@@ -233,9 +233,9 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
         // 创建UUID列表
         const approverUUIDs = (approverUsers || []).map((u: any) => u.id);
         
-        // 确定节点类型：parallel = 会签(countersign), serial = 或签(or_sign)
-        const signType = body.approverSelection[0]?.signType || 'parallel';
-        const nodeType = signType === 'parallel' ? 'countersign' : 'or_sign';
+        // 确定节点类型：countersign = 会签（所有人都要签），parallel = 或签（任一人签即可）
+        const signType = body.approverSelection[0]?.signType || 'countersign';
+        const nodeType = signType === 'countersign' ? 'countersign' : 'or_sign';
         
         // 创建节点记录
         const nodeRecord = {

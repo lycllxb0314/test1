@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
     
     // 2. 创建审批实例
     const approverSelection = body.approverSelection || [];
-    const signType = approverSelection[0]?.signType || 'parallel'; // 会签/或签
+    const signType = approverSelection[0]?.signType || 'countersign'; // 会签/或签，默认会签
     
     // 获取申请人用户信息（获取UUID）
     const { data: applicantUser } = await client
