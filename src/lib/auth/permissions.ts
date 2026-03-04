@@ -4,11 +4,12 @@
  * 统一身份角色来自教务系统：
  * - 主要角色（UserRole）：决定登录身份和基础权限
  * - 兼任职务（AdministrativeRole）：只增加权限，不作为登录身份
+ * - 群组权限（GroupMembership）：用户归入部门后继承部门权限
  * 
- * 系统会自动合并主要角色和兼任职务的权限
+ * 系统会自动合并主要角色、兼任职务和群组的权限
  */
 
-import { UserRole, ModuleType, Permission, AdministrativeRole, RoleConfig } from '@/types';
+import { UserRole, ModuleType, Permission, AdministrativeRole, RoleConfig, UserGroupMembership, GROUP_CONFIGS } from '@/types';
 
 /**
  * 主要角色权限映射
@@ -151,11 +152,17 @@ export const ADMINISTRATIVE_ROLE_PERMISSIONS: Record<AdministrativeRole, {
 };
 
 /**
- * 合并主要角色和兼任职务的权限
+ * 合并主要角色、兼任职务和群组的权限
+ * 
+ * @param primaryRole 主要角色
+ * @param additionalRoles 兼任职务
+ * @param groups 所属群组
+ * @returns 合并后的权限映射
  */
 export function getMergedPermissions(
   primaryRole: UserRole,
-  additionalRoles: AdministrativeRole[] = []
+  additionalRoles: AdministrativeRole[] = [],
+  groups: UserGroupMembership[] = []
 ): Partial<Record<ModuleType, Permission[]>> {
   // 获取主要角色权限
   const primaryPermissions = ROLE_PERMISSIONS[primaryRole]?.modules || {};
@@ -172,6 +179,33 @@ export function getMergedPermissions(
       
       // 合并权限（去重，取最高权限）
       const mergedModulePermissions = [...new Set([...existingPermissions, ...(permissions || [])])];
+      
+      // 权限级别排序：admin > manage > edit > view
+      if (mergedModulePermissions.includes('admin')) {
+        mergedPermissions[moduleKey] = ['admin'];
+      } else if (mergedModulePermissions.includes('manage')) {
+        mergedPermissions[moduleKey] = ['manage'];
+      } else {
+        mergedPermissions[moduleKey] = mergedModulePermissions as Permission[];
+      }
+    }
+  }
+  
+  // 合并群组权限
+  for (const group of groups) {
+    const groupConfig = GROUP_CONFIGS[group.groupType];
+    if (!groupConfig) continue;
+    
+    const groupPermissions = groupConfig.modulePermissions;
+    
+    for (const [module, permissions] of Object.entries(groupPermissions)) {
+      if (!permissions || permissions.length === 0) continue;
+      
+      const moduleKey = module as ModuleType;
+      const existingPermissions = mergedPermissions[moduleKey] || [];
+      
+      // 合并权限（去重，取最高权限）
+      const mergedModulePermissions = [...new Set([...existingPermissions, ...permissions])];
       
       // 权限级别排序：admin > manage > edit > view
       if (mergedModulePermissions.includes('admin')) {
@@ -202,9 +236,10 @@ export function getRoleModules(role: UserRole): ModuleType[] {
 export function canAccessModule(
   role: UserRole,
   module: ModuleType,
-  additionalRoles?: AdministrativeRole[]
+  additionalRoles?: AdministrativeRole[],
+  groups?: UserGroupMembership[]
 ): boolean {
-  const permissions = getMergedPermissions(role, additionalRoles);
+  const permissions = getMergedPermissions(role, additionalRoles, groups);
   return module in permissions;
 }
 

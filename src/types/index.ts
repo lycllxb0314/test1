@@ -159,6 +159,7 @@ export interface User {
   className?: string;
   subjects?: string[];    // 教师任教学科
   additionalRoles?: AdministrativeRole[];  // 兼任职务
+  groups?: UserGroupMembership[];  // 所属群组
   subTeacherClasses?: Array<{ classId: string; className: string }>;  // 科任所在班级列表
   children?: {            // 家长关联的学生
     id: string;

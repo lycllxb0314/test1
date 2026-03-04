@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { User, UserRole, AdministrativeRole } from '@/types';
+import { User, UserRole, AdministrativeRole, UserGroupMembership, GROUP_CONFIGS } from '@/types';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import {
   generateTokenPair,
@@ -150,7 +150,23 @@ export async function login(
     }
   }
 
-  // 6. 生成 Token 对
+  // 6. 查询用户所属群组
+  const { data: groupMemberships } = await client
+    .from('group_members')
+    .select('group_id, group_type, is_admin, join_type')
+    .eq('user_id', dbUser.id);
+
+  if (groupMemberships && groupMemberships.length > 0) {
+    user.groups = groupMemberships.map((gm: { group_id: string; group_type: string; is_admin: boolean; join_type: string }) => ({
+      groupId: gm.group_id,
+      groupType: gm.group_type as UserGroupMembership['groupType'],
+      groupName: GROUP_CONFIGS[gm.group_type as keyof typeof GROUP_CONFIGS]?.name || gm.group_type,
+      isAdmin: gm.is_admin,
+      joinType: gm.join_type as 'auto' | 'manual',
+    }));
+  }
+
+  // 7. 生成 Token 对
   const tokens = await generateTokenPair({
     id: user.id,
     name: user.name,
@@ -263,6 +279,22 @@ export async function validateSession(
         }));
       }
     }
+  }
+
+  // 查询用户所属群组
+  const { data: groupMemberships } = await client
+    .from('group_members')
+    .select('group_id, group_type, is_admin, join_type')
+    .eq('user_id', payload.userId);
+
+  if (groupMemberships && groupMemberships.length > 0) {
+    user.groups = groupMemberships.map((gm: { group_id: string; group_type: string; is_admin: boolean; join_type: string }) => ({
+      groupId: gm.group_id,
+      groupType: gm.group_type as UserGroupMembership['groupType'],
+      groupName: GROUP_CONFIGS[gm.group_type as keyof typeof GROUP_CONFIGS]?.name || gm.group_type,
+      isAdmin: gm.is_admin,
+      joinType: gm.join_type as 'auto' | 'manual',
+    }));
   }
 
   // 3. 检查是否需要刷新 Token
