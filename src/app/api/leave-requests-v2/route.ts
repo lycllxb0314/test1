@@ -178,15 +178,52 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
       }
     }
     
-    // 3. 发送审批通知
+    // 3. 创建审批实例
     if (body.approverSelection?.length > 0) {
       // 获取申请人UUID
       const { data: applicantUser } = await client
         .from('users')
-        .select('id')
+        .select('id, department')
         .eq('employee_id', applicantId)
         .single();
       
+      const approvalInstance = {
+        flow_id: null as string | null,
+        flow_name: `${body.type}审批`,
+        business_type: 'leave_request',
+        business_id: data.id,
+        title: `${applicantName}的${body.type}申请`,
+        applicant_id: applicantUser?.id || null,
+        applicant_name: applicantName,
+        applicant_department: applicantUser?.department || '',
+        current_node_order: 1,
+        status: 'pending',
+        submit_at: new Date().toISOString(),
+        metadata: {
+          leaveType: body.type,
+          startDate: body.startDate,
+          endDate: body.endDate,
+          duration: body.duration || calculateDuration(body.startDate, body.endDate),
+          reason: body.reason,
+          approvers: body.approverSelection,
+          signType: body.approverSelection[0]?.signType || 'parallel',
+          applicant_employee_id: applicantId,
+        },
+        created_at: new Date().toISOString(),
+      };
+      
+      const { data: approvalInstanceResult, error: approvalError } = await client
+        .from('approval_instances')
+        .insert(approvalInstance)
+        .select()
+        .single();
+      
+      if (approvalError) {
+        console.error('创建审批实例失败:', approvalError);
+        // 不影响请假申请创建，继续发送通知
+      }
+      
+      // 4. 发送审批通知
       // 获取所有审批人的UUID
       const approverEmployeeIds = body.approverSelection.map((a: any) => a.employeeId);
       const { data: approverUsers } = await client
