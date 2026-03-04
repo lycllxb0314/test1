@@ -138,31 +138,29 @@ async function getPersonalSchedule(client: any, teacherId: string) {
   );
   
   // ====== 查询调课记录 ======
-  // 当前学期：2025-2026第二学期
-  const currentSemester = '2025-2026-2';
-  const effectiveWeekStart = new Date('2025-02-17'); // 第二学期开学日期
-  const effectiveWeekEnd = new Date('2025-07-01'); // 学期结束日期
+  // 使用 course_adjustments 表（正确的表名）
+  // 注意：applicant_id 和 substitute_employee_id 存储的都是工号
   
   // 查询教师作为请假人（被代课）的调课记录
   const { data: adjustedRecordsAsApplicant, error: adjError1 } = await client
-    .from('schedule_adjustments')
+    .from('course_adjustments')
     .select(`
       id,
       class_id,
+      class_name,
       subject,
       week_day,
       period_index,
       effective_week,
       applicant_id,
-      substitute_id,
-      status,
-      substitute:teachers!schedule_adjustments_substitute_id_fkey(id, name, primary_subject, employee_id)
+      applicant_name,
+      substitute_employee_id,
+      substitute_name,
+      status
     `)
-    .eq('applicant_id', teacherId)
-    .eq('semester', currentSemester)
-    .in('status', ['approved', 'pending'])
-    .gte('effective_week', effectiveWeekStart.toISOString())
-    .lt('effective_week', effectiveWeekEnd.toISOString());
+    .eq('applicant_id', teacher.employee_id)
+    .in('status', ['approved', 'completed', 'pending'])
+    .not('week_day', 'is', null); // 过滤掉无效记录
   
   if (adjError1) {
     console.error('查询调课记录(作为请假人)失败:', adjError1);
@@ -170,24 +168,24 @@ async function getPersonalSchedule(client: any, teacherId: string) {
   
   // 查询教师作为代课人的调课记录
   const { data: adjustedRecordsAsSubstitute, error: adjError2 } = await client
-    .from('schedule_adjustments')
+    .from('course_adjustments')
     .select(`
       id,
       class_id,
+      class_name,
       subject,
       week_day,
       period_index,
       effective_week,
       applicant_id,
-      substitute_id,
-      status,
-      applicant:teachers!schedule_adjustments_applicant_id_fkey(id, name, primary_subject, employee_id)
+      applicant_name,
+      substitute_employee_id,
+      substitute_name,
+      status
     `)
-    .eq('substitute_id', teacherId)
-    .eq('semester', currentSemester)
-    .in('status', ['approved', 'pending'])
-    .gte('effective_week', effectiveWeekStart.toISOString())
-    .lt('effective_week', effectiveWeekEnd.toISOString());
+    .eq('substitute_employee_id', teacher.employee_id)
+    .in('status', ['approved', 'completed', 'pending'])
+    .not('week_day', 'is', null); // 过滤掉无效记录
   
   if (adjError2) {
     console.error('查询调课记录(作为代课人)失败:', adjError2);
@@ -204,20 +202,25 @@ async function getPersonalSchedule(client: any, teacherId: string) {
       ...adj,
       isAdjusted: true,
       adjustmentType: 'substituted', // 被代课
-      substituteTeacher: adj.substitute,
+      substituteTeacher: adj.substitute_name ? {
+        name: adj.substitute_name,
+        employee_id: adj.substitute_employee_id,
+      } : null,
     });
   });
   
   // 代课的记录（帮别人代课）
   (adjustedRecordsAsSubstitute || []).forEach((adj: any) => {
     const key = `${adj.week_day}-${adj.period_index}`;
-    // 如果这个位置已经在被代课记录中，则不覆盖
     if (!adjustmentMap.has(key)) {
       adjustmentMap.set(key, {
         ...adj,
         isAdjusted: true,
         adjustmentType: 'substituting', // 代课
-        originalTeacher: adj.applicant,
+        originalTeacher: {
+          name: adj.applicant_name,
+          employee_id: adj.applicant_id,
+        },
       });
     }
   });
@@ -239,7 +242,6 @@ async function getPersonalSchedule(client: any, teacherId: string) {
           ...slot,
           className: cls?.name || slot.class_name,
           grade: cls?.grade,
-          // 如果有调课记录，添加调课信息
           isAdjusted: !!adjustment,
           adjustment: adjustment || null,
         });
