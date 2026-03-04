@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -74,8 +74,8 @@ import {
   Key,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
-import { moduleNames, roleConfigs } from '@/config/roles';
-import { ModuleType } from '@/types';
+import { moduleNames, roleConfigs, administrativeRoleConfigs } from '@/config/roles';
+import { ModuleType, GROUP_CONFIGS, type GroupType } from '@/types';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 
 interface NavItem {
@@ -236,6 +236,21 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [activeModule, setActiveModule] = useState<ModuleType | null>(null);
   const [expandedItems, setExpandedItems] = useState<string[]>([]); // 展开的三级菜单项
+  const [userGroups, setUserGroups] = useState<{ groupType: GroupType }[]>([]); // 用户群组成员身份
+
+  // 获取用户群组成员身份
+  useEffect(() => {
+    if (user?.id) {
+      fetch(`/api/users/${user.id}/groups`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.groups) {
+            setUserGroups(data.groups.map((g: { groupType: GroupType }) => ({ groupType: g.groupType })));
+          }
+        })
+        .catch(err => console.error('获取用户群组失败:', err));
+    }
+  }, [user?.id]);
 
   // 根据当前路径确定活跃模块
   useEffect(() => {
@@ -262,6 +277,29 @@ export function AppSidebar() {
   const isHeadTeacher = user.role === 'head_teacher';
   const isSubTeacher = user.role === 'subject_teacher'; // 科任教师（副班主任）
   const isGradeLeader = additionalRoles?.includes('grade_leader');
+  
+  // 计算用户可访问的模块（合并主要角色 + 兼任职务 + 群组成员身份）
+  const accessibleModules = useMemo(() => {
+    const modules = new Set<ModuleType>(roleConfig.modules);
+    
+    // 添加兼任职务的模块权限
+    additionalRoles?.forEach(role => {
+      const adminConfig = administrativeRoleConfigs[role];
+      if (adminConfig) {
+        adminConfig.modules.forEach(m => modules.add(m));
+      }
+    });
+    
+    // 添加群组成员身份的模块权限
+    userGroups.forEach(group => {
+      const groupConfig = GROUP_CONFIGS[group.groupType];
+      if (groupConfig?.modulePermissions) {
+        Object.keys(groupConfig.modulePermissions).forEach(m => modules.add(m as ModuleType));
+      }
+    });
+    
+    return modules;
+  }, [roleConfig.modules, additionalRoles, userGroups]);
 
   // 获取当前模块的导航
   const getCurrentNav = (): NavItem[] => {
@@ -366,7 +404,7 @@ export function AppSidebar() {
             )}
 
             {/* 总务后勤 */}
-            {roleConfig.modules.includes('general') && (
+            {accessibleModules.has('general') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -395,7 +433,7 @@ export function AppSidebar() {
             )}
 
             {/* 教务教研 */}
-            {roleConfig.modules.includes('academic') && (
+            {accessibleModules.has('academic') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -424,7 +462,7 @@ export function AppSidebar() {
             )}
 
             {/* 德育管理 */}
-            {roleConfig.modules.includes('moral') && (
+            {accessibleModules.has('moral') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -453,7 +491,7 @@ export function AppSidebar() {
             )}
 
             {/* 教师空间（所有教师可访问） */}
-            {roleConfig.modules.includes('teacher') && (
+            {accessibleModules.has('teacher') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -482,7 +520,7 @@ export function AppSidebar() {
             )}
 
             {/* 家长端 */}
-            {roleConfig.modules.includes('parent') && (
+            {accessibleModules.has('parent') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
