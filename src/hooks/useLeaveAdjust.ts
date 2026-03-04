@@ -156,7 +156,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
    */
   const submitLeaveRequest = useCallback(async (request: SubmitLeaveRequest): Promise<{ success: boolean; data?: LeaveRequest; error?: string }> => {
     try {
-      const response = await fetch('/api/leave-requests', {
+      const response = await fetch('/api/leave-requests-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',
@@ -189,8 +189,8 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
    */
   const cancelLeaveRequest = useCallback(async (id: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/leave-requests/${id}`, {
-        method: 'DELETE',
+      const response = await fetch(`/api/leave-requests-v2/${id}/cancel`, {
+        method: 'POST',
         credentials: 'include',
         headers: authHeaders(),
       });
@@ -226,7 +226,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
       searchParams.append('page', String(params?.page || 1));
       searchParams.append('pageSize', String(params?.pageSize || 20));
       
-      const response = await fetch(`/api/leave-requests?${searchParams.toString()}`, {
+      const response = await fetch(`/api/leave-requests-v2?${searchParams.toString()}`, {
         credentials: 'include',
         headers: authHeaders(),
       });

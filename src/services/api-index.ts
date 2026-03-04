@@ -60,9 +60,12 @@ export const CLASS_API = {
  * 故事：老师请假，需要审批和调课安排
  */
 export const LEAVE_REQUEST_API = {
-  list: '/api/leave-requests',
-  create: '/api/leave-requests',
-  update: '/api/leave-requests',
+  list: '/api/leave-requests-v2',
+  create: '/api/leave-requests-v2',
+  update: '/api/leave-requests-v2',
+  cancel: '/api/leave-requests-v2',
+  approve: '/api/leave-requests-v2',
+  pending: '/api/leave-requests-v2/pending',
 } as const;
 
 /**
