@@ -364,47 +364,25 @@ function WeekView({ slots, loading, getSlotContent, currentEmployeeId }: WeekVie
                                   <RefreshCcw className="h-2.5 w-2.5 mr-0.5" />
                                   {slot.adjustmentType === 'substitute' ? '代课' : '调课'}
                                 </Badge>
-                                {slot.adjustmentType === 'substitute' && (() => {
-                                  // 判断当前用户身份
-                                  // 使用 applicantId（请假人ID）和 actualEmployeeId（实际代课人ID）判断
-                                  const isOriginalTeacher = slot.applicantId === currentEmployeeId || 
-                                    (slot.employeeId === currentEmployeeId && slot.actualEmployeeId !== currentEmployeeId);
-                                  const isSubstitute = slot.actualEmployeeId === currentEmployeeId && 
-                                    slot.applicantId !== currentEmployeeId;
-                                  
-                                  if (isOriginalTeacher) {
-                                    // 被代课人看到代课人信息
-                                    return (
+                                {slot.adjustmentType === 'substitute' && (
+                                  <div className="mt-0.5">
+                                    {/* 如果 employeeId === applicantId，说明当前课程的教师是请假人（被代课） */}
+                                    {slot.employeeId === slot.applicantId ? (
                                       <>
-                                        <div className="text-[10px] text-orange-600 mt-0.5 font-medium">
+                                        <div className="text-[10px] text-orange-600 font-medium">
                                           您已请假
                                         </div>
                                         <div className="text-[10px] text-stone-400">
                                           代课人：{slot.actualTeacherName}
                                         </div>
                                       </>
-                                    );
-                                  } else if (isSubstitute) {
-                                    // 代课人看到原教师信息
-                                    return (
-                                      <div className="text-[10px] text-stone-400 mt-0.5">
+                                    ) : (
+                                      <div className="text-[10px] text-stone-400">
                                         原教师：{slot.originalTeacherName || slot.teacherName}
                                       </div>
-                                    );
-                                  } else {
-                                    // 其他人看到双方信息
-                                    return (
-                                      <>
-                                        <div className="text-[10px] text-stone-400 mt-0.5">
-                                          代课：{slot.actualTeacherName}
-                                        </div>
-                                        <div className="text-[10px] text-stone-400">
-                                          原教师：{slot.originalTeacherName || slot.teacherName}
-                                        </div>
-                                      </>
-                                    );
-                                  }
-                                })()}
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -513,28 +491,25 @@ function ListView({ slots, loading, currentEmployeeId }: ListViewProps) {
                             <RefreshCcw className="h-3 w-3 mr-1" />
                             {slot.adjustmentType === 'substitute' ? '代课' : '调课'}
                           </Badge>
-                          {slot.adjustmentType === 'substitute' && (() => {
-                            // 使用 applicantId（请假人ID）和 actualEmployeeId（实际代课人ID）判断
-                            const isOriginalTeacher = slot.applicantId === currentEmployeeId || 
-                              (slot.employeeId === currentEmployeeId && slot.actualEmployeeId !== currentEmployeeId);
-                            const isSubstitute = slot.actualEmployeeId === currentEmployeeId && 
-                              slot.applicantId !== currentEmployeeId;
-                            
-                            if (isOriginalTeacher) {
-                              return (
-                                <span className="text-xs text-orange-600 font-medium">
-                                  代课人：{slot.actualTeacherName}
-                                </span>
-                              );
-                            } else if (isSubstitute) {
-                              return (
-                                <span className="text-xs text-muted-foreground">
+                          {slot.adjustmentType === 'substitute' && (
+                            <div className="text-right">
+                              {/* 如果 employeeId === applicantId，说明当前课程的教师是请假人（被代课） */}
+                              {slot.employeeId === slot.applicantId ? (
+                                <>
+                                  <div className="text-xs text-orange-600 font-medium">
+                                    您已请假
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    代课人：{slot.actualTeacherName}
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="text-xs text-muted-foreground">
                                   原教师：{slot.originalTeacherName || slot.teacherName}
-                                </span>
-                              );
-                            }
-                            return null;
-                          })()}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
