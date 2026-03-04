@@ -221,53 +221,85 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
       if (approvalError) {
         console.error('创建审批实例失败:', approvalError);
         // 不影响请假申请创建，继续发送通知
-      }
-      
-      // 4. 发送审批通知
-      // 获取所有审批人的UUID
-      const approverEmployeeIds = body.approverSelection.map((a: any) => a.employeeId);
-      const { data: approverUsers } = await client
-        .from('users')
-        .select('id, employee_id')
-        .in('employee_id', approverEmployeeIds);
-      
-      // 创建UUID到employee_id的映射
-      const approverMap = new Map(
-        (approverUsers || []).map((u: any) => [u.employee_id, u.id])
-      );
-      
-      // 创建消息通知审批人
-      const notifications = body.approverSelection
-        .map((approver: any) => {
-          const approverUUID = approverMap.get(approver.employeeId);
-          if (!approverUUID) return null;
-          
-          return {
-            title: `【审批待办】${applicantName}的${body.type}申请`,
-            content: `${applicantName}申请${body.type}（${body.startDate}至${body.endDate}），共${body.duration || calculateDuration(body.startDate, body.endDate)}天。原因：${body.reason}`,
-            type: 'leave_approval',
-            priority: 'high',
-            sender_id: applicantUser?.id || null,
-            sender_name: applicantName,
-            recipient_id: approverUUID,
-            recipient_type: 'individual',
-            metadata: {
-              leaveRequestId: data.id,
-              leaveType: body.type,
-              signType: approver.signType,
-            },
-            created_at: new Date().toISOString(),
-          };
-        })
-        .filter(Boolean);
-      
-      if (notifications.length > 0) {
-        const { error: msgError } = await client
-          .from('messages')
-          .insert(notifications);
+      } else if (approvalInstanceResult) {
+        // 创建审批节点记录
+        // 获取所有审批人的UUID
+        const approverEmployeeIds = body.approverSelection.map((a: any) => a.employeeId);
+        const { data: approverUsers } = await client
+          .from('users')
+          .select('id, employee_id')
+          .in('employee_id', approverEmployeeIds);
         
-        if (msgError) {
-          console.error('发送审批通知失败:', msgError);
+        // 创建UUID列表
+        const approverUUIDs = (approverUsers || []).map((u: any) => u.id);
+        
+        // 确定节点类型：parallel = 会签(countersign), serial = 或签(or_sign)
+        const signType = body.approverSelection[0]?.signType || 'parallel';
+        const nodeType = signType === 'parallel' ? 'countersign' : 'or_sign';
+        
+        // 创建节点记录
+        const nodeRecord = {
+          instance_id: approvalInstanceResult.id,
+          node_order: 1,
+          node_type: nodeType,
+          node_name: '审批',
+          approver_ids: approverUUIDs,
+          approved_by: [],
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        };
+        
+        const { error: nodeError } = await client
+          .from('approval_node_records')
+          .insert(nodeRecord);
+        
+        if (nodeError) {
+          console.error('创建审批节点记录失败:', nodeError);
+        } else {
+          console.log('创建审批节点记录成功:', { instance_id: approvalInstanceResult.id, approver_count: approverUUIDs.length });
+        }
+        
+        // 4. 发送审批通知给审批人
+        // 创建UUID到employee_id的映射
+        const approverMap = new Map(
+          (approverUsers || []).map((u: any) => [u.employee_id, u.id])
+        );
+        
+        // 创建消息通知审批人
+        const notifications = body.approverSelection
+          .map((approver: any) => {
+            const approverUUID = approverMap.get(approver.employeeId);
+            if (!approverUUID) return null;
+            
+            return {
+              title: `【审批待办】${applicantName}的${body.type}申请`,
+              content: `${applicantName}申请${body.type}（${body.startDate}至${body.endDate}），共${body.duration || calculateDuration(body.startDate, body.endDate)}天。原因：${body.reason}`,
+              type: 'leave_approval',
+              priority: 'high',
+              sender_id: applicantUser?.id || null,
+              sender_name: applicantName,
+              recipient_id: approverUUID,
+              recipient_type: 'individual',
+              metadata: {
+                leaveRequestId: data.id,
+                leaveType: body.type,
+                signType: approver.signType,
+              },
+              created_at: new Date().toISOString(),
+            };
+          })
+          .filter(Boolean);
+        
+        if (notifications.length > 0) {
+          const { error: msgError } = await client
+            .from('messages')
+            .insert(notifications);
+          
+          if (msgError) {
+            console.error('发送审批通知失败:', msgError);
+          } else {
+            console.log('发送审批通知成功:', { count: notifications.length });
+          }
         }
       }
     }

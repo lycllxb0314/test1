@@ -254,18 +254,26 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // 处理请假类型的审批（审批人信息在 metadata 中）
+      // 处理请假类型的审批（检查节点记录中的审批人UUID）
       for (const instance of leaveInstances || []) {
-        const approvers = instance.metadata?.approvers || [];
-        // 检查当前用户工号是否在审批人列表中
-        const isApprover = approvers.some((a: any) => a.employeeId === user.employeeId);
-        
-        // 检查是否已经审批过
-        const approvedByList = instance.metadata?.approvedByList || [];
-        const hasApproved = approvedByList.some((a: any) => a.employeeId === user.employeeId);
-        
-        if (isApprover && !hasApproved) {
-          pendingInstanceIds.push(instance.id);
+        // 获取节点记录
+        const { data: nodeRecord } = await supabase
+          .from('approval_node_records')
+          .select('*')
+          .eq('instance_id', instance.id)
+          .eq('node_order', instance.current_node_order)
+          .eq('status', 'pending')
+          .single();
+
+        if (nodeRecord) {
+          // 检查当前用户UUID是否在审批人列表中且尚未审批
+          const approverIds = nodeRecord.approver_ids || [];
+          const approvedBy = nodeRecord.approved_by || [];
+          const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
+          
+          if (approverIds.includes(user.id) && !approvedUserIds.includes(user.id)) {
+            pendingInstanceIds.push(instance.id);
+          }
         }
       }
 

@@ -26,6 +26,8 @@ export async function PUT(request: NextRequest) {
 
     const body: ApprovalActionRequest = await request.json();
     const { instanceId, action, comment } = body;
+    
+    console.log('[Approval Action] Request:', { instanceId, action, comment, userId: user.id });
 
     // 1. 获取审批实例
     const { data: instance, error: instanceError } = await supabase
@@ -34,12 +36,21 @@ export async function PUT(request: NextRequest) {
       .eq('id', instanceId)
       .single();
 
-    if (instanceError || !instance) {
+    if (instanceError) {
+      console.error('[Approval Action] Instance error:', instanceError);
+    }
+    if (!instance) {
       return NextResponse.json({
         success: false,
         error: '审批实例不存在',
       }, { status: 404 });
     }
+    
+    console.log('[Approval Action] Instance found:', { 
+      id: instance.id, 
+      current_node_order: instance.current_node_order,
+      business_type: instance.business_type 
+    });
 
     // 2. 获取当前审批节点记录
     const { data: currentNodeRecord, error: nodeError } = await supabase
@@ -50,12 +61,23 @@ export async function PUT(request: NextRequest) {
       .eq('status', 'pending')
       .single();
 
-    if (nodeError || !currentNodeRecord) {
+    if (nodeError) {
+      console.error('[Approval Action] Node record error:', nodeError);
+    }
+    if (!currentNodeRecord) {
+      console.error('[Approval Action] No pending node found for instance:', instanceId, 'current_node_order:', instance.current_node_order);
       return NextResponse.json({
         success: false,
         error: '未找到待审批的节点',
+        details: { instanceId, current_node_order: instance.current_node_order }
       }, { status: 400 });
     }
+    
+    console.log('[Approval Action] Node record found:', { 
+      id: currentNodeRecord.id, 
+      node_order: currentNodeRecord.node_order,
+      approver_ids: currentNodeRecord.approver_ids 
+    });
 
     // 3. 检查当前用户是否有权限审批
     const approverIds = currentNodeRecord.approver_ids || [];
@@ -277,30 +299,57 @@ async function completeApproval(instance: any, now: string) {
     })
     .eq('id', instance.id);
 
-  // 更新公告状态
-  await supabase
-    .from('announcements')
-    .update({
-      status: 'published',
-      publish_status: 'published',
-      published_at: now,
-    })
-    .eq('id', instance.business_id);
+  // 根据业务类型更新对应表
+  if (instance.business_type === 'leave_request') {
+    // 更新请假申请状态
+    await supabase
+      .from('leave_requests')
+      .update({
+        status: 'approved',
+        approved_at: now,
+        updated_at: now,
+      })
+      .eq('id', instance.business_id);
+    
+    // 发送通知给申请人
+    await supabase.from('messages').insert({
+      id: crypto.randomUUID(),
+      title: `【审批通过】${instance.title}`,
+      content: '您的请假申请已通过。',
+      type: 'approval',
+      priority: 'high',
+      recipient_id: instance.applicant_id,
+      is_read: false,
+      metadata: { instance_id: instance.id },
+    });
+    
+    // TODO: 如果需要调课，通知年段长
+  } else {
+    // 默认处理公告类型
+    await supabase
+      .from('announcements')
+      .update({
+        status: 'published',
+        publish_status: 'published',
+        published_at: now,
+      })
+      .eq('id', instance.business_id);
 
-  // 发送通知给申请人
-  await supabase.from('messages').insert({
-    id: crypto.randomUUID(),
-    title: `【审批通过】${instance.title}`,
-    content: '您的审批申请已通过，内容已发布。',
-    type: 'approval',
-    priority: 'high',
-    recipient_id: instance.applicant_id,
-    is_read: false,
-    metadata: { instance_id: instance.id },
-  });
+    // 发送通知给申请人
+    await supabase.from('messages').insert({
+      id: crypto.randomUUID(),
+      title: `【审批通过】${instance.title}`,
+      content: '您的审批申请已通过，内容已发布。',
+      type: 'approval',
+      priority: 'high',
+      recipient_id: instance.applicant_id,
+      is_read: false,
+      metadata: { instance_id: instance.id },
+    });
 
-  // TODO: 发布到外部学校主页
-  // 这里需要调用外部API
+    // TODO: 发布到外部学校主页
+    // 这里需要调用外部API
+  }
 }
 
 /**
@@ -338,13 +387,27 @@ async function handleReject(
     })
     .eq('id', instance.id);
 
-  // 更新公告状态
-  await supabase
-    .from('announcements')
-    .update({
-      status: 'rejected',
-    })
-    .eq('id', instance.business_id);
+  // 根据业务类型更新对应表
+  if (instance.business_type === 'leave_request') {
+    // 更新请假申请状态
+    await supabase
+      .from('leave_requests')
+      .update({
+        status: 'rejected',
+        rejected_at: now,
+        reject_reason: approval.comment,
+        updated_at: now,
+      })
+      .eq('id', instance.business_id);
+  } else {
+    // 默认处理公告类型
+    await supabase
+      .from('announcements')
+      .update({
+        status: 'rejected',
+      })
+      .eq('id', instance.business_id);
+  }
 
   // 发送通知给申请人
   await supabase.from('messages').insert({
@@ -386,19 +449,33 @@ async function handleReturn(
   await supabase
     .from('approval_instances')
     .update({
-      status: 'rejected',
+      status: 'returned',
       finish_at: now,
       updated_at: now,
     })
     .eq('id', instance.id);
 
-  // 更新公告状态
-  await supabase
-    .from('announcements')
-    .update({
-      status: 'rejected',
-    })
-    .eq('id', instance.business_id);
+  // 根据业务类型更新对应表
+  if (instance.business_type === 'leave_request') {
+    // 更新请假申请状态
+    await supabase
+      .from('leave_requests')
+      .update({
+        status: 'returned',
+        returned_at: now,
+        return_reason: approval.comment,
+        updated_at: now,
+      })
+      .eq('id', instance.business_id);
+  } else {
+    // 默认处理公告类型
+    await supabase
+      .from('announcements')
+      .update({
+        status: 'draft',
+      })
+      .eq('id', instance.business_id);
+  }
 
   // 发送通知给申请人
   await supabase.from('messages').insert({
@@ -428,13 +505,26 @@ async function handleWithdraw(instance: any, now: string) {
     })
     .eq('id', instance.id);
 
-  // 更新公告状态
-  await supabase
-    .from('announcements')
-    .update({
-      status: 'draft',
-    })
-    .eq('id', instance.business_id);
+  // 根据业务类型更新对应表
+  if (instance.business_type === 'leave_request') {
+    // 更新请假申请状态
+    await supabase
+      .from('leave_requests')
+      .update({
+        status: 'cancelled',
+        cancelled_at: now,
+        updated_at: now,
+      })
+      .eq('id', instance.business_id);
+  } else {
+    // 默认处理公告类型
+    await supabase
+      .from('announcements')
+      .update({
+        status: 'draft',
+      })
+      .eq('id', instance.business_id);
+  }
 }
 
 /**
