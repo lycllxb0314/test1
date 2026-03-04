@@ -571,15 +571,25 @@ async function sendInternalNotification(
     
     userIds = students?.flatMap((s: any) => [s.id, s.parent_id].filter(Boolean)) || [];
   } else if (recipients.type === 'individual' && recipients.userIds) {
-    // 发送给指定用户
+    // 发送给指定用户（直接使用用户ID）
     userIds = recipients.userIds;
   } else if (recipients.type === 'group' && recipients.groupIds) {
-    // 按群组发送
+    // 按群组发送 - group_members.user_id 存的是工号，需要关联 users 表获取 UUID
     const { data: members } = await supabase
       .from('group_members')
       .select('user_id')
       .in('group_id', recipients.groupIds);
-    userIds = members?.map((m: any) => m.user_id) || [];
+    
+    const employeeIds = members?.map((m: any) => m.user_id) || [];
+    
+    if (employeeIds.length > 0) {
+      // 通过工号获取用户 UUID
+      const { data: users } = await supabase
+        .from('users')
+        .select('id')
+        .in('employee_id', employeeIds);
+      userIds = users?.map((u: any) => u.id) || [];
+    }
   }
 
   // 去重
