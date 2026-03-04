@@ -18,9 +18,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMessages } from '@/hooks/useMessages';
 import { useApprovals } from '@/hooks/useApprovals';
-import { useLeaveAdjust } from '@/hooks/useLeaveAdjust';
 import { MessagePanel } from '@/components/messaging/MessagePanel';
 import { PublishNotificationDialog } from '@/components/approval/PublishNotificationDialog';
+import { CourseAdjustmentDialog } from '@/components/course-adjustment/CourseAdjustmentDialog';
 import type { SubmitApprovalRequest } from '@/types/approval';
 import {
   Bell,
@@ -34,7 +34,9 @@ import {
   Clock,
   User,
   RefreshCw,
+  BookOpen,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // 请假类型标签
 const LEAVE_TYPE_LABELS: Record<string, string> = {
@@ -46,10 +48,35 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   funeral: '丧假',
 };
 
+// 星期映射
+const WEEK_DAY_NAMES: Record<number, string> = {
+  1: '周一',
+  2: '周二',
+  3: '周三',
+  4: '周四',
+  5: '周五',
+};
+
+// 年级映射
+const GRADE_NAMES: Record<number, string> = {
+  1: '一年级',
+  2: '二年级',
+  3: '三年级',
+  4: '四年级',
+  5: '五年级',
+  6: '六年级',
+};
+
 export default function TeacherPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('messages');
   const [publishOpen, setPublishOpen] = useState(false);
+  
+  // 调课相关状态
+  const [adjustments, setAdjustments] = useState<any[]>([]);
+  const [adjustmentLoading, setAdjustmentLoading] = useState(false);
+  const [selectedAdjust, setSelectedAdjust] = useState<any>(null);
+  const [showAdjustDialog, setShowAdjustDialog] = useState(false);
 
   // 判断是否是班主任
   const isHeadTeacher = user?.role === 'head_teacher' || user?.role === 'principal' || user?.role === 'academic_vice_principal' || user?.role === 'moral_vice_principal' || user?.role === 'general_vice_principal';
@@ -87,18 +114,27 @@ export default function TeacherPage() {
     statistics: approvalStats,
   } = useApprovals('my');
 
-  // 调课 Hook - 年段长使用
-  const {
-    pendingAdjustments,
-    adjustmentLoading,
-    fetchPendingAdjustments,
-    processAdjustment,
-  } = useLeaveAdjust();
+  // 获取待处理调课列表
+  const fetchPendingAdjustments = async () => {
+    setAdjustmentLoading(true);
+    try {
+      const response = await fetch('/api/course-adjustments/process?status=pending');
+      const data = await response.json();
+      if (data.success) {
+        setAdjustments(data.data || []);
+      }
+    } catch (error) {
+      console.error('获取调课列表失败:', error);
+      toast.error('获取调课列表失败');
+    } finally {
+      setAdjustmentLoading(false);
+    }
+  };
   
-  // 调课统计数据（计算）
+  // 调课统计数据
   const adjustStats = {
-    pending: pendingAdjustments.filter((a: any) => a.status === 'pending').length,
-    completed: pendingAdjustments.filter((a: any) => a.status === 'completed').length,
+    pending: adjustments.filter(a => a.status === 'pending').length,
+    completed: adjustments.filter(a => a.status === 'completed').length,
   };
 
   // 初始化加载
@@ -108,7 +144,21 @@ export default function TeacherPage() {
     } else if (activeTab === 'adjust' && isGradeLeader) {
       fetchPendingAdjustments();
     }
-  }, [activeTab, isGradeLeader, fetchApprovals, fetchPendingAdjustments]);
+  }, [activeTab, isGradeLeader]);
+
+  // 处理调课成功
+  const handleAdjustSuccess = () => {
+    setShowAdjustDialog(false);
+    setSelectedAdjust(null);
+    fetchPendingAdjustments();
+    toast.success('调课处理成功');
+  };
+
+  // 打开调课处理对话框
+  const handleOpenAdjustDialog = (adjust: any) => {
+    setSelectedAdjust(adjust);
+    setShowAdjustDialog(true);
+  };
 
   // 发布处理 - 教师只能发布班级通知给家长
   const handleSubmit = async (request: SubmitApprovalRequest) => {
@@ -344,7 +394,10 @@ export default function TeacherPage() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle>待处理调课</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                          <CalendarClock className="h-5 w-5" />
+                          待处理调课
+                        </CardTitle>
                         <CardDescription>需要安排代课教师的课程</CardDescription>
                       </div>
                       <Button variant="outline" size="sm" onClick={() => fetchPendingAdjustments()}>
@@ -358,19 +411,59 @@ export default function TeacherPage() {
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                       </div>
-                    ) : pendingAdjustments.length === 0 ? (
+                    ) : adjustments.length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
                         <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                         <p>暂无待处理调课</p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {pendingAdjustments.map((adjust) => (
-                          <AdjustCard 
-                            key={adjust.id} 
-                            adjust={adjust} 
-                            onProcess={processAdjustment}
-                          />
+                      <div className="space-y-3">
+                        {adjustments.map((adjust) => (
+                          <Card key={adjust.id} className="border-l-4 border-l-amber-500 hover:shadow-md transition-shadow cursor-pointer"
+                                onClick={() => handleOpenAdjustDialog(adjust)}>
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge variant="outline" className="text-amber-700 border-amber-300">
+                                      {GRADE_NAMES[adjust.grade] || `${adjust.grade}年级`}
+                                    </Badge>
+                                    <Badge variant="secondary">
+                                      {adjust.subject}
+                                    </Badge>
+                                    <span className="text-sm text-gray-500">
+                                      {adjust.applicant_name} 请假
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="text-sm space-y-1">
+                                    <p className="flex items-center gap-2">
+                                      <Clock className="h-4 w-4 text-gray-400" />
+                                      <span>第{adjust.effective_week}周 {WEEK_DAY_NAMES[adjust.week_day]} 第{adjust.period_index + 1}节</span>
+                                    </p>
+                                    <p className="flex items-center gap-2">
+                                      <GraduationCap className="h-4 w-4 text-gray-400" />
+                                      <span>{adjust.class_name}</span>
+                                    </p>
+                                    <p className="flex items-center gap-2">
+                                      <BookOpen className="h-4 w-4 text-gray-400" />
+                                      <span>{adjust.subject}</span>
+                                    </p>
+                                  </div>
+                                  
+                                  {adjust.reason && (
+                                    <p className="text-sm text-gray-500 mt-2">
+                                      原因：{adjust.reason}
+                                    </p>
+                                  )}
+                                </div>
+                                
+                                <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white">
+                                  处理调课
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
                     )}
@@ -382,13 +475,13 @@ export default function TeacherPage() {
               <div className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm">调课处理说明</CardTitle>
+                    <CardTitle className="text-sm">智能调课说明</CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm text-gray-600 space-y-2">
-                    <p>• <strong>代课</strong>：安排其他教师代课</p>
-                    <p>• <strong>取消</strong>：该节课取消不上</p>
-                    <p>• 处理完成后会自动通知相关教师</p>
-                    <p>• 教师工作量会自动更新</p>
+                    <p>• <strong>智能推荐</strong>：系统自动推荐可用的代课教师</p>
+                    <p>• <strong>优先级</strong>：同学科、无课冲突、工作量少</p>
+                    <p>• <strong>一键安排</strong>：选择教师后自动通知并更新课表</p>
+                    <p>• <strong>取消课程</strong>：该节课取消不上</p>
                   </CardContent>
                 </Card>
 
@@ -422,132 +515,14 @@ export default function TeacherPage() {
         showApprovalFlow={false}
         recipientTypes={['class']}
       />
+
+      {/* 智能调课处理对话框 */}
+      <CourseAdjustmentDialog
+        open={showAdjustDialog}
+        onOpenChange={setShowAdjustDialog}
+        adjustment={selectedAdjust}
+        onSuccess={handleAdjustSuccess}
+      />
     </div>
-  );
-}
-
-// 调课卡片组件
-function AdjustCard({ adjust, onProcess }: { 
-  adjust: any; 
-  onProcess: (request: { adjustmentId: string; action: 'substitute' | 'cancel'; substituteEmployeeId?: string; substituteName?: string }) => Promise<boolean> 
-}) {
-  const [showDialog, setShowDialog] = useState(false);
-  const [substituteId, setSubstituteId] = useState('');
-  const [substituteName, setSubstituteName] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const weekDayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-
-  const handleProcess = async (action: 'substitute' | 'cancel') => {
-    if (action === 'substitute' && !substituteId) {
-      return;
-    }
-    setLoading(true);
-    const success = await onProcess({
-      adjustmentId: adjust.id,
-      action,
-      substituteEmployeeId: substituteId || undefined,
-      substituteName: substituteName || undefined,
-    });
-    setLoading(false);
-    if (success) {
-      setShowDialog(false);
-      setSubstituteId('');
-      setSubstituteName('');
-    }
-  };
-
-  return (
-    <>
-      <Card className="border-l-4 border-l-amber-500">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className="text-amber-700 border-amber-300">
-                  {LEAVE_TYPE_LABELS[adjust.reasonType] || adjust.reasonType}
-                </Badge>
-                <span className="text-sm text-gray-500">
-                  {adjust.applicant_name} 请假
-                </span>
-              </div>
-              
-              <div className="text-sm space-y-1">
-                <p>
-                  <span className="text-gray-500">时间：</span>
-                  {weekDayNames[adjust.week_day]} 第{adjust.period_index + 1}节
-                </p>
-                <p>
-                  <span className="text-gray-500">班级：</span>
-                  {adjust.class_name}
-                </p>
-                <p>
-                  <span className="text-gray-500">科目：</span>
-                  {adjust.subject}
-                </p>
-              </div>
-            </div>
-            
-            <Button size="sm" onClick={() => setShowDialog(true)}>
-              处理
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 处理弹窗 - 简化版，实际可用Dialog组件 */}
-      {showDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>处理调课</CardTitle>
-              <CardDescription>
-                {adjust.applicant_name} - {weekDayNames[adjust.week_day]} 第{adjust.period_index + 1}节
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">代课教师工号</label>
-                <input 
-                  type="text" 
-                  className="w-full mt-1 px-3 py-2 border rounded-md"
-                  value={substituteId}
-                  onChange={(e) => setSubstituteId(e.target.value)}
-                  placeholder="输入代课教师工号"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">代课教师姓名</label>
-                <input 
-                  type="text" 
-                  className="w-full mt-1 px-3 py-2 border rounded-md"
-                  value={substituteName}
-                  onChange={(e) => setSubstituteName(e.target.value)}
-                  placeholder="输入代课教师姓名"
-                />
-              </div>
-            </CardContent>
-            <CardContent className="flex justify-end gap-2 pt-0">
-              <Button variant="outline" onClick={() => setShowDialog(false)}>
-                取消
-              </Button>
-              <Button 
-                variant="secondary" 
-                onClick={() => handleProcess('cancel')}
-                disabled={loading}
-              >
-                取消课程
-              </Button>
-              <Button 
-                onClick={() => handleProcess('substitute')}
-                disabled={loading || !substituteId}
-              >
-                确认代课
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </>
   );
 }
