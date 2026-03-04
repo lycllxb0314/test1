@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
-import { getAuthHeaders } from '@/lib/auth-client';
+import { getAuthHeaders, getAccessToken } from '@/lib/auth-client';
 import type {
   ApprovalInstance,
   ApprovalStatus,
@@ -172,6 +172,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
   const [error, setError] = useState<string | null>(null);
   const [currentType, setCurrentType] = useState<ApprovalListType>(initialType);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [tokenReady, setTokenReady] = useState(false);
 
   // === 分页 ===
   const [page, setPage] = useState(1);
@@ -189,9 +190,32 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  
+  // 检查 token 是否就绪
+  useEffect(() => {
+    const checkToken = () => {
+      const token = getAccessToken();
+      if (token) {
+        setTokenReady(true);
+      }
+    };
+    
+    // 立即检查
+    checkToken();
+    
+    // 定期检查（用于处理登录后的情况）
+    const interval = setInterval(checkToken, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // === 使用 useEffect 直接发起请求（参考消息中心策略）===
   useEffect(() => {
+    // 如果没有 token，不发起请求
+    if (!tokenReady) {
+      return;
+    }
+    
     let cancelled = false;
     
     const doFetch = async () => {
@@ -242,7 +266,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     return () => {
       cancelled = true;
     };
-  }, [currentType, page, pageSize, filters.status, filters.department, refreshKey]);
+  }, [tokenReady, currentType, page, pageSize, filters.status, filters.department, refreshKey]);
 
   // === 切换类型（只改变状态，不返回 Promise）===
   const fetchApprovals = useCallback((type: ApprovalListType) => {

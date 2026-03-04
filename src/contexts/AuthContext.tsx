@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User, UserRole, AdministrativeRole } from '@/types';
+import { getAuthHeaders } from '@/lib/auth-client';
 
 // 是否使用真实API（生产环境设为true）
 const USE_REAL_API = process.env.NODE_ENV === 'production';
@@ -51,10 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       const savedUser = localStorage.getItem('smart_campus_user');
+      const savedToken = localStorage.getItem('smart_campus_token');
       
       // 尝试通过 API 验证当前会话（JWT token 在 cookie 中会自动发送）
       try {
-        const response = await fetch('/api/auth/current');
+        const response = await fetch('/api/auth/current', {
+          credentials: 'include',
+          headers: savedToken ? { 'Authorization': `Bearer ${savedToken}` } : {},
+        });
         const result = await response.json();
         
         if (result.success && result.data) {

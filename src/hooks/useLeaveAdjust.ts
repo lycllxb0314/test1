@@ -12,7 +12,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAuthHeaders } from '@/lib/auth-client';
+import { getAuthHeaders, getAccessToken } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import type {
   LeaveRequest,
@@ -114,6 +114,9 @@ function getWeekNumber(mondayDate: string): number {
 export function useLeaveAdjust(): UseLeaveAdjustReturn {
   const { user } = useAuth();
   
+  // === Token 就绪状态 ===
+  const [tokenReady, setTokenReady] = useState(false);
+  
   // === 请假申请状态 ===
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [leaveLoading, setLeaveLoading] = useState(false);
@@ -133,6 +136,24 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
   
   // 引用
   const mountedRef = useRef(true);
+  
+  // 检查 token 是否就绪
+  useEffect(() => {
+    const checkToken = () => {
+      const token = getAccessToken();
+      if (token) {
+        setTokenReady(true);
+      }
+    };
+    
+    // 立即检查
+    checkToken();
+    
+    // 定期检查（用于处理登录后的情况）
+    const interval = setInterval(checkToken, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   useEffect(() => {
     return () => {
@@ -315,6 +336,11 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
   
   // 使用 useEffect 直接发起调课请求（参考消息中心策略）
   useEffect(() => {
+    // 如果没有 token，不发起请求
+    if (!tokenReady) {
+      return;
+    }
+    
     let cancelled = false;
     
     const doFetch = async () => {
@@ -358,7 +384,7 @@ export function useLeaveAdjust(): UseLeaveAdjustReturn {
     return () => {
       cancelled = true;
     };
-  }, [adjustmentParams, adjustmentRefreshKey]);
+  }, [tokenReady, adjustmentParams.status, adjustmentParams.applicantId, adjustmentParams.adjusterId, adjustmentParams.effectiveWeek, adjustmentRefreshKey]);
   
   // 手动刷新调课列表
   const refreshAdjustments = useCallback(() => {

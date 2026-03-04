@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
-import { getAuthHeaders } from '@/lib/auth-client';
+import { getAuthHeaders, getAccessToken } from '@/lib/auth-client';
 import type {
   UserMessage,
   SendMessageRequest,
@@ -123,13 +123,37 @@ export function useMessages(): UseMessagesReturn {
   const [filters, setFiltersState] = useState<MessageQueryParams>(DEFAULT_FILTERS);
   const [isPolling, setIsPolling] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [tokenReady, setTokenReady] = useState(false);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  
+  // 检查 token 是否就绪
+  useEffect(() => {
+    const checkToken = () => {
+      const token = getAccessToken();
+      if (token) {
+        setTokenReady(true);
+      }
+    };
+    
+    // 立即检查
+    checkToken();
+    
+    // 定期检查（用于处理登录后的情况）
+    const interval = setInterval(checkToken, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // 主请求逻辑 - 使用 useEffect 直接发起请求，不使用 useCallback
   useEffect(() => {
+    // 如果没有 token，不发起请求
+    if (!tokenReady) {
+      return;
+    }
+    
     let cancelled = false;
     
     const doFetch = async () => {
@@ -183,7 +207,7 @@ export function useMessages(): UseMessagesReturn {
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, refreshKey]);
+  }, [tokenReady, page, pageSize, filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, refreshKey]);
 
   // 手动刷新
   const refetch = useCallback(async () => {
