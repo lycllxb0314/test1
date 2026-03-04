@@ -78,8 +78,7 @@ export default function SecretaryDashboard() {
     if (activeTab === 'approvals') {
       fetchApprovals('pending');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, fetchApprovals]);
 
   // 发布处理
   const handleSubmit = async (request: SubmitApprovalRequest) => {

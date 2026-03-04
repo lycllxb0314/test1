@@ -108,8 +108,7 @@ export default function TeacherPage() {
     } else if (activeTab === 'adjust' && isGradeLeader) {
       fetchPendingAdjustments();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, isGradeLeader]);
+  }, [activeTab, isGradeLeader, fetchApprovals, fetchPendingAdjustments]);
 
   // 发布处理 - 教师只能发布班级通知给家长
   const handleSubmit = async (request: SubmitApprovalRequest) => {
