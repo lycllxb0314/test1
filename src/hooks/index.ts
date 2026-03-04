@@ -127,3 +127,18 @@ export {
   PAGINATION,
 } from './useApi';
 export { useIsMobile, useIsMobile as useMobile } from './use-mobile';
+
+// 消息系统 Hook
+export {
+  useMessages,
+  // 类型
+  type UserMessage,
+  type SendMessageRequest,
+  type MessageQueryParams,
+  type MessageStatistics,
+  type MessageEvent,
+  type MessagePriority,
+  type MessageStatus,
+  type MessageRecipient,
+} from './useMessages';
+export { MESSAGE_EVENT_CONFIGS } from '@/types/messages';
