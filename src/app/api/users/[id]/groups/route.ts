@@ -9,17 +9,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { GROUP_CONFIGS, type GroupType, type UserGroupMembership } from '@/types';
-import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { verifyToken } from '@/lib/auth';
 
 // GET: 获取用户所属群组
-export const GET = protectedRoute(async (
+export async function GET(
   request: NextRequest,
-  context: ExtendedRouteContext
-) => {
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const supabase = getSupabaseClient();
-    const params = await context.params;
-    const userId = params?.id;
+    const { id: userId } = await params;
 
     if (!userId) {
       return NextResponse.json({ error: '缺少用户ID' }, { status: 400 });
@@ -55,17 +54,28 @@ export const GET = protectedRoute(async (
     console.error('用户群组API错误:', error);
     return NextResponse.json({ error: '服务器内部错误' }, { status: 500 });
   }
-});
+}
 
 // PUT: 更新用户群组成员身份
-export const PUT = protectedRoute(async (
+export async function PUT(
   request: NextRequest,
-  context: ExtendedRouteContext
-) => {
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    // 从 cookie 中获取 access token
+    const accessToken = request.cookies.get('smart_campus_access_token')?.value;
+    if (!accessToken) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+    
+    // 验证用户身份
+    const user = await verifyToken(accessToken);
+    if (!user) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     const supabase = getSupabaseClient();
-    const params = await context.params;
-    const userId = params?.id;
+    const { id: userId } = await params;
     
     if (!userId) {
       return NextResponse.json({ error: '缺少用户ID' }, { status: 400 });
@@ -73,7 +83,7 @@ export const PUT = protectedRoute(async (
     
     const body = await request.json();
     const { groups } = body;
-    const currentUserId = context.user.id;
+    const currentUserId = user.userId;
 
     // 只有校长室成员可以修改用户群组
     const { data: isPrincipalOffice } = await supabase
@@ -133,4 +143,4 @@ export const PUT = protectedRoute(async (
     console.error('更新用户群组API错误:', error);
     return NextResponse.json({ error: '服务器内部错误' }, { status: 500 });
   }
-});
+}
