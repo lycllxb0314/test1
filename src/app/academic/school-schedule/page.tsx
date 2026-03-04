@@ -248,12 +248,14 @@ export default function SchoolSchedulePage() {
 
   // 筛选后的教师数据
   const filteredTeacherData = useMemo(() => {
+    if (!Array.isArray(teacherData)) return [];
     if (subjectFilter === 'all') return teacherData;
     return teacherData.filter(g => g.subject === subjectFilter);
   }, [teacherData, subjectFilter]);
 
   // 获取学科列表
   const subjects = useMemo(() => {
+    if (!Array.isArray(teacherData)) return [];
     return Array.from(new Set(teacherData.map(g => g.subject)));
   }, [teacherData]);
 
