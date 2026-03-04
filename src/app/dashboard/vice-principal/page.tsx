@@ -7,7 +7,7 @@
  * 主要功能：
  * - 消息面板：消息通知、任务提醒
  * - 发布中心：发布校级重大事件公告/新闻
- * - 审批中心：处理待审批的公告/新闻
+ * - 审批中心：处理待审批的公告/新闻、请假申请
  */
 
 import React, { useState, useEffect } from 'react';
@@ -18,9 +18,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMessages } from '@/hooks/useMessages';
 import { useApprovals } from '@/hooks/useApprovals';
+import { useLeaveApproval } from '@/hooks/useLeaveApproval';
 import { MessagePanel } from '@/components/messaging/MessagePanel';
 import { PublishNotificationDialog } from '@/components/approval/PublishNotificationDialog';
 import { ApprovalActionDialog, ApprovalCard } from '@/components/approval/ApprovalActionDialog';
+import { LeaveApprovalCard } from '@/components/leave/LeaveApprovalCard';
 import type { ApprovalInstance, SubmitApprovalRequest } from '@/types/approval';
 import {
   Bell,
@@ -31,11 +33,13 @@ import {
   Clock,
   FileText,
   Plus,
+  Calendar,
 } from 'lucide-react';
 
 export default function VicePrincipalDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('messages');
+  const [approvalSubTab, setApprovalSubTab] = useState<'announcement' | 'leave'>('announcement');
   const [publishOpen, setPublishOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<ApprovalInstance | null>(null);
   const [approvalOpen, setApprovalOpen] = useState(false);
@@ -60,7 +64,7 @@ export default function VicePrincipalDashboard() {
     sendMessage,
   } = useMessages();
 
-  // 审批 Hook
+  // 审批 Hook（公告审批）
   const {
     approvals,
     loading: approvalsLoading,
@@ -73,12 +77,27 @@ export default function VicePrincipalDashboard() {
     statistics: approvalStats,
   } = useApprovals('pending');
 
+  // 请假审批 Hook
+  const {
+    approvals: leaveApprovals,
+    loading: leaveApprovalsLoading,
+    statistics: leaveApprovalStats,
+    fetchApprovals: fetchLeaveApprovals,
+    approve: approveLeave,
+    reject: rejectLeave,
+    refresh: refreshLeaveApprovals,
+  } = useLeaveApproval();
+
   // 初始化加载
   useEffect(() => {
     if (activeTab === 'approvals') {
-      fetchApprovals('pending');
+      if (approvalSubTab === 'announcement') {
+        fetchApprovals('pending');
+      } else {
+        fetchLeaveApprovals('pending');
+      }
     }
-  }, [activeTab, fetchApprovals]);
+  }, [activeTab, approvalSubTab, fetchApprovals, fetchLeaveApprovals]);
 
   // 发布处理
   const handleSubmit = async (request: SubmitApprovalRequest) => {
@@ -135,7 +154,7 @@ export default function VicePrincipalDashboard() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-6">
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -162,15 +181,28 @@ export default function VicePrincipalDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('approvals')}>
+        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => { setActiveTab('approvals'); setApprovalSubTab('announcement'); }}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">待审批</p>
+                <p className="text-sm text-gray-500">公告待审批</p>
                 <p className="text-2xl font-bold text-red-600">{approvalStats.pending}</p>
               </div>
               <div className="p-2 rounded-lg bg-red-100">
-                <CheckCircle className="h-5 w-5 text-red-600" />
+                <FileText className="h-5 w-5 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => { setActiveTab('approvals'); setApprovalSubTab('leave'); }}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">请假待审批</p>
+                <p className="text-2xl font-bold text-amber-600">{leaveApprovalStats.pending}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-amber-100">
+                <Calendar className="h-5 w-5 text-amber-600" />
               </div>
             </div>
           </CardContent>
@@ -180,7 +212,7 @@ export default function VicePrincipalDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">已处理</p>
-                <p className="text-2xl font-bold text-green-600">{approvalStats.processed}</p>
+                <p className="text-2xl font-bold text-green-600">{approvalStats.processed + leaveApprovalStats.approved}</p>
               </div>
               <div className="p-2 rounded-lg bg-green-100">
                 <CheckCircle className="h-5 w-5 text-green-600" />
@@ -255,86 +287,188 @@ export default function VicePrincipalDashboard() {
 
         {/* 审批中心 */}
         <TabsContent value="approvals" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* 待审批列表 */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>待审批</CardTitle>
-                      <CardDescription>需要您审批的公告/新闻</CardDescription>
+          {/* 审批类型子标签 */}
+          <Tabs value={approvalSubTab} onValueChange={(v) => setApprovalSubTab(v as 'announcement' | 'leave')} className="mb-4">
+            <TabsList>
+              <TabsTrigger value="announcement" className="gap-2">
+                <FileText className="h-4 w-4" />
+                公告审批
+                {approvalStats.pending > 0 && (
+                  <Badge className="ml-1 bg-red-500 text-white text-xs">
+                    {approvalStats.pending}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="leave" className="gap-2">
+                <Calendar className="h-4 w-4" />
+                请假审批
+                {leaveApprovalStats.pending > 0 && (
+                  <Badge className="ml-1 bg-amber-500 text-white text-xs">
+                    {leaveApprovalStats.pending}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* 公告审批内容 */}
+          {approvalSubTab === 'announcement' && (
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* 待审批列表 */}
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>待审批公告</CardTitle>
+                        <CardDescription>需要您审批的公告/新闻</CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => fetchApprovals('pending')}>
+                        刷新
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => fetchApprovals('pending')}>
-                      刷新
+                  </CardHeader>
+                  <CardContent>
+                    {approvalsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : approvals.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p>暂无待审批公告</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {approvals.map((instance) => (
+                          <ApprovalCard
+                            key={instance.id}
+                            instance={instance}
+                            currentUserId={user?.id || ''}
+                            onClick={() => handleOpenApproval(instance)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 快捷操作 */}
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">快捷操作</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2"
+                      onClick={() => fetchApprovals('processed')}
+                    >
+                      <Clock className="h-4 w-4" />
+                      查看已处理
                     </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {approvalsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </div>
-                  ) : approvals.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>暂无待审批内容</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {approvals.map((instance) => (
-                        <ApprovalCard
-                          key={instance.id}
-                          instance={instance}
-                          currentUserId={user?.id || ''}
-                          onClick={() => handleOpenApproval(instance)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2"
+                      onClick={() => fetchApprovals('my')}
+                    >
+                      <FileText className="h-4 w-4" />
+                      我发起的
+                    </Button>
+                  </CardContent>
+                </Card>
 
-            {/* 快捷操作 */}
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">快捷操作</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start gap-2"
-                    onClick={() => fetchApprovals('processed')}
-                  >
-                    <Clock className="h-4 w-4" />
-                    查看已处理
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start gap-2"
-                    onClick={() => fetchApprovals('my')}
-                  >
-                    <FileText className="h-4 w-4" />
-                    我发起的
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">审批说明</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-gray-600 space-y-2">
-                  <p>• <strong>或签</strong>：任一人通过即可</p>
-                  <p>• <strong>会签</strong>：所有人都需通过</p>
-                  <p>• <strong>驳回</strong>：直接结束流程</p>
-                  <p>• <strong>退回</strong>：退回申请人修改</p>
-                </CardContent>
-              </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">审批说明</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-gray-600 space-y-2">
+                    <p>• <strong>或签</strong>：任一人通过即可</p>
+                    <p>• <strong>会签</strong>：所有人都需通过</p>
+                    <p>• <strong>驳回</strong>：直接结束流程</p>
+                    <p>• <strong>退回</strong>：退回申请人修改</p>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* 请假审批内容 */}
+          {approvalSubTab === 'leave' && (
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* 待审批列表 */}
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>待审批请假</CardTitle>
+                        <CardDescription>需要您审批的请假申请</CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => fetchLeaveApprovals('pending')}>
+                        刷新
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {leaveApprovalsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : leaveApprovals.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p>暂无待审批请假申请</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {leaveApprovals.map((item) => (
+                          <LeaveApprovalCard
+                            key={item.id}
+                            item={item}
+                            onApprove={approveLeave}
+                            onReject={rejectLeave}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 快捷操作 */}
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">快捷操作</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2"
+                      onClick={() => fetchLeaveApprovals('approved')}
+                    >
+                      <Clock className="h-4 w-4" />
+                      查看已处理
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">请假审批说明</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-gray-600 space-y-2">
+                    <p>• <strong>或签</strong>：任一审批人通过即可</p>
+                    <p>• <strong>会签</strong>：所有审批人都需通过</p>
+                    <p>• 审批通过后，如需调课将自动通知年段长</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
