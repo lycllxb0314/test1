@@ -323,7 +323,10 @@ async function completeApproval(instance: any, now: string) {
       metadata: { instance_id: instance.id },
     });
     
-    // TODO: 如果需要调课，通知年段长
+    // 如果需要调课，创建调课记录并通知年段长
+    if (instance.metadata?.needAdjustment || instance.metadata?.need_adjustment) {
+      await createCourseAdjustmentsAndNotify(instance, supabase);
+    }
   } else {
     // 默认处理公告类型
     await supabase
@@ -551,6 +554,128 @@ async function sendApprovalNotification(
   }));
 
   await supabase.from('messages').insert(messages);
+}
+
+/**
+ * 创建调课记录并通知年段长
+ */
+async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
+  try {
+    // 1. 获取请假申请详情
+    const { data: leaveRequest, error: leaveError } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('id', instance.business_id)
+      .single();
+
+    if (leaveError || !leaveRequest) {
+      console.error('获取请假申请失败:', leaveError);
+      return;
+    }
+
+    // 2. 检查是否已有调课记录
+    const { data: existingAdjustments } = await supabase
+      .from('course_adjustments')
+      .select('id')
+      .eq('leave_request_id', instance.business_id);
+
+    if (existingAdjustments && existingAdjustments.length > 0) {
+      console.log('调课记录已存在，跳过创建');
+      return;
+    }
+
+    // 3. 解析调课信息
+    const affectedSlots = leaveRequest.affected_slots || [];
+    if (affectedSlots.length === 0) {
+      console.log('没有需要调课的课程');
+      return;
+    }
+
+    // 4. 创建调课记录
+    const adjustmentRecords = affectedSlots.map((slot: any) => ({
+      id: crypto.randomUUID(),
+      leave_request_id: instance.business_id,
+      applicant_id: leaveRequest.applicant_id,
+      applicant_name: leaveRequest.applicant_name,
+      adjust_type: 'substitute',
+      original_slot: {
+        teacherId: slot.teacherId,
+        teacherName: slot.teacherName || leaveRequest.applicant_name,
+        employeeId: slot.employeeId || leaveRequest.applicant_id,
+      },
+      status: 'pending',
+      effective_week: slot.weekStartDate || leaveRequest.start_date,
+      class_id: slot.classId,
+      class_name: slot.className,
+      grade: slot.grade || leaveRequest.applicant_grade,
+      week_day: slot.weekDay,
+      period_index: slot.periodIndex,
+      subject: slot.subject,
+      reason: leaveRequest.reason,
+      reason_type: leaveRequest.type,
+      created_at: new Date().toISOString(),
+    }));
+
+    const { error: insertError } = await supabase
+      .from('course_adjustments')
+      .insert(adjustmentRecords);
+
+    if (insertError) {
+      console.error('创建调课记录失败:', insertError);
+      return;
+    }
+
+    console.log('创建调课记录成功:', adjustmentRecords.length);
+
+    // 5. 通知年段长
+    // 获取年级（从第一个调课记录）
+    const grade = affectedSlots[0]?.grade || leaveRequest.applicant_grade;
+    
+    if (grade) {
+      // 查找负责该年级的年段长
+      const { data: gradeLeaders } = await supabase
+        .from('users')
+        .select('id, name')
+        .contains('additional_roles', ['grade_leader'])
+        .contains('managed_grades', [grade]);
+
+      if (gradeLeaders && gradeLeaders.length > 0) {
+        const notifications = gradeLeaders.map((leader: any) => ({
+          id: crypto.randomUUID(),
+          title: `【调课待办】${instance.title}`,
+          content: `${leaveRequest.applicant_name}因${leaveRequest.type}需要调课，请安排代课教师。
+
+班级：${affectedSlots.map((s: any) => s.className).join('、')}
+时间：${affectedSlots.map((s: any) => `周${['一', '二', '三', '四', '五', '六', '日'][s.weekDay - 1]} 第${s.periodIndex + 1}节`).join('、')}
+科目：${affectedSlots.map((s: any) => s.subject).join('、')}
+原因：${leaveRequest.reason}`,
+          type: 'course_adjustment',
+          priority: 'high',
+          recipient_id: leader.id,
+          recipient_type: 'individual',
+          is_read: false,
+          metadata: {
+            instance_id: instance.id,
+            leave_request_id: instance.business_id,
+            grade: grade,
+          },
+          created_at: new Date().toISOString(),
+        }));
+
+        const { error: notifyError } = await supabase
+          .from('messages')
+          .insert(notifications);
+
+        if (notifyError) {
+          console.error('通知年段长失败:', notifyError);
+        } else {
+          console.log('通知年段长成功:', notifications.length);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('创建调课记录失败:', error);
+  }
 }
 
 /**
