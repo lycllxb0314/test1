@@ -215,6 +215,7 @@ export default function TeacherLeavePage() {
       draft: 'draft',
       pending: 'submitted',
       approved: 'approved',
+      completed: 'approved', // completed 也映射为 approved
       rejected: 'rejected',
       cancelled: 'cancelled',
     };
@@ -224,37 +225,80 @@ export default function TeacherLeavePage() {
   // 从 API 数据构建流程节点
   const buildFlowNodesFromData = (item: Record<string, unknown>): ApprovalNodeItem[] => {
     // 简化：根据状态构建节点
-    const status = item.status as string;
+    // API 返回驼峰格式，但也要兼容下划线格式
+    const status = (item.status || item.leave_status) as string;
+    const currentStep = (item.currentStep || item.current_step) as number;
+    const adjustmentStatus = (item.adjustmentStatus || item.adjustment_status) as string;
+    
+    console.log('[buildFlowNodesFromData]', { 
+      id: item.id, 
+      status, 
+      currentStep, 
+      adjustmentStatus,
+      needAdjustment: item.needAdjustment || item.need_adjustment 
+    });
+    
     const nodes: ApprovalNodeItem[] = [
       { id: 'start', name: '开始', type: 'start', status: 'approved' },
     ];
     
-    // 审批人信息
-    const approvers = (item.approver_selection || []) as Array<{ userName: string; employeeId: string }>;
-    if (approvers.length > 0) {
-      nodes.push({
-        id: 'approval_1',
-        name: '校长室审批',
-        type: 'approval',
-        status: status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : status === 'pending' ? 'processing' : 'pending',
-        approverName: approvers[0]?.userName || '待审批',
-        isCurrent: status === 'pending',
-      });
-    }
+    // 审批人信息 - 支持两种字段名格式
+    const approvers = (item.approverSelection || item.approver_selection || []) as Array<{ userName: string; employeeId: string }>;
     
-    // 调课节点
-    const adjustmentStatus = item.adjustment_status as string;
+    // 审批节点
+    const approvalStatus = status === 'approved' || status === 'completed' ? 'approved' : 
+                          status === 'rejected' ? 'rejected' : 
+                          status === 'pending' ? 'processing' : 'pending';
+    
     nodes.push({
-      id: 'arrange_class',
-      name: '年段长调课安排',
-      type: 'course_adjust',
-      status: adjustmentStatus === 'completed' ? 'approved' : adjustmentStatus === 'processing' ? 'processing' : 'pending',
+      id: 'approval_1',
+      name: approvers.length > 0 ? `${approvers[0]?.userName || '审批人'}审批` : '校长室审批',
+      type: 'approval',
+      status: approvalStatus,
+      approverName: approvers[0]?.userName || '待审批',
+      isCurrent: status === 'pending' && currentStep === 1,
     });
     
-    nodes.push(
-      { id: 'sync', name: '数据同步', type: 'sync', status: adjustmentStatus === 'completed' ? 'approved' : 'pending' },
-      { id: 'end', name: '结束', type: 'end', status: status === 'approved' && adjustmentStatus === 'completed' ? 'approved' : 'pending' }
-    );
+    // 调课节点 - 根据是否需要调课和当前步骤判断
+    const needAdjustment = (item.needAdjustment || item.need_adjustment) as boolean;
+    const affectedSlots = (item.affectedSlots || item.affected_slots || []) as unknown[];
+    
+    // 如果不需要调课，直接跳过调课和同步节点
+    if (needAdjustment && affectedSlots.length > 0) {
+      // 调课节点状态
+      const adjustNodeStatus = adjustmentStatus === 'completed' ? 'approved' : 
+                               adjustmentStatus === 'processing' ? 'processing' : 
+                               currentStep >= 2 ? 'processing' : 'pending';
+      
+      nodes.push({
+        id: 'arrange_class',
+        name: '年段长调课安排',
+        type: 'course_adjust',
+        status: adjustNodeStatus,
+        isCurrent: currentStep >= 2 && adjustmentStatus !== 'completed',
+      });
+      
+      // 同步节点
+      nodes.push(
+        { 
+          id: 'sync', 
+          name: '数据同步', 
+          type: 'sync', 
+          status: adjustmentStatus === 'completed' ? 'approved' : 'pending' 
+        },
+        { 
+          id: 'end', 
+          name: '结束', 
+          type: 'end', 
+          status: status === 'completed' || (status === 'approved' && adjustmentStatus === 'completed') ? 'approved' : 'pending' 
+        }
+      );
+    } else {
+      // 不需要调课，直接到结束
+      nodes.push(
+        { id: 'end', name: '结束', type: 'end', status: status === 'approved' || status === 'completed' ? 'approved' : 'pending' }
+      );
+    }
     
     return nodes;
   };

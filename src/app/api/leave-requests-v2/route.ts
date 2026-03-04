@@ -61,8 +61,41 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       return NextResponse.json(error('获取请假列表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
-    // 转换数据格式
-    const leaveRequests = (data || []).map(mapLeaveRequest);
+    // 获取审批实例数据
+    let approvalInstances: Record<string, any> = {};
+    if (data && data.length > 0) {
+      const leaveIds = data.map(d => d.id);
+      const { data: instances } = await client
+        .from('approval_instances')
+        .select('id, business_id, status, current_node_order, finish_at, metadata')
+        .eq('business_type', 'leave_request')
+        .in('business_id', leaveIds);
+      
+      if (instances) {
+        instances.forEach(inst => {
+          approvalInstances[inst.business_id] = inst;
+        });
+      }
+    }
+    
+    // 转换数据格式，合并审批状态
+    const leaveRequests = (data || []).map(item => {
+      const mapped = mapLeaveRequest(item);
+      const approval = approvalInstances[item.id];
+      
+      // 如果有关联的审批实例，合并状态
+      if (approval) {
+        mapped.approvalStatus = approval.status;
+        mapped.approvalFinishAt = approval.finish_at;
+        // 如果审批已通过但请假记录状态还是 pending，更新为 approved
+        if (approval.status === 'approved' && mapped.status === 'pending') {
+          mapped.status = 'approved';
+        }
+        // 如果请假记录的状态更准确（如 completed），使用请假记录的状态
+      }
+      
+      return mapped;
+    });
     
     return NextResponse.json({
       ...success(leaveRequests, 'database'),
@@ -318,7 +351,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
 
 // ==================== 辅助函数 ====================
 
-function mapLeaveRequest(data: any) {
+function mapLeaveRequest(data: any): Record<string, any> {
   return {
     id: data.id,
     applicantId: data.applicant_id,
