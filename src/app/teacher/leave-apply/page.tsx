@@ -661,9 +661,10 @@ export default function LeaveApplyPage() {
           </Card>
         </div>
         
-        {/* 右侧：摘要和提交 */}
-        <div className="space-y-6 lg:self-start">
-          <Card className="lg:sticky lg:top-6">
+        {/* 右侧：摘要和提交 - 使用 sticky 固定 */}
+        <div className="lg:self-start">
+          <div className="lg:sticky lg:top-6 space-y-6">
+            <Card>
             <CardHeader>
               <CardTitle className="text-base">申请摘要</CardTitle>
             </CardHeader>
@@ -754,6 +755,7 @@ export default function LeaveApplyPage() {
               </div>
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
     </div>
