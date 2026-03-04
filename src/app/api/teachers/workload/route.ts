@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get('employeeId');
-    const semester = searchParams.get('semester') || '2024-2025-1';
+    const semester = searchParams.get('semester') || '2025-2026-2';
     const weekStartDate = searchParams.get('weekStartDate');
 
     if (!employeeId) {

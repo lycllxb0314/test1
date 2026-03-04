@@ -91,7 +91,7 @@ export default function WorkloadPage() {
   
   // === 状态 ===
   const [stats, setStats] = useState<WorkloadStats | null>(null);
-  const [selectedSemester, setSelectedSemester] = useState('2024-2025-1');
+  const [selectedSemester, setSelectedSemester] = useState('2025-2026-2');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewType, setViewType] = useState<'overview' | 'trend' | 'detail'>('overview');
@@ -189,8 +189,10 @@ export default function WorkloadPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2024-2025-1">2024-2025学年第一学期</SelectItem>
+              <SelectItem value="2025-2026-2">2025-2026学年第二学期</SelectItem>
+              <SelectItem value="2025-2026-1">2025-2026学年第一学期</SelectItem>
               <SelectItem value="2024-2025-2">2024-2025学年第二学期</SelectItem>
+              <SelectItem value="2024-2025-1">2024-2025学年第一学期</SelectItem>
             </SelectContent>
           </Select>
           

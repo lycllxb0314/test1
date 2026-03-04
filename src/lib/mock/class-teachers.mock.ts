@@ -6,7 +6,7 @@
 import type { ClassTeacher, ClassTeacherPosition, ClassTeacherStatus } from '@/types';
 
 // 当前学期
-const CURRENT_SEMESTER = '2024-2025-1';
+const CURRENT_SEMESTER = '2025-2026-2';
 
 // 辅助函数：创建班级教师关系
 function createClassTeacher(

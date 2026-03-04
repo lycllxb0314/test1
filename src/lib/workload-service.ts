@@ -224,7 +224,7 @@ export async function getTeachersWorkload(
   for (const teacher of (teachers || [])) {
     const workload = await calculateTeacherWorkload(
       teacher.id, 
-      params.semester || '2024-2025-1',
+      params.semester || '2025-2026-2',
       params.month
     );
     results.push(workload);

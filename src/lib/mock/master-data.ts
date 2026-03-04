@@ -68,8 +68,8 @@ export const MASTER_SCHOOL: MasterSchool = {
   name: '龙岩师范附属小学',
   shortName: '龙师附小',
   totalGrades: 6,
-  currentSemester: '2024-2025-1',
-  academicYear: '2024-2025',
+  currentSemester: '2025-2026-2',
+  academicYear: '2025-2026',
 };
 
 // ============================================================

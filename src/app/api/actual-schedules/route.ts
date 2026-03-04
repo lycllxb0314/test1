@@ -186,7 +186,7 @@ function isSubstituteAffectsSlot(substituteRecord: Record<string, unknown>, date
 // API路由处理
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const semester = searchParams.get('semester') || '2024-2025-1';
+  const semester = searchParams.get('semester') || '2025-2026-2';
   const weekNumber = searchParams.get('weekNumber') ? parseInt(searchParams.get('weekNumber')!) : null;
   const classId = searchParams.get('classId');
   const teacherId = searchParams.get('teacherId');

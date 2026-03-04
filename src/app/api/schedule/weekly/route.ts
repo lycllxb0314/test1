@@ -246,9 +246,66 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
           });
         }
       });
+      
+      // 6. 还需要查询该教师作为被代课人（请假人）的课程
+      // 当教师请假时，他的课应该标记为被代课
+      const { data: leaveAdjustments } = await client
+        .from('course_adjustments')
+        .select(`
+          id,
+          leave_request_id,
+          applicant_id,
+          applicant_name,
+          adjust_type,
+          class_id,
+          class_name,
+          grade,
+          week_day,
+          period_index,
+          subject,
+          substitute_employee_id,
+          substitute_name,
+          reason
+        `)
+        .gte('effective_week', weekStartDate)
+        .lt('effective_week', weekEndStr)
+        .eq('applicant_id', employeeId)
+        .eq('status', 'completed');
+      
+      // 更新被代课的课程槽位
+      (leaveAdjustments || []).forEach(adj => {
+        // 找到对应的课程槽位
+        const slotIndex = slots.findIndex(s => 
+          s.classId === adj.class_id && 
+          s.weekDay === adj.week_day && 
+          s.periodIndex === adj.period_index
+        );
+        
+        if (slotIndex >= 0) {
+          // 更新槽位信息，标记为被代课
+          const slot = slots[slotIndex];
+          slots[slotIndex] = {
+            ...slot,
+            isAdjusted: true,
+            adjustmentType: 'substitute',
+            adjustmentId: adj.id,
+            adjustmentReason: adj.reason,
+            // 实际任课教师是代课人
+            actualEmployeeId: adj.substitute_employee_id,
+            actualTeacherName: adj.substitute_name,
+            // 原教师信息
+            originalTeacherName: slot.teacherName,
+            originalEmployeeId: slot.employeeId,
+            // 调课详情
+            leaveRequestId: adj.leave_request_id,
+            applicantId: adj.applicant_id,
+            applicantName: adj.applicant_name,
+          };
+        }
+      });
     }
     
-    // 6. 获取周次信息
+    // 7. 获取周次信息
     const weekNumber = getWeekNumber(weekStartDate);
     
     return NextResponse.json(success({

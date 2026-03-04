@@ -109,7 +109,7 @@ async function getAffectedSlots(
     .eq('key', 'current_semester')
     .single();
   
-  const semester = settings?.value || '2024-2025-1';
+  const semester = settings?.value || '2025-2026-2';
   
   // 获取教师的基准课表
   const { data: slots } = await client

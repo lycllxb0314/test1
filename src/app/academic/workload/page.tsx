@@ -58,8 +58,10 @@ const months = Array.from({ length: 12 }, (_, i) => ({
 }));
 
 const semesters = [
-  { value: '2024-2025-1', label: '2024-2025学年第一学期' },
+  { value: '2025-2026-2', label: '2025-2026学年第二学期' },
+  { value: '2025-2026-1', label: '2025-2026学年第一学期' },
   { value: '2024-2025-2', label: '2024-2025学年第二学期' },
+  { value: '2024-2025-1', label: '2024-2025学年第一学期' },
 ];
 
 // 年级选项
@@ -75,7 +77,7 @@ const grades = [
 
 export default function WorkloadPage() {
   const [loading, setLoading] = useState(true);
-  const [semester, setSemester] = useState('2024-2025-1');
+  const [semester, setSemester] = useState('2025-2026-2');
   const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
   const [grade, setGrade] = useState<number>(0); // 0表示全部年级
   

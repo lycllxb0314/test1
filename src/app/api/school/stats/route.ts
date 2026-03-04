@@ -75,8 +75,8 @@ export async function GET() {
         establishedYear: school?.established_year || 1914,
         campusArea: school?.campus_area || '28600平方米',
         totalGrades: school?.total_grades || 6,
-        currentSemester: school?.current_semester || '2024-2025-1',
-        academicYear: school?.academic_year || '2024-2025',
+        currentSemester: school?.current_semester || '2025-2026-2',
+        academicYear: school?.academic_year || '2025-2026',
         facilities: school?.facilities || [
           '标准教室48间',
           '多媒体教室12间',

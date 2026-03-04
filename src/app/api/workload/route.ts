@@ -28,33 +28,33 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const { searchParams } = new URL(request.url);
     
     const action = searchParams.get('action') || 'batch';
-    const semester = searchParams.get('semester') || '2024-2025-1';
+    const semester = searchParams.get('semester') || '2025-2026-2';
     const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1));
     const grade = searchParams.get('grade');
     
-    // 解析学年学期
+    // 解析学年学期 (格式: 2025-2026-2)
     const semesterParts = semester.split('-');
-    const academicYear = semesterParts[0] || '2024';
-    const semesterNum = semesterParts[1] || '2025';
-    const academicYearStr = `${academicYear}-${semesterNum}`;
+    // 第二学期使用学年的第二年作为基准年
+    const baseYear = semesterParts[2] === '2' ? parseInt(semesterParts[1]) : parseInt(semesterParts[0]);
+    const semesterNum = semesterParts[2] || '1';
     
     switch (action) {
       case 'batch':
-        return await getBatchWorkload(client, academicYearStr, semesterNum, month, grade);
+        return await getBatchWorkload(client, baseYear, semesterNum, month, grade);
       
       case 'teacher':
         const teacherId = searchParams.get('teacherId');
         if (!teacherId) {
           return NextResponse.json(error('缺少教师ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
         }
-        return await getTeacherWorkload(client, teacherId, academicYearStr, semesterNum, month);
+        return await getTeacherWorkload(client, teacherId, baseYear, semesterNum, month);
       
       case 'monthly':
         const teacherIdForMonth = searchParams.get('teacherId');
         if (!teacherIdForMonth) {
           return NextResponse.json(error('缺少教师ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
         }
-        return await getMonthlySummary(client, teacherIdForMonth, academicYearStr, semesterNum);
+        return await getMonthlySummary(client, teacherIdForMonth, baseYear, semesterNum);
       
       default:
         return NextResponse.json(error('无效的操作类型', ErrorCode.VALIDATION_ERROR), { status: 400 });
@@ -71,7 +71,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
  */
 async function getBatchWorkload(
   client: any, 
-  academicYear: string, 
+  baseYear: number, 
   semester: string, 
   month: number,
   grade?: string | null
@@ -95,16 +95,20 @@ async function getBatchWorkload(
       return NextResponse.json(error('获取教师列表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
-    // 计算月份对应的周次范围
-    const year = parseInt(academicYear.split('-')[0]);
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0);
+    // 计算月份对应的周次范围（baseYear已经是正确的年份）
+    const monthStart = new Date(baseYear, month - 1, 1);
+    const monthEnd = new Date(baseYear, month, 0);
+    
+    // 构建学年字符串
+    const academicYearStr = semester === '2' 
+      ? `${baseYear - 1}-${baseYear}` 
+      : `${baseYear}-${baseYear + 1}`;
     
     // 获取该月所有周的工作量数据
     const { data: workloads, error: workloadError } = await client
       .from('teacher_workload')
       .select('*')
-      .eq('academic_year', academicYear)
+      .eq('academic_year', academicYearStr)
       .eq('semester', semester)
       .gte('week_start_date', monthStart.toISOString().split('T')[0])
       .lte('week_end_date', monthEnd.toISOString().split('T')[0]);
@@ -181,7 +185,7 @@ async function getBatchWorkload(
 async function getTeacherWorkload(
   client: any,
   teacherId: string,
-  academicYear: string,
+  baseYear: number,
   semester: string,
   month: number
 ) {
@@ -197,17 +201,21 @@ async function getTeacherWorkload(
       return NextResponse.json(error('教师不存在', ErrorCode.NOT_FOUND), { status: 404 });
     }
     
-    // 计算月份对应的周次范围
-    const year = parseInt(academicYear.split('-')[0]);
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0);
+    // 计算月份对应的周次范围（baseYear已经是正确的年份）
+    const monthStart = new Date(baseYear, month - 1, 1);
+    const monthEnd = new Date(baseYear, month, 0);
+    
+    // 构建学年字符串
+    const academicYearStr = semester === '2' 
+      ? `${baseYear - 1}-${baseYear}` 
+      : `${baseYear}-${baseYear + 1}`;
     
     // 获取该月的周工作量数据
     const { data: workloads } = await client
       .from('teacher_workload')
       .select('*')
       .eq('employee_id', teacherId)
-      .eq('academic_year', academicYear)
+      .eq('academic_year', academicYearStr)
       .eq('semester', semester)
       .gte('week_start_date', monthStart.toISOString().split('T')[0])
       .lte('week_end_date', monthEnd.toISOString().split('T')[0])
@@ -227,11 +235,21 @@ async function getTeacherWorkload(
       .gte('start_date', monthStart.toISOString().split('T')[0])
       .lte('end_date', monthEnd.toISOString().split('T')[0]);
     
-    // 获取代课记录
+    // 获取代课记录（教师作为代课人）
     const { data: substitutes } = await client
       .from('course_adjustments')
       .select('*')
       .eq('substitute_employee_id', teacherId)
+      .eq('status', 'completed')
+      .gte('effective_week', monthStart.toISOString().split('T')[0])
+      .lte('effective_week', monthEnd.toISOString().split('T')[0]);
+    
+    // 获取被代课记录（教师作为请假人，课程被他人代课）
+    const { data: substitutedByOthers } = await client
+      .from('course_adjustments')
+      .select('*')
+      .eq('applicant_id', teacherId)
+      .eq('status', 'completed')
       .gte('effective_week', monthStart.toISOString().split('T')[0])
       .lte('effective_week', monthEnd.toISOString().split('T')[0]);
     
@@ -241,8 +259,11 @@ async function getTeacherWorkload(
     const weeklyLessons = schedules?.length || 0;
     const monthLessons = weeklyLessons * 4; // 月应上课时（每周课时 × 4周）
     
-    const substituteLessons = workloads?.reduce((sum: number, w: any) => sum + (w.substitute_lessons || 0), 0) || 0;
-    const adjustedLessons = workloads?.reduce((sum: number, w: any) => sum + (w.adjusted_lessons || 0), 0) || 0;
+    // 代课课时 = 教师帮别人代课的节数
+    const substituteLessons = substitutes?.length || 0;
+    // 被代课课时 = 教师请假，由他人代课的节数
+    const adjustedLessons = substitutedByOthers?.length || 0;
+    // 实际授课 = 月应上课时 - 被代课 + 代课
     const actualLessons = monthLessons - adjustedLessons + substituteLessons;
     
     const result = {
@@ -250,7 +271,7 @@ async function getTeacherWorkload(
       teacherName: teacher.name,
       primarySubject: teacher.primary_subject,
       department: teacher.department,
-      academicYear,
+      academicYear: academicYearStr,
       semester,
       month,
       
@@ -276,6 +297,18 @@ async function getTeacherWorkload(
         subject: s.subject,
         originalTeacherId: s.applicant_id,
         originalTeacherName: s.applicant_name,
+        hours: 1,
+      })) || [],
+      
+      // 被代课（请假导致他人代课）
+      adjustedHours: adjustedLessons,
+      adjustedDetails: substitutedByOthers?.map((s: any) => ({
+        date: s.effective_week,
+        classId: s.class_id,
+        className: s.class_name,
+        subject: s.subject,
+        substituteTeacherId: s.substitute_employee_id,
+        substituteTeacherName: s.substitute_name,
         hours: 1,
       })) || [],
       
@@ -345,16 +378,21 @@ async function getTeacherWorkload(
 async function getMonthlySummary(
   client: any,
   teacherId: string,
-  academicYear: string,
+  baseYear: number,
   semester: string
 ) {
   try {
+    // 构建学年字符串
+    const academicYearStr = semester === '2' 
+      ? `${baseYear - 1}-${baseYear}` 
+      : `${baseYear}-${baseYear + 1}`;
+    
     // 获取该学期所有月的工作量
     const { data: workloads } = await client
       .from('teacher_workload')
       .select('*')
       .eq('employee_id', teacherId)
-      .eq('academic_year', academicYear)
+      .eq('academic_year', academicYearStr)
       .eq('semester', semester)
       .order('week_number');
     
@@ -384,7 +422,7 @@ async function getMonthlySummary(
     
     const result = {
       teacherId,
-      academicYear,
+      academicYear: academicYearStr,
       semester,
       monthlySummary: Object.values(monthlyData),
       totalSubstituteLessons: workloads?.reduce((sum: number, w: any) => sum + (w.substitute_lessons || 0), 0) || 0,

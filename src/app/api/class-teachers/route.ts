@@ -17,7 +17,7 @@ import { getMockClass } from '@/lib/mock/classes.mock';
 import { getMockTeacher } from '@/lib/mock/teachers.mock';
 
 // 当前学期
-const CURRENT_SEMESTER = '2024-2025-1';
+const CURRENT_SEMESTER = '2025-2026-2';
 
 /**
  * GET /api/class-teachers
