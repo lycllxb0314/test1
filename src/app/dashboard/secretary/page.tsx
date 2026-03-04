@@ -344,7 +344,6 @@ export default function SecretaryDashboard() {
         onOpenChange={setPublishOpen}
         onSubmit={handleSubmit}
         department="principal_office"
-        showExternalOption={true}
         showApprovalFlow={false}
         recipientTypes={['all', 'role', 'class', 'individual', 'group']}
       />

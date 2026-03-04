@@ -342,7 +342,6 @@ export default function GeneralDashboard() {
         onOpenChange={setPublishOpen}
         onSubmit={handleSubmit}
         department="general_office"
-        showExternalOption={true}
         showApprovalFlow={true}
         recipientTypes={['all', 'role', 'class', 'individual', 'group']}
       />

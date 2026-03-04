@@ -210,8 +210,6 @@ export default function TeacherPage() {
             onDelete={deleteMessage}
             onMarkAllAsRead={markAllAsRead}
             onPageChange={goToPage}
-            onSendMessage={sendMessage}
-            showSendButton={true}
           />
         </TabsContent>
 
@@ -282,7 +280,6 @@ export default function TeacherPage() {
         onOpenChange={setPublishOpen}
         onSubmit={handleSubmit}
         department="teacher"
-        showExternalOption={false}
         showApprovalFlow={false}
         recipientTypes={['class']}
       />

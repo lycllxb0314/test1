@@ -114,8 +114,6 @@ export interface PublishNotificationProps {
   onSubmit: (request: SubmitApprovalRequest) => Promise<{ success: boolean; error?: string }>;
   /** 发布者部门 */
   department: string;
-  /** 是否显示外部发布选项 */
-  showExternalOption?: boolean;
   /** 是否显示审批流程选择 */
   showApprovalFlow?: boolean;
   /** 通知对象类型限制 */
@@ -137,7 +135,6 @@ export function PublishNotificationDialog({
   onOpenChange,
   onSubmit,
   department,
-  showExternalOption = true,
   showApprovalFlow = true,
   recipientTypes = ['all', 'role', 'class', 'individual', 'group'],
 }: PublishNotificationProps) {
@@ -154,7 +151,6 @@ export function PublishNotificationDialog({
   const [category, setCategory] = useState<AnnouncementCategory | NewsCategory | InternalNoticeCategory | ''>('');
   const [mediaLevel, setMediaLevel] = useState<MediaLevel | ''>('');
   const [recipientConfig, setRecipientConfig] = useState<RecipientConfig>({ type: 'all' });
-  const [isExternal, setIsExternal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -180,7 +176,15 @@ export function PublishNotificationDialog({
     return DEPARTMENTS.find(d => d.id === department) || DEPARTMENTS[0];
   }, [department]);
 
-  const needsApproval = departmentConfig?.requiresApproval && isExternal && type !== 'internal_notice';
+  // === 根据类型自动判断是否发布到学校主页 ===
+  // 校园公告、新闻动态 → 发布到主页（isExternal = true）
+  // 内部通知 → 不发布到主页（isExternal = false）
+  const isExternal = type !== 'internal_notice';
+
+  // === 是否需要审批 ===
+  // 校园公告、新闻动态：需要审批（校长室除外）
+  // 内部通知：不需要审批
+  const needsApproval = departmentConfig?.requiresApproval && isExternal;
 
   // === 表单验证 ===
   const isValid = useMemo(() => {
@@ -211,7 +215,7 @@ export function PublishNotificationDialog({
         coverImage: coverImage || undefined,
         images: images.length > 0 ? images : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
-        isExternal: type === 'internal_notice' ? false : isExternal,
+        isExternal,
         scheduledPublishAt: scheduledPublish ? scheduledPublishAt : undefined,
         autoUnpublish,
         autoUnpublishAt: autoUnpublish ? autoUnpublishAt : undefined,
@@ -232,7 +236,6 @@ export function PublishNotificationDialog({
         setCategory('');
         setMediaLevel('');
         setRecipientConfig({ type: 'all' });
-        setIsExternal(false);
         setCoverImage(null);
         setImages([]);
         setAttachments([]);
@@ -712,8 +715,8 @@ export function PublishNotificationDialog({
             </CardContent>
           </Card>
 
-          {/* 发布设置 */}
-          {type !== 'internal_notice' && isExternal && (
+          {/* 发布设置 - 仅校园公告和新闻动态 */}
+          {isExternal && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -817,30 +820,7 @@ export function PublishNotificationDialog({
             </Card>
           )}
 
-          {/* 外部发布选项 */}
-          {showExternalOption && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">发布范围</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <Checkbox
-                    checked={isExternal}
-                    onCheckedChange={(checked) => setIsExternal(checked as boolean)}
-                  />
-                  <div>
-                    <p className="font-medium text-sm">同时发布到学校主页</p>
-                    <p className="text-xs text-gray-500">
-                      勾选后将在学校官网的校园公告/新闻中心同步展示
-                    </p>
-                  </div>
-                </label>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 审批流程选择 */}
+          {/* 审批流程选择 - 仅校园公告和新闻动态需要审批 */}
           {showApprovalFlow && needsApproval && (
             <Card className="border-amber-200 bg-amber-50/50">
               <CardHeader className="pb-3">

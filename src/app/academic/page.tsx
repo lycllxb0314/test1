@@ -345,7 +345,6 @@ export default function AcademicDashboard() {
         onOpenChange={setPublishOpen}
         onSubmit={handleSubmit}
         department="academic_office"
-        showExternalOption={true}
         showApprovalFlow={true}
         recipientTypes={['all', 'role', 'class', 'individual', 'group']}
       />

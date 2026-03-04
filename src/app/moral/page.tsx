@@ -342,7 +342,6 @@ export default function MoralDashboard() {
         onOpenChange={setPublishOpen}
         onSubmit={handleSubmit}
         department="moral_office"
-        showExternalOption={true}
         showApprovalFlow={true}
         recipientTypes={['all', 'role', 'class', 'individual', 'group']}
       />
