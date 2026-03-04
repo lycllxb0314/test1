@@ -49,7 +49,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { TeacherProfile } from '@/types';
-import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement, TEACHER_ROLE_LABELS, TEACHER_ROLE_COLORS, ADMINISTRATIVE_ROLE_LABELS, ADMINISTRATIVE_ROLE_COLORS, type AdministrativeRole } from '@/hooks';
+import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement, TEACHER_ROLE_LABELS, TEACHER_ROLE_COLORS, ADMINISTRATIVE_ROLE_LABELS, ADMINISTRATIVE_ROLE_COLORS, type AdministrativeRole, type TeacherRole } from '@/hooks';
 import { GROUP_CONFIGS, type GroupType, type UserGroupMembership } from '@/types';
 import { toast } from 'sonner';
 import { TeacherProfileDialogs, deleteTeacherProfileItem } from '@/components/teacher/TeacherProfileDialogs';
