@@ -166,8 +166,9 @@ export interface ApprovalActionRecord {
  * - announcement: 校园公告 - 发布到学校主页门户
  * - news: 新闻动态 - 发布到学校主页门户
  * - internal_notice: 内部通知 - 仅内部可见，不发布到主页
+ * - parent_notice: 家长通知 - 班主任/科任教师发给家长
  */
-export type AnnouncementType = 'announcement' | 'news' | 'internal_notice';
+export type AnnouncementType = 'announcement' | 'news' | 'internal_notice' | 'parent_notice';
 
 /** 校园公告分类 */
 export type AnnouncementCategory = 
@@ -191,6 +192,18 @@ export type InternalNoticeCategory =
   | '通知公告'
   | '培训学习'
   | '其他通知';
+
+/** 家长通知分类（班主任/科任教师发给家长） */
+export type ParentNoticeCategory =
+  | '班级通知'     // 班级事务、日常安排
+  | '作业通知'     // 作业布置、学习任务
+  | '活动通知'     // 班级活动、实践活动
+  | '考试通知'     // 考试安排、成绩通知
+  | '缴费通知'     // 代收费、活动费用等
+  | '假期通知'     // 寒暑假、节假日安排
+  | '安全提醒'     // 安全教育、注意事项
+  | '家校沟通'     // 家长会、沟通交流
+  | '其他通知';    // 其他事项
 
 /** 媒体级别（媒体附小分类下使用） */
 export type MediaLevel = '国家级' | '省级' | '市级';

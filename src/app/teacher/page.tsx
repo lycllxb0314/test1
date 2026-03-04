@@ -280,6 +280,7 @@ export default function TeacherPage() {
         onOpenChange={setPublishOpen}
         onSubmit={handleSubmit}
         department="teacher"
+        mode="teacher"
         showApprovalFlow={false}
         recipientTypes={['class']}
       />

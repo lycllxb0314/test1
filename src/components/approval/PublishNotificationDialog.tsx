@@ -67,6 +67,7 @@ import {
   type AnnouncementCategory, 
   type NewsCategory, 
   type InternalNoticeCategory,
+  type ParentNoticeCategory,
   type MediaLevel,
   type ApproverLeaderRole,
   type ApprovalMode,
@@ -99,6 +100,17 @@ const CATEGORY_OPTIONS: Record<AnnouncementType, { value: string; label: string 
     { value: '培训学习', label: '培训学习' },
     { value: '其他通知', label: '其他通知' },
   ],
+  parent_notice: [
+    { value: '班级通知', label: '班级通知' },
+    { value: '作业通知', label: '作业通知' },
+    { value: '活动通知', label: '活动通知' },
+    { value: '考试通知', label: '考试通知' },
+    { value: '缴费通知', label: '缴费通知' },
+    { value: '假期通知', label: '假期通知' },
+    { value: '安全提醒', label: '安全提醒' },
+    { value: '家校沟通', label: '家校沟通' },
+    { value: '其他通知', label: '其他通知' },
+  ],
 };
 
 /** 媒体级别选项（新闻动态-媒体附小分类下使用） */
@@ -110,12 +122,17 @@ const MEDIA_LEVEL_OPTIONS = [
 
 // ==================== 类型定义 ====================
 
+/** 发布模式 */
+export type PublishMode = 'department' | 'teacher';
+
 export interface PublishNotificationProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (request: SubmitApprovalRequest) => Promise<{ success: boolean; error?: string }>;
   /** 发布者部门 */
   department: string;
+  /** 发布模式：department-部门模式，teacher-教师模式 */
+  mode?: PublishMode;
   /** 是否显示审批流程选择 */
   showApprovalFlow?: boolean;
   /** 通知对象类型限制 */
@@ -137,6 +154,7 @@ export function PublishNotificationDialog({
   onOpenChange,
   onSubmit,
   department,
+  mode = 'department',
   showApprovalFlow = true,
   recipientTypes = ['all', 'role', 'class', 'individual', 'group'],
 }: PublishNotificationProps) {
@@ -145,14 +163,22 @@ export function PublishNotificationDialog({
   const { allClasses } = useClasses();
   const { groups } = useGroups();
 
+  // === 教师模式：固定为家长通知 ===
+  const isTeacherMode = mode === 'teacher';
+
   // === 表单状态 ===
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
-  const [type, setType] = useState<AnnouncementType>('announcement');
-  const [category, setCategory] = useState<AnnouncementCategory | NewsCategory | InternalNoticeCategory | ''>('');
+  // 教师模式默认为 parent_notice，部门模式默认为 announcement
+  const [type, setType] = useState<AnnouncementType>(isTeacherMode ? 'parent_notice' : 'announcement');
+  const [category, setCategory] = useState<AnnouncementCategory | NewsCategory | InternalNoticeCategory | ParentNoticeCategory | ''>('');
   const [mediaLevel, setMediaLevel] = useState<MediaLevel | ''>('');
-  const [recipientConfig, setRecipientConfig] = useState<RecipientConfig>({ type: 'all' });
+  // 教师模式默认发送给本班家长
+  const [recipientConfig, setRecipientConfig] = useState<RecipientConfig>({ 
+    type: isTeacherMode ? 'class' : 'all',
+    classIds: isTeacherMode && user?.classId ? [user.classId] : [],
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,13 +208,13 @@ export function PublishNotificationDialog({
 
   // === 根据类型自动判断是否发布到学校主页 ===
   // 校园公告、新闻动态 → 发布到主页（isExternal = true）
-  // 内部通知 → 不发布到主页（isExternal = false）
-  const isExternal = type !== 'internal_notice';
+  // 内部通知、家长通知 → 不发布到主页（isExternal = false）
+  const isExternal = type === 'announcement' || type === 'news';
 
   // === 是否需要审批 ===
   // 校园公告、新闻动态：需要审批（校长室除外）
-  // 内部通知：不需要审批
-  const needsApproval = departmentConfig?.requiresApproval && isExternal;
+  // 内部通知、家长通知：不需要审批
+  const needsApproval = !isTeacherMode && departmentConfig?.requiresApproval && isExternal;
 
   // === 可选审批领导列表 ===
   const availableLeaders: { role: ApproverLeaderRole; label: string; description: string }[] = [
@@ -687,31 +713,40 @@ export function PublishNotificationDialog({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>类型</Label>
-                  <Select
-                    value={type}
-                    onValueChange={(v) => {
-                      setType(v as AnnouncementType);
-                      // 类型改变时重置分类和媒体级别
-                      setCategory('');
-                      setMediaLevel('');
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="announcement">校园公告</SelectItem>
-                      <SelectItem value="news">新闻动态</SelectItem>
-                      <SelectItem value="internal_notice">内部通知</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {isTeacherMode ? (
+                    // 教师模式：固定为家长通知
+                    <div className="flex items-center h-10 px-3 rounded-md border bg-muted/50 text-sm">
+                      <GraduationCap className="h-4 w-4 mr-2 text-primary" />
+                      家长通知
+                    </div>
+                  ) : (
+                    // 部门模式：可选择类型
+                    <Select
+                      value={type}
+                      onValueChange={(v) => {
+                        setType(v as AnnouncementType);
+                        // 类型改变时重置分类和媒体级别
+                        setCategory('');
+                        setMediaLevel('');
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="announcement">校园公告</SelectItem>
+                        <SelectItem value="news">新闻动态</SelectItem>
+                        <SelectItem value="internal_notice">内部通知</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label>分类</Label>
                   <Select
                     value={category}
-                    onValueChange={(v) => setCategory(v as AnnouncementCategory | NewsCategory | InternalNoticeCategory)}
+                    onValueChange={(v) => setCategory(v as AnnouncementCategory | NewsCategory | InternalNoticeCategory | ParentNoticeCategory)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="选择分类" />
