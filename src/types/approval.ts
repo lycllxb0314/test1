@@ -126,7 +126,7 @@ export interface ApprovalInstance {
   /** 审批节点记录 */
   nodeRecords?: ApprovalNodeRecord[];
   /** 关联的业务对象 */
-  business?: Announcement;
+  business?: Announcement | LeaveRequestInfo;
 }
 
 /** 审批节点记录 */
@@ -167,8 +167,9 @@ export interface ApprovalActionRecord {
  * - news: 新闻动态 - 发布到学校主页门户
  * - internal_notice: 内部通知 - 仅内部可见，不发布到主页
  * - parent_notice: 家长通知 - 班主任/科任教师发给家长
+ * - leave_request: 请假审批
  */
-export type AnnouncementType = 'announcement' | 'news' | 'internal_notice' | 'parent_notice';
+export type AnnouncementType = 'announcement' | 'news' | 'internal_notice' | 'parent_notice' | 'leave_request';
 
 /** 校园公告分类 */
 export type AnnouncementCategory = 
@@ -282,6 +283,21 @@ export interface Attachment {
   url: string;
   size: number;
   type: string; // MIME type
+}
+
+/** 请假信息（用于审批实例的 business 字段） */
+export interface LeaveRequestInfo {
+  id: string;
+  type: string; // 病假、事假等
+  startDate: string;
+  endDate: string;
+  duration: number;
+  durationUnit: 'day' | 'hour';
+  reason: string;
+  needAdjustment: boolean;
+  affectedSlots?: any[];
+  status: string;
+  createdAt: string;
 }
 
 /** 图片 */

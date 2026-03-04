@@ -115,6 +115,23 @@ export function ApprovalActionDialog({
     }
   };
 
+  // 判断是否为请假类型
+  const isLeaveRequest = instance.businessType === 'leave_request';
+  // 使用类型断言来处理联合类型
+  const leaveInfo = isLeaveRequest ? (instance.business as any) : null;
+  
+  // 获取业务类型显示名称
+  const getBusinessTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'leave_request': '请假审批',
+      'announcement': '校园公告',
+      'news': '新闻动态',
+      'internal_notice': '内部通知',
+      'parent_notice': '家长通知',
+    };
+    return labels[type] || type;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -159,9 +176,7 @@ export function ApprovalActionDialog({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">业务类型：</span>
-                  <span>
-                    {instance.businessType === 'announcement' ? '校园公告' : '新闻动态'}
-                  </span>
+                  <span>{getBusinessTypeLabel(instance.businessType)}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">提交时间：</span>
@@ -171,8 +186,51 @@ export function ApprovalActionDialog({
             </CardContent>
           </Card>
 
-          {/* 审批内容 */}
-          {instance.business && (
+          {/* 请假类型的详细信息 */}
+          {isLeaveRequest && leaveInfo && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">请假信息</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">请假类型：</span>
+                    <span className="font-medium">{leaveInfo.type}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">请假时长：</span>
+                    <span>{leaveInfo.duration} {leaveInfo.durationUnit === 'day' ? '天' : '小时'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">开始时间：</span>
+                    <span>{leaveInfo.startDate}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">结束时间：</span>
+                    <span>{leaveInfo.endDate}</span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="text-sm">
+                  <span className="text-gray-500">请假原因：</span>
+                  <p className="mt-1 whitespace-pre-wrap">{leaveInfo.reason}</p>
+                </div>
+                {leaveInfo.needAdjustment && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center gap-2 text-sm text-orange-600">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>需要调课安排</span>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 公告/新闻类型的审批内容 */}
+          {!isLeaveRequest && instance.business && 'content' in instance.business && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">审批内容</CardTitle>
@@ -181,7 +239,7 @@ export function ApprovalActionDialog({
                 <div className="prose prose-sm max-w-none">
                   <p className="whitespace-pre-wrap">{instance.business.content}</p>
                 </div>
-                {instance.business.coverImage && (
+                {'coverImage' in instance.business && instance.business.coverImage && (
                   <div className="mt-4">
                     <img
                       src={instance.business.coverImage}
@@ -195,9 +253,10 @@ export function ApprovalActionDialog({
           )}
 
           {/* 审批流程 */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">审批流程</CardTitle>
+          {!isLeaveRequest && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">审批流程</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -303,6 +362,7 @@ export function ApprovalActionDialog({
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* 审批操作 */}
           {canApprove && (
@@ -419,6 +479,24 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
   const currentNode = instance.nodeRecords?.find(
     (n) => n.nodeOrder === instance.currentNodeOrder
   );
+  
+  // 处理请假类型的审批
+  const isLeaveRequest = instance.businessType === 'leave_request';
+  // 使用类型断言来处理联合类型
+  const leaveInfo = isLeaveRequest ? (instance.business as any) : null;
+  const approvers = isLeaveRequest ? (instance.metadata?.approvers as any[] || []) : [];
+  
+  // 获取请假类型显示名称
+  const getBusinessTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'leave_request': '请假审批',
+      'announcement': '公告审批',
+      'news': '新闻审批',
+      'internal_notice': '内部通知',
+      'parent_notice': '家长通知',
+    };
+    return labels[type] || type;
+  };
 
   return (
     <div
@@ -431,6 +509,9 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              {getBusinessTypeLabel(instance.businessType)}
+            </Badge>
             <h4 className="font-medium">{instance.title}</h4>
             {canApprove && (
               <Badge className="bg-blue-500 text-white text-xs">待我审批</Badge>
@@ -439,9 +520,32 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
           <p className="text-sm text-gray-500 mt-1">
             {instance.applicantName} · {instance.applicantDepartment}
           </p>
-          {currentNode && (
+          
+          {/* 请假类型显示详细信息 */}
+          {isLeaveRequest && leaveInfo && (
+            <div className="mt-2 text-xs text-gray-600 space-y-1">
+              <p>
+                请假类型：{leaveInfo.type} · 
+                时间：{leaveInfo.startDate} 至 {leaveInfo.endDate} · 
+                共 {leaveInfo.duration} {leaveInfo.durationUnit === 'day' ? '天' : '小时'}
+              </p>
+              {leaveInfo.needAdjustment && (
+                <p className="text-orange-600">需要调课安排</p>
+              )}
+            </div>
+          )}
+          
+          {/* 公告/新闻类型显示当前节点 */}
+          {!isLeaveRequest && currentNode && (
             <p className="text-xs text-gray-400 mt-1">
               当前节点：{currentNode.nodeName}
+            </p>
+          )}
+          
+          {/* 请假类型显示审批人 */}
+          {isLeaveRequest && approvers.length > 0 && (
+            <p className="text-xs text-gray-400 mt-1">
+              审批人：{approvers.map((a: any) => a.userName || a.name).join('、')}
             </p>
           )}
         </div>

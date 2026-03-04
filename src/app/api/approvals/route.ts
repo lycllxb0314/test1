@@ -212,18 +212,27 @@ export async function GET(request: NextRequest) {
       });
     } else if (type === 'pending') {
       // 待我审批的 - 需要检查当前节点是否包含当前用户
-      // 先获取所有进行中的实例
-      const { data: instances, error } = await supabase
+      // 1. 获取所有进行中的实例（公告/新闻等）
+      const { data: inProgressInstances, error: inProgressError } = await supabase
         .from('approval_instances')
         .select('*')
         .eq('status', 'in_progress');
 
-      if (error) throw error;
+      if (inProgressError) throw inProgressError;
 
-      // 过滤出需要当前用户审批的实例
+      // 2. 获取所有待审批的请假实例
+      const { data: leaveInstances, error: leaveError } = await supabase
+        .from('approval_instances')
+        .select('*')
+        .eq('status', 'pending')
+        .eq('business_type', 'leave_request');
+
+      if (leaveError) throw leaveError;
+
       const pendingInstanceIds: string[] = [];
       
-      for (const instance of instances || []) {
+      // 处理公告/新闻类型的审批（有节点记录）
+      for (const instance of inProgressInstances || []) {
         // 获取当前节点的记录
         const { data: nodeRecord } = await supabase
           .from('approval_node_records')
@@ -245,17 +254,34 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // 处理请假类型的审批（审批人信息在 metadata 中）
+      for (const instance of leaveInstances || []) {
+        const approvers = instance.metadata?.approvers || [];
+        // 检查当前用户工号是否在审批人列表中
+        const isApprover = approvers.some((a: any) => a.employeeId === user.employeeId);
+        
+        // 检查是否已经审批过
+        const approvedByList = instance.metadata?.approvedByList || [];
+        const hasApproved = approvedByList.some((a: any) => a.employeeId === user.employeeId);
+        
+        if (isApprover && !hasApproved) {
+          pendingInstanceIds.push(instance.id);
+        }
+      }
+
       query = query.in('id', pendingInstanceIds.length > 0 ? pendingInstanceIds : ['00000000-0000-0000-0000-000000000000']);
     } else if (type === 'processed') {
-      // 我已处理的 - 查找在 approved_by 中包含当前用户 ID 的记录
-      // 获取所有节点记录，在应用层过滤
+      // 我已处理的
+      const processedInstanceIds: string[] = [];
+      
+      // 1. 查找公告/新闻类型：在节点记录的 approved_by 中包含当前用户 ID 的记录
       const { data: allRecords, error: recordsError } = await supabase
         .from('approval_node_records')
         .select('instance_id, approved_by');
       
       if (recordsError) throw recordsError;
       
-      const instanceIds = [...new Set(
+      const nodeRecordInstanceIds = [...new Set(
         (allRecords || [])
           .filter((r: any) => {
             const approvedBy = r.approved_by || [];
@@ -263,8 +289,26 @@ export async function GET(request: NextRequest) {
           })
           .map((r: any) => r.instance_id)
       )];
+      processedInstanceIds.push(...nodeRecordInstanceIds);
+      
+      // 2. 查找请假类型：在 metadata.approvedByList 中包含当前用户工号的记录
+      const { data: leaveInstances, error: leaveError } = await supabase
+        .from('approval_instances')
+        .select('id, metadata')
+        .in('status', ['approved', 'rejected'])
+        .eq('business_type', 'leave_request');
+      
+      if (leaveError) throw leaveError;
+      
+      const leaveInstanceIds = (leaveInstances || [])
+        .filter((instance: any) => {
+          const approvedByList = instance.metadata?.approvedByList || [];
+          return approvedByList.some((a: any) => a.employeeId === user.employeeId);
+        })
+        .map((instance: any) => instance.id);
+      processedInstanceIds.push(...leaveInstanceIds);
 
-      query = query.in('id', instanceIds.length > 0 ? instanceIds : ['00000000-0000-0000-0000-000000000000']);
+      query = query.in('id', processedInstanceIds.length > 0 ? processedInstanceIds : ['00000000-0000-0000-0000-000000000000']);
     }
 
     if (status) {
@@ -279,40 +323,82 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    // 获取关联的公告信息
+    // 获取关联的业务数据
     const announcements: Record<string, Announcement> = {};
+    const leaveRequests: Record<string, any> = {};
+    
     if (data && data.length > 0) {
-      const businessIds = data.map((d: any) => d.business_id);
-      const { data: announcementData } = await supabase
-        .from('announcements')
-        .select('*')
-        .in('id', businessIds);
+      // 分离不同类型的业务ID
+      const announcementIds = data.filter((d: any) => ['announcement', 'news', 'internal_notice', 'parent_notice'].includes(d.business_type)).map((d: any) => d.business_id);
+      const leaveIds = data.filter((d: any) => d.business_type === 'leave_request').map((d: any) => d.business_id);
+      
+      // 获取公告信息
+      if (announcementIds.length > 0) {
+        const { data: announcementData } = await supabase
+          .from('announcements')
+          .select('*')
+          .in('id', announcementIds);
 
-      announcementData?.forEach((a: any) => {
-        announcements[a.id] = mapAnnouncement(a);
-      });
+        announcementData?.forEach((a: any) => {
+          announcements[a.id] = mapAnnouncement(a);
+        });
+      }
+      
+      // 获取请假申请信息
+      if (leaveIds.length > 0) {
+        const { data: leaveData } = await supabase
+          .from('leave_requests')
+          .select('*')
+          .in('id', leaveIds);
+
+        leaveData?.forEach((lr: any) => {
+          leaveRequests[lr.id] = {
+            id: lr.id,
+            type: lr.type,
+            startDate: lr.start_date,
+            endDate: lr.end_date,
+            duration: lr.duration,
+            durationUnit: lr.duration_unit,
+            reason: lr.reason,
+            needAdjustment: lr.need_adjustment,
+            affectedSlots: lr.affected_slots,
+            status: lr.status,
+            createdAt: lr.created_at,
+          };
+        });
+      }
     }
 
-    const instances: ApprovalInstance[] = (data || []).map((item: any) => ({
-      id: item.id,
-      flowId: item.flow_id,
-      flowName: item.flow_name,
-      businessType: item.business_type,
-      businessId: item.business_id,
-      title: item.title,
-      applicantId: item.applicant_id,
-      applicantName: item.applicant_name,
-      applicantDepartment: item.applicant_department,
-      currentNodeOrder: item.current_node_order,
-      status: item.status,
-      submitAt: item.submit_at,
-      finishAt: item.finish_at,
-      metadata: item.metadata,
-      createdAt: item.created_at,
-      updatedAt: item.updated_at,
-      nodeRecords: item.node_records?.map((nr: any) => mapNodeRecord(nr)),
-      business: announcements[item.business_id],
-    }));
+    const instances: ApprovalInstance[] = (data || []).map((item: any) => {
+      // 根据业务类型获取关联数据
+      let business = null;
+      if (['announcement', 'news', 'internal_notice', 'parent_notice'].includes(item.business_type)) {
+        business = announcements[item.business_id];
+      } else if (item.business_type === 'leave_request') {
+        business = leaveRequests[item.business_id];
+      }
+      
+      return {
+        id: item.id,
+        flowId: item.flow_id,
+        flowName: item.flow_name,
+        businessType: item.business_type,
+        businessId: item.business_id,
+        title: item.title,
+        applicantId: item.applicant_id,
+        applicantName: item.applicant_name,
+        applicantDepartment: item.applicant_department,
+        currentNodeOrder: item.current_node_order,
+        status: item.status,
+        submitAt: item.submit_at,
+        finishAt: item.finish_at,
+        metadata: item.metadata,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        nodeRecords: item.node_records?.map((nr: any) => mapNodeRecord(nr)),
+        business,
+      };
+    });
 
     return NextResponse.json({
       success: true,

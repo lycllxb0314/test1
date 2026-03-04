@@ -109,6 +109,7 @@ const CATEGORY_OPTIONS: Record<AnnouncementType, { value: string; label: string 
     { value: '家校沟通', label: '家校沟通' },
     { value: '其他通知', label: '其他通知' },
   ],
+  leave_request: [], // 请假审批无分类
 };
 
 /** 媒体级别选项（新闻动态-媒体附小分类下使用） */
