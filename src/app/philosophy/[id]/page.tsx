@@ -11,7 +11,8 @@ import {
   BookHeart, 
   TreePine,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Calendar
 } from 'lucide-react';
 
 // 图标名称到组件的映射
@@ -37,6 +38,17 @@ interface ChildHeartPath {
   description?: string;
 }
 
+interface Activity {
+  id: string;
+  categoryId: string;
+  title: string;
+  image: string;
+  date?: string;
+  summary?: string;
+  content?: string;
+  sortOrder: number;
+}
+
 // 默认数据
 const defaultPathsData: Record<string, ChildHeartPath> = {
   '1': { id: '1', icon: 'Shield', title: '有效德育引领童心', subtitle: '以德育心', image: '/images/campus/scarf-ceremony.png', description: '以德育人，培养学生良好的道德品质' },
@@ -47,7 +59,7 @@ const defaultPathsData: Record<string, ChildHeartPath> = {
   '6': { id: '6', icon: 'TreePine', title: '校园文化润泽童心', subtitle: '以境育心', image: '/images/campus/school-assembly.png', description: '文化熏陶，营造良好的育人环境' },
 };
 
-// 详细内容
+// 详细内容（作为后备）
 const pathDetails: Record<string, { content: string; highlights: string[]; images: string[] }> = {
   '1': {
     content: `
@@ -122,23 +134,35 @@ export default function PhilosophyDetailPage() {
   const id = params.id as string;
   
   const [pathData, setPathData] = useState<ChildHeartPath | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/api/portal/philosophy');
-        const result = await response.json();
-        if (result.success && result.data) {
-          const found = result.data.find((p: ChildHeartPath) => p.id === id);
+        // 并行获取板块信息和活动内容
+        const [philosophyRes, activitiesRes] = await Promise.all([
+          fetch('/api/portal/philosophy'),
+          fetch(`/api/portal/philosophy/${id}/activities`),
+        ]);
+
+        // 处理板块信息
+        const philosophyResult = await philosophyRes.json();
+        if (philosophyResult.success && philosophyResult.data) {
+          const found = philosophyResult.data.find((p: ChildHeartPath) => p.id === id);
           if (found) {
             setPathData(found);
           } else {
-            // 使用默认数据
             setPathData(defaultPathsData[id] || null);
           }
         } else {
           setPathData(defaultPathsData[id] || null);
+        }
+
+        // 处理活动内容
+        const activitiesResult = await activitiesRes.json();
+        if (activitiesResult.success && activitiesResult.data?.activities) {
+          setActivities(activitiesResult.data.activities);
         }
       } catch (error) {
         console.error('Failed to fetch philosophy detail:', error);
@@ -163,7 +187,7 @@ export default function PhilosophyDetailPage() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
         <div className="text-center">
           <p className="text-[#8B5A2B] text-lg">内容不存在</p>
-          <Link href="/philosophy" className="text-[#D4A574] hover:underline mt-2 inline-block">返回列表</Link>
+          <Link href="/" className="text-[#D4A574] hover:underline mt-2 inline-block">返回首页</Link>
         </div>
       </div>
     );
@@ -172,15 +196,18 @@ export default function PhilosophyDetailPage() {
   const Icon = getIconComponent(pathData.icon);
   const details = pathDetails[id] || { content: '<p>暂无详细内容</p>', highlights: [], images: [] };
 
+  // 如果有数据库中的描述，优先使用
+  const displayDescription = pathData.description || details.content;
+
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
       {/* 顶部导航 */}
       <header className="bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center h-14">
-            <Link href="/philosophy" className="flex items-center gap-2 text-white/90 hover:text-white transition">
+            <Link href="/" className="flex items-center gap-2 text-white/90 hover:text-white transition">
               <ArrowLeft className="h-5 w-5" />
-              <span>返回列表</span>
+              <span>返回首页</span>
             </Link>
             <div className="flex-1 text-center">
               <h1 className="text-lg font-bold" style={{ fontFamily: 'var(--font-serif)' }}>
@@ -243,9 +270,46 @@ export default function PhilosophyDetailPage() {
           <div className="bg-white rounded-2xl p-6 md:p-8 shadow-lg border border-[#E8DDD0]/50 mb-8">
             <div 
               className="prose prose-lg max-w-none text-[#3D2314] leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: details.content }}
+              dangerouslySetInnerHTML={{ __html: displayDescription }}
             />
           </div>
+
+          {/* 活动内容列表（从数据库获取） */}
+          {activities.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold text-[#3D2314] mb-4" style={{ fontFamily: 'var(--font-serif)' }}>
+                相关活动
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activities.map((activity) => (
+                  <div 
+                    key={activity.id}
+                    className="bg-white rounded-xl overflow-hidden shadow-md border border-[#E8DDD0]/50 hover:shadow-lg transition"
+                  >
+                    <div className="relative h-40">
+                      <img
+                        src={activity.image}
+                        alt={activity.title}
+                        className="w-full h-full object-cover"
+                      />
+                      {activity.date && (
+                        <div className="absolute top-3 left-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs text-[#8B5A2B]">
+                          <Calendar className="h-3 w-3" />
+                          {activity.date}
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-medium text-[#3D2314] mb-2">{activity.title}</h4>
+                      {activity.summary && (
+                        <p className="text-sm text-[#8B5A2B]/70 line-clamp-2">{activity.summary}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 图片展示 */}
           {details.images.length > 1 && (
@@ -261,8 +325,6 @@ export default function PhilosophyDetailPage() {
           {/* 面包屑导航 */}
           <div className="flex items-center gap-2 text-sm text-[#8B5A2B]/60">
             <Link href="/" className="hover:text-[#D4A574]">首页</Link>
-            <ChevronRight className="h-4 w-4" />
-            <Link href="/philosophy" className="hover:text-[#D4A574]">理念·童心教育</Link>
             <ChevronRight className="h-4 w-4" />
             <span className="text-[#3D2314]">{pathData.title}</span>
           </div>
