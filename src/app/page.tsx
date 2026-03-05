@@ -333,6 +333,7 @@ export default function HomePage() {
 
   // 新闻自动轮播
   useEffect(() => {
+    if (newsItems.length === 0) return;
     const timer = setInterval(() => {
       setActiveNewsIndex((prev) => (prev + 1) % newsItems.length);
     }, 5000);
@@ -565,76 +566,95 @@ export default function HomePage() {
                 <Link href="/notices" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
               </div>
               <div className="divide-y divide-[#E8DDD0]/30">
-                {notices.map((item, index) => (
-                  <Link 
-                    key={item.id || index} 
-                    href={item.id ? `/notices/${item.id}` : '#'}
-                    className="flex items-center justify-between p-4 hover:bg-[#FDF8F3]/50 transition group"
-                  >
-                    <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B]">
-                      {item.title}
-                    </span>
-                    <span className="text-xs text-[#8B5A2B]/50 ml-2 whitespace-nowrap">{item.date}</span>
-                  </Link>
-                ))}
+                {notices.length > 0 ? (
+                  notices.map((item, index) => (
+                    <Link 
+                      key={item.id || index} 
+                      href={item.id ? `/notices/${item.id}` : '#'}
+                      className="flex items-center justify-between p-4 hover:bg-[#FDF8F3]/50 transition group"
+                    >
+                      <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B]">
+                        {item.title}
+                      </span>
+                      <span className="text-xs text-[#8B5A2B]/50 ml-2 whitespace-nowrap">{item.date}</span>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="p-8 text-center">
+                    <Bell className="w-10 h-10 text-[#D4A574]/40 mx-auto mb-2" />
+                    <p className="text-[#8B5A2B]/50 text-sm">暂无公告</p>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* 中间：新闻大图轮播 */}
             <div className="rounded-2xl overflow-hidden shadow-lg shadow-[#D4A574]/10 bg-white flex flex-col">
-              {/* 图片区域 */}
-              <div className="relative flex-1 min-h-[200px]">
-                {newsItems.map((item, index) => (
-                  <div
-                    key={index}
-                    className={`absolute inset-0 transition-opacity duration-700 ${
-                      index === activeNewsIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
-                    }`}
-                  >
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20" />
+              {newsItems.length > 0 ? (
+                <>
+                  {/* 图片区域 */}
+                  <div className="relative flex-1 min-h-[200px]">
+                    {newsItems.map((item, index) => (
+                      <div
+                        key={index}
+                        className={`absolute inset-0 transition-opacity duration-700 ${
+                          index === activeNewsIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                        }`}
+                      >
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20" />
+                      </div>
+                    ))}
+                    {/* 轮播指示器 */}
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
+                      {newsItems.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setActiveNewsIndex(index)}
+                          className={`transition-all duration-300 rounded-full ${
+                            index === activeNewsIndex 
+                              ? 'w-5 h-1.5 bg-white shadow-sm' 
+                              : 'w-1.5 h-1.5 bg-white/60 hover:bg-white/80'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
-                ))}
-                {/* 轮播指示器 */}
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
-                  {newsItems.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setActiveNewsIndex(index)}
-                      className={`transition-all duration-300 rounded-full ${
-                        index === activeNewsIndex 
-                          ? 'w-5 h-1.5 bg-white shadow-sm' 
-                          : 'w-1.5 h-1.5 bg-white/60 hover:bg-white/80'
-                      }`}
-                    />
-                  ))}
+                  {/* 标题+摘要区域 */}
+                  <div className="p-4 bg-white">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        newsItems[activeNewsIndex]?.category === '媒体附小' 
+                          ? 'bg-[#D4A574] text-white' 
+                          : 'bg-[#8B5A2B] text-white'
+                      }`}>
+                        {newsItems[activeNewsIndex]?.category === '媒体附小' 
+                          ? newsItems[activeNewsIndex]?.level 
+                          : newsItems[activeNewsIndex]?.category}
+                      </span>
+                      <span className="text-xs text-[#8B5A2B]/50">{newsItems[activeNewsIndex]?.date}</span>
+                    </div>
+                    <h3 className="font-bold text-[#3D2314] text-base leading-snug mb-1.5 hover:text-[#8B5A2B] cursor-pointer transition line-clamp-1">
+                      {newsItems[activeNewsIndex]?.title}
+                    </h3>
+                    <p className="text-sm text-[#8B5A2B]/60 leading-relaxed line-clamp-2">
+                      {newsItems[activeNewsIndex]?.summary}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                /* 空状态 */
+                <div className="flex-1 min-h-[280px] flex items-center justify-center bg-[#FDF8F3]/50">
+                  <div className="text-center py-8">
+                    <Newspaper className="w-12 h-12 text-[#D4A574]/40 mx-auto mb-3" />
+                    <p className="text-[#8B5A2B]/50 text-sm">暂无新闻内容</p>
+                  </div>
                 </div>
-              </div>
-              {/* 标题+摘要区域 */}
-              <div className="p-4 bg-white">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    newsItems[activeNewsIndex].category === '媒体附小' 
-                      ? 'bg-[#D4A574] text-white' 
-                      : 'bg-[#8B5A2B] text-white'
-                  }`}>
-                    {newsItems[activeNewsIndex].category === '媒体附小' 
-                      ? newsItems[activeNewsIndex].level 
-                      : newsItems[activeNewsIndex].category}
-                  </span>
-                  <span className="text-xs text-[#8B5A2B]/50">{newsItems[activeNewsIndex].date}</span>
-                </div>
-                <h3 className="font-bold text-[#3D2314] text-base leading-snug mb-1.5 hover:text-[#8B5A2B] cursor-pointer transition line-clamp-1">
-                  {newsItems[activeNewsIndex].title}
-                </h3>
-                <p className="text-sm text-[#8B5A2B]/60 leading-relaxed line-clamp-2">
-                  {newsItems[activeNewsIndex].summary}
-                </p>
-              </div>
+              )}
             </div>
 
             {/* 右侧：新闻中心 */}
@@ -647,35 +667,42 @@ export default function HomePage() {
                 <Link href="/news" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
               </div>
               <div className="divide-y divide-[#E8DDD0]/30">
-                {newsItems.slice(0, 5).map((item, index) => (
-                  <Link 
-                    key={item.id || index} 
-                    href={item.id ? `/news/${item.id}` : '#'}
-                    onClick={(e) => { if (!item.id) { e.preventDefault(); setActiveNewsIndex(index); } }}
-                    className={`flex items-start gap-3 p-4 transition group ${
-                      index === activeNewsIndex ? 'bg-[#D4A574]/10' : 'hover:bg-[#FDF8F3]/50'
-                    }`}
-                  >
-                    <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 border border-[#E8DDD0]/50">
-                      <img src={item.image} alt="" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                          item.category === '媒体附小' 
-                            ? 'bg-[#D4A574]/20 text-[#8B5A2B]' 
-                            : 'bg-[#F5EDE4] text-[#8B5A2B]'
-                        }`}>
-                          {item.category === '媒体附小' ? item.level : item.category}
-                        </span>
+                {newsItems.length > 0 ? (
+                  newsItems.slice(0, 5).map((item, index) => (
+                    <Link 
+                      key={item.id || index} 
+                      href={item.id ? `/news/${item.id}` : '#'}
+                      onClick={(e) => { if (!item.id) { e.preventDefault(); setActiveNewsIndex(index); } }}
+                      className={`flex items-start gap-3 p-4 transition group ${
+                        index === activeNewsIndex ? 'bg-[#D4A574]/10' : 'hover:bg-[#FDF8F3]/50'
+                      }`}
+                    >
+                      <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 border border-[#E8DDD0]/50">
+                        <img src={item.image} alt="" className="w-full h-full object-cover" />
                       </div>
-                      <p className="text-sm text-[#3D2314] line-clamp-2 group-hover:text-[#8B5A2B]">
-                        {item.title}
-                      </p>
-                      <span className="text-xs text-[#8B5A2B]/50">{item.date}</span>
-                    </div>
-                  </Link>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                            item.category === '媒体附小' 
+                              ? 'bg-[#D4A574]/20 text-[#8B5A2B]' 
+                              : 'bg-[#F5EDE4] text-[#8B5A2B]'
+                          }`}>
+                            {item.category === '媒体附小' ? item.level : item.category}
+                          </span>
+                        </div>
+                        <p className="text-sm text-[#3D2314] line-clamp-2 group-hover:text-[#8B5A2B]">
+                          {item.title}
+                        </p>
+                        <span className="text-xs text-[#8B5A2B]/50">{item.date}</span>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="p-8 text-center">
+                    <Newspaper className="w-10 h-10 text-[#D4A574]/40 mx-auto mb-2" />
+                    <p className="text-[#8B5A2B]/50 text-sm">暂无新闻</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
