@@ -33,18 +33,19 @@ import { roleConfigs, administrativeRoleConfigs } from '@/config/roles';
 
 // 轮播项类型定义
 interface CarouselItem {
+  id?: string;
   type: 'image' | 'video' | 'bilibili';
   image: string;
   videoUrl?: string;
   bilibiliUrl?: string;
   bilibiliBvid?: string; // B站视频BV号，用于跳转高清播放
   title: string;
-  subtitle: string;
-  tag: string;
+  subtitle?: string;
+  tag?: string;
 }
 
-// 轮播图数据（支持图片、视频和B站视频）
-const carouselItems: CarouselItem[] = [
+// 默认轮播图数据（作为后备）
+const defaultCarouselItems: CarouselItem[] = [
   {
     type: 'bilibili',
     image: '/images/campus/science-academy-opening.png',
@@ -84,14 +85,23 @@ const carouselItems: CarouselItem[] = [
   },
 ];
 
-// 童心教育六大路径
-const childHeartPaths = [
-  { icon: Shield, title: '有效德育引领童心', subtitle: '以德育心', image: '/images/campus/scarf-ceremony.png' },
-  { icon: Lightbulb, title: '高效课堂发展童心', subtitle: '以智启心', image: '/images/campus/chinese-teaching-seminar.jpg' },
-  { icon: Palette, title: '多彩活动点亮童心', subtitle: '以趣悦心', image: '/images/campus/dance-performance.png' },
-  { icon: Heart, title: '心理健康呵护童心', subtitle: '以爱护心', image: '/images/campus/safety-roleplay.png' },
-  { icon: BookHeart, title: '快乐阅读涵养童心', subtitle: '以书润心', image: '/images/campus/recitation-grade5.jpg' },
-  { icon: TreePine, title: '校园文化润泽童心', subtitle: '以境育心', image: '/images/campus/school-assembly.png' },
+// 童心教育路径类型定义
+interface ChildHeartPathItem {
+  id?: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  image: string;
+}
+
+// 默认童心教育六大路径（作为后备）
+const defaultChildHeartPaths: ChildHeartPathItem[] = [
+  { icon: 'Shield', title: '有效德育引领童心', subtitle: '以德育心', image: '/images/campus/scarf-ceremony.png' },
+  { icon: 'Lightbulb', title: '高效课堂发展童心', subtitle: '以智启心', image: '/images/campus/chinese-teaching-seminar.jpg' },
+  { icon: 'Palette', title: '多彩活动点亮童心', subtitle: '以趣悦心', image: '/images/campus/dance-performance.png' },
+  { icon: 'Heart', title: '心理健康呵护童心', subtitle: '以爱护心', image: '/images/campus/safety-roleplay.png' },
+  { icon: 'BookHeart', title: '快乐阅读涵养童心', subtitle: '以书润心', image: '/images/campus/recitation-grade5.jpg' },
+  { icon: 'TreePine', title: '校园文化润泽童心', subtitle: '以境育心', image: '/images/campus/school-assembly.png' },
 ];
 
 // 校训
@@ -136,8 +146,15 @@ const defaultNotices: NoticeItem[] = [
   { title: '2025-2026学年第一学期期末工作安排', date: '2026-01-05' },
 ];
 
-// 办学荣誉
-const honors = [
+// 办学荣誉类型定义
+interface SchoolHonor {
+  id?: string;
+  title: string;
+  year?: string;
+}
+
+// 默认办学荣誉（作为后备）
+const defaultHonors: SchoolHonor[] = [
   { title: '全国文明校园', year: '连续8届' },
   { title: '福建省示范小学', year: '' },
   { title: '全国心理健康教育特色学校', year: '' },
@@ -152,6 +169,25 @@ const quickLinks = [
   { title: '教师空间', desc: '个人中心', icon: Users },
 ];
 
+// 图标名称到组件的映射
+const iconMap: Record<string, any> = {
+  Shield,
+  Lightbulb,
+  Palette,
+  Heart,
+  BookHeart,
+  TreePine,
+  Award,
+  Star,
+  BookOpen,
+  Users,
+};
+
+// 根据图标名称获取图标组件
+const getIconComponent = (iconName: string) => {
+  return iconMap[iconName] || Shield;
+};
+
 export default function HomePage() {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
@@ -162,6 +198,9 @@ export default function HomePage() {
   const [activeNewsIndex, setActiveNewsIndex] = useState(0);
   
   // 动态数据状态
+  const [carouselItems, setCarouselItems] = useState<CarouselItem[]>(defaultCarouselItems);
+  const [childHeartPaths, setChildHeartPaths] = useState<ChildHeartPathItem[]>(defaultChildHeartPaths);
+  const [honors, setHonors] = useState<SchoolHonor[]>(defaultHonors);
   const [newsItems, setNewsItems] = useState(defaultNewsItems);
   const [notices, setNotices] = useState(defaultNotices);
   const [dataLoading, setDataLoading] = useState(true);
@@ -173,13 +212,20 @@ export default function HomePage() {
   // 获取门户数据
   const fetchPortalData = async () => {
     try {
-      const response = await fetch('/api/portal/announcements?limit=10');
-      const result = await response.json();
-      
-      if (result.success) {
+      // 并行获取所有数据
+      const [announcementsRes, carouselRes, philosophyRes, honorsRes] = await Promise.all([
+        fetch('/api/portal/announcements?limit=10'),
+        fetch('/api/portal/carousel?limit=10'),
+        fetch('/api/portal/philosophy?limit=10'),
+        fetch('/api/portal/honors?limit=10'),
+      ]);
+
+      // 处理公告和新闻数据
+      const announcementsResult = await announcementsRes.json();
+      if (announcementsResult.success) {
         // 映射新闻数据
-        if (result.data.news && result.data.news.length > 0) {
-          setNewsItems(result.data.news.map((item: any) => ({
+        if (announcementsResult.data.news && announcementsResult.data.news.length > 0) {
+          setNewsItems(announcementsResult.data.news.map((item: any) => ({
             id: item.id,
             title: item.title,
             summary: item.summary || '',
@@ -191,13 +237,51 @@ export default function HomePage() {
         }
         
         // 映射公告数据
-        if (result.data.announcements && result.data.announcements.length > 0) {
-          setNotices(result.data.announcements.map((item: any) => ({
+        if (announcementsResult.data.announcements && announcementsResult.data.announcements.length > 0) {
+          setNotices(announcementsResult.data.announcements.map((item: any) => ({
             id: item.id,
             title: item.title,
             date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
           })));
         }
+      }
+
+      // 处理轮播图数据
+      const carouselResult = await carouselRes.json();
+      if (carouselResult.success && carouselResult.data && carouselResult.data.length > 0) {
+        setCarouselItems(carouselResult.data.map((item: any) => ({
+          id: item.id,
+          type: item.type,
+          image: item.image,
+          videoUrl: item.videoUrl,
+          bilibiliUrl: item.bilibiliUrl,
+          bilibiliBvid: item.bilibiliBvid,
+          title: item.title,
+          subtitle: item.subtitle || '',
+          tag: item.tag || '',
+        })));
+      }
+
+      // 处理童心教育数据
+      const philosophyResult = await philosophyRes.json();
+      if (philosophyResult.success && philosophyResult.data && philosophyResult.data.length > 0) {
+        setChildHeartPaths(philosophyResult.data.map((item: any) => ({
+          id: item.id,
+          icon: item.icon,
+          title: item.title,
+          subtitle: item.subtitle,
+          image: item.image,
+        })));
+      }
+
+      // 处理办学荣誉数据
+      const honorsResult = await honorsRes.json();
+      if (honorsResult.success && honorsResult.data && honorsResult.data.length > 0) {
+        setHonors(honorsResult.data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          year: item.year || '',
+        })));
       }
     } catch (error) {
       console.error('Failed to fetch portal data:', error);
@@ -721,11 +805,11 @@ export default function HomePage() {
                 {/* 右侧六宫格 */}
                 <div className="grid grid-cols-2 gap-3 p-4 md:p-6">
                   {childHeartPaths.map((path, index) => {
-                    const Icon = path.icon;
+                    const Icon = getIconComponent(path.icon);
                     const isActive = index === activePath;
                     return (
                       <div
-                        key={index}
+                        key={path.id || index}
                         onClick={() => setActivePath(index)}
                         className={`p-4 rounded-xl text-center transition-all cursor-pointer ${
                           isActive 
@@ -898,7 +982,7 @@ export default function HomePage() {
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               {honors.map((honor, index) => (
                 <div
-                  key={index}
+                  key={honor.id || index}
                   className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full border border-[#E8DDD0]/50 hover:shadow-md transition"
                 >
                   <Award className="h-4 w-4 text-[#B8860B]" />
