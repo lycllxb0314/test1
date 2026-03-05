@@ -216,6 +216,71 @@ export function ApprovalActionDialog({
                   <span className="text-gray-500">请假原因：</span>
                   <p className="mt-1 whitespace-pre-wrap">{leaveInfo.reason}</p>
                 </div>
+                {/* 附件显示 */}
+                {leaveInfo.attachments && leaveInfo.attachments.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="text-sm">
+                      <span className="text-gray-500">附件：</span>
+                      <div className="mt-2 space-y-2">
+                        {leaveInfo.attachments.map((attachment: any, index: number) => (
+                          <div 
+                            key={index} 
+                            className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            {attachment.type?.startsWith('image/') ? (
+                              <div className="flex items-center gap-2 flex-1">
+                                <img 
+                                  src={attachment.url} 
+                                  alt={attachment.name}
+                                  className="w-12 h-12 object-cover rounded border"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-700 truncate">
+                                    {attachment.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {attachment.size ? `${Math.round(attachment.size / 1024)} KB` : ''}
+                                  </p>
+                                </div>
+                                <a 
+                                  href={attachment.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-sm"
+                                >
+                                  查看
+                                </a>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 flex-1">
+                                <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
+                                  <FileText className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-700 truncate">
+                                    {attachment.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {attachment.size ? `${Math.round(attachment.size / 1024)} KB` : ''}
+                                  </p>
+                                </div>
+                                <a 
+                                  href={attachment.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-sm"
+                                >
+                                  下载
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
                 {leaveInfo.needAdjustment && (
                   <>
                     <Separator />
