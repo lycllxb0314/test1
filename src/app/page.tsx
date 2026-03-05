@@ -370,7 +370,7 @@ export default function HomePage() {
             <div className="flex items-center gap-6">
               <div className="bg-white rounded-lg p-1.5">
                 <img 
-                  src="/logo-animated.gif" 
+                  src="/logo-school.png" 
                   alt="福建省龙岩师范附属小学" 
                   className="h-8 w-auto"
                 />
