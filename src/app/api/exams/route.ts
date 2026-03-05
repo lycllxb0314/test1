@@ -50,7 +50,7 @@ interface Exam {
 }
 
 // 考试类型选项
-export const EXAM_TYPES = [
+const EXAM_TYPES = [
   { value: '期中考试', label: '期中考试' },
   { value: '期末考试', label: '期末考试' },
   { value: '单元测试', label: '单元测试' },
@@ -61,7 +61,7 @@ export const EXAM_TYPES = [
 ];
 
 // 考试状态选项
-export const EXAM_STATUS = [
+const EXAM_STATUS = [
   { value: 'planning', label: '计划中', color: 'bg-gray-100 text-gray-700' },
   { value: 'published', label: '已发布', color: 'bg-blue-100 text-blue-700' },
   { value: 'in_progress', label: '进行中', color: 'bg-orange-100 text-orange-700' },

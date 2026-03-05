@@ -125,7 +125,6 @@ const academicNav: NavItem[] = [
   },
   { name: '工作量统计', href: '/academic/workload', icon: BarChart3, description: '教师工作量统计', badge: '新' },
   { name: '考试管理', href: '/academic/exams', icon: ClipboardList, description: '考试安排管理' },
-  { name: '成绩管理', href: '/academic/grades', icon: BookOpen, description: '成绩录入查询' },
   { name: '教室管理', href: '/academic/rooms', icon: DoorOpen, description: '教室资源与预约' },
   { name: '教研活动', href: '/academic/research', icon: Target, description: '集体备课与听课评课', badge: '智慧' },
   { name: '教师考勤', href: '/academic/attendance', icon: CheckSquare, description: '教师考勤管理' },
