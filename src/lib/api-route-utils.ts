@@ -17,6 +17,7 @@ import {
   PaginatedData, 
   Pagination,
   success, 
+  successPaginated,
   error, 
   databaseError,
   ErrorCode 
@@ -579,6 +580,7 @@ export function createDeleteRouteHandler(
 
 export {
   success,
+  successPaginated,
   error,
   databaseError,
   ErrorCode,
