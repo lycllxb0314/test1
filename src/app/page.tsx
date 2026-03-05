@@ -129,22 +129,11 @@ interface NoticeItem {
   date: string;
 }
 
-const defaultNewsItems: NewsItem[] = [
-  { title: '我校少年科学院正式成立，中科院谢华安院士出席揭牌仪式', summary: '中国科学院谢华安院士亲临学校，为少年科学院揭牌，激励同学们勇攀科学高峰。', date: '2025-12-15', category: '校园新闻', image: '/images/campus/science-academy-opening.png' },
-  { title: '2025年全国学生数字素养大赛斩获"创新之星"最高奖', summary: '我校学子在全国学生数字素养大赛中表现出色，荣获最高荣誉"创新之星"奖项。', date: '2025-11-20', category: '荣誉喜报', image: '/images/campus/art-festival.png' },
-  { title: '童心教育实践成果入选福建省小学特色办学标杆案例', summary: '学校"童心教育"办学理念与实践成果获得省级认可，成为全省小学特色办学标杆。', date: '2025-10-15', category: '教育教学', image: '/images/campus/classroom-teaching.jpg' },
-  { title: '【学习强国】龙岩师范附小：百年老校的童心教育探索', summary: '学习强国平台专题报道我校百年办学历程与童心教育理念，展现百年名校风采。', date: '2025-12-10', category: '媒体附小', level: '国家级', image: '/images/campus/young-pioneers.png' },
-  { title: '【福建日报】传承红色基因，培育时代新人', summary: '福建日报深度报道我校红色教育实践，传承革命精神，培育新时代接班人。', date: '2025-11-28', category: '媒体附小', level: '省级', image: '/images/campus/sports-start.jpg' },
-  { title: '【闽西日报】智慧校园建设助力教育高质量发展', summary: '闽西日报报道我校智慧校园建设成果，数字化赋能教育教学，提升办学品质。', date: '2025-11-15', category: '媒体附小', level: '市级', image: '/images/campus/school-assembly.png' },
-];
+// 新闻列表 - 从 API 获取真实数据
+const defaultNewsItems: NewsItem[] = [];
 
-// 校园公告 - 默认静态数据，会被 API 数据覆盖
-const defaultNotices: NoticeItem[] = [
-  { title: '2026年春季学期开学通知', date: '2026-02-01' },
-  { title: '寒假安全致家长一封信', date: '2026-01-15' },
-  { title: '期末考试安排及寒假放假通知', date: '2026-01-10' },
-  { title: '2025-2026学年第一学期期末工作安排', date: '2026-01-05' },
-];
+// 校园公告 - 从 API 获取真实数据
+const defaultNotices: NoticeItem[] = [];
 
 // 办学荣誉类型定义
 interface SchoolHonor {
@@ -238,27 +227,25 @@ export default function HomePage() {
       // 处理公告和新闻数据
       const announcementsResult = await announcementsRes.json();
       if (announcementsResult.success) {
-        // 映射新闻数据
-        if (announcementsResult.data.news && announcementsResult.data.news.length > 0) {
-          setNewsItems(announcementsResult.data.news.map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            summary: item.summary || '',
-            date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
-            category: item.category || '校园新闻',
-            level: item.mediaLevel,
-            image: item.coverImage || '/images/campus/school-assembly.png',
-          })));
-        }
+        // 映射新闻数据（API返回空数组时也更新状态）
+        const newsData = announcementsResult.data.news || [];
+        setNewsItems(newsData.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          summary: item.summary || '',
+          date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
+          category: item.category || '校园新闻',
+          level: item.mediaLevel,
+          image: item.coverImage || '/images/campus/school-assembly.png',
+        })));
         
-        // 映射公告数据
-        if (announcementsResult.data.announcements && announcementsResult.data.announcements.length > 0) {
-          setNotices(announcementsResult.data.announcements.map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
-          })));
-        }
+        // 映射公告数据（API返回空数组时也更新状态）
+        const announcementsData = announcementsResult.data.announcements || [];
+        setNotices(announcementsData.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
+        })));
       }
 
       // 处理轮播图数据
