@@ -282,28 +282,31 @@ export async function GET(request: NextRequest) {
       // 我已处理的
       const processedInstanceIds: string[] = [];
       
-      // 1. 查找公告/新闻类型：在节点记录的 approved_by 中包含当前用户 ID 的记录
+      // 1. 查找所有节点记录中 approved_by 包含当前用户 ID 的记录
+      // 这适用于所有类型：公告/新闻/请假
       const { data: allRecords, error: recordsError } = await supabase
         .from('approval_node_records')
         .select('instance_id, approved_by');
       
       if (recordsError) throw recordsError;
       
-      const nodeRecordInstanceIds = [...new Set(
+      const processedFromNodeRecords = [...new Set(
         (allRecords || [])
           .filter((r: any) => {
             const approvedBy = r.approved_by || [];
-            return approvedBy.some((a: any) => a.user_id === user.id);
+            // 检查用户ID是否在审批记录中
+            return approvedBy.some((a: any) => 
+              a.userId === user.id || a.user_id === user.id
+            );
           })
           .map((r: any) => r.instance_id)
       )];
-      processedInstanceIds.push(...nodeRecordInstanceIds);
+      processedInstanceIds.push(...processedFromNodeRecords);
       
-      // 2. 查找请假类型：在 metadata.approvedByList 中包含当前用户工号的记录
+      // 2. 额外检查请假类型的 metadata.approvedByList（兼容旧数据）
       const { data: leaveInstances, error: leaveError } = await supabase
         .from('approval_instances')
         .select('id, metadata')
-        .in('status', ['approved', 'rejected'])
         .eq('business_type', 'leave_request');
       
       if (leaveError) throw leaveError;
@@ -311,10 +314,19 @@ export async function GET(request: NextRequest) {
       const leaveInstanceIds = (leaveInstances || [])
         .filter((instance: any) => {
           const approvedByList = instance.metadata?.approvedByList || [];
-          return approvedByList.some((a: any) => a.employeeId === user.employeeId);
+          // 检查工号或用户ID
+          return approvedByList.some((a: any) => 
+            a.employeeId === user.employeeId || a.userId === user.id
+          );
         })
         .map((instance: any) => instance.id);
-      processedInstanceIds.push(...leaveInstanceIds);
+      
+      // 合并去重
+      leaveInstanceIds.forEach((id: string) => {
+        if (!processedInstanceIds.includes(id)) {
+          processedInstanceIds.push(id);
+        }
+      });
 
       query = query.in('id', processedInstanceIds.length > 0 ? processedInstanceIds : ['00000000-0000-0000-0000-000000000000']);
     }
@@ -370,6 +382,7 @@ export async function GET(request: NextRequest) {
             reason: lr.reason,
             needAdjustment: lr.need_adjustment,
             affectedSlots: lr.affected_slots,
+            attachments: lr.attachments, // 添加附件字段
             status: lr.status,
             createdAt: lr.created_at,
           };
