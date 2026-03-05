@@ -187,7 +187,7 @@ export default function NewsDetailPage() {
               className="text-xl font-bold text-[#8B5A2B] hidden sm:block"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
-              福建师范大学附属小学
+              龙岩师范附属小学
             </Link>
           </div>
         </div>
@@ -371,7 +371,7 @@ export default function NewsDetailPage() {
       <footer className="py-8 border-t border-[#E8DDD0]/30 bg-[#F5EDE4]/50">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-sm text-[#8B5A2B]/60">
-            © 福建师范大学附属小学 版权所有
+            © 福建省龙岩师范附属小学 版权所有
           </p>
         </div>
       </footer>
