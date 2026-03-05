@@ -14,8 +14,8 @@ const JWT_ISSUER = 'smart-campus';
 const JWT_AUDIENCE = 'smart-campus-users';
 
 // Token 有效期配置
-const ACCESS_TOKEN_EXPIRES = '2h';  // Access Token 2小时
-const REFRESH_TOKEN_EXPIRES = '7d'; // Refresh Token 7天
+const ACCESS_TOKEN_EXPIRES = '4h';  // Access Token 4小时（原2小时）
+const REFRESH_TOKEN_EXPIRES = '14d'; // Refresh Token 14天（原7天）
 
 // Cookie 配置
 export const ACCESS_TOKEN_COOKIE = 'smart_campus_access_token';
@@ -106,10 +106,10 @@ export async function generateTokenPair(user: Pick<User, 'id' | 'name' | 'role'>
 
   // 解码 Access Token 获取过期时间
   const decoded = decodeJwt(accessToken);
-  const expiresIn = decoded.exp ? decoded.exp - Math.floor(Date.now() / 1000) : 7200;
+  const expiresIn = decoded.exp ? decoded.exp - Math.floor(Date.now() / 1000) : 14400;
   
-  // Refresh Token 过期时间（7天 = 604800秒）
-  const refreshExpiresIn = 604800;
+  // Refresh Token 过期时间（14天 = 1209600秒）
+  const refreshExpiresIn = 1209600;
 
   return {
     accessToken,
@@ -193,11 +193,11 @@ export function getCookieOptions(isProduction: boolean = false) {
   return {
     accessToken: {
       ...baseOptions,
-      maxAge: 7200, // 2小时
+      maxAge: 14400, // 4小时（原2小时7200秒）
     },
     refreshToken: {
       ...baseOptions,
-      maxAge: 604800, // 7天
+      maxAge: 1209600, // 14天（原7天604800秒）
     },
     userId: {
       ...baseOptions,

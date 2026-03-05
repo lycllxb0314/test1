@@ -69,8 +69,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsLoading(false);
           return;
         }
+        
+        // Token 验证失败，清除登录状态
+        if (response.status === 401 || result.code === 'AUTH_FAILED') {
+          console.log('Token验证失败，清除登录状态');
+          localStorage.removeItem('smart_campus_user');
+          localStorage.removeItem('smart_campus_token');
+          localStorage.removeItem('smart_campus_refresh_token');
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
       } catch (error) {
         console.error('Auth check failed:', error);
+        // 网络错误等情况，也清除登录状态
+        localStorage.removeItem('smart_campus_user');
+        localStorage.removeItem('smart_campus_token');
+        localStorage.removeItem('smart_campus_refresh_token');
+        setUser(null);
+        setIsLoading(false);
+        return;
       }
       
       // API 验证失败，检查 localStorage 是否有缓存数据

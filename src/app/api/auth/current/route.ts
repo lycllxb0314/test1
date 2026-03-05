@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
     if (!accessToken) {
       return NextResponse.json({
         success: false,
-        error: '未登录',
+        error: '未登录，请先登录',
+        code: 'AUTH_FAILED',
       }, { status: 401 });
     }
 
@@ -30,7 +31,8 @@ export async function GET(request: NextRequest) {
     if (!result.success) {
       return NextResponse.json({
         success: false,
-        error: result.error || '会话已过期',
+        error: result.error || '会话已过期，请重新登录',
+        code: 'AUTH_FAILED',
       }, { status: 401 });
     }
 
