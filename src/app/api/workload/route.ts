@@ -148,9 +148,10 @@ async function getBatchWorkload(
       // 计算实际工作量
       const actualLessons = monthLessons - adjustedLessons + substituteLessons;
       
-      // 标准工作量（假设每周16节课）
-      const standardLessons = 16 * 4;
-      const variance = actualLessons - standardLessons;
+      // 与基准差异 = 实际工作量 - 教师自己的基准课时
+      // 正数表示多上课（代课），负数表示少上课（请假被代课）
+      const variance = monthLessons > 0 ? actualLessons - monthLessons : 0;
+      const variancePercentage = monthLessons > 0 ? Math.round((variance / monthLessons) * 100) : 0;
       
       return {
         teacherId: teacher.employee_id,
@@ -158,9 +159,9 @@ async function getBatchWorkload(
         primarySubject: teacher.primary_subject,
         department: teacher.department,
         totalWorkload: actualLessons,
-        standardWorkload: standardLessons,
+        standardWorkload: monthLessons, // 改为教师自己的基准课时
         variance,
-        variancePercentage: Math.round((variance / standardLessons) * 100),
+        variancePercentage,
         details: {
           baseLessons: monthLessons,
           actualLessons: actualLessons,
@@ -318,8 +319,8 @@ async function getTeacherWorkload(
       
       // 统计
       totalWorkload: actualLessons,
-      standardWorkload: 16 * 4,
-      variance: actualLessons - 16 * 4,
+      standardWorkload: monthLessons, // 改为教师自己的基准课时
+      variance: monthLessons > 0 ? actualLessons - monthLessons : 0, // 与基准差异
       
       // 其他字段（保持兼容）
       details: {
