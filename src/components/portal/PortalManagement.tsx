@@ -1159,6 +1159,9 @@ interface AnnouncementItem {
   publishStatus: 'pending' | 'scheduled' | 'published' | 'unpublished';
   publishedAt?: string;
   scheduledPublishAt?: string;
+  autoUnpublish?: boolean;
+  autoUnpublishAt?: string;
+  unpublishedAt?: string;
   isPinned: boolean;
   pinOrder: number;
   viewCount: number;
@@ -1184,6 +1187,8 @@ function AnnouncementsManagement() {
     publishStatus: 'pending' as 'pending' | 'scheduled' | 'published' | 'unpublished',
     publishedAt: '',
     scheduledPublishAt: '',
+    autoUnpublish: false,
+    autoUnpublishAt: '',
     isPinned: false,
     pinOrder: 0,
   });
@@ -1216,6 +1221,18 @@ function AnnouncementsManagement() {
     try {
       const url = '/api/admin/portal/announcements';
       const method = editDialog.item ? 'PUT' : 'POST';
+      
+      // 处理发布状态
+      let publishStatus = formData.publishStatus;
+      let publishedAt = null;
+      let scheduledPublishAt = null;
+      
+      if (formData.publishStatus === 'published') {
+        publishedAt = new Date().toISOString();
+      } else if (formData.publishStatus === 'scheduled' && formData.scheduledPublishAt) {
+        scheduledPublishAt = new Date(formData.scheduledPublishAt).toISOString();
+      }
+      
       const body = editDialog.item
         ? {
             id: editDialog.item.id,
@@ -1227,8 +1244,11 @@ function AnnouncementsManagement() {
             mediaLevel: formData.mediaLevel || null,
             department: formData.department,
             coverImage: formData.coverImage || null,
-            publishStatus: formData.publishStatus,
-            publishedAt: formData.publishStatus === 'published' ? new Date().toISOString() : null,
+            publishStatus,
+            publishedAt,
+            scheduledPublishAt,
+            autoUnpublish: formData.autoUnpublish,
+            autoUnpublishAt: formData.autoUnpublish ? (formData.autoUnpublishAt ? new Date(formData.autoUnpublishAt).toISOString() : null) : null,
             isPinned: formData.isPinned,
             pinOrder: formData.pinOrder,
           }
@@ -1241,8 +1261,11 @@ function AnnouncementsManagement() {
             mediaLevel: formData.mediaLevel || null,
             department: formData.department,
             coverImage: formData.coverImage || null,
-            publishStatus: formData.publishStatus,
-            publishedAt: formData.publishStatus === 'published' ? new Date().toISOString() : null,
+            publishStatus,
+            publishedAt,
+            scheduledPublishAt,
+            autoUnpublish: formData.autoUnpublish,
+            autoUnpublishAt: formData.autoUnpublish ? (formData.autoUnpublishAt ? new Date(formData.autoUnpublishAt).toISOString() : null) : null,
             isPinned: formData.isPinned,
             pinOrder: formData.pinOrder,
           };
@@ -1331,6 +1354,8 @@ function AnnouncementsManagement() {
       publishStatus: 'pending',
       publishedAt: '',
       scheduledPublishAt: '',
+      autoUnpublish: false,
+      autoUnpublishAt: '',
       isPinned: false,
       pinOrder: 0,
     });
@@ -1351,6 +1376,8 @@ function AnnouncementsManagement() {
         publishStatus: item.publishStatus,
         publishedAt: item.publishedAt || '',
         scheduledPublishAt: item.scheduledPublishAt || '',
+        autoUnpublish: item.autoUnpublish || false,
+        autoUnpublishAt: item.autoUnpublishAt || '',
         isPinned: item.isPinned,
         pinOrder: item.pinOrder,
       });
@@ -1471,7 +1498,19 @@ function AnnouncementsManagement() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {getStatusBadge(item.publishStatus)}
+                  <div className="flex flex-col items-end gap-1">
+                    {getStatusBadge(item.publishStatus)}
+                    {item.publishStatus === 'scheduled' && item.scheduledPublishAt && (
+                      <span className="text-xs text-blue-600">
+                        {new Date(item.scheduledPublishAt).toLocaleString()}
+                      </span>
+                    )}
+                    {item.autoUnpublish && item.autoUnpublishAt && (
+                      <span className="text-xs text-orange-600">
+                        下架: {new Date(item.autoUnpublishAt).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1642,10 +1681,47 @@ function AnnouncementsManagement() {
                 <SelectContent>
                   <SelectItem value="pending">待发布</SelectItem>
                   <SelectItem value="published">立即发布</SelectItem>
+                  <SelectItem value="scheduled">定时发布</SelectItem>
                   <SelectItem value="unpublished">已下架</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* 定时发布时间 */}
+            {formData.publishStatus === 'scheduled' && (
+              <div className="grid gap-2">
+                <Label>定时发布时间</Label>
+                <Input
+                  type="datetime-local"
+                  value={formData.scheduledPublishAt}
+                  onChange={(e) => setFormData({ ...formData, scheduledPublishAt: e.target.value })}
+                />
+                <p className="text-xs text-gray-500">到达设定时间后将自动发布</p>
+              </div>
+            )}
+            
+            {/* 定时下架 */}
+            <div className="border-t pt-4 mt-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Switch
+                  checked={formData.autoUnpublish}
+                  onCheckedChange={(v) => setFormData({ ...formData, autoUnpublish: v })}
+                />
+                <Label>启用定时下架</Label>
+              </div>
+              {formData.autoUnpublish && (
+                <div className="grid gap-2">
+                  <Label>定时下架时间</Label>
+                  <Input
+                    type="datetime-local"
+                    value={formData.autoUnpublishAt}
+                    onChange={(e) => setFormData({ ...formData, autoUnpublishAt: e.target.value })}
+                  />
+                  <p className="text-xs text-gray-500">到达设定时间后将自动下架</p>
+                </div>
+              )}
+            </div>
+            
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Switch

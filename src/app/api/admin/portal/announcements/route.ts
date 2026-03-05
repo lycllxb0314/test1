@@ -24,6 +24,8 @@ interface AnnouncementInput {
   publishStatus?: 'pending' | 'scheduled' | 'published' | 'unpublished';
   publishedAt?: string;
   scheduledPublishAt?: string;
+  autoUnpublish?: boolean;
+  autoUnpublishAt?: string;
   isPinned?: boolean;
   pinOrder?: number;
   isActive?: boolean;
@@ -77,6 +79,9 @@ export async function GET(request: NextRequest) {
       publishStatus: item.publish_status,
       publishedAt: item.published_at,
       scheduledPublishAt: item.scheduled_publish_at,
+      autoUnpublish: item.auto_unpublish || false,
+      autoUnpublishAt: item.auto_unpublish_at,
+      unpublishedAt: item.unpublished_at,
       isPinned: item.is_pinned,
       pinOrder: item.pin_order,
       viewCount: item.view_count || 0,
@@ -115,9 +120,10 @@ export async function POST(request: NextRequest) {
         publish_status: body.publishStatus || 'pending',
         published_at: body.publishedAt || null,
         scheduled_publish_at: body.scheduledPublishAt || null,
+        auto_unpublish: body.autoUnpublish || false,
+        auto_unpublish_at: body.autoUnpublishAt || null,
         is_pinned: body.isPinned || false,
         pin_order: body.pinOrder || 0,
-        auto_unpublish: false,
         attachments: [],
         view_count: 0,
         status: 'published',
@@ -164,6 +170,8 @@ export async function PUT(request: NextRequest) {
     if (updates.publishStatus !== undefined) updateData.publish_status = updates.publishStatus;
     if (updates.publishedAt !== undefined) updateData.published_at = updates.publishedAt;
     if (updates.scheduledPublishAt !== undefined) updateData.scheduled_publish_at = updates.scheduledPublishAt;
+    if (updates.autoUnpublish !== undefined) updateData.auto_unpublish = updates.autoUnpublish;
+    if (updates.autoUnpublishAt !== undefined) updateData.auto_unpublish_at = updates.autoUnpublishAt;
     if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;
     if (updates.pinOrder !== undefined) updateData.pin_order = updates.pinOrder;
 
