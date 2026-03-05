@@ -1,71 +1,89 @@
 /**
- * 门户管理 API - 童心教育管理
+ * 门户管理 API - 童心教育活动内容管理
  * 
- * 支持增删改查操作
+ * 管理每个板块下的具体活动内容
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-interface PhilosophyItemInput {
-  icon: string;
+interface ActivityItemInput {
+  id?: string;
+  categoryId: string;
   title: string;
-  subtitle: string;
   image: string;
   imageKey?: string;
-  description?: string;
+  date?: string;
+  summary?: string;
+  content?: string;
   sortOrder?: number;
   isActive?: boolean;
 }
 
 /**
- * GET - 获取童心教育列表
+ * GET - 获取活动内容列表
+ * 支持按板块筛选
  */
 export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const includeInactive = searchParams.get('includeInactive') === 'true';
+    const categoryId = searchParams.get('categoryId');
 
     let query = supabase
-      .from('child_heart_paths')
-      .select('*')
+      .from('philosophy_activities')
+      .select(`
+        *,
+        category:child_heart_paths(id, title, icon)
+      `)
+      .order('category_id', { ascending: true })
       .order('sort_order', { ascending: true });
 
     if (!includeInactive) {
       query = query.eq('is_active', true);
     }
 
+    if (categoryId) {
+      query = query.eq('category_id', categoryId);
+    }
+
     const { data, error } = await query;
 
     if (error) {
+      console.error('Activities GET error:', error);
       return NextResponse.json({ success: false, error: '获取数据失败' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Philosophy GET error:', error);
+    console.error('Activities GET error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
 
 /**
- * POST - 创建童心教育项
+ * POST - 创建活动内容
  */
 export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
-    const body: PhilosophyItemInput = await request.json();
+    const body: ActivityItemInput = await request.json();
+
+    if (!body.categoryId) {
+      return NextResponse.json({ success: false, error: '请选择所属板块' }, { status: 400 });
+    }
 
     const { data, error } = await supabase
-      .from('child_heart_paths')
+      .from('philosophy_activities')
       .insert({
-        icon: body.icon,
+        category_id: body.categoryId,
         title: body.title,
-        subtitle: body.subtitle,
         image: body.image,
         image_key: body.imageKey,
-        description: body.description,
+        date: body.date || '',
+        summary: body.summary || '',
+        content: body.content || '',
         sort_order: body.sortOrder || 0,
         is_active: body.isActive ?? true,
       })
@@ -73,18 +91,19 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ success: false, error: '创建失败' }, { status: 500 });
+      console.error('Activities POST error:', error);
+      return NextResponse.json({ success: false, error: '创建失败: ' + error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Philosophy POST error:', error);
+    console.error('Activities POST error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
 
 /**
- * PUT - 更新童心教育项
+ * PUT - 更新活动内容
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -97,35 +116,37 @@ export async function PUT(request: NextRequest) {
     }
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
-    if (updates.icon !== undefined) updateData.icon = updates.icon;
+    if (updates.categoryId !== undefined) updateData.category_id = updates.categoryId;
     if (updates.title !== undefined) updateData.title = updates.title;
-    if (updates.subtitle !== undefined) updateData.subtitle = updates.subtitle;
     if (updates.image !== undefined) updateData.image = updates.image;
     if (updates.imageKey !== undefined) updateData.image_key = updates.imageKey;
-    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.date !== undefined) updateData.date = updates.date;
+    if (updates.summary !== undefined) updateData.summary = updates.summary;
+    if (updates.content !== undefined) updateData.content = updates.content;
     if (updates.sortOrder !== undefined) updateData.sort_order = updates.sortOrder;
     if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
 
     const { data, error } = await supabase
-      .from('child_heart_paths')
+      .from('philosophy_activities')
       .update(updateData)
       .eq('id', id)
       .select()
       .single();
 
     if (error) {
+      console.error('Activities PUT error:', error);
       return NextResponse.json({ success: false, error: '更新失败' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Philosophy PUT error:', error);
+    console.error('Activities PUT error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
 
 /**
- * DELETE - 删除童心教育项
+ * DELETE - 删除活动内容
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -138,17 +159,18 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { error } = await supabase
-      .from('child_heart_paths')
+      .from('philosophy_activities')
       .delete()
       .eq('id', id);
 
     if (error) {
+      console.error('Activities DELETE error:', error);
       return NextResponse.json({ success: false, error: '删除失败' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Philosophy DELETE error:', error);
+    console.error('Activities DELETE error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
