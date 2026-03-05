@@ -36,21 +36,31 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // 创建响应
-    const response = NextResponse.json({
-      success: true,
-      data: result.user,
-      shouldRefresh: result.shouldRefresh,
-    });
-
     // 如果需要刷新 Token，生成新的 Token 对
+    let newAccessToken: string | undefined;
+    let refreshTokens: Awaited<ReturnType<typeof import('@/lib/auth/session').refreshToken>>['tokens'] | undefined;
+    
     if (result.shouldRefresh && result.payload && refreshTokenValue) {
       const { refreshToken: doRefreshToken } = await import('@/lib/auth/session');
       const refreshResult = await doRefreshToken(refreshTokenValue, process.env.NODE_ENV === 'production');
       
       if (refreshResult.success && refreshResult.tokens) {
-        setAuthCookies(response, refreshResult.tokens, result.payload.userId, process.env.NODE_ENV === 'production');
+        newAccessToken = refreshResult.tokens.accessToken;
+        refreshTokens = refreshResult.tokens;
       }
+    }
+
+    // 创建响应
+    const response = NextResponse.json({
+      success: true,
+      data: result.user,
+      shouldRefresh: result.shouldRefresh,
+      newAccessToken, // 返回新的 access_token
+    });
+
+    // 设置新的 Cookie
+    if (refreshTokens && result.payload) {
+      setAuthCookies(response, refreshTokens, result.payload.userId, process.env.NODE_ENV === 'production');
     }
 
     return response;

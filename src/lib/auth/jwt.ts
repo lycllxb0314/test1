@@ -14,8 +14,8 @@ const JWT_ISSUER = 'smart-campus';
 const JWT_AUDIENCE = 'smart-campus-users';
 
 // Token 有效期配置
-const ACCESS_TOKEN_EXPIRES = '4h';  // Access Token 4小时（原2小时）
-const REFRESH_TOKEN_EXPIRES = '14d'; // Refresh Token 14天（原7天）
+const ACCESS_TOKEN_EXPIRES = '1h';   // Access Token 1小时
+const REFRESH_TOKEN_EXPIRES = '3d';  // Refresh Token 3天
 
 // Cookie 配置
 export const ACCESS_TOKEN_COOKIE = 'smart_campus_access_token';
@@ -106,10 +106,10 @@ export async function generateTokenPair(user: Pick<User, 'id' | 'name' | 'role'>
 
   // 解码 Access Token 获取过期时间
   const decoded = decodeJwt(accessToken);
-  const expiresIn = decoded.exp ? decoded.exp - Math.floor(Date.now() / 1000) : 14400;
+  const expiresIn = decoded.exp ? decoded.exp - Math.floor(Date.now() / 1000) : 3600; // 1小时
   
-  // Refresh Token 过期时间（14天 = 1209600秒）
-  const refreshExpiresIn = 1209600;
+  // Refresh Token 过期时间（3天 = 259200秒）
+  const refreshExpiresIn = 259200;
 
   return {
     accessToken,
@@ -166,7 +166,7 @@ export function decodeToken(token: string): JwtPayload | null {
 }
 
 /**
- * 检查 Token 是否即将过期（小于30分钟）
+ * 检查 Token 是否即将过期（小于10分钟）
  */
 export function isTokenExpiringSoon(token: string): boolean {
   const decoded = decodeToken(token);
@@ -175,8 +175,8 @@ export function isTokenExpiringSoon(token: string): boolean {
   const now = Math.floor(Date.now() / 1000);
   const timeUntilExpiry = decoded.exp - now;
 
-  // 如果剩余时间小于30分钟（1800秒），认为即将过期
-  return timeUntilExpiry < 1800;
+  // 如果剩余时间小于10分钟（600秒），认为即将过期
+  return timeUntilExpiry < 600;
 }
 
 /**
@@ -193,16 +193,16 @@ export function getCookieOptions(isProduction: boolean = false) {
   return {
     accessToken: {
       ...baseOptions,
-      maxAge: 14400, // 4小时（原2小时7200秒）
+      maxAge: 3600, // 1小时
     },
     refreshToken: {
       ...baseOptions,
-      maxAge: 1209600, // 14天（原7天604800秒）
+      maxAge: 259200, // 3天
     },
     userId: {
       ...baseOptions,
       httpOnly: false, // 允许前端读取
-      maxAge: 604800, // 7天
+      maxAge: 259200, // 3天
     },
   };
 }

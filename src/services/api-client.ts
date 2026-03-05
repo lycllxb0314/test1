@@ -109,6 +109,68 @@ interface RequestConfig {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   params?: QueryParams;
+  skipAuthRefresh?: boolean; // 跳过自动刷新（避免循环）
+}
+
+// ============================================
+// Token 刷新管理
+// ============================================
+
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+/**
+ * 刷新 Token
+ * 返回 true 表示刷新成功，false 表示失败
+ */
+async function refreshToken(): Promise<boolean> {
+  // 如果正在刷新，返回已有的 Promise（避免并发刷新）
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include', // 携带 refresh_token cookie
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // 更新 localStorage 中的 token
+        if (result.data?.tokens?.accessToken) {
+          localStorage.setItem('smart_campus_token', result.data.tokens.accessToken);
+        }
+        return true;
+      }
+      
+      return false;
+    } catch {
+      return false;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+/**
+ * 清除登录状态并跳转登录页
+ */
+function clearAuthAndRedirect(): void {
+  localStorage.removeItem('smart_campus_user');
+  localStorage.removeItem('smart_campus_token');
+  localStorage.removeItem('smart_campus_refresh_token');
+  window.location.href = '/login';
 }
 
 // ============================================
@@ -134,20 +196,71 @@ class ApiClient {
       });
     }
 
+    // 获取 token
+    const token = localStorage.getItem('smart_campus_token');
+    
+    // 准备请求头
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     try {
       const response = await fetch(url.toString(), {
         method: config.method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: config.body ? JSON.stringify(config.body) : undefined,
+        credentials: 'include', // 携带 cookie
       });
 
-      if (!response.ok) {
+      // 处理 401 未授权（token 过期）
+      if (response.status === 401 && !config.skipAuthRefresh) {
+        // 尝试刷新 token
+        const refreshed = await refreshToken();
+        
+        if (refreshed) {
+          // 刷新成功，用新 token 重试请求
+          const newToken = localStorage.getItem('smart_campus_token');
+          if (newToken) {
+            headers['Authorization'] = `Bearer ${newToken}`;
+          }
+          
+          const retryResponse = await fetch(url.toString(), {
+            method: config.method,
+            headers,
+            body: config.body ? JSON.stringify(config.body) : undefined,
+            credentials: 'include',
+          });
+          
+          if (retryResponse.ok) {
+            return retryResponse.json();
+          }
+        }
+        
+        // 刷新失败或重试失败，清除登录状态
+        clearAuthAndRedirect();
         return {
           success: false,
-          error: `HTTP ${response.status}: ${response.statusText}`,
+          error: '登录已过期，请重新登录',
         };
+      }
+
+      if (!response.ok) {
+        // 尝试解析错误信息
+        try {
+          const errorData = await response.json();
+          return {
+            success: false,
+            error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+          };
+        } catch {
+          return {
+            success: false,
+            error: `HTTP ${response.status}: ${response.statusText}`,
+          };
+        }
       }
 
       return response.json();
@@ -212,10 +325,26 @@ export const authApi = {
   getCurrentUser: () =>
     apiClient.get<User>('/auth/current'),
   
-  logout: () => {
+  logout: async () => {
+    try {
+      // 调用后端清除 cookie
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // 忽略错误
+    }
+    // 清除本地存储
     localStorage.removeItem('smart_campus_user');
-    return Promise.resolve({ success: true });
+    localStorage.removeItem('smart_campus_token');
+    localStorage.removeItem('smart_campus_refresh_token');
+    return { success: true };
   },
+  
+  /** 刷新 Token */
+  refresh: () =>
+    apiClient.post<{ tokens: { expiresIn: number } }>('/auth/refresh'),
 } as const;
 
 /**

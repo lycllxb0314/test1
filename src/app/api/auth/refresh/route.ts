@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         tokens: {
+          accessToken: result.tokens.accessToken, // 返回新的 access_token
           expiresIn: result.tokens.expiresIn,
           refreshExpiresIn: result.tokens.refreshExpiresIn,
         },

@@ -66,6 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 会话有效，更新用户数据
           setUser(result.data);
           localStorage.setItem('smart_campus_user', JSON.stringify(result.data));
+          
+          // 如果后端返回了新的 access_token，更新 localStorage
+          if (result.newAccessToken) {
+            localStorage.setItem('smart_campus_token', result.newAccessToken);
+          }
+          
           setIsLoading(false);
           return;
         }
@@ -82,23 +88,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Auth check failed:', error);
-        // 网络错误等情况，也清除登录状态
-        localStorage.removeItem('smart_campus_user');
-        localStorage.removeItem('smart_campus_token');
-        localStorage.removeItem('smart_campus_refresh_token');
-        setUser(null);
+        // 网络错误等情况，不清除登录状态，保留本地缓存
+        // 这样用户在离线时仍能看到之前的数据
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            if (parsedUser?.id) {
+              setUser(parsedUser);
+            }
+          } catch {
+            // 忽略解析错误
+          }
+        }
         setIsLoading(false);
         return;
       }
       
-      // API 验证失败，检查 localStorage 是否有缓存数据
+      // API 验证失败但没有返回明确的错误，检查 localStorage 是否有缓存数据
       if (savedUser) {
         try {
           const parsedUser = JSON.parse(savedUser);
           const userData = parsedUser.user || parsedUser;
           
           if (userData.id) {
-            // 使用本地缓存的用户数据（离线模式或 token 过期）
+            // 使用本地缓存的用户数据（离线模式）
             setUser(userData);
           } else {
             localStorage.removeItem('smart_campus_user');
