@@ -1,88 +1,70 @@
 /**
- * 门户管理 API - 成果特色办学项目管理
+ * 门户管理 API - 成果分类管理
  * 
- * 管理每个分类下的具体项目
+ * 管理三大分类：科创教育、人文德育、艺体心理
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-interface AchievementItemInput {
-  id?: string;
-  categoryId: string;
-  title: string;
-  image: string;
-  imageKey?: string;
-  date?: string;
-  summary?: string;
-  highlights?: string[];
+interface CategoryInput {
+  name: string;
+  slug: string;
+  icon: string;
+  tag?: string;
+  description?: string;
   sortOrder?: number;
   isActive?: boolean;
 }
 
 /**
- * GET - 获取成果项目列表
- * 支持按分类筛选
+ * GET - 获取分类列表
  */
 export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const includeInactive = searchParams.get('includeInactive') === 'true';
-    const categoryId = searchParams.get('categoryId');
 
     let query = supabase
-      .from('achievements')
-      .select(`
-        *,
-        category:achievement_categories(id, name, slug, icon)
-      `)
+      .from('achievement_categories')
+      .select('*')
       .order('sort_order', { ascending: true });
 
     if (!includeInactive) {
       query = query.eq('is_active', true);
     }
 
-    if (categoryId) {
-      query = query.eq('category_id', categoryId);
-    }
-
     const { data, error } = await query;
 
     if (error) {
-      console.error('Achievements GET error:', error);
+      console.error('Categories GET error:', error);
       return NextResponse.json({ success: false, error: '获取数据失败' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Achievements GET error:', error);
+    console.error('Categories GET error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
 
 /**
- * POST - 创建成果项目
+ * POST - 创建分类
  */
 export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
-    const body: AchievementItemInput = await request.json();
-
-    if (!body.categoryId) {
-      return NextResponse.json({ success: false, error: '请选择所属分类' }, { status: 400 });
-    }
+    const body: CategoryInput = await request.json();
 
     const { data, error } = await supabase
-      .from('achievements')
+      .from('achievement_categories')
       .insert({
-        category_id: body.categoryId,
-        title: body.title,
-        image: body.image,
-        image_key: body.imageKey,
-        date: body.date || '',
-        summary: body.summary || '',
-        highlights: body.highlights || [],
+        name: body.name,
+        slug: body.slug,
+        icon: body.icon,
+        tag: body.tag || '',
+        description: body.description || '',
         sort_order: body.sortOrder || 0,
         is_active: body.isActive ?? true,
       })
@@ -90,19 +72,19 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Achievements POST error:', error);
+      console.error('Categories POST error:', error);
       return NextResponse.json({ success: false, error: '创建失败: ' + error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Achievements POST error:', error);
+    console.error('Categories POST error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
 
 /**
- * PUT - 更新成果项目
+ * PUT - 更新分类
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -115,37 +97,35 @@ export async function PUT(request: NextRequest) {
     }
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
-    if (updates.categoryId !== undefined) updateData.category_id = updates.categoryId;
-    if (updates.title !== undefined) updateData.title = updates.title;
-    if (updates.image !== undefined) updateData.image = updates.image;
-    if (updates.imageKey !== undefined) updateData.image_key = updates.imageKey;
-    if (updates.date !== undefined) updateData.date = updates.date;
-    if (updates.summary !== undefined) updateData.summary = updates.summary;
-    if (updates.highlights !== undefined) updateData.highlights = updates.highlights;
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.slug !== undefined) updateData.slug = updates.slug;
+    if (updates.icon !== undefined) updateData.icon = updates.icon;
+    if (updates.tag !== undefined) updateData.tag = updates.tag;
+    if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.sortOrder !== undefined) updateData.sort_order = updates.sortOrder;
     if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
 
     const { data, error } = await supabase
-      .from('achievements')
+      .from('achievement_categories')
       .update(updateData)
       .eq('id', id)
       .select()
       .single();
 
     if (error) {
-      console.error('Achievements PUT error:', error);
+      console.error('Categories PUT error:', error);
       return NextResponse.json({ success: false, error: '更新失败' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Achievements PUT error:', error);
+    console.error('Categories PUT error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
 
 /**
- * DELETE - 删除成果项目
+ * DELETE - 删除分类
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -157,19 +137,33 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: '缺少ID' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    // 删除分类下的所有项目
+    const { error: deleteItemsError } = await supabase
       .from('achievements')
+      .delete()
+      .eq('category_id', id);
+
+    if (deleteItemsError) {
+      console.error('Delete items error:', deleteItemsError);
+      return NextResponse.json({ 
+        success: false, 
+        error: '删除分类项目失败' 
+      }, { status: 500 });
+    }
+
+    const { error } = await supabase
+      .from('achievement_categories')
       .delete()
       .eq('id', id);
 
     if (error) {
-      console.error('Achievements DELETE error:', error);
+      console.error('Categories DELETE error:', error);
       return NextResponse.json({ success: false, error: '删除失败' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Achievements DELETE error:', error);
+    console.error('Categories DELETE error:', error);
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
   }
 }
