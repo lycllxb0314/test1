@@ -632,6 +632,14 @@ export default function TeacherDetailPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
+                  <GraduationCap className="h-4 w-4" />
+                  <span>
+                    当前任教年级：{teacher.currentTeachingGrades && teacher.currentTeachingGrades.length > 0 
+                      ? teacher.currentTeachingGrades.map(g => `${g}年级`).join('、') 
+                      : '未安排'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-4 w-4" />
                   <span>入职：{teacher.joinDate}</span>
                 </div>
@@ -913,6 +921,14 @@ export default function TeacherDetailPage() {
                     ) : (
                       <p className="font-medium">{teacher.teachableSubjects?.join('、') || teacher.subject}</p>
                     )}
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">当前任教年级</Label>
+                    <p className="font-medium">
+                      {teacher.currentTeachingGrades && teacher.currentTeachingGrades.length > 0 
+                        ? teacher.currentTeachingGrades.map(g => `${g}年级`).join('、') 
+                        : '未安排'}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">教龄</Label>
