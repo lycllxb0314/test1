@@ -180,12 +180,6 @@ export default function LoginPage() {
                                                                                                     </> : "登 录"}
                                 </Button>
                             </form>
-                            {}
-                            <div className="mt-6 p-4 bg-orange-50 rounded-lg">
-                                <p className="text-sm text-gray-600 text-center">首次登录默认密码为 <span className="font-medium text-primary">lysf2026</span></p>
-                                <p className="text-xs text-gray-500 text-center mt-2">如有账号问题，请联系教务处或年级组长
-                                                                                        </p>
-                            </div>
                         </CardContent>
                     </Card>
                 </div>
