@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   switchRole: (role: UserRole) => void;
 }
 
@@ -153,7 +153,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // 登出
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      // 调用后端 API 清除 cookie
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error('Logout API error:', error);
+    }
+    
+    // 清除前端存储
     setUser(null);
     localStorage.removeItem('smart_campus_user');
     localStorage.removeItem('smart_campus_token');

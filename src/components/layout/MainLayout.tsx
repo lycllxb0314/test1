@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { AdministrativeRole } from '@/types';
@@ -232,11 +232,18 @@ const parentNav: NavItem[] = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout, switchRole } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [activeModule, setActiveModule] = useState<ModuleType | null>(null);
   const [expandedItems, setExpandedItems] = useState<string[]>([]); // 展开的三级菜单项
   const [userGroups, setUserGroups] = useState<{ groupType: GroupType }[]>([]); // 用户群组成员身份
+
+  // 处理退出登录
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
 
   // 获取用户群组成员身份
   useEffect(() => {
@@ -658,7 +665,7 @@ export function AppSidebar() {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
+                <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   退出登录
                 </DropdownMenuItem>
