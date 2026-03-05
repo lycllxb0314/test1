@@ -865,13 +865,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
 
-  // 公开页面不需要侧边栏布局：首页、登录页、办学理念、现任领导、新闻中心、校园公告（含详情页）
+  // 公开页面不需要侧边栏布局：首页、登录页、办学理念、现任领导、新闻中心、校园公告、成果特色办学（含详情页）
   const isPublicPage = pathname === '/' 
     || pathname === '/login' 
     || pathname === '/philosophy' 
     || pathname === '/leadership' 
     || pathname.startsWith('/news') 
-    || pathname.startsWith('/notices');
+    || pathname.startsWith('/notices')
+    || pathname.startsWith('/achievements');
 
   if (isLoading) {
     return (
