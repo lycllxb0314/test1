@@ -785,7 +785,7 @@ export default function HomePage() {
               
               <div className="grid md:grid-cols-2 gap-0 items-center">
                 {/* 左侧大图 */}
-                <div className="relative h-64 md:h-80 overflow-hidden bg-[#F5EDE4] self-center">
+                <Link href="/philosophy" className="relative h-64 md:h-80 overflow-hidden bg-[#F5EDE4] self-center block">
                   <img
                     key={activePath}
                     src={childHeartPaths[activePath].image}
@@ -793,6 +793,13 @@ export default function HomePage() {
                     className="absolute inset-0 w-full h-full object-cover transition-all duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent">
+                    {/* 右上角查看更多 */}
+                    <div className="absolute top-4 right-4">
+                      <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#8B5A2B] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                        点击查看更多
+                        <ChevronRight className="h-3 w-3" />
+                      </span>
+                    </div>
                     <div className="absolute bottom-6 left-6 right-6">
                       <span className="inline-block text-xs bg-[#D4A574] text-[#3D2314] px-3 py-1 rounded-full mb-2">
                         {childHeartPaths[activePath].subtitle}
@@ -800,7 +807,7 @@ export default function HomePage() {
                       <p className="text-white text-lg font-medium">{childHeartPaths[activePath].title}</p>
                     </div>
                   </div>
-                </div>
+                </Link>
                 
                 {/* 右侧六宫格 */}
                 <div className="grid grid-cols-2 gap-3 p-4 md:p-6">
@@ -855,19 +862,26 @@ export default function HomePage() {
             <div className="grid md:grid-cols-3 gap-5">
               {/* 科创教育 - 王牌特色 */}
               <div className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
-                <div className="relative h-48">
+                <Link href="/achievements?category=science" className="relative h-48 block">
                   <img
                     src="/images/campus/robot-award.jpg"
                     alt="科创获奖"
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#3D2314] via-[#3D2314]/30 to-transparent"></div>
+                  {/* 右上角查看更多 */}
+                  <div className="absolute top-4 right-4">
+                    <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                      点击查看更多
+                      <ChevronRight className="h-3 w-3" />
+                    </span>
+                  </div>
                   <div className="absolute top-4 left-4 flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-[#D4A574]" />
                     <span className="font-bold">科创教育</span>
                     <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-1">王牌特色</span>
                   </div>
-                </div>
+                </Link>
                 
                 <div className="p-5 flex-1 flex flex-col">
                   <p className="text-sm text-white/70 mb-4">
@@ -897,18 +911,25 @@ export default function HomePage() {
               
               {/* 人文德育 */}
               <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
-                <div className="relative h-48">
+                <Link href="/achievements?category=moral" className="relative h-48 block">
                   <img
                     src="/images/campus/teacher-day-award.png"
                     alt="人文德育"
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                  {/* 右上角查看更多 */}
+                  <div className="absolute top-4 right-4">
+                    <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                      点击查看更多
+                      <ChevronRight className="h-3 w-3" />
+                    </span>
+                  </div>
                   <div className="absolute top-4 left-4 flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-white" />
                     <span className="font-bold text-white">人文德育</span>
                   </div>
-                </div>
+                </Link>
                 <div className="p-5 flex-1">
                   <p className="text-sm text-[#8B5A2B]/70 mb-4">
                     以"小目标促成长"为载体，培养学生良好品德与行为习惯
@@ -938,18 +959,25 @@ export default function HomePage() {
               
               {/* 艺体心理 */}
               <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
-                <div className="relative h-48">
+                <Link href="/achievements?category=art" className="relative h-48 block">
                   <img
                     src="/images/campus/orchestra.png"
                     alt="艺体心理"
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                  {/* 右上角查看更多 */}
+                  <div className="absolute top-4 right-4">
+                    <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                      点击查看更多
+                      <ChevronRight className="h-3 w-3" />
+                    </span>
+                  </div>
                   <div className="absolute top-4 left-4 flex items-center gap-2">
                     <Music className="h-5 w-5 text-white" />
                     <span className="font-bold text-white">艺体心理</span>
                   </div>
-                </div>
+                </Link>
                 <div className="p-5 flex-1">
                   <p className="text-sm text-[#8B5A2B]/70 mb-4">
                     艺术体育与心理健康教育并重，促进学生身心全面发展

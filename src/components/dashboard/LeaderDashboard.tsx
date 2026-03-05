@@ -8,6 +8,7 @@
  * - 消息面板：消息通知、任务提醒
  * - 发布中心：发布校级重大事件公告/新闻
  * - 审批中心：处理待审批的公告/新闻
+ * - 门户管理：管理学校门户页面内容
  */
 
 import React, { useState, useEffect } from 'react';
@@ -21,6 +22,7 @@ import { useApprovals } from '@/hooks/useApprovals';
 import { MessagePanel } from '@/components/messaging/MessagePanel';
 import { PublishNotificationDialog } from '@/components/approval/PublishNotificationDialog';
 import { ApprovalActionDialog, ApprovalCard } from '@/components/approval/ApprovalActionDialog';
+import { PortalManagement } from '@/components/portal/PortalManagement';
 import type { ApprovalInstance, SubmitApprovalRequest } from '@/types/approval';
 import {
   Bell,
@@ -30,6 +32,7 @@ import {
   Clock,
   FileText,
   Plus,
+  Globe,
 } from 'lucide-react';
 
 // ==================== 类型定义 ====================
@@ -312,6 +315,10 @@ export function LeaderDashboard({ config }: LeaderDashboardProps) {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="portal" className="gap-2">
+            <Globe className="h-4 w-4" />
+            门户管理
+          </TabsTrigger>
         </TabsList>
 
         {/* 消息面板 */}
@@ -419,6 +426,11 @@ export function LeaderDashboard({ config }: LeaderDashboardProps) {
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        {/* 门户管理 */}
+        <TabsContent value="portal" className="mt-4">
+          <PortalManagement />
         </TabsContent>
       </Tabs>
 
