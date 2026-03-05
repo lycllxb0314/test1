@@ -204,6 +204,21 @@ export default function HomePage() {
   const [newsItems, setNewsItems] = useState(defaultNewsItems);
   const [notices, setNotices] = useState(defaultNotices);
   const [dataLoading, setDataLoading] = useState(true);
+  
+  // 成果特色办学分类数据
+  interface AchievementCategoryData {
+    id: string;
+    name: string;
+    slug: string;
+    icon: string;
+    tag?: string;
+    description?: string;
+    featuredAwardTitle?: string;
+    featuredAwardContent?: string;
+    stats?: { label: string; value: string }[];
+    honorsList?: { title: string; subtitle?: string }[];
+  }
+  const [achievementCategories, setAchievementCategories] = useState<AchievementCategoryData[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -281,6 +296,24 @@ export default function HomePage() {
           id: item.id,
           title: item.title,
           year: item.year || '',
+        })));
+      }
+      
+      // 获取成果特色办学分类数据
+      const achievementsRes = await fetch('/api/portal/achievements/categories');
+      const achievementsResult = await achievementsRes.json();
+      if (achievementsResult.success && achievementsResult.data && achievementsResult.data.length > 0) {
+        setAchievementCategories(achievementsResult.data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          slug: item.slug,
+          icon: item.icon,
+          tag: item.tag,
+          description: item.description,
+          featuredAwardTitle: item.featured_award_title,
+          featuredAwardContent: item.featured_award_content,
+          stats: item.stats || [],
+          honorsList: item.honors_list || [],
         })));
       }
     } catch (error) {
@@ -860,150 +893,264 @@ export default function HomePage() {
             </div>
             
             <div className="grid md:grid-cols-3 gap-5">
-              {/* 科创教育 - 王牌特色 */}
-              <div className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
-                <Link href="/achievements?category=science" className="relative h-48 block">
-                  <img
-                    src="/images/campus/robot-award.jpg"
-                    alt="科创获奖"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#3D2314] via-[#3D2314]/30 to-transparent"></div>
-                  {/* 右上角查看更多 */}
-                  <div className="absolute top-4 right-4">
-                    <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
-                      点击查看更多
-                      <ChevronRight className="h-3 w-3" />
-                    </span>
-                  </div>
-                  <div className="absolute top-4 left-4 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-[#D4A574]" />
-                    <span className="font-bold">科创教育</span>
-                    <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-1">王牌特色</span>
-                  </div>
-                </Link>
-                
-                <div className="p-5 flex-1 flex flex-col">
-                  <p className="text-sm text-white/70 mb-4">
-                    2025年成立龙岩市首个小学少年科学院，中科院谢华安院士亲自指导
-                  </p>
+              {achievementCategories.length > 0 ? (
+                achievementCategories.map((category, index) => {
+                  const IconComponent = getIconComponent(category.icon);
+                  const isFirstCard = index === 0;
                   
-                  <div className="bg-white/10 rounded-xl p-4 mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Award className="h-4 w-4 text-[#D4A574]" />
-                      <span className="text-sm font-medium text-[#D4A574]">2025年全国学生数字素养大赛</span>
+                  // 第一张卡片（科创教育）使用深色主题
+                  if (isFirstCard) {
+                    return (
+                      <div key={category.id} className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
+                        <Link href={`/achievements?category=${category.slug}`} className="relative h-48 block">
+                          <img
+                            src={category.slug === 'science' ? '/images/campus/robot-award.jpg' : '/images/campus/school-assembly.png'}
+                            alt={category.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#3D2314] via-[#3D2314]/30 to-transparent"></div>
+                          <div className="absolute top-4 right-4">
+                            <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                              点击查看更多
+                              <ChevronRight className="h-3 w-3" />
+                            </span>
+                          </div>
+                          <div className="absolute top-4 left-4 flex items-center gap-2">
+                            <IconComponent className="h-5 w-5 text-[#D4A574]" />
+                            <span className="font-bold">{category.name}</span>
+                            {category.tag && (
+                              <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-1">{category.tag}</span>
+                            )}
+                          </div>
+                        </Link>
+                        
+                        <div className="p-5 flex-1 flex flex-col">
+                          {category.description && (
+                            <p className="text-sm text-white/70 mb-4">{category.description}</p>
+                          )}
+                          
+                          {category.featuredAwardTitle && (
+                            <div className="bg-white/10 rounded-xl p-4 mb-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Award className="h-4 w-4 text-[#D4A574]" />
+                                <span className="text-sm font-medium text-[#D4A574]">{category.featuredAwardTitle}</span>
+                              </div>
+                              {category.featuredAwardContent && (
+                                <p className="text-lg font-bold">{category.featuredAwardContent}</p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {category.stats && category.stats.length > 0 && (
+                            <div className="flex gap-4 mt-auto">
+                              {category.stats.map((stat, statIdx) => (
+                                <div key={statIdx} className="bg-white/10 rounded-xl p-3 text-center flex-1">
+                                  <div className="text-2xl font-bold text-[#D4A574]">{stat.value}</div>
+                                  <div className="text-xs text-white/50">{stat.label}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // 其他卡片使用浅色主题
+                  return (
+                    <div key={category.id} className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                      <Link href={`/achievements?category=${category.slug}`} className="relative h-48 block">
+                        <img
+                          src={category.slug === 'moral' ? '/images/campus/teacher-day-award.png' : category.slug === 'art' ? '/images/campus/orchestra.png' : '/images/campus/school-assembly.png'}
+                          alt={category.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                        <div className="absolute top-4 right-4">
+                          <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                            点击查看更多
+                            <ChevronRight className="h-3 w-3" />
+                          </span>
+                        </div>
+                        <div className="absolute top-4 left-4 flex items-center gap-2">
+                          <IconComponent className="h-5 w-5 text-white" />
+                          <span className="font-bold text-white">{category.name}</span>
+                          {category.tag && (
+                            <span className="text-xs bg-white/90 text-[#3D2314] px-2 py-0.5 rounded-full ml-1">{category.tag}</span>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="p-5 flex-1">
+                        {category.description && (
+                          <p className="text-sm text-[#8B5A2B]/70 mb-4">{category.description}</p>
+                        )}
+                        {category.honorsList && category.honorsList.length > 0 && (
+                          <div className="space-y-3">
+                            {category.honorsList.map((honor, honorIdx) => (
+                              <div key={honorIdx} className="flex items-start gap-3">
+                                <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-[#3D2314]">{honor.title}</p>
+                                  {honor.subtitle && (
+                                    <p className="text-xs text-[#8B5A2B]/60">{honor.subtitle}</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-lg font-bold">斩获"创新之星"最高奖项</p>
+                  );
+                })
+              ) : (
+                // 默认静态数据作为后备
+                <>
+                  {/* 科创教育 - 王牌特色 */}
+                  <div className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
+                    <Link href="/achievements?category=science" className="relative h-48 block">
+                      <img
+                        src="/images/campus/robot-award.jpg"
+                        alt="科创获奖"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#3D2314] via-[#3D2314]/30 to-transparent"></div>
+                      <div className="absolute top-4 right-4">
+                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                          点击查看更多
+                          <ChevronRight className="h-3 w-3" />
+                        </span>
+                      </div>
+                      <div className="absolute top-4 left-4 flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-[#D4A574]" />
+                        <span className="font-bold">科创教育</span>
+                        <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-1">王牌特色</span>
+                      </div>
+                    </Link>
+                    
+                    <div className="p-5 flex-1 flex flex-col">
+                      <p className="text-sm text-white/70 mb-4">
+                        2025年成立龙岩市首个小学少年科学院，中科院谢华安院士亲自指导
+                      </p>
+                      
+                      <div className="bg-white/10 rounded-xl p-4 mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Award className="h-4 w-4 text-[#D4A574]" />
+                          <span className="text-sm font-medium text-[#D4A574]">2025年全国学生数字素养大赛</span>
+                        </div>
+                        <p className="text-lg font-bold">斩获"创新之星"最高奖项</p>
+                      </div>
+                      
+                      <div className="flex gap-4 mt-auto">
+                        <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
+                          <div className="text-2xl font-bold text-[#D4A574]">7</div>
+                          <div className="text-xs text-white/50">国家级奖项</div>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
+                          <div className="text-2xl font-bold text-[#D4A574]">58</div>
+                          <div className="text-xs text-white/50">省级奖项</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="flex gap-4 mt-auto">
-                    <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
-                      <div className="text-2xl font-bold text-[#D4A574]">7</div>
-                      <div className="text-xs text-white/50">国家级奖项</div>
-                    </div>
-                    <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
-                      <div className="text-2xl font-bold text-[#D4A574]">58</div>
-                      <div className="text-xs text-white/50">省级奖项</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 人文德育 */}
-              <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
-                <Link href="/achievements?category=moral" className="relative h-48 block">
-                  <img
-                    src="/images/campus/teacher-day-award.png"
-                    alt="人文德育"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-                  {/* 右上角查看更多 */}
-                  <div className="absolute top-4 right-4">
-                    <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
-                      点击查看更多
-                      <ChevronRight className="h-3 w-3" />
-                    </span>
-                  </div>
-                  <div className="absolute top-4 left-4 flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-white" />
-                    <span className="font-bold text-white">人文德育</span>
-                  </div>
-                </Link>
-                <div className="p-5 flex-1">
-                  <p className="text-sm text-[#8B5A2B]/70 mb-4">
-                    以"小目标促成长"为载体，培养学生良好品德与行为习惯
-                  </p>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                  {/* 人文德育 */}
+                  <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                    <Link href="/achievements?category=moral" className="relative h-48 block">
+                      <img
+                        src="/images/campus/teacher-day-award.png"
+                        alt="人文德育"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                      <div className="absolute top-4 right-4">
+                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                          点击查看更多
+                          <ChevronRight className="h-3 w-3" />
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-[#3D2314]">省级德育典型案例</p>
-                        <p className="text-xs text-[#8B5A2B]/60">"小目标促成长"育人模式</p>
+                      <div className="absolute top-4 left-4 flex items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-white" />
+                        <span className="font-bold text-white">人文德育</span>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Award className="h-3.5 w-3.5 text-[#B8860B]" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-[#3D2314]">演讲征文比赛</p>
-                        <p className="text-xs text-[#8B5A2B]/60">多项一等奖</p>
+                    </Link>
+                    <div className="p-5 flex-1">
+                      <p className="text-sm text-[#8B5A2B]/70 mb-4">
+                        以"小目标促成长"为载体，培养学生良好品德与行为习惯
+                      </p>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-[#3D2314]">省级德育典型案例</p>
+                            <p className="text-xs text-[#8B5A2B]/60">"小目标促成长"育人模式</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-[#3D2314]">演讲征文比赛</p>
+                            <p className="text-xs text-[#8B5A2B]/60">多项一等奖</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-              
-              {/* 艺体心理 */}
-              <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
-                <Link href="/achievements?category=art" className="relative h-48 block">
-                  <img
-                    src="/images/campus/orchestra.png"
-                    alt="艺体心理"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-                  {/* 右上角查看更多 */}
-                  <div className="absolute top-4 right-4">
-                    <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
-                      点击查看更多
-                      <ChevronRight className="h-3 w-3" />
-                    </span>
-                  </div>
-                  <div className="absolute top-4 left-4 flex items-center gap-2">
-                    <Music className="h-5 w-5 text-white" />
-                    <span className="font-bold text-white">艺体心理</span>
-                  </div>
-                </Link>
-                <div className="p-5 flex-1">
-                  <p className="text-sm text-[#8B5A2B]/70 mb-4">
-                    艺术体育与心理健康教育并重，促进学生身心全面发展
-                  </p>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                  
+                  {/* 艺体心理 */}
+                  <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                    <Link href="/achievements?category=art" className="relative h-48 block">
+                      <img
+                        src="/images/campus/orchestra.png"
+                        alt="艺体心理"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                      <div className="absolute top-4 right-4">
+                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                          点击查看更多
+                          <ChevronRight className="h-3 w-3" />
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-[#3D2314]">全国艺术教育先进单位</p>
-                        <p className="text-xs text-[#8B5A2B]/60">艺术教育成果显著</p>
+                      <div className="absolute top-4 left-4 flex items-center gap-2">
+                        <Music className="h-5 w-5 text-white" />
+                        <span className="font-bold text-white">艺体心理</span>
+                      </div>
+                    </Link>
+                    <div className="p-5 flex-1">
+                      <p className="text-sm text-[#8B5A2B]/70 mb-4">
+                        艺术体育与心理健康教育并重，促进学生身心全面发展
+                      </p>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-[#3D2314]">全国艺术教育先进单位</p>
+                            <p className="text-xs text-[#8B5A2B]/60">艺术教育成果显著</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-[#3D2314]">心理健康教育特色学校</p>
+                            <p className="text-xs text-[#8B5A2B]/60">全省领先</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Award className="h-3.5 w-3.5 text-[#B8860B]" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-[#3D2314]">心理健康教育特色学校</p>
-                        <p className="text-xs text-[#8B5A2B]/60">全省领先</p>
-                      </div>
-                    </div>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
             
             {/* 办学荣誉 */}

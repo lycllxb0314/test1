@@ -106,6 +106,10 @@ interface AchievementCategory {
   icon: string;
   tag?: string;
   description?: string;
+  featured_award_title?: string;
+  featured_award_content?: string;
+  stats?: Array<{ label: string; value: string }>;
+  honors_list?: Array<{ title: string; subtitle: string }>;
   sort_order: number;
   is_active: boolean;
 }
@@ -1150,6 +1154,14 @@ function AchievementsManagement() {
     icon: 'Sparkles',
     tag: '',
     description: '',
+    featuredAwardTitle: '',
+    featuredAwardContent: '',
+    stats: [] as Array<{ label: string; value: string }>,
+    newStatLabel: '',
+    newStatValue: '',
+    honorsList: [] as Array<{ title: string; subtitle: string }>,
+    newHonorTitle: '',
+    newHonorSubtitle: '',
     sortOrder: 0,
     isActive: true,
   });
@@ -1237,8 +1249,33 @@ function AchievementsManagement() {
       const url = '/api/admin/portal/achievements/categories';
       const method = categoryDialog.item ? 'PUT' : 'POST';
       const body = categoryDialog.item
-        ? { id: categoryDialog.item.id, ...categoryForm }
-        : categoryForm;
+        ? {
+            id: categoryDialog.item.id,
+            name: categoryForm.name,
+            slug: categoryForm.slug,
+            icon: categoryForm.icon,
+            tag: categoryForm.tag,
+            description: categoryForm.description,
+            featuredAwardTitle: categoryForm.featuredAwardTitle,
+            featuredAwardContent: categoryForm.featuredAwardContent,
+            stats: categoryForm.stats,
+            honorsList: categoryForm.honorsList,
+            sortOrder: categoryForm.sortOrder,
+            isActive: categoryForm.isActive,
+          }
+        : {
+            name: categoryForm.name,
+            slug: categoryForm.slug,
+            icon: categoryForm.icon,
+            tag: categoryForm.tag,
+            description: categoryForm.description,
+            featuredAwardTitle: categoryForm.featuredAwardTitle,
+            featuredAwardContent: categoryForm.featuredAwardContent,
+            stats: categoryForm.stats,
+            honorsList: categoryForm.honorsList,
+            sortOrder: categoryForm.sortOrder,
+            isActive: categoryForm.isActive,
+          };
 
       const res = await fetch(url, {
         method,
@@ -1298,6 +1335,14 @@ function AchievementsManagement() {
       icon: 'Sparkles',
       tag: '',
       description: '',
+      featuredAwardTitle: '',
+      featuredAwardContent: '',
+      stats: [],
+      newStatLabel: '',
+      newStatValue: '',
+      honorsList: [],
+      newHonorTitle: '',
+      newHonorSubtitle: '',
       sortOrder: 0,
       isActive: true,
     });
@@ -1311,6 +1356,14 @@ function AchievementsManagement() {
         icon: item.icon,
         tag: item.tag || '',
         description: item.description || '',
+        featuredAwardTitle: item.featured_award_title || '',
+        featuredAwardContent: item.featured_award_content || '',
+        stats: item.stats || [],
+        newStatLabel: '',
+        newStatValue: '',
+        honorsList: item.honors_list || [],
+        newHonorTitle: '',
+        newHonorSubtitle: '',
         sortOrder: item.sort_order,
         isActive: item.is_active,
       });
@@ -1704,7 +1757,128 @@ function AchievementsManagement() {
               <Label>描述</Label>
               <Textarea value={categoryForm.description} onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })} placeholder="分类描述" />
             </div>
-            <div className="grid gap-2">
+            
+            {/* 特色奖项 */}
+            <div className="border-t pt-4 mt-2">
+              <h4 className="font-medium mb-3">特色奖项（可选）</h4>
+              <div className="grid gap-2">
+                <Label>奖项标题</Label>
+                <Input value={categoryForm.featuredAwardTitle} onChange={(e) => setCategoryForm({ ...categoryForm, featuredAwardTitle: e.target.value })} placeholder="如：全国青少年科创大赛一等奖" />
+              </div>
+              <div className="grid gap-2 mt-2">
+                <Label>奖项内容</Label>
+                <Textarea value={categoryForm.featuredAwardContent} onChange={(e) => setCategoryForm({ ...categoryForm, featuredAwardContent: e.target.value })} placeholder="奖项详细描述" />
+              </div>
+            </div>
+            
+            {/* 统计数据 */}
+            <div className="border-t pt-4 mt-2">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">统计数据</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (categoryForm.newStatLabel && categoryForm.newStatValue) {
+                      setCategoryForm({
+                        ...categoryForm,
+                        stats: [...categoryForm.stats, { label: categoryForm.newStatLabel, value: categoryForm.newStatValue }],
+                        newStatLabel: '',
+                        newStatValue: '',
+                      });
+                    }
+                  }}
+                  disabled={!categoryForm.newStatLabel || !categoryForm.newStatValue}
+                >
+                  添加
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <Input
+                  value={categoryForm.newStatLabel}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, newStatLabel: e.target.value })}
+                  placeholder="标签（如：获奖人数）"
+                />
+                <Input
+                  value={categoryForm.newStatValue}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, newStatValue: e.target.value })}
+                  placeholder="数值（如：120+）"
+                />
+              </div>
+              {categoryForm.stats.length > 0 && (
+                <div className="space-y-2">
+                  {categoryForm.stats.map((stat, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-muted px-3 py-2 rounded">
+                      <span>{stat.label}: {stat.value}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, stats: categoryForm.stats.filter((_, i) => i !== idx) })}
+                      >
+                        删除
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* 荣誉列表 */}
+            <div className="border-t pt-4 mt-2">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">荣誉列表</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (categoryForm.newHonorTitle) {
+                      setCategoryForm({
+                        ...categoryForm,
+                        honorsList: [...categoryForm.honorsList, { title: categoryForm.newHonorTitle, subtitle: categoryForm.newHonorSubtitle }],
+                        newHonorTitle: '',
+                        newHonorSubtitle: '',
+                      });
+                    }
+                  }}
+                  disabled={!categoryForm.newHonorTitle}
+                >
+                  添加
+                </Button>
+              </div>
+              <div className="grid gap-2 mb-2">
+                <Input
+                  value={categoryForm.newHonorTitle}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, newHonorTitle: e.target.value })}
+                  placeholder="荣誉名称（如：全国文明校园）"
+                />
+                <Input
+                  value={categoryForm.newHonorSubtitle}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, newHonorSubtitle: e.target.value })}
+                  placeholder="副标题（如：教育部授予，可选）"
+                />
+              </div>
+              {categoryForm.honorsList.length > 0 && (
+                <div className="space-y-2">
+                  {categoryForm.honorsList.map((honor, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-muted px-3 py-2 rounded">
+                      <div>
+                        <span className="font-medium">{honor.title}</span>
+                        {honor.subtitle && <span className="text-sm text-muted-foreground ml-2">- {honor.subtitle}</span>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCategoryForm({ ...categoryForm, honorsList: categoryForm.honorsList.filter((_, i) => i !== idx) })}
+                      >
+                        删除
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="grid gap-2 border-t pt-4 mt-2">
               <Label>排序</Label>
               <Input type="number" value={categoryForm.sortOrder} onChange={(e) => setCategoryForm({ ...categoryForm, sortOrder: parseInt(e.target.value) || 0 })} />
             </div>

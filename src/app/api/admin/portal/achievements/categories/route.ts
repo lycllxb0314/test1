@@ -13,6 +13,10 @@ interface CategoryInput {
   icon: string;
   tag?: string;
   description?: string;
+  featuredAwardTitle?: string;
+  featuredAwardContent?: string;
+  stats?: Array<{ label: string; value: string }>;
+  honorsList?: Array<{ title: string; subtitle: string }>;
   sortOrder?: number;
   isActive?: boolean;
 }
@@ -65,6 +69,10 @@ export async function POST(request: NextRequest) {
         icon: body.icon,
         tag: body.tag || '',
         description: body.description || '',
+        featured_award_title: body.featuredAwardTitle || null,
+        featured_award_content: body.featuredAwardContent || null,
+        stats: body.stats || [],
+        honors_list: body.honorsList || [],
         sort_order: body.sortOrder || 0,
         is_active: body.isActive ?? true,
       })
@@ -102,6 +110,10 @@ export async function PUT(request: NextRequest) {
     if (updates.icon !== undefined) updateData.icon = updates.icon;
     if (updates.tag !== undefined) updateData.tag = updates.tag;
     if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.featuredAwardTitle !== undefined) updateData.featured_award_title = updates.featuredAwardTitle;
+    if (updates.featuredAwardContent !== undefined) updateData.featured_award_content = updates.featuredAwardContent;
+    if (updates.stats !== undefined) updateData.stats = updates.stats;
+    if (updates.honorsList !== undefined) updateData.honors_list = updates.honorsList;
     if (updates.sortOrder !== undefined) updateData.sort_order = updates.sortOrder;
     if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
 

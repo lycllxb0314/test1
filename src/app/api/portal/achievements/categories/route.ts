@@ -14,6 +14,10 @@ interface CategoryItem {
   icon: string;
   tag?: string;
   description?: string;
+  featuredAwardTitle?: string;
+  featuredAwardContent?: string;
+  stats?: Array<{ label: string; value: string }>;
+  honorsList?: Array<{ title: string; subtitle: string }>;
   sortOrder: number;
 }
 
@@ -51,6 +55,10 @@ export async function GET(request: NextRequest) {
       icon: item.icon,
       tag: item.tag,
       description: item.description,
+      featuredAwardTitle: item.featured_award_title,
+      featuredAwardContent: item.featured_award_content,
+      stats: item.stats || [],
+      honorsList: item.honors_list || [],
       sortOrder: item.sort_order,
     }));
 
