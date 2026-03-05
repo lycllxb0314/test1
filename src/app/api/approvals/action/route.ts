@@ -671,14 +671,37 @@ async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
     // 5. 通知年段长
     // 获取年级（从第一个调课记录）
     const grade = affectedSlots[0]?.grade || leaveRequest.applicant_grade;
+    console.log('准备通知年段长，年级:', grade, '类型:', typeof grade);
     
     if (grade) {
-      // 查找负责该年级的年段长
-      const { data: gradeLeaders } = await supabase
+      // 查找负责该年级的年段长 - 使用更可靠的查询方式
+      // 先查询所有年段长，然后在代码中过滤
+      const { data: allGradeLeaders, error: queryError } = await supabase
         .from('users')
-        .select('id, name')
-        .contains('additional_roles', ['grade_leader'])
-        .contains('managed_grades', [grade]);
+        .select('id, name, additional_roles, managed_grades')
+        .not('additional_roles', 'is', null);
+
+      console.log('查询用户结果:', { 
+        count: allGradeLeaders?.length, 
+        error: queryError,
+        users: allGradeLeaders?.map((u: any) => ({ 
+          name: u.name, 
+          additional_roles: u.additional_roles,
+          managed_grades: u.managed_grades 
+        }))
+      });
+
+      // 手动过滤年段长
+      const gradeLeaders = (allGradeLeaders || []).filter((user: any) => {
+        const hasGradeLeaderRole = Array.isArray(user.additional_roles) && 
+          user.additional_roles.includes('grade_leader');
+        const managesGrade = Array.isArray(user.managed_grades) && 
+          user.managed_grades.some((g: any) => String(g) === String(grade));
+        console.log(`用户 ${user.name}: hasGradeLeaderRole=${hasGradeLeaderRole}, managesGrade=${managesGrade}, managed_grades=${JSON.stringify(user.managed_grades)}`);
+        return hasGradeLeaderRole && managesGrade;
+      });
+
+      console.log('过滤后的年段长:', gradeLeaders);
 
       if (gradeLeaders && gradeLeaders.length > 0) {
         const notifications = gradeLeaders.map((leader: any) => ({
