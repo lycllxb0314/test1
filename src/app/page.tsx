@@ -484,26 +484,34 @@ export default function HomePage() {
               
               {/* 当前轮播项信息 + 视频播放按钮 */}
               <div className="flex items-center gap-4 flex-wrap pointer-events-auto">
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 inline-flex items-center gap-3 border border-white/20 shadow-lg shadow-black/10">
-                  <span className="text-xs bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white px-3 py-1 rounded-full font-medium shadow-sm">
-                    {carouselItems[currentSlide].tag}
-                  </span>
-                  <span className="text-white font-medium">{carouselItems[currentSlide].title}</span>
-                  <span className="text-white/60 text-sm">· {carouselItems[currentSlide].subtitle}</span>
-                </div>
-                
-                {/* B站视频播放按钮 - 更明显的样式 */}
-                {carouselItems[currentSlide].type === 'bilibili' && carouselItems[currentSlide].bilibiliUrl && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCarouselClick(carouselItems[currentSlide]);
-                    }}
-                    className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg transition font-medium shadow-lg hover:scale-105 active:scale-95"
-                  >
-                    <Play className="h-5 w-5 fill-white" />
-                    播放视频
-                  </button>
+                {carouselItems[currentSlide] && (
+                  <>
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 inline-flex items-center gap-3 border border-white/20 shadow-lg shadow-black/10">
+                      {carouselItems[currentSlide].tag && (
+                        <span className="text-xs bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white px-3 py-1 rounded-full font-medium shadow-sm">
+                          {carouselItems[currentSlide].tag}
+                        </span>
+                      )}
+                      <span className="text-white font-medium">{carouselItems[currentSlide].title}</span>
+                      {carouselItems[currentSlide].subtitle && (
+                        <span className="text-white/60 text-sm">· {carouselItems[currentSlide].subtitle}</span>
+                      )}
+                    </div>
+                    
+                    {/* B站视频播放按钮 - 更明显的样式 */}
+                    {carouselItems[currentSlide].type === 'bilibili' && carouselItems[currentSlide].bilibiliUrl && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCarouselClick(carouselItems[currentSlide]);
+                        }}
+                        className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg transition font-medium shadow-lg hover:scale-105 active:scale-95"
+                      >
+                        <Play className="h-5 w-5 fill-white" />
+                        播放视频
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
