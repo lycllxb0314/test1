@@ -3914,7 +3914,6 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
       moral: ['view', 'edit', 'admin'],
       general: ['view', 'edit', 'admin'],
       teacher: ['view', 'edit', 'admin'],
-      parent: ['view', 'edit', 'admin'],
     },
     autoIncludeRoles: ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'],
     directorRole: undefined, // 校长室没有单一负责人
