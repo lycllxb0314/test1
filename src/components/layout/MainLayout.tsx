@@ -151,6 +151,7 @@ const teacherBaseNav: NavItem[] = [
 // 教师空间导航 - 班主任专属功能
 const headTeacherNav: NavItem[] = [
   { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息' },
+  { name: '信息收集', href: '/teacher/collection', icon: ClipboardList, description: '创建表单收集信息', badge: '新' },
   { name: '习惯养成', href: '/teacher/habit', icon: Target, description: '制定班级月度习惯目标', badge: '新' },
   { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新' },
 ];
@@ -171,6 +172,7 @@ const gradeLeaderNav: NavItem[] = [
 // 家长端导航
 const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
+  { name: '信息收集', href: '/parent/collection', icon: ClipboardList, description: '填写信息收集表', badge: '新' },
   { name: '习惯打卡', href: '/parent/habit', icon: Target, description: '子女习惯养成打卡', badge: '新' },
   { name: '个人资料', href: '/parent/profile', icon: UserCircle, description: '维护个人信息' },
   { name: '子女信息', href: '/parent/children', icon: Users, description: '子女信息管理' },
