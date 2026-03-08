@@ -112,7 +112,7 @@ export default function MonthlyConfirmationPage() {
         const studentIds = [...new Set(result.data.map((r: ConfirmationRecord) => r.studentId))];
         
         if (studentIds.length > 0) {
-          const studentsResponse = await fetch('/api/students?' + studentIds.map(id => `ids=${id}`).join('&'));
+          const studentsResponse = await fetch(`/api/students?ids=${studentIds.join(',')}`);
           const studentsResult = await studentsResponse.json();
           
           if (studentsResult.success && studentsResult.data) {
