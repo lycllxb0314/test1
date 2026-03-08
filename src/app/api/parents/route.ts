@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       occupation: p.occupation,
       
       // 账号信息
-      userId: p.user_id,
+      userId: p.user_id || p.account_id,
       hasAccount: p.has_account || false,
       password: p.password,
       lastLoginAt: p.last_login_at,
@@ -142,13 +142,37 @@ export async function GET(request: NextRequest) {
       updatedAt: p.updated_at,
     }));
     
-    // 计算统计数据
+    // 获取统计数据（基于筛选条件，不分页）
+    // 构建统计查询的筛选条件
+    let statsQuery = client.from('parents').select('has_account, is_primary, relation, class_id', { count: 'exact' });
+    
+    // 应用相同的筛选条件
+    if (search) {
+      statsQuery = statsQuery.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
+    }
+    if (classId && classId !== 'all') {
+      statsQuery = statsQuery.eq('class_id', classId);
+    }
+    if (studentId && studentId !== 'all') {
+      statsQuery = statsQuery.eq('student_id', studentId);
+    }
+    if (relation && relation !== 'all') {
+      statsQuery = statsQuery.eq('relation', relation);
+    }
+    if (hasAccount !== null && hasAccount !== 'all') {
+      statsQuery = statsQuery.eq('has_account', hasAccount === 'true');
+    }
+    
+    const { data: statsData, error: statsError } = await statsQuery;
+    
+    // 计算统计数据（基于筛选后的全部数据）
+    const allFilteredData = statsData || [];
     const statistics = {
       total: count || 0,
-      hasAccountCount: formattedData.filter(p => p.hasAccount).length,
-      primaryParentCount: formattedData.filter(p => p.isPrimary).length,
-      classCount: new Set(formattedData.map(p => p.classId).filter(Boolean)).size,
-      relationDistribution: formattedData.reduce((acc, p) => {
+      hasAccountCount: allFilteredData.filter(p => p.has_account).length,
+      primaryParentCount: allFilteredData.filter(p => p.is_primary).length,
+      classCount: new Set(allFilteredData.map(p => p.class_id).filter(Boolean)).size,
+      relationDistribution: allFilteredData.reduce((acc, p) => {
         acc[p.relation] = (acc[p.relation] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
