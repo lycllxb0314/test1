@@ -7,6 +7,7 @@
  * - 目标库管理：管理八大类别习惯目标
  * - 规则配置：配置打卡周期、截止日期等规则
  * - 习惯之星：每月评选习惯之星
+ * - 年级班级情况：查看各年级、各班级的习惯养成统计数据
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -57,6 +58,12 @@ import {
   ChevronRight,
   Search,
   Filter,
+  BarChart3,
+  School,
+  Building2,
+  Eye,
+  ArrowRight,
+  ChevronsRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -105,6 +112,37 @@ interface HabitStar {
   createdAt: string;
 }
 
+// 班级统计类型
+interface ClassStatistics {
+  id: string;
+  name: string;
+  grade: number;
+  gradeName: string;
+  classNumber: number;
+  headTeacherName: string | null;
+  studentCount: number;
+  status: string;
+  habitStats: {
+    goalsTotal: number;
+    goalsApproved: number;
+    goalsByCategory: Record<string, number>;
+    recordsCompleted: number;
+    recordsMissed: number;
+    completionRate: number;
+    starsCount: number;
+    starsByCategory: Record<string, number>;
+  };
+}
+
+// 年级统计类型
+interface GradeStatistics {
+  classCount: number;
+  studentCount: number;
+  goalsTotal: number;
+  completionRate: number;
+  starsCount: number;
+}
+
 // 难度配置
 const DIFFICULTY_CONFIG = {
   easy: { label: '简单', color: 'text-green-600', bg: 'bg-green-50', icon: '🌱' },
@@ -112,9 +150,22 @@ const DIFFICULTY_CONFIG = {
   hard: { label: '困难', color: 'text-red-600', bg: 'bg-red-50', icon: '🌳' },
 };
 
+// 年级名称
+const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
+
+// 年级颜色
+const GRADE_COLORS: Record<number, string> = {
+  1: 'from-rose-500 to-pink-600',
+  2: 'from-orange-500 to-amber-600',
+  3: 'from-yellow-500 to-amber-600',
+  4: 'from-emerald-500 to-teal-600',
+  5: 'from-cyan-500 to-blue-600',
+  6: 'from-violet-500 to-purple-600',
+};
+
 export default function HabitManagementPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('goals');
+  const [activeTab, setActiveTab] = useState('overview');
   
   // 目标库状态
   const [goals, setGoals] = useState<HabitGoal[]>([]);
@@ -152,6 +203,13 @@ export default function HabitManagementPage() {
   const [stars, setStars] = useState<HabitStar[]>([]);
   const [starsLoading, setStarsLoading] = useState(true);
   const [starMonth, setStarMonth] = useState(new Date().toISOString().slice(0, 7));
+  
+  // 班级统计状态
+  const [classStats, setClassStats] = useState<ClassStatistics[]>([]);
+  const [classStatsLoading, setClassStatsLoading] = useState(true);
+  const [classStatsMonth, setClassStatsMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [gradeFilter, setGradeFilter] = useState('all');
+  const [expandedGrade, setExpandedGrade] = useState<number | null>(null);
   
   // 加载目标库
   const fetchGoals = async () => {
@@ -205,6 +263,27 @@ export default function HabitManagementPage() {
     }
   };
   
+  // 加载班级统计
+  const fetchClassStats = async () => {
+    setClassStatsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('month', classStatsMonth);
+      if (gradeFilter !== 'all') {
+        params.set('grade', gradeFilter);
+      }
+      const res = await fetch(`/api/habit/class-statistics?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setClassStats(data.data);
+      }
+    } catch (error) {
+      console.error('获取班级统计失败:', error);
+    } finally {
+      setClassStatsLoading(false);
+    }
+  };
+  
   useEffect(() => {
     fetchGoals();
   }, [categoryFilter]);
@@ -216,6 +295,10 @@ export default function HabitManagementPage() {
   useEffect(() => {
     fetchStars();
   }, [starMonth]);
+  
+  useEffect(() => {
+    fetchClassStats();
+  }, [classStatsMonth, gradeFilter]);
   
   // 创建/更新目标
   const handleSaveGoal = async () => {
@@ -358,6 +441,37 @@ export default function HabitManagementPage() {
       (g.code && g.code.toLowerCase().includes(keyword))
     );
   }, [goals, searchKeyword]);
+  
+  // 按年级分组的班级数据
+  const classByGrade = useMemo(() => {
+    const grouped: Record<number, ClassStatistics[]> = {};
+    classStats.forEach(c => {
+      if (!grouped[c.grade]) {
+        grouped[c.grade] = [];
+      }
+      grouped[c.grade].push(c);
+    });
+    return grouped;
+  }, [classStats]);
+  
+  // 年级汇总统计
+  const gradeSummaries = useMemo(() => {
+    const summaries: Record<number, { classCount: number; studentCount: number; avgRate: number; totalStars: number }> = {};
+    
+    Object.keys(classByGrade).forEach(grade => {
+      const gradeNum = parseInt(grade);
+      const classes = classByGrade[gradeNum];
+      const classCount = classes.length;
+      const studentCount = classes.reduce((sum, c) => sum + c.studentCount, 0);
+      const rates = classes.filter(c => c.habitStats.goalsTotal > 0).map(c => c.habitStats.completionRate);
+      const avgRate = rates.length > 0 ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : 0;
+      const totalStars = classes.reduce((sum, c) => sum + c.habitStats.starsCount, 0);
+      
+      summaries[gradeNum] = { classCount, studentCount, avgRate, totalStars };
+    });
+    
+    return summaries;
+  }, [classByGrade]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/50">
@@ -377,7 +491,7 @@ export default function HabitManagementPage() {
               </h1>
             </div>
             <p className="text-muted-foreground ml-14">
-              八大行为习惯 · 目标库管理 · 习惯之星评选
+              八大行为习惯 · 目标库管理 · 习惯之星评选 · 班级情况
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -388,125 +502,13 @@ export default function HabitManagementPage() {
           </div>
         </div>
         
-        {/* 统计卡片 - 仪表盘风格 */}
-        <div className="grid gap-4 md:grid-cols-4">
-          {/* 目标总数 */}
-          <Card className="relative overflow-hidden border-0 shadow-lg shadow-blue-500/10 bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm font-medium">目标总数</p>
-                  <p className="text-3xl font-bold mt-1">{statistics.totalGoals}</p>
-                  <p className="text-blue-200 text-xs mt-1">
-                    {statistics.activeGoals} 个已启用
-                  </p>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
-                  <Target className="h-7 w-7" />
-                </div>
-              </div>
-              <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
-            </CardContent>
-          </Card>
-          
-          {/* 习惯类别 */}
-          <Card className="relative overflow-hidden border-0 shadow-lg shadow-purple-500/10 bg-gradient-to-br from-purple-500 to-violet-600 text-white">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-100 text-sm font-medium">习惯类别</p>
-                  <p className="text-3xl font-bold mt-1">{statistics.categoryCount}</p>
-                  <p className="text-purple-200 text-xs mt-1">
-                    八大行为习惯
-                  </p>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
-                  <Layers className="h-7 w-7" />
-                </div>
-              </div>
-              <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
-            </CardContent>
-          </Card>
-          
-          {/* 本月之星 */}
-          <Card className="relative overflow-hidden border-0 shadow-lg shadow-amber-500/10 bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-amber-100 text-sm font-medium">本月之星</p>
-                  <p className="text-3xl font-bold mt-1">{statistics.totalStars}</p>
-                  <p className="text-amber-200 text-xs mt-1">
-                    已评选人数
-                  </p>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
-                  <Star className="h-7 w-7" />
-                </div>
-              </div>
-              <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
-            </CardContent>
-          </Card>
-          
-          {/* 启用率 */}
-          <Card className="relative overflow-hidden border-0 shadow-lg shadow-emerald-500/10 bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-emerald-100 text-sm font-medium">启用率</p>
-                  <p className="text-3xl font-bold mt-1">
-                    {statistics.totalGoals > 0 
-                      ? Math.round((statistics.activeGoals / statistics.totalGoals) * 100) 
-                      : 0}%
-                  </p>
-                  <p className="text-emerald-200 text-xs mt-1">
-                    目标启用比例
-                  </p>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
-                  <Zap className="h-7 w-7" />
-                </div>
-              </div>
-              <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* 类别分布 */}
-        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-5">
-            <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-              目标类别分布
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-              {HABIT_CATEGORIES.map(cat => {
-                const count = statistics.byCategory[cat.value] || 0;
-                const colors = CATEGORY_COLORS[cat.value] || { bg: 'bg-gray-100', text: 'text-gray-700' };
-                return (
-                  <div 
-                    key={cat.value}
-                    className={cn(
-                      'relative p-3 rounded-xl text-center transition-all cursor-pointer',
-                      'hover:scale-105 hover:shadow-md',
-                      categoryFilter === cat.value 
-                        ? `${colors.bg} ring-2 ring-offset-2 ring-emerald-400` 
-                        : 'bg-gray-50 hover:bg-gray-100'
-                    )}
-                    onClick={() => setCategoryFilter(categoryFilter === cat.value ? 'all' : cat.value)}
-                  >
-                    <span className="text-2xl">{CATEGORY_ICONS[cat.value]}</span>
-                    <p className={cn('text-xs font-medium mt-1', colors.text)}>{cat.label}</p>
-                    <p className="text-lg font-bold text-gray-900">{count}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-        
         {/* 主要内容 */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100 p-1 rounded-xl">
+            <TabsTrigger value="overview" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-md">
+              <BarChart3 className="h-4 w-4" />
+              年级班级情况
+            </TabsTrigger>
             <TabsTrigger value="goals" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-md">
               <Target className="h-4 w-4" />
               目标库管理
@@ -521,8 +523,389 @@ export default function HabitManagementPage() {
             </TabsTrigger>
           </TabsList>
           
+          {/* 年级班级情况 */}
+          <TabsContent value="overview" className="space-y-4 mt-4">
+            {/* 筛选栏 */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <Label className="text-gray-600">月份</Label>
+                    <Input
+                      type="month"
+                      value={classStatsMonth}
+                      onChange={e => setClassStatsMonth(e.target.value)}
+                      className="w-40 bg-white border-gray-200"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <School className="h-4 w-4 text-gray-500" />
+                    <Label className="text-gray-600">年级</Label>
+                    <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                      <SelectTrigger className="w-32 bg-white border-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部年级</SelectItem>
+                        {[1, 2, 3, 4, 5, 6].map(g => (
+                          <SelectItem key={g} value={String(g)}>{GRADE_NAMES[g]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex-1" />
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => fetchClassStats()}
+                    className="gap-2"
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    刷新数据
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* 汇总统计卡片 */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card className="relative overflow-hidden border-0 shadow-lg shadow-blue-500/10 bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-xs font-medium">参与班级</p>
+                      <p className="text-3xl font-bold mt-0.5">{classStats.length}</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/20">
+                      <Building2 className="h-6 w-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="relative overflow-hidden border-0 shadow-lg shadow-emerald-500/10 bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-emerald-100 text-xs font-medium">参与学生</p>
+                      <p className="text-3xl font-bold mt-0.5">
+                        {classStats.reduce((sum, c) => sum + c.studentCount, 0)}
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/20">
+                      <Users className="h-6 w-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="relative overflow-hidden border-0 shadow-lg shadow-amber-500/10 bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-amber-100 text-xs font-medium">平均完成率</p>
+                      <p className="text-3xl font-bold mt-0.5">
+                        {Object.keys(gradeSummaries).length > 0 
+                          ? Math.round(Object.values(gradeSummaries).reduce((sum, s) => sum + s.avgRate, 0) / Object.keys(gradeSummaries).length)
+                          : 0}%
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/20">
+                      <TrendingUp className="h-6 w-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="relative overflow-hidden border-0 shadow-lg shadow-purple-500/10 bg-gradient-to-br from-purple-500 to-violet-600 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-100 text-xs font-medium">习惯之星</p>
+                      <p className="text-3xl font-bold mt-0.5">
+                        {classStats.reduce((sum, c) => sum + c.habitStats.starsCount, 0)}
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/20">
+                      <Star className="h-6 w-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* 年级列表 */}
+            {classStatsLoading ? (
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardContent className="p-12 text-center text-gray-500">
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-8 w-32 bg-gray-200 rounded mx-auto" />
+                    <div className="h-4 w-48 bg-gray-200 rounded mx-auto" />
+                  </div>
+                </CardContent>
+              </Card>
+            ) : classStats.length === 0 ? (
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardContent className="p-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                    <School className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500">暂无班级数据</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {Object.keys(classByGrade).sort((a, b) => parseInt(a) - parseInt(b)).map(grade => {
+                  const gradeNum = parseInt(grade);
+                  const classes = classByGrade[gradeNum];
+                  const summary = gradeSummaries[gradeNum];
+                  const isExpanded = expandedGrade === gradeNum;
+                  const gradeColor = GRADE_COLORS[gradeNum] || 'from-gray-500 to-gray-600';
+                  
+                  return (
+                    <Card key={grade} className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
+                      {/* 年级头部 */}
+                      <div 
+                        className={cn(
+                          'p-4 cursor-pointer transition-all hover:bg-gray-50/50',
+                          isExpanded && 'bg-gray-50/30'
+                        )}
+                        onClick={() => setExpandedGrade(isExpanded ? null : gradeNum)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              'w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg',
+                              `bg-gradient-to-br ${gradeColor}`
+                            )}>
+                              {gradeNum}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900 text-lg">{GRADE_NAMES[gradeNum]}</h3>
+                              <p className="text-sm text-gray-500">
+                                {summary.classCount} 个班级 · {summary.studentCount} 名学生
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-6">
+                            {/* 完成率进度 */}
+                            <div className="flex items-center gap-3 w-48">
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between text-xs mb-1">
+                                  <span className="text-gray-500">平均完成率</span>
+                                  <span className={cn(
+                                    'font-bold',
+                                    summary.avgRate >= 80 ? 'text-emerald-600' :
+                                    summary.avgRate >= 60 ? 'text-amber-600' : 'text-red-600'
+                                  )}>{summary.avgRate}%</span>
+                                </div>
+                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                  <div 
+                                    className={cn(
+                                      'h-full rounded-full transition-all duration-500',
+                                      summary.avgRate >= 80 ? 'bg-gradient-to-r from-emerald-400 to-teal-500' :
+                                      summary.avgRate >= 60 ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
+                                      'bg-gradient-to-r from-red-400 to-rose-500'
+                                    )}
+                                    style={{ width: `${summary.avgRate}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* 习惯之星数量 */}
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200">
+                              <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                              <span className="font-bold text-amber-700">{summary.totalStars}</span>
+                            </div>
+                            
+                            {/* 展开按钮 */}
+                            <ChevronsRight className={cn(
+                              'h-5 w-5 text-gray-400 transition-transform',
+                              isExpanded && 'rotate-90'
+                            )} />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* 班级列表（展开时显示） */}
+                      {isExpanded && (
+                        <div className="border-t border-gray-100">
+                          <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {classes.map(cls => (
+                              <div 
+                                key={cls.id}
+                                className="group p-4 rounded-xl border border-gray-100 hover:border-emerald-200 hover:shadow-md transition-all bg-white"
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center text-emerald-600 font-bold text-sm">
+                                      {cls.classNumber}
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-gray-900">{cls.name}</p>
+                                      <p className="text-xs text-gray-500">{cls.headTeacherName || '暂无班主任'}</p>
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">
+                                    {cls.studentCount}人
+                                  </Badge>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  {/* 目标数和打卡率 */}
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-500">月度目标</span>
+                                    <span className="font-medium">{cls.habitStats.goalsTotal} 个</span>
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-500">打卡完成率</span>
+                                    <span className={cn(
+                                      'font-bold',
+                                      cls.habitStats.completionRate >= 80 ? 'text-emerald-600' :
+                                      cls.habitStats.completionRate >= 60 ? 'text-amber-600' : 'text-red-600'
+                                    )}>
+                                      {cls.habitStats.completionRate}%
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div 
+                                      className={cn(
+                                        'h-full rounded-full transition-all',
+                                        cls.habitStats.completionRate >= 80 ? 'bg-emerald-500' :
+                                        cls.habitStats.completionRate >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                                      )}
+                                      style={{ width: `${cls.habitStats.completionRate}%` }}
+                                    />
+                                  </div>
+                                  
+                                  {/* 习惯之星 */}
+                                  {cls.habitStats.starsCount > 0 && (
+                                    <div className="flex items-center gap-1 pt-1">
+                                      <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                                      <span className="text-xs text-amber-600 font-medium">
+                                        {cls.habitStats.starsCount} 位习惯之星
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+          
           {/* 目标库管理 */}
           <TabsContent value="goals" className="space-y-4 mt-4">
+            {/* 统计卡片 */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card className="relative overflow-hidden border-0 shadow-lg shadow-blue-500/10 bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium">目标总数</p>
+                      <p className="text-3xl font-bold mt-1">{statistics.totalGoals}</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
+                      <Target className="h-7 w-7" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="relative overflow-hidden border-0 shadow-lg shadow-emerald-500/10 bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-emerald-100 text-sm font-medium">启用目标</p>
+                      <p className="text-3xl font-bold mt-1">{statistics.activeGoals}</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
+                      <Check className="h-7 w-7" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="relative overflow-hidden border-0 shadow-lg shadow-purple-500/10 bg-gradient-to-br from-purple-500 to-violet-600 text-white">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-100 text-sm font-medium">习惯类别</p>
+                      <p className="text-3xl font-bold mt-1">{statistics.categoryCount}</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
+                      <Layers className="h-7 w-7" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="relative overflow-hidden border-0 shadow-lg shadow-amber-500/10 bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-amber-100 text-sm font-medium">启用率</p>
+                      <p className="text-3xl font-bold mt-1">
+                        {statistics.totalGoals > 0 
+                          ? Math.round((statistics.activeGoals / statistics.totalGoals) * 100) 
+                          : 0}%
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
+                      <Zap className="h-7 w-7" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* 类别分布 */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardContent className="p-5">
+                <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  目标类别分布（点击筛选）
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+                  {HABIT_CATEGORIES.map(cat => {
+                    const count = statistics.byCategory[cat.value] || 0;
+                    const colors = CATEGORY_COLORS[cat.value] || { bg: 'bg-gray-100', text: 'text-gray-700' };
+                    return (
+                      <div 
+                        key={cat.value}
+                        className={cn(
+                          'relative p-3 rounded-xl text-center transition-all cursor-pointer',
+                          'hover:scale-105 hover:shadow-md',
+                          categoryFilter === cat.value 
+                            ? `${colors.bg} ring-2 ring-offset-2 ring-emerald-400` 
+                            : 'bg-gray-50 hover:bg-gray-100'
+                        )}
+                        onClick={() => setCategoryFilter(categoryFilter === cat.value ? 'all' : cat.value)}
+                      >
+                        <span className="text-2xl">{CATEGORY_ICONS[cat.value]}</span>
+                        <p className={cn('text-xs font-medium mt-1', colors.text)}>{cat.label}</p>
+                        <p className="text-lg font-bold text-gray-900">{count}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+            
             <div className="flex items-center justify-between gap-4">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -589,7 +972,6 @@ export default function HabitManagementPage() {
                         goal.isActive ? 'bg-white' : 'bg-gray-50 opacity-60'
                       )}
                     >
-                      {/* 顶部类别条 */}
                       <div className={cn('h-1.5', colors.bg.replace('bg-', 'bg-gradient-to-r from-').replace('-50', '-400 to-' + colors.bg.split('-')[1] + '-500'))} />
                       
                       <CardContent className="p-5">
@@ -632,7 +1014,6 @@ export default function HabitManagementPage() {
                           </span>
                         </div>
                         
-                        {/* 操作按钮 */}
                         <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
