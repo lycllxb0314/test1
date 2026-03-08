@@ -60,7 +60,6 @@ import { StudentFullProfile, Parent } from '@/types';
 import { toast } from 'sonner';
 import { HabitTabContent } from '@/components/student/habit-tab-content';
 import { MoralTabContent } from '@/components/student/moral-tab-content';
-import { ComprehensiveTabContent } from '@/components/student/comprehensive-tab-content';
 
 // 获取性别显示
 const getGenderDisplay = (gender: string) => {
@@ -606,7 +605,6 @@ export default function StudentDetailPage({ params }: PageProps) {
         <TabsList className="bg-card border rounded-lg p-1">
           <TabsTrigger value="overview">基本信息</TabsTrigger>
           <TabsTrigger value="family">家庭信息</TabsTrigger>
-          <TabsTrigger value="comprehensive">综合素质</TabsTrigger>
         </TabsList>
 
         {/* 基本信息 */}
@@ -989,14 +987,6 @@ export default function StudentDetailPage({ params }: PageProps) {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* 综合素质 */}
-        <TabsContent value="comprehensive" className="space-y-4 mt-4">
-          <ComprehensiveTabContent 
-            profile={profile} 
-            canViewWarnings={true}
-          />
         </TabsContent>
       </Tabs>
 
