@@ -536,11 +536,12 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
       const result = await response.json();
       
       if (result.success && result.data) {
+        // 转换数据格式（API返回驼峰格式，兼容两种格式）
         const formattedTeachers: TeacherInfo[] = result.data.map((t: Record<string, unknown>) => ({
           id: t.id as string,
           name: t.name as string,
           gender: t.gender === 'male' ? '男' : t.gender === 'female' ? '女' : '男',
-          subject: (t.primary_subject as string) || (t.subjects as string[])?.[0] || '语文',
+          subject: (t.primarySubject as string) || (t.primary_subject as string) || (t.subjects as string[])?.[0] || '语文',
           title: (t.title as string) || '二级教师',
           department: (t.department as string) || `${(t.subjects as string[])?.[0] || '语文'}组`,
           phone: (t.phone as string) || '',
@@ -554,49 +555,49 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           //    - 语文、数学 → subject_teacher（主科教师）
           //    - 其他科目 → skill_teacher（技能科教师）
           primaryRole: (() => {
-            const role = t.role as TeacherRole | undefined;
+            const role = (t.primaryRole as TeacherRole) || (t.role as TeacherRole | undefined);
             if (role === 'subject_head') return 'skill_teacher';
             if (role) return role;
             // role 为空时，根据主教学科判断
-            const primarySubject = (t.primary_subject as string) || (t.subjects as string[])?.[0] || '';
+            const primarySubject = (t.primarySubject as string) || (t.primary_subject as string) || (t.subjects as string[])?.[0] || '';
             if (primarySubject === '语文' || primarySubject === '数学') {
               return 'subject_teacher';
             }
             return 'skill_teacher';
           })() as TeacherRole,
-          additionalRoles: (t.additional_roles as AdministrativeRole[]) || [],
-          weeklyHours: (t.total_weekly_hours as number) || 13,
-          currentHours: (t.used_hours as number) || 0,  // 从 schedule_slots 统计的已排课时
+          additionalRoles: (t.additionalRoles as AdministrativeRole[]) || (t.additional_roles as AdministrativeRole[]) || [],
+          weeklyHours: (t.weeklyHours as number) || (t.total_weekly_hours as number) || 13,
+          currentHours: (t.currentHours as number) || (t.used_hours as number) || 0,
           // teachable_subjects：数据库字段为空，从 primary_subject + secondary_subjects 构建
           teachableSubjects: (() => {
-            const ts = t.teachable_subjects as string[] | undefined;
+            const ts = (t.teachableSubjects as string[]) || (t.teachable_subjects as string[]);
             if (ts && ts.length > 0) return ts;
-            const primary = t.primary_subject as string;
-            const secondary = (t.secondary_subjects as string[]) || [];
+            const primary = (t.primarySubject as string) || (t.primary_subject as string);
+            const secondary = (t.secondarySubjects as string[]) || (t.secondary_subjects as string[]) || [];
             return [primary, ...secondary].filter(Boolean) as string[];
           })(),
-          teachableGrades: (t.teachable_grades as number[]) || [1, 2, 3, 4, 5, 6],
-          isHeadTeacher: t.isHeadTeacher as boolean || false,
-          headTeacherClassId: t.headTeacherClassId as string,
-          headTeacherClassName: t.headTeacherClassName as string,
-          birthDate: t.birth_date as string,
-          idCard: t.id_card as string,
+          teachableGrades: (t.teachableGrades as number[]) || (t.teachable_grades as number[]) || [1, 2, 3, 4, 5, 6],
+          isHeadTeacher: (t.isHeadTeacher as boolean) || false,
+          headTeacherClassId: (t.headTeacherClassId as string) || (t.head_teacher_class_id as string),
+          headTeacherClassName: (t.headTeacherClassName as string) || (t.head_teacher_class_name as string),
+          birthDate: (t.birthDate as string) || (t.birth_date as string),
+          idCard: (t.idCard as string) || (t.id_card as string),
           ethnicity: t.ethnicity as string,
-          politicalStatus: t.political_status as string,
-          nativePlace: t.native_place as string,
-          emergencyContact: t.emergency_contact as string,
-          emergencyPhone: t.emergency_phone as string,
+          politicalStatus: (t.politicalStatus as string) || (t.political_status as string),
+          nativePlace: (t.nativePlace as string) || (t.native_place as string),
+          emergencyContact: (t.emergencyContact as string) || (t.emergency_contact as string),
+          emergencyPhone: (t.emergencyPhone as string) || (t.emergency_phone as string),
           address: t.address as string,
-          employeeId: (t.employeeId || t.employee_id) as string,
+          employeeId: (t.employeeId as string) || (t.employee_id as string),
           education: t.education as string,
           school: t.school as string,
           major: t.major as string,
-          graduationDate: t.graduation_date as string,
-          joinDate: t.join_date as string,
-          titleDate: t.title_date as string,
-          teachYears: (t.teach_years as number) || 10,
-          createdAt: t.created_at as string,
-          updatedAt: t.updated_at as string,
+          graduationDate: (t.graduationDate as string) || (t.graduation_date as string),
+          joinDate: (t.joinDate as string) || (t.join_date as string),
+          titleDate: (t.titleDate as string) || (t.title_date as string),
+          teachYears: (t.teachYears as number) || (t.teach_years as number) || 10,
+          createdAt: (t.createdAt as string) || (t.created_at as string),
+          updatedAt: (t.updatedAt as string) || (t.updated_at as string),
         }));
         setAllTeachers(formattedTeachers);
         // 重置到第一页

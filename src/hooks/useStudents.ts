@@ -342,37 +342,37 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const result = await response.json();
       
       if (result.success && result.data) {
-        // 转换数据格式
+        // 转换数据格式（API返回驼峰格式，兼容两种格式）
         const formattedStudents: StudentInfo[] = result.data.map((s: Record<string, unknown>) => ({
           id: s.id as string,
-          studentNo: s.student_no as string || '',
+          studentNo: (s.studentNo as string) || (s.student_no as string) || '',
           name: s.name as string,
           gender: (s.gender as StudentInfo['gender']) || 'male',
-          birthDate: s.birth_date as string,
+          birthDate: (s.birthDate as string) || (s.birth_date as string),
           avatar: s.avatar as string,
           grade: (s.grade as number) || 1,
           gradeName: GRADE_NAMES[s.grade as number] || '一年级',
-          classId: s.class_id as string || '', // 必填：班级归属
-          className: s.class_name as string || '',
-          enrollmentDate: s.enrollment_date as string,
-          studentType: s.student_type as string,
-          idCard: s.id_card as string,
+          classId: (s.classId as string) || (s.class_id as string) || '',
+          className: (s.className as string) || (s.class_name as string) || '',
+          enrollmentDate: (s.enrollmentDate as string) || (s.enrollment_date as string),
+          studentType: (s.studentType as string) || (s.student_type as string),
+          idCard: (s.idCard as string) || (s.id_card as string),
           ethnicity: s.ethnicity as string,
-          nativePlace: s.native_place as string,
-          politicalStatus: s.political_status as string,
+          nativePlace: (s.nativePlace as string) || (s.native_place as string),
+          politicalStatus: (s.politicalStatus as string) || (s.political_status as string),
           phone: s.phone as string,
           address: s.address as string,
-          homeAddress: s.home_address as string,
-          familyType: s.family_type as string,
+          homeAddress: (s.homeAddress as string) || (s.home_address as string),
+          familyType: (s.familyType as string) || (s.family_type as string),
           parents: (s.parents as Parent[]) || [],
-          emergencyContact: s.emergency_contact as string,
-          emergencyPhone: s.emergency_phone as string,
-          headTeacherId: s.head_teacher_id as string,
-          headTeacherName: s.head_teacher_name as string,
+          emergencyContact: (s.emergencyContact as string) || (s.emergency_contact as string),
+          emergencyPhone: (s.emergencyPhone as string) || (s.emergency_phone as string),
+          headTeacherId: (s.headTeacherId as string) || (s.head_teacher_id as string),
+          headTeacherName: (s.headTeacherName as string) || (s.head_teacher_name as string),
           status: (s.status as StudentInfo['status']) || '在校',
-          habitStars: s.habit_stars as number,
-          createdAt: s.created_at as string,
-          updatedAt: s.updated_at as string,
+          habitStars: (s.habitStars as number) || (s.habit_stars as number),
+          createdAt: (s.createdAt as string) || (s.created_at as string),
+          updatedAt: (s.updatedAt as string) || (s.updated_at as string),
         }));
         
         setAllStudents(formattedStudents);

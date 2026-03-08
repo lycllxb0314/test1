@@ -284,33 +284,71 @@ export function useParents(initialFilters?: ParentFilters): UseParentsReturn {
       const result = await response.json();
       
       if (result.success && result.data) {
-        // 转换数据格式
+        // 转换数据格式（API返回驼峰格式，兼容两种格式）
         const formattedParents: ParentInfo[] = result.data.map((p: Record<string, unknown>) => ({
           id: p.id as string,
           name: p.name as string,
-          relation: p.relation as ParentRelation,
-          relationName: RELATION_NAMES[p.relation as ParentRelation] || '其他',
+          relation: (p.relation as ParentRelation) || 'other',
+          relationName: (p.relationName as string) || RELATION_NAMES[p.relation as ParentRelation] || '其他',
           phone: p.phone as string,
           wechat: p.wechat as string,
           email: p.email as string,
-          company: p.company as string,
-          position: p.position as string,
+          
+          // 个人信息
+          gender: p.gender as string,
+          birthDate: (p.birthDate as string) || (p.birth_date as string),
+          idCard: (p.idCard as string) || (p.id_card as string),
           education: p.education as string,
-          userId: p.user_id as string,
-          hasAccount: p.has_account as boolean || false,
-          lastLoginAt: p.last_login_at as string,
-          studentId: p.student_id as string, // 必填：绑定学生
-          studentName: p.student_name as string,
-          isPrimary: p.is_primary as boolean || false,
-          classId: p.class_id as string,
-          className: p.class_name as string,
+          politicalStatus: (p.politicalStatus as string) || (p.political_status as string),
+          
+          // 地址信息
+          householdAddress: (p.householdAddress as string) || (p.household_address as string),
+          currentAddress: (p.currentAddress as string) || (p.current_address as string),
+          
+          // 紧急联系人
+          emergencyContact: (p.emergencyContact as string) || (p.emergency_contact as string),
+          emergencyPhone: (p.emergencyPhone as string) || (p.emergency_phone as string),
+          
+          // 工作信息
+          company: (p.company as string) || (p.workUnit as string) || (p.work_unit as string),
+          position: p.position as string,
+          occupation: p.occupation as string,
+          
+          // 账号信息
+          userId: (p.userId as string) || (p.user_id as string),
+          hasAccount: (p.hasAccount as boolean) || (p.has_account as boolean) || false,
+          password: p.password as string,
+          lastLoginAt: (p.lastLoginAt as string) || (p.last_login_at as string),
+          
+          // 学生绑定
+          studentId: (p.studentId as string) || (p.student_id as string) || '',
+          studentName: (p.studentName as string) || (p.student_name as string) || '',
+          isPrimary: (p.isPrimary as boolean) || (p.is_primary as boolean) || false,
+          
+          // 班级信息
+          classId: (p.classId as string) || (p.class_id as string),
+          className: (p.className as string) || (p.class_name as string),
           grade: p.grade as number,
-          gradeName: p.grade_name as string,
-          headTeacherId: p.head_teacher_id as string,
-          headTeacherName: p.head_teacher_name as string,
-          notificationSettings: p.notification_settings as ParentNotificationSettings,
-          createdAt: p.created_at as string,
-          updatedAt: p.updated_at as string,
+          gradeName: (p.gradeName as string) || (p.grade_name as string),
+          
+          // 班主任信息
+          headTeacherId: (p.headTeacherId as string) || (p.head_teacher_id as string),
+          headTeacherName: (p.headTeacherName as string) || (p.head_teacher_name as string),
+          
+          // 其他信息
+          status: p.status as string,
+          remark: p.remark as string,
+          
+          // 通知设置
+          notificationSettings: (p.notificationSettings as ParentNotificationSettings) || (p.notification_settings as ParentNotificationSettings) || {
+            homework: true,
+            notice: true,
+            attendance: true,
+            activity: true,
+          },
+          
+          createdAt: (p.createdAt as string) || (p.created_at as string),
+          updatedAt: (p.updatedAt as string) || (p.updated_at as string),
         }));
         
         setAllParents(formattedParents);

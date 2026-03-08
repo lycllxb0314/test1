@@ -61,54 +61,76 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
     
+    // 获取所有学生的班级ID
+    const classIds = [...new Set((data || []).map(s => s.class_id).filter(Boolean))];
+    
+    // 批量查询班级信息获取班主任
+    const classesMap: Record<string, { headTeacherId: string; headTeacherName: string }> = {};
+    if (classIds.length > 0) {
+      const { data: classesData } = await client
+        .from('classes')
+        .select('id, head_teacher_id, head_teacher_name')
+        .in('id', classIds);
+      
+      (classesData || []).forEach(c => {
+        classesMap[c.id] = {
+          headTeacherId: c.head_teacher_id,
+          headTeacherName: c.head_teacher_name,
+        };
+      });
+    }
+    
     // 转换数据格式（下划线转驼峰）
-    const formattedData = (data || []).map(s => ({
-      id: s.id,
-      studentNo: s.student_no || '',
-      name: s.name,
-      gender: s.gender,
-      birthDate: s.birth_date,
-      avatar: s.avatar,
-      
-      // 学籍信息
-      grade: s.grade,
-      gradeName: GRADE_NAMES[s.grade] || '',
-      classId: s.class_id,
-      className: s.class_name,
-      enrollmentDate: s.enrollment_date,
-      studentType: s.student_type,
-      
-      // 身份信息
-      idCard: s.id_card,
-      ethnicity: s.ethnicity,
-      nativePlace: s.native_place,
-      politicalStatus: s.political_status,
-      
-      // 联系信息
-      phone: s.phone,
-      address: s.address,
-      homeAddress: s.home_address,
-      
-      // 家庭信息
-      familyType: s.family_type,
-      parents: s.parents || [],
-      emergencyContact: s.emergency_contact,
-      emergencyPhone: s.emergency_phone,
-      
-      // 班主任信息
-      headTeacherId: s.head_teacher_id,
-      headTeacherName: s.head_teacher_name,
-      
-      // 状态
-      status: s.status || '在校',
-      
-      // 习惯养成
-      habitStars: s.habit_stars,
-      
-      // 时间戳
-      createdAt: s.created_at,
-      updatedAt: s.updated_at,
-    }));
+    const formattedData = (data || []).map(s => {
+      const classInfo = classesMap[s.class_id] || {};
+      return {
+        id: s.id,
+        studentNo: s.student_no || '',
+        name: s.name,
+        gender: s.gender,
+        birthDate: s.birth_date,
+        avatar: s.avatar,
+        
+        // 学籍信息
+        grade: s.grade,
+        gradeName: GRADE_NAMES[s.grade] || '',
+        classId: s.class_id,
+        className: s.class_name,
+        enrollmentDate: s.enrollment_date,
+        studentType: s.student_type,
+        
+        // 身份信息
+        idCard: s.id_card,
+        ethnicity: s.ethnicity,
+        nativePlace: s.native_place,
+        politicalStatus: s.political_status,
+        
+        // 联系信息
+        phone: s.phone,
+        address: s.address,
+        homeAddress: s.home_address,
+        
+        // 家庭信息
+        familyType: s.family_type,
+        parents: s.parents || [],
+        emergencyContact: s.emergency_contact,
+        emergencyPhone: s.emergency_phone,
+        
+        // 班主任信息（从班级表获取）
+        headTeacherId: classInfo.headTeacherId || s.head_teacher_id,
+        headTeacherName: classInfo.headTeacherName || s.head_teacher_name,
+        
+        // 状态
+        status: s.status || '在校',
+        
+        // 习惯养成
+        habitStars: s.habit_stars,
+        
+        // 时间戳
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+      };
+    });
     
     // 计算统计数据
     const statistics = {
