@@ -69,6 +69,7 @@ import {
   Image,
   Clock3,
   MapPin,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -412,6 +413,61 @@ export default function InformationCollectionPage() {
     } finally {
       setResponsesLoading(false);
     }
+  };
+
+  // 导出数据为Excel (CSV格式)
+  const handleExportData = () => {
+    if (!responseCollection || responses.length === 0) return;
+
+    // 构建CSV表头
+    const headers = ['序号', '学生姓名', '家长姓名', '提交时间'];
+    responseCollection.fields.forEach(field => {
+      headers.push(field.label);
+    });
+
+    // 构建CSV数据行
+    const rows = responses.map((response, index) => {
+      const row = [
+        String(index + 1),
+        response.studentName,
+        response.parentName,
+        new Date(response.submittedAt).toLocaleString(),
+      ];
+      
+      responseCollection.fields.forEach(field => {
+        const value = response.responses[field.id];
+        if (Array.isArray(value)) {
+          row.push(value.join('、'));
+        } else {
+          row.push(String(value || ''));
+        }
+      });
+      
+      return row;
+    });
+
+    // 转义CSV字段（处理逗号、引号、换行）
+    const escapeCSV = (str: string) => {
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    // 生成CSV内容
+    const csvContent = '\uFEFF' + // BOM for Excel to recognize UTF-8
+      [headers.map(escapeCSV).join(','), ...rows.map(row => row.map(escapeCSV).join(','))].join('\n');
+
+    // 创建下载
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${responseCollection.title}_收集数据_${new Date().toLocaleDateString()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   // 渲染列表视图
@@ -1189,7 +1245,17 @@ export default function InformationCollectionPage() {
           <ArrowLeft className="h-4 w-4" />
           返回列表
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {responses.length > 0 && (
+            <Button
+              onClick={handleExportData}
+              variant="outline"
+              className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            >
+              <Download className="h-4 w-4" />
+              导出数据
+            </Button>
+          )}
           <Badge className="bg-emerald-100 text-emerald-700">
             <Users className="h-3 w-3 mr-1" />
             {responses.length} 人已提交
