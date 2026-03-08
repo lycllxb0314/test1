@@ -61,18 +61,34 @@ import {
   MoreHorizontal,
   Timer,
   ToggleLeft,
+  Star,
+  Sliders,
+  Phone,
+  CreditCard,
+  Upload,
+  Image,
+  Clock3,
+  MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
-// 表单字段类型
+// 表单字段类型（参考问卷星）
 interface FormField {
   id: string;
-  type: 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'radio' | 'date';
+  type: 'radio' | 'checkbox' | 'text' | 'textarea' | 'select' | 'date' | 'time' | 'datetime' | 'number' | 'rating' | 'scale' | 'phone' | 'idcard' | 'file' | 'image_select';
   label: string;
   required: boolean;
   placeholder?: string;
   options?: string[];
+  // 评分题配置
+  maxRating?: number;
+  // 量表题配置
+  minLabel?: string;
+  maxLabel?: string;
+  // 文件上传配置
+  maxFiles?: number;
+  fileType?: string;
 }
 
 // 信息收集类型
@@ -101,15 +117,41 @@ interface Response {
   submittedAt: string;
 }
 
-// 字段类型配置
+// 字段类型配置（参考问卷星）
 const FIELD_TYPES = [
-  { value: 'text', label: '单行文本', icon: Type, description: '适用于姓名、电话等短文本' },
-  { value: 'textarea', label: '多行文本', icon: AlignLeft, description: '适用于详细描述、备注等' },
-  { value: 'number', label: '数字', icon: Hash, description: '适用于年龄、数量等' },
-  { value: 'select', label: '下拉选择', icon: List, description: '从多个选项中选择一个' },
-  { value: 'radio', label: '单选', icon: Circle, description: '从选项中单选，全部展示' },
-  { value: 'checkbox', label: '多选', icon: CheckSquare, description: '可同时选择多个选项' },
-  { value: 'date', label: '日期', icon: Calendar, description: '选择日期' },
+  // 基础题型
+  { value: 'radio', label: '单选题', icon: Circle, description: '从选项中单选', category: 'basic' },
+  { value: 'checkbox', label: '多选题', icon: CheckSquare, description: '可多选', category: 'basic' },
+  { value: 'text', label: '填空题', icon: Type, description: '单行文本输入', category: 'basic' },
+  { value: 'textarea', label: '多行填空', icon: AlignLeft, description: '多行文本输入', category: 'basic' },
+  { value: 'select', label: '下拉题', icon: List, description: '下拉选择一项', category: 'basic' },
+  
+  // 评分题型
+  { value: 'rating', label: '评分题', icon: Star, description: '星级评分', category: 'rating' },
+  { value: 'scale', label: '量表题', icon: Sliders, description: '滑动量表评分', category: 'rating' },
+  
+  // 时间日期
+  { value: 'date', label: '日期', icon: Calendar, description: '选择日期', category: 'time' },
+  { value: 'time', label: '时间', icon: Clock3, description: '选择时间', category: 'time' },
+  { value: 'datetime', label: '日期时间', icon: Calendar, description: '选择日期和时间', category: 'time' },
+  
+  // 特殊题型
+  { value: 'number', label: '数字题', icon: Hash, description: '仅限数字输入', category: 'special' },
+  { value: 'phone', label: '手机号', icon: Phone, description: '手机号验证', category: 'special' },
+  { value: 'idcard', label: '身份证号', icon: CreditCard, description: '身份证号验证', category: 'special' },
+  
+  // 上传题型
+  { value: 'file', label: '文件上传', icon: Upload, description: '上传文件附件', category: 'upload' },
+  { value: 'image_select', label: '图片选择', icon: Image, description: '图片形式选项', category: 'upload' },
+] as const;
+
+// 字段类型分组
+const FIELD_CATEGORIES = [
+  { key: 'basic', label: '基础题型' },
+  { key: 'rating', label: '评分题型' },
+  { key: 'time', label: '时间日期' },
+  { key: 'special', label: '特殊题型' },
+  { key: 'upload', label: '上传题型' },
 ];
 
 // 状态配置
@@ -206,14 +248,23 @@ export default function InformationCollectionPage() {
   };
 
   // 添加字段
-  const handleAddField = (type: FormField['type'] = 'text') => {
+  const handleAddField = (type: FormField['type'] = 'radio') => {
     const newField: FormField = {
       id: `field_${Date.now()}`,
       type,
       label: '',
       required: false,
       placeholder: '',
-      options: type === 'select' || type === 'radio' || type === 'checkbox' ? ['选项1', '选项2'] : [],
+      // 选项类字段默认选项
+      options: ['radio', 'checkbox', 'select', 'image_select'].includes(type) ? ['选项1', '选项2'] : undefined,
+      // 评分题默认配置
+      maxRating: type === 'rating' ? 5 : undefined,
+      // 量表题默认配置
+      minLabel: type === 'scale' ? '非常不满意' : undefined,
+      maxLabel: type === 'scale' ? '非常满意' : undefined,
+      // 文件上传默认配置
+      maxFiles: type === 'file' ? 1 : undefined,
+      fileType: type === 'file' ? 'all' : undefined,
     };
     setFormFields([...formFields, newField]);
   };
@@ -657,7 +708,7 @@ export default function InformationCollectionPage() {
                     <p className="text-xs">在右侧添加字段开始创建</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     {formFields.map((field, index) => (
                       <div key={field.id} className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">
@@ -667,34 +718,116 @@ export default function InformationCollectionPage() {
                         {field.placeholder && (
                           <p className="text-xs text-gray-400">{field.placeholder}</p>
                         )}
+                        
+                        {/* 文本类字段 */}
                         {field.type === 'text' && (
                           <div className="h-10 bg-gray-100 rounded-lg border-2 border-dashed border-gray-200" />
                         )}
                         {field.type === 'textarea' && (
                           <div className="h-24 bg-gray-100 rounded-lg border-2 border-dashed border-gray-200" />
                         )}
+                        
+                        {/* 数字字段 */}
                         {field.type === 'number' && (
                           <div className="h-10 w-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-200" />
                         )}
-                        {field.type === 'date' && (
-                          <div className="h-10 w-40 bg-gray-100 rounded-lg border-2 border-dashed border-gray-200" />
+                        
+                        {/* 特殊字段 */}
+                        {field.type === 'phone' && (
+                          <div className="h-10 bg-gray-100 rounded-lg border-2 border-dashed border-gray-200 flex items-center px-3">
+                            <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                            <span className="text-xs text-gray-400">手机号格式验证</span>
+                          </div>
                         )}
+                        {field.type === 'idcard' && (
+                          <div className="h-10 bg-gray-100 rounded-lg border-2 border-dashed border-gray-200 flex items-center px-3">
+                            <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
+                            <span className="text-xs text-gray-400">身份证号格式验证</span>
+                          </div>
+                        )}
+                        
+                        {/* 时间日期字段 */}
+                        {(field.type === 'date' || field.type === 'time' || field.type === 'datetime') && (
+                          <div className="h-10 w-48 bg-gray-100 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center">
+                            <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                            <span className="text-xs text-gray-400">
+                              {field.type === 'date' ? '选择日期' : field.type === 'time' ? '选择时间' : '选择日期时间'}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* 单选/下拉字段 */}
                         {(field.type === 'select' || field.type === 'radio') && field.options && (
                           <div className="space-y-2">
                             {field.options.map((opt, i) => (
                               <div key={i} className="flex items-center gap-2">
-                                <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                                <div className={cn(
+                                  "h-4 w-4 border-2 border-gray-300",
+                                  field.type === 'select' ? 'rounded' : 'rounded-full'
+                                )} />
                                 <span className="text-sm text-gray-600">{opt}</span>
                               </div>
                             ))}
                           </div>
                         )}
+                        
+                        {/* 多选字段 */}
                         {field.type === 'checkbox' && field.options && (
                           <div className="space-y-2">
                             {field.options.map((opt, i) => (
                               <div key={i} className="flex items-center gap-2">
                                 <div className="h-4 w-4 rounded border-2 border-gray-300" />
                                 <span className="text-sm text-gray-600">{opt}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* 评分字段 */}
+                        {field.type === 'rating' && (
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: field.maxRating || 5 }).map((_, i) => (
+                              <Star key={i} className="h-6 w-6 text-gray-300" />
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* 量表字段 */}
+                        {field.type === 'scale' && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>{field.minLabel || '低'}</span>
+                              <span>{field.maxLabel || '高'}</span>
+                            </div>
+                            <div className="h-2 bg-gray-200 rounded-full">
+                              <div className="h-2 w-1/2 bg-gradient-to-r from-violet-400 to-violet-600 rounded-full" />
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-400">
+                              <span>1</span>
+                              <span>2</span>
+                              <span>3</span>
+                              <span>4</span>
+                              <span>5</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* 文件上传字段 */}
+                        {field.type === 'file' && (
+                          <div className="h-24 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2">
+                            <Upload className="h-6 w-6 text-gray-400" />
+                            <span className="text-xs text-gray-400">
+                              点击上传文件（最多 {field.maxFiles || 1} 个）
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* 图片选择字段 */}
+                        {field.type === 'image_select' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            {field.options?.map((opt, i) => (
+                              <div key={i} className="aspect-square bg-gray-100 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center">
+                                <Image className="h-6 w-6 text-gray-400" />
                               </div>
                             ))}
                           </div>
@@ -762,26 +895,37 @@ export default function InformationCollectionPage() {
               </CardTitle>
               <CardDescription>选择字段类型添加到表单</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-4 gap-3">
-                {FIELD_TYPES.map(type => {
-                  const Icon = type.icon;
-                  return (
-                    <button
-                      key={type.value}
-                      onClick={() => handleAddField(type.value as FormField['type'])}
-                      className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-all duration-200 group"
-                    >
-                      <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-violet-100 transition-colors">
-                        <Icon className="h-5 w-5 text-gray-600 group-hover:text-violet-600" />
-                      </div>
-                      <span className="text-sm font-medium text-gray-700 group-hover:text-violet-700">
-                        {type.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+            <CardContent className="space-y-5">
+              {FIELD_CATEGORIES.map(category => (
+                <div key={category.key}>
+                  <h4 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+                    <span className="w-1 h-4 bg-violet-400 rounded-full" />
+                    {category.label}
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {FIELD_TYPES.filter(t => t.category === category.key).map(type => {
+                      const Icon = type.icon;
+                      return (
+                        <button
+                          key={type.value}
+                          onClick={() => handleAddField(type.value as FormField['type'])}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-all duration-200 group text-left"
+                        >
+                          <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-violet-100 transition-colors shrink-0">
+                            <Icon className="h-4 w-4 text-gray-600 group-hover:text-violet-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-700 group-hover:text-violet-700 truncate">
+                              {type.label}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">{type.description}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
@@ -892,8 +1036,8 @@ export default function InformationCollectionPage() {
                           </div>
                         </div>
 
-                        {/* 选项配置 */}
-                        {['select', 'radio', 'checkbox'].includes(field.type) && (
+                        {/* 选项类字段配置 */}
+                        {['select', 'radio', 'checkbox', 'image_select'].includes(field.type) && (
                           <div className="mt-3">
                             <Label className="text-xs text-gray-500 mb-1 block">选项（每行一个）</Label>
                             <Textarea
@@ -902,6 +1046,93 @@ export default function InformationCollectionPage() {
                               onChange={e => handleUpdateField(index, { options: e.target.value.split('\n').filter(Boolean) })}
                               className="bg-white border-gray-200 min-h-[80px]"
                             />
+                          </div>
+                        )}
+
+                        {/* 评分题配置 */}
+                        {field.type === 'rating' && (
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs text-gray-500 mb-1 block">最大星级</Label>
+                              <Select
+                                value={String(field.maxRating || 5)}
+                                onValueChange={(v) => handleUpdateField(index, { maxRating: parseInt(v) })}
+                              >
+                                <SelectTrigger className="bg-white border-gray-200">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="3">3星</SelectItem>
+                                  <SelectItem value="5">5星</SelectItem>
+                                  <SelectItem value="7">7星</SelectItem>
+                                  <SelectItem value="10">10星</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 量表题配置 */}
+                        {field.type === 'scale' && (
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs text-gray-500 mb-1 block">最小值标签</Label>
+                              <Input
+                                placeholder="如：非常不满意"
+                                value={field.minLabel || ''}
+                                onChange={e => handleUpdateField(index, { minLabel: e.target.value })}
+                                className="bg-white border-gray-200"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-500 mb-1 block">最大值标签</Label>
+                              <Input
+                                placeholder="如：非常满意"
+                                value={field.maxLabel || ''}
+                                onChange={e => handleUpdateField(index, { maxLabel: e.target.value })}
+                                className="bg-white border-gray-200"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 文件上传配置 */}
+                        {field.type === 'file' && (
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs text-gray-500 mb-1 block">最大文件数</Label>
+                              <Select
+                                value={String(field.maxFiles || 1)}
+                                onValueChange={(v) => handleUpdateField(index, { maxFiles: parseInt(v) })}
+                              >
+                                <SelectTrigger className="bg-white border-gray-200">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">1个</SelectItem>
+                                  <SelectItem value="3">3个</SelectItem>
+                                  <SelectItem value="5">5个</SelectItem>
+                                  <SelectItem value="10">10个</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-500 mb-1 block">文件类型</Label>
+                              <Select
+                                value={field.fileType || 'all'}
+                                onValueChange={(v) => handleUpdateField(index, { fileType: v })}
+                              >
+                                <SelectTrigger className="bg-white border-gray-200">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">所有类型</SelectItem>
+                                  <SelectItem value="image">仅图片</SelectItem>
+                                  <SelectItem value="document">仅文档</SelectItem>
+                                  <SelectItem value="pdf">仅PDF</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                         )}
 
