@@ -151,21 +151,21 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       return NextResponse.json({ success: false, error: '获取消息失败' }, { status: 500 });
     }
 
-    // 获取用户阅读状态
+    // 获取用户阅读状态（包括归档和删除状态）
     const { data: readStatuses } = await client
       .from('message_reads')
       .select('*')
       .eq('user_id', userId);
 
     const readMap = new Map(
-      (readStatuses || []).map((r: { message_id: string; read_at: string; is_pinned: boolean; status?: string }) => [
+      (readStatuses || []).map((r: { message_id: string; read_at: string; is_pinned: boolean; status?: string; deleted_at?: string }) => [
         r.message_id, 
-        { readAt: r.read_at, isPinned: r.is_pinned, status: r.status }
+        { readAt: r.read_at, isPinned: r.is_pinned, status: r.status, deletedAt: r.deleted_at }
       ])
     );
 
     // 处理消息 - 映射数据库字段到前端格式
-    const userMessages: UserMessage[] = (messages || [])
+    const userMessages = (messages || [])
       .map((msg: Record<string, unknown>) => {
         const readInfo = readMap.get(msg.id as string);
         // 数据库中 is_read 字段表示阅读状态，message_reads 表中的状态优先
@@ -201,11 +201,25 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
           status,
           readAt: readInfo?.readAt,
           isPinned: readInfo?.isPinned || false,
+          // 内部使用，用于后续过滤
+          _deletedAt: readInfo?.deletedAt,
+          _isArchived: readInfo?.status === 'archived',
         };
-      });
+      }) as Array<UserMessage & { _deletedAt?: string; _isArchived?: boolean }>;
+    
+    // 过滤掉已删除的消息
+    const activeMessages = userMessages.filter((msg) => !msg._deletedAt);
+
+    // 如果没有指定状态筛选，默认不显示已归档的消息
+    // 除非用户明确选择查看已归档消息
+    let displayMessages = activeMessages;
+    if (statusFilter !== 'archived') {
+      // 默认隐藏已归档消息
+      displayMessages = displayMessages.filter(m => !m._isArchived);
+    }
 
     // 应用额外筛选
-    let filteredMessages = userMessages;
+    let filteredMessages = displayMessages;
     if (eventFilter) {
       filteredMessages = filteredMessages.filter(m => m.event === eventFilter);
     }
