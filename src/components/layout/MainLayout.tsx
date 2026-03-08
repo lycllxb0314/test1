@@ -131,9 +131,10 @@ const academicNav: NavItem[] = [
   { name: '质量分析', href: '/academic/analysis', icon: BarChart3, description: '教学质量分析' },
 ];
 
-// 德育管理导航 - 待重建
+// 德育管理导航
 const moralNav: NavItem[] = [
   { name: '德育工作台', href: '/moral', icon: LayoutDashboard, description: '德育处工作台' },
+  { name: '习惯养成', href: '/moral/habit', icon: Target, description: '八大习惯目标管理', badge: '新' },
 ];
 
 // 教师空间导航 - 基础功能（所有教师可见，待重建）
@@ -146,9 +147,10 @@ const teacherBaseNav: NavItem[] = [
   { name: '教室预约', href: '/academic/rooms/booking', icon: DoorOpen, description: '预约使用教室' },
 ];
 
-// 教师空间导航 - 班主任专属功能（待重建）
+// 教师空间导航 - 班主任专属功能
 const headTeacherNav: NavItem[] = [
   { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息' },
+  { name: '习惯养成', href: '/teacher/habit', icon: Target, description: '制定班级月度习惯目标', badge: '新' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能（待重建）
@@ -163,9 +165,10 @@ const gradeLeaderNav: NavItem[] = [
   { name: '年级课表', href: '/teacher/grade-schedule', icon: Calendar, description: '查看年级课表' },
 ];
 
-// 家长端导航（待重建）
+// 家长端导航
 const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
+  { name: '习惯打卡', href: '/parent/habit', icon: Target, description: '子女习惯养成打卡', badge: '新' },
   { name: '个人资料', href: '/parent/profile', icon: UserCircle, description: '维护个人信息' },
   { name: '子女信息', href: '/parent/children', icon: Users, description: '子女信息管理' },
   { name: '成绩查看', href: '/parent/grades', icon: BookOpen, description: '查看子女成绩' },
