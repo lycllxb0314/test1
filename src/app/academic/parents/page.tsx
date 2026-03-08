@@ -84,25 +84,25 @@ const RELATION_NAMES: Record<string, string> = {
 // 家长类型定义
 interface Parent {
   id: string;
-  student_id: string;
-  student_name: string;
-  class_id: string;
-  class_name: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  className: string;
   name: string;
   relation: string;
-  relation_name: string;
+  relationName: string;
   phone: string | null;
   wechat: string | null;
-  id_card: string | null;
+  idCard: string | null;
   occupation: string | null;
-  work_unit: string | null;
-  is_primary: boolean;
-  has_account: boolean;
-  account_id: string | null;
+  company: string | null;
+  isPrimary: boolean;
+  hasAccount: boolean;
+  userId: string | null;
   password: string | null;
   status: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // 班级类型定义
@@ -295,13 +295,13 @@ export default function ParentsPage() {
       headers.join(','),
       ...parents.map(p => [
         p.name,
-        p.relation_name,
+        p.relationName,
         p.phone || '',
         p.wechat || '',
-        p.student_name,
-        p.class_name,
-        p.is_primary ? '是' : '否',
-        p.has_account ? '是' : '否',
+        p.studentName,
+        p.className,
+        p.isPrimary ? '是' : '否',
+        p.hasAccount ? '是' : '否',
       ].join(',')),
     ].join('\n');
     
@@ -573,8 +573,8 @@ export default function ParentsPage() {
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getRelationshipColor(parent.relation_name)}>
-                          {parent.relation_name}
+                        <Badge className={getRelationshipColor(parent.relationName)}>
+                          {parent.relationName}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -584,7 +584,7 @@ export default function ParentsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {parent.has_account ? (
+                        {parent.hasAccount ? (
                           <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
                             {parent.password || '-'}
                           </span>
@@ -592,19 +592,19 @@ export default function ParentsPage() {
                           <span className="text-gray-400 text-sm">未开通</span>
                         )}
                       </TableCell>
-                      <TableCell>{parent.student_name}</TableCell>
+                      <TableCell>{parent.studentName}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{parent.class_name}</Badge>
+                        <Badge variant="outline">{parent.className}</Badge>
                       </TableCell>
                       <TableCell>
-                        {parent.is_primary ? (
+                        {parent.isPrimary ? (
                           <Badge className="bg-green-100 text-green-700">是</Badge>
                         ) : (
                           <Badge variant="outline" className="text-gray-400">否</Badge>
                         )}
                       </TableCell>
                       <TableCell>
-                        {parent.has_account ? (
+                        {parent.hasAccount ? (
                           <Badge className="bg-blue-100 text-blue-700">已开通</Badge>
                         ) : (
                           <Badge variant="outline" className="text-gray-400">未开通</Badge>
@@ -622,7 +622,7 @@ export default function ParentsPage() {
                               <Eye className="h-4 w-4 mr-2" />
                               查看详情
                             </DropdownMenuItem>
-                            {!parent.has_account && (
+                            {!parent.hasAccount && (
                               <DropdownMenuItem onClick={() => {
                                 setSelectedParents(new Set([parent.id]));
                                 handleBatchOperation('create_accounts');
@@ -631,7 +631,7 @@ export default function ParentsPage() {
                                 开通账号
                               </DropdownMenuItem>
                             )}
-                            {parent.has_account && (
+                            {parent.hasAccount && (
                               <DropdownMenuItem onClick={() => {
                                 setSelectedParents(new Set([parent.id]));
                                 handleBatchOperation('reset_passwords');
@@ -640,7 +640,7 @@ export default function ParentsPage() {
                                 重置密码
                               </DropdownMenuItem>
                             )}
-                            {!parent.is_primary && (
+                            {!parent.isPrimary && (
                               <DropdownMenuItem onClick={() => {
                                 setSelectedParents(new Set([parent.id]));
                                 handleBatchOperation('set_primary');
@@ -727,8 +727,8 @@ export default function ParentsPage() {
                   <div>
                     <Label className="text-gray-500">关系</Label>
                     <p>
-                      <Badge className={getRelationshipColor(selectedParent.relation_name)}>
-                        {selectedParent.relation_name}
+                      <Badge className={getRelationshipColor(selectedParent.relationName)}>
+                        {selectedParent.relationName}
                       </Badge>
                     </p>
                   </div>
@@ -743,7 +743,7 @@ export default function ParentsPage() {
                   <div>
                     <Label className="text-gray-500">主要联系人</Label>
                     <p>
-                      {selectedParent.is_primary ? (
+                      {selectedParent.isPrimary ? (
                         <Badge className="bg-green-100 text-green-700">是</Badge>
                       ) : (
                         <Badge variant="outline">否</Badge>
@@ -753,14 +753,14 @@ export default function ParentsPage() {
                   <div>
                     <Label className="text-gray-500">账号状态</Label>
                     <p>
-                      {selectedParent.has_account ? (
+                      {selectedParent.hasAccount ? (
                         <Badge className="bg-blue-100 text-blue-700">已开通</Badge>
                       ) : (
                         <Badge variant="outline">未开通</Badge>
                       )}
                     </p>
                   </div>
-                  {selectedParent.has_account && (
+                  {selectedParent.hasAccount && (
                     <div>
                       <Label className="text-gray-500">登录密码</Label>
                       <p className="font-mono text-sm bg-gray-100 px-2 py-1 rounded inline-block">
@@ -779,11 +779,11 @@ export default function ParentsPage() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <Label className="text-gray-500">学生姓名</Label>
-                    <p className="font-medium">{selectedParent.student_name}</p>
+                    <p className="font-medium">{selectedParent.studentName}</p>
                   </div>
                   <div>
                     <Label className="text-gray-500">班级</Label>
-                    <p className="font-medium">{selectedParent.class_name}</p>
+                    <p className="font-medium">{selectedParent.className}</p>
                   </div>
                 </div>
               </div>
