@@ -248,6 +248,16 @@ export default function ActivityManagementPage() {
         ? `/api/moral/activities/${editingActivity.id}`
         : '/api/moral/activities';
       
+      // 编辑时保持原状态，除非明确要发布
+      let status: 'draft' | 'published' | 'archived' = 'draft';
+      if (editingActivity) {
+        // 编辑已有活动：保持原状态或发布
+        status = formPublishNow ? 'published' : editingActivity.status;
+      } else {
+        // 新建活动：根据是否勾选发布
+        status = formPublishNow ? 'published' : 'draft';
+      }
+      
       const body = {
         title: formTitle,
         content: formContent,
@@ -262,7 +272,7 @@ export default function ActivityManagementPage() {
         },
         deadline: formDeadline ? new Date(formDeadline).toISOString() : null,
         attachments: formAttachments,
-        status: formPublishNow ? 'published' : 'draft',
+        status,
       };
       
       const res = await fetch(url, {
@@ -307,9 +317,39 @@ export default function ActivityManagementPage() {
     }
   };
   
+  // 归档活动
+  const handleArchiveActivity = async (id: string) => {
+    if (!confirm('确定要归档此活动吗？归档后将不再显示给教师。')) return;
+    
+    try {
+      const res = await fetch(`/api/moral/activities/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'archived' }),
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        fetchActivities();
+      } else {
+        alert(data.error || '归档失败');
+      }
+    } catch (error) {
+      console.error('归档活动失败:', error);
+      alert('归档失败');
+    }
+  };
+  
   // 删除活动
   const handleDeleteActivity = async (id: string) => {
-    if (!confirm('确定要删除此活动吗？')) return;
+    const activity = activities.find(a => a.id === id);
+    const isPublished = activity?.status === 'published';
+    
+    const confirmMsg = isPublished 
+      ? '此活动已发布，删除后教师将无法查看。确定要删除吗？'
+      : '确定要删除此活动吗？';
+    
+    if (!confirm(confirmMsg)) return;
     
     try {
       const res = await fetch(`/api/moral/activities/${id}`, {
@@ -503,6 +543,17 @@ export default function ActivityManagementPage() {
                             发布
                           </Button>
                         )}
+                        {activity.status === 'published' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-amber-600 border-amber-200 hover:bg-amber-50"
+                            onClick={() => handleArchiveActivity(activity.id)}
+                          >
+                            <Archive className="h-3.5 w-3.5 mr-1" />
+                            归档
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -510,16 +561,14 @@ export default function ActivityManagementPage() {
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </Button>
-                        {activity.status === 'draft' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                            onClick={() => handleDeleteActivity(activity.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDeleteActivity(activity.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
