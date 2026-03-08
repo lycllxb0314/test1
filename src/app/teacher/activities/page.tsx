@@ -40,6 +40,7 @@ import {
   XCircle,
   AlertCircle,
   Upload,
+  Download,
   Image,
   File,
   Video,
@@ -66,6 +67,12 @@ interface Activity {
     maxFiles?: number;
   };
   deadline: string | null;
+  attachments: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }>;
   status: 'draft' | 'published' | 'archived';
   createdBy: string;
   createdByName: string;
@@ -389,6 +396,29 @@ export default function TeacherActivitiesPage() {
                           {activity.content}
                         </p>
                         
+                        {/* 附件预览 */}
+                        {activity.attachments && activity.attachments.length > 0 && (
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <FileText className="h-3 w-3" />
+                              <span>{activity.attachments.length}个附件</span>
+                            </div>
+                            <div className="flex gap-1">
+                              {activity.attachments.slice(0, 3).map((att, idx) => (
+                                <div key={idx} className="p-1 bg-gray-100 rounded">
+                                  {att.type === 'image' ? (
+                                    <Image className="h-3 w-3 text-blue-500" />
+                                  ) : att.type === 'video' ? (
+                                    <Video className="h-3 w-3 text-purple-500" />
+                                  ) : (
+                                    <File className="h-3 w-3 text-gray-500" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
@@ -469,6 +499,36 @@ export default function TeacherActivitiesPage() {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-gray-700 whitespace-pre-wrap">{selectedActivity.content}</p>
                 </div>
+                
+                {/* 活动附件 */}
+                {selectedActivity.attachments && selectedActivity.attachments.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-gray-700">活动附件</Label>
+                    <div className="grid gap-2">
+                      {selectedActivity.attachments.map((att, idx) => (
+                        <a
+                          key={idx}
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            {att.type === 'image' ? (
+                              <Image className="h-4 w-4 text-blue-500" />
+                            ) : att.type === 'video' ? (
+                              <Video className="h-4 w-4 text-purple-500" />
+                            ) : (
+                              <File className="h-4 w-4 text-gray-500" />
+                            )}
+                            <span className="text-sm text-gray-700">{att.name}</span>
+                          </div>
+                          <Download className="h-4 w-4 text-gray-400" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 bg-gray-50 rounded-lg">

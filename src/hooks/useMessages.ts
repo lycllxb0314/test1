@@ -261,10 +261,11 @@ export function useMessages(): UseMessagesReturn {
   // 状态更新操作
   const markAsRead = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/read`, { 
-        method: 'PATCH', 
+      const response = await fetch(`/api/messages/${messageId}`, { 
+        method: 'PUT', 
         credentials: 'include',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'read' }),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -274,10 +275,11 @@ export function useMessages(): UseMessagesReturn {
 
   const markAsUnread = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/unread`, { 
-        method: 'PATCH', 
+      const response = await fetch(`/api/messages/${messageId}`, { 
+        method: 'PUT', 
         credentials: 'include',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'unread' }),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -287,10 +289,11 @@ export function useMessages(): UseMessagesReturn {
 
   const archiveMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/archive`, { 
-        method: 'PATCH', 
+      const response = await fetch(`/api/messages/${messageId}`, { 
+        method: 'PUT', 
         credentials: 'include',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'archive' }),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -300,10 +303,11 @@ export function useMessages(): UseMessagesReturn {
 
   const pinMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/pin`, { 
-        method: 'PATCH', 
+      const response = await fetch(`/api/messages/${messageId}`, { 
+        method: 'PUT', 
         credentials: 'include',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'pin' }),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }
@@ -313,10 +317,11 @@ export function useMessages(): UseMessagesReturn {
 
   const unpinMessage = useCallback(async (messageId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/messages/${messageId}/unpin`, { 
-        method: 'PATCH', 
+      const response = await fetch(`/api/messages/${messageId}`, { 
+        method: 'PUT', 
         credentials: 'include',
-        headers: authHeaders(),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ action: 'unpin' }),
       });
       const result = await response.json();
       if (result.success) { refetch(); return true; }

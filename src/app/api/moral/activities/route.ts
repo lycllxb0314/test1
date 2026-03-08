@@ -100,6 +100,7 @@ const handleGetActivities = async (request: NextRequest, { user }: ExtendedRoute
       requireSubmission: activity.require_submission,
       submissionConfig: activity.submission_config || {},
       deadline: activity.deadline,
+      attachments: activity.attachments || [],
       status: activity.status,
       createdBy: activity.created_by,
       createdByName: activity.created_by_name,
@@ -146,6 +147,7 @@ const handleCreateActivity = async (request: NextRequest, { user }: ExtendedRout
       submissionConfig = {},
       deadline,
       status = 'draft',
+      attachments = [],
     } = body;
     
     if (!title || !content) {
@@ -172,6 +174,7 @@ const handleCreateActivity = async (request: NextRequest, { user }: ExtendedRout
         require_submission: requireSubmission,
         submission_config: submissionConfig,
         deadline: deadline || null,
+        attachments: attachments || [],
         status,
         created_by: user.id,
         created_by_name: userData?.name || '德育处',
