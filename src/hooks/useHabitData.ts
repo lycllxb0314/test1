@@ -542,6 +542,232 @@ export function useSchoolHabitStats(month?: string): UseSchoolHabitStatsReturn {
   };
 }
 
+// ==================== useStudentGoals Hook ====================
+
+/** 学生小目标数据 */
+export interface StudentGoalData {
+  id: string;
+  studentId: string;
+  goalId?: string;
+  title: string;
+  description?: string;
+  category: HabitCategory;
+  targetCount: number;
+  completedCount: number;
+  startDate: string;
+  endDate?: string;
+  status: 'active' | 'completed' | 'expired';
+  month: string;
+  progress: number;
+  createdAt: string;
+}
+
+export interface UseStudentGoalsReturn {
+  data: StudentGoalData[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  createGoal: (params: Omit<StudentGoalData, 'id' | 'completedCount' | 'progress' | 'createdAt'>) => Promise<StudentGoalData | null>;
+}
+
+/**
+ * 学生小目标 Hook
+ */
+export function useStudentGoals(studentId?: string, month?: string): UseStudentGoalsReturn {
+  const [data, setData] = useState<StudentGoalData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!studentId) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+      params.append('studentId', studentId);
+      if (month) params.append('month', month);
+
+      const response = await fetch(`/api/habit/student-goals?${params.toString()}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setData(result.data);
+      } else {
+        setData([]);
+      }
+    } catch (err) {
+      console.error('获取学生小目标失败:', err);
+      setError(err instanceof Error ? err.message : '获取学生小目标失败');
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [studentId, month]);
+
+  const createGoal = useCallback(async (params: Omit<StudentGoalData, 'id' | 'completedCount' | 'progress' | 'createdAt'>): Promise<StudentGoalData | null> => {
+    try {
+      const response = await fetch('/api/habit/student-goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        await fetchData();
+        return result.data;
+      }
+      return null;
+    } catch (err) {
+      console.error('创建学生小目标失败:', err);
+      return null;
+    }
+  }, [fetchData]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return {
+    data,
+    loading,
+    error,
+    refetch: fetchData,
+    createGoal,
+  };
+}
+
+// ==================== useCheckIns Hook ====================
+
+/** 打卡记录数据 */
+export interface CheckInData {
+  id: string;
+  studentId: string;
+  studentGoalId?: string;
+  checkDate: string;
+  category: HabitCategory;
+  notes?: string;
+  checkedBy?: string;
+  checkedByType: 'parent' | 'student';
+  checkedByName?: string;
+  createdAt: string;
+}
+
+export interface UseCheckInsReturn {
+  data: CheckInData[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  checkIn: (params: {
+    studentId: string;
+    studentGoalId?: string;
+    checkDate?: string;
+    category: HabitCategory;
+    notes?: string;
+    checkedBy?: string;
+    checkedByType?: 'parent' | 'student';
+    checkedByName?: string;
+  }) => Promise<CheckInData | null>;
+  hasCheckedToday: (goalId: string) => boolean;
+}
+
+/**
+ * 打卡记录 Hook
+ */
+export function useCheckIns(studentId?: string, month?: string): UseCheckInsReturn {
+  const [data, setData] = useState<CheckInData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const fetchData = useCallback(async () => {
+    if (!studentId) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+      params.append('studentId', studentId);
+      if (month) params.append('month', month);
+
+      const response = await fetch(`/api/habit/check-ins?${params.toString()}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setData(result.data);
+      } else {
+        setData([]);
+      }
+    } catch (err) {
+      console.error('获取打卡记录失败:', err);
+      setError(err instanceof Error ? err.message : '获取打卡记录失败');
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [studentId, month]);
+
+  const checkIn = useCallback(async (params: {
+    studentId: string;
+    studentGoalId?: string;
+    checkDate?: string;
+    category: HabitCategory;
+    notes?: string;
+    checkedBy?: string;
+    checkedByType?: 'parent' | 'student';
+    checkedByName?: string;
+  }): Promise<CheckInData | null> => {
+    try {
+      const response = await fetch('/api/habit/check-ins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        await fetchData();
+        return result.data;
+      } else if (result.error) {
+        throw new Error(result.error);
+      }
+      return null;
+    } catch (err) {
+      console.error('打卡失败:', err);
+      throw err;
+    }
+  }, [fetchData]);
+
+  const hasCheckedToday = useCallback((goalId: string): boolean => {
+    return data.some(d => d.studentGoalId === goalId && d.checkDate === today);
+  }, [data, today]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return {
+    data,
+    loading,
+    error,
+    refetch: fetchData,
+    checkIn,
+    hasCheckedToday,
+  };
+}
+
 // ==================== 导出 ====================
 
 // 导出类别名称和颜色
@@ -553,4 +779,6 @@ export default {
   useHabitGoals,
   useHabitStars,
   useSchoolHabitStats,
+  useStudentGoals,
+  useCheckIns,
 };
