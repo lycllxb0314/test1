@@ -9,9 +9,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { getMergedPermissions } from '@/lib/auth/permissions';
+import type { AdministrativeRole, UserGroupMembership } from '@/types';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
+
+// 检查用户是否有德育管理权限（考虑群组权限）
+async function checkMoralAccess(
+  client: ReturnType<typeof getSupabaseClient>,
+  userId: string,
+  userRole: string
+): Promise<{ canManage: boolean; canView: boolean }> {
+  // 获取用户的兼任职务和群组信息
+  const { data: userData } = await client
+    .from('users')
+    .select('additional_roles, groups')
+    .eq('id', userId)
+    .single();
+  
+  const additionalRoles = (userData?.additional_roles as AdministrativeRole[]) || [];
+  const groups = (userData?.groups as UserGroupMembership[]) || [];
+  
+  // 使用统一的权限检查函数
+  const permissions = getMergedPermissions(
+    userRole as any,
+    additionalRoles,
+    groups
+  );
+  
+  const moralPermissions = permissions['moral'] || [];
+  
+  return {
+    canManage: moralPermissions.includes('admin') || moralPermissions.includes('manage') || moralPermissions.includes('edit'),
+    canView: moralPermissions.length > 0,
+  };
+}
 
 // GET: 获取活动详情
 export const GET = protectedRoute(async (
@@ -101,6 +134,13 @@ export const PUT = protectedRoute(async (
     }
     
     const client = getSupabaseClient();
+    
+    // 检查用户是否有德育管理权限
+    const { canManage } = await checkMoralAccess(client, context.user.id, context.user.role);
+    if (!canManage) {
+      return NextResponse.json({ success: false, error: '无权限编辑德育活动' }, { status: 403 });
+    }
+    
     const body = await request.json();
     
     const {
@@ -194,6 +234,12 @@ export const DELETE = protectedRoute(async (
     }
     
     const client = getSupabaseClient();
+    
+    // 检查用户是否有德育管理权限
+    const { canManage } = await checkMoralAccess(client, context.user.id, context.user.role);
+    if (!canManage) {
+      return NextResponse.json({ success: false, error: '无权限删除德育活动' }, { status: 403 });
+    }
     
     const { error } = await client
       .from('moral_activities')

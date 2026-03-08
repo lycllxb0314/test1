@@ -135,6 +135,7 @@ const academicNav: NavItem[] = [
 const moralNav: NavItem[] = [
   { name: '德育工作台', href: '/moral', icon: LayoutDashboard, description: '德育处工作台' },
   { name: '习惯养成', href: '/moral/habit', icon: Target, description: '八大习惯目标管理', badge: '新' },
+  { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '发布管理德育活动', badge: '新' },
 ];
 
 // 教师空间导航 - 基础功能（所有教师可见，待重建）
@@ -151,6 +152,7 @@ const teacherBaseNav: NavItem[] = [
 const headTeacherNav: NavItem[] = [
   { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息' },
   { name: '习惯养成', href: '/teacher/habit', icon: Target, description: '制定班级月度习惯目标', badge: '新' },
+  { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能（待重建）
@@ -163,6 +165,7 @@ const gradeLeaderNav: NavItem[] = [
   { name: '年级管理', href: '/teacher/grade', icon: Users, description: '年级教师学生管理' },
   { name: '调课管理', href: '/teacher/adjust', icon: CalendarClock, description: '处理年级调课申请', badge: '专属' },
   { name: '年级课表', href: '/teacher/grade-schedule', icon: Calendar, description: '查看年级课表' },
+  { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新' },
 ];
 
 // 家长端导航
