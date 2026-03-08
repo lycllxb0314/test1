@@ -1,60 +1,28 @@
 /**
- * 班级管理 API
+ * 班级列表 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
+ * GET /api/classes - 获取班级列表（支持分页、筛选）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  success, 
-  error, 
-  parseQueryParams, 
-  createPagination,
-  ErrorCode 
-} from '@/lib/api-route-utils';
 
-/**
- * GET - 获取班级列表
- * 
- * 查询参数：
- * - grade: 年级筛选
- * - search: 搜索关键词
- * - page: 页码
- * - pageSize: 每页数量
- * - groupByGrade: 是否按年级分组
- * - withTeachers: 是否包含教师详细信息
- */
+// 年级名称映射
+const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
+
 export async function GET(request: NextRequest) {
-  const params = parseQueryParams(request);
-  
   try {
     const client = getSupabaseClient();
+    const { searchParams } = new URL(request.url);
     
-    // 检查是否需要按年级分组
-    if (params.groupByGrade) {
-      const { data: allClasses, error: dbError } = await client
-        .from('classes')
-        .select('*')
-        .order('grade', { ascending: true })
-        .order('class_number', { ascending: true });
-      
-      if (dbError) {
-        return NextResponse.json(error('数据库查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-      }
-      
-      // 按年级分组
-      const grouped: Record<string, typeof allClasses> = {};
-      allClasses?.forEach(cls => {
-        const gradeName = cls.grade_name || `${cls.grade}年级`;
-        if (!grouped[gradeName]) {
-          grouped[gradeName] = [];
-        }
-        grouped[gradeName].push(cls);
-      });
-      
-      return NextResponse.json(success(grouped));
-    }
+    // 分页参数
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '200');
+    
+    // 筛选参数
+    const search = searchParams.get('search');
+    const grade = searchParams.get('grade');
+    const status = searchParams.get('status');
     
     // 构建查询
     let query = client
@@ -62,161 +30,103 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact' });
     
     // 应用筛选
-    if (params.grade && params.grade !== 'all') {
-      const gradeValue = typeof params.grade === 'number' ? params.grade : parseInt(String(params.grade));
-      if (!isNaN(gradeValue)) {
-        query = query.eq('grade', gradeValue);
-      }
+    if (search) {
+      query = query.ilike('name', `%${search}%`);
+    }
+    if (grade && grade !== 'all') {
+      query = query.eq('grade', parseInt(grade));
+    }
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
     }
     
-    // 应用搜索
-    if (params.search) {
-      query = query.or(`name.ilike.%${params.search}%,head_teacher_name.ilike.%${params.search}%`);
-    }
+    // 排序
+    query = query.order('grade').order('class_number');
     
     // 分页
-    const page = params.page || 1;
-    const pageSize = params.pageSize || 20;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
+    query = query.range(from, to);
     
-    query = query.range(from, to).order('grade', { ascending: true }).order('class_number', { ascending: true });
+    const { data, error, count } = await query;
     
-    const { data, error: dbError, count } = await query;
-    
-    if (dbError) {
-      return NextResponse.json(error('数据库查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    if (error) {
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+      }, { status: 500 });
     }
     
-    // 获取所有涉及的教师ID
-    const teacherIds = new Set<string>();
-    (data || []).forEach(cls => {
-      if (cls.head_teacher_id) teacherIds.add(cls.head_teacher_id);
-      if (cls.sub_teacher_id) teacherIds.add(cls.sub_teacher_id);
-    });
-    
-    // 查询教师信息
-    const { data: teachersData } = await client
-      .from('teachers')
-      .select('id, name, primary_subject, subjects, phone, gender, title')
-      .in('id', Array.from(teacherIds));
-    
-    // 构建教师映射
-    const teachersMap: Record<string, any> = {};
-    (teachersData || []).forEach(t => {
-      teachersMap[t.id] = t;
-    });
-    
-    // 转换下划线格式为驼峰格式，并附加教师详细信息
-    const formattedData = (data || []).map(cls => {
-      const headTeacher = cls.head_teacher_id ? teachersMap[cls.head_teacher_id] : null;
-      const subTeacher = cls.sub_teacher_id ? teachersMap[cls.sub_teacher_id] : null;
+    // 转换数据格式（下划线转驼峰）
+    const formattedData = (data || []).map(c => ({
+      id: c.id,
+      name: c.name,
+      grade: c.grade,
+      gradeName: c.grade_name || GRADE_NAMES[c.grade] || '',
+      classNumber: c.class_number,
       
-      return {
-        id: cls.id,
-        name: cls.name,
-        grade: cls.grade,
-        gradeName: cls.grade_name,
-        classNumber: cls.class_number,
-        headTeacherId: cls.head_teacher_id,
-        headTeacherName: cls.head_teacher_name,
-        // 班主任详细信息
-        headTeacher: headTeacher ? {
-          id: headTeacher.id,
-          name: headTeacher.name,
-          subject: headTeacher.primary_subject,
-          primarySubject: headTeacher.primary_subject,
-          subjects: headTeacher.subjects,
-          phone: headTeacher.phone,
-          gender: headTeacher.gender,
-          title: headTeacher.title,
-        } : undefined,
-        subTeacherId: cls.sub_teacher_id,
-        subTeacherName: cls.sub_teacher_name,
-        // 副班主任详细信息
-        subTeacher: subTeacher ? {
-          id: subTeacher.id,
-          name: subTeacher.name,
-          subject: subTeacher.primary_subject,
-          primarySubject: subTeacher.primary_subject,
-          subjects: subTeacher.subjects,
-          phone: subTeacher.phone,
-          gender: subTeacher.gender,
-          title: subTeacher.title,
-        } : undefined,
-        classroomId: cls.classroom_id,
-        classroomName: cls.classroom_name,
-        building: cls.building,
-        studentCount: cls.student_count || 0,
-        status: cls.status,
-        createdAt: cls.created_at,
-        updatedAt: cls.updated_at,
-      };
-    });
+      // 班主任
+      headTeacherId: c.head_teacher_id,
+      headTeacherName: c.head_teacher_name,
+      
+      // 科任（副班主任）
+      subTeacherId: c.sub_teacher_id,
+      subTeacherName: c.sub_teacher_name,
+      
+      // 学生统计
+      studentCount: c.student_count || 0,
+      maleStudentCount: c.male_student_count || 0,
+      femaleStudentCount: c.female_student_count || 0,
+      
+      // 教室信息
+      classroomId: c.classroom_id,
+      classroomName: c.classroom_name,
+      building: c.building,
+      floor: c.floor,
+      
+      // 状态
+      status: c.status || 'active',
+      
+      // 班级特色
+      motto: c.motto,
+      features: c.features,
+      
+      // 时间戳
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    }));
+    
+    // 计算统计数据
+    const statistics = {
+      totalClasses: count || 0,
+      activeClasses: formattedData.filter(c => c.status === 'active').length,
+      inactiveClasses: formattedData.filter(c => c.status !== 'active').length,
+      totalStudents: formattedData.reduce((sum, c) => sum + c.studentCount, 0),
+      classesWithSubTeacher: formattedData.filter(c => c.subTeacherId).length,
+      classesWithoutSubTeacher: formattedData.filter(c => !c.subTeacherId).length,
+      gradeDistribution: formattedData.reduce((acc, c) => {
+        acc[c.grade] = (acc[c.grade] || 0) + 1;
+        return acc;
+      }, {} as Record<number, number>),
+      avgStudentsPerClass: count ? Math.round(formattedData.reduce((sum, c) => sum + c.studentCount, 0) / count) : 0,
+    };
     
     return NextResponse.json({
       success: true,
       data: formattedData,
-      pagination: createPagination(count || 0, page, pageSize),
+      pagination: {
+        page,
+        pageSize,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / pageSize),
+      },
+      statistics,
     });
-  } catch (err) {
-    console.error('Failed to fetch classes:', err);
-    return NextResponse.json(error('获取班级列表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
-  }
-}
-
-/**
- * POST - 创建/更新班级
- */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const client = getSupabaseClient();
-    
-    if (body.action === 'update' && body.classId) {
-      // 更新班级
-      const { data, error: dbError } = await client
-        .from('classes')
-        .update({
-          ...body.data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', body.classId)
-        .select()
-        .single();
-      
-      if (dbError) {
-        return NextResponse.json(error('更新班级失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-      }
-      
-      return NextResponse.json(success(data));
-    }
-    
-    // 创建班级
-    const { data, error: dbError } = await client
-      .from('classes')
-      .insert({
-        id: body.id || `c${Date.now()}`,
-        name: body.name,
-        grade: body.grade,
-        grade_name: body.gradeName || `${body.grade}年级`,
-        class_number: body.classNumber,
-        head_teacher_id: body.headTeacherId,
-        head_teacher_name: body.headTeacherName,
-        classroom_id: body.classroomId,
-        classroom_name: body.classroomName,
-        building: body.building,
-      })
-      .select()
-      .single();
-    
-    if (dbError) {
-      return NextResponse.json(error('创建班级失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-    
-    return NextResponse.json(success(data));
-  } catch (err) {
-    console.error('Failed to create/update class:', err);
-    return NextResponse.json(error('操作失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  } catch (error) {
+    console.error('Failed to fetch classes:', error);
+    return NextResponse.json({
+      success: false,
+      error: '获取班级列表失败',
+    }, { status: 500 });
   }
 }
