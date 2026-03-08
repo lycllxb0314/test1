@@ -351,15 +351,32 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       
       console.log(`获取学生数据完成: ${allStudents.length}人`);
       
+      // 检查第一个学生的classId格式
+      if (allStudents.length > 0) {
+        const firstStudent = allStudents[0];
+        console.log('第一个学生数据:', {
+          id: firstStudent.id,
+          name: firstStudent.name,
+          classId: firstStudent.classId,
+          class_id: firstStudent.class_id,
+        });
+      }
+      
       // 构建学生映射（按班级分组）
+      // API返回驼峰格式，兼容两种格式
       const studentsByClass: Record<string, unknown[]> = {};
       allStudents.forEach((student: Record<string, unknown>) => {
-        const classId = student.class_id as string;
+        const classId = (student.classId as string) || (student.class_id as string);
         if (!studentsByClass[classId]) {
           studentsByClass[classId] = [];
         }
         studentsByClass[classId].push(student);
       });
+      
+      console.log('班级映射统计:', Object.entries(studentsByClass).map(([id, students]) => ({
+        classId: id,
+        count: students.length
+      })).slice(0, 5));
       
       // 构建教师映射
       const teachersMap: Record<string, Record<string, unknown>> = {};
@@ -372,13 +389,13 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
         (cls: Record<string, unknown>) => {
           const classStudents = (studentsByClass[cls.id as string] || []) as Record<string, unknown>[];
           
-          // 转换学生信息
+          // 转换学生信息（API返回驼峰格式，兼容两种格式）
           const students: StudentBasicInfo[] = classStudents.map((s) => ({
             id: s.id as string,
-            studentNo: s.student_no as string || '',
+            studentNo: (s.studentNo as string) || (s.student_no as string) || '',
             name: s.name as string,
             gender: (s.gender as 'male' | 'female') || 'male',
-            birthDate: s.birth_date as string,
+            birthDate: (s.birthDate as string) || (s.birth_date as string),
             status: (s.status as StudentBasicInfo['status']) || '在校',
             avatar: s.avatar as string,
             parents: (s.parents as Parent[]) || [],
@@ -496,6 +513,9 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
           };
         }
       );
+      
+      console.log(`班级聚合完成: ${classContainers.length}个班级`);
+      console.log(`第一个班级学生数: ${classContainers[0]?.students?.length || 0}`);
       
       setAllClasses(classContainers);
     } catch (err) {
