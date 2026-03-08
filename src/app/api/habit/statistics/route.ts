@@ -17,6 +17,49 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month');
     const academicYear = searchParams.get('academicYear');
     
+    // 构建查询条件
+    const buildGoalsQuery = () => {
+      let query = client
+        .from('habit_student_goals')
+        .select('status, approval_status', { count: 'exact' });
+      
+      if (classId) {
+        query = query.eq('class_id', classId);
+      }
+      if (month) {
+        query = query.eq('month', month);
+      }
+      if (academicYear) {
+        query = query.eq('academic_year', academicYear);
+      }
+      return query;
+    };
+    
+    const buildRecordsQuery = () => {
+      let query = client
+        .from('habit_daily_records')
+        .select('status', { count: 'exact' });
+      
+      if (studentId) {
+        query = query.eq('student_id', studentId);
+      }
+      if (month) {
+        query = query.eq('month', month);
+      }
+      return query;
+    };
+    
+    const buildStarsQuery = () => {
+      let query = client
+        .from('habit_stars')
+        .select('categories', { count: 'exact' });
+      
+      if (month) {
+        query = query.eq('month', month);
+      }
+      return query;
+    };
+    
     // 并行获取各项统计数据
     const [
       studentGoalsResult,
@@ -24,28 +67,9 @@ export async function GET(request: NextRequest) {
       starsResult,
       goalsByCategoryResult,
     ] = await Promise.all([
-      // 学生目标统计
-      client
-        .from('habit_student_goals')
-        .select('status, approval_status', { count: 'exact' })
-        .eq('class_id', classId || '')
-        .eq('month', month || ''),
-      
-      // 打卡记录统计
-      client
-        .from('habit_daily_records')
-        .select('status', { count: 'exact' })
-        .eq('student_id', studentId || '')
-        .eq('month', month || ''),
-      
-      // 习惯之星统计
-      client
-        .from('habit_stars')
-        .select('category', { count: 'exact' })
-        .eq('class_id', classId || '')
-        .eq('month', month || ''),
-      
-      // 各类别目标数量
+      buildGoalsQuery(),
+      buildRecordsQuery(),
+      buildStarsQuery(),
       client
         .from('habit_goal_templates')
         .select('category', { count: 'exact' }),
@@ -73,14 +97,18 @@ export async function GET(request: NextRequest) {
         : 0,
     };
     
-    // 处理习惯之星统计
+    // 处理习惯之星统计（categories是数组）
     const stars = starsResult.data || [];
     const starsStats = {
       total: stars.length,
       byCategory: {} as Record<string, number>,
     };
     stars.forEach(s => {
-      starsStats.byCategory[s.category] = (starsStats.byCategory[s.category] || 0) + 1;
+      if (s.categories && Array.isArray(s.categories)) {
+        s.categories.forEach((cat: string) => {
+          starsStats.byCategory[cat] = (starsStats.byCategory[cat] || 0) + 1;
+        });
+      }
     });
     
     // 处理目标库统计

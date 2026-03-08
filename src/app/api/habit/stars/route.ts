@@ -8,34 +8,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// 数据库返回类型
+// 数据库返回类型（匹配实际表结构）
 interface HabitStarRecord {
   id: string;
-  class_id: string;
   student_id: string;
   month: string;
-  academic_year: string;
-  category: string;
-  score: number | null;
-  rank: number | null;
-  nomination_reason: string | null;
-  photo_url: string | null;
-  approved_by: string | null;
+  categories: string[] | null;
+  total_score: number | null;
+  achievements: string | null;
+  grade: number | null;
   created_at: string;
-}
-
-// 请求数据类型
-interface StarRequest {
-  classId: string;
-  studentId: string;
-  month: string;
-  academicYear: string;
-  category: string;
-  score?: number;
-  rank?: number;
-  nominationReason?: string;
-  photoUrl?: string;
-  approvedBy?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -43,31 +25,23 @@ export async function GET(request: NextRequest) {
     const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     
-    const classId = searchParams.get('classId');
     const studentId = searchParams.get('studentId');
     const month = searchParams.get('month');
-    const academicYear = searchParams.get('academicYear');
-    const category = searchParams.get('category');
+    const grade = searchParams.get('grade');
     const limit = parseInt(searchParams.get('limit') || '50');
     
     let query = client
       .from('habit_stars')
       .select('*');
     
-    if (classId) {
-      query = query.eq('class_id', classId);
-    }
     if (studentId) {
       query = query.eq('student_id', studentId);
     }
     if (month) {
       query = query.eq('month', month);
     }
-    if (academicYear) {
-      query = query.eq('academic_year', academicYear);
-    }
-    if (category) {
-      query = query.eq('category', category);
+    if (grade) {
+      query = query.eq('grade', parseInt(grade));
     }
     
     query = query
@@ -80,20 +54,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
     
-    const formattedData = (data || []).map((s: HabitStarRecord) => ({
-      id: s.id,
-      classId: s.class_id,
-      studentId: s.student_id,
-      month: s.month,
-      academicYear: s.academic_year,
-      category: s.category,
-      score: s.score,
-      rank: s.rank,
-      nominationReason: s.nomination_reason,
-      photoUrl: s.photo_url,
-      approvedBy: s.approved_by,
-      createdAt: s.created_at,
-    }));
+    // 获取学生信息以关联班级
+    const studentIds = [...new Set((data || []).map((s: HabitStarRecord) => s.student_id))];
+    const { data: students } = await client
+      .from('students')
+      .select('id, name, class_id, class_name, grade')
+      .in('id', studentIds);
+    
+    const studentMap: Record<string, { name: string; classId: string; className: string; grade: number }> = {};
+    (students || []).forEach(s => {
+      studentMap[s.id] = {
+        name: s.name,
+        classId: s.class_id,
+        className: s.class_name,
+        grade: s.grade,
+      };
+    });
+    
+    const formattedData = (data || []).map((s: HabitStarRecord) => {
+      const student = studentMap[s.student_id] || {};
+      return {
+        id: s.id,
+        studentId: s.student_id,
+        studentName: student.name || '未知',
+        classId: student.classId || '',
+        className: student.className || '',
+        grade: student.grade || s.grade || 0,
+        month: s.month,
+        categories: s.categories || [],
+        score: s.total_score,
+        achievements: s.achievements,
+        createdAt: s.created_at,
+      };
+    });
     
     // 统计
     const statistics = {
@@ -103,8 +96,14 @@ export async function GET(request: NextRequest) {
     };
     
     formattedData.forEach(s => {
-      statistics.byCategory[s.category] = (statistics.byCategory[s.category] || 0) + 1;
-      statistics.byClass[s.classId] = (statistics.byClass[s.classId] || 0) + 1;
+      if (s.categories && Array.isArray(s.categories)) {
+        s.categories.forEach((cat: string) => {
+          statistics.byCategory[cat] = (statistics.byCategory[cat] || 0) + 1;
+        });
+      }
+      if (s.classId) {
+        statistics.byClass[s.classId] = (statistics.byClass[s.classId] || 0) + 1;
+      }
     });
     
     return NextResponse.json({
@@ -123,60 +122,67 @@ export async function POST(request: NextRequest) {
     const client = getSupabaseClient();
     const body = await request.json();
     
-    // 支持批量创建
-    const stars: StarRequest[] = Array.isArray(body.stars) ? body.stars : [body];
+    const { studentId, month, categories, score, achievements, grade } = body;
     
-    const insertData = stars.map((s: StarRequest) => ({
-      class_id: s.classId,
-      student_id: s.studentId,
-      month: s.month,
-      academic_year: s.academicYear,
-      category: s.category,
-      score: s.score || null,
-      rank: s.rank || null,
-      nomination_reason: s.nominationReason || null,
-      photo_url: s.photoUrl || null,
-      approved_by: s.approvedBy || null,
-    }));
+    if (!studentId || !month) {
+      return NextResponse.json({ 
+        success: false, 
+        error: '学生ID和月份为必填项' 
+      }, { status: 400 });
+    }
+    
+    // 获取学生信息
+    const { data: student } = await client
+      .from('students')
+      .select('id, name, grade')
+      .eq('id', studentId)
+      .single();
+    
+    if (!student) {
+      return NextResponse.json({ 
+        success: false, 
+        error: '学生不存在' 
+      }, { status: 400 });
+    }
     
     const { data, error } = await client
       .from('habit_stars')
-      .insert(insertData)
+      .insert({
+        id: `star_${studentId}_${month}`,
+        student_id: studentId,
+        month,
+        categories: categories || [],
+        total_score: score || null,
+        achievements: achievements || null,
+        grade: grade || student.grade,
+        created_at: new Date().toISOString(),
+      })
       .select();
     
     if (error) {
-      // 检查是否是重复创建
       if (error.code === '23505') {
         return NextResponse.json({ 
           success: false, 
-          error: '该学生本月已当选该类别的习惯之星' 
+          error: '该学生本月已是习惯之星' 
         }, { status: 400 });
       }
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
     
-    const formattedData = (data || []).map((s: HabitStarRecord) => ({
-      id: s.id,
-      classId: s.class_id,
-      studentId: s.student_id,
-      month: s.month,
-      academicYear: s.academic_year,
-      category: s.category,
-      score: s.score,
-      rank: s.rank,
-      nominationReason: s.nomination_reason,
-      photoUrl: s.photo_url,
-      approvedBy: s.approved_by,
-      createdAt: s.created_at,
-    }));
-    
     return NextResponse.json({
       success: true,
-      data: formattedData,
+      data: {
+        id: data[0].id,
+        studentId: data[0].student_id,
+        month: data[0].month,
+        categories: data[0].categories,
+        score: data[0].total_score,
+        achievements: data[0].achievements,
+      },
       message: '习惯之星评选成功',
     });
   } catch (error) {
-    console.error('Failed to create stars:', error);
+    console.error('Failed to create star:', error);
     return NextResponse.json({ success: false, error: '创建习惯之星失败' }, { status: 500 });
   }
 }

@@ -55,34 +55,49 @@ export async function GET(request: NextRequest) {
     const classIds = classes.map(c => c.id);
     
     // 并行获取各班级的统计数据
-    const [goalsResult, recordsResult, starsResult] = await Promise.all([
+    const [goalsResult, recordsResult, starsResult, goalTemplatesResult] = await Promise.all([
       // 各班级学生目标
       client
         .from('habit_student_goals')
-        .select('class_id, status, approval_status, category')
+        .select('id, class_id, status, approval_status, goal_template_id')
         .in('class_id', classIds)
         .eq('month', month),
       
       // 各班级打卡记录
       client
         .from('habit_daily_records')
-        .select('student_id, status, category')
+        .select('student_id, status')
         .eq('month', month),
       
-      // 各班级习惯之星
+      // 习惯之星（通过学生关联班级）
       client
         .from('habit_stars')
-        .select('class_id, category')
-        .in('class_id', classIds)
+        .select('student_id, categories')
         .eq('month', month),
+      
+      // 目标模板（用于获取类别）
+      client
+        .from('habit_goal_templates')
+        .select('id, category'),
     ]);
     
     const goals = goalsResult.data || [];
     const records = recordsResult.data || [];
     const stars = starsResult.data || [];
+    const goalTemplates = goalTemplatesResult.data || [];
+    
+    // 构建目标模板ID到类别的映射
+    const goalCategoryMap: Record<string, string> = {};
+    goalTemplates.forEach(gt => {
+      goalCategoryMap[gt.id] = gt.category;
+    });
     
     // 获取学生班级映射
-    const studentIds = [...new Set(records.map(r => r.student_id))];
+    const studentIds = [...new Set([
+      ...records.map(r => r.student_id),
+      ...stars.map(s => s.student_id),
+    ])];
+    
     const { data: students } = await client
       .from('students')
       .select('id, class_id')
@@ -124,9 +139,11 @@ export async function GET(request: NextRequest) {
         if (g.approval_status === 'approved') {
           classStatsMap[g.class_id].goalsApproved++;
         }
-        if (g.category) {
-          classStatsMap[g.class_id].goalsByCategory[g.category] = 
-            (classStatsMap[g.class_id].goalsByCategory[g.category] || 0) + 1;
+        // 通过目标模板获取类别
+        const category = g.goal_template_id ? goalCategoryMap[g.goal_template_id] : null;
+        if (category) {
+          classStatsMap[g.class_id].goalsByCategory[category] = 
+            (classStatsMap[g.class_id].goalsByCategory[category] || 0) + 1;
         }
       }
     });
@@ -145,11 +162,15 @@ export async function GET(request: NextRequest) {
     
     // 统计习惯之星
     stars.forEach(s => {
-      if (classStatsMap[s.class_id]) {
-        classStatsMap[s.class_id].starsCount++;
-        if (s.category) {
-          classStatsMap[s.class_id].starsByCategory[s.category] = 
-            (classStatsMap[s.class_id].starsByCategory[s.category] || 0) + 1;
+      const classId = studentClassMap[s.student_id];
+      if (classId && classStatsMap[classId]) {
+        classStatsMap[classId].starsCount++;
+        // categories是数组
+        if (s.categories && Array.isArray(s.categories)) {
+          s.categories.forEach((cat: string) => {
+            classStatsMap[classId].starsByCategory[cat] = 
+              (classStatsMap[classId].starsByCategory[cat] || 0) + 1;
+          });
         }
       }
     });
@@ -184,65 +205,12 @@ export async function GET(request: NextRequest) {
       };
     });
     
-    // 计算总体统计
-    const totalStats = {
-      totalClasses: classes.length,
-      totalStudents: classes.reduce((sum, c) => sum + (c.student_count || 0), 0),
-      totalGoals: goals.length,
-      totalRecords: records.length,
-      totalCompleted: records.filter(r => r.status === 'completed').length,
-      totalMissed: records.filter(r => r.status === 'missed').length,
-      totalStars: stars.length,
-      avgCompletionRate: 0,
-      byGrade: {} as Record<number, {
-        classCount: number;
-        studentCount: number;
-        goalsTotal: number;
-        completionRate: number;
-        starsCount: number;
-      }>,
-    };
-    
-    // 计算平均完成率
-    const rates = classStatistics.filter(c => c.habitStats.goalsTotal > 0).map(c => c.habitStats.completionRate);
-    totalStats.avgCompletionRate = rates.length > 0 
-      ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) 
-      : 0;
-    
-    // 按年级汇总
-    classStatistics.forEach(c => {
-      if (!totalStats.byGrade[c.grade]) {
-        totalStats.byGrade[c.grade] = {
-          classCount: 0,
-          studentCount: 0,
-          goalsTotal: 0,
-          completionRate: 0,
-          starsCount: 0,
-        };
-      }
-      totalStats.byGrade[c.grade].classCount++;
-      totalStats.byGrade[c.grade].studentCount += c.studentCount;
-      totalStats.byGrade[c.grade].goalsTotal += c.habitStats.goalsTotal;
-      totalStats.byGrade[c.grade].starsCount += c.habitStats.starsCount;
-    });
-    
-    // 计算各年级平均完成率
-    Object.keys(totalStats.byGrade).forEach(gradeKey => {
-      const gradeClasses = classStatistics.filter(c => c.grade === parseInt(gradeKey) && c.habitStats.goalsTotal > 0);
-      if (gradeClasses.length > 0) {
-        const avgRate = gradeClasses.reduce((sum, c) => sum + c.habitStats.completionRate, 0) / gradeClasses.length;
-        totalStats.byGrade[parseInt(gradeKey)].completionRate = Math.round(avgRate);
-      }
-    });
-    
     return NextResponse.json({
       success: true,
       data: classStatistics,
-      month,
-      statistics: totalStats,
     });
   } catch (error) {
     console.error('Failed to fetch class statistics:', error);
-    return NextResponse.json({ success: false, error: '获取班级统计数据失败' }, { status: 500 });
+    return NextResponse.json({ success: false, error: '获取班级统计失败' }, { status: 500 });
   }
 }

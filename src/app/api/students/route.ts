@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     const grade = searchParams.get('grade');
     const classId = searchParams.get('classId');
     const status = searchParams.get('status');
+    const teacherId = searchParams.get('teacherId');
     
     // 构建查询
     let query = client
@@ -42,6 +43,37 @@ export async function GET(request: NextRequest) {
     }
     if (status && status !== 'all') {
       query = query.eq('status', status);
+    }
+    
+    // 按班主任筛选：先查询该教师管理的班级，再筛选学生
+    if (teacherId && teacherId !== 'all') {
+      const { data: teacherClasses } = await client
+        .from('classes')
+        .select('id')
+        .eq('head_teacher_id', teacherId);
+      
+      const classIds = (teacherClasses || []).map(c => c.id);
+      if (classIds.length > 0) {
+        query = query.in('class_id', classIds);
+      } else {
+        // 如果该教师没有管理的班级，返回空数据
+        return NextResponse.json({
+          success: true,
+          data: [],
+          pagination: {
+            page,
+            pageSize,
+            total: 0,
+            totalPages: 0,
+          },
+          statistics: {
+            total: 0,
+            maleCount: 0,
+            femaleCount: 0,
+            classCount: 0,
+          },
+        });
+      }
     }
     
     // 排序（按年级、班级名称、学号）
