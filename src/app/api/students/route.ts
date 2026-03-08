@@ -45,16 +45,49 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
     
-    // 按班主任筛选：先查询该教师管理的班级，再筛选学生
+    // 按班主任筛选：需要处理多种ID格式
     if (teacherId && teacherId !== 'all') {
-      const { data: teacherClasses } = await client
+      // 先尝试直接用 teacherId 查询班级（格式如 t008）
+      let teacherClassIds: string[] = [];
+      
+      const { data: directClasses } = await client
         .from('classes')
         .select('id')
         .eq('head_teacher_id', teacherId);
       
-      const classIds = (teacherClasses || []).map(c => c.id);
-      if (classIds.length > 0) {
-        query = query.in('class_id', classIds);
+      if (directClasses && directClasses.length > 0) {
+        teacherClassIds = directClasses.map(c => c.id);
+      } else {
+        // 如果直接查询不到，尝试通过 users 表关联
+        // teacherId 可能是 users 表的 UUID，需要通过 employee_id 关联 teachers 表
+        const { data: userRecord } = await client
+          .from('users')
+          .select('employee_id')
+          .eq('id', teacherId)
+          .single();
+        
+        if (userRecord?.employee_id) {
+          // 通过 employee_id 找到 teachers 表中的记录
+          const { data: teacherRecord } = await client
+            .from('teachers')
+            .select('id')
+            .eq('employee_id', userRecord.employee_id)
+            .single();
+          
+          if (teacherRecord) {
+            // 用 teachers.id 查询班级
+            const { data: teacherClasses } = await client
+              .from('classes')
+              .select('id')
+              .eq('head_teacher_id', teacherRecord.id);
+            
+            teacherClassIds = (teacherClasses || []).map(c => c.id);
+          }
+        }
+      }
+      
+      if (teacherClassIds.length > 0) {
+        query = query.in('class_id', teacherClassIds);
       } else {
         // 如果该教师没有管理的班级，返回空数据
         return NextResponse.json({

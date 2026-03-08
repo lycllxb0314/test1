@@ -68,6 +68,7 @@ interface Student {
   id: string;
   name: string;
   studentNumber: string;
+  classId?: string;
   avatar?: string;
 }
 
@@ -175,7 +176,8 @@ export default function TeacherHabitPage() {
         setStudents(data.data.map((s: any) => ({
           id: s.id,
           name: s.name,
-          studentNumber: s.studentNumber,
+          studentNumber: s.studentNo || s.studentNumber || '',
+          classId: s.classId,
           avatar: s.avatar,
         })));
       }
@@ -299,8 +301,12 @@ export default function TeacherHabitPage() {
     try {
       const academicYear = currentMonth.slice(0, 4) + '-' + (parseInt(currentMonth.slice(0, 4)) + 1);
       
+      // 获取选中学生的班级ID（所有学生应该在同一个班级）
+      const firstStudent = students.find(s => s.id === selectedStudentIds[0]);
+      const classId = firstStudent?.classId || user?.classId || '';
+      
       const goalsData = selectedStudentIds.map(studentId => ({
-        classId: '',
+        classId,
         studentId,
         month: currentMonth,
         academicYear,
