@@ -123,7 +123,7 @@ const FIELD_TYPES = [
   { value: 'radio', label: '单选题', icon: Circle, description: '从选项中单选', category: 'basic' },
   { value: 'checkbox', label: '多选题', icon: CheckSquare, description: '可多选', category: 'basic' },
   { value: 'text', label: '填空题', icon: Type, description: '单行文本输入', category: 'basic' },
-  { value: 'textarea', label: '多行填空', icon: AlignLeft, description: '多行文本输入', category: 'basic' },
+  { value: 'textarea', label: '简答题', icon: AlignLeft, description: '多行文本输入', category: 'basic' },
   { value: 'select', label: '下拉题', icon: List, description: '下拉选择一项', category: 'basic' },
   
   // 评分题型
