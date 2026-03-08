@@ -233,41 +233,54 @@ async function sendActivityNotification(
   // 获取目标年级的班主任和年段长
   const gradeNames = targetGrades.map(g => GRADE_NAMES[g] || `${g}年级`);
   
-  // 查询目标用户
-  const { data: targetUsers } = await client
-    .from('users')
-    .select('id, role, additional_roles, class_id')
-    .or(`role.in.(${targetRoles.join(',')}),additional_roles.cs.[${targetRoles.map(r => `"${r}"`).join(',')}]`);
-  
-  if (!targetUsers || targetUsers.length === 0) return;
-  
-  // 筛选符合年级的用户
   const notifyUserIds: string[] = [];
   
-  for (const u of targetUsers) {
-    // 年段长检查
-    if (targetRoles.includes('grade_leader') && u.additional_roles?.includes('grade_leader')) {
-      // 这里需要查询年段长负责的年级
-      // 简化处理：通知所有年段长
-      notifyUserIds.push(u.id);
-    }
+  // 1. 查找目标年级的班主任
+  if (targetRoles.includes('head_teacher')) {
+    // 获取目标年级的班级
+    const { data: targetClasses } = await client
+      .from('classes')
+      .select('id')
+      .in('grade', targetGrades);
     
-    // 班主任检查
-    if (targetRoles.includes('head_teacher') && u.role === 'head_teacher' && u.class_id) {
-      const { data: classData } = await client
-        .from('classes')
-        .select('grade')
-        .eq('id', u.class_id)
-        .single();
+    if (targetClasses && targetClasses.length > 0) {
+      const classIds = targetClasses.map(c => c.id);
       
-      if (classData && targetGrades.includes(classData.grade)) {
-        notifyUserIds.push(u.id);
+      // 获取这些班级的班主任
+      const { data: headTeachers } = await client
+        .from('users')
+        .select('id')
+        .eq('role', 'head_teacher')
+        .in('class_id', classIds);
+      
+      if (headTeachers) {
+        headTeachers.forEach(t => notifyUserIds.push(t.id));
       }
     }
   }
   
+  // 2. 查找年段长（通知所有年段长，简化处理）
+  if (targetRoles.includes('grade_leader')) {
+    const { data: gradeLeaders } = await client
+      .from('users')
+      .select('id')
+      .contains('additional_roles', ['grade_leader']);
+    
+    if (gradeLeaders) {
+      gradeLeaders.forEach(u => notifyUserIds.push(u.id));
+    }
+  }
+  
+  if (notifyUserIds.length === 0) {
+    console.log('No target users found for activity notification');
+    return;
+  }
+  
+  // 去重
+  const uniqueUserIds = [...new Set(notifyUserIds)];
+  
   // 为每个用户创建消息
-  const messages = [...new Set(notifyUserIds)].map(userId => ({
+  const messages = uniqueUserIds.map(userId => ({
     title: `【德育活动】${title}`,
     content: `德育处发布了新的德育活动"${title}"，请及时查看${gradeNames.length > 0 ? `（涉及年级：${gradeNames.join('、')}）` : ''}`,
     type: 'activity',
@@ -283,7 +296,12 @@ async function sendActivityNotification(
   }));
   
   if (messages.length > 0) {
-    await client.from('messages').insert(messages);
+    const { error } = await client.from('messages').insert(messages);
+    if (error) {
+      console.error('Failed to insert messages:', error);
+    } else {
+      console.log(`Sent activity notification to ${messages.length} users`);
+    }
   }
 }
 
