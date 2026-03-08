@@ -138,14 +138,18 @@ export const POST = protectedRoute(async (
     }
 
     // 获取家长信息
-    const { data: parentData } = await client
+    const { data: parentData, error: parentError } = await client
       .from('parents')
       .select('id, student_id, name')
       .eq('account_id', context.user.id)
       .single();
 
+    if (parentError) {
+      console.error('[信息收集响应] 查询家长失败:', parentError);
+    }
+
     if (!parentData) {
-      return NextResponse.json({ success: false, error: '未找到家长信息' }, { status: 400 });
+      return NextResponse.json({ success: false, error: '未找到家长信息，请联系管理员确认账号绑定' }, { status: 400 });
     }
 
     // 检查是否已提交
@@ -195,15 +199,19 @@ export const POST = protectedRoute(async (
       });
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      console.error('[信息收集响应] 插入失败:', error);
+      return NextResponse.json({ success: false, error: `提交失败: ${error.message}` }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
       message: '提交成功',
     });
-  } catch (error) {
-    console.error('Failed to submit response:', error);
-    return NextResponse.json({ success: false, error: '提交失败' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[信息收集响应] 提交异常:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: `提交失败: ${error?.message || '未知错误'}` 
+    }, { status: 500 });
   }
 });
