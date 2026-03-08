@@ -19,28 +19,10 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    // 构建查询
+    // 构建查询 - 简化查询
     let query = client
       .from('habit_stars')
-      .select(`
-        id,
-        student_id,
-        month,
-        categories,
-        total_score,
-        achievements,
-        students (
-          id,
-          name,
-          student_number,
-          grade,
-          class_id,
-          classes (
-            id,
-            name
-          )
-        )
-      `)
+      .select('*')
       .order('total_score', { ascending: false })
       .limit(limit);
 
@@ -50,21 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (grade) {
-      // 需要通过学生表筛选年级
-      const { data: studentIds } = await client
-        .from('students')
-        .select('id')
-        .eq('grade', parseInt(grade));
-
-      const ids = (studentIds || []).map(s => s.id);
-      if (ids.length > 0) {
-        query = query.in('student_id', ids);
-      } else {
-        return NextResponse.json({
-          success: true,
-          data: [],
-        });
-      }
+      query = query.eq('grade', parseInt(grade));
     }
 
     if (category) {
@@ -77,23 +45,46 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    // 格式化返回数据
-    const formattedData = (data || []).map((star: any) => ({
-      id: star.id,
-      studentId: star.student_id,
-      studentName: star.students?.name || '',
-      studentNumber: star.students?.student_number || '',
-      grade: star.students?.grade || 0,
-      className: star.students?.classes?.name || '',
-      month: star.month,
-      categories: star.categories || [],
-      totalScore: star.total_score || 0,
-      achievements: star.achievements || '',
-    }));
+    // 如果有数据，获取学生信息补充
+    let enrichedData = data || [];
+    if (enrichedData.length > 0) {
+      // 获取所有学生ID
+      const studentIds = [...new Set(enrichedData.map(s => s.student_id).filter(Boolean))];
+      
+      if (studentIds.length > 0) {
+        // 查询学生信息
+        const { data: studentsData } = await client
+          .from('students')
+          .select('id, name, student_number, grade, class_id, class_name')
+          .in('id', studentIds);
+        
+        const studentMap = (studentsData || []).reduce((acc, s) => {
+          acc[s.id] = s;
+          return acc;
+        }, {} as Record<string, { name: string; student_number: string; grade: number; class_id: string; class_name: string }>);
+        
+        // 补充学生信息
+        enrichedData = enrichedData.map(star => {
+          const student = studentMap[star.student_id];
+          return {
+            id: star.id,
+            studentId: star.student_id,
+            studentName: student?.name || '',
+            studentNumber: student?.student_number || '',
+            grade: student?.grade || star.grade || 0,
+            className: student?.class_name || '',
+            month: star.month,
+            categories: star.categories || [],
+            totalScore: star.total_score || 0,
+            achievements: star.achievements || '',
+          };
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      data: formattedData,
+      data: enrichedData,
     });
   } catch (error) {
     console.error('Failed to fetch habit stars:', error);
@@ -112,7 +103,7 @@ export async function POST(request: NextRequest) {
     const client = getSupabaseClient();
     const body = await request.json();
 
-    const { studentId, month, categories, totalScore, achievements } = body;
+    const { studentId, month, categories, totalScore, achievements, grade } = body;
 
     const { data, error } = await client
       .from('habit_stars')
@@ -122,6 +113,7 @@ export async function POST(request: NextRequest) {
         categories,
         total_score: totalScore,
         achievements,
+        grade,
       })
       .select()
       .single();

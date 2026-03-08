@@ -21,32 +21,10 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
     const limit = parseInt(searchParams.get('limit') || '100');
 
-    // 构建查询
+    // 构建查询 - 简化查询，不使用嵌套
     let query = client
       .from('habit_assessments')
-      .select(`
-        id,
-        student_id,
-        category,
-        score,
-        evaluator_id,
-        evaluator_name,
-        evaluator_type,
-        context,
-        occurred_at,
-        notes,
-        students (
-          id,
-          name,
-          student_number,
-          grade,
-          class_id,
-          classes (
-            id,
-            name
-          )
-        )
-      `)
+      .select('*')
       .order('occurred_at', { ascending: false })
       .limit(limit);
 
@@ -73,26 +51,51 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    // 格式化返回数据
-    const formattedData = (data || []).map((assessment: any) => ({
-      id: assessment.id,
-      studentId: assessment.student_id,
-      studentName: assessment.students?.name || '',
-      grade: assessment.students?.grade || 0,
-      className: assessment.students?.classes?.name || '',
-      category: assessment.category,
-      score: assessment.score,
-      evaluatorId: assessment.evaluator_id,
-      evaluatorName: assessment.evaluator_name,
-      evaluatorType: assessment.evaluator_type,
-      context: assessment.context,
-      occurredAt: assessment.occurred_at,
-      notes: assessment.notes,
-    }));
+    // 如果有数据，获取学生信息补充
+    let enrichedData = data || [];
+    if (enrichedData.length > 0) {
+      // 获取所有学生ID
+      const studentIds = [...new Set(enrichedData.map(a => a.student_id).filter(Boolean))];
+      
+      if (studentIds.length > 0) {
+        // 查询学生信息
+        const { data: studentsData } = await client
+          .from('students')
+          .select('id, name, student_number, grade, class_id, class_name')
+          .in('id', studentIds);
+        
+        const studentMap = (studentsData || []).reduce((acc, s) => {
+          acc[s.id] = s;
+          return acc;
+        }, {} as Record<string, { name: string; student_number: string; grade: number; class_id: string; class_name: string }>);
+        
+        // 补充学生信息
+        enrichedData = enrichedData.map(assessment => {
+          const student = studentMap[assessment.student_id];
+          return {
+            id: assessment.id,
+            studentId: assessment.student_id,
+            studentName: student?.name || '',
+            studentNumber: student?.student_number || '',
+            grade: student?.grade || 0,
+            classId: student?.class_id || '',
+            className: student?.class_name || '',
+            category: assessment.category,
+            score: assessment.score,
+            evaluatorId: assessment.evaluator_id,
+            evaluatorName: assessment.evaluator_name,
+            evaluatorType: assessment.evaluator_type,
+            context: assessment.context,
+            occurredAt: assessment.occurred_at,
+            notes: assessment.notes,
+          };
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      data: formattedData,
+      data: enrichedData,
     });
   } catch (error) {
     console.error('Failed to fetch habit assessments:', error);

@@ -189,3 +189,32 @@ export {
   getGroupRegularMembers,
 } from './useGroups';
 export { GROUP_CONFIGS, type UserGroupMembership } from '@/types';
+
+// ==================== 德育习惯 Hook ====================
+
+export {
+  useHabitAssessments,
+  useHabitGoals,
+  useHabitStars,
+  useSchoolHabitStats,
+  // 类型
+  type HabitAssessmentData,
+  type HabitAssessmentFilters,
+  type HabitGoalData,
+  type HabitGoalFilters,
+  type HabitStarData,
+  type HabitStarFilters,
+  type CreateAssessmentParams,
+  type CreateGoalParams,
+  type CreateStarParams,
+  type HabitCategoryStat,
+  type GradeHabitStat,
+  type SchoolHabitStatsData,
+  type UseHabitAssessmentsReturn,
+  type UseHabitGoalsReturn,
+  type UseHabitStarsReturn,
+  type UseSchoolHabitStatsReturn,
+  // 常量
+  habitCategoryNames,
+  habitCategoryColors,
+} from './useHabitData';

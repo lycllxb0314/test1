@@ -44,9 +44,6 @@ import {
 } from '@/types';
 import {
   useSchoolHabitStats,
-  habitCategoryNames as hookCategoryNames,
-  habitCategoryColors as hookCategoryColors,
-  type HabitCategory as HookHabitCategory,
 } from '@/hooks/useHabitData';
 
 // 习惯类别图标映射
