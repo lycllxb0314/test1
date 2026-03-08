@@ -118,6 +118,21 @@ interface Response {
   submittedAt: string;
 }
 
+// 未提交学生类型
+interface NotSubmittedStudent {
+  studentId: string;
+  studentName: string;
+  parentId: string | null;
+  parentName: string;
+}
+
+// 统计类型
+interface ResponseStatistics {
+  total: number;
+  submitted: number;
+  notSubmitted: number;
+}
+
 // 字段类型配置（参考问卷星）
 const FIELD_TYPES = [
   // 基础题型
@@ -185,8 +200,13 @@ export default function InformationCollectionPage() {
   
   // 响应详情
   const [responses, setResponses] = useState<Response[]>([]);
+  const [notSubmitted, setNotSubmitted] = useState<NotSubmittedStudent[]>([]);
+  const [statistics, setStatistics] = useState<ResponseStatistics>({ total: 0, submitted: 0, notSubmitted: 0 });
   const [responseCollection, setResponseCollection] = useState<InformationCollection | null>(null);
   const [responsesLoading, setResponsesLoading] = useState(false);
+  
+  // 响应视图Tab
+  const [responseTab, setResponseTab] = useState<'submitted' | 'notSubmitted'>('submitted');
   
   // 字段拖拽状态
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -401,12 +421,15 @@ export default function InformationCollectionPage() {
     setResponseCollection(collection);
     setResponsesLoading(true);
     setView('responses');
+    setResponseTab('submitted');
     
     try {
       const res = await fetch(`/api/information-collections/${collection.id}/responses`);
       const data = await res.json();
       if (data.success) {
         setResponses(data.data);
+        setNotSubmitted(data.notSubmitted || []);
+        setStatistics(data.statistics || { total: 0, submitted: 0, notSubmitted: 0 });
       }
     } catch (error) {
       console.error('获取响应失败:', error);
@@ -1256,10 +1279,6 @@ export default function InformationCollectionPage() {
               导出数据
             </Button>
           )}
-          <Badge className="bg-emerald-100 text-emerald-700">
-            <Users className="h-3 w-3 mr-1" />
-            {responses.length} 人已提交
-          </Badge>
         </div>
       </div>
 
@@ -1268,67 +1287,158 @@ export default function InformationCollectionPage() {
         <Card className="border-0 shadow-lg bg-white mb-6">
           <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-green-500" />
           <CardContent className="p-5">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">{responseCollection.title}</h2>
-            {responseCollection.description && (
-              <p className="text-gray-600">{responseCollection.description}</p>
-            )}
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">{responseCollection.title}</h2>
+                {responseCollection.description && (
+                  <p className="text-gray-600">{responseCollection.description}</p>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* 响应列表 */}
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <Card className="border-0 shadow-sm bg-white">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-gray-700">{statistics.total}</div>
+            <div className="text-sm text-gray-500 mt-1">应提交人数</div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-green-50">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-emerald-600">{statistics.submitted}</div>
+            <div className="text-sm text-emerald-600/70 mt-1">已提交</div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-orange-50">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-amber-600">{statistics.notSubmitted}</div>
+            <div className="text-sm text-amber-600/70 mt-1">未提交</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tab 切换 */}
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant={responseTab === 'submitted' ? 'default' : 'outline'}
+          onClick={() => setResponseTab('submitted')}
+          className={cn(
+            "gap-2",
+            responseTab === 'submitted' 
+              ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
+              : "text-gray-600"
+          )}
+        >
+          <CheckCircle className="h-4 w-4" />
+          已提交 ({statistics.submitted})
+        </Button>
+        <Button
+          variant={responseTab === 'notSubmitted' ? 'default' : 'outline'}
+          onClick={() => setResponseTab('notSubmitted')}
+          className={cn(
+            "gap-2",
+            responseTab === 'notSubmitted' 
+              ? "bg-amber-500 hover:bg-amber-600 text-white" 
+              : "text-gray-600"
+          )}
+        >
+          <AlertCircle className="h-4 w-4" />
+          未提交 ({statistics.notSubmitted})
+        </Button>
+      </div>
+
+      {/* 加载状态 */}
       {responsesLoading ? (
         <Card className="border-0 shadow-lg bg-white/80">
           <CardContent className="p-12 text-center text-gray-500">
             加载中...
           </CardContent>
         </Card>
-      ) : responses.length === 0 ? (
-        <Card className="border-0 shadow-lg bg-white/80">
-          <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-              <Users className="h-8 w-8 text-gray-400" />
-            </div>
-            <p className="text-gray-500">暂无响应</p>
-            <p className="text-sm text-gray-400 mt-1">等待家长填写提交</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {responses.map(response => (
-            <Card key={response.id} className="border-0 shadow-lg bg-white overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-blue-600" />
+      ) : responseTab === 'submitted' ? (
+        // 已提交列表
+        responses.length === 0 ? (
+          <Card className="border-0 shadow-lg bg-white/80">
+            <CardContent className="p-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <Users className="h-8 w-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500">暂无响应</p>
+              <p className="text-sm text-gray-400 mt-1">等待家长填写提交</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {responses.map(response => (
+              <Card key={response.id} className="border-0 shadow-lg bg-white overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+                        <Users className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{response.studentName}</p>
+                        <p className="text-sm text-gray-500">{response.parentName}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{response.studentName}</p>
-                      <p className="text-sm text-gray-500">{response.parentName}</p>
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                      {new Date(response.submittedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="space-y-3 bg-gray-50 rounded-lg p-4">
+                    {responseCollection?.fields.map(field => (
+                      <div key={field.id} className="text-sm">
+                        <span className="text-gray-500 font-medium">{field.label}：</span>
+                        <span className="ml-2 text-gray-700">
+                          {Array.isArray(response.responses[field.id])
+                            ? (response.responses[field.id] as unknown as string[]).join('、')
+                            : String(response.responses[field.id] || '-')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : (
+        // 未提交列表
+        notSubmitted.length === 0 ? (
+          <Card className="border-0 shadow-lg bg-white/80">
+            <CardContent className="p-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-8 w-8 text-emerald-500" />
+              </div>
+              <p className="text-gray-500">全部已提交</p>
+              <p className="text-sm text-gray-400 mt-1">所有家长都已完成填写</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {notSubmitted.map((student, index) => (
+              <Card key={student.studentId || index} className="border-0 shadow-sm bg-white overflow-hidden">
+                <div className="h-1 bg-amber-400" />
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{student.studentName}</p>
+                      <p className="text-xs text-gray-500 truncate">家长：{student.parentName}</p>
                     </div>
                   </div>
-                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
-                    {new Date(response.submittedAt).toLocaleString()}
-                  </span>
-                </div>
-                <div className="space-y-3 bg-gray-50 rounded-lg p-4">
-                  {responseCollection?.fields.map(field => (
-                    <div key={field.id} className="text-sm">
-                      <span className="text-gray-500 font-medium">{field.label}：</span>
-                      <span className="ml-2 text-gray-700">
-                        {Array.isArray(response.responses[field.id])
-                          ? (response.responses[field.id] as unknown as string[]).join('、')
-                          : String(response.responses[field.id] || '-')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
       )}
     </div>
   );

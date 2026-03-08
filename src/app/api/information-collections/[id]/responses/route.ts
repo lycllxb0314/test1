@@ -60,15 +60,43 @@ export const GET = protectedRoute(async (
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    // 获取学生信息
-    const studentIds = responses?.map(r => r.student_id).filter(Boolean) || [];
+    // 获取已提交的学生ID
+    const submittedStudentIds = new Set((responses || []).map(r => r.student_id).filter(Boolean));
+
+    // 获取班级所有学生
+    const { data: allStudents } = await client
+      .from('students')
+      .select('id, name, class_id')
+      .eq('class_id', collection.class_id);
+
+    // 获取班级所有家长
+    const { data: allParents } = await client
+      .from('parents')
+      .select('id, name, student_id, is_primary')
+      .eq('class_id', collection.class_id);
+
+    // 构建学生-家长映射
+    const studentParentMap = new Map<string, { parentId: string; parentName: string; isPrimary: boolean }[]>();
+    (allParents || []).forEach(p => {
+      if (!studentParentMap.has(p.student_id)) {
+        studentParentMap.set(p.student_id, []);
+      }
+      studentParentMap.get(p.student_id)!.push({
+        parentId: p.id,
+        parentName: p.name,
+        isPrimary: p.is_primary || false,
+      });
+    });
+
+    // 获取已提交学生的详细信息
+    const studentIds = (responses || []).map(r => r.student_id).filter(Boolean);
     const { data: students } = studentIds.length > 0 
       ? await client.from('students').select('id, name').in('id', studentIds)
       : { data: [] };
 
     const studentMap = new Map((students || []).map(s => [s.id, s.name]));
 
-    // 格式化响应
+    // 格式化已提交响应
     const formattedResponses = (responses || []).map(r => ({
       id: r.id,
       collectionId: r.collection_id,
@@ -81,9 +109,29 @@ export const GET = protectedRoute(async (
       createdAt: r.created_at,
     }));
 
+    // 找出未提交的学生
+    const notSubmitted = (allStudents || [])
+      .filter(s => !submittedStudentIds.has(s.id))
+      .map(s => {
+        const parents = studentParentMap.get(s.id) || [];
+        const primaryParent = parents.find(p => p.isPrimary) || parents[0];
+        return {
+          studentId: s.id,
+          studentName: s.name,
+          parentId: primaryParent?.parentId || null,
+          parentName: primaryParent?.parentName || '未绑定家长',
+        };
+      });
+
     return NextResponse.json({
       success: true,
       data: formattedResponses,
+      notSubmitted,
+      statistics: {
+        total: (allStudents || []).length,
+        submitted: formattedResponses.length,
+        notSubmitted: notSubmitted.length,
+      },
       collection: {
         id: collection.id,
         title: collection.title,
