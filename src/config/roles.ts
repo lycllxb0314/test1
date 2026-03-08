@@ -66,7 +66,7 @@ export const roleConfigs: Record<UserRole, RoleConfig> = {
     id: 'head_teacher',
     name: '班主任',
     description: '班级管理教师，拥有班主任工作系统权限',
-    modules: ['teacher', 'moral'],
+    modules: ['teacher'],
     permissions: ['view', 'edit', 'manage', 'admin'],
     avatar: '👩‍🏫',
   },
@@ -130,7 +130,7 @@ export const administrativeRoleConfigs: Record<AdministrativeRole, Administrativ
     id: 'grade_leader',
     name: '年段长',
     description: '年级段负责人，负责本年级调课安排、教师请假协调',
-    modules: ['teacher', 'academic'],
+    modules: ['teacher'],
     permissions: ['view', 'edit', 'approve'],
     avatar: '👨‍🏫',
     specialPermissions: {
