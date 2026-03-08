@@ -18,7 +18,7 @@ import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 /**
  * 获取学生统计数据
  */
-async function getStudentStatistics(client: ReturnType<typeof getSupabaseClient>, params: ReturnType<typeof parseQueryParams>) {
+async function getStudentStatistics(client: ReturnType<typeof getSupabaseClient>, params: ReturnType<typeof parseQueryParams>, totalCount?: number) {
   // 构建基础查询条件（与主查询相同）
   let baseQuery = client.from('students').select('gender', { count: 'exact', head: true });
   
@@ -54,6 +54,7 @@ async function getStudentStatistics(client: ReturnType<typeof getSupabaseClient>
     .select('*', { count: 'exact', head: true });
   
   return {
+    total: totalCount || 0,  // 使用主查询的总数
     maleCount: maleCount || 0,
     femaleCount: femaleCount || 0,
     classCount: classCount || 0,
@@ -164,7 +165,7 @@ const handleGetStudents = async (request: NextRequest, { user }: ExtendedRouteCo
       success: true,
       data: enrichedData,
       pagination: createPagination(count || 0, page, pageSize),
-      statistics: await getStudentStatistics(client, params),
+      statistics: await getStudentStatistics(client, params, count || 0),
     });
   } catch (err) {
     console.error('Failed to fetch students:', err);

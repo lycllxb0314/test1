@@ -231,6 +231,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   
   // API返回的统计数据
   const [apiStatistics, setApiStatistics] = useState<{
+    total: number;
     maleCount: number;
     femaleCount: number;
     classCount: number;
@@ -259,7 +260,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     });
     
     return {
-      total: allStudents.length, // 使用全部数据长度作为总数
+      total: apiStatistics?.total ?? allStudents.length, // 优先使用API返回的全局总数
       maleCount: apiStatistics?.maleCount ?? allStudents.filter(s => s.gender === 'male').length,
       femaleCount: apiStatistics?.femaleCount ?? allStudents.filter(s => s.gender === 'female').length,
       classCount: apiStatistics?.classCount ?? new Set(allStudents.map(s => s.classId)).size,
@@ -270,7 +271,8 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   }, [allStudents, apiStatistics]);
   
   // === 前端分页计算 ===
-  const total = allStudents.length;
+  // 使用 API 返回的全局总数进行统计显示，但分页基于实际获取的数据
+  const total = apiStatistics?.total ?? allStudents.length;
   const totalPages = Math.ceil(total / pageSize);
   
   // 当前页数据
