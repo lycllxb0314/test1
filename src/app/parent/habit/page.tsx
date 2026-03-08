@@ -182,6 +182,21 @@ export default function ParentHabitPage() {
   const fetchChildren = async () => {
     setChildrenLoading(true);
     try {
+      // 优先使用登录时获取的子女信息
+      if (user?.children && user.children.length > 0) {
+        const childrenData = user.children.map(c => ({
+          id: c.id,
+          name: c.name,
+          studentNumber: '',
+          className: c.className,
+        }));
+        setChildren(childrenData);
+        setSelectedChild(childrenData[0]);
+        setChildrenLoading(false);
+        return;
+      }
+      
+      // 如果登录信息中没有，尝试从 API 获取
       const res = await fetch(`/api/parents/user/${user?.id}/children`);
       const data = await res.json();
       if (data.success && data.children?.length > 0) {

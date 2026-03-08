@@ -47,24 +47,33 @@ const handleGetChildren = async (
       return NextResponse.json(error('用户不存在', ErrorCode.NOT_FOUND), { status: 404 });
     }
 
-    // 优先使用user_id或account_id字段，如果没有则用phone
-    // 先尝试用user_id或account_id查询
-    const { data: parentsByUserId } = await client
+    // 优先使用account_id字段查询，如果没有则用phone
+    // account_id 是开通账号时设置的关联字段
+    const { data: parentsByAccountId, error: queryError } = await client
       .from('parents')
-      .select('id, student_id, student_name, class_id, class_name, is_primary, relation, relation_name, user_id, account_id')
-      .or(`user_id.eq.${userId},account_id.eq.${userId}`)
+      .select('id, student_id, student_name, class_id, class_name, is_primary, relation, relation_name, account_id, phone')
+      .eq('account_id', userId)
       .eq('status', 'active');
 
-    let parentRecords = parentsByUserId;
+    if (queryError) {
+      console.error('Query parents by account_id error:', queryError);
+    }
 
-    // 如果通过user_id/account_id没找到，尝试通过phone查询
+    let parentRecords = parentsByAccountId;
+
+    // 如果通过account_id没找到，尝试通过phone查询
     if (!parentRecords || parentRecords.length === 0) {
       if (userRecord.phone) {
-        const { data: parentsByPhone } = await client
+        const { data: parentsByPhone, error: phoneQueryError } = await client
           .from('parents')
-          .select('id, student_id, student_name, class_id, class_name, is_primary, relation, relation_name, user_id, account_id')
+          .select('id, student_id, student_name, class_id, class_name, is_primary, relation, relation_name, account_id, phone')
           .eq('phone', userRecord.phone)
           .eq('status', 'active');
+        
+        if (phoneQueryError) {
+          console.error('Query parents by phone error:', phoneQueryError);
+        }
+        
         parentRecords = parentsByPhone;
       }
     }

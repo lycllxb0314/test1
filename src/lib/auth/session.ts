@@ -128,6 +128,25 @@ export async function login(
     additionalRoles: dbUser.additional_roles as AdministrativeRole[] | undefined,
   };
 
+  // 4.5 如果是家长，查询子女信息
+  if (dbUser.role === 'parent' && dbUser.phone) {
+    // 通过 phone 查询 parents 表获取子女信息
+    const { data: parentRecords } = await client
+      .from('parents')
+      .select('student_id, student_name, class_id, class_name')
+      .eq('phone', dbUser.phone)
+      .eq('status', 'active');
+    
+    if (parentRecords && parentRecords.length > 0) {
+      user.children = parentRecords.map(p => ({
+        id: p.student_id,
+        name: p.student_name,
+        classId: p.class_id,
+        className: p.class_name,
+      }));
+    }
+  }
+
   // 5. 如果是科任教师，查询其负责的班级
   if (dbUser.role === 'subject_teacher' && dbUser.employee_id) {
     // 通过 employee_id 从 teachers 表获取教师 ID
@@ -259,6 +278,24 @@ export async function validateSession(
     additionalRoles: data.additional_roles,
     employeeId: data.employee_id,
   };
+
+  // 如果是家长，查询子女信息
+  if (data.role === 'parent' && data.phone) {
+    const { data: parentRecords } = await client
+      .from('parents')
+      .select('student_id, student_name, class_id, class_name')
+      .eq('phone', data.phone)
+      .eq('status', 'active');
+    
+    if (parentRecords && parentRecords.length > 0) {
+      user.children = parentRecords.map(p => ({
+        id: p.student_id,
+        name: p.student_name,
+        classId: p.class_id,
+        className: p.class_name,
+      }));
+    }
+  }
 
   // 如果是科任教师，通过 employee_id 关联 teachers 表查询其负责的班级
   if (data.role === 'subject_teacher' && data.employee_id) {
