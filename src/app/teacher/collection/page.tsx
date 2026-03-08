@@ -76,7 +76,7 @@ import { useAuth } from '@/contexts/AuthContext';
 // 表单字段类型（参考问卷星）
 interface FormField {
   id: string;
-  type: 'radio' | 'checkbox' | 'text' | 'textarea' | 'select' | 'date' | 'time' | 'datetime' | 'number' | 'rating' | 'scale' | 'phone' | 'idcard' | 'file' | 'image_select';
+  type: 'radio' | 'checkbox' | 'text' | 'textarea' | 'date' | 'time' | 'datetime' | 'number' | 'rating' | 'scale' | 'phone' | 'idcard' | 'file' | 'image_select';
   label: string;
   required: boolean;
   placeholder?: string;
@@ -120,11 +120,10 @@ interface Response {
 // 字段类型配置（参考问卷星）
 const FIELD_TYPES = [
   // 基础题型
-  { value: 'radio', label: '单选题', icon: Circle, description: '从选项中单选', category: 'basic' },
+  { value: 'radio', label: '单选题', icon: Circle, description: '选项少时平铺，多时下拉', category: 'basic' },
   { value: 'checkbox', label: '多选题', icon: CheckSquare, description: '可多选', category: 'basic' },
   { value: 'text', label: '填空题', icon: Type, description: '单行文本输入', category: 'basic' },
   { value: 'textarea', label: '简答题', icon: AlignLeft, description: '多行文本输入', category: 'basic' },
-  { value: 'select', label: '下拉题', icon: List, description: '下拉选择一项', category: 'basic' },
   
   // 评分题型
   { value: 'rating', label: '评分题', icon: Star, description: '星级评分', category: 'rating' },
@@ -256,7 +255,7 @@ export default function InformationCollectionPage() {
       required: false,
       placeholder: '',
       // 选项类字段默认选项
-      options: ['radio', 'checkbox', 'select', 'image_select'].includes(type) ? ['选项1', '选项2'] : undefined,
+      options: ['radio', 'checkbox', 'image_select'].includes(type) ? ['选项1', '选项2'] : undefined,
       // 评分题默认配置
       maxRating: type === 'rating' ? 5 : undefined,
       // 量表题默认配置
@@ -756,19 +755,25 @@ export default function InformationCollectionPage() {
                           </div>
                         )}
                         
-                        {/* 单选/下拉字段 */}
-                        {(field.type === 'select' || field.type === 'radio') && field.options && (
-                          <div className="space-y-2">
-                            {field.options.map((opt, i) => (
-                              <div key={i} className="flex items-center gap-2">
-                                <div className={cn(
-                                  "h-4 w-4 border-2 border-gray-300",
-                                  field.type === 'select' ? 'rounded' : 'rounded-full'
-                                )} />
-                                <span className="text-sm text-gray-600">{opt}</span>
-                              </div>
-                            ))}
-                          </div>
+                        {/* 单选字段：选项少平铺，多则下拉 */}
+                        {field.type === 'radio' && field.options && (
+                          field.options.length <= 5 ? (
+                            // 选项少：平铺展示
+                            <div className="space-y-2">
+                              {field.options.map((opt, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                  <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                                  <span className="text-sm text-gray-600">{opt}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            // 选项多：下拉样式
+                            <div className="h-10 w-full max-w-xs bg-gray-100 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-between px-3">
+                              <span className="text-sm text-gray-400">请选择</span>
+                              <ChevronDown className="h-4 w-4 text-gray-400" />
+                            </div>
+                          )
                         )}
                         
                         {/* 多选字段 */}
@@ -1037,7 +1042,7 @@ export default function InformationCollectionPage() {
                         </div>
 
                         {/* 选项类字段配置 */}
-                        {['select', 'radio', 'checkbox', 'image_select'].includes(field.type) && (
+                        {['radio', 'checkbox', 'image_select'].includes(field.type) && (
                           <div className="mt-3">
                             <Label className="text-xs text-gray-500 mb-1 block">选项（每行一个）</Label>
                             <Textarea
