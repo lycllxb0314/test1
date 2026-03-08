@@ -70,6 +70,14 @@ interface TeacherInfo {
     classes: string[];
     subjects: string[];
   }[];
+  // 时段冲突信息
+  hasSlotConflict?: boolean;
+  slotConflict?: {
+    className: string;
+    subject: string;
+    grade: number;
+    gradeName: string;
+  } | null;
 }
 
 interface SubjectGroup {
@@ -214,11 +222,16 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       });
   }, [loadGradeSchedule]);
 
-  // 加载教师列表
-  const loadTeachers = async () => {
+  // 加载教师列表（带时段冲突检测）
+  const loadTeachers = async (weekDay?: number, periodIndex?: number, classId?: string) => {
     setLoadingTeachers(true);
     try {
-      const res = await fetch(`/api/academic/manual-schedule/teachers?grade=${grade}`);
+      const params = new URLSearchParams({ grade: String(grade) });
+      if (weekDay !== undefined) params.append('weekDay', String(weekDay));
+      if (periodIndex !== undefined) params.append('periodIndex', String(periodIndex));
+      if (classId) params.append('classId', classId);
+      
+      const res = await fetch(`/api/academic/manual-schedule/teachers?${params.toString()}`);
       const data = await res.json();
       
       if (data.success) {
@@ -305,7 +318,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     setSearchQuery('');
     setSelectedSubject(slot?.subject || '');
     setDialogOpen(true);
-    loadTeachers();
+    // 传递时段参数进行冲突检测
+    loadTeachers(weekDay + 1, periodIndex, cls.id);  // weekDay + 1 因为前端从0开始，后端从1开始
   };
 
   // 选择教师
@@ -1180,6 +1194,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                         const isClassSubjectTeacher = classTeachersForSubject.some(t => t.id === teacher.id);
                         // 获取跨年级任职信息（排除当前年级）
                         const otherGradeAssignments = (teacher.gradeAssignments || []).filter(g => g.grade !== grade);
+                        // 时段冲突
+                        const hasConflict = teacher.hasSlotConflict;
                         
                         return (
                           <button
@@ -1189,6 +1205,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                             className={`w-full p-4 text-left transition-all duration-200 rounded-xl flex flex-col gap-3 ${
                               isDisabled 
                                 ? 'opacity-40 cursor-not-allowed bg-stone-100 border border-stone-200' 
+                                : hasConflict
+                                ? 'bg-red-50 hover:bg-red-100 border-2 border-red-300 hover:border-red-400'
                                 : 'bg-white hover:bg-amber-50 hover:shadow-md border border-stone-200 hover:border-amber-300'
                             }`}
                           >
@@ -1200,6 +1218,9 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                                 <div className="min-w-0 flex-1">
                                   <div className="text-base font-bold text-stone-800 flex items-center gap-2 truncate">
                                     {teacher.name}
+                                    {hasConflict && (
+                                      <span className="text-xs font-semibold text-white bg-gradient-to-r from-red-500 to-rose-500 px-2 py-0.5 rounded-full shrink-0">冲突</span>
+                                    )}
                                     {isThisClassTeacher && (
                                       <span className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded-full shrink-0">本班</span>
                                     )}
@@ -1222,6 +1243,14 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                                 <div className={`w-2 h-8 rounded-full ${teacher.remainingHours > 0 ? 'bg-green-400' : 'bg-red-300'}`} />
                               </div>
                             </div>
+                            {/* 时段冲突提示 */}
+                            {teacher.hasSlotConflict && teacher.slotConflict && (
+                              <div className="flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-200">
+                                <span className="text-xs font-medium text-red-600">
+                                  ⚠️ 该时段已在 {teacher.slotConflict.gradeName} {teacher.slotConflict.className} 安排了 {teacher.slotConflict.subject} 课
+                                </span>
+                              </div>
+                            )}
                             {/* 跨年级任职信息 */}
                             {otherGradeAssignments.length > 0 && (
                               <div className="flex flex-wrap gap-1.5 pt-2 border-t border-stone-100">

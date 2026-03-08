@@ -33,6 +33,10 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const grade = parseInt(searchParams.get('grade') || '1');
     const classId = searchParams.get('classId') || '';
     
+    // 新增：获取当前时段参数（用于冲突检测）
+    const weekDay = searchParams.get('weekDay') ? parseInt(searchParams.get('weekDay')!) : null;
+    const periodIndex = searchParams.get('periodIndex') ? parseInt(searchParams.get('periodIndex')!) : null;
+    
     // 获取班级信息（班主任、副班主任）
     let classInfo: { headTeacherId: string | null; subTeacherId: string | null; headTeacherSubject: string | null; subTeacherSubject: string | null } | null = null;
     
@@ -69,6 +73,28 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     
     if (teachersError) {
       return NextResponse.json(error('获取教师失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    }
+    
+    // 查询教师在指定时段的课程安排（用于冲突检测）
+    const teacherSlotConflict = new Map<string, { className: string; subject: string; grade: number }>();
+    
+    if (weekDay !== null && periodIndex !== null) {
+      const { data: conflictSlots } = await client
+        .from('schedule_slots')
+        .select('teacher_id, class_name, subject, grade, class_id')
+        .eq('week_day', weekDay)
+        .eq('period_index', periodIndex)
+        .neq('class_id', classId);  // 排除当前班级
+      
+      conflictSlots?.forEach(s => {
+        if (s.teacher_id) {
+          teacherSlotConflict.set(s.teacher_id, {
+            className: s.class_name,
+            subject: s.subject,
+            grade: s.grade,
+          });
+        }
+      });
     }
     
     // 获取所有班级的班主任映射
@@ -147,6 +173,9 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         gradeAssignments.sort((a, b) => a.grade - b.grade);
       }
       
+      // 获取该教师的时段冲突信息
+      const slotConflict = teacherSlotConflict.get(t.id);
+      
       const teacherInfo = {
         id: t.id,
         name: t.name,
@@ -158,6 +187,14 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         isClassHeadTeacher,  // 是否是当前班级的班主任
         isClassSubTeacher,   // 是否是当前班级的副班主任
         gradeAssignments,    // 跨年级任职信息
+        // 新增：时段冲突信息
+        hasSlotConflict: !!slotConflict,
+        slotConflict: slotConflict ? {
+          className: slotConflict.className,
+          subject: slotConflict.subject,
+          grade: slotConflict.grade,
+          gradeName: `${GRADE_CHINESE[slotConflict.grade]}年级`,
+        } : null,
       };
       
       if (!teachersBySubject.has(t.primary_subject)) {
