@@ -17,6 +17,15 @@ const MALE_NAMES = ['伟', '强', '磊', '洋', '勇', '军', '杰', '涛', '明
 // 女性名字
 const FEMALE_NAMES = ['芳', '娜', '敏', '静', '丽', '艳', '燕', '玲', '婷', '霞', '红', '华', '梅', '萍', '娟', '莉', '琳', '雪', '云', '秀', '英', '慧', '佳', '欣', '怡', '洁', '颖', '蕾', '倩', '璐'];
 
+// 生成 UUID v4
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 // 随机选择数组元素
 function randomChoice<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -363,7 +372,7 @@ export async function POST() {
           const parentName = generateName(parentGender);
           
           parents.push({
-            id: `p${studentIndex}_${p}`,
+            id: generateUUID(),  // 使用 UUID 格式
             name: parentName,
             relationship: relationship,
             phone: randomPhone(),
