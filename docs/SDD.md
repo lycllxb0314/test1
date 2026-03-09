@@ -1,20 +1,14 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v3.1  
-**编制日期**: 2024年3月  
+**文档版本**: v4.0  
+**编制日期**: 2026年3月  
 **编制单位**: 智慧校园项目组
 
 **版本历史**:
-- v3.1 (2024-03): **手动排课系统重构**：移除复杂智能排课算法，改为教务主任手动排课模式；新增右键复制粘贴功能；实现教师选择规则引擎（语文/数学/科学等科目规则）；新增课时参考悬浮窗；优化班级课表面板布局
-- v3.0 (2024-03): **数据孤岛彻底整改**：移除所有API层Mock fallback，Supabase成为唯一数据源；建立数据库迁移机制；更新API实现规范，禁止Mock回退；新增数据库唯一数据源验收标准
-- v2.0 (2024-03): 数据孤岛全面整改，消除页面内mock数据，建立统一API数据获取规范
-- v1.9 (2024-01): 数据孤岛整改方案，建立统一Mock数据源(master-data.ts)，修复班级-年级-班主任映射不一致、课表ID格式冲突等问题，新增4.3节Mock数据架构说明
-- v1.8 (2024-01): 全面更新验收准则模块，按系统分类细化功能验收清单，新增高并发验收、API接口验收、数据完整性验收、验收流程等章节
-- v1.7 (2024-01): 深度核对文档与实际系统实现一致性，修正页面数量、目录结构、API接口清单
-- v1.6 (2024-01): 完成数据接口与 Hooks 架构整改，统一类型定义，优化 API 客户端
-- v1.5 (2024-01): 补充学生详情页重构方案，完善综合素质 Tab 设计
-- v1.4 (2024-01): 新增德育系统模块重构方案，补充 SDD 文档 5.16 章节 Hooks 说明
+- v4.0 (2026-03): **全面重构**：根据实际代码结构重写技术架构，详细描述各子系统实现细节
+- v3.1 (2024-03): 手动排课系统重构
+- v3.0 (2024-03): 数据孤岛整改
 
 ---
 
@@ -25,10 +19,11 @@
 3. [模块设计](#3-模块设计)
 4. [数据设计](#4-数据设计)
 5. [接口设计](#5-接口设计)
-6. [部署设计](#6-部署设计)
-7. [设计约束](#7-设计约束)
-8. [验收准则](#8-验收准则)
-9. [附录](#9-附录)
+6. [认证授权设计](#6-认证授权设计)
+7. [部署设计](#7-部署设计)
+8. [设计约束](#8-设计约束)
+9. [验收准则](#9-验收准则)
+10. [附录](#10-附录)
 
 ---
 
@@ -40,33 +35,36 @@
 - 为开发团队提供详细的技术实现指南
 - 为测试团队提供验收测试依据
 - 为运维团队提供部署维护参考
-- 为甲方提供系统设计审阅材料
+- 记录系统的完整技术架构和实现细节
 
 ### 1.2 项目背景
 
-龙岩师范附属小学是一所具有百年历史的省级示范小学，学校现有36个教学班，教职工120余人，学生1800余人。随着教育信息化2.0行动计划的深入推进，学校亟需建设一套集成化、智能化的校园管理平台，实现：
+龙岩师范附属小学是一所具有百年历史的省级示范小学，学校现有36个教学班，教职工120余人，学生1800余人。智慧校园管理平台旨在实现：
 
 - **统一门户**: 一站式访问所有业务系统
 - **统一身份认证**: 单点登录，权限精细化管理
 - **统一数据管理**: 消除数据孤岛，实现数据共享
+- **家校互联**: 家长端实时了解孩子在校情况
 
 ### 1.3 系统范围
 
-智慧校园平台涵盖**九大核心业务系统**，共计**89个页面**：
+智慧校园平台包含以下核心业务系统：
 
 | 系统名称 | 主要功能 | 页面数 | 目标用户 |
 |----------|----------|--------|----------|
-| 教务教研系统 | 手动排课、学生管理、教师管理、考试管理、教研活动、工作量统计 | 19 | 教务员、教师 |
-| 总务后勤系统 | 门禁管理、财务管理、资产管理、维修管理、安全管理 | 14 | 后勤人员、财务人员 |
-| 德育管理系统 | 行为评价、习惯养成、德育活动、成长档案、预警管理 | 14 | 德育员、班主任 |
-| 教师空间 | 个人中心、请假管理、调课管理、班级管理、年级管理 | 18 | 全体教师 |
-| 家长端 | 孩子信息、习惯记录、成绩查询、公告通知 | 6 | 学生家长 |
-| 新生注册系统 | 信息采集、审核分配、学籍同步 | (含在教务) | 教务、家长 |
-| 数据中心 | 数据采集、数据链接、迁移工具 | (API) | 系统管理员 |
-| 工作流引擎 | 流程配置、审批实例 | 7 | 系统管理员 |
-| 首页管理 | 新闻管理、荣誉展示、图片管理 | 5 | 系统管理员 |
-| 仪表盘 | 校长仪表盘、书记仪表盘、副校长仪表盘 | 4 | 学校领导 |
-| 登录认证 | 用户登录、身份验证 | 1 | 所有用户 |
+| 教务教研系统 | 手动排课、学生管理、教师管理、考试管理、教室管理 | 15 | 教务员、教师 |
+| 总务后勤系统 | 门禁管理、财务管理、资产管理、维修管理 | 12 | 后勤人员 |
+| 德育管理系统 | 习惯养成、德育活动、行为评价 | 4 | 德育员、班主任 |
+| 教师空间 | 个人中心、请假管理、调课管理、习惯打卡 | 16 | 全体教师 |
+| 家长端 | 孩子信息、习惯记录、成绩查询、公告通知 | 9 | 学生家长 |
+| 仪表盘 | 校长仪表盘、副校长仪表盘 | 7 | 学校领导 |
+| 门户管理 | 首页新闻、荣誉展示、轮播图 | API | 系统管理员 |
+
+**统计数据**：
+- 前端页面文件：84个
+- API路由文件：156个
+- 组件文件：79个
+- 总代码行数：约124,902行
 
 ### 1.4 术语定义
 
@@ -76,18 +74,18 @@
 | JWT | JSON Web Token，用于身份认证的令牌标准 |
 | SSE | Server-Sent Events，服务器推送事件 |
 | HMR | Hot Module Replacement，热模块替换 |
+| BFF | Backend For Frontend，服务于前端的后端层 |
 | 手动排课 | 教务主任通过点击课表格子直接安排课程的方式 |
-| 科目规则 | 不同科目对教师选择的限制规则（如语文只能选本班语文老师） |
-| 习惯养成 | 学生日常行为习惯评价与追踪系统 |
+| 习惯养成 | 学生日常行为习惯评价与追踪系统（八大类别） |
+| 群组 | 行政部门组织单元（校长室、教务处、德育处、总务处） |
 
 ### 1.5 参考文档
 
-| 文档名称 | 版本 | 说明 |
-|----------|------|------|
-| 需求规格说明书 | v1.0 | 功能需求详细说明 |
-| 技术选型报告 | v1.0 | 技术架构决策依据 |
-| 接口规范文档 | v1.0 | API接口详细定义 |
-| 数据库设计文档 | v1.0 | 数据表结构说明 |
+| 文档名称 | 说明 |
+|----------|------|
+| 需求规格说明书 | 功能需求详细说明 |
+| 数据库设计文档 | 数据表结构说明 |
+| API接口规范 | API接口详细定义 |
 
 ---
 
@@ -95,22 +93,28 @@
 
 ### 2.1 总体架构
 
-采用**前后端分离**的微服务化架构，整体分为四层：
+采用**前后端分离**的BFF架构，整体分为四层：
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         展示层 (Presentation)                         │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │
 │  │ 总务系统  │ │ 教务系统  │ │ 德育系统  │ │教师空间  │ │ 家长端   │   │
+│  │ /general │ │ /academic│ │  /moral  │ │ /teacher │ │ /parent  │   │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘   │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐                │
+│  │领导仪表盘│ │  登录页   │ │  首页    │ │ 新闻页面 │                │
+│  │/dashboard│ │  /login  │ │    /     │ │  /news   │                │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘                │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         应用层 (Application)                          │
+│                      应用层 (BFF - Next.js API Routes)                │
 │  ┌─────────────────────────────────────────────────────────────┐    │
-│  │                    Next.js API Routes                        │    │
-│  │  /api/auth  /api/teachers  /api/students  /api/expenses...   │    │
+│  │                     /api/*  (156个路由)                       │    │
+│  │  /api/auth  /api/teachers  /api/students  /api/habit  ...    │    │
+│  │  /api/academic  /api/general  /api/moral  /api/parent  ...   │    │
 │  └─────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
@@ -118,17 +122,18 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         服务层 (Service)                              │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │
-│  │认证服务  │ │业务服务  │ │文件服务  │ │搜索服务  │ │消息服务  │       │
+│  │认证服务  │ │文件服务  │ │消息服务  │ │审批服务  │ │存储服务  │       │
+│  │ auth    │ │ upload  │ │ message │ │approval │ │ storage │       │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘       │
 └─────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         数据层 (Data)                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │ PostgreSQL  │  │  S3 Storage │  │   Redis     │  │Elasticsearch│ │
-│  │ (Supabase)  │  │ (对象存储)   │  │   (缓存)    │  │  (搜索)     │ │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘ │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │
+│  │ PostgreSQL  │  │  S3 Storage │  │   Redis     │                  │
+│  │ (Supabase)  │  │ (对象存储)   │  │   (缓存)    │                  │
+│  └─────────────┘  └─────────────┘  └─────────────┘                  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -136,49 +141,152 @@
 
 #### 2.2.1 前端技术栈
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Next.js | 16.x | 全栈框架 (App Router) |
-| React | 19.x | UI组件库 |
-| TypeScript | 5.x | 类型安全 |
-| Tailwind CSS | 4.x | 样式系统 |
-| shadcn/ui | latest | 组件库（基于 Radix UI） |
-| Recharts | 2.x | 图表库 |
-| Lucide React | latest | 图标库 |
-| Sonner | latest | Toast 通知 |
-| date-fns | 4.x | 日期处理 |
+| 技术 | 版本 | 用途 | 说明 |
+|------|------|------|------|
+| **Next.js** | 16.x | 全栈框架 | App Router模式，支持SSR/SSG |
+| **React** | 19.x | UI组件库 | 最新版本，支持Suspense |
+| **TypeScript** | 5.x | 类型安全 | 严格模式，完整类型定义 |
+| **Tailwind CSS** | 4.x | 样式系统 | 原子化CSS |
+| **shadcn/ui** | latest | 组件库 | 基于Radix UI，可定制 |
+| **Recharts** | 2.x | 图表库 | 数据可视化 |
+| **Lucide React** | latest | 图标库 | 统一图标风格 |
+| **Sonner** | latest | Toast通知 | 轻量级提示组件 |
+| **date-fns** | 4.x | 日期处理 | 日期格式化和计算 |
+| **zod** | 4.x | 参数校验 | 运行时类型验证 |
 
 #### 2.2.2 后端技术栈
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Next.js API Routes | 16.x | BFF层API |
-| Supabase | 2.x | 数据库+认证 |
-| jose | 6.x | JWT处理 |
-| zod | 4.x | 参数校验 |
-| Drizzle ORM | 0.45.x | 数据库ORM |
-| coze-coding-dev-sdk | 0.7.x | AI能力集成 |
+| 技术 | 版本 | 用途 | 说明 |
+|------|------|------|------|
+| **Next.js API Routes** | 16.x | BFF层API | 服务端接口，支持中间件 |
+| **Supabase Client** | 2.x | 数据库客户端 | PostgreSQL数据库连接 |
+| **jose** | 6.x | JWT处理 | Token签名和验证 |
+| **zod** | 4.x | 参数校验 | API请求验证 |
+| **coze-coding-dev-sdk** | 0.7.x | AI能力集成 | LLM调用、图片生成等 |
 
 #### 2.2.3 基础设施
 
-| 服务 | 用途 |
-|------|------|
-| Supabase PostgreSQL | 主数据库 |
-| S3兼容对象存储 | 文件存储 |
-| Vercel/自建服务器 | 应用托管 |
+| 服务 | 提供商 | 用途 |
+|------|--------|------|
+| PostgreSQL | Supabase | 主数据库 |
+| S3兼容对象存储 | 集成服务 | 文件存储（图片、附件） |
+| LLM服务 | 集成服务 | AI对话、智能分析 |
 
 #### 2.2.4 开发工具
 
-| 工具 | 用途 |
-|------|------|
-| pnpm | 包管理器（强制使用） |
-| Coze CLI | 项目脚手架 |
-| ESLint | 代码规范检查 |
-| TypeScript | 类型检查 |
+| 工具 | 用途 | 说明 |
+|------|------|------|
+| **pnpm** | 包管理器 | **强制使用**，禁止npm/yarn |
+| **Coze CLI** | 项目脚手架 | 初始化、开发、构建、部署 |
+| **ESLint** | 代码规范检查 | 自动化代码质量检查 |
+| **TypeScript** | 类型检查 | 编译时类型验证 |
 
-### 2.3 认证授权架构
+### 2.3 目录结构
 
-#### 2.3.1 JWT 会话管理
+```
+src/
+├── app/                          # Next.js App Router
+│   ├── academic/                 # 教务教研系统 (15页面)
+│   │   ├── classes/             # 班级管理
+│   │   ├── students/            # 学生管理
+│   │   ├── teachers/            # 教师管理
+│   │   ├── exams/               # 考试管理
+│   │   ├── rooms/               # 教室管理
+│   │   ├── manual-schedule/     # 手动排课
+│   │   ├── school-schedule/     # 学校课表
+│   │   └── workload/            # 工作量统计
+│   ├── general/                  # 总务后勤系统 (12页面)
+│   │   ├── access/              # 门禁管理
+│   │   ├── assets/              # 资产管理
+│   │   ├── finance/             # 财务管理
+│   │   ├── repairs/             # 维修管理
+│   │   ├── security/            # 安全管理
+│   │   └── staff/               # 后勤人员
+│   ├── moral/                    # 德育管理系统 (4页面)
+│   │   ├── habit/               # 习惯养成
+│   │   └── activities/          # 德育活动
+│   ├── teacher/                  # 教师空间 (16页面)
+│   │   ├── profile/             # 个人中心
+│   │   ├── leave/               # 请假管理
+│   │   ├── adjust/              # 调课管理
+│   │   ├── habit/               # 习惯打卡
+│   │   ├── class/               # 班级管理
+│   │   ├── grade/               # 年级管理
+│   │   ├── schedule/            # 我的课表
+│   │   ├── room-booking/        # 教室预约
+│   │   └── collection/          # 信息收集
+│   ├── parent/                   # 家长端 (9页面)
+│   │   ├── children/            # 孩子信息
+│   │   ├── habit/               # 习惯记录
+│   │   ├── grades/              # 成绩查询
+│   │   ├── announcements/       # 公告通知
+│   │   └── collection/          # 信息填写
+│   ├── dashboard/                # 领导仪表盘 (7页面)
+│   │   ├── principal/           # 校长仪表盘
+│   │   ├── secretary/           # 书记仪表盘
+│   │   ├── academic-vice-principal/  # 教学副校长
+│   │   ├── moral-vice-principal/     # 德育副校长
+│   │   └── general-vice-principal/   # 总务副校长
+│   ├── api/                      # API路由 (156个)
+│   │   ├── auth/                # 认证相关
+│   │   ├── academic/            # 教务API
+│   │   ├── habit/               # 习惯养成API
+│   │   ├── approvals/           # 审批流程API
+│   │   ├── messages/            # 消息系统API
+│   │   ├── portal/              # 门户管理API
+│   │   └── ...                  # 其他API
+│   ├── login/                    # 登录页面
+│   ├── globals.css               # 全局样式
+│   └── layout.tsx                # 根布局
+├── components/                   # React组件 (79个)
+│   ├── ui/                      # shadcn/ui组件库
+│   ├── auth/                    # 认证相关组件
+│   ├── approval/                # 审批流程组件
+│   ├── dashboard/               # 仪表盘组件
+│   ├── habit/                   # 习惯养成组件
+│   ├── messaging/               # 消息组件
+│   ├── portal/                  # 门户组件
+│   ├── schedule/                # 课表组件
+│   ├── student/                 # 学生组件
+│   └── teacher/                 # 教师组件
+├── types/                        # TypeScript类型定义
+│   ├── index.ts                 # 主类型文件 (约2500行)
+│   ├── approval.ts              # 审批流程类型
+│   ├── messages.ts              # 消息系统类型
+│   └── leave-adjust.ts          # 请假调课类型
+├── hooks/                        # 自定义Hooks (19个)
+│   ├── useApi.ts                # 通用API请求Hook
+│   ├── useAuth.ts               # 认证Hook
+│   ├── usePermissions.ts        # 权限Hook
+│   ├── useTeachers.ts           # 教师数据Hook
+│   ├── useStudents.ts           # 学生数据Hook
+│   ├── useClasses.ts            # 班级数据Hook
+│   ├── useParents.ts            # 家长数据Hook
+│   ├── useApprovals.ts          # 审批流程Hook
+│   ├── useMessages.ts           # 消息系统Hook
+│   ├── useGroups.ts             # 群组管理Hook
+│   └── ...
+├── lib/                          # 工具库
+│   ├── auth/                    # 认证工具
+│   ├── auth-client.ts           # 客户端认证
+│   ├── api-route-utils.ts       # API工具函数
+│   ├── api-response.ts          # API响应格式
+│   ├── pagination-config.ts     # 分页配置
+│   ├── schedule-config.ts       # 课表配置
+│   └── ...
+├── contexts/                     # React Context
+│   └── AuthContext.tsx          # 认证上下文
+├── storage/                      # 存储层
+│   └── database/
+│       └── supabase-client.ts   # Supabase客户端
+├── config/                       # 配置文件
+│   └── index.ts                 # 全局配置
+└── services/                     # 服务层
+```
+
+### 2.4 认证授权架构
+
+#### 2.4.1 JWT 会话管理
 
 系统采用 **JWT (JSON Web Token)** 实现无状态会话管理，使用 `jose` 库进行 Token 签名和验证。
 
@@ -186,3999 +294,1262 @@
 
 | Token 类型 | 有效期 | 存储位置 | 用途 |
 |-----------|--------|---------|------|
-| Access Token | 2小时 | HttpOnly Cookie | API 访问授权 |
-| Refresh Token | 7天 | HttpOnly Cookie | 刷新 Access Token |
+| Access Token | 2小时 | HttpOnly Cookie + localStorage | API 访问授权 |
+| Refresh Token | 7天 | HttpOnly Cookie + localStorage | 刷新 Access Token |
 
-**认证流程**：
+**Token 自动刷新机制**：
+```typescript
+// authFetch 封装：支持401自动刷新token并重试
+export async function authFetch<T>(url: string, options: RequestInit = {}): Promise<{ data?: T; error?: string; success: boolean }> {
+  // 1. 第一次请求
+  let response = await fetch(url, withAuth(options));
+  let result = await response.json();
+  
+  // 2. 如果返回401，尝试刷新token并重试
+  if (response.status === 401 || result.code === 'AUTH_FAILED') {
+    // 使用单例模式防止并发刷新
+    const refreshed = await ensureFreshToken();
+    if (refreshed) {
+      response = await fetch(url, withAuth(options));
+      result = await response.json();
+    } else {
+      // 刷新失败，清除登录状态，触发全局登出事件
+      clearTokens();
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+    }
+  }
+  return result.success ? { data: result.data, success: true } : { error: result.error, success: false };
+}
+```
+
+#### 2.4.2 角色权限体系
+
+**主要角色 (UserRole)**：
+```typescript
+export type UserRole = 
+  // === 学校领导层 ===
+  | 'principal'                    // 校长
+  | 'secretary'                    // 书记
+  | 'academic_vice_principal'      // 教学副校长
+  | 'moral_vice_principal'         // 德育副校长
+  | 'general_vice_principal'       // 总务副校长
+  // === 教师群体 ===
+  | 'head_teacher'                 // 班主任
+  | 'subject_teacher'              // 科任教师
+  | 'skill_teacher'                // 技能课教师
+  // === 家长 ===
+  | 'parent';                      // 家长
+```
+
+**兼任职务 (AdministrativeRole)**：
+```typescript
+export type AdministrativeRole = 
+  | 'academic_director'            // 教务主任
+  | 'moral_director'               // 德育主任
+  | 'general_director'             // 总务主任
+  | 'grade_leader'                 // 年段长
+  | 'research_group_leader'        // 教研组组长
+  | 'research_group_deputy_leader' // 教研组副组长
+  | 'young_pioneer_counselor';     // 少先队大队辅导员
+```
+
+**权限判断逻辑**：
+- 用户可访问某模块 = 主角色拥有权限 OR 兼任职务拥有权限 OR 所属群组拥有权限
+- 敏感数据访问 = 班主任/科任教师身份验证
+
+#### 2.4.3 群组体系
+
+**群组类型**：
+```typescript
+export type GroupType = 
+  | 'principal_office'    // 校长室
+  | 'academic_office'     // 教务处
+  | 'moral_office'        // 德育处
+  | 'general_office';     // 总务处
+```
+
+**群组通知分发逻辑**：
+- **校长室群组**：发给群组成员的个人消息中心
+- **其他群组**：发到对应部门工作台的"部门通知"（部门广播）
+
+### 2.5 数据流架构
+
+#### 2.5.1 API请求流程
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   前端组件   │───▶│  useApi/Hook │───▶│  API Route  │───▶│  Supabase   │
+│  (page.tsx) │    │ (useXxx.ts) │    │ (route.ts)  │    │  (PostgreSQL)│
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+       │                  │                  │                  │
+       │                  │                  │                  │
+       ▼                  ▼                  ▼                  ▼
+   用户交互           状态管理+缓存       业务逻辑+权限        数据存储
+                      authFetch
+```
+
+#### 2.5.2 Hooks层设计
+
+系统使用自定义Hooks封装数据获取和状态管理：
+
+| Hook | 用途 | 对应API |
+|------|------|---------|
+| `useApi` | 通用API请求，支持分页、缓存、错误处理 | 所有API |
+| `useAuth` | 认证状态管理 | `/api/auth/*` |
+| `useTeachers` | 教师数据管理 | `/api/teachers/*` |
+| `useStudents` | 学生数据管理 | `/api/students/*` |
+| `useClasses` | 班级数据管理 | `/api/classes/*` |
+| `useParents` | 家长数据管理 | `/api/parents/*` |
+| `useApprovals` | 审批流程管理 | `/api/approvals/*` |
+| `useMessages` | 消息系统管理 | `/api/messages/*` |
+| `useGroups` | 群组管理 | `/api/groups/*` |
+| `useLeaveAdjust` | 请假调课管理 | `/api/leave-requests/*` |
+
+### 2.6 组件设计规范
+
+#### 2.6.1 UI组件库
+
+基于 `shadcn/ui` 构建，位于 `src/components/ui/` 目录：
+
+```
+ui/
+├── button.tsx          # 按钮组件
+├── card.tsx            # 卡片组件
+├── dialog.tsx          # 对话框组件
+├── dropdown-menu.tsx   # 下拉菜单
+├── form.tsx            # 表单组件
+├── input.tsx           # 输入框
+├── select.tsx          # 选择器
+├── table.tsx           # 表格组件
+├── tabs.tsx            # 标签页
+├── toast.tsx           # Toast提示
+└── ...                 # 其他组件
+```
+
+#### 2.6.2 业务组件
+
+按功能模块组织：
+
+```
+components/
+├── approval/           # 审批流程组件
+│   ├── ApprovalActionDialog.tsx    # 审批操作对话框
+│   └── PublishNotificationDialog.tsx # 发布通知对话框
+├── dashboard/          # 仪表盘组件
+├── habit/              # 习惯养成组件
+├── messaging/          # 消息组件
+├── portal/             # 门户组件
+├── schedule/           # 课表组件
+├── student/            # 学生组件
+└── teacher/            # 教师组件
+```
+
+---
+
+## 3. 模块设计
+
+### 3.1 教务教研系统 (/academic)
+
+#### 3.1.1 功能概述
+
+教务教研系统是学校的核心业务系统，包含以下子系统：
+
+| 子系统 | 路径 | 功能描述 |
+|--------|------|----------|
+| 手动排课 | `/academic/manual-schedule` | 教务主任手动安排课程 |
+| 学生管理 | `/academic/students` | 学生信息CRUD、详情查看 |
+| 教师管理 | `/academic/teachers` | 教师信息CRUD、工作量统计 |
+| 班级管理 | `/academic/classes` | 班级信息管理、班级教师分配 |
+| 考试管理 | `/academic/exams` | 考试安排、成绩录入 |
+| 教室管理 | `/academic/rooms` | 教室资源管理、预约审批 |
+| 学校课表 | `/academic/school-schedule` | 全校课表查看 |
+| 工作量统计 | `/academic/workload` | 教师工作量计算与统计 |
+
+#### 3.1.2 手动排课系统
+
+**设计理念**：采用教务主任手动排课模式，非智能排课算法。
+
+**核心功能**：
+1. **课表矩阵视图**：以表格形式展示班级-节次-星期的三维课表
+2. **右键菜单操作**：支持复制、粘贴、清空等快捷操作
+3. **教师选择规则引擎**：
+   - 语文课 → 只能选择本班语文老师
+   - 数学课 → 只能选择本班数学老师
+   - 技能课 → 选择对应学科教师
+4. **课时参考悬浮窗**：显示推荐课时分配
+
+**数据结构**：
+```typescript
+interface ScheduleSlot {
+  id: string;
+  classId: string;
+  className: string;
+  grade: number;
+  weekDay: WeekDay;           // 星期几 (1-7)
+  periodIndex: number;         // 第几节课 (1-6)
+  periodName: string;          // 节次名称
+  courseId: string;
+  courseName: string;
+  subject: string;
+  teacherId: string;
+  teacherName: string;
+  venueType?: 'classroom' | 'lab' | 'playground' | 'music_room' | 'art_room';
+  status: 'normal' | 'substituted' | 'swapped' | 'cancelled';
+}
+```
+
+#### 3.1.3 教室管理系统
+
+**功能模块**：
+
+| 模块 | 路径 | 功能 |
+|------|------|------|
+| 教室列表 | `/academic/rooms` | 教室信息管理、状态查看 |
+| 新增教室 | `/academic/rooms/new` | 创建新教室 |
+| 编辑教室 | `/academic/rooms/[id]/edit` | 编辑教室信息 |
+| 预约日历 | `/academic/rooms/calendar` | 查看教室预约日程 |
+| 预约审批 | `/academic/rooms/approval` | 审批教室预约申请 |
+
+**教室预约流程**：
+1. **教师端** (`/teacher/room-booking`)：选择日期→选择教室→选择时段→提交预约
+2. **自动创建审批实例**：提交预约时自动创建审批流程
+3. **发送部门通知**：通知教务处有新的预约申请
+4. **教务处审批**：
+   - 入口1：部门待办事项
+   - 入口2：教室管理-预约审批
+5. **审批结果通知**：通知申请人审批结果
+
+**预约时段模式**：采用课表矩阵模式
+```typescript
+// 时段定义
+type TimeSlot = 
+  | 'morning_1' | 'morning_2' | 'morning_3'  // 上午1-3节
+  | 'noon'                                   // 午休
+  | 'afternoon_1' | 'afternoon_2' | 'afternoon_3'  // 下午1-3节
+  | 'evening';                               // 晚上
+```
+
+**支持多选时段**：
+- Ctrl+点击：多选不连续时段
+- Shift+点击：范围选择连续时段
+
+### 3.2 德育管理系统 (/moral)
+
+#### 3.2.1 习惯养成系统
+
+**八大行为习惯类别**：
+```typescript
+export type HabitCategory = 
+  | 'civility'      // 文明礼仪
+  | 'writing'       // 书写习惯
+  | 'reading'       // 阅读习惯
+  | 'sports'        // 运动习惯
+  | 'labor'         // 劳动习惯
+  | 'safety'        // 安全意识
+  | 'hygiene'       // 卫生习惯
+  | 'aesthetics';   // 审美素养
+```
+
+**评价体系**：
+1. **家长打卡**：家长记录孩子在家习惯表现
+2. **班主任审核**：班主任确认并评价习惯记录
+3. **德育处评优**：评选"习惯之星"
+4. **月度目标**：学生制定月度习惯小目标
+
+**数据流程**：
+```
+家长端打卡 → 班主任审核 → 德育处汇总 → 评优展示
+    ↓            ↓            ↓
+  积分累积    确认/调整     统计分析
+```
+
+**API结构**：
+```
+/api/habit/
+├── records/           # 习惯记录CRUD
+├── goals/             # 月度目标管理
+├── monthly-goals/     # 月度目标设置
+├── stars/             # 习惯之星评选
+├── statistics/        # 统计分析
+├── class-statistics/  # 班级统计
+└── rules/             # 评价规则配置
+```
+
+#### 3.2.2 德育活动管理
+
+**活动类型**：
+- 主题班会
+- 升旗仪式
+- 志愿服务
+- 社会实践
+- 节日活动
+
+**活动发布流程**：
+1. 德育处创建活动
+2. 选择参与对象（班级/年级/全校）
+3. 发布活动通知
+4. 学生参与并提交材料
+5. 活动总结与评价
+
+### 3.3 教师空间 (/teacher)
+
+#### 3.3.1 功能模块
+
+| 模块 | 路径 | 功能描述 |
+|------|------|----------|
+| 个人中心 | `/teacher/profile` | 个人信息、密码修改 |
+| 请假管理 | `/teacher/leave` | 请假申请、审批查询 |
+| 调课管理 | `/teacher/adjust` | 调课申请、代课安排 |
+| 我的课表 | `/teacher/schedule` | 查看个人课表 |
+| 班级管理 | `/teacher/class` | 班主任管理本班事务 |
+| 年级管理 | `/teacher/grade` | 年段长管理年级事务 |
+| 习惯打卡 | `/teacher/habit` | 班主任审核习惯记录 |
+| 教室预约 | `/teacher/room-booking` | 预约教室 |
+| 信息收集 | `/teacher/collection` | 收集学生信息 |
+| 工作量 | `/teacher/workload` | 查看个人工作量 |
+
+#### 3.3.2 请假审批流程
+
+**请假类型**：
+- 事假、病假、年假、调休、其他
+
+**审批流程**：
+```
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│ 教师提交  │───▶│ 年段长审批│───▶│ 教务处备案│───▶│ 调课处理  │
+│ 请假申请  │    │          │    │          │    │ (如需)    │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘
+```
+
+**调课处理节点**：
+- 代课：找其他老师代上
+- 调换：与其他时间互换
+- 取消：不上课
+- 补课：后续时间补上
+
+### 3.4 家长端 (/parent)
+
+#### 3.4.1 功能模块
+
+| 模块 | 路径 | 功能描述 |
+|------|------|----------|
+| 首页 | `/parent` | 概览、待办事项 |
+| 孩子信息 | `/parent/children` | 查看孩子基本信息 |
+| 习惯记录 | `/parent/habit` | 打卡记录习惯表现 |
+| 成绩查询 | `/parent/grades` | 查看考试成绩 |
+| 公告通知 | `/parent/announcements` | 查看学校公告 |
+| 信息填写 | `/parent/collection` | 填写学校收集的信息 |
+
+#### 3.4.2 习惯打卡功能
+
+**打卡流程**：
+1. 选择孩子
+2. 选择习惯类别
+3. 选择具体习惯项目
+4. 记录表现情况
+5. 提交等待班主任审核
+
+**打卡数据同步**：
+- 打卡记录实时同步到班主任端
+- 班主任审核后计入学生习惯档案
+- 数据同步到教务学生详情页
+
+### 3.5 总务后勤系统 (/general)
+
+#### 3.5.1 功能模块
+
+| 模块 | 路径 | 功能描述 |
+|------|------|----------|
+| 门禁管理 | `/general/access` | 门禁设备、通行记录 |
+| 资产管理 | `/general/assets` | 固定资产管理 |
+| 财务管理 | `/general/finance` | 财务收支管理 |
+| 维修管理 | `/general/repairs` | 报修申请处理 |
+| 安全管理 | `/general/security` | 安全巡查管理 |
+| 后勤人员 | `/general/staff` | 后勤人员管理 |
+
+#### 3.5.2 与教务系统联动
+
+**教室维护联动**：
+- 教室预约可关联维修申请
+- 维修完成后自动更新教室状态
+- 保洁需求可关联总务系统
+
+### 3.6 领导仪表盘 (/dashboard)
+
+#### 3.6.1 角色仪表盘
+
+| 仪表盘 | 路径 | 关注指标 |
+|--------|------|----------|
+| 校长仪表盘 | `/dashboard/principal` | 全校综合数据 |
+| 书记仪表盘 | `/dashboard/secretary` | 党建、德育数据 |
+| 教学副校长 | `/dashboard/academic-vice-principal` | 教务、教研数据 |
+| 德育副校长 | `/dashboard/moral-vice-principal` | 德育、习惯数据 |
+| 总务副校长 | `/dashboard/general-vice-principal` | 后勤、财务数据 |
+
+#### 3.6.2 工作台区分
+
+**部门工作台**：
+- 采用部门视角
+- 只显示部门通知和本部门相关业务
+- 显示部门待办事项
+
+**领导工作台**：
+- 采用全局视角
+- 显示全校汇总数据
+- 显示待审批事项
+
+### 3.7 门户管理系统
+
+#### 3.7.1 首页门户展示
+
+**内容类型**：
+- 轮播图：学校风采展示
+- 童心教育：学校教育理念介绍
+- 办学荣誉：学校荣誉展示
+- 新闻动态：校园新闻发布
+
+#### 3.7.2 门户API
+
+```
+/api/portal/
+├── carousel/          # 轮播图管理
+├── philosophy/        # 童心教育内容
+├── achievements/      # 办学荣誉
+└── announcements/     # 新闻公告
+```
+
+---
+
+## 4. 数据设计
+
+### 4.1 数据库选型
+
+采用 **Supabase PostgreSQL** 作为主数据库，特点：
+- 托管式PostgreSQL服务
+- 支持行级安全策略(RLS)
+- 内置实时订阅功能
+- RESTful API自动生成
+
+### 4.2 核心数据表
+
+#### 4.2.1 用户与认证相关
+
+| 表名 | 描述 | 主要字段 |
+|------|------|----------|
+| `users` | 用户主表 | id, name, role, employee_id, phone, additional_roles |
+| `teachers` | 教师详情 | id, user_id, subjects, title, department, status |
+| `students` | 学生信息 | id, student_no, name, class_id, status |
+| `parents` | 家长信息 | id, name, phone, relation, student_id |
+| `class_teachers` | 班级教师关系 | id, class_id, teacher_id, position, semester |
+
+#### 4.2.2 组织架构相关
+
+| 表名 | 描述 | 主要字段 |
+|------|------|----------|
+| `classes` | 班级信息 | id, name, grade, head_teacher_id |
+| `groups` | 群组信息 | id, type, name, director_id |
+| `group_members` | 群组成员 | id, group_id, user_id, is_admin |
+
+#### 4.2.3 教务相关
+
+| 表名 | 描述 | 主要字段 |
+|------|------|----------|
+| `rooms` | 教室信息 | id, name, code, type, building, capacity, facilities, status |
+| `room_bookings` | 教室预约 | id, room_id, applicant_id, booking_date, time_slots, status |
+| `schedules` | 课表 | id, class_id, semester, slots (JSONB) |
+| `exams` | 考试信息 | id, name, type, start_date, end_date, subjects |
+
+#### 4.2.4 德育相关
+
+| 表名 | 描述 | 主要字段 |
+|------|------|----------|
+| `habit_records` | 习惯记录 | id, student_id, category, habit, score, recorder_id, status |
+| `habit_goals` | 月度目标 | id, student_id, category, goal, month, achieved |
+| `habit_stars` | 习惯之星 | id, student_id, category, level, month |
+| `moral_activities` | 德育活动 | id, title, type, start_date, end_date, participant_ids |
+
+#### 4.2.5 审批与消息相关
+
+| 表名 | 描述 | 主要字段 |
+|------|------|----------|
+| `approval_instances` | 审批实例 | id, business_type, business_id, status, current_node_order |
+| `approval_node_records` | 审批节点记录 | id, instance_id, node_order, status, approver_ids |
+| `messages` | 消息主表 | id, title, content, event, sender_id, recipients (JSONB) |
+| `user_messages` | 用户消息 | id, message_id, user_id, status, read_at |
+
+#### 4.2.6 门户相关
+
+| 表名 | 描述 | 主要字段 |
+|------|------|----------|
+| `portal_carousel` | 轮播图 | id, title, image_url, link_url, order, status |
+| `portal_honors` | 办学荣誉 | id, title, level, date, description, images |
+| `portal_philosophy` | 童心教育 | id, title, content, category, order |
+
+### 4.3 数据类型定义
+
+#### 4.3.1 教室相关类型
+
+```typescript
+// 教室类型
+export type RoomType = 
+  | 'seminar_room'      // 教研室
+  | 'lecture_hall'      // 阶梯教室
+  | 'multimedia_room'   // 多媒体教室
+  | 'lab'               // 实验室
+  | 'meeting_room'      // 会议室
+  | 'activity_room';    // 活动室
+
+// 教室状态
+export type RoomStatus = 
+  | 'available'    // 空闲
+  | 'in_use'       // 使用中
+  | 'reserved'     // 已预约
+  | 'maintenance'  // 维护中
+  | 'locked';      // 已锁定
+
+// 预约状态
+export type BookingStatus = 
+  | 'pending'      // 待审批
+  | 'approved'     // 已批准
+  | 'rejected'     // 已拒绝
+  | 'cancelled'    // 已取消
+  | 'completed'    // 已完成
+  | 'in_progress'; // 进行中
+```
+
+#### 4.3.2 审批流程类型
+
+```typescript
+// 审批实例状态
+export type ApprovalStatus = 
+  | 'draft'        // 草稿
+  | 'pending'      // 待提交
+  | 'in_progress'  // 审批中
+  | 'approved'     // 已通过
+  | 'rejected'     // 已驳回
+  | 'withdrawn';   // 已撤回
+
+// 信息类型
+export type AnnouncementType = 
+  | 'announcement'       // 校园公告
+  | 'news'               // 新闻动态
+  | 'internal_notice'    // 内部通知
+  | 'parent_notice'      // 家长通知
+  | 'leave_request'      // 请假审批
+  | 'room_booking';      // 教室预约
+```
+
+#### 4.3.3 消息系统类型
+
+```typescript
+// 消息事件类型
+export type MessageEvent = 
+  | 'system_announcement'   // 系统公告
+  | 'group_notice'          // 群组通知
+  | 'schedule_change'       // 调课通知
+  | 'leave_approval'        // 请假审批
+  | 'habit_record'          // 习惯记录提醒
+  | ...;                    // 其他事件
+
+// 接收者类型
+export type RecipientType = 
+  | 'all'           // 全员
+  | 'role'          // 按角色
+  | 'class'         // 按班级
+  | 'grade'         // 按年级
+  | 'individual'    // 指定个人
+  | 'department';   // 部门广播
+```
+
+### 4.4 数据访问层
+
+#### 4.4.1 Supabase客户端
+
+```typescript
+// src/storage/database/supabase-client.ts
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+function getSupabaseClient(token?: string): SupabaseClient {
+  const { url, anonKey } = getSupabaseCredentials();
+  
+  if (token) {
+    return createClient(url, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      db: { timeout: 60000 },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  
+  return createClient(url, anonKey, {
+    db: { timeout: 60000 },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+```
+
+#### 4.4.2 数据库字段映射
+
+数据库使用snake_case命名，前端使用camelCase，需要在API层进行转换：
+
+```typescript
+// 数据库记录 → 前端类型
+function transformRoom(record: RoomRecord): Room {
+  return {
+    id: record.id,
+    name: record.name,
+    extraFacilities: record.extra_facilities,  // snake_case → camelCase
+    managerId: record.manager_id,
+    // ...
+  };
+}
+```
+
+---
+
+## 5. 接口设计
+
+### 5.1 API设计规范
+
+#### 5.1.1 基础规范
+
+- **协议**: HTTPS
+- **数据格式**: JSON
+- **字符编码**: UTF-8
+- **认证方式**: Bearer Token (JWT) + HttpOnly Cookie
+- **API风格**: RESTful
+
+#### 5.1.2 响应格式
+
+**成功响应**：
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+**错误响应**：
+```json
+{
+  "success": false,
+  "error": "错误信息描述",
+  "code": "ERROR_CODE"
+}
+```
+
+**分页响应**：
+```json
+{
+  "success": true,
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+```
+
+#### 5.1.3 HTTP方法语义
+
+| 方法 | 语义 | 示例 |
+|------|------|------|
+| GET | 获取资源 | `GET /api/teachers` 获取教师列表 |
+| POST | 创建资源 | `POST /api/teachers` 创建教师 |
+| PUT | 更新资源 | `PUT /api/rooms` 更新教室信息 |
+| DELETE | 删除资源 | `DELETE /api/teachers/:id` 删除教师 |
+
+### 5.2 API路由清单
+
+#### 5.2.1 认证相关 (/api/auth)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/auth/login` | POST | 用户登录 | { phone, password } |
+| `/api/auth/logout` | POST | 用户登出 | - |
+| `/api/auth/me` | GET | 获取当前用户 | - |
+| `/api/auth/refresh` | POST | 刷新Token | { refreshToken } |
+| `/api/auth/change-password` | POST | 修改密码 | { oldPassword, newPassword } |
+
+#### 5.2.2 教师管理 (/api/teachers)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/teachers` | GET | 获取教师列表 | page, pageSize, search, department |
+| `/api/teachers/:id` | GET | 获取教师详情 | id |
+| `/api/teachers` | POST | 创建教师 | Teacher对象 |
+| `/api/teachers/:id` | PUT | 更新教师 | Teacher对象 |
+| `/api/teachers/:id` | DELETE | 删除教师 | id |
+
+#### 5.2.3 学生管理 (/api/students)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/students` | GET | 获取学生列表 | page, pageSize, search, classId |
+| `/api/students/:id` | GET | 获取学生详情 | id |
+| `/api/students` | POST | 创建学生 | Student对象 |
+| `/api/students/:id` | PUT | 更新学生 | Student对象 |
+| `/api/students/:id` | DELETE | 删除学生 | id |
+| `/api/students/:id/profile` | GET | 获取学生完整档案 | id |
+
+#### 5.2.4 班级管理 (/api/classes)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/classes` | GET | 获取班级列表 | page, pageSize, grade |
+| `/api/classes/:id` | GET | 获取班级详情 | id |
+| `/api/classes` | POST | 创建班级 | Class对象 |
+| `/api/classes/:id` | PUT | 更新班级 | Class对象 |
+| `/api/classes/:id/teachers` | GET | 获取班级教师 | id |
+| `/api/classes/:id/students` | GET | 获取班级学生 | id |
+
+#### 5.2.5 教室管理 (/api/academic/rooms)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/academic/rooms` | GET | 获取教室列表 | type, status, building, search |
+| `/api/academic/rooms?id=:id` | GET | 获取单个教室 | id |
+| `/api/academic/rooms` | POST | 创建教室 | Room对象 |
+| `/api/academic/rooms` | PUT | 更新教室 | Room对象 |
+| `/api/academic/rooms/stats` | GET | 获取教室统计 | type=overview |
+| `/api/academic/rooms/bookings` | GET | 获取预约列表 | bookingDate, status |
+| `/api/academic/rooms/bookings` | POST | 创建预约 | Booking对象 |
+| `/api/academic/rooms/approval` | GET | 获取待审批预约 | - |
+
+#### 5.2.6 习惯养成 (/api/habit)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/habit/records` | GET | 获取习惯记录 | studentId, category, month |
+| `/api/habit/records` | POST | 创建习惯记录 | HabitRecord对象 |
+| `/api/habit/records/:id/approve` | POST | 审核记录 | { approved, comment } |
+| `/api/habit/goals` | GET | 获取月度目标 | studentId, month |
+| `/api/habit/goals` | POST | 设置月度目标 | Goal对象 |
+| `/api/habit/stars` | GET | 获取习惯之星 | month, level |
+| `/api/habit/statistics` | GET | 获取统计数据 | classId, month |
+| `/api/habit/class-statistics` | GET | 班级习惯统计 | classId |
+
+#### 5.2.7 审批流程 (/api/approvals)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/approvals` | GET | 获取审批实例列表 | status, businessType |
+| `/api/approvals/:id` | GET | 获取审批实例详情 | id |
+| `/api/approvals` | POST | 创建审批实例 | ApprovalInstance对象 |
+| `/api/approvals/action` | POST | 执行审批操作 | { instanceId, action, comment } |
+| `/api/approvals/my-pending` | GET | 获取我的待办 | - |
+| `/api/approvals/my-submitted` | GET | 获取我的申请 | - |
+
+#### 5.2.8 消息系统 (/api/messages)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/messages` | GET | 获取消息列表 | status, event, page |
+| `/api/messages/:id` | GET | 获取消息详情 | id |
+| `/api/messages` | POST | 发送消息 | Message对象 |
+| `/api/messages/:id/read` | POST | 标记已读 | id |
+| `/api/messages/unread-count` | GET | 获取未读数量 | - |
+| `/api/messages/broadcast` | POST | 发送广播消息 | { targetType, ... } |
+
+#### 5.2.9 群组管理 (/api/groups)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/groups` | GET | 获取群组列表 | type |
+| `/api/groups/:id` | GET | 获取群组详情 | id |
+| `/api/groups/:id/members` | GET | 获取群组成员 | id |
+| `/api/groups/:id/members` | POST | 添加群组成员 | { userIds } |
+| `/api/groups/:id/notices` | GET | 获取群组通知 | id |
+| `/api/groups/:id/notices` | POST | 发布群组通知 | Notice对象 |
+
+#### 5.2.10 门户管理 (/api/portal)
+
+| 路由 | 方法 | 功能 | 参数 |
+|------|------|------|------|
+| `/api/portal/carousel` | GET | 获取轮播图列表 | - |
+| `/api/portal/carousel` | POST | 创建轮播图 | Carousel对象 |
+| `/api/portal/carousel/:id` | PUT | 更新轮播图 | Carousel对象 |
+| `/api/portal/philosophy` | GET | 获取童心教育内容 | - |
+| `/api/portal/honors` | GET | 获取办学荣誉 | - |
+| `/api/portal/announcements` | GET | 获取门户公告 | type |
+
+### 5.3 API请求示例
+
+#### 5.3.1 创建教室预约
+
+```typescript
+// POST /api/academic/rooms/bookings
+const response = await fetch('/api/academic/rooms/bookings', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    roomId: 'room001',
+    bookingDate: '2026-03-10',
+    timeSlots: ['morning_1', 'morning_2'],  // 多时段
+    purpose: 'teaching',
+    title: '公开课',
+    expectedAttendees: 45,
+    requiredFacilities: ['projector', 'microphone'],
+  }),
+});
+```
+
+#### 5.3.2 执行审批操作
+
+```typescript
+// POST /api/approvals/action
+const response = await fetch('/api/approvals/action', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    instanceId: 'approval-001',
+    action: 'approve',  // 'approve' | 'reject' | 'return'
+    comment: '同意',
+  }),
+});
+```
+
+---
+
+## 6. 认证授权设计
+
+### 6.1 认证流程
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        JWT 认证流程                                      │
+│                        登录认证流程                                      │
 └─────────────────────────────────────────────────────────────────────────┘
 
     ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐
     │  用户端   │      │  前端    │      │ API路由  │      │ 数据库   │
     └────┬─────┘      └────┬─────┘      └────┬─────┘      └────┬─────┘
          │                 │                 │                 │
-         │  1. 登录请求     │                 │                 │
-         │  (用户名/密码)   │                 │                 │
+         │  输入手机号密码  │                 │                 │
          │────────────────>│                 │                 │
-         │                 │  2. POST /api/auth/login          │
+         │                 │                 │                 │
+         │                 │  POST /api/auth/login            │
          │                 │────────────────>│                 │
-         │                 │                 │  3. 查询用户    │
+         │                 │                 │                 │
+         │                 │                 │  查询用户       │
          │                 │                 │────────────────>│
          │                 │                 │                 │
-         │                 │                 │  4. 返回用户信息│
+         │                 │                 │  返回用户数据   │
          │                 │                 │<────────────────│
          │                 │                 │                 │
-         │                 │                 │  5. 验证密码    │
-         │                 │                 │  6. 生成JWT Token对            │
-         │                 │                 │  7. 设置Cookie  │
-         │                 │  8. 返回用户信息+Token              │
+         │                 │                 │  验证密码       │
+         │                 │                 │  生成JWT Token  │
+         │                 │                 │                 │
+         │                 │  返回Token+用户信息               │
          │                 │<────────────────│                 │
          │                 │                 │                 │
-         │  9. 存储用户信息  │                 │                 │
+         │  存储Token      │                 │                 │
+         │  跳转首页       │                 │                 │
          │<────────────────│                 │                 │
          │                 │                 │                 │
-         │  10. API请求     │                 │                 │
-         │  (携带Cookie)   │                 │                 │
-         │────────────────>│                 │                 │
-         │                 │  11. 请求API    │                 │
-         │                 │────────────────>│                 │
-         │                 │                 │  12. 验证Token  │
-         │                 │                 │  13. 执行业务   │
-         │                 │  14. 返回数据   │                 │
-         │                 │<────────────────│                 │
-         │  15. 显示结果    │                 │                 │
-         │<────────────────│                 │                 │
 ```
 
-**Cookie 安全配置**：
+### 6.2 Token管理
+
+#### 6.2.1 Token生成
 
 ```typescript
-const cookieOptions = {
-  httpOnly: true,           // 防止 XSS 攻击
-  secure: isProduction,     // 生产环境强制 HTTPS
-  sameSite: 'lax',          // 防止 CSRF 攻击
-  path: '/',                // 全站可用
-};
-```
+// 使用jose库生成JWT
+import { SignJWT } from 'jose';
 
-**登录支持方式**：
-- 工号登录（如：T001）
-- 手机号登录（如：13800138000）
-- 姓名登录（如：张三）
-- 默认密码：lysf2024
-
-#### 2.3.2 角色权限体系
-
-系统采用**主要角色 + 兼任职务**的双层权限架构：
-
-**主要角色（UserRole）**：决定登录身份和基础权限
-
-| 角色类型 | 角色 ID | 角色名称 | 说明 |
-|---------|---------|---------|------|
-| 领导层 | `principal` | 校长 | 学校最高管理者 |
-| 领导层 | `secretary` | 书记 | 负责党务和德育 |
-| 领导层 | `vice_principal` | 副校长 | 分管副校长 |
-| 教师群体 | `head_teacher` | 班主任 | 班级管理者 |
-| 教师群体 | `subject_teacher` | 科任教师 | 语文、数学、英语等主科教师 |
-| 教师群体 | `skill_teacher` | 技能课教师 | 音乐、美术、体育、科学等 |
-| 家长 | `parent` | 家长 | 查看子女信息 |
-
-**兼任职务（AdministrativeRole）**：只增加权限，不作为登录身份
-
-| 职务 ID | 职务名称 | 增加的权限模块 |
-|---------|---------|---------------|
-| `academic_director` | 教务主任 | 教务模块管理权限 |
-| `moral_director` | 德育主任 | 德育模块管理权限 |
-| `general_director` | 总务主任 | 总务模块管理权限 |
-| `grade_leader` | 年段长 | 年级调课管理权限 |
-| `research_group_leader` | 教研组组长 | 教研活动管理权限 |
-| `research_group_deputy_leader` | 教研组副组长 | 教研活动编辑权限 |
-| `young_pioneer_counselor` | 少先队大队辅导员 | 少先队活动管理权限 |
-
-**角色层级架构**：
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      学校领导层                              │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐ │
-│  │    校长     │ │    书记     │ │       副校长            │ │
-│  │ (principal) │ │  (secretary)│ │   (vice_principal)      │ │
-│  └─────────────┘ └─────────────┘ └─────────────────────────┘ │
-│           ↓ 主要角色 + 可能兼任职务                          │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      教师群体                                │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐ │
-│  │   班主任     │ │  科任教师   │ │      技能课教师         │ │
-│  │(head_teacher│ │(subject_   │ │   (skill_teacher)       │ │
-│  │   )         │ │ teacher)   │ │                         │ │
-│  └─────────────┘ └─────────────┘ └─────────────────────────┘ │
-│           ↓ 主要角色 + 可能兼任职务                          │
-│  兼任职务：教务主任、德育主任、总务主任、年段长、教研组长等   │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      外部用户                                │
-│  ┌─────────────┐                                            │
-│  │    家长     │                                            │
-│  │  (parent)   │                                            │
-│  └─────────────┘                                            │
-└─────────────────────────────────────────────────────────────┘
-```
-
-#### 2.3.3 权限模型
-
-**5级权限**（从低到高）：
-
-| 权限级别 | 权限 ID | 说明 |
-|---------|---------|------|
-| 查看 | `view` | 只读访问，查看数据 |
-| 编辑 | `edit` | 创建、修改数据 |
-| 审批 | `approve` | 审核批准操作 |
-| 管理 | `manage` | 模块管理权限 |
-| 超级管理 | `admin` | 完全控制权限 |
-
-**6大模块**：
-
-| 模块 ID | 模块名称 | 说明 |
-|---------|---------|------|
-| `general` | 总务后勤 | 资产管理、报修、采购 |
-| `academic` | 教务教研 | 排课、成绩、考勤 |
-| `moral` | 德育管理 | 班级评比、少先队 |
-| `teacher` | 教师空间 | 个人信息、课表、请假 |
-| `parent` | 家长端 | 子女信息、成绩查询 |
-| `homepage` | 主页内容 | 公告、通知管理 |
-
-#### 2.3.4 权限矩阵
-
-**主要角色权限矩阵**：
-
-| 角色 | 总务 | 教务 | 德育 | 教师空间 | 家长端 | 主页 |
-|------|------|------|------|----------|--------|------|
-| 校长 | admin | admin | admin | admin | - | admin |
-| 书记 | - | - | admin | edit | view | edit |
-| 副校长 | manage | manage | manage | manage | view | manage |
-| 班主任 | - | - | edit | admin | view | - |
-| 科任教师 | - | - | - | admin | view | - |
-| 技能课教师 | - | - | - | view | - | - |
-| 家长 | - | - | - | - | admin | - |
-
-**兼任职务额外权限**：
-
-| 兼任职务 | 总务 | 教务 | 德育 | 教师空间 | 家长端 | 主页 |
-|---------|------|------|------|----------|--------|------|
-| 教务主任 | - | admin | - | - | - | edit |
-| 德育主任 | - | - | admin | - | manage | edit |
-| 总务主任 | admin | - | - | - | - | edit |
-| 年段长 | - | edit | - | manage | - | - |
-| 教研组长 | - | edit | - | - | - | - |
-| 少先队辅导员 | - | - | edit | - | - | - |
-
-**权限合并规则**：
-1. 获取主要角色的基础权限
-2. 叠加所有兼任职务的额外权限
-3. 权限级别取最高值（admin > manage > edit > view）
-4. 管理员角色可绕过权限检查
-
-#### 2.3.5 路由保护机制
-
-**API 路由保护装饰器**：
-
-```typescript
-// 基本认证保护
-export const GET = protectedRoute(async (request, { user }) => {
-  return NextResponse.json({ data: 'protected data' });
-});
-
-// 角色限制
-export const GET = protectedRoute(
-  handler,
-  { roles: ['principal', 'academic_director'] }
-);
-
-// 模块权限检查
-export const GET = protectedRoute(
-  handler,
-  { module: 'academic', permission: 'manage' }
-);
-
-// 可选认证
-export const GET = protectedRoute(
-  handler,
-  { optional: true }
-);
-```
-
-**保护选项**：
-
-| 选项 | 说明 |
-|------|------|
-| `roles` | 允许的角色列表 |
-| `module` | 需要访问的模块 |
-| `permission` | 需要的具体权限 |
-| `customCheck` | 自定义权限检查函数 |
-| `adminBypass` | 管理员绕过检查（默认 true） |
-| `optional` | 可选认证模式 |
-
-#### 2.3.6 年段长特殊权限
-
-年段长（`grade_leader`）拥有以下专属权限：
-
-| 权限 | 说明 |
-|------|------|
-| 调课管理 | 审批和安排本年级教师调课 |
-| 接收请假通知 | 实时接收本年级教师请假信息 |
-| 指派代课教师 | 为请假的教师指派代课 |
-| 查看年级课表 | 查看本年级所有班级课表 |
-
-配置示例：
-```typescript
-const gradeLeaderConfig = {
-  specialPermissions: {
-    manageCourseAdjustment: true,
-    receiveLeaveNotification: true,
-    assignSubstituteTeacher: true,
-    viewGradeSchedule: true,
-  },
-  managedGrades: [1, 2],  // 管理一、二年级
-};
-```
-
-### 2.4 高并发保护机制
-
-#### 2.4.1 高并发场景分析
-
-开学季和特定时段会出现明显的高并发访问：
-
-| 场景 | 高峰时段 | 预估并发量 | 风险等级 |
-|------|----------|------------|----------|
-| 新生注册 | 8月底-9月初 | 500-1000 QPS | 高 |
-| 家长端成绩查询 | 考试成绩发布后1小时 | 800-1500 QPS | 高 |
-| 家长端缴费 | 缴费通知发布后 | 300-500 QPS | 中 |
-| 教师端打卡/请假 | 早8点、下午5点 | 200-400 QPS | 中 |
-| 门禁记录同步 | 上下学时段 | 100-200 QPS | 低 |
-
-#### 2.4.2 限流策略
-
-**基于Redis的分布式限流**，采用滑动窗口算法：
-
-```typescript
-// 限流中间件实现
-interface RateLimitConfig {
-  windowMs: number;      // 时间窗口（毫秒）
-  maxRequests: number;   // 窗口内最大请求数
-  keyPrefix: string;     // Redis key前缀
-}
-
-// API限流配置
-const rateLimitConfigs: Record<string, RateLimitConfig> = {
-  // 新生注册 - 严格限流
-  '/api/enrollment': { windowMs: 60000, maxRequests: 100, keyPrefix: 'enrollment' },
+async function generateTokens(user: User) {
+  const secret = new TextEncoder().encode(process.env.JWT_SECRET);
   
-  // 成绩查询 - 宽松限流
-  '/api/grades': { windowMs: 60000, maxRequests: 200, keyPrefix: 'grades' },
+  // Access Token (2小时有效)
+  const accessToken = await new SignJWT({ 
+    userId: user.id, 
+    role: user.role,
+    additionalRoles: user.additionalRoles 
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('2h')
+    .sign(secret);
   
-  // 家长端通用
-  '/api/students': { windowMs: 60000, maxRequests: 300, keyPrefix: 'parent' },
+  // Refresh Token (7天有效)
+  const refreshToken = await new SignJWT({ userId: user.id, type: 'refresh' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(secret);
   
-  // 认证接口 - 防暴力破解
-  '/api/auth/login': { windowMs: 900000, maxRequests: 5, keyPrefix: 'login' },
-  
-  // 默认限流
-  'default': { windowMs: 60000, maxRequests: 500, keyPrefix: 'default' },
-};
-```
-
-**限流级别**:
-
-| 级别 | 策略 | 适用场景 |
-|------|------|----------|
-| IP级别 | 同一IP限流 | 防止恶意攻击 |
-| 用户级别 | 同一用户ID限流 | 防止单用户刷接口 |
-| 接口级别 | 单接口全局限流 | 保护核心接口 |
-| 租户级别 | 全局QPS限制 | 系统整体保护 |
-
-**限流响应**:
-```json
-{
-  "success": false,
-  "error": "请求过于频繁，请稍后再试",
-  "errorCode": "RATE_LIMIT_EXCEEDED",
-  "retryAfter": 60
+  return { accessToken, refreshToken };
 }
 ```
 
-#### 2.4.3 熔断机制
-
-采用熔断器模式防止级联故障：
+#### 6.2.2 Token验证
 
 ```typescript
-// 熔断器状态机
-enum CircuitState {
-  CLOSED,      // 正常状态
-  OPEN,        // 熔断状态
-  HALF_OPEN,   // 半开状态（试探性恢复）
+import { jwtVerify } from 'jose';
+
+async function verifyToken(token: string) {
+  const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+  const { payload } = await jwtVerify(token, secret);
+  return payload;
 }
+```
 
-// 熔断器配置
-interface CircuitBreakerConfig {
-  failureThreshold: number;    // 失败次数阈值
-  successThreshold: number;    // 半开状态成功次数阈值
-  timeout: number;             // 熔断超时时间（ms）
-  resetTimeout: number;        // 熔断恢复时间（ms）
+### 6.3 权限控制
+
+#### 6.3.1 模块权限映射
+
+| 角色 | 教务系统 | 德育系统 | 总务系统 | 教师空间 | 家长端 |
+|------|----------|----------|----------|----------|--------|
+| 校长 | ✓ | ✓ | ✓ | ✓ | ✗ |
+| 书记 | ✓ | ✓ | ✓ | ✓ | ✗ |
+| 教学副校长 | ✓ | ✗ | ✗ | ✓ | ✗ |
+| 德育副校长 | ✗ | ✓ | ✗ | ✓ | ✗ |
+| 总务副校长 | ✗ | ✗ | ✓ | ✓ | ✗ |
+| 教务主任 | ✓ | ✗ | ✗ | ✓ | ✗ |
+| 德育主任 | ✗ | ✓ | ✗ | ✓ | ✗ |
+| 总务主任 | ✗ | ✗ | ✓ | ✓ | ✗ |
+| 年段长 | 部分 | 部分 | ✗ | ✓ | ✗ |
+| 班主任 | 部分 | 部分 | ✗ | ✓ | ✗ |
+| 科任教师 | 部分 | ✗ | ✗ | ✓ | ✗ |
+| 家长 | ✗ | 部分 | ✗ | ✗ | ✓ |
+
+#### 6.3.2 敏感数据访问控制
+
+**学生敏感数据访问规则**：
+```typescript
+// 判断是否有权访问学生敏感数据
+function canAccessStudentData(user: User, student: Student): boolean {
+  // 1. 学校领导有全部权限
+  if (['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal'].includes(user.role)) {
+    return true;
+  }
+  
+  // 2. 教务主任、德育主任有全部权限
+  if (user.additionalRoles?.includes('academic_director') || 
+      user.additionalRoles?.includes('moral_director')) {
+    return true;
+  }
+  
+  // 3. 班主任可访问本班学生
+  if (user.role === 'head_teacher' && user.classId === student.classId) {
+    return true;
+  }
+  
+  // 4. 科任教师可访问任教班级学生
+  if (user.role === 'subject_teacher') {
+    const teacherClasses = user.subTeacherClasses || [];
+    return teacherClasses.some(c => c.classId === student.classId);
+  }
+  
+  // 5. 家长只能访问自己孩子
+  if (user.role === 'parent') {
+    return user.children?.some(c => c.id === student.id);
+  }
+  
+  return false;
 }
-
-// 各服务熔断配置
-const circuitConfigs: Record<string, CircuitBreakerConfig> = {
-  'database': { failureThreshold: 5, successThreshold: 3, timeout: 30000, resetTimeout: 60000 },
-  'storage': { failureThreshold: 3, successThreshold: 2, timeout: 10000, resetTimeout: 30000 },
-  'cache': { failureThreshold: 5, successThreshold: 2, timeout: 5000, resetTimeout: 15000 },
-};
 ```
 
-**熔断降级策略**:
+### 6.4 路由守卫
 
-| 服务 | 熔断后降级方案 |
-|------|----------------|
-| 数据库 | 返回错误响应 / 缓存数据（如有） |
-| 对象存储 | 返回默认占位图 / 延迟加载 |
-| 缓存 | 直接查询数据库（有限流保护） |
-| 搜索服务 | 返回空结果 / 简单匹配 |
-
-#### 2.4.4 队列削峰
-
-对于写入密集型操作，采用消息队列削峰：
-
-```
-┌──────────┐     ┌──────────────┐     ┌──────────────┐
-│  客户端   │────▶│  消息队列     │────▶│  后端处理    │
-│(高并发写) │     │ (Redis/RabbitMQ)│   │ (异步消费)   │
-└──────────┘     └──────────────┘     └──────────────┘
-                        │
-                        ▼
-                 ┌──────────────┐
-                 │  持久化存储   │
-                 └──────────────┘
-```
-
-**异步处理场景**:
-
-| 场景 | 队列类型 | 处理方式 |
-|------|----------|----------|
-| 门禁记录同步 | Redis List | 批量写入数据库 |
-| 习惯评价记录 | Redis List | 批量聚合计算 |
-| 通知推送 | Redis Stream | 异步推送 |
-| 数据统计 | Redis List | 定时任务消费 |
-
-#### 2.4.5 缓存策略
-
-**多级缓存架构**:
-
-```
-┌─────────────┐
-│  客户端缓存  │  ← Cache-Control / ETag
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  CDN缓存    │  ← 静态资源 / 公共数据
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Redis缓存  │  ← 热点数据 / 会话数据
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  数据库     │  ← 持久化存储
-└─────────────┘
-```
-
-**缓存规则**:
-
-| 数据类型 | 缓存时间 | 更新策略 |
-|----------|----------|----------|
-| 课表数据 | 5分钟 | 定时刷新 |
-| 用户信息 | 30分钟 | 写时更新 |
-| 统计数据 | 10分钟 | 定时刷新 |
-| 配置数据 | 1小时 | 写时失效 |
-| 公告通知 | 5分钟 | 写时失效 |
-
----
-
-## 3. 模块设计
-
-### 3.1 系统模块总览
-
-项目采用 Next.js App Router 架构，页面按功能模块组织在 `src/app/` 目录下：
-
-```
-智慧校园平台 (89个页面)
-├── (根目录)           首页 (1个页面)
-│   └── page.tsx       平台首页/入口
-│
-├── academic/          教务系统 (19个页面)
-│   ├── page.tsx       教务系统首页
-│   ├── analysis/      教学分析
-│   ├── attendance/    考勤管理
-│   ├── classes/       班级管理
-│   ├── enrollment/    新生注册
-│   ├── exams/         考试管理
-│   ├── grades/        成绩管理
-│   ├── manual-schedule/ 手动排课（v3.1重构）
-│   │   └── [grade]/   按年级分页排课
-│   ├── parents/       家长管理
-│   ├── research/      教研活动
-│   ├── rooms/         功能室预约
-│   │   ├── page.tsx   功能室列表
-│   │   ├── approval/  预约审批
-│   │   ├── booking/   预约申请
-│   │   └── calendar/  预约日历
-│   ├── students/      学生管理
-│   │   └── [id]/      学生详情
-│   ├── teachers/      教师管理
-│   │   └── [id]/      教师详情
-│   └── workload/      工作量统计
-│
-├── general/           总务系统 (14个页面)
-│   ├── page.tsx       总务系统首页
-│   ├── access/        门禁管理
-│   │   ├── page.tsx   门禁概览
-│   │   ├── devices/   设备管理
-│   │   ├── persons/   人员管理
-│   │   ├── records/   通行记录
-│   │   └── visitors/  访客管理
-│   ├── assets/        资产管理
-│   ├── devices/       设备管理
-│   ├── environment/   环境管理
-│   ├── finance/       财务管理
-│   ├── purchase/      采购管理
-│   ├── repairs/       维修管理
-│   ├── security/      安全管理
-│   └── staff/         员工管理
-│
-├── moral/             德育系统 (14个页面)
-│   ├── page.tsx       德育系统首页
-│   ├── activities/    德育活动
-│   ├── alerts/        预警管理
-│   ├── analytics/     德育分析
-│   ├── assessment/    行为评价
-│   ├── growth/        成长档案
-│   ├── habit/         习惯养成 (5个子页面)
-│   │   ├── page.tsx   习惯养成主页
-│   │   ├── goals/     习惯目标
-│   │   ├── overview/  全校总览
-│   │   ├── settings/  习惯设置
-│   │   └── stars/     习惯之星
-│   ├── honors/        荣誉管理
-│   ├── pioneer/       少先队工作
-│   └── plans/         德育计划
-│
-├── teacher/           教师空间 (18个页面)
-│   ├── page.tsx       教师空间首页
-│   ├── adjust/        调课管理
-│   ├── admin/         管理功能
-│   ├── class/         班级管理
-│   │   └── students/[id]/  学生详情
-│   ├── collect/       数据收集
-│   ├── communication/ 家校通讯
-│   ├── daily/         日常管理
-│   ├── expense/       报销管理
-│   ├── grade/         年级管理
-│   ├── grade-habit/   年级习惯
-│   ├── grade-schedule/ 年级课表
-│   ├── habit/         习惯管理
-│   ├── homework/      作业管理
-│   ├── leave/         请假管理
-│   ├── moral/         德育工作
-│   ├── profile/       个人中心
-│   └── safety/        安全管理
-│
-├── parent/            家长端 (6个页面)
-│   ├── page.tsx       家长端首页
-│   ├── announcements/ 公告通知
-│   ├── children/      孩子信息
-│   ├── enrollment/    新生注册
-│   ├── grades/        成绩查询
-│   └── habit/         习惯记录
-│
-├── workflow/          工作流 (7个页面)
-│   ├── page.tsx       工作流首页
-│   ├── config/        流程配置
-│   │   └── edit/      流程编辑
-│   ├── expense/       报销流程
-│   ├── leave/         请假流程
-│   ├── purchase/      采购流程
-│   └── repair/        维修流程
-│
-├── homepage/          首页管理 (5个页面)
-│   ├── page.tsx       首页管理入口
-│   ├── honors/        荣誉展示
-│   ├── images/        图片管理
-│   ├── news/          新闻管理
-│   └── sections/      板块管理
-│
-├── dashboard/         仪表盘 (4个页面)
-│   ├── page.tsx       仪表盘入口
-│   ├── principal/     校长仪表盘
-│   ├── secretary/     书记仪表盘
-│   └── vice-principal/ 副校长仪表盘
-│
-└── login/             登录页 (1个页面)
-    └── page.tsx       用户登录
-```
-
-### 3.2 教务系统 (academic)
-
-教务系统是学校的核心业务系统，涵盖课表、成绩、考试、教研等功能。
-
-#### 3.2.1 课表管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 手动排课 | /academic/manual-schedule/[grade] | 教务主任手动排课，支持按年级分页 |
-| 班级课表 | /academic/classes/[id]/schedule | 各班级课表查询 |
-
-**手动排课模块设计（v3.1重构）**:
-
-| 功能 | 说明 |
-|------|------|
-| 按年级分页 | 一年级到六年级，每个年级独立页面 |
-| 班级课表面板 | 显示班级名称、班主任/副班主任信息、各学科课时统计 |
-| 右键复制粘贴 | 复制课程到剪贴板，粘贴到目标格子，自动更新课时 |
-| 教师选择弹窗 | 横向布局，左侧科目选择，右侧教师列表 |
-| 课时参考悬浮窗 | 可拖动悬浮窗，显示各学科参考课时 |
-
-**科目规则引擎**:
-
-| 科目 | 规则 | 教师来源 |
-|------|------|----------|
-| 语文 | chinese_only | 本班语文老师（班主任或副班主任） |
-| 数学 | math_only | 本班数学老师（班主任或副班主任） |
-| 书法 | chinese_only | 本班语文老师 |
-| 班会 | head_teacher_only | 本班班主任 |
-| 道德与法治 | all_chinese | 全校语文老师 |
-| 科学 | science_rule | 本班数学老师 > 专职科学老师 > 其他数学老师 |
-| 校本/综合实践/劳动 | all_chinese_math | 全校语数老师 |
-| 其他学科 | all_subject | 该学科全校老师 |
-
-**课时配置文件** (`src/lib/schedule-config.ts`):
-
-| 科目 | 一二年级 | 三至六年级 |
-|------|----------|------------|
-| 语文 | 7节 | 6节 |
-| 数学 | 4节 | 5节 |
-| 英语 | - | 2节 |
-| 科学 | 2节 | 3节 |
-| 道德与法治 | 2节 | 2节 |
-| 体育 | 3节 | 3节 |
-| 音乐 | 2节 | 1节 |
-| 美术 | 2节 | 1节 |
-| 书法 | 1节 | 1节 |
-| 信息技术 | - | 1节 |
-| 劳动 | 1节 | 1节 |
-| 综合实践 | 1节 | 1节 |
-| 校本 | 1节 | 1节 |
-| 班会 | 1节 | 1节 |
-| **总计** | **26节** | **30节** |
-
-**课表数据模型**:
-| 数据表 | 说明 | 更新频率 |
-|--------|------|----------|
-| schedule_slots | 正式课表（唯一数据源） | 实时更新 |
-| schedule_drafts | 草稿备份 | 手动保存 |
-
-#### 3.2.2 学生管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 学生列表 | /academic/students | 学生档案管理、学籍管理 |
-| 学生详情 | /academic/students/[id] | 学生完整信息查看与编辑 |
-
-**学生详情页Tab结构**:
-
-| Tab | 内容 | 数据来源 |
-|-----|------|----------|
-| 基本信息 | 个人信息、学籍信息 | 教务系统 |
-| 家庭信息 | 家长联系方式、家庭类型 | 教务系统 |
-| 综合素质 | 学业表现、荣誉奖项、德育表现、成长轨迹 | 教务系统 + 德育系统 |
-
-**综合素质Tab设计**:
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        综合素质 Tab                                  │
-├─────────────────────────────────────────────────────────────────────┤
-│  【学年选择器】                                                      │
-│  [2024-2025学年 ▼]    [全学段]                                       │
-│                                                                     │
-│  【素质概览】                                                        │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐               │
-│  │学业成绩 │  │习惯评分 │  │荣誉奖项 │  │志愿服务 │               │
-│  │  优秀   │  │   92    │  │   2     │  │  7小时  │               │
-│  └─────────┘  └─────────┘  └─────────┘  └─────────┘               │
-│                                                                     │
-│  【详细内容（折叠面板）】                                            │
-│  ▼ 📚 学业表现                                    [默认展开]        │
-│    ├── 成绩记录：期中/期末成绩、各科目分数、排名                     │
-│    ├── 成绩趋势：各科目变化曲线                                     │
-│    └── 学业荣誉：学科竞赛、学习之星等                               │
-│                                                                     │
-│  ▼ 🌟 荣誉奖项                                    [默认展开]        │
-│    ├── 全部荣誉列表（按时间倒序）                                   │
-│    └── 按类别筛选：综合/学业/德育/体育/艺术/劳动/科技               │
-│                                                                     │
-│  ▼ ❤️ 德育表现                                    [默认展开]        │
-│    ├── 习惯养成：八大习惯评分、月度目标、习惯之星、评价记录         │
-│    ├── 行为评价：表扬/待改进次数、行为得分                          │
-│    ├── 活动参与：德育活动、少先队活动                               │
-│    ├── 志愿服务：活动列表、累计时长                                 │
-│    ├── 德育预警：权限控制（德育主任/班主任/家长可见）               │
-│    └── 综合评价：学期综合素质评价                                   │
-│                                                                     │
-│  ▶ 📜 成长轨迹                                    [默认收起]        │
-│    └── 时间线：入学→升班→表彰→处分→家访→转学→毕业                  │
-│                                                                     │
-│  【学年对比】                                                        │
-│  学年         学业成绩   习惯评分   荣誉数量   综合评价             │
-│  2024-2025     优秀       92         2         优秀                 │
-│  2023-2024     良好       88         3         良好                 │
-│  2022-2023     良好       85         1         良好                 │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**学年数据组织**:
-
-| 维度 | 学年数据 | 全学段数据 |
-|------|----------|------------|
-| 学业表现 | 本学年成绩、学业荣誉 | 各学年成绩汇总、趋势图 |
-| 荣誉奖项 | 本学年所获荣誉 | 全部荣誉列表 |
-| 德育表现 | 本学年习惯、行为、活动、志愿 | 各学年汇总、成长趋势 |
-| 成长轨迹 | 本学年大事记录 | 完整时间线 |
-
-**数据归属与维护**:
-
-| 模块 | 数据项 | 归属系统 | 维护角色 |
-|------|--------|----------|----------|
-| 学业表现 | 成绩记录 | 教务系统 | 教务员/教师 |
-| | 学业荣誉 | 教务系统 | 教务员 |
-| 荣誉奖项 | 全部荣誉 | 教务+德育 | 教务员/德育员/班主任 |
-| 德育表现 | 习惯养成 | 德育系统 | 班主任/德育员 |
-| | 行为评价 | 德育系统 | 班主任/德育员 |
-| | 活动参与 | 德育系统 | 德育员 |
-| | 志愿服务 | 德育系统 | 德育员 |
-| | 德育预警 | 德育系统 | 德育主任 |
-| | 综合评价 | 德育系统 | 班主任 |
-| 成长轨迹 | 大事记录 | 教务+德育 | 教务员/班主任 |
-
-**权限控制矩阵**:
-
-| 角色 | 学业表现 | 荣誉奖项 | 德育表现 | 德育预警 | 成长轨迹 |
-|------|----------|----------|----------|----------|----------|
-| 校长 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✓ 全校 |
-| 教务主任 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✓ 全校 |
-| 德育主任 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✓ 全校 |
-| 教务员 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✗ | ✓ 全校 |
-| 德育员 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✓ 全校 | ✓ 全校 |
-| 年段长 | ✓ 本年级 | ✓ 本年级 | ✓ 本年级 | ✓ 本年级 | ✓ 本年级 |
-| 班主任 | ✓ 本班 | ✓ 本班 | ✓ 本班 | ✓ 本班 | ✓ 本班 |
-| 科任教师 | ✓ 教学班 | ✓ 教学班 | ✗ | ✗ | ✗ |
-| 家长 | ✓ 自己孩子 | ✓ 自己孩子 | ✓ 自己孩子 | ✓ 自己孩子 | ✓ 自己孩子 |
-
-#### 3.2.3 教师管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 教师列表 | /academic/teachers | 教师档案管理 |
-| 教师详情 | /academic/teachers/[id] | 教师完整信息、工作量统计 |
-
-#### 3.2.4 新生注册
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 新生注册 | /academic/enrollment | 新生信息采集、审核、班级分配 |
-
-**业务流程**:
-```
-家长端提交信息 → 教务审核 → 分配班级 → 手动同步到学生管理
-```
-
-#### 3.2.5 考试与成绩
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 考试管理 | /academic/exams | 考试安排、成绩录入 |
-| 成绩管理 | /academic/grades | 成绩查询、分析统计 |
-
-#### 3.2.6 教研活动
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 教研活动 | /academic/research | 集体备课、听课评课、教研活动管理 |
-
-#### 3.2.7 功能室预约
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 预约申请 | /academic/rooms/booking | 功能室预约申请 |
-| 预约审批 | /academic/rooms/approval | 预约审批管理 |
-| 预约日历 | /academic/rooms/calendar | 可视化预约日历 |
-
-#### 3.2.8 工作量统计
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 工作量统计 | /academic/workload | 教师工作量计算与统计 |
-
-**工作量计算公式**:
-```
-教师工作量 = 基准课时 × 班级系数 + 代课课时 + 课后服务课时
-```
-
-#### 3.2.9 考勤管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 考勤管理 | /academic/attendance | 教师考勤记录与统计 |
-
-### 3.3 总务系统 (general)
-
-总务系统负责学校后勤保障工作，涵盖财务、资产、维修、门禁等功能。
-
-#### 3.3.1 门禁管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 设备管理 | /general/access/devices | 门禁设备增删改查、状态监控 |
-| 人员管理 | /general/access/persons | 通行人员信息管理 |
-| 通行记录 | /general/access/records | 进出记录查询、异常告警 |
-| 访客管理 | /general/access/visitors | 访客预约、访客审批、访客记录 |
-
-**数据统计指标**:
-- 今日通行总数、进入人数、外出人数
-- 按人员类型统计（学生/教师/后勤/访客）
-- 异常通行记录数
-- 设备在线/离线/故障数量
-
-#### 3.3.2 财务管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 财务管理 | /general/finance | 报销申请、审批、统计 |
-
-**报销审批流程**:
-```
-申请人提交 → 部门负责人审核 → 财务审核 → 总务主任审批 → 校长审批(大额)
-```
-
-**金额审批权限**:
-| 金额范围 | 审批人 |
-|----------|--------|
-| ≤1000元 | 部门负责人 |
-| 1000-5000元 | 总务主任 |
-| 5000-20000元 | 分管副校长 |
-| >20000元 | 校长 |
-
-#### 3.3.3 资产与设备
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 资产管理 | /general/assets | 资产登记、领用、报废 |
-| 设备管理 | /general/devices | 设备台账、维护记录 |
-
-#### 3.3.4 维修与采购
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 维修管理 | /general/repairs | 报修申请、派工、验收 |
-| 采购管理 | /general/purchase | 采购申请、审批流程 |
-
-#### 3.3.5 安全管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 安全管理 | /general/security | 安全演练、安全检查、隐患整改 |
-
-**功能模块**:
-| 子模块 | 功能描述 |
-|--------|----------|
-| 安全演练 | 演练计划、演练记录、演练评估 |
-| 安全检查 | 检查计划、检查记录、隐患整改 |
-| 隐患整改 | 隐患上报、整改跟踪、验收闭环 |
-
-### 3.4 德育系统 (moral)
-
-德育系统负责学生思想品德教育、习惯养成、成长档案管理等工作。
-
-#### 3.4.1 日常行为
-
-日常行为管理模块，包含习惯养成、行为评价、习惯之星评选等功能。
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 行为评价 | /moral/assessment | 学生日常行为表扬/待改进记录 |
-| 全校总览 | /moral/habit/overview | 全校习惯养成统计看板、预警提醒 |
-| 小目标管理 | /moral/habit/goals | 小目标实例管理、进度追踪 |
-| 习惯之星 | /moral/habit/stars | 月度习惯之星评选与展示 |
-| 习惯设置 | /moral/habit/settings | 目标模板库、评选规则、预警规则配置 |
-
-> **说明**：习惯养成模块精简为4个页面，明确各角色职责：
-> - `/moral/habit/overview` - 全校总览（德育主任）
-> - `/moral/habit/goals` - 小目标管理（德育主任查看全校）
-> - `/moral/habit/stars` - 习惯之星评选
-> - `/moral/habit/settings` - 习惯设置（德育主任专用）
-
-**数据层级关系**:
-```
-第1层：习惯类别（系统固定八大类）
-  ├── 文明习惯、书写习惯、阅读习惯、体育习惯
-  └── 安全习惯、卫生习惯、审美习惯、劳动习惯
-        │
-        ▼
-第2层：小目标模板（德育主任配置）
-  ├── 属于某个习惯类别
-  └── 包含：目标名称、达标标准、周期类型（日/周/月）
-        │
-        ▼
-第3层：小目标实例（班主任发布给学生）
-  ├── 来源：从模板选择 或 自定义创建
-  └── 指定：学生/班级、开始日期、结束日期
-        │
-        ▼
-第4层：打卡记录（家长填写 + 教师评价）
-  ├── 家长记录：每日/每周打卡，填写具体表现
-  └── 月末汇总：家长签字确认 → 班主任审核
-        │
-        ▼
-第5层：习惯达成率（系统自动计算）
-  ├── 单项习惯达成率 = 该类别小目标完成率加权平均
-  └── 综合达成率 = 八大习惯达成率算术平均
-        │
-        ▼
-第6层：习惯之星评选（基于达成率自动推荐）
-  ├── 全习惯之星：八大习惯全部≥90%
-  ├── 单项之星：某类别连续4周达标
-  └── 进步之星：达成率较上月提升≥20%
-```
-
-**角色职责矩阵**:
-| 角色 | 配置模板 | 发布目标 | 每日打卡 | 月末确认 | 审核确认 | 评选管理 |
-|------|----------|----------|----------|----------|----------|----------|
-| 德育主任 | ✓ | - | - | - | - | ✓ |
-| 班主任 | - | ✓ | - | - | ✓ | - |
-| 家长 | - | - | ✓ | ✓ | - | - |
-
-**八大习惯评价体系**:
-| 类别 | 习惯项目 | 评价方式 |
-|------|----------|----------|
-| 文明习惯 | 文明礼貌、遵守纪律 | 即时评价 |
-| 书写习惯 | 书写工整、卷面整洁 | 作业评价 |
-| 阅读习惯 | 课外阅读、阅读笔记 | 阶段评价 |
-| 运动习惯 | 体育锻炼、课间活动 | 日常评价 |
-| 安全习惯 | 安全意识、自我保护 | 即时评价 |
-| 卫生习惯 | 个人卫生、环境卫生 | 日常评价 |
-| 审美习惯 | 艺术欣赏、创意表现 | 活动评价 |
-| 劳动习惯 | 劳动参与、劳动技能 | 日常评价 |
-
-**习惯之星评选规则**:
-| 级别 | 评选标准 | 评选周期 |
-|------|----------|----------|
-| 班级之星 | 班级习惯评分前10% | 每月 |
-| 年级之星 | 年级习惯评分前5% | 每月 |
-| 校级之星 | 校级习惯评分前3% | 每月 |
-
-**月度评选流程**:
-```
-每月最后一周
-     │
-     ▼
-系统自动计算各学生习惯达成率
-     │
-     ▼
-自动筛选达标学生
-├── 全习惯之星候选：八大习惯全部≥90%
-├── 单项之星候选：某类别连续4周达标
-└── 进步之星候选：达成率提升≥20%
-     │
-     ▼
-班主任确认推荐名单 → 德育主任审核批准 → 系统公示
-```
-
-#### 3.4.2 德育活动
-
-德育活动组织与参与管理，包含活动发布、志愿服务、德育计划、少先队工作等。
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 活动管理 | /moral/activities | 德育活动发布、报名、记录 |
-| 志愿服务 | /moral/activities/volunteer | 志愿服务时长记录与统计 |
-| 德育计划 | /moral/plans | 学期德育工作计划制定 |
-| 少先队工作 | /moral/pioneer | 少先队相关工作管理（入队、队会、队日） |
-
-> **说明**：德育活动模块整合了原有的活动管理、德育计划和少先队工作，保持原有路径：
-> - `/moral/activities` - 德育活动列表与管理
-> - `/moral/plans` - 德育工作计划
-> - `/moral/pioneer` - 少先队工作管理
-
-**活动类型**:
-| 类型 | 说明 | 组织单位 |
-|------|------|----------|
-| 德育活动 | 主题班会、升旗仪式、传统节日活动 | 德育处 |
-| 少先队活动 | 入队仪式、队会、队日活动 | 大队部 |
-| 班级活动 | 班级主题活动、班级建设 | 班主任 |
-| 学校活动 | 校庆、运动会、艺术节 | 学校 |
-
-#### 3.4.3 成长荣誉
-
-学生成长记录与荣誉管理，包含荣誉管理、成长轨迹、综合评价等。
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 荣誉管理 | /moral/honors | 学生荣誉奖项记录与管理 |
-| 成长轨迹 | /moral/growth | 学生成长大事记时间线 |
-| 综合评价 | /moral/honors/evaluation | 学期综合素质评价生成 |
-
-> **说明**：成长荣誉模块整合了荣誉管理和成长档案功能：
-> - `/moral/honors` - 荣誉奖项管理（新增）
-> - `/moral/growth` - 成长档案轨迹（保留原路径）
-> - `/moral/honors/evaluation` - 综合素质评价（新增）
-
-**荣誉分类**:
-| 类别 | 示例 | 数据来源 |
-|------|------|----------|
-| 综合荣誉 | 三好学生、优秀学生干部 | 教务/德育 |
-| 学业荣誉 | 学科竞赛、学习之星 | 教务系统 |
-| 德育荣誉 | 习惯之星、德育标兵 | 德育系统 |
-| 体育荣誉 | 运动会获奖、体育之星 | 体育组 |
-| 艺术荣誉 | 艺术比赛、艺术之星 | 艺术组 |
-| 劳动荣誉 | 劳动之星、劳动能手 | 德育系统 |
-| 科技荣誉 | 科技竞赛、科技创新 | 教务系统 |
-
-**成长轨迹事件类型**:
-| 事件类型 | 说明 | 记录来源 |
-|----------|------|----------|
-| 入学 | 一年级入学、转学入学 | 教务系统 |
-| 升班 | 每学年升班 | 系统自动 |
-| 表彰 | 各类荣誉表彰 | 教务/德育 |
-| 处分 | 违纪处分记录 | 德育系统 |
-| 家访 | 家访记录 | 班主任 |
-| 谈心 | 心理辅导、谈心谈话 | 班主任/心理教师 |
-| 转学 | 转出、转入 | 教务系统 |
-| 毕业 | 六年级毕业 | 教务系统 |
-
-#### 3.4.4 预警管理
-
-学生行为预警与干预管理，支持风险识别与跟踪。
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 预警列表 | /moral/alerts | 当前预警学生列表与处理 |
-| 预警规则 | /moral/alerts/rules | 预警触发条件设置 |
-| 干预记录 | /moral/alerts/intervention | 干预措施与效果跟踪 |
-
-> **说明**：预警管理模块保持原有 `/moral/alerts` 路径结构：
-> - `/moral/alerts` - 预警学生列表（含处理功能）
-> - `/moral/alerts/rules` - 预警规则配置（新增）
-> - `/moral/alerts/intervention` - 干预记录跟踪（新增）
-
-**预警类型**:
-| 预警类型 | 触发条件 | 预警级别 |
-|----------|----------|----------|
-| 行为预警 | 连续多次待改进记录 | info/warning/danger |
-| 习惯预警 | 习惯评分持续下降 | info/warning/danger |
-| 出勤预警 | 连续缺勤、频繁迟到 | info/warning/danger |
-| 心理预警 | 心理测评异常 | warning/danger |
-
-**预警可见范围**:
-| 角色 | 可见范围 |
-|------|----------|
-| 德育主任 | 全校所有预警 |
-| 年段长 | 本年级预警 |
-| 班主任 | 本班学生预警 |
-| 家长 | 仅自己孩子预警 |
-
-#### 3.4.5 德育分析
-
-德育工作数据统计与分析报告。
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 数据概览 | /moral/analytics | 德育数据总览与关键指标 |
-| 班级对比 | /moral/analytics/comparison | 各班德育表现对比分析 |
-| 趋势分析 | /moral/analytics/trends | 德育数据变化趋势分析 |
-| 报告导出 | /moral/analytics/reports | 德育工作报表导出 |
-
-> **说明**：德育分析模块保持原有 `/moral/analytics` 路径，并扩展功能：
-> - `/moral/analytics` - 德育数据总览（保留）
-> - `/moral/analytics/comparison` - 班级对比分析（新增）
-> - `/moral/analytics/trends` - 趋势分析（新增）
-> - `/moral/analytics/reports` - 报告导出（新增）
-
-#### 3.4.6 德育系统目录结构
-
-```
-src/app/moral/
-├── page.tsx                    # 德育系统首页（总览）
-├── assessment/                 # 日常行为 - 行为评价
-│   └── page.tsx               # 表扬/待改进记录
-├── habit/                      # 日常行为 - 习惯养成
-│   ├── page.tsx               # 习惯养成主页
-│   ├── overview/              # 全校总览（德育主任视角）
-│   ├── goals/                 # 小目标管理
-│   ├── stars/                 # 习惯之星评选
-│   └── settings/              # 习惯设置（目标模板、评选规则）
-├── activities/                 # 德育活动
-│   └── page.tsx               # 活动管理
-├── plans/                      # 德育计划
-│   └── page.tsx               # 工作计划
-├── pioneer/                    # 少先队工作
-│   └── page.tsx               # 少先队管理
-├── honors/                     # 成长荣誉
-│   └── page.tsx               # 荣誉管理
-├── growth/                     # 成长轨迹
-│   └── page.tsx               # 成长档案
-├── alerts/                     # 预警管理
-│   └── page.tsx               # 预警列表
-└── analytics/                  # 德育分析
-    └── page.tsx               # 数据分析
-```
-
-#### 3.4.7 德育系统导航菜单
-
-```
-德育管理
-├── 首页概览          /moral
-├── 日常行为
-│   ├── 行为评价      /moral/assessment
-│   └── 习惯养成      /moral/habit
-│       ├── 全校总览  /moral/habit/overview
-│       ├── 小目标    /moral/habit/goals
-│       ├── 习惯之星  /moral/habit/stars
-│       └── 习惯设置  /moral/habit/settings
-├── 德育活动
-│   ├── 活动管理      /moral/activities
-│   ├── 德育计划      /moral/plans
-│   └── 少先队工作    /moral/pioneer
-├── 成长荣誉
-│   ├── 荣誉管理      /moral/honors
-│   └── 成长轨迹      /moral/growth
-├── 预警管理          /moral/alerts
-└── 德育分析          /moral/analytics
-```
-
-### 3.5 教师空间 (teacher)
-
-教师空间是教师的个人工作台，提供教学管理、请假报销、班级管理等功能。
-
-#### 3.5.1 个人中心
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 个人中心 | /teacher/profile | 基本信息、我的课表、密码修改 |
-
-#### 3.5.2 教学管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 作业管理 | /teacher/homework | 作业布置、批改记录 |
-| 习惯管理 | /teacher/habit | 发布小目标、审核打卡记录、查看班级统计 |
-| 德育工作 | /teacher/moral | 班级德育工作记录 |
-| 日常管理 | /teacher/daily | 日常事务处理 |
-
-**习惯管理功能详情**:
-| 功能 | 说明 | 角色 |
-|------|------|------|
-| 目标发布 | 从模板选择或自定义，发布给学生 | 班主任 |
-| 打卡审核 | 审核家长打卡记录，评价学生表现 | 班主任 |
-| 月度确认 | 月末审核汇总数据，确认学生达成率 | 班主任 |
-| 班级统计 | 查看班级习惯养成整体情况 | 班主任 |
-| 预警处理 | 处理学生习惯预警，及时干预 | 班主任 |
-
-#### 3.5.3 班级与年级管理
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 班级管理 | /teacher/class | 班级学生管理 |
-| 年级管理 | /teacher/grade | 年段长专属功能 |
-| 年级课表 | /teacher/grade-schedule | 年级课表查看 |
-| 年级习惯 | /teacher/grade-habit | 年级习惯统计 |
-
-#### 3.5.4 请假与调课
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 请假管理 | /teacher/leave | 请假申请、审批记录 |
-| 调课管理 | /teacher/adjust | 调课申请、代课安排 |
-
-#### 3.5.5 报销与通讯
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 报销管理 | /teacher/expense | 报销申请、进度查询 |
-| 家校通讯 | /teacher/communication | 与家长沟通记录 |
-
-#### 3.5.6 年段长专属功能
-
-年段长除普通教师功能外，还拥有以下专属权限：
-
-| 功能 | 路由 | 说明 |
-|------|------|------|
-| 年级管理 | /teacher/grade | 本年级整体管理 |
-| 年级课表 | /teacher/grade-schedule | 查看本年级所有班级课表 |
-| 年级习惯 | /teacher/grade-habit | 本年级习惯养成统计 |
-| 调课管理 | /teacher/adjust | 本年级调课申请审批 |
-
-### 3.6 家长端 (parent)
-
-家长端为家长提供查看孩子在校情况、参与习惯养成等功能。
-
-#### 3.6.1 孩子信息
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 孩子信息 | /parent/children | 查看孩子基本信息、班级动态 |
-
-#### 3.6.2 习惯记录
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 习惯记录 | /parent/habit | 查看孩子小目标、每日打卡、月度确认 |
-
-**功能说明**:
-| 功能 | 说明 | 角色 |
-|------|------|------|
-| 目标查看 | 查看班主任发布的月度小目标 | 家长 |
-| 每日打卡 | 根据目标类型进行日/周打卡 | 家长 |
-| 表现记录 | 填写孩子具体表现和成长亮点 | 家长 |
-| 月度确认 | 月末确认汇总数据，签字确认 | 家长 |
-| 统计查看 | 查看孩子习惯养成趋势和达成率 | 家长 |
-
-**打卡流程**:
-```
-班主任发布目标 → 家长查看目标 → 每日/周打卡 → 填写表现 → 月末确认签字 → 班主任审核
-```
-
-#### 3.6.3 成绩查询
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 成绩查询 | /parent/grades | 考试成绩、成绩分析 |
-
-#### 3.6.4 公告通知
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 公告通知 | /parent/announcements | 学校公告、班级通知 |
-
-#### 3.6.5 新生注册
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 新生注册 | /parent/enrollment | 家长端新生信息填报 |
-
-### 3.7 工作流系统 (workflow)
-
-工作流系统提供流程配置和审批实例管理。
-
-#### 3.7.1 流程配置
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 流程配置 | /workflow/config | 流程模板配置 |
-| 流程编辑 | /workflow/config/edit | 流程节点编辑 |
-
-#### 3.7.2 审批流程
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 报销流程 | /workflow/expense | 报销审批流程 |
-| 请假流程 | /workflow/leave | 请假审批流程 |
-| 采购流程 | /workflow/purchase | 采购审批流程 |
-| 维修流程 | /workflow/repair | 维修审批流程 |
-
-### 3.8 首页管理 (homepage)
-
-首页管理用于学校官网首页内容维护。
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 新闻管理 | /homepage/news | 学校新闻发布管理 |
-| 荣誉展示 | /homepage/honors | 学校荣誉、师生荣誉展示 |
-| 图片管理 | /homepage/images | 首页轮播图、相册管理 |
-| 板块管理 | /homepage/sections | 首页板块内容编辑 |
-
-### 3.9 仪表盘 (dashboard)
-
-仪表盘为学校领导提供数据可视化大屏。
-
-| 子模块 | 路由 | 功能说明 |
-|--------|------|----------|
-| 校长仪表盘 | /dashboard/principal | 校长视角数据概览 |
-| 书记仪表盘 | /dashboard/secretary | 书记视角数据概览 |
-| 副校长仪表盘 | /dashboard/vice-principal | 副校长视角数据概览 |
-
-### 3.10 API接口清单
-
-项目共实现 **103个API路由**，按功能模块组织：
-
-```
-src/app/api/
-├── academic/              教务系统API (13个路由)
-│   ├── manual-schedule/   手动排课 (7个路由)
-│   │   ├── cleanup/       清理重复数据
-│   │   ├── draft/         保存草稿
-│   │   ├── grade/         获取年级课表
-│   │   ├── publish/       发布课表
-│   │   ├── slot/          保存/删除单个课程
-│   │   ├── status/        获取排课状态
-│   │   └── teachers/      获取教师列表（含课时统计）
-│   ├── official-schedule/ 正式课表
-│   └── schedule-drafts/   草稿管理 (4个路由)
-├── access/                门禁管理API (4个路由)
-│   ├── devices/           设备管理
-│   ├── records/           通行记录
-│   ├── statistics/        数据统计
-│   └── visitors/          访客管理
-├── auth/                  认证API (4个路由)
-│   ├── current/           当前用户
-│   ├── login/             登录
-│   ├── logout/            登出
-│   └── refresh/           刷新Token
-├── teachers/              教师管理API (10个路由)
-│   ├── [id]/              教师详情/更新/删除
-│   ├── [id]/full-profile/ 教师完整档案
-│   ├── [id]/profile/      教师简介
-│   ├── achievements/      教师成就
-│   ├── batch-delete/      批量删除
-│   ├── batch-update/      批量更新
-│   ├── honors/            教师荣誉
-│   ├── records/           教师记录
-│   ├── trainings/         教师培训
-│   └── route.ts           教师列表/创建
-├── students/              学生管理API (6个路由)
-│   ├── [id]/              学生详情/更新/删除
-│   ├── [id]/full-profile/ 学生完整档案
-│   ├── [id]/habit-profile/ 学生习惯档案
-│   ├── batch-delete/      批量删除
-│   ├── batch-update/      批量更新
-│   └── route.ts           学生列表/创建
-├── expenses/              报销管理API (5个路由)
-│   ├── [id]/              报销详情
-│   ├── [id]/approve/      报销审批
-│   ├── [id]/process/      报销处理
-│   ├── statistics/        报销统计
-│   └── route.ts           报销列表/创建
-├── habit/                 习惯养成API (4个路由)
-│   ├── assessments/       习惯评价
-│   ├── goals/             习惯目标
-│   ├── stars/             习惯之星
-│   └── stats/school/      学校统计
-├── homepage/              首页管理API (4个路由)
-│   ├── honors/            荣誉展示
-│   ├── migrate/           数据迁移
-│   ├── news/              新闻管理
-│   └── route.ts           首页配置
-├── moral/                 德育管理API (4个路由)
-│   ├── activities/        德育活动
-│   ├── alerts/            预警管理
-│   ├── growth/            成长档案
-│   └── plans/             德育计划
-├── migrate/               数据迁移API (6个路由)
-│   ├── parents/           家长数据迁移
-│   ├── student-details/   学生详情迁移
-│   ├── teachers-config/   教师配置迁移
-│   ├── update-fields/     字段更新
-│   ├── users/             用户迁移
-│   └── route.ts           通用迁移
-├── classes/               班级管理API (2个路由)
-├── class-teachers/        班级教师API (2个路由)
-├── research/              教研活动API (3个路由)
-│   ├── activities/        教研活动
-│   ├── observations/      听课评课
-│   └── preparations/      集体备课
-├── rooms/                 功能室API (3个路由)
-│   ├── bookings/          预约管理
-│   ├── bookings/[id]/approve/ 预约审批
-│   └── route.ts           功能室列表
-├── safety/                安全管理API (2个路由)
-│   ├── drills/            安全演练
-│   └── inspections/       安全检查
-├── workflow/              工作流API (3个路由)
-│   └── config/            流程配置
-├── actual-schedules/      实际课表API
-├── after-school-services/ 课后服务API
-├── assets/                资产管理API
-├── attendance/            考勤管理API
-├── base-schedules/        基准课表API
-├── communications/        家校通讯API
-├── courses/               课程管理API
-├── data-collection/       数据采集API
-├── data-link/             数据链接API
-├── enrollment/            新生注册API
-├── exams/                 考试管理API
-├── finance/records/       财务记录API
-├── grades/                成绩管理API
-├── homeworks/             作业管理API
-├── leave-requests/        请假申请API
-├── parents/               家长管理API
-├── repair-requests/       维修申请API
-├── schedule-changes/      调课记录API
-├── schedules/             课表管理API
-├── school/stats/          学校统计API
-├── search-images/         图片搜索API
-├── seed-data/             种子数据API
-├── spaces/reservations/   场地预约API
-├── sync/teacher-classes/  教师班级同步API
-├── update-teacher-config/ 教师配置更新API
-├── upload/                文件上传API
-├── users/accounts/        用户账户API
-└── workload/              工作量API
-```
-
-#### 3.10.1 手动排课API详细说明
-
-| API | 方法 | 功能 | 请求参数 |
-|-----|------|------|----------|
-| `/api/academic/manual-schedule/grade` | GET | 获取年级课表 | `grade` (年级数字) |
-| `/api/academic/manual-schedule/teachers` | GET | 获取教师列表 | `grade` (年级数字) |
-| `/api/academic/manual-schedule/slot` | POST | 保存课程格子 | `classId, grade, weekDay, periodIndex, subject, teacherId, teacherName` |
-| `/api/academic/manual-schedule/slot` | DELETE | 删除课程格子 | `classId, weekDay, periodIndex` |
-| `/api/academic/manual-schedule/status` | GET | 获取排课状态 | `grade` (年级数字) |
-| `/api/academic/manual-schedule/draft` | POST | 保存草稿 | `grade, scheduleData` |
-| `/api/academic/manual-schedule/cleanup` | POST | 清理重复数据 | - |
-
-**教师API返回结构**:
+#### 6.4.1 前端路由保护
 
 ```typescript
-interface TeacherAPIResponse {
-  subjects: {
-    subject: string;        // 学科名称
-    teachers: {
-      id: string;
-      name: string;
-      subject: string;
-      maxHours: number;      // 最大课时
-      usedHours: number;     // 已用课时
-      remainingHours: number; // 剩余课时
-      gradeAssignments?: {   // 跨年级任职信息
-        grade: number;
-        gradeName: string;
-        classes: string[];
-        subjects: string[];
-      }[];
-    }[];
-  }[];
-}
-```
-
-### 3.11 核心配置与共享库
-
-#### 3.11.1 排课配置文件
-
-| 文件 | 位置 | 用途 |
-|------|------|------|
-| schedule-config.ts | src/lib/ | 各年级各学科课时配置 |
-| subject-colors.ts | src/lib/ | 学科配色方案 |
-
-#### 3.11.2 自定义Hooks
-
-| Hook | 文件位置 | 用途 |
-|------|----------|------|
-| useAuth | src/hooks/useAuth.ts | 认证状态管理、登录登出 |
-| useClasses | src/hooks/useClasses.ts | 班级数据获取、按年级筛选 |
-| useTeachers | src/hooks/useTeachers.ts | 教师数据获取、搜索筛选 |
-| useStudents | src/hooks/useStudents.ts | 学生数据获取、分页搜索 |
-| usePermissions | src/hooks/usePermissions.ts | 权限检查、角色判断 |
-| useScheduleDraft | src/hooks/useScheduleDraft.ts | 课表草稿管理 |
-| useOfficialSchedule | src/hooks/useOfficialSchedule.ts | 正式课表获取 |
-| useParents | src/hooks/useParents.ts | 家长数据获取 |
-| useHabitData | src/hooks/useHabitData.ts | 习惯养成数据获取 |
-| useSchoolStats | src/hooks/useSchoolStats.ts | 学校统计数据获取 |
-| useApi | src/hooks/useApi.ts | 通用API请求封装 |
-| useMobile | src/hooks/use-mobile.ts | 移动端检测 |
-
-#### 3.11.3 共享组件
-
-| 组件 | 位置 | 用途 |
-|------|------|------|
-| SubjectHoursPanel | src/components/schedule/ | 课时参考悬浮窗（可拖动） |
-
-### 3.12 教务德育联动方案
-
-#### 3.12.1 联动设计原则
-
-教务系统与德育系统通过**统一学生档案**实现数据共享与业务联动：
-
-| 联动场景 | 数据流向 | 触发条件 |
-|----------|----------|----------|
-| 新生入学同步 | 教务 → 德育 | 新生注册审核通过 |
-| 日常评价查询 | 德育 → 教务 | 学生详情页查看 |
-| 荣誉评选联动 | 教务 ↔ 德育 | 学期荣誉评选 |
-| 预警信息共享 | 德育 → 教务 | 生成预警通知 |
-
-#### 3.12.2 统一学生档案API
-
-**接口设计**：`GET /api/students/[id]/profile`
-
-```typescript
-interface StudentProfileResponse {
-  // 基础信息（来自教务系统）
-  basic: {
-    id: string;
-    name: string;
-    studentNo: string;
-    classId: string;
-    className: string;
-    grade: number;
-    enrollmentYear: number;
-    status: 'active' | 'graduated' | 'transferred';
+// AuthContext.tsx
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  
+  useEffect(() => {
+    // 检查登录状态
+    checkAuth();
+    
+    // 监听登出事件
+    window.addEventListener('auth:logout', handleLogout);
+    return () => window.removeEventListener('auth:logout', handleLogout);
+  }, []);
+  
+  const handleLogout = () => {
+    setUser(null);
+    router.push('/login');
   };
   
-  // 家庭信息（来自教务系统）
-  family: {
-    guardianName: string;
-    guardianPhone: string;
-    guardianRelation: string;
-    emergencyContact: string;
-    emergencyPhone: string;
-    address: string;
-  };
-  
-  // 综合素质（按学年聚合）
-  comprehensive: {
-    byYear: {
-      [academicYear: string]: {
-        // 学业表现（教务系统）
-        academic: {
-          avgScore: number;
-          rank: number;
-          subjectScores: { subject: string; score: number }[];
-          examCount: number;
-          improvement: number; // 进退步
-        };
-        
-        // 荣誉奖项（德育系统）
-        honors: {
-          total: number;
-          list: {
-            name: string;
-            level: '校级' | '区级' | '市级' | '省级' | '国家级';
-            date: string;
-          }[];
-        };
-        
-        // 德育表现（德育系统）
-        moral: {
-          behaviorScore: number; // 行为评分
-          starCount: number; // 习惯之星次数
-          activityCount: number; // 参与活动数
-          evaluations: {
-            dimension: string; // 评价维度
-            score: number;
-            level: '优秀' | '良好' | '合格' | '待提高';
-          }[];
-        };
-        
-        // 成长轨迹
-        timeline: {
-          date: string;
-          type: 'academic' | 'honor' | 'activity' | 'behavior';
-          title: string;
-          description: string;
-        }[];
-      };
-    };
-    
-    // 全学段汇总
-    overall: {
-      totalHonors: number;
-      avgBehaviorScore: number;
-      totalStars: number;
-      totalActivities: number;
-      honorDistribution: { [level: string]: number };
-    };
-  };
+  return (
+    <AuthContext.Provider value={{ user, loading, ... }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 ```
 
-#### 3.12.3 数据聚合实现
-
-**服务层设计**：
-
-```
-src/lib/services/
-├── student-profile.service.ts    # 学生档案聚合服务
-├── academic-sync.service.ts      # 教务数据同步
-└── moral-sync.service.ts         # 德育数据同步
-```
-
-**聚合流程**：
+#### 6.4.2 API路由保护
 
 ```typescript
-// student-profile.service.ts
-export async function getStudentProfile(
-  studentId: string,
-  academicYear?: string // 可选：指定学年
-): Promise<StudentProfileResponse> {
-  // 1. 获取学生基础信息（教务系统）
-  const student = await getStudentBasicInfo(studentId);
-  
-  // 2. 获取家庭信息（教务系统）
-  const family = await getStudentFamilyInfo(studentId);
-  
-  // 3. 确定学年范围
-  const years = academicYear 
-    ? [academicYear] 
-    : getAcademicYears(student.enrollmentYear);
-  
-  // 4. 聚合各学年数据
-  const comprehensive = await aggregateByYears(studentId, years);
-  
-  return { basic: student, family, comprehensive };
-}
-
-async function aggregateByYears(studentId: string, years: string[]) {
-  const byYear: Record<string, YearData> = {};
-  let overall = { /* 初始化汇总数据 */ };
-  
-  for (const year of years) {
-    // 并行获取各系统数据
-    const [academic, honors, moral] = await Promise.all([
-      getAcademicData(studentId, year),    // 教务系统
-      getHonorData(studentId, year),       // 德育系统
-      getMoralData(studentId, year),       // 德育系统
-    ]);
-    
-    byYear[year] = { academic, honors, moral, timeline: buildTimeline(...) };
-    overall = mergeToOverall(overall, byYear[year]);
-  }
-  
-  return { byYear, overall };
-}
-```
-
-#### 3.12.4 联动业务流程
-
-**1. 新生入学自动同步**
-
-```
-新生注册审核通过
-    ↓
-触发 syncStudentToMoral(studentId)
-    ↓
-德育系统创建学生档案
-    ↓
-初始化习惯评价记录
-    ↓
-同步至家长端
-```
-
-**2. 日常评价实时查询**
-
-```
-学生详情页请求
-    ↓
-调用 getStudentProfile(studentId, year?)
-    ↓
-并行获取教务、德育数据
-    ↓
-聚合返回综合素质信息
-```
-
-**3. 荣誉评选联动**
-
-```
-学期末荣誉评选
-    ↓
-获取候选学生名单
-    ↓
-调用 getStudentProfile 批量获取
-    ↓
-根据综合素质数据筛选
-    ↓
-生成荣誉榜单
-```
-
-**4. 预警信息共享**
-
-```
-德育系统生成预警
-    ↓
-写入预警记录
-    ↓
-通知班主任（教师空间）
-    ↓
-同步至家长端
-    ↓
-教务系统记录预警标记
-```
-
-#### 3.12.5 权限控制矩阵
-
-| 角色 | 基本信息 | 家庭信息 | 学业表现 | 荣誉奖项 | 德育表现 | 预警信息 |
-|------|----------|----------|----------|----------|----------|----------|
-| 管理员 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 教务主任 | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| 德育主任 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 班主任 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 科任教师 | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ |
-| 家长 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-**权限验证实现**：
-
-```typescript
-// 权限检查中间件
-async function checkProfileAccess(
-  userId: string,
-  studentId: string,
-  section: 'basic' | 'family' | 'academic' | 'honors' | 'moral' | 'warnings'
-): Promise<boolean> {
-  const userRole = await getUserRole(userId);
-  const relation = await getStudentRelation(userId, studentId);
-  
-  // 预警信息特殊权限：仅德育主任、班主任、家长可见
-  if (section === 'warnings') {
-    return ['moral_director', 'class_teacher', 'parent'].includes(userRole) ||
-           relation === 'guardian';
-  }
-  
-  return PERMISSION_MATRIX[userRole][section];
-}
-```
-
-#### 3.12.6 缓存策略
-
-| 数据类型 | 缓存时长 | 失效条件 |
-|----------|----------|----------|
-| 基本信息 | 24小时 | 学生信息变更 |
-| 家庭信息 | 24小时 | 家庭信息变更 |
-| 学业表现 | 1小时 | 成绩录入/修改 |
-| 荣誉奖项 | 6小时 | 荣誉授予/撤销 |
-| 德育表现 | 1小时 | 评价/活动更新 |
-| 预警信息 | 不缓存 | - |
-
----
-
-## 4. 数据设计
-
-### 4.1 数据架构概述
-
-#### 4.1.1 数据存储策略
-
-**核心原则：Supabase PostgreSQL 是唯一数据源**
-
-| 数据类型 | 存储方案 | 说明 |
-|----------|----------|------|
-| 业务数据 | PostgreSQL (Supabase) | **唯一数据源**，所有API必须从此获取数据 |
-| 文件资料 | S3兼容对象存储 | 图片、文档、附件 |
-| 会话数据 | Cookie + JWT | 无状态会话管理 |
-| 搜索数据 | Elasticsearch | 全文搜索索引 |
-| 缓存数据 | Redis | 热点数据缓存（非数据源） |
-
-**数据源约束（CRITICAL）**:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         v3.0 数据源架构                                      │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                    ┌─────────────────────────────┐
-                    │     Supabase PostgreSQL     │
-                    │      (唯一数据源)            │
-                    │  - schools (1条)            │
-                    │  - classes (14条)           │
-                    │  - teachers (28条)          │
-                    │  - students (30条)          │
-                    │  - exams, grades, ...       │
-                    └──────────────┬──────────────┘
-                                   │
-                                   ▼
-                    ┌─────────────────────────────┐
-                    │       API Routes 层          │
-                    │  - 禁止 Mock fallback        │
-                    │  - 数据库失败返回错误响应     │
-                    │  - 使用统一错误处理           │
-                    └──────────────┬──────────────┘
-                                   │
-                                   ▼
-                    ┌─────────────────────────────┐
-                    │        前端页面              │
-                    │  - 仅通过 API 获取数据       │
-                    │  - 禁止页面内 Mock 数据      │
-                    └─────────────────────────────┘
-
-                    ┌─────────────────────────────┐
-                    │     lib/mock/ (仅用于)       │
-                    │  - 数据迁移脚本              │
-                    │  - 开发环境初始化            │
-                    │  - 非运行时数据源            │
-                    └─────────────────────────────┘
-```
-
-#### 4.1.2 数据命名规范
-
-| 对象类型 | 命名规范 | 示例 |
-|----------|----------|------|
-| 表名 | snake_case, 复数 | users, students, expense_items |
-| 字段名 | snake_case | created_at, class_id |
-| 主键 | id | id (UUID) |
-| 外键 | {表名单数}_id | teacher_id, class_id |
-
-### 4.2 数据安全与加密
-
-#### 4.2.1 敏感数据识别
-
-根据《个人信息保护法》和教育行业数据安全规范，识别以下敏感数据：
-
-| 数据类型 | 敏感级别 | 示例字段 | 保护要求 |
-|----------|----------|----------|----------|
-| 身份证号 | 高 | id_card | 加密存储、脱敏展示 |
-| 手机号码 | 中 | phone, emergency_phone | 加密存储、脱敏展示 |
-| 家庭住址 | 中 | home_address | 加密存储 |
-| 银行账号 | 高 | bank_account | 加密存储、脱敏展示 |
-| 密码 | 高 | password | 哈希存储（不可逆） |
-| 学生照片 | 中 | avatar | 访问控制 |
-| 成绩数据 | 中 | score | 访问控制 |
-
-#### 4.2.2 字段级加密方案
-
-采用AES-256-GCM对称加密算法，配合密钥管理系统：
-
-**加密架构**:
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      应用层                                  │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                 加密/解密服务                        │    │
-│  │  - encrypt(plaintext, keyId) → ciphertext          │    │
-│  │  - decrypt(ciphertext, keyId) → plaintext          │    │
-│  └─────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    密钥管理系统 (KMS)                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │  主密钥(MK)  │  │ 数据密钥(DK) │  │  密钥版本   │          │
-│  │  KMS管理    │  │  自动轮换    │  │  版本控制   │          │
-│  └─────────────┘  └─────────────┘  └─────────────┘          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**加密字段存储格式**:
-```json
-{
-  "phone": "enc:AES256-GCM:v1:base64EncodedCiphertext:base64EncodedIV:base64EncodedTag",
-  "phone_masked": "138****8001"
-}
-```
-
-**加密实现示例**:
-```typescript
-import crypto from 'crypto';
-
-interface EncryptedData {
-  algorithm: string;
-  keyVersion: string;
-  ciphertext: string;
-  iv: string;
-  tag: string;
-}
-
-class FieldEncryption {
-  private algorithm = 'aes-256-gcm';
-  private keyVersion = 'v1';
-  
-  // 加密
-  encrypt(plaintext: string): string {
-    const key = this.getDataKey(this.keyVersion);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(this.algorithm, key, iv);
-    
-    let encrypted = cipher.update(plaintext, 'utf8', 'base64');
-    encrypted += cipher.final('base64');
-    const tag = cipher.getAuthTag();
-    
-    return `enc:${this.algorithm}:${this.keyVersion}:${encrypted}:${iv.toString('base64')}:${tag.toString('base64')}`;
-  }
-  
-  // 解密
-  decrypt(encryptedValue: string): string {
-    const parts = encryptedValue.split(':');
-    const [, algorithm, keyVersion, ciphertext, ivBase64, tagBase64] = parts;
-    
-    const key = this.getDataKey(keyVersion);
-    const iv = Buffer.from(ivBase64, 'base64');
-    const tag = Buffer.from(tagBase64, 'base64');
-    
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
-    decipher.setAuthTag(tag);
-    
-    let decrypted = decipher.update(ciphertext, 'base64', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  }
-}
-```
-
-#### 4.2.3 数据脱敏规则
-
-**展示层脱敏**:
-
-| 字段类型 | 脱敏规则 | 示例 |
-|----------|----------|------|
-| 手机号 | 中间4位替换为* | 138****8001 |
-| 身份证号 | 保留前3后4位 | 350***********001 |
-| 银行账号 | 保留后4位 | ************1234 |
-| 姓名 | 保留姓，名用* | 张** |
-| 地址 | 隐藏门牌号 | xx市xx区xx路**号 |
-
-**敏感数据访问权限架构**:
-
-系统采用"角色+关系"双重判断机制，确保敏感数据的安全访问。
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      敏感数据访问判断流程                              │
-└─────────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-                    ┌─────────────────────┐
-                    │   用户角色判断       │
-                    └──────────┬──────────┘
-                               │
-          ┌────────────────────┼────────────────────┐
-          │                    │                    │
-          ▼                    ▼                    ▼
-   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-   │ 领导层/部门  │     │  年段长     │     │ 班主任/科任  │
-   │ 负责人      │     │             │     │ /家长       │
-   └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-          │                   │                   │
-          ▼                   ▼                   ▼
-   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-   │ 全校学生    │     │ 本年级学生   │     │ 关系判断     │
-   │ 完全可见    │     │ 完全可见     │     │             │
-   └─────────────┘     └─────────────┘     └──────┬──────┘
-                                                   │
-                                    ┌──────────────┼──────────────┐
-                                    │              │              │
-                                    ▼              ▼              ▼
-                             ┌───────────┐ ┌───────────┐ ┌───────────┐
-                             │ 班主任    │ │ 科任      │ │ 家长      │
-                             │ 本班学生  │ │ 任教班级  │ │ 自己孩子  │
-                             └───────────┘ └───────────┘ └───────────┘
-```
-
-**权限差异化展示**:
-
-| 角色 | 手机号 | 身份证 | 家庭住址 | 可见范围 |
-|------|--------|--------|----------|----------|
-| 校长/书记 | 完整显示 | 完整显示 | 完整显示 | 全校所有学生 |
-| 副校长 | 完整显示 | 完整显示 | 完整显示 | 全校所有学生 |
-| 教务主任 | 完整显示 | 完整显示 | 完整显示 | 全校所有学生 |
-| 德育主任 | 完整显示 | 完整显示 | 完整显示 | 全校所有学生 |
-| 年段长 | 完整显示 | 完整显示 | 完整显示 | 本年级所有学生 |
-| 班主任 | 完整显示 | 完整显示 | 完整显示 | 本班学生 |
-| 科任 | 完整显示 | 完整显示 | 完整显示 | 任教班级学生 |
-| 普通教师 | 不显示 | 不显示 | 不显示 | 无 |
-| 家长 | 完整显示 | 完整显示 | 完整显示 | 仅自己孩子 |
-
-**科任权限说明**:
-- 科任不是一个独立的角色，而是通过"班级教师关系表"动态判断
-- 当教师被设置为某班的科任后，自动获得该班学生敏感数据的查看权限
-- 科任关系按学期管理，学期结束后自动失效
-- 科任由教务主任在班级管理中设置，每学年更新
-
-#### 4.2.4 密钥管理
-
-**密钥生命周期**:
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  密钥生成   │────▶│  密钥使用   │────▶│  密钥轮换   │
-│ (KMS生成)  │     │ (加解密)    │     │ (定期轮换)  │
-└─────────────┘     └─────────────┘     └──────┬──────┘
-                                               │
-                                               ▼
-                                        ┌─────────────┐
-                                        │  密钥归档   │
-                                        │ (安全销毁)  │
-                                        └─────────────┘
-```
-
-**密钥轮换策略**:
-
-| 密钥类型 | 轮换周期 | 轮换方式 |
-|----------|----------|----------|
-| 主密钥(MK) | 1年 | 手动轮换 |
-| 数据密钥(DK) | 90天 | 自动轮换 |
-| JWT密钥 | 30天 | 自动轮换 |
-
-**密钥存储**:
-- 主密钥存储于KMS（如AWS KMS、阿里云KMS）
-- 数据密钥加密后存储于数据库
-- 应用内存中缓存解密后的密钥（有效期5分钟）
-
-#### 4.2.5 数据访问审计
-
-**审计日志记录**:
-
-| 审计项 | 记录内容 |
-|--------|----------|
-| 访问者 | 用户ID、角色、IP地址 |
-| 访问时间 | 精确到毫秒 |
-| 访问对象 | 表名、记录ID、字段名 |
-| 操作类型 | 查询/新增/修改/删除/导出 |
-| 数据量 | 涉及记录数 |
-| 敏感数据 | 是否访问敏感字段 |
-
-**敏感操作告警**:
-
-| 场景 | 触发条件 | 告警方式 |
-|------|----------|----------|
-| 批量导出 | 导出记录>100条 | 系统通知+邮件 |
-| 敏感查询 | 查询身份证/手机号 | 系统日志 |
-| 异常访问 | 非工作时间大量查询 | 实时告警 |
-| 权限变更 | 用户角色变更 | 系统通知 |
-
-#### 4.2.6 数据迁移机制（v3.0）
-
-> **重要说明**：v3.0已将Supabase作为唯一数据源，lib/mock/目录下的文件仅用于数据迁移脚本和开发环境初始化，不再作为运行时数据源。
-
-**迁移接口**：
-
-系统提供 `/api/migrate` 接口用于初始化数据库数据：
-
-```
-POST /api/migrate
-Authorization: Bearer {admin_token}
-
-Response:
-{
-  "success": true,
-  "message": "数据迁移完成",
-  "details": {
-    "schools": 1,
-    "classes": 14,
-    "teachers": 28,
-    "students": 30,
-    "exams": 2,
-    "homeworks": 3,
-    "rooms": 4,
-    "assets": 2
-  }
-}
-```
-
-**已迁移的数据表**：
-
-| 表名 | 数据量 | 来源 |
-|------|--------|------|
-| schools | 1条 | master-data.ts |
-| classes | 14条 | master-data.ts |
-| teachers | 28条 | master-data.ts |
-| students | 30条 | master-data.ts |
-| exams | 2条 | academic.mock.ts |
-| homeworks | 3条 | academic.mock.ts |
-| rooms | 4条 | general.mock.ts |
-| assets | 2条 | general.mock.ts |
-
-**历史参考**：详细的Mock架构历史方案已归档，不再作为开发参考。
-
-#### 4.2.7 数据孤岛整改成果（v3.0）
-
-**整改背景**：
-
-项目早期存在严重的数据孤岛问题：
-- 页面内mock数据：63处
-- API内mock数据：40处
-- API Mock fallback：22个API
-
-**整改目标**：
-
-将Supabase确立为唯一数据源，移除所有Mock fallback机制。
-
-**已完成的整改**：
-
-| 整改项 | 状态 | 说明 |
-|--------|------|------|
-| 核心实体层统一 | ✅ 已完成 | master-data.ts定义统一数据 |
-| 数据库表创建 | ✅ 已完成 | 核心表+业务表共18张 |
-| 数据迁移接口 | ✅ 已完成 | `/api/migrate` 初始化数据 |
-| API层重构 | ✅ 已完成 | 移除所有Mock fallback |
-| 统一错误响应 | ✅ 已完成 | 使用ErrorCode枚举 |
-
-**整改后的数据架构**：
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                  v3.0 数据架构：Supabase 唯一数据源                          │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                    ┌─────────────────────────────┐
-                    │     Supabase PostgreSQL     │
-                    │      (唯一数据源)            │
-                    │                             │
-                    │  核心表:                     │
-                    │  - schools (1条)            │
-                    │  - classes (14条)           │
-                    │  - teachers (28条)          │
-                    │  - students (30条)          │
-                    │                             │
-                    │  业务表:                     │
-                    │  - exams (2条)              │
-                    │  - homeworks (3条)          │
-                    │  - rooms (4条)              │
-                    │  - assets (2条)             │
-                    └──────────────┬──────────────┘
-                                   │
-                                   ▼
-                    ┌─────────────────────────────┐
-                    │       API Routes 层          │
-                    │                             │
-                    │  ✅ 强制使用 Supabase        │
-                    │  ❌ 禁止 Mock fallback       │
-                    │  ✅ 统一错误响应格式          │
-                    └──────────────┬──────────────┘
-                                   │
-                                   ▼
-                    ┌─────────────────────────────┐
-                    │        前端页面              │
-                    │                             │
-                    │  ✅ 仅通过 API 获取数据      │
-                    │  ✅ 统一错误处理 UI          │
-                    └─────────────────────────────┘
-```
-
-**API实现规范**：
-
-```typescript
-// ✅ v3.0 正确实现
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-export async function GET() {
-  const client = getSupabaseClient();
-  const { data, error: dbError } = await client.from('exams').select('*');
-  
-  if (dbError) {
-    // 数据库失败，返回错误响应（不返回Mock数据）
+// lib/auth/api-auth.ts
+export async function withAuth(
+  request: NextRequest,
+  handler: (request: NextRequest, user: User) => Promise<NextResponse>
+): Promise<NextResponse> {
+  try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: '未授权访问' },
+        { status: 401 }
+      );
+    }
+    return handler(request, user);
+  } catch (error) {
     return NextResponse.json(
-      error('数据库查询失败', ErrorCode.DATABASE_ERROR), 
-      { status: 500 }
+      { success: false, error: '认证失败' },
+      { status: 401 }
     );
   }
-  return NextResponse.json(success(data));
 }
 ```
-
-**整改验证结果**：
-
-| 验证项 | 结果 |
-|--------|------|
-| API不再导入Mock数据 | ✅ 通过 |
-| 数据库失败返回错误响应 | ✅ 通过 |
-| 数据库数据与前端一致 | ✅ 通过 |
-| 班级-年级-班主任映射正确 | ✅ 通过 |
-
-### 4.3 核心数据表设计
-
-#### 4.3.1 用户表 (users)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| name | VARCHAR(100) | NO | 用户姓名 |
-| role | VARCHAR(50) | NO | 用户角色 |
-| phone | VARCHAR(20) | YES | 联系电话 |
-| email | VARCHAR(100) | YES | 电子邮箱 |
-| avatar | VARCHAR(500) | YES | 头像URL |
-| status | VARCHAR(20) | NO | 状态(active/on_leave) |
-| created_at | TIMESTAMP | NO | 创建时间 |
-| updated_at | TIMESTAMP | NO | 更新时间 |
-
-#### 4.3.2 教师表 (teachers)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| user_id | UUID | YES | 关联用户ID |
-| employee_no | VARCHAR(50) | NO | 工号 |
-| name | VARCHAR(100) | NO | 姓名 |
-| gender | VARCHAR(10) | NO | 性别 |
-| phone | VARCHAR(20) | NO | 联系电话 |
-| subjects | JSONB | NO | 任教学科数组 |
-| title | VARCHAR(50) | YES | 职称 |
-| is_head_teacher | BOOLEAN | NO | 是否班主任 |
-| class_id | UUID | YES | 班主任班级ID |
-| status | VARCHAR(20) | NO | 状态 |
-
-#### 4.3.3 学生表 (students)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| student_no | VARCHAR(50) | NO | 学号 |
-| name | VARCHAR(100) | NO | 姓名 |
-| gender | VARCHAR(10) | NO | 性别 |
-| birth_date | DATE | YES | 出生日期 |
-| class_id | UUID | NO | 班级ID |
-| grade | INTEGER | NO | 年级(1-6) |
-| status | VARCHAR(20) | NO | 状态 |
-| family_type | VARCHAR(20) | YES | 家庭类型 |
-
-#### 4.3.4 班级表 (classes)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| name | VARCHAR(100) | NO | 班级名称 |
-| grade | INTEGER | NO | 年级(1-6) |
-| class_number | INTEGER | NO | 班级号 |
-| head_teacher_id | UUID | YES | 班主任ID |
-| student_count | INTEGER | NO | 学生人数 |
-
-#### 4.3.5 班级教师关系表 (class_teachers)
-
-用于管理班主任和科任教师与班级的关系，支持敏感数据访问权限判断。
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| class_id | UUID | NO | 班级ID |
-| class_name | VARCHAR(100) | NO | 班级名称（冗余） |
-| teacher_id | UUID | NO | 教师ID |
-| teacher_name | VARCHAR(100) | NO | 教师姓名（冗余） |
-| position | VARCHAR(20) | NO | 职位类型：head_teacher(班主任)/subject_teacher(科任) |
-| subjects | JSONB | YES | 任教科目数组 ["语文","数学"] |
-| semester | VARCHAR(20) | NO | 学期，如"2024-2025-1" |
-| status | VARCHAR(20) | NO | 状态：active(有效)/expired(已失效) |
-| created_by | UUID | YES | 创建人ID |
-| created_at | TIMESTAMP | NO | 创建时间 |
-| updated_at | TIMESTAMP | YES | 更新时间 |
-
-**业务规则**:
-- 每个班级每学期每个学科只能有一个科任教师
-- 学期结束后，系统自动将 `status` 更新为 `expired`
-- 教务主任在班级管理中设置科任，每学年更新
-- 班主任信息同时写入此表和 `classes.head_teacher_id`
-
-**索引设计**:
-```sql
--- 按班级查询教师
-CREATE INDEX idx_class_teachers_class ON class_teachers(class_id, semester);
--- 按教师查询任教班级
-CREATE INDEX idx_class_teachers_teacher ON class_teachers(teacher_id, semester);
--- 查询有效关系
-CREATE INDEX idx_class_teachers_status ON class_teachers(status, semester);
-```
-
-**数据示例**:
-```json
-{
-  "id": "ct-001",
-  "class_id": "class-3-1",
-  "class_name": "三年1班",
-  "teacher_id": "teacher-001",
-  "teacher_name": "张老师",
-  "position": "subject_teacher",
-  "subjects": ["语文"],
-  "semester": "2024-2025-1",
-  "status": "active",
-  "created_at": "2024-09-01 10:00:00"
-}
-```
-
-#### 4.3.6 基准课表表 (base_schedules)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| semester | VARCHAR(20) | NO | 学期 |
-| class_id | UUID | NO | 班级ID |
-| class_name | VARCHAR(100) | NO | 班级名称 |
-| grade | INTEGER | NO | 年级 |
-| day_of_week | INTEGER | NO | 星期几(1-5) |
-| period_index | INTEGER | NO | 第几节课(1-6) |
-| start_time | TIME | NO | 开始时间 |
-| end_time | TIME | NO | 结束时间 |
-| subject | VARCHAR(50) | NO | 科目 |
-| teacher_id | UUID | NO | 教师ID |
-| teacher_name | VARCHAR(100) | NO | 教师姓名 |
-| classroom_id | UUID | YES | 教室ID |
-| classroom_name | VARCHAR(100) | YES | 教室名称 |
-| status | VARCHAR(20) | NO | 状态(normal/disabled) |
-
-#### 4.3.7 实际课表表 (actual_schedules)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| week_number | INTEGER | NO | 第几周 |
-| semester | VARCHAR(20) | NO | 学期 |
-| base_schedule_id | UUID | NO | 基准课表ID |
-| date | DATE | NO | 具体日期 |
-| status | VARCHAR(20) | NO | 状态(normal/leave/substitute) |
-| original_teacher_id | UUID | YES | 原教师ID（请假） |
-| substitute_teacher_id | UUID | YES | 代课教师ID |
-
-#### 4.3.8 请假记录表 (leave_requests)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| applicant_id | UUID | NO | 申请人ID |
-| type | VARCHAR(20) | NO | 请假类型 |
-| start_date | DATE | NO | 开始日期 |
-| end_date | DATE | NO | 结束日期 |
-| periods | JSONB | YES | 请假节次 [1,2,3] |
-| reason | TEXT | NO | 请假原因 |
-| status | VARCHAR(20) | NO | 状态 |
-| approval_flow | JSONB | YES | 审批流程 |
-
-#### 4.3.9 代课记录表 (substitute_records)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| original_teacher_id | UUID | NO | 原教师ID |
-| substitute_teacher_id | UUID | NO | 代课教师ID |
-| class_id | UUID | NO | 班级ID |
-| date | DATE | NO | 代课日期 |
-| period_index | INTEGER | NO | 节次 |
-| subject | VARCHAR(50) | NO | 科目 |
-| semester | VARCHAR(20) | NO | 学期 |
-| week_number | INTEGER | NO | 第几周 |
-
-#### 4.3.10 工作量统计表 (teacher_workloads)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| teacher_id | UUID | NO | 教师ID |
-| semester | VARCHAR(20) | NO | 学期 |
-| month | INTEGER | YES | 月份(1-12) |
-| base_hours | DECIMAL(5,1) | NO | 基准课时 |
-| substitute_hours | DECIMAL(5,1) | NO | 代课课时 |
-| after_school_hours | DECIMAL(5,1) | NO | 课后服务课时 |
-| total_hours | DECIMAL(5,1) | NO | 总课时 |
-| variance | DECIMAL(5,2) | NO | 工作量偏差 |
-
-#### 4.3.11 报销记录表 (expense_reimbursements)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| expense_no | VARCHAR(50) | NO | 报销单号 |
-| title | VARCHAR(200) | NO | 报销标题 |
-| applicant_id | UUID | NO | 申请人ID |
-| category | VARCHAR(50) | NO | 报销类别 |
-| total_amount | DECIMAL(12,2) | NO | 总金额 |
-| items | JSONB | NO | 报销明细 |
-| status | VARCHAR(20) | NO | 状态 |
-| approval_flow | JSONB | YES | 审批流程 |
-
-#### 4.3.12 门禁设备表 (access_devices)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| name | VARCHAR(100) | NO | 设备名称 |
-| location | VARCHAR(200) | NO | 安装位置 |
-| device_type | VARCHAR(50) | NO | 设备类型 |
-| status | VARCHAR(20) | NO | 状态(online/offline/fault) |
-| last_heartbeat | TIMESTAMP | YES | 最后心跳时间 |
-
-#### 4.3.13 通行记录表 (access_records)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| device_id | UUID | NO | 设备ID |
-| person_id | UUID | YES | 人员ID |
-| person_type | VARCHAR(20) | NO | 人员类型 |
-| person_name | VARCHAR(100) | NO | 人员姓名 |
-| direction | VARCHAR(10) | NO | 方向(in/out) |
-| occurred_at | TIMESTAMP | NO | 发生时间 |
-| status | VARCHAR(20) | NO | 状态(normal/denied) |
-
-#### 4.3.14 习惯评价表 (habit_assessments)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| student_id | UUID | NO | 学生ID |
-| date | DATE | NO | 评价日期 |
-| category | VARCHAR(50) | NO | 习惯类别 |
-| score | INTEGER | NO | 得分(1-5) |
-| evaluator_id | UUID | NO | 评价人ID |
-| notes | TEXT | YES | 备注 |
-
-#### 4.3.15 习惯之星表 (habit_stars)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| student_id | UUID | NO | 学生ID |
-| month | VARCHAR(7) | NO | 月份(2024-03) |
-| categories | JSONB | NO | 获评类别 |
-| total_score | INTEGER | NO | 总分 |
-| achievements | TEXT | YES | 成就描述 |
-
-#### 4.3.16 新生注册申请表 (new_student_applications)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| student_name | VARCHAR(100) | NO | 学生姓名 |
-| gender | VARCHAR(10) | NO | 性别 |
-| birth_date | DATE | NO | 出生日期 |
-| apply_grade | INTEGER | NO | 申请年级 |
-| apply_class_id | UUID | YES | 分配班级ID |
-| home_address | VARCHAR(500) | NO | 家庭住址 |
-| parents | JSONB | NO | 家长信息 |
-| student_type | VARCHAR(20) | NO | 学生类型 |
-| status | VARCHAR(20) | NO | 状态 |
-| submitted_at | TIMESTAMP | NO | 提交时间 |
-| reviewed_at | TIMESTAMP | YES | 审核时间 |
-| synced_at | TIMESTAMP | YES | 同步时间 |
-
-#### 4.3.17 功能室表 (rooms)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| name | VARCHAR(100) | NO | 功能室名称 |
-| type | VARCHAR(50) | NO | 类型(实验室/音乐室等) |
-| capacity | INTEGER | NO | 容纳人数 |
-| equipment | JSONB | YES | 设备清单 |
-| status | VARCHAR(20) | NO | 状态 |
-
-#### 4.3.18 功能室预约表 (room_bookings)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| room_id | UUID | NO | 功能室ID |
-| applicant_id | UUID | NO | 申请人ID |
-| booking_date | DATE | NO | 预约日期 |
-| start_time | TIME | NO | 开始时间 |
-| end_time | TIME | NO | 结束时间 |
-| purpose | TEXT | NO | 用途说明 |
-| status | VARCHAR(20) | NO | 状态 |
-
-#### 4.3.19 教研活动表 (research_activities)
-
-| 字段名 | 数据类型 | 可空 | 说明 |
-|--------|----------|------|------|
-| id | UUID | NO | 主键 |
-| title | VARCHAR(200) | NO | 活动标题 |
-| type | VARCHAR(50) | NO | 活动类型 |
-| organizer_id | UUID | NO | 组织者ID |
-| start_time | TIMESTAMP | NO | 开始时间 |
-| end_time | TIMESTAMP | NO | 结束时间 |
-| location | VARCHAR(200) | NO | 地点 |
-| participants | JSONB | NO | 参与人员 |
-| status | VARCHAR(20) | NO | 状态 |
-
-### 4.4 数据字典
-
-#### 4.4.1 用户角色枚举
-
-| 枚举值 | 显示名称 | 模块权限 |
-|--------|----------|----------|
-| principal | 校长 | 全部模块 |
-| secretary | 书记 | 全部模块 |
-| vice_principal | 副校长 | 全部模块 |
-| academic_director | 教务主任 | academic, teacher, homepage |
-| moral_director | 德育主任 | moral, teacher, homepage |
-| general_director | 总务主任 | general |
-| academic_staff | 教务员 | academic |
-| moral_staff | 德育员 | moral |
-| head_teacher | 班主任 | teacher |
-| grade_leader | 年段长 | teacher + 专属功能 |
-| teacher | 普通教师 | teacher |
-| staff | 后勤人员 | general |
-| student | 学生 | - |
-| parent | 家长 | parent |
-
-#### 4.4.2 工作流状态枚举
-
-| 枚举值 | 显示名称 | 说明 |
-|--------|----------|------|
-| draft | 草稿 | 未提交 |
-| pending | 待审批 | 已提交待审批 |
-| reviewing | 审核中 | 审核中 |
-| approved | 已通过 | 审批通过 |
-| rejected | 已拒绝 | 审批拒绝 |
-| cancelled | 已取消 | 已取消 |
-| synced | 已同步 | 数据已同步 |
-
-#### 4.4.3 新生注册状态枚举
-
-| 枚举值 | 显示名称 | 说明 |
-|--------|----------|------|
-| pending | 待审核 | 家长已提交 |
-| reviewing | 审核中 | 教务审核中 |
-| approved | 已通过 | 审核通过，待分配班级 |
-| assigned | 已分配 | 已分配班级 |
-| synced | 已同步 | 已同步到学生管理系统 |
-| rejected | 已拒绝 | 审核不通过 |
 
 ---
 
-## 5. 接口设计
+## 7. 部署设计
 
-### 5.1 接口规范概述
+### 7.1 部署架构
 
-#### 5.1.1 接口设计原则
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           用户端                                     │
+│                    (浏览器 / 移动端浏览器)                            │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ HTTPS
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        应用服务器                                    │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │                    Next.js 应用                              │    │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐           │    │
+│  │  │ 前端页面 │ │ API路由 │ │ SSR渲染 │ │ 中间件  │           │    │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘           │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+            ┌───────────────────────┼───────────────────────┐
+            │                       │                       │
+            ▼                       ▼                       ▼
+┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐
+│   Supabase        │   │   对象存储        │   │   LLM服务         │
+│   (PostgreSQL)    │   │   (S3兼容)        │   │   (AI能力)        │
+└───────────────────┘   └───────────────────┘   └───────────────────┘
+```
 
-| 原则 | 说明 |
+### 7.2 环境配置
+
+#### 7.2.1 环境变量
+
+```bash
+# 数据库配置
+COZE_SUPABASE_URL=https://xxx.supabase.co
+COZE_SUPABASE_ANON_KEY=xxx
+
+# JWT配置
+JWT_SECRET=your-jwt-secret-key
+
+# 其他配置
+NODE_ENV=production
+```
+
+#### 7.2.2 Coze配置文件 (.coze)
+
+```toml
+[project]
+requires = ["nodejs-24"]
+
+[dev]
+build = ["pnpm", "install"]
+run = ["pnpm", "run", "dev"]
+
+[deploy]
+build = ["pnpm", "run", "build"]
+run = ["pnpm", "run", "start"]
+```
+
+### 7.3 构建与部署流程
+
+#### 7.3.1 开发环境
+
+```bash
+# 初始化项目
+coze init /workspace/projects --template nextjs
+
+# 安装依赖
+pnpm install
+
+# 启动开发服务器 (端口5000)
+coze dev
+```
+
+#### 7.3.2 生产部署
+
+```bash
+# 构建
+coze build
+
+# 启动生产服务器
+coze start
+```
+
+### 7.4 监控与日志
+
+#### 7.4.1 日志目录
+
+```
+/app/work/logs/bypass/
+├── app.log           # 主流程日志
+├── dev.log           # 开发调试日志
+└── console.log       # 浏览器控制台日志
+```
+
+#### 7.4.2 日志级别
+
+| 级别 | 说明 |
 |------|------|
-| RESTful风格 | 遵循REST架构风格设计API |
-| 统一响应 | 所有接口返回统一JSON格式 |
-| 错误处理 | 标准化错误码和错误信息 |
-| 认证授权 | JWT Token认证 + RBAC权限校验 |
-| **禁止Mock fallback** | **v3.0新增**：API失败时返回错误响应，禁止返回Mock数据 |
-
-**API实现规范（v3.0新增）**:
-
-```typescript
-// 1. 导入规范
-// ✅ 正确：只导入工具函数
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// ❌ 禁止：导入Mock数据
-// import { MOCK_XXX } from '@/lib/mock/xxx.mock';  // 禁止！
-
-// 2. 响应格式规范
-// 成功响应
-return NextResponse.json(success(data));
-
-// 错误响应
-return NextResponse.json(
-  error('错误描述', ErrorCode.DATABASE_ERROR),
-  { status: 500 }
-);
-
-// 3. 错误码规范
-enum ErrorCode {
-  VALIDATION_ERROR = 'VALIDATION_ERROR',      // 参数校验错误
-  UNAUTHORIZED = 'UNAUTHORIZED',              // 未授权
-  FORBIDDEN = 'FORBIDDEN',                    // 权限不足
-  NOT_FOUND = 'NOT_FOUND',                    // 资源不存在
-  DATABASE_ERROR = 'DATABASE_ERROR',          // 数据库错误
-  INTERNAL_ERROR = 'INTERNAL_ERROR',          // 内部错误
-}
-
-// 4. 禁止的模式
-// ❌ 禁止Mock fallback
-if (dbError) {
-  return NextResponse.json({ success: true, data: MOCK_DATA, source: 'mock' });
-}
-
-// ✅ 正确：返回错误
-if (dbError) {
-  return NextResponse.json(
-    error('数据库查询失败', ErrorCode.DATABASE_ERROR),
-    { status: 500 }
-  );
-}
-```
-
-#### 5.1.2 基础URL
-
-| 环境 | 基础URL |
-|------|---------|
-| 开发环境 | http://localhost:5000/api |
-| 生产环境 | https://api.example.com/api |
-
-#### 5.1.3 统一响应格式
-
-**成功响应**:
-```json
-{
-  "success": true,
-  "data": { },
-  "pagination": { "page": 1, "pageSize": 20, "total": 100 },
-  "source": "database"
-}
-```
-
-**错误响应**:
-```json
-{
-  "success": false,
-  "error": "错误描述",
-  "errorCode": "VALIDATION_ERROR"
-}
-```
-
-#### 5.1.4 HTTP状态码规范
-
-| 状态码 | 含义 | 使用场景 |
-|--------|------|----------|
-| 200 | OK | 请求成功 |
-| 201 | Created | 资源创建成功 |
-| 400 | Bad Request | 请求参数错误 |
-| 401 | Unauthorized | 未认证或Token过期 |
-| 403 | Forbidden | 权限不足 |
-| 404 | Not Found | 资源不存在 |
-| 500 | Internal Server Error | 服务器内部错误 |
-
-### 5.2 认证接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 用户登录 | POST | /api/auth/login | 公开 | 用户名密码登录 |
-| 获取当前用户 | GET | /api/auth/current | 需认证 | 获取登录用户信息 |
-| 刷新Token | POST | /api/auth/refresh | 需Refresh Token | 刷新Access Token |
-| 用户登出 | POST | /api/auth/logout | 需认证 | 退出登录 |
-
-### 5.3 教师管理接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取教师列表 | GET | /api/teachers | academic.view | 分页查询 |
-| 获取教师详情 | GET | /api/teachers/{id} | academic.view | 单个教师详情 |
-| 获取教师完整档案 | GET | /api/teachers/{id}/full-profile | academic.view | 含成长记录 |
-| 获取教师个人资料 | GET | /api/teachers/{id}/profile | 本人/管理员 | 个人信息 |
-| 创建教师 | POST | /api/teachers | academic.manage | 新增教师 |
-| 更新教师 | PUT | /api/teachers/{id} | academic.edit | 修改教师信息 |
-| 删除教师 | DELETE | /api/teachers/{id} | academic.manage | 删除教师 |
-| 批量删除 | POST | /api/teachers/batch-delete | academic.manage | 批量删除 |
-| 批量更新 | POST | /api/teachers/batch-update | academic.manage | 批量更新 |
-| 获取成长记录 | GET | /api/teachers/records | academic.view | 教师成长记录 |
-| 获取荣誉奖项 | GET | /api/teachers/honors | academic.view | 教师荣誉 |
-| 获取培训记录 | GET | /api/teachers/trainings | academic.view | 教师培训 |
-| 获取教学成果 | GET | /api/teachers/achievements | academic.view | 教学成果 |
-
-### 5.4 学生管理接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取学生列表 | GET | /api/students | moral.view | 分页查询 |
-| 获取学生详情 | GET | /api/students/{id} | moral.view | 单个学生详情 |
-| 获取完整档案 | GET | /api/students/{id}/full-profile | moral.view | 含家庭信息 |
-| 获取习惯档案 | GET | /api/students/{id}/habit-profile | moral.view | 习惯养成档案 |
-| 创建学生 | POST | /api/students | moral.manage | 新增学生 |
-| 更新学生 | PUT | /api/students/{id} | moral.edit | 修改学生信息 |
-| 删除学生 | DELETE | /api/students/{id} | moral.manage | 删除学生 |
-| 批量删除 | POST | /api/students/batch-delete | moral.manage | 批量删除 |
-| 批量更新 | POST | /api/students/batch-update | moral.manage | 批量更新 |
-
-### 5.5 课表管理接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取基准课表 | GET | /api/base-schedules | academic.view | 按班级/教师查询 |
-| 创建基准课表 | POST | /api/base-schedules | academic.manage | 批量创建 |
-| 更新基准课表 | PUT | /api/base-schedules | academic.edit | 批量更新 |
-| 删除基准课表 | DELETE | /api/base-schedules | academic.manage | 删除 |
-| 获取实际课表 | GET | /api/actual-schedules | academic.view | 按周查询 |
-| 生成实际课表 | POST | /api/actual-schedules | academic.edit | 生成某周课表 |
-| 获取班级课表 | GET | /api/schedules | academic.view | 班级课表 |
-| 获取教师课表 | GET | /api/schedule | academic.view | 教师个人课表 |
-| 调课申请 | POST | /api/schedule-changes | academic.edit | 提交调课申请 |
-| 获取调课列表 | GET | /api/schedule-changes | academic.view | 查询调课记录 |
-| 代课安排 | POST | /api/schedule/substitutes | academic.edit | 安排代课 |
-| 获取代课列表 | GET | /api/schedule/substitutes | academic.view | 查询代课记录 |
-
-### 5.6 工作量统计接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取教师工作量 | GET | /api/workload?action=teacher | academic.view | 单个教师 |
-| 获取月度汇总 | GET | /api/workload?action=monthly-summary | academic.view | 月度统计 |
-| 批量查询工作量 | GET | /api/workload?action=batch | academic.view | 批量查询 |
-| 获取Mock数据 | GET | /api/workload?action=mock | academic.view | 测试数据 |
-
-### 5.7 报销管理接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取报销列表 | GET | /api/expenses | general.view | 分页查询 |
-| 获取报销详情 | GET | /api/expenses/{id} | general.view | 单个详情 |
-| 创建报销 | POST | /api/expenses | general.edit | 提交报销 |
-| 更新报销 | PUT | /api/expenses/{id} | general.edit | 修改报销 |
-| 删除报销 | DELETE | /api/expenses/{id} | general.manage | 删除报销 |
-| 审批报销 | POST | /api/expenses/{id}/approve | general.approve | 审批操作 |
-| 处理报销 | POST | /api/expenses/{id}/process | general.manage | 财务处理 |
-| 报销统计 | GET | /api/expenses/statistics | general.view | 统计报表 |
-
-### 5.8 门禁管理接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取设备列表 | GET | /api/access/devices | general.view | 门禁设备 |
-| 创建设备 | POST | /api/access/devices | general.manage | 新增设备 |
-| 更新设备 | PUT | /api/access/devices | general.edit | 修改设备 |
-| 删除设备 | DELETE | /api/access/devices | general.manage | 删除设备 |
-| 获取通行记录 | GET | /api/access/records | general.view | 通行记录 |
-| 获取访客列表 | GET | /api/access/visitors | general.view | 访客管理 |
-| 访客审批 | POST | /api/access/visitors | general.approve | 访客审批 |
-| 门禁统计 | GET | /api/access/statistics | general.view | 统计数据 |
-
-### 5.9 习惯养成接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取习惯评价 | GET | /api/habit/assessments | moral.view | 评价记录 |
-| 创建习惯评价 | POST | /api/habit/assessments | moral.edit | 新增评价 |
-| 获取习惯目标 | GET | /api/habit/goals | moral.view | 习惯目标 |
-| 创建习惯目标 | POST | /api/habit/goals | moral.edit | 新增目标 |
-| 获取习惯之星 | GET | /api/habit/stars | moral.view | 习惯之星 |
-| 创建习惯之星 | POST | /api/habit/stars | moral.edit | 评选之星 |
-| 全校习惯统计 | GET | /api/habit/stats/school | moral.view | 统计数据 |
-
-### 5.10 新生注册接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取申请列表 | GET | /api/enrollment | academic.view | 查询申请 |
-| 提交申请 | POST | /api/enrollment | parent | 家长提交 |
-| 审核申请 | PUT | /api/enrollment | academic.approve | 教务审核 |
-| 分配班级 | PUT | /api/enrollment | academic.manage | 分配班级 |
-| 同步到学籍 | POST | /api/enrollment/sync | academic.manage | 手动同步 |
-
-### 5.11 功能室预约接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取功能室列表 | GET | /api/rooms | general.view | 查询功能室 |
-| 创建功能室 | POST | /api/rooms | general.manage | 新增功能室 |
-| 获取预约列表 | GET | /api/rooms/bookings | general.view | 查询预约 |
-| 创建预约 | POST | /api/rooms/bookings | general.edit | 提交预约 |
-| 审批预约 | POST | /api/rooms/bookings/{id}/approve | general.approve | 审批预约 |
-
-### 5.12 教研活动接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取活动列表 | GET | /api/research/activities | academic.view | 教研活动 |
-| 创建活动 | POST | /api/research/activities | academic.edit | 新增活动 |
-| 获取听课记录 | GET | /api/research/observations | academic.view | 听课评课 |
-| 创建听课记录 | POST | /api/research/observations | academic.edit | 新增记录 |
-| 获取备课记录 | GET | /api/research/preparations | academic.view | 集体备课 |
-| 创建备课记录 | POST | /api/research/preparations | academic.edit | 新增备课 |
-
-### 5.13 安全管理接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 获取演练列表 | GET | /api/safety/drills | general.view | 安全演练 |
-| 创建演练 | POST | /api/safety/drills | general.edit | 新增演练 |
-| 获取检查记录 | GET | /api/safety/inspections | general.view | 安全检查 |
-| 创建检查 | POST | /api/safety/inspections | general.edit | 新增检查 |
-
-### 5.14 公共接口
-
-| 接口 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|------|
-| 文件上传 | POST | /api/upload | 需认证 | 通用上传 |
-| 图片搜索 | GET | /api/search-images | 需认证 | 图片搜索 |
-
-### 5.15 接口清单汇总
-
-| 模块 | 路由数量 | 接口数量 | 主要接口 |
-|------|----------|----------|----------|
-| 认证授权 | 4 | 4 | login, logout, current, refresh |
-| 教师管理 | 10 | 13 | CRUD, profile, batch, records, honors |
-| 学生管理 | 6 | 10 | CRUD, batch, habit-profile |
-| 班级管理 | 1 | 5 | CRUD, students |
-| 班级教师 | 2 | 4 | CRUD |
-| 课表管理 | 4 | 12 | base-schedule, actual-schedule, changes |
-| 工作量统计 | 1 | 4 | teacher, monthly, batch, mock |
-| 报销管理 | 5 | 8 | CRUD, approve, process, statistics |
-| 门禁管理 | 4 | 8 | devices, records, visitors, statistics |
-| 习惯养成 | 4 | 7 | assessments, goals, stars, stats |
-| 德育管理 | 4 | 6 | activities, plans, growth, alerts |
-| 新生注册 | 1 | 5 | enrollment CRUD, sync |
-| 功能室预约 | 3 | 5 | rooms, bookings, approve |
-| 教研活动 | 3 | 6 | activities, observations, preparations |
-| 安全管理 | 2 | 4 | drills, inspections |
-| 数据中心 | 2 | 3 | collection, link, migrate |
-| 工作流 | 3 | 3 | config, instances, migrate |
-| 首页管理 | 4 | 4 | honors, news, migrate |
-| 公共组件 | 2 | 2 | upload, search-images |
-| **合计** | **80路由** | **~110接口** | - |
-
-> **说明**：路由数量指API路由文件数量，接口数量按HTTP方法计算（一个路由可能对应GET/POST/PUT/DELETE多个接口）。
-
-### 5.16 数据Hooks说明
-
-#### 5.16.1 Hooks架构概述
-
-项目采用**统一Hooks架构**，所有数据获取和操作逻辑均通过自定义Hooks实现，遵循以下设计原则：
-
-| 原则 | 说明 |
-|------|------|
-| 单一职责 | 每个Hook专注于单一数据领域或功能 |
-| 统一模式 | 所有Hooks基于 `useApi.ts` 实现，保持一致的API风格 |
-| 类型安全 | 完整的TypeScript类型定义，提供良好的IDE支持 |
-| 自动缓存 | 支持缓存策略，减少重复请求 |
-| 错误处理 | 统一的错误处理和状态管理 |
-
-#### 5.16.2 Hooks目录结构
-
-```
-src/hooks/
-├── useApi.ts              # 基础Hook库（核心）
-├── useAuth.ts             # 认证相关
-├── usePermissions.ts      # 权限管理
-├── useStudentData.ts      # 学生数据
-├── useTeacherData.ts      # 教师数据
-├── useHabitData.ts        # 习惯养成数据
-├── useMoralData.ts        # 德育管理数据
-├── useAcademicData.ts     # 教务数据
-├── useGeneralAffairsData.ts # 总务数据
-├── useAccessData.ts       # 门禁数据
-├── useRoomData.ts         # 功能室数据
-├── useBatchOperations.ts  # 批量操作Hook
-└── use-mobile.ts          # 移动端检测
-```
-
-> **注意**：已删除的废弃文件：
-> - `useDataFetch.ts` - 旧版数据获取Hook
-> - `useData.ts` - 旧版通用数据Hook
-> - `useCrudOperations.ts` - 旧版CRUD操作Hook
-
-#### 5.16.3 核心Hooks说明
-
-#### useApi.ts - 统一基础Hook库
-
-这是系统中最核心的Hook文件，提供统一的查询和操作模式。
-
-**导出的Hooks**:
-
-| Hook名称 | 用途 | 返回值 |
-|----------|------|--------|
-| `useQuery<T>` | 单次查询 | `{ data, loading, error, refetch, source, isFetching }` |
-| `usePaginatedQuery<T>` | 分页查询 | `{ data, pagination, loading, error, refetch, nextPage, prevPage, goToPage, setPageSize }` |
-| `useMutation<T, P>` | 数据变更 | `{ mutate, mutateAsync, loading, error, reset, data }` |
-
-**使用示例**:
-
-```typescript
-// 查询示例
-import { useQuery, usePaginatedQuery, useMutation } from '@/hooks/useApi';
-import { teacherApi } from '@/services/api-client';
-
-function TeacherListPage() {
-  // 分页查询教师列表
-  const { data: teachers, loading, pagination, nextPage } = usePaginatedQuery(
-    (params) => teacherApi.list(params),
-    { pageSize: 20 }
-  );
-  
-  // 创建教师
-  const { mutate: createTeacher, loading: creating } = useMutation(
-    (data) => teacherApi.create(data)
-  );
-  
-  return (
-    // ... 组件实现
-  );
-}
-
-// 条件查询示例
-function StudentDetailPage({ studentId }: { studentId: string | null }) {
-  const { data: student, loading } = useQuery(
-    () => studentApi.get(studentId!),
-    { enabled: !!studentId } // 仅在 studentId 存在时查询
-  );
-  
-  return (/* ... */);
-}
-```
-
-#### useAuth.ts - 认证Hook
-
-提供用户登录、登出、获取当前用户等认证相关功能。
-
-**导出内容**:
-
-| Hook/函数 | 用途 | 参数 | 返回值 |
-|-----------|------|------|--------|
-| `useAuth()` | 获取认证状态和用户信息 | - | `{ user, loading, error, login, logout, refetch }` |
-| `useCurrentUser()` | 获取当前登录用户 | - | `User | null` |
-| `useLogin()` | 登录操作 | - | `{ login, loading, error }` |
-| `useLogout()` | 登出操作 | - | `{ logout, loading }` |
-
-**使用示例**:
-
-```typescript
-import { useAuth, useLogin, useLogout } from '@/hooks/useAuth';
-
-function LoginPage() {
-  const { login, loading, error } = useLogin();
-  
-  const handleLogin = async (username: string, password: string) => {
-    const user = await login(username, password);
-    if (user) {
-      router.push('/dashboard');
-    }
-  };
-  
-  return (/* 登录表单 */);
-}
-
-function Header() {
-  const { user, logout } = useAuth();
-  
-  return (
-    <header>
-      <span>{user?.name}</span>
-      <button onClick={logout}>登出</button>
-    </header>
-  );
-}
-```
-
-#### useStudentData.ts - 学生数据Hook
-
-提供学生相关的数据查询和操作。
-
-**导出内容**:
-
-| Hook | 用途 | 参数 | 返回值 |
-|------|------|------|--------|
-| `useStudentsList(params)` | 学生列表查询 | `{ search?, grade?, classId?, status?, page?, pageSize? }` | `{ data, pagination, loading, error, refetch }` |
-| `useStudentFullProfile(id)` | 学生完整档案 | `studentId` | `{ data, loading, error, refetch, updateProfile }` |
-| `useStudentMutation()` | 学生增删改 | - | `{ createStudent, updateStudent, deleteStudent, loading, error }` |
-
-**使用示例**:
-
-```typescript
-import { useStudentsList, useStudentFullProfile } from '@/hooks/useStudentData';
-
-function StudentsPage() {
-  const { data: students, pagination, loading } = useStudentsList({
-    grade: '三年级',
-    pageSize: 20
-  });
-  
-  return (/* 学生列表 */);
-}
-
-function StudentDetailPage({ studentId }: { studentId: string }) {
-  const { data: profile, updateProfile } = useStudentFullProfile(studentId);
-  
-  const handleUpdate = async (updates) => {
-    await updateProfile(updates);
-  };
-  
-  return (/* 学生详情 */);
-}
-```
-
-#### useHabitData.ts - 习惯养成数据Hook
-
-提供习惯养成模块的数据查询和操作。
-
-**导出内容**:
-
-| Hook | 用途 | 参数 | 返回值 |
-|------|------|------|--------|
-| `useSchoolHabitStats(month)` | 全校习惯统计 | `month?: string` | `{ data, loading, error, refetch }` |
-| `useHabitGoals(filters)` | 目标列表查询 | `{ category?, status?, grade? }` | `{ data, loading, error, refetch }` |
-| `useHabitStars(month)` | 习惯之星列表 | `month?: string` | `{ data, loading, error }` |
-| `useHabitAssessments(filters)` | 评价记录查询 | `{ studentId?, classId?, category? }` | `{ data, loading, error }` |
-| `useCreateHabitAssessment()` | 创建评价 | - | `{ mutate, loading, error }` |
-
-**使用示例**:
-
-```typescript
-import { 
-  useSchoolHabitStats, 
-  useHabitGoals, 
-  useHabitStars 
-} from '@/hooks/useHabitData';
-
-function HabitOverviewPage() {
-  const { data: stats, loading } = useSchoolHabitStats('2024-04');
-  const { data: stars } = useHabitStars('2024-04');
-  
-  return (/* 习惯养成总览 */);
-}
-
-function GoalsPage() {
-  const { data: goals, loading } = useHabitGoals({ 
-    status: 'active',
-    category: 'reading' 
-  });
-  
-  return (/* 目标列表 */);
-}
-```
-
-#### useMoralData.ts - 德育数据Hook
-
-提供德育管理模块的数据查询和操作。
-
-**导出内容**:
-
-| Hook | 用途 | 参数 |
-|------|------|------|
-| `useMoralEvaluations(filters)` | 德育评价列表 | `{ studentId?, classId?, grade?, semester? }` |
-| `useCreateMoralEvaluation()` | 创建德育评价 | - |
-| `useStudentRewards(filters)` | 学生奖励列表 | `{ studentId?, classId?, rewardLevel? }` |
-| `useStudentPunishments(filters)` | 学生处分列表 | `{ studentId?, status? }` |
-| `useMoralActivities(filters)` | 德育活动列表 | `{ status?, type?, startDate? }` |
-| `useStudentBehaviorRecords(filters)` | 行为记录列表 | `{ studentId?, type? }` |
-
-**使用示例**:
-
-```typescript
-import { useMoralEvaluations, useStudentRewards } from '@/hooks/useMoralData';
-
-function MoralEvaluationPage() {
-  const { data: evaluations, loading } = useMoralEvaluations({
-    semester: '2023-2024-2'
-  });
-  
-  return (/* 德育评价列表 */);
-}
-
-function HonorsPage() {
-  const { data: rewards } = useStudentRewards({
-    rewardLevel: 'school'
-  });
-  
-  return (/* 荣誉列表 */);
-}
-```
-
-#### 5.16.4 API客户端与Hooks关系
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     React 组件层                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ 页面组件    │  │ 功能组件    │  │ UI组件      │         │
-│  └──────┬──────┘  └──────┬──────┘  └─────────────┘         │
-│         │                │                                  │
-└─────────┼────────────────┼──────────────────────────────────┘
-          │                │
-          ▼                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Hooks 层                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │useStudent   │  │useHabit     │  │useMoral     │  ...    │
-│  │   Data      │  │   Data      │  │   Data      │         │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-│         │                │                │                 │
-│         └────────────────┼────────────────┘                 │
-│                          │                                  │
-│                          ▼                                  │
-│                 ┌─────────────────┐                         │
-│                 │    useApi.ts    │ (核心基础)              │
-│                 │ useQuery/Mutation│                        │
-│                 └────────┬────────┘                         │
-└──────────────────────────┼──────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   API 客户端层                               │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │                   apiClient                          │   │
-│  │     get / post / put / patch / delete               │   │
-│  └─────────────────────────────────────────────────────┘   │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │  teacherApi │  │  studentApi │  │  habitApi   │  ...    │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-└─────────┼────────────────┼────────────────┼─────────────────┘
-          │                │                │
-          ▼                ▼                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   API Routes 层                              │
-│  /api/teachers  /api/students  /api/habit  /api/moral  ...  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-#### 5.16.5 Hooks使用规范
-
-#### 1. 查询类操作使用 useQuery
-
-```typescript
-// ✅ 推荐
-export function useXxxData(id: string) {
-  return useQuery(
-    () => apiClient.get('/xxx', { id }),
-    { enabled: !!id }
-  );
-}
-
-// ❌ 不推荐
-export function useXxxData(id: string) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  // ...手动fetch
-}
-```
-
-#### 2. 分页查询使用 usePaginatedQuery
-
-```typescript
-// ✅ 推荐
-export function useXxxList(params) {
-  return usePaginatedQuery(
-    (p) => apiClient.get('/xxx', { ...params, ...p }),
-    params
-  );
-}
-```
-
-#### 3. 变更操作使用 useMutation
-
-```typescript
-// ✅ 推荐
-export function useCreateXxx() {
-  return useMutation(
-    (data) => apiClient.post('/xxx', data)
-  );
-}
-
-// 使用
-const { mutate, loading, error } = useCreateXxx();
-await mutate({ name: 'xxx' });
-```
-
-#### 4. 依赖项正确设置
-
-```typescript
-// ✅ 正确：deps参数确保依赖变化时重新获取
-export function useStudentGrades(studentId: string, semester: string) {
-  return useQuery(
-    () => gradeApi.getByStudent(studentId, semester),
-    { deps: [studentId, semester] }
-  );
-}
-
-// ✅ 正确：enabled参数控制是否执行
-export function useStudentDetail(studentId: string | null) {
-  return useQuery(
-    () => studentApi.get(studentId!),
-    { enabled: !!studentId }
-  );
-}
-```
-
-#### 5.16.6 Hooks与API对照表
-
-| 模块 | Hooks文件 | API路径前缀 | 主要Hooks |
-|------|-----------|-------------|-----------|
-| 认证 | useAuth.ts | /api/auth | useAuth, useLogin, useLogout |
-| 学生 | useStudentData.ts | /api/students | useStudentsList, useStudentFullProfile |
-| 教师 | useTeacherData.ts | /api/teachers | useTeachersList, useTeacherProfile |
-| 习惯养成 | useHabitData.ts | /api/habit | useSchoolHabitStats, useHabitGoals, useHabitStars |
-| 德育 | useMoralData.ts | /api/moral | useMoralEvaluations, useStudentRewards |
-| 教务 | useAcademicData.ts | /api/academic | useSchedule, useWorkload |
-| 总务 | useGeneralAffairsData.ts | /api/general | useExpenses, useAssets |
-| 门禁 | useAccessData.ts | /api/access | useAccessRecords, useVisitors |
-| 功能室 | useRoomData.ts | /api/rooms | useRooms, useBookings |
-
-#### 5.16.7 Hooks架构整改记录（v2.0）
-
-#### 整改背景
-
-原有 Hooks 实现存在以下问题：
-- 使用模式不一致：部分使用旧的 `useState + fetch` 模式，部分使用 `useQuery`
-- 类型定义分散：存在重复定义，未统一到 `types/index.ts`
-- 废弃代码未清理：`useDataFetch.ts`、`useData.ts`、`useCrudOperations.ts` 已弃用但未删除
-- API 客户端模块不完善：`habitApi`、`moralApi` 功能不完整
-
-#### 整改内容
-
-##### 1. 类型定义统一
-
-在 `types/index.ts` 中新增以下类型：
-
-```typescript
-// 习惯养成统计类型
-export interface SchoolHabitStatsResponse { ... }
-export interface HabitCategoryStat { ... }
-export interface GradeHabitStat { ... }
-export interface HabitGoalTemplate { ... }
-export interface HabitStarRule { ... }
-
-// 习惯记录与评价类型
-export interface HabitRecord { ... }
-export interface HabitEvaluation { ... }
-export interface HabitStatistics { ... }
-export interface HabitTrend { ... }
-
-// 德育管理类型
-export interface MoralActivity { ... }
-export interface MoralEvaluation { ... }
-export interface WarningStudent { ... }
-export interface WarningIntervention { ... }
-export interface MoralStatistics { ... }
-```
-
-##### 2. Hooks重构
-
-**useHabitData.ts** - 完全重构：
-- 导出 `habitCategoryNames`、`habitCategoryColors`、`habitCategoryIcons` 常量
-- 新增 `useHabitRecords`、`useHabitEvaluations` 分页查询 Hooks
-- 新增 `useHabitStatistics`、`useHabitTrend` 学生统计 Hooks
-- 新增 `useSchoolHabitStats` 全校统计 Hook
-- 新增 `useHabitGoalActions`、`useHabitEvaluationActions` 操作 Hooks
-- 统一使用 `fetchApi` 辅助函数进行 API 调用
-
-**useStudentData.ts** - 优化重构：
-- 统一使用 `fetchApi` 辅助函数
-- 确保 `pagination` 有默认值，避免 null 问题
-- 新增 `useStudentsByClass`、`useStudentSearch` 查询 Hooks
-- 新增 `useClassStudentsOverview`、`useStudentProfileSummary` 聚合 Hooks
-
-**useTeacherData.ts** - 优化重构：
-- 与 useStudentData.ts 保持相同的实现风格
-- 新增 `useTeacherSearch` 查询 Hook
-- 新增 `useTeacherProfileSummary` 聚合 Hook
-
-##### 3. 废弃文件清理
-
-已删除以下废弃文件：
-- `src/hooks/useDataFetch.ts`
-- `src/hooks/useData.ts`
-- `src/hooks/useCrudOperations.ts`
-
-##### 4. API客户端完善
-
-**habitApi 模块** - 功能完善：
-```typescript
-// 记录管理
-getRecords, getRecord, createRecord, updateRecord, deleteRecord
-
-// 评价管理
-getEvaluations, createEvaluation, updateEvaluation, deleteEvaluation
-
-// 统计分析
-getStudentStatistics, getStudentTrend, getSchoolStats, getClassStats
-
-// 目标管理
-getGoals, createGoal, updateGoal, deleteGoal, getGoalTemplates
-
-// 习惯之星
-getStars, createStar, getStarRules
-```
-
-**moralApi 模块** - 新增：
-```typescript
-// 活动管理
-getActivities, getActivity, createActivity, updateActivity, deleteActivity
-
-// 评价管理
-getEvaluations, createEvaluation, updateEvaluation, deleteEvaluation
-
-// 荣誉管理
-getHonors, createHonor, updateHonor, deleteHonor
-
-// 预警管理
-getWarningStudents, getWarning, createWarning, updateWarning, resolveWarning
-
-// 统计分析
-getStatistics, getClassOverview, getGradeOverview
-```
-
-##### 5. 类型签名优化
-
-- 修复 `useApi.ts` 中 `useHabitStars` 的参数类型问题
-- 统一 `Pagination` 类型导出，确保分页数据有默认值
-- 修复页面组件中 `pagination` 可能为 null 的类型问题
-
-#### 整改效果
-
-- ✅ 类型检查通过，无 TypeScript 错误
-- ✅ Hooks 使用模式统一，基于 `useQuery` 和 `usePaginatedQuery`
-- ✅ API 调用模式一致，使用统一的 `fetchApi` 辅助函数
-- ✅ 分页数据默认值处理，避免 null 引用错误
-- ✅ 文档更新，记录整改内容和规范
-
-#### 5.16.8 文档一致性修正记录（v1.7）
-
-#### 修正背景
-
-SDD 文档中的页面数量、目录结构、API接口清单等描述与实际系统实现存在偏差，需要核对并修正。
-
-#### 修正内容
-
-##### 1. 页面数量统计修正
-
-| 模块 | 原文档 | 实际数量 | 修正 |
-|------|--------|----------|------|
-| 总页面数 | 91 | 90 | ✓ |
-| 教务系统 | 21 | 20 | ✓ |
-| 总务系统 | 12 | 14 | ✓ |
-| 教师空间 | 20 | 18 | ✓ |
-| 工作流 | 6 | 7 | ✓ |
-
-##### 2. 德育系统目录结构修正
-
-习惯养成模块目录结构修正：
-- 移除不存在的 `habit/reports/` 和 `habit/students/` 目录
-- 添加实际存在的 `habit/overview/` 目录
-- 更新各子目录的功能描述
-
-##### 3. API接口清单修正
-
-- 更新路由数量为实际的80个路由文件
-- 区分"路由数量"和"接口数量"（一个路由可能对应多个HTTP方法）
-- 更新各模块的路由数量统计
-
-##### 4. 导航菜单同步
-
-德育系统导航菜单与实际页面路由保持一致：
-- 更新习惯养成子菜单项
-- 修正路由路径描述
-
-#### 修正效果
-
-- ✅ 页面数量统计与实际系统一致
-- ✅ 目录结构描述与实际文件结构一致
-- ✅ API接口清单与实际路由一致
-- ✅ 导航菜单与实际页面路由一致
+| ERROR | 错误日志，需要立即处理 |
+| WARN | 警告日志，潜在问题 |
+| INFO | 信息日志，关键操作 |
+| DEBUG | 调试日志，开发使用 |
 
 ---
 
-## 6. 部署设计
+## 8. 设计约束
 
-### 6.1 部署架构
+### 8.1 技术约束
 
-#### 6.1.1 部署拓扑图
-
-```
-                    ┌─────────────────┐
-                    │   用户终端设备   │
-                    │ (PC/手机/平板)  │
-                    └────────┬────────┘
-                             │
-                             ▼
-                    ┌─────────────────┐
-                    │   CDN/负载均衡   │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-       ┌──────────┐   ┌──────────┐   ┌──────────┐
-       │ Web节点1 │   │ Web节点2 │   │ Web节点3 │
-       │(Next.js) │   │(Next.js) │   │(Next.js) │
-       └────┬─────┘   └────┬─────┘   └────┬─────┘
-            │              │              │
-            └──────────────┼──────────────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-       ┌──────────┐ ┌──────────┐ ┌──────────┐
-       │Supabase  │ │   S3     │ │  Redis   │
-       │PostgreSQL│ │ Storage  │ │  Cache   │
-       └──────────┘ └──────────┘ └──────────┘
-```
-
-#### 6.1.2 环境规划
-
-| 环境 | 用途 | 域名 | 配置 |
-|------|------|------|------|
-| 开发环境 | 开发调试 | dev.example.com | 2核4G |
-| 测试环境 | 集成测试 | test.example.com | 2核4G |
-| 预发布环境 | 上线前验证 | staging.example.com | 4核8G |
-| 生产环境 | 正式运行 | www.example.com | 4核8G×3 |
-
-### 6.2 容器化部署
-
-#### 6.2.1 Dockerfile
-
-```dockerfile
-# 构建阶段
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
-COPY . .
-RUN pnpm run build
-
-# 运行阶段
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-EXPOSE 5000
-CMD ["node", "server.js"]
-```
-
-#### 6.2.2 Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  app:
-    build: .
-    ports:
-      - "5000:5000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-```
-
-### 6.3 环境配置
-
-#### 6.3.1 环境变量清单
-
-| 变量名 | 说明 | 示例值 |
-|--------|------|--------|
-| NODE_ENV | 运行环境 | production |
-| DATABASE_URL | 数据库连接 | postgresql://... |
-| JWT_SECRET | JWT密钥 | (随机32字符) |
-| JWT_REFRESH_SECRET | Refresh Token密钥 | (随机32字符) |
-| S3_ENDPOINT | 对象存储端点 | https://s3.example.com |
-| S3_ACCESS_KEY | S3访问密钥 | - |
-| S3_SECRET_KEY | S3私钥 | - |
-| REDIS_URL | Redis连接 | redis://localhost:6379 |
-
-#### 6.3.2 数据库初始化
-
-```sql
--- 创建数据库
-CREATE DATABASE smart_campus;
-
--- 创建扩展
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- 创建初始管理员
-INSERT INTO users (id, name, role, status)
-VALUES (uuid_generate_v4(), '系统管理员', 'admin', 'active');
-```
-
-### 6.4 监控与运维
-
-#### 6.4.1 健康检查接口
-
-**接口**: `GET /api/health`
-
-**响应示例**:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "checks": {
-    "database": "ok",
-    "storage": "ok",
-    "cache": "ok"
-  }
-}
-```
-
-#### 6.4.2 日志管理
-
-| 日志类型 | 存储位置 | 保留时间 |
-|----------|----------|----------|
-| 应用日志 | /var/log/app/ | 30天 |
-| 访问日志 | /var/log/nginx/ | 30天 |
-| 错误日志 | /var/log/error/ | 90天 |
-
-#### 6.4.3 告警规则
-
-| 告警项 | 阈值 | 级别 |
-|--------|------|------|
-| CPU使用率 | >80% | Warning |
-| 内存使用率 | >85% | Warning |
-| 磁盘使用率 | >90% | Critical |
-| 响应时间 | >3s | Warning |
-| 错误率 | >1% | Critical |
-
----
-
-## 7. 设计约束
-
-### 7.1 技术约束
-
-#### 7.1.1 技术栈约束
-
-| 约束项 | 约束内容 | 原因 |
-|--------|----------|------|
-| 前端框架 | 必须使用Next.js 16 | 团队熟悉度高，SEO友好 |
-| UI组件库 | 必须使用shadcn/ui | 风格统一，可定制性强 |
-| 包管理器 | 禁止使用npm/yarn | pnpm依赖管理更高效 |
-| 数据库 | 使用Supabase PostgreSQL | 托管服务，运维成本低 |
-| **数据源** | **Supabase是唯一数据源** | **v3.0新增**：消除数据孤岛 |
-| **Mock数据** | **禁止API层Mock fallback** | **v3.0新增**：保证数据一致性 |
-
-#### 7.1.2 代码规范约束
-
-| 约束项 | 约束内容 |
-|--------|----------|
-| 语言 | 必须使用TypeScript，禁止any类型 |
-| 样式 | 必须使用Tailwind语义化变量，禁止硬编码颜色 |
-| 组件 | 必须使用shadcn/ui组件，禁止重复造轮子 |
-| API | 必须使用统一响应格式，禁止自定义格式 |
-
-### 7.2 业务约束
-
-#### 7.2.1 权限约束
-
-| 约束项 | 约束内容 |
-|--------|----------|
-| 角色分配 | 普通教师只能访问教师空间 |
-| 班主任权限 | 班主任可访问教师空间，无其他系统权限 |
-| 教务员权限 | 教务员仅能访问教务系统 |
-| 年段长权限 | 年段长可访问教师空间及专属调课功能 |
-| 家长权限 | 家长仅能访问家长端 |
-
-#### 7.2.2 数据约束
-
-| 约束项 | 约束内容 |
-|--------|----------|
-| 新生注册 | 教务审核后手动同步到学生管理系统 |
-| 报销金额 | 大额报销需校长审批 |
-| 课表变更 | 调课需提前申请，经批准后生效 |
-| 实际课表 | 每周基于基准课表+请假/代课动态生成 |
-
-### 7.3 性能约束
-
-| 指标 | 约束值 | 说明 |
-|------|--------|------|
-| 页面加载时间 | <2秒 | 首屏渲染 |
-| API响应时间 | <500ms | 95分位 |
-| 并发用户数 | >500 | 高峰期支持 |
-| 数据库查询 | <100ms | 单次查询 |
-
-### 7.4 安全约束
-
-| 约束项 | 约束内容 |
-|--------|----------|
-| 认证方式 | JWT Token，Access Token 2小时过期 |
-| 密码策略 | 最少8位，必须包含数字和字母 |
-| 敏感数据 | 禁止在日志中输出Token、密码等 |
-| SQL注入 | 必须使用参数化查询 |
-
----
-
-## 8. 验收准则
-
-### 8.1 功能验收
-
-#### 8.1.1 认证授权模块
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| 用户登录 | 正确账号可登录，错误提示明确 | 输入正确/错误账号测试 | □ |
-| 多角色登录 | 13种角色均可正常登录 | 使用各角色测试账号登录 | □ |
-| Token刷新 | Access Token过期后自动刷新 | 等待Token过期后操作 | □ |
-| 用户登出 | 清除会话，跳转登录页 | 点击登出按钮验证 | □ |
-| 权限控制 | 不同角色只能访问授权页面 | 切换角色访问各模块 | □ |
-| 敏感数据权限 | 按角色+关系双重判断展示敏感数据 | 不同角色查看学生详情 | □ |
-
-#### 8.1.2 总务后勤系统
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| **门禁管理** | | | |
-| 设备管理 | 设备CRUD、状态监控、心跳检测 | 添加/编辑/删除设备 | □ |
-| 人员管理 | 通行人员信息管理、权限配置 | 添加人员、配置权限 | □ |
-| 通行记录 | 进出记录查询、异常告警 | 查询历史记录 | □ |
-| 访客管理 | 访客预约、审批、记录 | 完整访客流程测试 | □ |
-| 门禁统计 | 今日通行、时段统计、异常统计 | 查看统计报表 | □ |
-| **财务管理** | | | |
-| 报销申请 | 填写报销单、上传附件、提交 | 提交报销申请 | □ |
-| 报销审批 | 按金额分级审批、审批记录 | 各级审批流程测试 | □ |
-| 报销统计 | 按部门/类型/时间统计 | 查看统计报表 | □ |
-| **资产管理** | | | |
-| 资产登记 | 资产信息录入、标签打印 | 新增资产测试 | □ |
-| 资产领用 | 领用申请、审批、记录 | 资产领用流程 | □ |
-| 资产报废 | 报废申请、审批、记录 | 资产报废流程 | □ |
-| **维修管理** | | | |
-| 报修申请 | 描述问题、上传图片、提交 | 提交报修申请 | □ |
-| 派工处理 | 指派维修人员、更新状态 | 派工、完成流程 | □ |
-| **采购管理** | | | |
-| 采购申请 | 填写采购清单、提交审批 | 提交采购申请 | □ |
-| 采购审批 | 多级审批、金额权限控制 | 审批流程测试 | □ |
-| **安全管理** | | | |
-| 安全演练 | 演练计划、记录、评估 | 创建演练记录 | □ |
-| 安全检查 | 检查计划、隐患整改 | 创建检查记录 | □ |
-| **员工管理** | | | |
-| 员工信息 | 后勤人员档案管理 | CRUD测试 | □ |
-
-#### 8.1.3 教务教研系统
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| **课表管理** | | | |
-| 基准课表 | 学期课表录入、导入、导出 | 添加/导入课表 | □ |
-| 实际课表 | 根据请假/代课动态生成 | 查看某周课表 | □ |
-| 班级课表 | 各班级课表查询 | 选择班级查看 | □ |
-| 教师课表 | 教师个人课表查询 | 查看教师课表 | □ |
-| **调课管理** | | | |
-| 调课申请 | 提交调课申请、选择调课方式 | 提交调课申请 | □ |
-| 调课审批 | 年段长/教务主任审批 | 审批流程测试 | □ |
-| 代课安排 | 指派代课教师、通知相关人员 | 安排代课测试 | □ |
-| **学生管理** | | | |
-| 学生列表 | 分页查询、筛选、搜索 | 搜索学生测试 | □ |
-| 学生详情 | 基本信息、家庭信息、综合素质 | 查看学生详情页 | □ |
-| 学生档案 | 完整档案含习惯、德育、成绩 | 查看完整档案 | □ |
-| 批量操作 | 批量导入、导出、更新 | 批量操作测试 | □ |
-| **教师管理** | | | |
-| 教师列表 | 分页查询、筛选、搜索 | 搜索教师测试 | □ |
-| 教师详情 | 基本信息、工作量、成长记录 | 查看教师详情页 | □ |
-| 教师档案 | 完整档案含荣誉、培训、成果 | 查看完整档案 | □ |
-| 班级教师关系 | 设置班主任、科任教师 | 配置班级教师 | □ |
-| **考试管理** | | | |
-| 考试安排 | 创建考试、设置科目时间 | 创建考试测试 | □ |
-| 成绩录入 | 按班级/科目录入成绩 | 录入成绩测试 | □ |
-| 成绩查询 | 按班级/学生/科目查询 | 查询成绩 | □ |
-| 成绩分析 | 平均分、排名、进退步分析 | 查看分析报表 | □ |
-| **教研活动** | | | |
-| 集体备课 | 备课活动创建、参与、记录 | 创建备课活动 | □ |
-| 听课评课 | 听课记录、评课反馈 | 提交听课记录 | □ |
-| 教研活动 | 活动发布、报名、签到 | 完整活动流程 | □ |
-| **功能室预约** | | | |
-| 预约申请 | 选择功能室、时间、用途 | 提交预约申请 | □ |
-| 预约审批 | 审批流程、冲突检测 | 审批预约测试 | □ |
-| 预约日历 | 可视化查看预约情况 | 查看日历视图 | □ |
-| **工作量统计** | | | |
-| 教师工作量 | 基准课时+代课+课后服务 | 查看工作量 | □ |
-| 月度汇总 | 按月统计各教师工作量 | 查看月度报表 | □ |
-| **新生注册** | | | |
-| 信息采集 | 家长端填写新生信息 | 填写新生信息 | □ |
-| 审核分配 | 教务审核、分配班级 | 审核分配测试 | □ |
-| 学籍同步 | 同步到学生管理系统 | 执行同步操作 | □ |
-| **考勤管理** | | | |
-| 考勤记录 | 教师考勤记录查询 | 查看考勤记录 | □ |
-
-#### 8.1.4 德育管理系统
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| **行为评价** | | | |
-| 表扬记录 | 记录学生表扬、加分 | 提交表扬记录 | □ |
-| 待改进记录 | 记录待改进事项、扣分 | 提交待改进记录 | □ |
-| 评价统计 | 按班级/学生统计评价情况 | 查看统计报表 | □ |
-| **习惯养成** | | | |
-| 全校总览 | 全校习惯养成统计、预警提醒 | 查看总览页面 | □ |
-| 小目标管理 | 目标模板、发布目标、进度追踪 | 管理小目标 | □ |
-| 习惯之星 | 月度评选、推荐、公示 | 评选习惯之星 | □ |
-| 习惯设置 | 目标模板库、评选规则、预警规则 | 配置习惯设置 | □ |
-| 学生习惯详情 | 八大习惯评分、评价记录 | 查看学生习惯 | □ |
-| **德育活动** | | | |
-| 活动管理 | 德育活动发布、报名、记录 | 完整活动流程 | □ |
-| 志愿服务 | 志愿活动、时长记录 | 记录志愿服务 | □ |
-| **德育计划** | | | |
-| 工作计划 | 学期德育工作计划制定 | 创建工作计划 | □ |
-| **少先队工作** | | | |
-| 少先队管理 | 入队、队会、队日活动 | 创建少先队活动 | □ |
-| **成长荣誉** | | | |
-| 荣誉管理 | 学生荣誉奖项记录与管理 | 添加荣誉记录 | □ |
-| 成长轨迹 | 学生成长大事记时间线 | 查看成长轨迹 | □ |
-| **预警管理** | | | |
-| 预警列表 | 当前预警学生列表与处理 | 查看预警列表 | □ |
-| 预警处理 | 干预措施、效果跟踪 | 处理预警 | □ |
-| **德育分析** | | | |
-| 数据概览 | 德育数据总览与关键指标 | 查看分析报表 | □ |
-
-#### 8.1.5 教师空间
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| **个人中心** | | | |
-| 个人信息 | 查看/编辑个人信息 | 修改个人信息 | □ |
-| 我的课表 | 查看个人课程安排 | 查看课表 | □ |
-| 密码修改 | 修改登录密码 | 修改密码测试 | □ |
-| **教学管理** | | | |
-| 作业管理 | 布置作业、批改记录 | 发布作业 | □ |
-| 习惯管理 | 发布小目标、审核打卡 | 班主任习惯管理 | □ |
-| 德育工作 | 班级德育工作记录 | 记录德育工作 | □ |
-| **班级管理** | | | |
-| 班级学生 | 查看班级学生列表、详情 | 查看学生详情 | □ |
-| **年级管理**（年段长） | | | |
-| 年级概览 | 本年级整体情况 | 查看年级概览 | □ |
-| 年级课表 | 本年级所有班级课表 | 查看年级课表 | □ |
-| 年级习惯 | 本年级习惯养成统计 | 查看年级习惯 | □ |
-| **请假管理** | | | |
-| 请假申请 | 提交请假申请 | 提交请假 | □ |
-| 请假记录 | 查看历史请假记录 | 查看记录 | □ |
-| **调课管理** | | | |
-| 调课申请 | 提交调课申请 | 提交调课 | □ |
-| **报销管理** | | | |
-| 报销申请 | 提交报销申请 | 提交报销 | □ |
-| 进度查询 | 查看报销审批进度 | 查看进度 | □ |
-| **家校通讯** | | | |
-| 沟通记录 | 与家长的沟通记录 | 查看沟通记录 | □ |
-
-#### 8.1.6 家长端
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| **孩子信息** | | | |
-| 基本信息 | 查看孩子基本信息 | 查看孩子信息 | □ |
-| 班级动态 | 查看班级通知动态 | 查看动态 | □ |
-| **习惯记录** | | | |
-| 目标查看 | 查看班主任发布的小目标 | 查看目标 | □ |
-| 每日打卡 | 进行习惯打卡、填写表现 | 提交打卡 | □ |
-| 月度确认 | 月末确认汇总数据 | 确认数据 | □ |
-| **成绩查询** | | | |
-| 成绩查看 | 查看考试成绩、分析 | 查看成绩 | □ |
-| **公告通知** | | | |
-| 公告查看 | 查看学校公告、班级通知 | 查看公告 | □ |
-| **新生注册** | | | |
-| 信息填报 | 填写新生入学信息 | 填写信息 | □ |
-
-#### 8.1.7 工作流系统
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| **流程配置** | | | |
-| 流程模板 | 创建/编辑审批流程模板 | 配置流程 | □ |
-| 节点配置 | 配置审批节点、条件分支 | 配置节点 | □ |
-| **审批流程** | | | |
-| 请假流程 | 请假审批完整流程 | 发起请假审批 | □ |
-| 报销流程 | 报销审批完整流程 | 发起报销审批 | □ |
-| 采购流程 | 采购审批完整流程 | 发起采购审批 | □ |
-| 维修流程 | 维修审批完整流程 | 发起维修审批 | □ |
-
-#### 8.1.8 首页管理
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| **内容管理** | | | |
-| 新闻管理 | 学校新闻发布管理 | 发布新闻 | □ |
-| 荣誉展示 | 学校荣誉、师生荣誉展示 | 添加荣誉 | □ |
-| 图片管理 | 首页轮播图、相册管理 | 上传图片 | □ |
-| 板块管理 | 首页板块内容编辑 | 编辑板块 | □ |
-
-#### 8.1.9 仪表盘
-
-| 功能点 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| **领导仪表盘** | | | |
-| 校长仪表盘 | 学校整体数据概览 | 查看仪表盘 | □ |
-| 书记仪表盘 | 党建、德育相关数据 | 查看仪表盘 | □ |
-| 副校长仪表盘 | 分管领域数据概览 | 查看仪表盘 | □ |
-
-### 8.2 性能验收
-
-| 指标 | 目标值 | 测试方法 | 工具 | 状态 |
-|------|--------|----------|------|------|
-| 首屏加载 | <2s | 10次平均 | Lighthouse | □ |
-| API响应（常规） | <500ms | 100次请求 | Apache Bench | □ |
-| API响应（复杂查询） | <1s | 100次请求 | Apache Bench | □ |
-| 并发支持 | >500用户 | 压力测试 | k6 | □ |
-| 数据库查询 | <100ms | 慢查询分析 | pgAdmin | □ |
-| 静态资源加载 | <1s | 网络分析 | Chrome DevTools | □ |
-| 列表分页加载 | <500ms | 翻页测试 | 手动测试 | □ |
-
-### 8.3 安全验收
-
-#### 8.3.1 认证安全
-
-| 检查项 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| Token过期 | Access Token正确过期 | 等待Token过期后访问 | □ |
-| Token刷新 | Refresh Token正确刷新 | 触发Token刷新 | □ |
-| 登录限流 | 5次/15分钟防暴力破解 | 连续错误登录测试 | □ |
-| 会话管理 | 登出后Token失效 | 登出后尝试访问 | □ |
-
-#### 8.3.2 权限安全
-
-| 检查项 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| 页面权限 | 越权访问被拒绝 | 直接访问未授权页面 | □ |
-| API权限 | 无权限API返回403 | 直接调用未授权API | □ |
-| 数据权限 | 只能查看授权范围数据 | 查询他人班级数据 | □ |
-| 敏感数据权限 | 按角色+关系控制展示 | 不同角色查看敏感数据 | □ |
-
-#### 8.3.3 数据安全
-
-| 检查项 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| 敏感数据加密 | 身份证、手机号加密存储 | 检查数据库存储 | □ |
-| 数据脱敏 | 敏感数据前端脱敏展示 | 查看前端展示 | □ |
-| SQL注入 | 攻击无效 | 输入恶意SQL语句 | □ |
-| XSS攻击 | 脚本不执行 | 输入script标签 | □ |
-| CSRF | 跨站请求被拒绝 | 伪造请求 | □ |
-
-#### 8.3.4 审计安全
-
-| 检查项 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| 操作日志 | 关键操作记录日志 | 检查日志记录 | □ |
-| 登录日志 | 登录记录完整 | 检查登录日志 | □ |
-| 敏感操作告警 | 批量导出触发告警 | 批量导出数据 | □ |
-
-### 8.4 高并发验收
-
-#### 8.4.1 限流保护
-
-| 场景 | 限流规则 | 测试方法 | 状态 |
-|------|----------|----------|------|
-| 新生注册 | 100次/分钟 | 模拟并发注册 | □ |
-| 成绩查询 | 200次/分钟 | 模拟并发查询 | □ |
-| 登录接口 | 5次/15分钟 | 模拟暴力破解 | □ |
-
-#### 8.4.2 熔断保护
-
-| 场景 | 熔断条件 | 测试方法 | 状态 |
-|------|----------|----------|------|
-| 数据库熔断 | 连续5次失败 | 模拟数据库故障 | □ |
-| 存储熔断 | 连续3次失败 | 模拟存储故障 | □ |
-| 降级展示 | 熔断后返回缓存/默认数据 | 触发熔断查看响应 | □ |
-
-### 8.5 兼容性验收
-
-#### 8.5.1 浏览器兼容
-
-| 浏览器 | 版本要求 | 验收标准 | 状态 |
-|--------|----------|----------|------|
-| Chrome | 最新两个版本 | 功能正常、布局正确 | □ |
-| Firefox | 最新两个版本 | 功能正常、布局正确 | □ |
-| Safari | 最新两个版本 | 功能正常、布局正确 | □ |
-| Edge | 最新两个版本 | 功能正常、布局正确 | □ |
-
-#### 8.5.2 分辨率兼容
-
-| 分辨率 | 验收标准 | 状态 |
-|--------|----------|------|
-| 1920×1080 | 布局正常、无溢出 | □ |
-| 1366×768 | 布局正常、无溢出 | □ |
-| 1440×900 | 布局正常、无溢出 | □ |
-
-#### 8.5.3 移动端兼容
-
-| 设备类型 | 验收标准 | 状态 |
-|--------|----------|------|
-| iOS手机 | 响应式适配、功能可用 | □ |
-| Android手机 | 响应式适配、功能可用 | □ |
-| iPad | 响应式适配、功能可用 | □ |
-
-### 8.6 API接口验收
-
-#### 8.6.1 接口规范
-
-| 检查项 | 验收标准 | 状态 |
-|--------|----------|------|
-| 统一响应格式 | success/data/error字段完整 | □ |
-| 错误码规范 | 错误码含义明确 | □ |
-| 分页格式 | page/pageSize/total字段完整 | □ |
-| HTTP状态码 | 正确使用200/400/401/403/404/500 | □ |
-
-#### 8.6.2 接口测试
-
-| 模块 | 路由数量 | 验收标准 | 状态 |
-|--------|----------|----------|------|
-| 认证授权 | 4 | 所有接口正常响应 | □ |
-| 教师管理 | 10 | CRUD操作正常 | □ |
-| 学生管理 | 6 | CRUD操作正常 | □ |
-| 课表管理 | 4 | 查询和更新正常 | □ |
-| 习惯养成 | 4 | 评价和统计正常 | □ |
-| 德育管理 | 4 | 活动和评价正常 | □ |
-| 总务管理 | 15+ | 各模块接口正常 | □ |
-
-### 8.7 数据完整性验收
-
-| 检查项 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| 学生数据 | 学生档案完整、关联正确 | 检查学生详情 | □ |
-| 教师数据 | 教师档案完整、关联正确 | 检查教师详情 | □ |
-| 课表数据 | 课表完整、无冲突 | 检查各班级课表 | □ |
-| 德育数据 | 习惯、活动、荣誉数据关联正确 | 检查学生德育信息 | □ |
-| 权限数据 | 角色权限配置正确 | 各角色功能测试 | □ |
-
-### 8.8 数据库唯一数据源验收（v3.0新增）
-
-#### 8.8.1 数据源验收
-
-| 检查项 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| Supabase连接 | API能正常连接Supabase | 调用任意API | ✅ |
-| 数据迁移 | `/api/migrate` 迁移成功 | 执行迁移接口 | ✅ |
-| 核心表数据 | schools/classes/teachers/students有数据 | 查询各表 | ✅ |
-| 业务表数据 | exams/homeworks/rooms/assets有数据 | 查询各表 | ✅ |
-
-#### 8.8.2 API Mock fallback验收
-
-| 检查项 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| 无Mock导入 | API文件无 `from '@/lib/mock/...` | grep搜索 | ✅ |
-| 错误响应格式 | 失败时返回 `{ success: false, error, errorCode }` | 模拟数据库失败 | ✅ |
-| 无Mock数据返回 | API失败时不返回Mock数据 | 断开数据库测试 | ✅ |
-
-#### 8.8.3 数据一致性验收
-
-| 检查项 | 验收标准 | 测试方法 | 状态 |
-|--------|----------|----------|------|
-| 班级-年级映射 | 班级年级字段与名称一致 | 检查classes表 | ✅ |
-| 班级-班主任映射 | 班主任ID与教师表一致 | 检查关联关系 | ✅ |
-| 学生-班级映射 | 学生班级ID与班级表一致 | 检查关联关系 | ✅ |
-| 前后端数据一致 | 前端显示与数据库数据一致 | 对比显示与数据库 | ✅ |
-
-#### 8.8.4 v3.0整改进度记录
-
-**整改日期**: 2024-03-01
-
-**整改目标**: 移除所有API层Mock fallback，建立Supabase唯一数据源架构
-
-##### 1. 数据迁移修复
-
-| 问题 | 修复内容 | 状态 |
-|------|----------|------|
-| grades迁移缺少class_id | 从MASTER_STUDENTS查找关联数据补充class_id字段 | ✅ 已完成 |
-| teacher_honors日期格式错误 | "2023-09" → "2023-09-01" 匹配date类型 | ✅ 已完成 |
-| teacher_records日期格式错误 | "2023-09" → "2023-09-01" 匹配date类型 | ✅ 已完成 |
-| student_attendance字段映射 | 修正recorder_id → recorded_by | ✅ 已完成 |
-
-##### 2. API Mock fallback整改
-
-**教务模块**:
-
-| API路径 | 整改内容 | 状态 |
-|---------|----------|------|
-| `/api/exams` | 完全重写，移除Mock导入和fallback | ✅ 已完成 |
-| `/api/homeworks` | 完全重写，移除Mock导入和fallback | ✅ 已完成 |
-| `/api/grades` | 重写，修正字段名匹配schema | ✅ 已完成 |
-| `/api/schedules` | 改用schedule_slots表，移除Mock | ✅ 已完成 |
-| `/api/courses` | 修正字段名匹配schema | ✅ 已完成 |
-| `/api/research/activities` | 已符合v3.0规范 | ✅ 无需修改 |
-| `/api/research/observations` | 已符合v3.0规范 | ✅ 无需修改 |
-| `/api/research/preparations` | 已符合v3.0规范 | ✅ 无需修改 |
-
-**总务模块**:
-
-| API路径 | 整改内容 | 状态 |
-|---------|----------|------|
-| `/api/assets` | 移除Mock fallback | ✅ 已完成 |
-| `/api/rooms` | 移除Mock fallback | ✅ 已完成 |
-| `/api/expenses` | 移除Mock fallback | ✅ 已完成 |
-
-**德育模块**:
-
-| API路径 | 整改内容 | 状态 |
-|---------|----------|------|
-| `/api/attendance` | 改用student_attendance表，移除Mock | ✅ 已完成 |
-| `/api/moral/activities` | 移除Mock fallback | ✅ 已完成 |
-| `/api/habit/assessments` | 已符合v3.0规范 | ✅ 无需修改 |
-| `/api/habit/goals` | 已符合v3.0规范 | ✅ 无需修改 |
-| `/api/moral/growth` | 已符合v3.0规范 | ✅ 无需修改 |
-
-**基础模块**:
-
-| API路径 | 整改内容 | 状态 |
-|---------|----------|------|
-| `/api/teachers` | 已符合v3.0规范 | ✅ 无需修改 |
-| `/api/students` | 已符合v3.0规范 | ✅ 无需修改 |
-| `/api/classes` | 已符合v3.0规范 | ✅ 无需修改 |
-
-##### 3. 数据库表映射修正
-
-| API使用表名 | 实际数据库表名 | 状态 |
-|-------------|---------------|------|
-| `schedules` | `schedule_slots` | ✅ 已修正 |
-| `attendance` | `student_attendance` | ✅ 已修正 |
-
-##### 4. 验收结果
-
-| 验收项 | 结果 | 说明 |
-|--------|------|------|
-| 构建检查 | ✅ 通过 | 无编译错误 |
-| 服务存活 | ✅ 通过 | HTTP 200响应 |
-| API数据源 | ✅ 通过 | 所有API返回数据库数据 |
-| 日志健康 | ✅ 通过 | 无错误日志 |
-
-##### 5. 后续建议
-
-| 建议 | 优先级 | 说明 |
-|------|--------|------|
-| 补充schedule_slots测试数据 | 中 | 当前表为空，需添加课表数据 |
-| 补充courses测试数据 | 中 | 当前表为空，需添加课程数据 |
-| 统一API字段命名 | 低 | 考虑统一snake_case或camelCase |
-
-### 8.9 验收流程
-
-#### 8.9.1 验收步骤
-
-1. **文档审查**：审查需求文档、设计文档、测试文档的完整性和一致性
-2. **功能测试**：按上述验收清单逐项测试
-3. **性能测试**：执行性能测试，验证各项指标达标
-4. **安全测试**：执行安全测试，验证安全防护有效
-5. **兼容性测试**：多浏览器、多分辨率、移动端测试
-6. **回归测试**：修复问题后进行回归验证
-7. **验收评审**：组织验收评审会议，确认验收结果
-
-#### 8.9.2 验收标准
-
-| 等级 | 功能验收 | 性能验收 | 安全验收 | 综合评分 |
-|------|----------|----------|----------|----------|
-| 优秀 | ≥95% | 100%达标 | 无高危风险 | ≥90分 |
-| 合格 | ≥90% | ≥90%达标 | 无高危风险 | ≥80分 |
-| 需改进 | <90% | <90%达标 | 存在高危风险 | <80分 |
-
-#### 8.9.3 验收交付物
-
-| 交付物 | 说明 |
+| 约束项 | 说明 |
 |--------|------|
-| 验收报告 | 包含验收结果、问题清单、改进建议 |
-| 测试报告 | 包含测试用例、测试结果、缺陷统计 |
-| 性能报告 | 包含性能测试结果、瓶颈分析 |
-| 安全报告 | 包含安全测试结果、风险清单 |
-| 用户手册 | 系统使用说明文档 |
+| 包管理器 | **强制使用pnpm**，禁止npm/yarn |
+| 端口 | Web服务**必须**运行在5000端口 |
+| 数据库 | **必须**使用Supabase，禁止本地数据库 |
+| Mock | **禁止**API层Mock fallback，真实数据源 |
+| 流式输出 | LLM集成**必须**使用SSE流式输出 |
+
+### 8.2 安全约束
+
+| 约束项 | 说明 |
+|--------|------|
+| 密码存储 | 使用bcrypt加密，禁止明文存储 |
+| Token存储 | HttpOnly Cookie + localStorage双保险 |
+| XSS防护 | 禁止dangerouslySetInnerHTML |
+| SQL注入 | 使用参数化查询，禁止字符串拼接 |
+| 敏感数据 | 前端禁止存储，API按权限返回 |
+
+### 8.3 性能约束
+
+| 约束项 | 说明 |
+|--------|------|
+| API超时 | 默认60秒，LLM调用可延长 |
+| 分页大小 | 默认20条，最大100条 |
+| 图片大小 | 单文件最大10MB |
+| 日志文件 | 单次读取最大20行 |
 
 ---
 
-## 9. 附录
+## 9. 验收准则
 
-### 9.1 缩略语表
+### 9.1 功能验收
 
-| 缩略语 | 全称 | 中文含义 |
-|--------|------|----------|
-| SDD | Software Design Document | 软件设计文档 |
-| RBAC | Role-Based Access Control | 基于角色的访问控制 |
-| JWT | JSON Web Token | JSON网络令牌 |
-| API | Application Programming Interface | 应用程序接口 |
-| CRUD | Create, Read, Update, Delete | 增删改查 |
-| BFF | Backend For Frontend | 前端后端 |
-| SSE | Server-Sent Events | 服务器推送事件 |
-| HMR | Hot Module Replacement | 热模块替换 |
-| CDN | Content Delivery Network | 内容分发网络 |
-| SQL | Structured Query Language | 结构化查询语言 |
+#### 9.1.1 认证模块
 
-### 9.2 快速登录账号（测试环境）
+- [ ] 手机号+密码登录成功
+- [ ] 登录失败提示正确
+- [ ] Token过期自动刷新
+- [ ] 登出清除所有认证信息
+- [ ] 密码修改功能正常
 
-| 角色 | 账号 | 密码 | 用途 |
-|------|------|------|------|
-| 校长 | principal | test123 | 管理功能测试 |
-| 教务主任 | academic_director | test123 | 教务管理测试 |
-| 德育主任 | moral_director | test123 | 德育管理测试 |
-| 总务主任 | general_director | test123 | 总务管理测试 |
-| 年段长 | grade_leader | test123 | 年段长功能测试 |
-| 班主任 | head_teacher | test123 | 班级管理测试 |
-| 普通教师 | teacher | test123 | 教师空间测试 |
-| 家长 | parent | test123 | 家长端测试 |
+#### 9.1.2 教务模块
 
-### 9.3 技术债务清单
+- [ ] 手动排课功能正常
+- [ ] 教师选择规则生效
+- [ ] 学生信息CRUD正常
+- [ ] 教室预约流程完整
+- [ ] 预约审批功能正常
+- [ ] 教室编辑功能正常
 
-| ID | 描述 | 优先级 | 计划解决时间 | 状态 |
-|----|------|--------|--------------|------|
-| TD-001 | 部分API缺少单元测试 | 中 | v1.1 | 待处理 |
-| TD-002 | Mock数据孤岛问题：各Mock文件独立定义数据，导致班级-年级-班主任映射不一致 | **高** | v1.9 | **已解决** |
-| TD-003 | 错误处理需要更细化 | 中 | v1.1 | 待处理 |
-| TD-004 | 性能优化（数据库索引） | 中 | v1.2 | 待处理 |
-| TD-005 | 缓存策略优化 | 低 | v1.2 | 待处理 |
-| TD-006 | 课表Mock数据ID格式不一致（c6-1 vs c013） | **高** | v1.9 | **已解决** |
-| TD-007 | API Mock fallback问题：22个API存在Mock回退机制 | **高** | v3.0 | **已解决** |
-| TD-008 | 数据库数据缺失：grades/after_school_services等表无数据 | **高** | v3.0 | **已解决** |
+#### 9.1.3 德育模块
 
-### 9.4 变更记录
+- [ ] 习惯打卡记录正常
+- [ ] 班主任审核流程正常
+- [ ] 习惯之星评选功能
+- [ ] 月度目标设置功能
 
-| 版本 | 日期 | 修改人 | 修改内容 |
-|------|------|--------|----------|
-| v1.0 | 2024-01-15 | 项目组 | 初始版本 |
-| v1.1 | 2024-01-15 | 项目组 | 补充门禁、习惯养成、新生注册、教研活动、安全管理等模块 |
-| v1.2 | 2024-01-16 | 项目组 | 【高并发保护】新增2.4节：限流策略（Redis分布式限流）、熔断机制、队列削峰、多级缓存；【数据安全】新增4.2节：敏感数据识别、字段级加密（AES-256-GCM）、数据脱敏规则、密钥管理、访问审计 |
-| v1.2.1 | 2024-01-17 | 项目组 | 【代码实现】<br/>1. **Redis限流中间件** (`src/lib/rate-limit/index.ts`): 实现滑动窗口算法，支持IP/用户/接口/租户四级限流，配置新生注册(100/min)、成绩查询(60/min)、登录(5/15min)等接口限流策略<br/>2. **熔断器实现** (`src/lib/circuit-breaker/index.ts`): CLOSED/OPEN/HALF_OPEN状态机，支持数据库/存储/缓存服务的熔断配置和降级方案<br/>3. **字段加密服务** (`src/lib/encryption/index.ts`): AES-256-GCM算法，密钥版本管理，批量加密解密<br/>4. **数据脱敏工具** (`src/lib/masking/index.ts`): 手机号/身份证/银行账号/姓名/地址脱敏规则，角色差异化展示<br/>5. **API路由保护**: 登录接口应用防暴力破解限流，新生注册接口应用高并发限流+敏感数据加密+脱敏展示 |
-| v1.3 | 2024-01-18 | 项目组 | 【模块设计重构】<br/>1. **模块结构对齐**: 移除M01-M62编号系统，改为与实际项目目录结构一致的模块命名<br/>2. **新增模块**: 补充首页管理(homepage)、仪表盘(dashboard)模块文档<br/>3. **页面统计**: 明确项目共91个页面、78个API接口<br/>4. **模块详情**: 为每个模块补充路由路径、功能说明表格<br/>5. **年段长功能**: 补充年段长专属功能文档 |
-| v1.4 | 2024-01-19 | 项目组 | 【科任权限方案】<br/>1. **数据模型**: 新增班级教师关系表(class_teachers)设计，支持班主任和科任教师与班级的关系管理<br/>2. **敏感数据权限架构**: 采用"角色+关系"双重判断机制，领导层/部门负责人/年段长/班主任/科任均可查看敏感数据，权限差异体现在可见范围<br/>3. **类型定义** (`src/types/index.ts`): 新增ClassTeacher、ClassTeacherPosition、ClassTeacherStatus等类型<br/>4. **Mock数据** (`src/lib/mock/class-teachers.mock.ts`): 班级教师关系模拟数据<br/>5. **权限检查模块** (`src/lib/auth/sensitive-data.ts`): canViewStudentSensitiveData等权限判断函数<br/>6. **API接口** (`src/app/api/class-teachers/`): 班级教师关系CRUD接口<br/>7. **业务规则**: 每班每学科1个科任、学期结束自动失效、教务主任每学年设置 |
-| v1.5 | 2024-01-20 | 项目组 | 【德育数据同步】<br/>1. **类型扩展** (`src/types/index.ts`): 扩展StudentFullProfile类型，新增habitProfile详细字段（categoryScores、recentAssessments、monthlyGoals、habitStarRecords）和moralPerformance字段（behaviorStats、activities、volunteerRecords、warnings、comprehensiveEvaluation）<br/>2. **API扩展** (`src/app/api/students/[id]/full-profile/route.ts`): 扩展学生完整档案接口，返回完整的德育数据（习惯养成+德育表现）<br/>3. **习惯养成Tab组件** (`src/components/student/habit-tab-content.tsx`): 展示综合评价、各类别得分、月度小目标、习惯之星记录、习惯评价记录（全过程）<br/>4. **德育表现Tab组件** (`src/components/student/moral-tab-content.tsx`): 展示行为评价统计、德育活动参与、志愿服务记录、德育预警（权限控制）、综合素质评价<br/>5. **页面集成** (`src/app/academic/students/[id]/page.tsx`): 新增德育表现Tab，习惯养成Tab使用新组件<br/>6. **权限控制**: 德育预警仅限德育主任、班主任、家长可见，通过canViewWarnings参数控制<br/>7. **数据刷新**: 允许一定延迟刷新，实时查询德育系统数据 |
-| v1.6 | 2024-04-01 | 项目组 | 【Hooks架构文档】<br/>1. **新增5.16章节**: 数据Hooks说明，完整记录项目所有数据Hooks的使用规范<br/>2. **Hooks架构图**: 新增Hooks与API客户端的层级关系图<br/>3. **核心Hooks说明**: 详细说明useApi、useAuth、useStudentData、useHabitData、useMoralData等核心Hooks<br/>4. **使用规范**: 提供统一的Hooks使用规范和最佳实践<br/>5. **对照表**: 提供Hooks与API路径的完整对照表 |
-| v1.7 | 2024-04-02 | 项目组 | 【Hooks升级总体方案】<br/>1. **方案文档**: 新增 `docs/HOOKS_UPGRADE_MASTER_PLAN.md` 总体整改方案<br/>2. **五阶段规划**: 类型定义统一 → Hooks重构 → API客户端完善 → 页面组件更新 → 文档核对<br/>3. **可合并Hooks**: 删除useDataFetch.ts、useData.ts、useCrudOperations.ts<br/>4. **需扩展Hooks**: useHabitData.ts重点重构、useStudentData.ts优化<br/>5. **目标架构**: 基础层(useApi.ts) → 领域层(useXxxData.ts) → 应用层 |
-| v1.8 | 2024-04-03 | 项目组 | 【验收准则全面更新】<br/>1. **功能验收**: 按认证授权、总务后勤、教务教研、德育管理、教师空间、家长端、工作流、首页管理、仪表盘9大模块分类细化验收清单，共100+验收项<br/>2. **性能验收**: 新增静态资源加载、列表分页加载指标<br/>3. **安全验收**: 细分为认证安全、权限安全、数据安全、审计安全4个子类<br/>4. **高并发验收**: 新增限流保护、熔断保护验收项<br/>5. **API接口验收**: 新增接口规范、接口测试验收项<br/>6. **数据完整性验收**: 新增数据完整性检查项<br/>7. **验收流程**: 新增验收步骤、验收标准、验收交付物说明 |
-| v1.9 | 2024-04-04 | 项目组 | 【数据孤岛整改】<br/>1. **问题诊断**: 发现Mock数据覆盖不足(13.75%)、班级-年级-班主任映射不一致、课表ID格式冲突(c6-1 vs c013)等问题<br/>2. **架构设计**: 新增4.2.6节Mock数据架构说明，建立统一数据源层(master-data.ts)<br/>3. **数据源统一**: 创建MASTER_SCHOOL、MASTER_CLASSES、MASTER_TEACHERS、MASTER_STUDENTS统一主数据<br/>4. **ID规范**: 统一班级ID(c001-c014)、教师ID(t001-t020)、学生ID(s001-s100)格式<br/>5. **影响分析**: 确认API路由、Hooks、页面组件无需修改，仅Mock数据层受影响<br/>6. **技术债务**: TD-002(Mock数据孤岛)、TD-006(课表ID格式)已解决<br/>7. **相关文档**: 新增 `docs/DATA_ISOLATION_FIX_PLAN.md` 详细整改方案 |
-| v3.0 | 2024-04-05 | 项目组 | **【数据孤岛彻底整改】**<br/>1. **核心变更**: Supabase成为唯一数据源，移除所有API层Mock fallback<br/>2. **数据设计更新**: 4.1.1节明确Supabase为唯一数据源，新增4.2.7节数据孤岛全面整改方案<br/>3. **API规范更新**: 5.1.1节新增API实现规范，禁止Mock fallback，定义错误码规范<br/>4. **设计约束更新**: 7.1.1节新增数据源约束和Mock数据约束<br/>5. **验收标准更新**: 新增8.8节数据库唯一数据源验收，包含数据源验收、Mock fallback验收、数据一致性验收<br/>6. **技术债务**: TD-007(API Mock fallback)、TD-008(数据库数据缺失)已解决<br/>7. **整改清单**: 22个API需要移除Mock fallback，6张表需要补充数据迁移<br/>8. **架构目标**: 建立Supabase唯一数据源架构，消除API层Mock回退机制 |
-| v3.0.1 | 2024-03-01 | 项目组 | **【v3.0整改进度同步】**<br/>1. **数据迁移修复**: grades/teacher_honors/teacher_records/student_attendance字段映射修复完成<br/>2. **API整改完成**: 教务(exams/homeworks/grades/schedules/courses)、总务(assets/rooms/expenses)、德育(attendance/moral)模块API Mock fallback移除<br/>3. **表映射修正**: schedules→schedule_slots, attendance→student_attendance<br/>4. **验收通过**: 构建检查、服务存活、API数据源、日志健康全部通过<br/>5. **后续建议**: 补充schedule_slots/courses测试数据 |
+#### 9.1.4 教师空间
+
+- [ ] 个人信息展示正确
+- [ ] 请假申请流程正常
+- [ ] 调课处理流程正常
+- [ ] 习惯审核功能正常
+
+#### 9.1.5 家长端
+
+- [ ] 孩子信息展示正确
+- [ ] 习惯打卡提交正常
+- [ ] 公告通知查看正常
+
+### 9.2 非功能验收
+
+#### 9.2.1 性能要求
+
+- [ ] 首页加载时间 < 3秒
+- [ ] API响应时间 < 1秒
+- [ ] 支持并发用户数 >= 100
+
+#### 9.2.2 安全要求
+
+- [ ] 无XSS漏洞
+- [ ] 无SQL注入漏洞
+- [ ] 敏感数据加密存储
+- [ ] 权限控制正确
+
+#### 9.2.3 兼容性要求
+
+- [ ] Chrome浏览器兼容
+- [ ] Safari浏览器兼容
+- [ ] 移动端浏览器兼容
+
+---
+
+## 10. 附录
+
+### 10.1 技术术语表
+
+| 术语 | 解释 |
+|------|------|
+| Next.js | React全栈框架，支持SSR/SSG |
+| App Router | Next.js 13+的路由系统 |
+| Supabase | 开源Firebase替代品，基于PostgreSQL |
+| shadcn/ui | 基于Radix UI的React组件库 |
+| JWT | JSON Web Token，无状态认证方案 |
+| SSE | Server-Sent Events，服务器推送事件 |
+| BFF | Backend For Frontend，服务于前端的后端 |
+
+### 10.2 代码统计
+
+| 类型 | 数量 |
+|------|------|
+| 总代码行数 | 124,902行 |
+| 页面文件 | 84个 |
+| API路由 | 156个 |
+| 组件文件 | 79个 |
+| Hooks文件 | 19个 |
+| 类型定义文件 | 4个 |
+
+### 10.3 参考资料
+
+- [Next.js 官方文档](https://nextjs.org/docs)
+- [Supabase 官方文档](https://supabase.com/docs)
+- [shadcn/ui 组件库](https://ui.shadcn.com)
+- [Tailwind CSS 文档](https://tailwindcss.com/docs)
 
 ---
 
 **文档结束**
+
