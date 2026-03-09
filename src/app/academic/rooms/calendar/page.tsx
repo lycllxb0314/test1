@@ -1,7 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+/**
+ * 教室使用日程视图 - 教务端
+ * 
+ * 课表矩阵模式，显示使用人信息
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -14,7 +20,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -22,250 +27,172 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  MapPin,
-  Users,
   User,
-  CheckCircle,
-  AlertTriangle,
   DoorOpen,
-  LayoutGrid,
-  List,
+  Users,
+  Loader2,
 } from 'lucide-react';
-import { RoomBooking, BookingPurpose } from '@/types';
+import { cn } from '@/lib/utils';
 
-// 时间段
-const timeSlots = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-  '16:00', '16:30', '17:00', '17:30', '18:00',
+// ==================== 课表时段定义 ====================
+const TIME_SLOTS = [
+  { id: 'morning_1', label: '第1节', period: '上午' },
+  { id: 'morning_2', label: '第2节', period: '上午' },
+  { id: 'morning_3', label: '第3节', period: '上午' },
+  { id: 'noon', label: '午休', period: '午间' },
+  { id: 'afternoon_1', label: '第4节', period: '下午' },
+  { id: 'afternoon_2', label: '第5节', period: '下午' },
+  { id: 'afternoon_3', label: '第6节', period: '下午' },
+  { id: 'evening', label: '晚上', period: '晚上' },
 ];
 
-// 模拟教室列表
-const mockRooms = [
-  { id: 'room-001', name: '2号楼教研室', type: 'seminar_room' },
-  { id: 'room-002', name: '4号楼教研室', type: 'seminar_room' },
-  { id: 'room-003', name: '1号楼阶梯教室', type: 'lecture_hall' },
-  { id: 'room-005', name: '综合楼会议室', type: 'meeting_room' },
-];
-
-// 模拟预约数据（2024-03-18 这周）
-const mockScheduleData: Record<string, RoomBooking[]> = {
-  '2024-03-18': [
-    {
-      id: 'b001', roomId: 'room-001', roomName: '2号楼教研室', roomType: 'seminar_room',
-      building: '2号楼', location: '2号楼3层东侧',
-      applicantId: 't001', applicantName: '张明华', applicantRole: 'subject_teacher', department: '语文组',
-      purpose: 'meeting', title: '语文教研组备课',
-      bookingDate: '2024-03-18', startTime: '14:00', endTime: '16:00', duration: 120,
-      expectedAttendees: 15, attendeeType: 'teacher',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-15 10:00', updatedAt: '2024-03-15 11:00',
-    },
-    {
-      id: 'b009', roomId: 'room-003', roomName: '1号楼阶梯教室', roomType: 'lecture_hall',
-      building: '1号楼', location: '1号楼1层大厅',
-      applicantId: 't002', applicantName: '李晓红', applicantRole: 'subject_teacher', department: '数学组',
-      purpose: 'training', title: '数学思维训练讲座',
-      bookingDate: '2024-03-18', startTime: '09:00', endTime: '11:00', duration: 120,
-      expectedAttendees: 150, attendeeType: 'student',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-14 09:00', updatedAt: '2024-03-14 10:00',
-    },
-    {
-      id: 'b010', roomId: 'room-005', roomName: '综合楼会议室', roomType: 'meeting_room',
-      building: '综合楼', location: '综合楼5层',
-      applicantId: 't003', applicantName: '王建国', applicantRole: 'subject_teacher', department: '科学组',
-      purpose: 'meeting', title: '科学组教研活动',
-      bookingDate: '2024-03-18', startTime: '15:00', endTime: '17:00', duration: 120,
-      expectedAttendees: 10, attendeeType: 'teacher',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-15 14:00', updatedAt: '2024-03-15 15:00',
-    },
-  ],
-  '2024-03-19': [
-    {
-      id: 'b005', roomId: 'room-005', roomName: '综合楼会议室', roomType: 'meeting_room',
-      building: '综合楼', location: '综合楼5层',
-      applicantId: 't003', applicantName: '王建国', applicantRole: 'subject_teacher', department: '科学组',
-      purpose: 'meeting', title: '科学教研组期中研讨会',
-      bookingDate: '2024-03-19', startTime: '14:00', endTime: '16:30', duration: 150,
-      expectedAttendees: 12, attendeeType: 'teacher',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-15 17:30', updatedAt: '2024-03-15 18:00',
-    },
-    {
-      id: 'b011', roomId: 'room-001', roomName: '2号楼教研室', roomType: 'seminar_room',
-      building: '2号楼', location: '2号楼3层东侧',
-      applicantId: 't004', applicantName: '赵明华', applicantRole: 'subject_teacher', department: '语文组',
-      purpose: 'meeting', title: '语文组青年教师磨课',
-      bookingDate: '2024-03-19', startTime: '09:00', endTime: '11:30', duration: 150,
-      expectedAttendees: 8, attendeeType: 'teacher',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-16 09:00', updatedAt: '2024-03-16 10:00',
-    },
-  ],
-  '2024-03-20': [
-    {
-      id: 'b006', roomId: 'room-001', roomName: '2号楼教研室', roomType: 'seminar_room',
-      building: '2号楼', location: '2号楼3层东侧',
-      applicantId: 't004', applicantName: '赵明华', applicantRole: 'subject_teacher', department: '语文组',
-      purpose: 'activity', title: '学生经典诵读比赛彩排',
-      bookingDate: '2024-03-20', startTime: '15:30', endTime: '17:30', duration: 120,
-      expectedAttendees: 28, attendeeType: 'student',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-15 18:00', updatedAt: '2024-03-15 19:00',
-    },
-    {
-      id: 'b012', roomId: 'room-002', roomName: '4号楼教研室', roomType: 'seminar_room',
-      building: '4号楼', location: '4号楼2层西侧',
-      applicantId: 't005', applicantName: '陈雨婷', applicantRole: 'subject_teacher', department: '英语组',
-      purpose: 'meeting', title: '英语组教材研讨',
-      bookingDate: '2024-03-20', startTime: '14:00', endTime: '16:00', duration: 120,
-      expectedAttendees: 12, attendeeType: 'teacher',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-16 10:00', updatedAt: '2024-03-16 11:00',
-    },
-  ],
-  '2024-03-21': [
-    {
-      id: 'b013', roomId: 'room-003', roomName: '1号楼阶梯教室', roomType: 'lecture_hall',
-      building: '1号楼', location: '1号楼1层大厅',
-      applicantId: 't006', applicantName: '刘志强', applicantRole: 'subject_teacher', department: '体育组',
-      purpose: 'training', title: '学生安全教育讲座',
-      bookingDate: '2024-03-21', startTime: '10:00', endTime: '11:30', duration: 90,
-      expectedAttendees: 200, attendeeType: 'student',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-17 09:00', updatedAt: '2024-03-17 10:00',
-    },
-  ],
-  '2024-03-22': [
-    {
-      id: 'b004', roomId: 'room-003', roomName: '1号楼阶梯教室', roomType: 'lecture_hall',
-      building: '1号楼', location: '1号楼1层大厅',
-      applicantId: 't002', applicantName: '李晓红', applicantRole: 'subject_teacher', department: '数学组',
-      purpose: 'training', title: '数学思维训练公开课',
-      bookingDate: '2024-03-22', startTime: '09:00', endTime: '11:00', duration: 120,
-      expectedAttendees: 120, attendeeType: 'student',
-      status: 'pending', approvalFlow: [], currentStep: 0,
-      createdAt: '2024-03-15 16:00', updatedAt: '2024-03-15 16:00',
-    },
-    {
-      id: 'b014', roomId: 'room-001', roomName: '2号楼教研室', roomType: 'seminar_room',
-      building: '2号楼', location: '2号楼3层东侧',
-      applicantId: 't001', applicantName: '张明华', applicantRole: 'subject_teacher', department: '语文组',
-      purpose: 'meeting', title: '语文组教学研讨',
-      bookingDate: '2024-03-22', startTime: '14:00', endTime: '16:00', duration: 120,
-      expectedAttendees: 15, attendeeType: 'teacher',
-      status: 'approved', approvalFlow: [], currentStep: 1,
-      createdAt: '2024-03-17 10:00', updatedAt: '2024-03-17 11:00',
-    },
-  ],
-};
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 // 用途颜色映射
-const purposeColors: Record<BookingPurpose, string> = {
+const PURPOSE_COLORS: Record<string, string> = {
   teaching: 'bg-blue-100 text-blue-800 border-blue-200',
   meeting: 'bg-green-100 text-green-800 border-green-200',
   training: 'bg-purple-100 text-purple-800 border-purple-200',
   activity: 'bg-pink-100 text-pink-800 border-pink-200',
   exam: 'bg-orange-100 text-orange-800 border-orange-200',
-  defense: 'bg-teal-100 text-teal-800 border-teal-200',
   competition: 'bg-indigo-100 text-indigo-800 border-indigo-200',
   other: 'bg-gray-100 text-gray-800 border-gray-200',
 };
 
-// 用途标签映射
-const purposeLabels: Record<BookingPurpose, string> = {
-  teaching: '教学', meeting: '会议', training: '培训',
-  activity: '活动', exam: '考试', defense: '答辩',
-  competition: '比赛', other: '其他',
-};
+// 类型定义
+interface Room {
+  id: string;
+  name: string;
+  type: string;
+  building: string;
+  capacity: number | null;
+  status: string;
+}
 
-// 星期映射
-const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+interface Booking {
+  id: string;
+  room_id: string;
+  room_name: string;
+  applicant_id: string;
+  applicant_name: string;
+  title: string;
+  purpose: string;
+  booking_date: string;
+  time_slot: string;
+  status: string;
+  expected_attendees: number;
+  description?: string;
+}
 
 export default function RoomCalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2024, 2, 18)); // 2024-03-18
-  const [selectedRoom, setSelectedRoom] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
-  const [selectedBooking, setSelectedBooking] = useState<RoomBooking | null>(null);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [selectedRoom, setSelectedRoom] = useState<string>('');
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(now.setDate(diff));
+  });
+  
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
 
-  // 获取当前周的日期
+  // 获取教室列表
+  const fetchRooms = useCallback(async () => {
+    try {
+      const res = await fetch('/api/academic/rooms');
+      const data = await res.json();
+      
+      if (data.success && data.data) {
+        setRooms(data.data);
+        if (!selectedRoom && data.data.length > 0) {
+          setSelectedRoom(data.data[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('获取教室列表失败:', err);
+    }
+  }, [selectedRoom]);
+
+  // 获取预约数据
+  const fetchBookings = useCallback(async () => {
+    if (!selectedRoom) return;
+    
+    setLoading(true);
+    try {
+      const startDate = formatDate(currentWeekStart);
+      const endDate = formatDate(addDays(currentWeekStart, 6));
+      
+      const res = await fetch(
+        `/api/academic/rooms/bookings?roomId=${selectedRoom}&startDate=${startDate}&endDate=${endDate}`
+      );
+      const data = await res.json();
+      
+      if (data.success && data.data) {
+        setBookings(data.data);
+      }
+    } catch (err) {
+      console.error('获取预约数据失败:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedRoom, currentWeekStart]);
+
+  useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  // 获取某天的预约映射
+  const getBookingMap = (date: string) => {
+    const map: Record<string, Booking> = {};
+    bookings
+      .filter(b => b.booking_date === date && b.status !== 'rejected' && b.status !== 'cancelled')
+      .forEach(b => {
+        map[b.time_slot] = b;
+      });
+    return map;
+  };
+
+  // 周导航
+  const goToPrevWeek = () => setCurrentWeekStart(addDays(currentWeekStart, -7));
+  const goToNextWeek = () => setCurrentWeekStart(addDays(currentWeekStart, 7));
+  const goToCurrentWeek = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    setCurrentWeekStart(new Date(now.setDate(diff)));
+  };
+
   const getWeekDates = () => {
     const dates = [];
-    const startOfWeek = new Date(currentDate);
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-
     for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
-      dates.push(date);
+      dates.push(addDays(currentWeekStart, i));
     }
     return dates;
   };
 
-  // 格式化日期
-  const formatDate = (date: Date) => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const handleSlotClick = (booking: Booking) => {
+    if (booking) {
+      setSelectedBooking(booking);
+      setShowDetailDialog(true);
+    }
   };
 
-  // 获取某天的预约
-  const getBookingsForDate = (dateStr: string) => {
-    const bookings = mockScheduleData[dateStr] || [];
-    if (selectedRoom === 'all') return bookings;
-    return bookings.filter(b => b.roomId === selectedRoom);
-  };
+  const selectedRoomData = rooms.find(r => r.id === selectedRoom);
 
-  // 获取时间槽内的预约
-  const getBookingForTimeSlot = (dateStr: string, timeSlot: string, roomId: string) => {
-    const bookings = mockScheduleData[dateStr] || [];
-    return bookings.find(b => {
-      if (b.roomId !== roomId) return false;
-      const [sh, sm] = b.startTime.split(':').map(Number);
-      const [th, tm] = timeSlot.split(':').map(Number);
-      const [eh, em] = b.endTime.split(':').map(Number);
-      const startMinutes = sh * 60 + sm;
-      const timeMinutes = th * 60 + tm;
-      const endMinutes = eh * 60 + em;
-      return timeMinutes >= startMinutes && timeMinutes < endMinutes;
-    });
+  // 统计
+  const stats = {
+    total: bookings.length,
+    approved: bookings.filter(b => b.status === 'approved').length,
+    pending: bookings.filter(b => b.status === 'pending').length,
   };
-
-  // 计算预约的跨度（半小时为单位）
-  const getBookingSpan = (booking: RoomBooking) => {
-    const [sh, sm] = booking.startTime.split(':').map(Number);
-    const [eh, em] = booking.endTime.split(':').map(Number);
-    const duration = (eh * 60 + em) - (sh * 60 + sm);
-    return Math.ceil(duration / 30);
-  };
-
-  // 判断是否是预约的开始时间
-  const isBookingStart = (booking: RoomBooking, timeSlot: string) => {
-    return booking.startTime === timeSlot;
-  };
-
-  // 上一周/天
-  const goPrevious = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() - (viewMode === 'week' ? 7 : 1));
-    setCurrentDate(newDate);
-  };
-
-  // 下一周/天
-  const goNext = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + (viewMode === 'week' ? 7 : 1));
-    setCurrentDate(newDate);
-  };
-
-  // 今天
-  const goToday = () => {
-    setCurrentDate(new Date(2024, 2, 18));
-  };
-
-  const weekDates = getWeekDates();
-  const currentRoom = selectedRoom === 'all' ? null : mockRooms.find(r => r.id === selectedRoom);
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-indigo-50/30 via-white to-purple-50/30 min-h-screen">
@@ -273,345 +200,322 @@ export default function RoomCalendarPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <LayoutGrid className="h-7 w-7 text-indigo-600" />
+            <Calendar className="h-7 w-7 text-indigo-600" />
             <h1 className="text-2xl font-bold text-gray-900">使用日程</h1>
           </div>
-          <p className="text-gray-500 mt-1">查看教室预约安排和使用情况</p>
+          <p className="text-gray-500 mt-1">查看教室使用情况和使用人</p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" asChild>
-          <a href="/academic/rooms/booking">
-            <Calendar className="h-4 w-4 mr-2" />
-            预约教室
-          </a>
-        </Button>
       </div>
 
-      {/* 控制栏 */}
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1">
-                <Button variant="outline" size="icon" onClick={goPrevious}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" onClick={goToday}>今天</Button>
-                <Button variant="outline" size="icon" onClick={goNext}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+      {/* 统计卡片 */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">本周预约</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
               </div>
-              <div className="text-lg font-medium">
-                {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月
-                {viewMode === 'week' && (
-                  <span className="text-gray-500 ml-2">
-                    第{Math.ceil((currentDate.getDate() + new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay()) / 7)}周
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex gap-1 p-1 bg-gray-100 rounded">
-                <Button
-                  variant={viewMode === 'week' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('week')}
-                  className={viewMode === 'week' ? 'bg-white shadow' : ''}
-                >
-                  周视图
-                </Button>
-                <Button
-                  variant={viewMode === 'day' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('day')}
-                  className={viewMode === 'day' ? 'bg-white shadow' : ''}
-                >
-                  日视图
-                </Button>
-              </div>
-
-              <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="选择教室" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部教室</SelectItem>
-                  {mockRooms.map(room => (
-                    <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 周视图 */}
-      {viewMode === 'week' && (
-        <Card className="border-0 shadow-md overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="sticky left-0 z-10 bg-gray-50 w-16 border-b border-r text-sm font-medium text-gray-500 p-2">
-                      时间
-                    </th>
-                    {weekDates.map((date, idx) => {
-                      const isToday = formatDate(date) === formatDate(new Date());
-                      return (
-                        <th
-                          key={idx}
-                          className={`border-b text-sm font-medium p-2 min-w-[120px] ${
-                            isToday ? 'bg-indigo-50' : ''
-                          }`}
-                        >
-                          <div className={`text-center ${isToday ? 'text-indigo-700' : 'text-gray-600'}`}>
-                            <div className="text-xs">周{weekDays[date.getDay()]}</div>
-                            <div className={`text-lg font-bold ${isToday ? 'text-indigo-600' : ''}`}>
-                              {date.getDate()}
-                            </div>
-                          </div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {timeSlots.filter((_, i) => i % 2 === 0).map((timeSlot, rowIdx) => (
-                    <tr key={timeSlot} className="h-12">
-                      <td className="sticky left-0 z-10 bg-white border-r border-b text-xs text-gray-500 p-2 text-center">
-                        {timeSlot}
-                      </td>
-                      {weekDates.map((date, colIdx) => {
-                        const dateStr = formatDate(date);
-                        const bookings = getBookingsForDate(dateStr);
-                        const bookingsInSlot = bookings.filter(b => isBookingStart(b, timeSlot));
-
-                        return (
-                          <td
-                            key={colIdx}
-                            className="border-b border-l relative p-0.5"
-                            rowSpan={1}
-                          >
-                            {bookingsInSlot.map(booking => (
-                              <div
-                                key={booking.id}
-                                className={`absolute inset-x-1 rounded-md p-1 cursor-pointer hover:opacity-80 transition-opacity ${purposeColors[booking.purpose]}`}
-                                style={{
-                                  top: '2px',
-                                  height: `${Math.min(getBookingSpan(booking), 4) * 44 - 4}px`,
-                                  zIndex: 5,
-                                }}
-                                onClick={() => setSelectedBooking(booking)}
-                              >
-                                <div className="text-xs font-medium truncate">{booking.title}</div>
-                                <div className="text-xs opacity-70">{booking.startTime}-{booking.endTime}</div>
-                              </div>
-                            ))}
-                            {bookings.filter(b => {
-                              const [sh, sm] = b.startTime.split(':').map(Number);
-                              const [th, tm] = timeSlot.split(':').map(Number);
-                              const [eh, em] = b.endTime.split(':').map(Number);
-                              const startMinutes = sh * 60 + sm;
-                              const timeMinutes = th * 60 + tm;
-                              const endMinutes = eh * 60 + em;
-                              return timeMinutes > startMinutes && timeMinutes < endMinutes;
-                            }).length > 0 && (
-                              <div className="absolute inset-x-1 bg-gray-100 rounded" style={{ height: '44px' }} />
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <Calendar className="h-8 w-8 text-gray-300" />
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* 日视图 */}
-      {viewMode === 'day' && (
         <Card className="border-0 shadow-md">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
               <div>
-                <div className="text-lg font-medium">
-                  {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月{currentDate.getDate()}日
-                  周{weekDays[currentDate.getDay()]}
+                <p className="text-sm text-gray-500">已批准</p>
+                <p className="text-2xl font-bold text-green-600 mt-1">{stats.approved}</p>
+              </div>
+              <Users className="h-8 w-8 text-green-300" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">待审批</p>
+                <p className="text-2xl font-bold text-orange-600 mt-1">{stats.pending}</p>
+              </div>
+              <User className="h-8 w-8 text-orange-300" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-4">
+        {/* 左侧：教室列表 */}
+        <Card className="lg:col-span-1 border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">选择教室</CardTitle>
+          </CardHeader>
+          <CardContent className="max-h-[500px] overflow-y-auto">
+            {rooms.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">暂无教室</p>
+            ) : (
+              <div className="space-y-2">
+                {rooms.map((room) => (
+                  <div
+                    key={room.id}
+                    onClick={() => setSelectedRoom(room.id)}
+                    className={cn(
+                      'p-3 rounded-lg border cursor-pointer transition-all',
+                      selectedRoom === room.id
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{room.name}</span>
+                      {room.capacity && (
+                        <span className="text-xs text-gray-500">{room.capacity}人</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-500">{room.building}</span>
+                      {room.status === 'maintenance' && (
+                        <Badge variant="outline" className="text-xs h-5">维护中</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 右侧：课表矩阵 */}
+        <Card className="lg:col-span-3 border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">
+                  {selectedRoomData?.name || '请选择教室'}
+                </CardTitle>
+                <CardDescription>
+                  点击已预约的格子查看详情和使用人
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={goToPrevWeek}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                  本周
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToNextWeek}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="text-sm text-gray-500 mt-1">
+              {formatDate(currentWeekStart, 'long')} - {formatDate(addDays(currentWeekStart, 6), 'long')}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+              </div>
+            ) : !selectedRoom ? (
+              <div className="text-center py-20 text-gray-500">
+                <DoorOpen className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                <p>请从左侧选择教室</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="w-16 p-2 border bg-gray-50 text-sm font-medium">时段</th>
+                      {getWeekDates().map((date, idx) => {
+                        const isToday = formatDate(date) === formatDate(new Date());
+                        return (
+                          <th 
+                            key={idx} 
+                            className={cn(
+                              'p-2 border text-center text-sm font-medium',
+                              isToday ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-50'
+                            )}
+                          >
+                            <div>周{WEEKDAYS[date.getDay()]}</div>
+                            <div className="text-xs text-gray-500">{formatDate(date, 'short')}</div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TIME_SLOTS.map((slot) => (
+                      <tr key={slot.id}>
+                        <td className="p-2 border bg-gray-50 text-xs font-medium text-center">
+                          <div>{slot.label}</div>
+                          <div className="text-gray-400">{slot.period}</div>
+                        </td>
+                        {getWeekDates().map((date, idx) => {
+                          const bookingMap = getBookingMap(formatDate(date));
+                          const booking = bookingMap[slot.id];
+                          
+                          return (
+                            <td 
+                              key={idx} 
+                              className={cn(
+                                'p-1 border text-center min-w-[100px] h-12',
+                                booking && 'cursor-pointer hover:opacity-80',
+                              )}
+                              onClick={() => booking && handleSlotClick(booking)}
+                            >
+                              {booking ? (
+                                <div className={cn(
+                                  'rounded h-full flex flex-col items-center justify-center p-1',
+                                  booking.status === 'pending' 
+                                    ? 'bg-orange-100 text-orange-700' 
+                                    : PURPOSE_COLORS[booking.purpose] || 'bg-green-100 text-green-700'
+                                )}>
+                                  <span className="text-xs font-medium truncate w-full text-center">
+                                    {booking.title}
+                                  </span>
+                                  <div className="flex items-center gap-1 text-xs opacity-70">
+                                    <User className="h-3 w-3" />
+                                    <span>{booking.applicant_name}</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="bg-gray-50 text-gray-400 rounded h-full flex items-center justify-center">
+                                  <span className="text-xs">空闲</span>
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 图例 */}
+            <div className="flex items-center gap-4 mt-4 text-xs flex-wrap">
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-gray-100"></div>
+                <span>空闲</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-green-100"></div>
+                <span>会议</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-blue-100"></div>
+                <span>教学</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-purple-100"></div>
+                <span>培训</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-orange-100"></div>
+                <span>考试</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded border-2 border-orange-300"></div>
+                <span>待审批</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 详情弹窗 */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              预约详情
+            </DialogTitle>
+          </DialogHeader>
+          {selectedBooking && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-lg bg-gray-50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-lg">{selectedBooking.title}</span>
+                  <Badge variant={selectedBooking.status === 'approved' ? 'default' : 'secondary'}>
+                    {selectedBooking.status === 'approved' ? '已批准' : '待审批'}
+                  </Badge>
                 </div>
-                {currentRoom && (
-                  <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                    <DoorOpen className="h-3 w-3" />
-                    {currentRoom.name}
+                
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">使用人：</span>
+                    <span className="font-medium">{selectedBooking.applicant_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">教室：</span>
+                    <span>{selectedBooking.room_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">日期：</span>
+                    <span>{selectedBooking.booking_date}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">时段：</span>
+                    <span>{TIME_SLOTS.find(s => s.id === selectedBooking.time_slot)?.label}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">用途：</span>
+                    <span>{getPurposeLabel(selectedBooking.purpose)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">人数：</span>
+                    <span>{selectedBooking.expected_attendees}人</span>
+                  </div>
+                </div>
+                
+                {selectedBooking.description && (
+                  <div className="text-sm pt-2 border-t">
+                    <span className="text-gray-500">说明：</span>
+                    <p className="mt-1">{selectedBooking.description}</p>
                   </div>
                 )}
               </div>
             </div>
-
-            <div className="relative">
-              {/* 时间轴 */}
-              <div className="grid grid-cols-[60px_1fr]">
-                {timeSlots.filter((_, i) => i % 2 === 0).map(timeSlot => {
-                  const dateStr = formatDate(currentDate);
-                  const roomsToShow = selectedRoom === 'all' ? mockRooms : mockRooms.filter(r => r.id === selectedRoom);
-                  const hasBookingInAnyRoom = roomsToShow.some(room => {
-                    const booking = getBookingForTimeSlot(dateStr, timeSlot, room.id);
-                    return booking && isBookingStart(booking, timeSlot);
-                  });
-
-                  return (
-                    <React.Fragment key={timeSlot}>
-                      {/* 时间 */}
-                      <div className="h-12 border-r border-b text-xs text-gray-500 flex items-center justify-center">
-                        {timeSlot}
-                      </div>
-                      {/* 内容区 */}
-                      <div className="h-12 border-b relative">
-                        {selectedRoom === 'all' ? (
-                          // 显示所有教室的预约
-                          <div className="flex h-full">
-                            {roomsToShow.map((room, idx) => {
-                              const booking = getBookingForTimeSlot(dateStr, timeSlot, room.id);
-                              const isStart = booking && isBookingStart(booking, timeSlot);
-
-                              return (
-                                <div
-                                  key={room.id}
-                                  className={`flex-1 relative ${idx > 0 ? 'border-l' : ''}`}
-                                >
-                                  {isStart && (
-                                    <div
-                                      className={`absolute inset-1 rounded-md p-1 cursor-pointer hover:opacity-80 ${purposeColors[booking.purpose]}`}
-                                      style={{
-                                        height: `${getBookingSpan(booking) * 44 - 8}px`,
-                                        zIndex: 10,
-                                      }}
-                                      onClick={() => setSelectedBooking(booking!)}
-                                    >
-                                      <div className="text-xs font-medium truncate">{booking.title}</div>
-                                      <div className="text-xs opacity-70">{booking.roomName}</div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          // 单个教室视图
-                          hasBookingInAnyRoom && (
-                            <div className="h-full flex items-center">
-                              {(() => {
-                                const booking = getBookingForTimeSlot(dateStr, timeSlot, selectedRoom);
-                                if (booking && isBookingStart(booking, timeSlot)) {
-                                  return (
-                                    <div
-                                      className={`absolute inset-x-2 rounded-md p-2 cursor-pointer hover:opacity-80 ${purposeColors[booking.purpose]}`}
-                                      style={{
-                                        height: `${getBookingSpan(booking) * 44 - 8}px`,
-                                        zIndex: 10,
-                                      }}
-                                      onClick={() => setSelectedBooking(booking)}
-                                    >
-                                      <div className="text-sm font-medium">{booking.title}</div>
-                                      <div className="text-xs opacity-70 mt-1">
-                                        {booking.startTime} - {booking.endTime} · {booking.applicantName}
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 图例 */}
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className="text-gray-500">活动类型：</span>
-            {Object.entries(purposeColors).map(([purpose, color]) => (
-              <div key={purpose} className="flex items-center gap-1">
-                <div className={`w-4 h-4 rounded ${color.split(' ')[0]}`} />
-                <span className="text-gray-600">{purposeLabels[purpose as BookingPurpose]}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 预约详情对话框 */}
-      <Dialog open={!!selectedBooking} onOpenChange={() => setSelectedBooking(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>预约详情</DialogTitle>
-          </DialogHeader>
-
-          {selectedBooking && (
-            <div className="space-y-4 py-4">
-              <div className="p-4 rounded-lg bg-gray-50">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="font-medium text-lg">{selectedBooking.title}</h3>
-                  <Badge className={purposeColors[selectedBooking.purpose]}>
-                    {purposeLabels[selectedBooking.purpose]}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <div className="text-gray-500 text-xs mb-1">教室</div>
-                  <div className="font-medium">{selectedBooking.roomName}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs mb-1">位置</div>
-                  <div className="font-medium">{selectedBooking.location}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs mb-1">日期</div>
-                  <div className="font-medium">{selectedBooking.bookingDate}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs mb-1">时间</div>
-                  <div className="font-medium">{selectedBooking.startTime} - {selectedBooking.endTime}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs mb-1">申请人</div>
-                  <div className="font-medium">{selectedBooking.applicantName}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs mb-1">部门</div>
-                  <div className="font-medium">{selectedBooking.department}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs mb-1">参与人数</div>
-                  <div className="font-medium">{selectedBooking.expectedAttendees} 人</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs mb-1">状态</div>
-                  <Badge className="bg-green-100 text-green-700">已批准</Badge>
-                </div>
-              </div>
-            </div>
           )}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setSelectedBooking(null)}>关闭</Button>
-          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+// 辅助函数
+function formatDate(date: Date, format: 'short' | 'long' = 'short'): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  if (format === 'long') {
+    return `${year}年${month}月${day}日`;
+  }
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function getPurposeLabel(purpose: string): string {
+  const labels: Record<string, string> = {
+    teaching: '教学活动',
+    meeting: '教研会议',
+    training: '培训讲座',
+    activity: '学生活动',
+    exam: '考试',
+    defense: '答辩',
+    competition: '比赛',
+    other: '其他',
+  };
+  return labels[purpose] || purpose;
 }
