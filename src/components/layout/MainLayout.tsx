@@ -145,7 +145,7 @@ const teacherBaseNav: NavItem[] = [
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排' },
   { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请' },
   { name: '报销申请', href: '/teacher/expense', icon: DollarSign, description: '费用报销申请' },
-  { name: '教室预约', href: '/academic/rooms/booking', icon: DoorOpen, description: '预约使用教室' },
+  { name: '教室预约', href: '/teacher/room-booking', icon: DoorOpen, description: '预约使用教室' },
 ];
 
 // 教师空间导航 - 班主任专属功能

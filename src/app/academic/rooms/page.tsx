@@ -334,7 +334,7 @@ export default function RoomsManagementPage() {
             <DoorOpen className="h-7 w-7 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900">教室管理</h1>
           </div>
-          <p className="text-gray-500 mt-1">管理教室资源，查看预约情况</p>
+          <p className="text-gray-500 mt-1">管理教室资源，审批预约申请</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
@@ -344,9 +344,9 @@ export default function RoomsManagementPage() {
             </Link>
           </Button>
           <Button asChild>
-            <Link href="/academic/rooms/booking">
+            <Link href="/academic/rooms/new">
               <Plus className="h-4 w-4 mr-2" />
-              预约教室
+              新增教室
             </Link>
           </Button>
         </div>
@@ -404,18 +404,23 @@ export default function RoomsManagementPage() {
 
       {/* 快速入口 */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/academic/rooms/booking" className="block">
+        <Link href="/academic/rooms/approval" className="block">
           <Card className="border-0 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] cursor-pointer group">
             <CardContent className="p-5">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                  <Plus className="h-6 w-6 text-blue-600" />
+                <div className="h-12 w-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                  <FileText className="h-6 w-6 text-orange-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">预约教室</h3>
-                  <p className="text-sm text-gray-500">提交教室使用申请</p>
+                  <h3 className="font-semibold text-gray-900">预约审批</h3>
+                  <p className="text-sm text-gray-500">审核教室预约申请</p>
                 </div>
-                <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                <div className="flex items-center gap-2">
+                  {stats.pendingApprovals > 0 && (
+                    <Badge className="bg-orange-500 text-white">{stats.pendingApprovals}</Badge>
+                  )}
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-orange-600 transition-colors" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -436,23 +441,18 @@ export default function RoomsManagementPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/academic/rooms/approval" className="block">
+        <Link href="/academic/rooms/usage" className="block">
           <Card className="border-0 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] cursor-pointer group">
             <CardContent className="p-5">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                  <FileText className="h-6 w-6 text-orange-600" />
+                <div className="h-12 w-12 rounded-xl bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                  <Users className="h-6 w-6 text-teal-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">预约审批</h3>
-                  <p className="text-sm text-gray-500">审核教室预约申请</p>
+                  <h3 className="font-semibold text-gray-900">使用统计</h3>
+                  <p className="text-sm text-gray-500">教室使用率分析</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {stats.pendingApprovals > 0 && (
-                    <Badge className="bg-orange-500 text-white">{stats.pendingApprovals}</Badge>
-                  )}
-                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-orange-600 transition-colors" />
-                </div>
+                <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-teal-600 transition-colors" />
               </div>
             </CardContent>
           </Card>
