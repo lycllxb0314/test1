@@ -45,10 +45,13 @@ function mapTypeToEvent(dbType: string): MessageEvent {
     message: 'personal_message',
     reminder: 'task_reminder',
     // 群组通知类型
-    group_notice_principal: 'system_announcement', // 校长室通知映射为系统公告（全员可见）
-    group_notice_academic: 'group_notice', // 教务处群组通知
-    group_notice_moral: 'group_notice', // 德育处群组通知
-    group_notice_general: 'group_notice', // 总务处群组通知
+    group_notice_principal: 'system_announcement', // 校长室通知映射为系统公告
+    group_notice: 'group_notice',
+    group_notice_academic: 'group_notice',
+    group_notice_moral: 'group_notice',
+    group_notice_general: 'group_notice',
+    // 部门广播通知
+    department_notice: 'system_announcement', // 部门广播通知映射为系统公告（显示在部门通知）
     internal_notice: 'personal_message', // 内部通知默认为个人消息
   };
   
@@ -228,10 +231,29 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     const to = from + pageSize - 1;
 
     // 查询发给当前用户的消息 - 只选择数据库中存在的字段
-    const { data: messages, error: msgError, count } = await client
+    // 如果是部门工作台，还需要查询部门广播消息
+    let query = client
       .from('messages')
-      .select('id, title, content, type, priority, sender_id, sender_name, sender_avatar, recipient_id, is_read, is_archived, metadata, created_at, updated_at, read_at, archived_at, recipient_type, roles, class_ids, grades, user_ids, sender_role, sent_at, expires_at', { count: 'exact' })
-      .eq('recipient_id', userId)
+      .select('id, title, content, type, priority, sender_id, sender_name, sender_avatar, recipient_id, is_read, is_archived, metadata, created_at, updated_at, read_at, archived_at, recipient_type, roles, class_ids, grades, user_ids, sender_role, sent_at, expires_at', { count: 'exact' });
+
+    if (department) {
+      // 部门工作台：查询发给当前用户的消息 + 部门广播消息
+      // 使用 OR 条件：(recipient_id = userId) OR (recipient_type = 'department' AND metadata->>'target_department' = department)
+      const deptMapping: Record<string, string> = {
+        'academic': 'academic',
+        'moral': 'moral',
+        'general': 'general',
+      };
+      const targetDept = deptMapping[department] || department;
+      
+      // 使用 or 条件
+      query = query.or(`recipient_id.eq.${userId},and(recipient_type.eq.department,metadata->>target_department.eq.${targetDept})`);
+    } else {
+      // 个人消息中心：只查询发给当前用户的消息
+      query = query.eq('recipient_id', userId);
+    }
+
+    const { data: messages, error: msgError, count } = await query
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -267,6 +289,11 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
         const dbType = (msg.type || 'personal_message') as string;
         const eventType = mapTypeToEvent(dbType);
         
+        // 调试日志：群组通知
+        if (dbType.startsWith('group_notice')) {
+          console.log(`[Messages API] Processing group notice: id=${msg.id}, dbType=${dbType}, eventType=${eventType}, metadata=`, msg.metadata);
+        }
+        
         return {
           id: msg.id as string,
           title: msg.title as string,
@@ -277,7 +304,7 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
           senderName: msg.sender_name as string,
           senderRole: msg.sender_role as string,
           recipients: {
-            type: (msg.recipient_type || 'individual') as 'all' | 'role' | 'class' | 'grade' | 'individual',
+            type: (msg.recipient_type || 'individual') as 'all' | 'role' | 'class' | 'grade' | 'individual' | 'department',
             roles: msg.roles as string[] | undefined,
             classIds: msg.class_ids as string[] | undefined,
             grades: msg.grades as number[] | undefined,
@@ -328,9 +355,28 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     
     // 部门工作台过滤逻辑
     if (department) {
+      const deptMapping: Record<string, string> = {
+        'academic': 'academic',
+        'moral': 'moral',
+        'general': 'general',
+      };
+      const targetDept = deptMapping[department] || department;
+      
       filteredMessages = filteredMessages.filter(m => {
+        // 部门广播消息：只显示在目标部门的工作台
+        if (m.recipients?.type === 'department') {
+          const msgTargetDept = m.metadata?.target_department as string;
+          console.log(`[Messages API] Department broadcast: id=${m.id}, targetDept=${msgTargetDept}, currentDept=${targetDept}`);
+          return msgTargetDept === targetDept;
+        }
+        
         const scope = getMessageScope(m.event, m.metadata);
         const relevantDepts = getRelevantDepartments(m.event, m.metadata);
+        
+        // 调试日志
+        if (m.event === 'group_notice') {
+          console.log(`[Messages API] Group notice filtering: id=${m.id}, event=${m.event}, scope=${scope}, targetDept=${m.metadata?.target_department}, relevantDepts=${JSON.stringify(relevantDepts)}, currentDept=${department}`);
+        }
         
         // 部门通知：显示在所有部门工作台
         if (scope === 'department') return true;

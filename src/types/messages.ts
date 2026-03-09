@@ -53,7 +53,8 @@ export type RecipientType =
   | 'role'          // 按角色
   | 'class'         // 按班级
   | 'grade'         // 按年级
-  | 'individual';   // 指定个人
+  | 'individual'    // 指定个人
+  | 'department';   // 部门广播
 
 // ==================== 消息实体 ====================
 
