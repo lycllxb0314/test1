@@ -94,8 +94,16 @@ export function useGroups(): UseGroupsReturn {
   const [candidates, setCandidates] = useState<GroupCandidate[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
 
-  // 引用
-  const mountedRef = useRef(true);
+  // 引用 - 使用 ref 跟踪组件挂载状态
+  const mountedRef = useRef(false);
+
+  // 组件挂载时设置 mountedRef
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // === 获取群组列表 ===
   const fetchGroups = useCallback(async () => {
@@ -330,13 +338,6 @@ export function useGroups(): UseGroupsReturn {
   useEffect(() => {
     fetchGroups();
   }, [fetchGroups]);
-
-  // === 清理 ===
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   return {
     // 数据
