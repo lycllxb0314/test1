@@ -9,10 +9,24 @@ import { refreshToken, setAuthCookies, extractTokens } from '@/lib/auth/session'
  * POST - 刷新访问令牌
  * 
  * 使用 Refresh Token 获取新的 Token 对
+ * 支持两种方式：
+ * 1. 从 Cookie 中读取（推荐）
+ * 2. 从请求体中读取（兼容）
  */
 export async function POST(request: NextRequest) {
   try {
-    const { refreshToken: refreshTokenValue } = extractTokens(request);
+    // 1. 尝试从 Cookie 中获取
+    let refreshTokenValue = extractTokens(request).refreshToken;
+    
+    // 2. 如果 Cookie 中没有，尝试从请求体中获取
+    if (!refreshTokenValue) {
+      try {
+        const body = await request.json();
+        refreshTokenValue = body.refreshToken || body.refresh_token;
+      } catch {
+        // 请求体解析失败，忽略
+      }
+    }
 
     if (!refreshTokenValue) {
       return NextResponse.json({
@@ -39,7 +53,8 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         tokens: {
-          accessToken: result.tokens.accessToken, // 返回新的 access_token
+          accessToken: result.tokens.accessToken,
+          refreshToken: result.tokens.refreshToken, // 返回新的 refresh token
           expiresIn: result.tokens.expiresIn,
           refreshExpiresIn: result.tokens.refreshExpiresIn,
         },

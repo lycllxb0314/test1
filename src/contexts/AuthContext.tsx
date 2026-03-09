@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User, UserRole, AdministrativeRole } from '@/types';
-import { getAuthHeaders } from '@/lib/auth-client';
+import { getAuthHeaders, clearTokens } from '@/lib/auth-client';
 
 // 是否使用真实API（生产环境设为true）
 const USE_REAL_API = process.env.NODE_ENV === 'production';
@@ -48,6 +48,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 监听全局登出事件（token 刷新失败时触发）
+  useEffect(() => {
+    const handleAuthLogout = (event: CustomEvent) => {
+      console.log('[AuthContext] Received auth:logout event:', event.detail);
+      setUser(null);
+      // 跳转到登录页
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login?reason=token_expired';
+      }
+    };
+
+    window.addEventListener('auth:logout', handleAuthLogout as EventListener);
+    
+    return () => {
+      window.removeEventListener('auth:logout', handleAuthLogout as EventListener);
+    };
+  }, []);
+
   // 初始化时检查本地存储的登录状态
   useEffect(() => {
     const initAuth = async () => {
@@ -78,16 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Token 验证失败，清除登录状态
         if (response.status === 401 || result.code === 'AUTH_FAILED') {
-          console.log('Token验证失败，清除登录状态');
-          localStorage.removeItem('smart_campus_user');
-          localStorage.removeItem('smart_campus_token');
-          localStorage.removeItem('smart_campus_refresh_token');
+          console.log('[AuthContext] Token验证失败，清除登录状态');
+          clearTokens();
           setUser(null);
           setIsLoading(false);
           return;
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        console.error('[AuthContext] Auth check failed:', error);
         // 网络错误等情况，不清除登录状态，保留本地缓存
         // 这样用户在离线时仍能看到之前的数据
         if (savedUser) {
@@ -159,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return false;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('[AuthContext] Login error:', error);
       setIsLoading(false);
       return false;
     }
@@ -174,14 +190,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: 'include',
       });
     } catch (error) {
-      console.error('Logout API error:', error);
+      console.error('[AuthContext] Logout API error:', error);
     }
     
     // 清除前端存储
     setUser(null);
-    localStorage.removeItem('smart_campus_user');
-    localStorage.removeItem('smart_campus_token');
-    localStorage.removeItem('smart_campus_refresh_token');
+    clearTokens();
   }, []);
 
   // 切换角色（仅用于开发测试）
