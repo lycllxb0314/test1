@@ -278,6 +278,15 @@ export async function GET(request: NextRequest) {
 
       if (leaveError) throw leaveError;
 
+      // 3. 获取所有待审批的教室预约实例（部门工作台显示）
+      const { data: roomBookingInstances, error: roomBookingError } = await supabase
+        .from('approval_instances')
+        .select('*')
+        .eq('status', 'pending')
+        .eq('business_type', 'room_booking');
+
+      if (roomBookingError) throw roomBookingError;
+
       const pendingInstanceIds: string[] = [];
       
       // 处理公告/新闻类型的审批（有节点记录）
@@ -306,6 +315,44 @@ export async function GET(request: NextRequest) {
           const approvedUserIds = approvedBy.map((a: any) => a.user_id);
           
           if (approverIds.includes(user.id) && !approvedUserIds.includes(user.id)) {
+            pendingInstanceIds.push(instance.id);
+          }
+        }
+      }
+
+      // 处理教室预约类型的审批（部门工作台显示）
+      // 教室预约审批归属于教务处
+      for (const instance of roomBookingInstances || []) {
+        // 部门过滤：只显示给教务处
+        const businessDept = getBusinessDepartment(instance.business_type);
+        if (department && businessDept !== department) {
+          continue; // 跳过不属于当前部门的审批
+        }
+        
+        // 获取当前节点的记录
+        const { data: nodeRecord } = await supabase
+          .from('approval_node_records')
+          .select('*')
+          .eq('instance_id', instance.id)
+          .eq('node_order', instance.current_node_order)
+          .eq('status', 'pending')
+          .single();
+
+        if (nodeRecord) {
+          // 教室预约审批：教务处任何成员都可以审批
+          // 如果 approver_ids 为空，表示任何部门成员都可以审批
+          const approverIds = nodeRecord.approver_ids || [];
+          const approvedBy = nodeRecord.approved_by || [];
+          const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
+          
+          // 如果审批人列表为空，说明任何部门成员都可以审批
+          // 否则需要检查当前用户是否在审批人列表中
+          if (approverIds.length === 0) {
+            // 任何部门成员都可以审批，只要还没审批过
+            if (!approvedUserIds.includes(user.id)) {
+              pendingInstanceIds.push(instance.id);
+            }
+          } else if (approverIds.includes(user.id) && !approvedUserIds.includes(user.id)) {
             pendingInstanceIds.push(instance.id);
           }
         }

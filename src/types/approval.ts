@@ -169,7 +169,7 @@ export interface ApprovalActionRecord {
  * - parent_notice: 家长通知 - 班主任/科任教师发给家长
  * - leave_request: 请假审批
  */
-export type AnnouncementType = 'announcement' | 'news' | 'internal_notice' | 'parent_notice' | 'leave_request';
+export type AnnouncementType = 'announcement' | 'news' | 'internal_notice' | 'parent_notice' | 'leave_request' | 'room_booking';
 
 /** 校园公告分类 */
 export type AnnouncementCategory = 

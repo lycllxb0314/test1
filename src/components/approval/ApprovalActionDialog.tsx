@@ -117,8 +117,24 @@ export function ApprovalActionDialog({
 
   // 判断是否为请假类型
   const isLeaveRequest = instance.businessType === 'leave_request';
+  // 判断是否为教室预约类型
+  const isRoomBooking = instance.businessType === 'room_booking';
   // 使用类型断言来处理联合类型
   const leaveInfo = isLeaveRequest ? (instance.business as any) : null;
+  // 教室预约信息从 metadata 中获取
+  const roomBookingInfo = isRoomBooking ? (instance.metadata as {
+    room_id?: string;
+    room_name?: string;
+    building?: string;
+    location?: string;
+    purpose?: string;
+    booking_date?: string;
+    start_time?: string;
+    end_time?: string;
+    duration?: number;
+    expected_attendees?: number;
+    description?: string;
+  }) : null;
   
   // 获取业务类型显示名称
   const getBusinessTypeLabel = (type: string) => {
@@ -128,8 +144,21 @@ export function ApprovalActionDialog({
       'news': '新闻动态',
       'internal_notice': '内部通知',
       'parent_notice': '家长通知',
+      'room_booking': '教室预约',
     };
     return labels[type] || type;
+  };
+  
+  // 用途映射
+  const purposeMap: Record<string, string> = {
+    teaching: '教学活动',
+    meeting: '教研会议',
+    training: '培训讲座',
+    activity: '学生活动',
+    exam: '考试',
+    defense: '答辩',
+    competition: '比赛',
+    other: '其他',
   };
 
   return (
@@ -294,8 +323,54 @@ export function ApprovalActionDialog({
             </Card>
           )}
 
+          {/* 教室预约类型的详细信息 */}
+          {isRoomBooking && roomBookingInfo && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">预约信息</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">教室名称：</span>
+                    <span className="font-medium">{roomBookingInfo.room_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">所在建筑：</span>
+                    <span>{roomBookingInfo.building}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">预约日期：</span>
+                    <span>{roomBookingInfo.booking_date}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">使用时间：</span>
+                    <span>{roomBookingInfo.start_time} - {roomBookingInfo.end_time}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">活动用途：</span>
+                    <span>{(roomBookingInfo.purpose && purposeMap[roomBookingInfo.purpose]) || roomBookingInfo.purpose || '未知'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">预期人数：</span>
+                    <span>{roomBookingInfo.expected_attendees} 人</span>
+                  </div>
+                </div>
+                {roomBookingInfo.description && (
+                  <>
+                    <Separator />
+                    <div className="text-sm">
+                      <span className="text-gray-500">活动说明：</span>
+                      <p className="mt-1 whitespace-pre-wrap">{roomBookingInfo.description}</p>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* 公告/新闻类型的审批内容 */}
-          {!isLeaveRequest && instance.business && 'content' in instance.business && (
+          {!isLeaveRequest && !isRoomBooking && instance.business && 'content' in instance.business && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">审批内容</CardTitle>
@@ -318,7 +393,7 @@ export function ApprovalActionDialog({
           )}
 
           {/* 审批流程 */}
-          {!isLeaveRequest && (
+          {!isLeaveRequest && !isRoomBooking && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">审批流程</CardTitle>
@@ -547,9 +622,25 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
   
   // 处理请假类型的审批
   const isLeaveRequest = instance.businessType === 'leave_request';
+  // 处理教室预约类型的审批
+  const isRoomBooking = instance.businessType === 'room_booking';
   // 使用类型断言来处理联合类型
   const leaveInfo = isLeaveRequest ? (instance.business as any) : null;
   const approvers = isLeaveRequest ? (instance.metadata?.approvers as any[] || []) : [];
+  // 教室预约信息从 metadata 中获取
+  const roomBookingInfo = isRoomBooking ? (instance.metadata as {
+    room_id?: string;
+    room_name?: string;
+    building?: string;
+    location?: string;
+    purpose?: string;
+    booking_date?: string;
+    start_time?: string;
+    end_time?: string;
+    duration?: number;
+    expected_attendees?: number;
+    description?: string;
+  }) : null;
   
   // 获取请假类型显示名称
   const getBusinessTypeLabel = (type: string) => {
@@ -559,8 +650,21 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
       'news': '新闻审批',
       'internal_notice': '内部通知',
       'parent_notice': '家长通知',
+      'room_booking': '教室预约',
     };
     return labels[type] || type;
+  };
+  
+  // 用途映射
+  const purposeMap: Record<string, string> = {
+    teaching: '教学活动',
+    meeting: '教研会议',
+    training: '培训讲座',
+    activity: '学生活动',
+    exam: '考试',
+    defense: '答辩',
+    competition: '比赛',
+    other: '其他',
   };
 
   return (
@@ -600,8 +704,22 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
             </div>
           )}
           
+          {/* 教室预约类型显示详细信息 */}
+          {isRoomBooking && roomBookingInfo && (
+            <div className="mt-2 text-xs text-gray-600 space-y-1">
+              <p>
+                教室：{roomBookingInfo.room_name}（{roomBookingInfo.building}）· 
+                时间：{roomBookingInfo.booking_date} {roomBookingInfo.start_time}-{roomBookingInfo.end_time}
+              </p>
+              <p>
+                用途：{(roomBookingInfo.purpose && purposeMap[roomBookingInfo.purpose]) || roomBookingInfo.purpose || '未知'} · 
+                人数：{roomBookingInfo.expected_attendees}人
+              </p>
+            </div>
+          )}
+          
           {/* 公告/新闻类型显示当前节点 */}
-          {!isLeaveRequest && currentNode && (
+          {!isLeaveRequest && !isRoomBooking && currentNode && (
             <p className="text-xs text-gray-400 mt-1">
               当前节点：{currentNode.nodeName}
             </p>

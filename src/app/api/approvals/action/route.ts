@@ -360,6 +360,27 @@ async function completeApproval(instance: any, now: string) {
     } else {
       console.log('不需要调课，跳过创建调课记录');
     }
+  } else if (instance.business_type === 'room_booking') {
+    // 教室预约审批通过
+    await supabase
+      .from('room_bookings')
+      .update({
+        status: 'approved',
+        updated_at: now,
+      })
+      .eq('id', instance.business_id);
+
+    // 发送通知给申请人
+    await supabase.from('messages').insert({
+      id: crypto.randomUUID(),
+      title: `【审批通过】${instance.title}`,
+      content: `您的教室预约申请已通过。\n\n预约详情：\n- 教室：${instance.metadata?.room_name || '未知'}\n- 时间：${instance.metadata?.booking_date || ''} ${instance.metadata?.start_time || ''}-${instance.metadata?.end_time || ''}\n- 用途：${instance.metadata?.purpose || '未知'}`,
+      type: 'approval',
+      priority: 'high',
+      recipient_id: instance.applicant_id,
+      is_read: false,
+      metadata: { instance_id: instance.id, booking_id: instance.business_id },
+    });
   } else {
     // 默认处理公告类型
     await supabase
@@ -435,6 +456,16 @@ async function handleReject(
         updated_at: now,
       })
       .eq('id', instance.business_id);
+  } else if (instance.business_type === 'room_booking') {
+    // 教室预约驳回
+    await supabase
+      .from('room_bookings')
+      .update({
+        status: 'rejected',
+        reject_reason: approval.comment,
+        updated_at: now,
+      })
+      .eq('id', instance.business_id);
   } else {
     // 默认处理公告类型
     await supabase
@@ -446,15 +477,19 @@ async function handleReject(
   }
 
   // 发送通知给申请人
+  const content = instance.business_type === 'room_booking' 
+    ? `您的教室预约申请已被驳回。原因：${approval.comment || '无'}`
+    : `您的审批申请已被驳回。原因：${approval.comment || '无'}`;
+    
   await supabase.from('messages').insert({
     id: crypto.randomUUID(),
     title: `【审批驳回】${instance.title}`,
-    content: `您的审批申请已被驳回。原因：${approval.comment || '无'}`,
+    content,
     type: 'approval',
     priority: 'high',
     recipient_id: instance.applicant_id,
     is_read: false,
-    metadata: { instance_id: instance.id },
+    metadata: { instance_id: instance.id, booking_id: instance.business_id },
   });
 }
 

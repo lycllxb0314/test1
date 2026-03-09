@@ -2,7 +2,7 @@
  * 教室预约 API
  * 
  * GET - 获取预约列表
- * POST - 创建新预约
+ * POST - 创建新预约（同时创建审批实例和发送通知）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -46,6 +46,20 @@ function hasTimeConflict(
   
   return { hasConflict: false };
 }
+
+/**
+ * 用途映射
+ */
+const purposeMap: Record<string, string> = {
+  teaching: '教学活动',
+  meeting: '教研会议',
+  training: '培训讲座',
+  activity: '学生活动',
+  exam: '考试',
+  defense: '答辩',
+  competition: '比赛',
+  other: '其他',
+};
 
 /**
  * GET - 获取预约列表
@@ -222,7 +236,97 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    return NextResponse.json({ success: true, data });
+    // ==================== 创建审批实例 ====================
+    // 教室预约需要教务处审批
+    const approvalInstanceId = crypto.randomUUID();
+    const approvalTitle = `教室预约审批：${title}`;
+    
+    // 创建审批实例
+    const { error: approvalError } = await client
+      .from('approval_instances')
+      .insert({
+        id: approvalInstanceId,
+        business_type: 'room_booking',
+        business_id: bookingId,
+        title: approvalTitle,
+        applicant_id: applicantId || null,
+        applicant_name: applicantName || null,
+        applicant_department: department || null,
+        current_node_order: 1,
+        status: 'pending',
+        submit_at: new Date().toISOString(),
+        metadata: {
+          room_id: roomId,
+          room_name: roomName,
+          building,
+          location,
+          purpose,
+          booking_date: bookingDate,
+          start_time: startTime,
+          end_time: endTime,
+          duration,
+          expected_attendees: expectedAttendees,
+          description,
+        },
+      });
+    
+    if (approvalError) {
+      console.error('创建审批实例失败:', approvalError);
+      // 审批实例创建失败不影响预约创建，但记录日志
+    } else {
+      // 创建审批节点记录
+      await client
+        .from('approval_node_records')
+        .insert({
+          id: crypto.randomUUID(),
+          instance_id: approvalInstanceId,
+          node_order: 1,
+          node_name: '教务处审批',
+          node_type: 'approve',
+          status: 'pending',
+          approver_ids: [], // 教务处任何成员都可以审批
+          approved_by: [],
+        });
+      
+      // ==================== 发送通知到教务处部门工作台 ====================
+      const notificationId = crypto.randomUUID();
+      const notificationTitle = `【教室预约】${applicantName || '教师'}申请预约${roomName}`;
+      const notificationContent = `
+预约详情：
+- 教室：${roomName}（${building}）
+- 时间：${bookingDate} ${startTime}-${endTime}
+- 用途：${purposeMap[purpose] || purpose}
+- 预约人：${applicantName || '未知'}
+- 预期人数：${expectedAttendees}人
+${description ? `- 说明：${description}` : ''}
+
+请及时处理审批。
+      `.trim();
+      
+      await client
+        .from('messages')
+        .insert({
+          id: notificationId,
+          title: notificationTitle,
+          content: notificationContent,
+          type: 'room_booking_approval',
+          priority: 'normal',
+          sender_id: applicantId || null,
+          sender_name: applicantName || '系统',
+          recipient_type: 'department',
+          metadata: {
+            target_department: 'academic',
+            approval_instance_id: approvalInstanceId,
+            booking_id: bookingId,
+          },
+        });
+    }
+    
+    return NextResponse.json({ 
+      success: true, 
+      data,
+      approvalInstanceId,
+    });
   } catch (err) {
     console.error('创建预约失败:', err);
     return NextResponse.json(
