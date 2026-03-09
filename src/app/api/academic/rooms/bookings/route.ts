@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
       console.error('创建审批实例失败:', approvalError);
     } else {
       // 创建审批节点记录
-      await client
+      const nodeResult = await client
         .from('approval_node_records')
         .insert({
           id: crypto.randomUUID(),
@@ -322,11 +322,15 @@ export async function POST(request: NextRequest) {
           approved_by: [],
         });
       
+      if (nodeResult.error) {
+        console.error('创建审批节点记录失败:', nodeResult.error);
+      }
+      
       // ==================== 发送通知到教务处部门工作台 ====================
       const notificationTitle = `【教室预约】${applicantName || '教师'}申请预约${roomName}`;
       const notificationContent = `
 预约详情：
-- 教室：${roomName}（${building}）
+- 教室：${roomName}（${building || '未知楼栋'}）
 - 时间：${bookingDate} ${slotsLabel}
 - 用途：${purposeMap[purpose] || purpose}
 - 预约人：${applicantName || '未知'}
@@ -336,7 +340,7 @@ ${description ? `- 说明：${description}` : ''}
 请及时处理审批。
       `.trim();
       
-      await client
+      const msgResult = await client
         .from('messages')
         .insert({
           id: crypto.randomUUID(),
@@ -344,7 +348,6 @@ ${description ? `- 说明：${description}` : ''}
           content: notificationContent,
           type: 'room_booking_approval',
           priority: 'normal',
-          sender_id: applicantId || null,
           sender_name: applicantName || '系统',
           recipient_type: 'department',
           metadata: {
@@ -353,6 +356,10 @@ ${description ? `- 说明：${description}` : ''}
             booking_id: bookingId,
           },
         });
+      
+      if (msgResult.error) {
+        console.error('发送审批通知失败:', msgResult.error);
+      }
     }
     
     return NextResponse.json({ 
