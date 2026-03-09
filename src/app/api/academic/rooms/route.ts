@@ -3,6 +3,7 @@
  * 
  * GET - 获取教室列表
  * POST - 创建新教室
+ * PUT - 更新教室信息
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,10 +17,30 @@ export async function GET(request: NextRequest) {
     const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     
+    const id = searchParams.get('id');
     const type = searchParams.get('type');
     const status = searchParams.get('status');
     const building = searchParams.get('building');
     const search = searchParams.get('search');
+    
+    // 如果指定了ID，查询单个教室
+    if (id) {
+      const { data, error: dbError } = await client
+        .from('rooms')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (dbError) {
+        console.error('获取教室详情失败:', dbError);
+        return NextResponse.json(
+          { success: false, error: '获取教室详情失败' },
+          { status: 500 }
+        );
+      }
+      
+      return NextResponse.json({ success: true, data });
+    }
     
     let query = client
       .from('rooms')
@@ -148,6 +169,90 @@ export async function POST(request: NextRequest) {
     console.error('创建教室失败:', err);
     return NextResponse.json(
       { success: false, error: '创建教室失败' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT - 更新教室信息
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const client = getSupabaseClient();
+    const body = await request.json();
+    
+    const {
+      id,
+      name,
+      code,
+      type,
+      building,
+      floor,
+      location,
+      capacity,
+      area,
+      facilities,
+      extraFacilities,
+      status,
+      managerId,
+      managerName,
+      departmentId,
+      remark,
+    } = body;
+    
+    // 验证必填字段
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: '缺少教室ID' },
+        { status: 400 }
+      );
+    }
+    
+    if (!name || !code || !type || !building) {
+      return NextResponse.json(
+        { success: false, error: '缺少必填字段' },
+        { status: 400 }
+      );
+    }
+    
+    const { data, error: dbError } = await client
+      .from('rooms')
+      .update({
+        name,
+        code,
+        type,
+        building,
+        floor,
+        location,
+        capacity,
+        area,
+        facilities,
+        extra_facilities: extraFacilities,
+        status,
+        manager_id: managerId,
+        manager_name: managerName,
+        department_id: departmentId,
+        remark,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (dbError) {
+      console.error('更新教室失败:', dbError);
+      return NextResponse.json(
+        { success: false, error: '更新教室失败: ' + dbError.message },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json({ success: true, data });
+  } catch (err) {
+    console.error('更新教室失败:', err);
+    return NextResponse.json(
+      { success: false, error: '更新教室失败' },
       { status: 500 }
     );
   }

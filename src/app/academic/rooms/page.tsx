@@ -583,6 +583,15 @@ export default function RoomsManagementPage() {
                       <span>本月使用 {room.usageStats?.thisMonth || 0} 次</span>
                       <span>共 {room.usageStats?.totalBookings || 0} 次</span>
                     </div>
+
+                    {/* 操作按钮 */}
+                    <div className="pt-2 flex justify-end">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/academic/rooms/${room.id}/edit`}>
+                          编辑
+                        </Link>
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               );
