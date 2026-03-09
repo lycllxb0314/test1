@@ -77,6 +77,20 @@ const slotLabelMap: Record<string, string> = {
 };
 
 /**
+ * 时段时间映射（默认开始和结束时间）
+ */
+const slotTimeMap: Record<string, { start: string; end: string }> = {
+  morning_1: { start: '08:00', end: '08:45' },
+  morning_2: { start: '08:55', end: '09:40' },
+  morning_3: { start: '10:00', end: '10:45' },
+  noon: { start: '12:00', end: '14:00' },
+  afternoon_1: { start: '14:00', end: '14:45' },
+  afternoon_2: { start: '14:55', end: '15:40' },
+  afternoon_3: { start: '16:00', end: '16:45' },
+  evening: { start: '19:00', end: '21:00' },
+};
+
+/**
  * GET - 获取预约列表
  */
 export async function GET(request: NextRequest) {
@@ -214,14 +228,20 @@ export async function POST(request: NextRequest) {
     
     const bookingId = `booking-${Date.now()}`;
     
+    // 根据时段计算开始和结束时间
+    const firstSlot = slotTimeMap[finalTimeSlots[0]] || { start: '08:00', end: '08:45' };
+    const lastSlot = slotTimeMap[finalTimeSlots[finalTimeSlots.length - 1]] || { start: '08:00', end: '08:45' };
+    const startTime = firstSlot.start;
+    const endTime = lastSlot.end;
+    
     const { data, error: dbError } = await client
       .from('room_bookings')
       .insert({
         id: bookingId,
         room_id: roomId,
         room_name: roomName,
-        room_type: roomType,
-        building,
+        room_type: roomType || 'classroom',
+        building: building || '未知楼栋',
         location,
         applicant_id: applicantId || 'unknown',
         applicant_name: applicantName || '未知用户',
@@ -231,6 +251,8 @@ export async function POST(request: NextRequest) {
         title,
         description,
         booking_date: bookingDate,
+        start_time: startTime,
+        end_time: endTime,
         time_slot: finalTimeSlots[0], // 保留单时段字段兼容
         time_slots: finalTimeSlots,   // 新增多时段数组
         duration: 45 * finalTimeSlots.length, // 根据时段数量计算时长
