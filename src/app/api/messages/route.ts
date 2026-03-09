@@ -3,6 +3,11 @@
  * 
  * GET: 获取当前用户的消息列表
  * POST: 发送新消息
+ * 
+ * 消息分类逻辑：
+ * - department: 部门通知（如校长室通知、系统公告），显示在所有部门工作台
+ * - business: 业务通知（如调课、活动），根据相关部门显示
+ * - personal: 个人通知（如请假审批、任务分配），不在部门工作台显示
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -44,6 +49,66 @@ function mapTypeToEvent(dbType: string): MessageEvent {
   return typeMap[dbType] || 'personal_message';
 }
 
+// 消息分类：部门通知 / 业务通知 / 个人通知
+type MessageScope = 'department' | 'business' | 'personal';
+
+// 根据事件类型确定消息分类
+function getMessageScope(event: MessageEvent): MessageScope {
+  // 部门通知：显示在所有部门工作台
+  const departmentEvents: MessageEvent[] = [
+    'system_announcement',
+    'policy_update',
+    'maintenance_notice',
+  ];
+  
+  // 业务通知：根据相关部门显示
+  const businessEvents: MessageEvent[] = [
+    // 教务
+    'schedule_change',
+    'exam_notice',
+    'grade_publish',
+    'homework_assign',
+    // 德育
+    'activity_notice',
+    'honor_notice',
+    'moral_evaluation',
+    'habit_record',
+    // 总务
+    'repair_notice',
+    'asset_notice',
+    'safety_alert',
+  ];
+  
+  // 个人通知：不在部门工作台显示
+  const personalEvents: MessageEvent[] = [
+    'leave_approval',
+    'task_assign',
+    'task_reminder',
+    'personal_message',
+    'parent_meeting',
+    'student_absence',
+  ];
+  
+  if (departmentEvents.includes(event)) return 'department';
+  if (businessEvents.includes(event)) return 'business';
+  return 'personal';
+}
+
+// 根据事件类型获取相关部门
+function getRelevantDepartments(event: MessageEvent): string[] {
+  // 教务相关事件
+  const academicEvents: MessageEvent[] = ['schedule_change', 'exam_notice', 'grade_publish', 'homework_assign'];
+  // 德育相关事件
+  const moralEvents: MessageEvent[] = ['activity_notice', 'honor_notice', 'moral_evaluation', 'habit_record'];
+  // 总务相关事件
+  const generalEvents: MessageEvent[] = ['repair_notice', 'asset_notice', 'safety_alert'];
+  
+  if (academicEvents.includes(event)) return ['academic'];
+  if (moralEvents.includes(event)) return ['moral'];
+  if (generalEvents.includes(event)) return ['general'];
+  return []; // 部门通知和个人通知返回空
+}
+
 // GET: 获取消息列表
 const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const { searchParams } = new URL(request.url);
@@ -53,6 +118,11 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
   const statusFilter = searchParams.get('status') || undefined;
   const searchFilter = searchParams.get('search') || undefined;
   const unreadOnly = searchParams.get('unreadOnly') === 'true';
+  
+  // 部门工作台参数：用于过滤部门消息
+  // - 未传入：显示所有消息（个人中心）
+  // - 传入 'academic'/'moral'/'general'：显示部门通知 + 该部门相关的业务通知
+  const department = searchParams.get('department') || undefined;
 
   // 如果用户未登录，返回空列表而不是错误
   if (!user) {
@@ -235,6 +305,23 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     }
     if (unreadOnly) {
       filteredMessages = filteredMessages.filter(m => m.status === 'unread');
+    }
+    
+    // 部门工作台过滤逻辑
+    if (department) {
+      filteredMessages = filteredMessages.filter(m => {
+        const scope = getMessageScope(m.event);
+        const relevantDepts = getRelevantDepartments(m.event);
+        
+        // 部门通知：显示在所有部门工作台
+        if (scope === 'department') return true;
+        
+        // 业务通知：只显示在相关部门的工作台
+        if (scope === 'business') return relevantDepts.includes(department);
+        
+        // 个人通知：不显示在部门工作台
+        return false;
+      });
     }
 
     // 计算统计数据

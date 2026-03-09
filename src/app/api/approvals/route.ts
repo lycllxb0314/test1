@@ -3,6 +3,12 @@
  * 
  * GET: 获取审批列表（我发起的/待我审批的）
  * POST: 提交新的审批申请
+ * 
+ * 部门过滤逻辑：
+ * - department 参数：'academic' | 'moral' | 'general'
+ * - 教室预约审批 → 教务处
+ * - 公告/新闻审批 → 根据发布部门确定
+ * - 请假审批 → 根据审批人（不在部门工作台显示）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,6 +23,35 @@ import {
 } from '@/types/approval';
 
 // ==================== 辅助函数 ====================
+
+/** 业务类型到部门的映射 */
+function getBusinessDepartment(businessType: string, applicantDepartment?: string): string | null {
+  // 明确归属部门的业务类型
+  const businessDeptMap: Record<string, string> = {
+    'room_booking': 'academic',      // 教室预约 → 教务处
+    'activity_approval': 'moral',    // 活动审批 → 德育处
+    'repair_approval': 'general',    // 报修审批 → 总务处
+    'asset_approval': 'general',     // 资产审批 → 总务处
+  };
+  
+  if (businessDeptMap[businessType]) {
+    return businessDeptMap[businessType];
+  }
+  
+  // 公告/新闻审批：根据发布部门确定
+  if (businessType === 'announcement' || businessType === 'news') {
+    if (applicantDepartment?.includes('教务')) return 'academic';
+    if (applicantDepartment?.includes('德育')) return 'moral';
+    if (applicantDepartment?.includes('总务')) return 'general';
+  }
+  
+  // 请假审批：根据审批流程配置，不在部门工作台显示
+  if (businessType === 'leave_request') {
+    return null; // 返回 null 表示不显示在部门工作台
+  }
+  
+  return null;
+}
 
 /** 映射公告数据 */
 function mapAnnouncement(a: any): Announcement {
@@ -89,6 +124,7 @@ function mapNodeRecord(nr: any): any {
  * - status: 筛选状态
  * - page: 页码
  * - pageSize: 每页数量
+ * - department: 部门过滤（'academic' | 'moral' | 'general'）
  */
 export async function GET(request: NextRequest) {
   try {
@@ -108,6 +144,9 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '10');
     const offset = (page - 1) * pageSize;
+    
+    // 部门过滤参数
+    const department = searchParams.get('department') || undefined;
 
     let query = supabase
       .from('approval_instances')
@@ -233,6 +272,14 @@ export async function GET(request: NextRequest) {
       
       // 处理公告/新闻类型的审批（有节点记录）
       for (const instance of inProgressInstances || []) {
+        // 部门过滤：检查业务是否属于当前部门
+        if (department) {
+          const businessDept = getBusinessDepartment(instance.business_type, instance.applicant_department);
+          if (businessDept !== department) {
+            continue; // 跳过不属于当前部门的审批
+          }
+        }
+        
         // 获取当前节点的记录
         const { data: nodeRecord } = await supabase
           .from('approval_node_records')
@@ -255,24 +302,27 @@ export async function GET(request: NextRequest) {
       }
 
       // 处理请假类型的审批（检查节点记录中的审批人UUID）
-      for (const instance of leaveInstances || []) {
-        // 获取节点记录
-        const { data: nodeRecord } = await supabase
-          .from('approval_node_records')
-          .select('*')
-          .eq('instance_id', instance.id)
-          .eq('node_order', instance.current_node_order)
-          .eq('status', 'pending')
-          .single();
+      // 注意：请假审批不在部门工作台显示，只有当 department 未传入时才处理
+      if (!department) {
+        for (const instance of leaveInstances || []) {
+          // 获取节点记录
+          const { data: nodeRecord } = await supabase
+            .from('approval_node_records')
+            .select('*')
+            .eq('instance_id', instance.id)
+            .eq('node_order', instance.current_node_order)
+            .eq('status', 'pending')
+            .single();
 
-        if (nodeRecord) {
-          // 检查当前用户UUID是否在审批人列表中且尚未审批
-          const approverIds = nodeRecord.approver_ids || [];
-          const approvedBy = nodeRecord.approved_by || [];
-          const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
-          
-          if (approverIds.includes(user.id) && !approvedUserIds.includes(user.id)) {
-            pendingInstanceIds.push(instance.id);
+          if (nodeRecord) {
+            // 检查当前用户UUID是否在审批人列表中且尚未审批
+            const approverIds = nodeRecord.approver_ids || [];
+            const approvedBy = nodeRecord.approved_by || [];
+            const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
+            
+            if (approverIds.includes(user.id) && !approvedUserIds.includes(user.id)) {
+              pendingInstanceIds.push(instance.id);
+            }
           }
         }
       }

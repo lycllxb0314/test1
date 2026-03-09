@@ -129,7 +129,15 @@ const DEFAULT_STATISTICS: MessageStatistics = {
 
 const DEFAULT_FILTERS: MessageQueryParams = {};
 
-export function useMessages(): UseMessagesReturn {
+/**
+ * useMessages Hook
+ * @param department 部门过滤参数，用于部门工作台
+ *                   - 'academic': 教务处工作台
+ *                   - 'moral': 德育处工作台
+ *                   - 'general': 总务处工作台
+ *                   - undefined: 个人中心，显示所有消息
+ */
+export function useMessages(department?: 'academic' | 'moral' | 'general'): UseMessagesReturn {
   const [messages, setMessages] = useState<UserMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +168,7 @@ export function useMessages(): UseMessagesReturn {
         if (filters.priority) params.append('priority', filters.priority);
         if (filters.search) params.append('search', filters.search);
         if (filters.unreadOnly) params.append('unreadOnly', 'true');
+        if (department) params.append('department', department);
         params.append('page', page.toString());
         params.append('pageSize', pageSize.toString());
 

@@ -40,7 +40,7 @@ export default function AcademicDashboard() {
   const [selectedInstance, setSelectedInstance] = useState<ApprovalInstance | null>(null);
   const [approvalOpen, setApprovalOpen] = useState(false);
 
-  // 消息 Hook
+  // 消息 Hook - 传入部门参数，只显示部门通知和教务相关业务通知
   const {
     messages,
     loading: messagesLoading,
@@ -58,9 +58,9 @@ export default function AcademicDashboard() {
     deleteMessage,
     markAllAsRead,
     sendMessage,
-  } = useMessages();
+  } = useMessages('academic');
 
-  // 审批 Hook
+  // 审批 Hook - 传入部门参数，只显示教务相关的审批
   const {
     approvals,
     loading: approvalsLoading,
@@ -72,7 +72,7 @@ export default function AcademicDashboard() {
     withdrawApproval,
     statistics: approvalStats,
     refreshStatistics,
-  } = useApprovals('pending');
+  } = useApprovals('pending', 'academic');
 
   // 初始化加载
   useEffect(() => {

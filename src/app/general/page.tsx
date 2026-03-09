@@ -38,7 +38,7 @@ export default function GeneralDashboard() {
   const [selectedInstance, setSelectedInstance] = useState<ApprovalInstance | null>(null);
   const [approvalOpen, setApprovalOpen] = useState(false);
 
-  // 消息 Hook
+  // 消息 Hook - 传入部门参数，只显示部门通知和总务相关业务通知
   const {
     messages,
     loading: messagesLoading,
@@ -56,9 +56,9 @@ export default function GeneralDashboard() {
     deleteMessage,
     markAllAsRead,
     sendMessage,
-  } = useMessages();
+  } = useMessages('general');
 
-  // 审批 Hook
+  // 审批 Hook - 传入部门参数，只显示总务相关的审批
   const {
     approvals,
     loading: approvalsLoading,
@@ -69,7 +69,7 @@ export default function GeneralDashboard() {
     returnApproval,
     withdrawApproval,
     statistics: approvalStats,
-  } = useApprovals('pending');
+  } = useApprovals('pending', 'general');
 
   // 初始化加载
   useEffect(() => {

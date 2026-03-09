@@ -177,7 +177,16 @@ export function canUserView(instance: ApprovalInstance, userId: string, userRole
 
 // ==================== Hook 实现 ====================
 
-export function useApprovals(initialType: ApprovalListType = 'pending'): UseApprovalsReturn {
+/**
+ * useApprovals Hook
+ * @param initialType 初始列表类型
+ * @param department 部门过滤参数，用于部门工作台
+ *                   - 'academic': 教务处工作台
+ *                   - 'moral': 德育处工作台
+ *                   - 'general': 总务处工作台
+ *                   - undefined: 个人中心，显示所有审批
+ */
+export function useApprovals(initialType: ApprovalListType = 'pending', department?: 'academic' | 'moral' | 'general'): UseApprovalsReturn {
   // === 状态 ===
   const [approvals, setApprovals] = useState<ApprovalInstance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,6 +224,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
         params.append('type', currentType);
         if (filters.status) params.append('status', filters.status);
         if (filters.department) params.append('department', filters.department);
+        if (department) params.append('department', department);
         params.append('page', page.toString());
         params.append('pageSize', pageSize.toString());
 
@@ -254,7 +264,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending'): UseAppr
     return () => {
       cancelled = true;
     };
-  }, [currentType, page, pageSize, filters.status, filters.department, refreshKey]);
+  }, [currentType, page, pageSize, filters.status, filters.department, department, refreshKey]);
 
   // === 切换类型（只改变状态，不返回 Promise）===
   const fetchApprovals = useCallback((type: ApprovalListType) => {
