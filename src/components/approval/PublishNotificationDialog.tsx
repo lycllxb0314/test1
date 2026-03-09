@@ -163,7 +163,7 @@ export function PublishNotificationDialog({
   const { user } = useAuth();
   const { allTeachers } = useTeachers();
   const { allClasses } = useClasses();
-  const { groups } = useGroups();
+  const { groups, loading: groupsLoading, error: groupsError } = useGroups();
 
   // === 教师模式：固定为家长通知 ===
   const isTeacherMode = mode === 'teacher';
@@ -697,38 +697,52 @@ export function PublishNotificationDialog({
         return (
           <div className="space-y-3">
             <Label>选择群组</Label>
-            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-              {groups.map((group) => (
-                <label
-                  key={group.id}
-                  className={cn(
-                    'flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors',
-                    recipientConfig.groupIds?.includes(group.id)
-                      ? 'border-primary bg-primary/5'
-                      : 'hover:bg-gray-50'
-                  )}
-                >
-                  <Checkbox
-                    checked={recipientConfig.groupIds?.includes(group.id)}
-                    onCheckedChange={(checked) => {
-                      const groupIds = recipientConfig.groupIds || [];
-                      setRecipientConfig({
-                        ...recipientConfig,
-                        groupIds: checked
-                          ? [...groupIds, group.id]
-                          : groupIds.filter((id) => id !== group.id),
-                      });
-                    }}
-                  />
-                  <div>
-                    <span className="text-sm font-medium">{group.name}</span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      {group.memberCount || 0}人
-                    </span>
-                  </div>
-                </label>
-              ))}
-            </div>
+            {groupsLoading ? (
+              <div className="flex items-center justify-center p-4 text-muted-foreground">
+                加载中...
+              </div>
+            ) : groupsError ? (
+              <div className="flex items-center justify-center p-4 text-destructive">
+                加载失败: {groupsError}
+              </div>
+            ) : groups.length === 0 ? (
+              <div className="flex items-center justify-center p-4 text-muted-foreground">
+                暂无可选群组
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                {groups.map((group) => (
+                  <label
+                    key={group.id}
+                    className={cn(
+                      'flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors',
+                      recipientConfig.groupIds?.includes(group.id)
+                        ? 'border-primary bg-primary/5'
+                        : 'hover:bg-gray-50'
+                    )}
+                  >
+                    <Checkbox
+                      checked={recipientConfig.groupIds?.includes(group.id)}
+                      onCheckedChange={(checked) => {
+                        const groupIds = recipientConfig.groupIds || [];
+                        setRecipientConfig({
+                          ...recipientConfig,
+                          groupIds: checked
+                            ? [...groupIds, group.id]
+                            : groupIds.filter((id) => id !== group.id),
+                        });
+                      }}
+                    />
+                    <div>
+                      <span className="text-sm font-medium">{group.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        {group.memberCount || 0}人
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         );
 

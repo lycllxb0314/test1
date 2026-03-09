@@ -108,15 +108,22 @@ export function useGroups(): UseGroupsReturn {
 
       if (!mountedRef.current) return;
 
-      if (result.success || result.groups) {
-        setGroups(result.groups || result.data || []);
+      console.log('[useGroups] API response:', result);
+
+      if (result.groups) {
+        setGroups(result.groups);
+      } else if (result.success && result.data) {
+        setGroups(result.data);
       } else {
+        console.error('[useGroups] API error:', result.error);
         setError(result.error || '获取群组列表失败');
+        setGroups([]);
       }
     } catch (err) {
       if (!mountedRef.current) return;
       console.error('获取群组列表失败:', err);
       setError(err instanceof Error ? err.message : '获取群组列表失败');
+      setGroups([]);
     } finally {
       if (mountedRef.current) {
         setLoading(false);

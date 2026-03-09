@@ -28,34 +28,54 @@ export const GET = protectedRoute(async (
       
       for (const [type, config] of Object.entries(GROUP_CONFIGS)) {
         // 获取群组成员数量
-        const { count } = await supabase
+        const { count, error: countError } = await supabase
           .from('group_members')
           .select('*', { count: 'exact', head: true })
           .eq('group_type', type);
         
-        // 获取群组管理员（部门负责人）- 使用 maybeSingle 避免没有管理员时报错
-        const { data: director } = await supabase
+        if (countError) {
+          console.error(`[Groups API] Error counting members for ${type}:`, countError);
+        }
+        
+        // 获取群组管理员（部门负责人）
+        // 注意：user_id 存的是工号(employee_id)，需要手动关联 users 表
+        const { data: director, error: directorError } = await supabase
           .from('group_members')
-          .select('user_id, users!inner(name)')
+          .select('user_id')
           .eq('group_type', type)
           .eq('is_admin', true)
           .maybeSingle();
         
-        const directorData = director as { user_id: string; users: { name: string } } | null;
+        let directorName: string | undefined;
+        if (director?.user_id) {
+          const { data: directorUser } = await supabase
+            .from('users')
+            .select('name')
+            .eq('employee_id', director.user_id)
+            .single();
+          directorName = directorUser?.name;
+        }
+        
+        if (directorError) {
+          console.error(`[Groups API] Error getting director for ${type}:`, directorError);
+        }
+        
+        console.log(`[Groups API] Group ${type}: count=${count}, director=${director?.user_id}, directorName=${directorName}`);
         
         groups.push({
           id: type,
           type: type as GroupType,
           name: config.name,
           description: config.description,
-          directorId: directorData?.user_id,
-          directorName: directorData?.users?.name,
+          directorId: director?.user_id,
+          directorName: directorName,
           memberCount: count || 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
       }
 
+      console.log('[Groups API] Returning groups:', groups.length);
       return NextResponse.json({ groups });
     }
 
