@@ -4,6 +4,7 @@
  * 教室使用日程视图 - 教务端
  * 
  * 课表矩阵模式，显示使用人信息
+ * 支持多时段预约显示
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -31,6 +32,7 @@ import {
   DoorOpen,
   Users,
   Loader2,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +61,17 @@ const PURPOSE_COLORS: Record<string, string> = {
   other: 'bg-gray-100 text-gray-800 border-gray-200',
 };
 
+// 用途标签映射
+const PURPOSE_LABELS: Record<string, string> = {
+  teaching: '教学活动',
+  meeting: '教研会议',
+  training: '培训讲座',
+  activity: '学生活动',
+  exam: '考试',
+  competition: '比赛',
+  other: '其他',
+};
+
 // 类型定义
 interface Room {
   id: string;
@@ -78,7 +91,8 @@ interface Booking {
   title: string;
   purpose: string;
   booking_date: string;
-  time_slot: string;
+  time_slot: string;        // 兼容单时段
+  time_slots: string[];     // 多时段数组
   status: string;
   expected_attendees: number;
   description?: string;
@@ -149,13 +163,17 @@ export default function RoomCalendarPage() {
     fetchBookings();
   }, [fetchBookings]);
 
-  // 获取某天的预约映射
-  const getBookingMap = (date: string) => {
+  // 获取某天的预约映射（支持多时段）
+  const getBookingMap = (date: string): Record<string, Booking> => {
     const map: Record<string, Booking> = {};
     bookings
       .filter(b => b.booking_date === date && b.status !== 'rejected' && b.status !== 'cancelled')
       .forEach(b => {
-        map[b.time_slot] = b;
+        // 支持多时段
+        const slots = b.time_slots || (b.time_slot ? [b.time_slot] : []);
+        slots.forEach(slotId => {
+          map[slotId] = b;
+        });
       });
     return map;
   };
@@ -183,6 +201,12 @@ export default function RoomCalendarPage() {
       setSelectedBooking(booking);
       setShowDetailDialog(true);
     }
+  };
+
+  // 获取时段标签
+  const getSlotsLabel = (booking: Booking): string => {
+    const slots = booking.time_slots || (booking.time_slot ? [booking.time_slot] : []);
+    return slots.map(id => TIME_SLOTS.find(s => s.id === id)?.label || id).join('、');
   };
 
   const selectedRoomData = rooms.find(r => r.id === selectedRoom);
@@ -370,7 +394,7 @@ export default function RoomCalendarPage() {
                                 <div className={cn(
                                   'rounded h-full flex flex-col items-center justify-center p-1',
                                   booking.status === 'pending' 
-                                    ? 'bg-orange-100 text-orange-700' 
+                                    ? 'bg-orange-100 text-orange-700 border-2 border-orange-300' 
                                     : PURPOSE_COLORS[booking.purpose] || 'bg-green-100 text-green-700'
                                 )}>
                                   <span className="text-xs font-medium truncate w-full text-center">
@@ -419,7 +443,7 @@ export default function RoomCalendarPage() {
                 <span>考试</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded border-2 border-orange-300"></div>
+                <div className="w-4 h-4 rounded border-2 border-orange-300 bg-orange-100"></div>
                 <span>待审批</span>
               </div>
             </div>
@@ -429,7 +453,7 @@ export default function RoomCalendarPage() {
 
       {/* 详情弹窗 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
@@ -459,13 +483,13 @@ export default function RoomCalendarPage() {
                     <span className="text-gray-500">日期：</span>
                     <span>{selectedBooking.booking_date}</span>
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <span className="text-gray-500">时段：</span>
-                    <span>{TIME_SLOTS.find(s => s.id === selectedBooking.time_slot)?.label}</span>
+                    <span className="font-medium">{getSlotsLabel(selectedBooking)}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">用途：</span>
-                    <span>{getPurposeLabel(selectedBooking.purpose)}</span>
+                    <span>{PURPOSE_LABELS[selectedBooking.purpose] || selectedBooking.purpose}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">人数：</span>
@@ -504,18 +528,4 @@ function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
-}
-
-function getPurposeLabel(purpose: string): string {
-  const labels: Record<string, string> = {
-    teaching: '教学活动',
-    meeting: '教研会议',
-    training: '培训讲座',
-    activity: '学生活动',
-    exam: '考试',
-    defense: '答辩',
-    competition: '比赛',
-    other: '其他',
-  };
-  return labels[purpose] || purpose;
 }

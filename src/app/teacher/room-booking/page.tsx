@@ -1,10 +1,11 @@
 'use client';
 
 /**
- * 教室预约页面 - 课表矩阵模式
+ * 教室预约页面 - 课表矩阵模式（支持多选时段）
  * 
  * 时段：上午3节、午休、下午3节、晚上
  * 绿色=可预约，红色=已预约，灰色=维护中
+ * 支持按住Ctrl/Cmd多选，或连续选择
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -36,11 +36,10 @@ import {
   Search,
   Loader2,
   CheckCircle,
-  XCircle,
   Clock,
   ChevronLeft,
   ChevronRight,
-  AlertCircle,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -90,10 +89,16 @@ interface Booking {
   title: string;
   purpose: string;
   booking_date: string;
-  time_slot: string;
+  time_slots: string[];  // 支持多时段
   status: string;
   expected_attendees: number;
   description?: string;
+}
+
+// 选中的格子
+interface SelectedSlot {
+  date: string;
+  slotId: string;
 }
 
 // ==================== 主组件 ====================
@@ -115,13 +120,16 @@ export default function TeacherRoomBookingPage() {
     return new Date(now.setDate(diff));
   });
   
+  // 多选状态
+  const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
+  const [lastSelectedSlot, setLastSelectedSlot] = useState<SelectedSlot | null>(null);
+  
   // 筛选状态
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   
   // 预约弹窗
   const [showBookingDialog, setShowBookingDialog] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<{ date: string; slot: string } | null>(null);
   const [bookingForm, setBookingForm] = useState({
     purpose: 'meeting',
     title: '',
@@ -207,41 +215,80 @@ export default function TeacherRoomBookingPage() {
     }
   }, [fetchMyBookings, user]);
 
-  // 获取某天的预约映射
-  const getBookingMap = (date: string) => {
-    const map: Record<string, Booking> = {};
-    bookings
-      .filter(b => b.booking_date === date && b.status !== 'rejected' && b.status !== 'cancelled')
-      .forEach(b => {
-        map[b.time_slot] = b;
-      });
-    return map;
+  // 检查格子是否被预约
+  const isSlotBooked = (date: string, slotId: string): { booked: boolean; booking?: Booking } => {
+    for (const booking of bookings) {
+      if (booking.booking_date === date && 
+          booking.status !== 'rejected' && 
+          booking.status !== 'cancelled' &&
+          booking.time_slots?.includes(slotId)) {
+        return { booked: true, booking };
+      }
+    }
+    return { booked: false };
   };
 
-  // 获取格子状态
-  const getSlotStatus = (date: string, slotId: string): { status: SlotStatus; booking?: Booking } => {
-    const bookingMap = getBookingMap(date);
-    const booking = bookingMap[slotId];
-    
-    if (booking) {
-      return { status: 'booked', booking };
-    }
-    
+  // 检查格子是否被选中
+  const isSlotSelected = (date: string, slotId: string): boolean => {
+    return selectedSlots.some(s => s.date === date && s.slotId === slotId);
+  };
+
+  // 处理格子点击（支持多选）
+  const handleSlotClick = (date: string, slotId: string, event: React.MouseEvent) => {
+    const { booked } = isSlotBooked(date, slotId);
+    if (booked) return;
+
     const room = rooms.find(r => r.id === selectedRoom);
-    if (room?.status === 'maintenance') {
-      return { status: 'maintenance' };
+    if (room?.status === 'maintenance') return;
+
+    const isPast = new Date(date) < new Date(new Date().setHours(0,0,0,0));
+    if (isPast) return;
+
+    const currentSlot = { date, slotId };
+
+    // Ctrl/Cmd + 点击：切换选中状态
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedSlots(prev => {
+        const exists = prev.some(s => s.date === date && s.slotId === slotId);
+        if (exists) {
+          return prev.filter(s => !(s.date === date && s.slotId === slotId));
+        } else {
+          return [...prev, currentSlot];
+        }
+      });
+      setLastSelectedSlot(currentSlot);
     }
-    
-    return { status: 'available' };
+    // Shift + 点击：范围选择
+    else if (event.shiftKey && lastSelectedSlot) {
+      // 只在同一日期内做范围选择
+      if (lastSelectedSlot.date === date) {
+        const startIdx = TIME_SLOTS.findIndex(s => s.id === lastSelectedSlot.slotId);
+        const endIdx = TIME_SLOTS.findIndex(s => s.id === slotId);
+        const minIdx = Math.min(startIdx, endIdx);
+        const maxIdx = Math.max(startIdx, endIdx);
+        
+        const slotsInRange = TIME_SLOTS.slice(minIdx, maxIdx + 1)
+          .filter(s => !isSlotBooked(date, s.id).booked)
+          .map(s => ({ date, slotId: s.id }));
+        
+        setSelectedSlots(prev => {
+          // 移除该日期已选的，添加新的范围
+          const otherDateSlots = prev.filter(s => s.date !== date);
+          return [...otherDateSlots, ...slotsInRange];
+        });
+      }
+    }
+    // 普通点击：清空之前的选择，只选当前
+    else {
+      setSelectedSlots([currentSlot]);
+      setLastSelectedSlot(currentSlot);
+    }
   };
 
   // 打开预约弹窗
-  const handleSlotClick = (date: string, slotId: string) => {
-    const { status, booking } = getSlotStatus(date, slotId);
+  const openBookingDialog = () => {
+    if (selectedSlots.length === 0) return;
     
-    if (status !== 'available') return;
-    
-    setSelectedSlot({ date, slot: slotId });
     setBookingForm({
       purpose: 'meeting',
       title: '',
@@ -253,7 +300,7 @@ export default function TeacherRoomBookingPage() {
 
   // 提交预约
   const handleSubmitBooking = async () => {
-    if (!selectedSlot || !selectedRoom || !user) return;
+    if (selectedSlots.length === 0 || !selectedRoom || !user) return;
     
     if (!bookingForm.title.trim()) {
       alert('请填写活动标题');
@@ -263,38 +310,54 @@ export default function TeacherRoomBookingPage() {
     setSubmitting(true);
     try {
       const room = rooms.find(r => r.id === selectedRoom);
-      const slot = TIME_SLOTS.find(s => s.id === selectedSlot.slot);
       
-      const res = await fetch('/api/academic/rooms/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: selectedRoom,
-          roomName: room?.name,
-          roomType: room?.type,
-          building: room?.building,
-          applicantId: user.id,
-          applicantName: user.name,
-          applicantRole: user.role,
-          department: user.department,
-          purpose: bookingForm.purpose,
-          title: bookingForm.title,
-          description: bookingForm.description,
-          bookingDate: selectedSlot.date,
-          timeSlot: selectedSlot.slot,
-          expectedAttendees: bookingForm.expectedAttendees,
-        }),
+      // 按日期分组
+      const slotsByDate: Record<string, string[]> = {};
+      selectedSlots.forEach(slot => {
+        if (!slotsByDate[slot.date]) {
+          slotsByDate[slot.date] = [];
+        }
+        slotsByDate[slot.date].push(slot.slotId);
       });
       
-      const data = await res.json();
+      // 为每个日期创建预约
+      const results = await Promise.all(
+        Object.entries(slotsByDate).map(async ([date, slots]) => {
+          const res = await fetch('/api/academic/rooms/bookings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              roomId: selectedRoom,
+              roomName: room?.name,
+              roomType: room?.type,
+              building: room?.building,
+              applicantId: user.id,
+              applicantName: user.name,
+              applicantRole: user.role,
+              department: user.department,
+              purpose: bookingForm.purpose,
+              title: bookingForm.title,
+              description: bookingForm.description,
+              bookingDate: date,
+              timeSlots: slots,  // 多时段
+              expectedAttendees: bookingForm.expectedAttendees,
+            }),
+          });
+          return res.json();
+        })
+      );
       
-      if (data.success) {
+      const allSuccess = results.every(r => r.success);
+      
+      if (allSuccess) {
         setShowBookingDialog(false);
+        setSelectedSlots([]);
         fetchBookings();
         fetchMyBookings();
         alert('预约申请已提交，请等待审批');
       } else {
-        alert(data.error || '提交失败');
+        const errors = results.filter(r => !r.success).map(r => r.error).join('\n');
+        alert(errors || '部分预约提交失败');
       }
     } catch (err) {
       console.error('提交预约失败:', err);
@@ -330,29 +393,58 @@ export default function TeacherRoomBookingPage() {
     }
   };
 
+  // 清空选择
+  const clearSelection = () => {
+    setSelectedSlots([]);
+    setLastSelectedSlot(null);
+  };
+
   // 周导航
   const goToPrevWeek = () => {
+    clearSelection();
     setCurrentWeekStart(addDays(currentWeekStart, -7));
   };
 
   const goToNextWeek = () => {
+    clearSelection();
     setCurrentWeekStart(addDays(currentWeekStart, 7));
   };
 
   const goToCurrentWeek = () => {
+    clearSelection();
     const now = new Date();
     const day = now.getDay();
     const diff = now.getDate() - day + (day === 0 ? -6 : 1);
     setCurrentWeekStart(new Date(now.setDate(diff)));
   };
 
-  // 获取周的日期列表
   const getWeekDates = () => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
       dates.push(addDays(currentWeekStart, i));
     }
     return dates;
+  };
+
+  // 获取选中时段的显示文本
+  const getSelectedSlotsText = () => {
+    if (selectedSlots.length === 0) return '';
+    
+    const slotsByDate: Record<string, string[]> = {};
+    selectedSlots.forEach(slot => {
+      if (!slotsByDate[slot.date]) {
+        slotsByDate[slot.date] = [];
+      }
+      slotsByDate[slot.date].push(slot.slotId);
+    });
+    
+    return Object.entries(slotsByDate).map(([date, slots]) => {
+      const sortedSlots = slots.sort((a, b) => 
+        TIME_SLOTS.findIndex(s => s.id === a) - TIME_SLOTS.findIndex(s => s.id === b)
+      );
+      const labels = sortedSlots.map(id => TIME_SLOTS.find(s => s.id === id)?.label).join('、');
+      return `${date} ${labels}`;
+    }).join('；');
   };
 
   // 统计
@@ -373,7 +465,7 @@ export default function TeacherRoomBookingPage() {
             <DoorOpen className="h-7 w-7 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900">教室预约</h1>
           </div>
-          <p className="text-gray-500 mt-1">选择课表时段进行预约</p>
+          <p className="text-gray-500 mt-1">选择课表时段进行预约（支持多选）</p>
         </div>
       </div>
 
@@ -443,7 +535,7 @@ export default function TeacherRoomBookingPage() {
               </Select>
             </div>
           </CardHeader>
-          <CardContent className="max-h-[500px] overflow-y-auto">
+          <CardContent className="max-h-[400px] overflow-y-auto">
             {rooms.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-4">暂无可用教室</p>
             ) : (
@@ -451,7 +543,7 @@ export default function TeacherRoomBookingPage() {
                 {rooms.map((room) => (
                   <div
                     key={room.id}
-                    onClick={() => setSelectedRoom(room.id)}
+                    onClick={() => { setSelectedRoom(room.id); clearSelection(); }}
                     className={cn(
                       'p-3 rounded-lg border cursor-pointer transition-all',
                       selectedRoom === room.id
@@ -491,6 +583,9 @@ export default function TeacherRoomBookingPage() {
                     </span>
                   )}
                 </CardTitle>
+                <CardDescription className="mt-1">
+                  点击选择时段 · Ctrl+点击多选 · Shift+点击范围选择
+                </CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={goToPrevWeek}>
@@ -549,26 +644,21 @@ export default function TeacherRoomBookingPage() {
                           <div className="text-gray-400">{slot.period}</div>
                         </td>
                         {getWeekDates().map((date, idx) => {
-                          const { status, booking } = getSlotStatus(formatDate(date), slot.id);
+                          const { booked, booking } = isSlotBooked(formatDate(date), slot.id);
+                          const selected = isSlotSelected(formatDate(date), slot.id);
                           const isPast = date < new Date(new Date().setHours(0,0,0,0));
+                          const roomMaintenance = selectedRoomData?.status === 'maintenance';
                           
                           return (
                             <td 
                               key={idx} 
                               className={cn(
-                                'p-1 border text-center min-w-[100px] h-12',
-                                status === 'available' && !isPast && 'cursor-pointer hover:opacity-80',
+                                'p-1 border text-center min-w-[80px] h-10',
+                                !booked && !isPast && !roomMaintenance && 'cursor-pointer hover:opacity-80',
                               )}
-                              onClick={() => !isPast && status === 'available' && handleSlotClick(formatDate(date), slot.id)}
+                              onClick={(e) => handleSlotClick(formatDate(date), slot.id, e)}
                             >
-                              {status === 'available' ? (
-                                <div className={cn(
-                                  'rounded h-full flex items-center justify-center',
-                                  isPast ? 'bg-gray-100 text-gray-400' : 'bg-green-100 text-green-700'
-                                )}>
-                                  <span className="text-xs">{isPast ? '已过' : '可预约'}</span>
-                                </div>
-                              ) : status === 'booked' ? (
+                              {booked ? (
                                 <div className={cn(
                                   'rounded h-full flex flex-col items-center justify-center p-1',
                                   booking?.status === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
@@ -578,9 +668,21 @@ export default function TeacherRoomBookingPage() {
                                   </span>
                                   <span className="text-xs opacity-70">{booking?.applicant_name}</span>
                                 </div>
-                              ) : (
+                              ) : roomMaintenance ? (
                                 <div className="bg-gray-200 text-gray-500 rounded h-full flex items-center justify-center">
                                   <span className="text-xs">维护中</span>
+                                </div>
+                              ) : isPast ? (
+                                <div className="bg-gray-100 text-gray-400 rounded h-full flex items-center justify-center">
+                                  <span className="text-xs">已过</span>
+                                </div>
+                              ) : selected ? (
+                                <div className="bg-blue-500 text-white rounded h-full flex items-center justify-center">
+                                  <CheckCircle className="h-4 w-4" />
+                                </div>
+                              ) : (
+                                <div className="bg-green-100 text-green-700 rounded h-full flex items-center justify-center hover:bg-green-200 transition-colors">
+                                  <span className="text-xs">可选</span>
                                 </div>
                               )}
                             </td>
@@ -594,10 +696,14 @@ export default function TeacherRoomBookingPage() {
             )}
 
             {/* 图例 */}
-            <div className="flex items-center gap-4 mt-4 text-xs">
+            <div className="flex items-center gap-4 mt-4 text-xs flex-wrap">
               <div className="flex items-center gap-1">
                 <div className="w-4 h-4 rounded bg-green-100"></div>
-                <span>可预约</span>
+                <span>可选</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-blue-500"></div>
+                <span>已选中</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-4 h-4 rounded bg-red-100"></div>
@@ -609,12 +715,34 @@ export default function TeacherRoomBookingPage() {
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-4 h-4 rounded bg-gray-200"></div>
-                <span>维护中</span>
+                <span>不可选</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* 已选时段和操作按钮 */}
+      {selectedSlots.length > 0 && (
+        <Card className="border-0 shadow-md border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge className="bg-blue-500">{selectedSlots.length} 个时段已选中</Badge>
+                  <Button variant="ghost" size="sm" onClick={clearSelection}>
+                    清空选择
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-600">{getSelectedSlotsText()}</p>
+              </div>
+              <Button onClick={openBookingDialog}>
+                提交预约
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 我的预约记录 */}
       <Card className="border-0 shadow-md">
@@ -626,30 +754,36 @@ export default function TeacherRoomBookingPage() {
             <p className="text-sm text-gray-500 text-center py-4">暂无预约记录</p>
           ) : (
             <div className="space-y-2">
-              {myBookings.map((booking) => (
-                <div key={booking.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{booking.title}</span>
-                      <Badge variant={booking.status === 'approved' ? 'default' : booking.status === 'pending' ? 'secondary' : 'destructive'}>
-                        {booking.status === 'approved' ? '已批准' : booking.status === 'pending' ? '待审批' : '已拒绝'}
-                      </Badge>
+              {myBookings.map((booking) => {
+                const slotsLabel = booking.time_slots?.map(id => 
+                  TIME_SLOTS.find(s => s.id === id)?.label
+                ).join('、') || '';
+                
+                return (
+                  <div key={booking.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{booking.title}</span>
+                        <Badge variant={booking.status === 'approved' ? 'default' : booking.status === 'pending' ? 'secondary' : 'destructive'}>
+                          {booking.status === 'approved' ? '已批准' : booking.status === 'pending' ? '待审批' : '已拒绝'}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {booking.room_name} · {booking.booking_date} · {slotsLabel}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      {booking.room_name} · {booking.booking_date} · {TIME_SLOTS.find(s => s.id === booking.time_slot)?.label || booking.time_slot}
-                    </div>
+                    {booking.status === 'pending' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleCancelBooking(booking.id)}
+                      >
+                        取消
+                      </Button>
+                    )}
                   </div>
-                  {booking.status === 'pending' && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleCancelBooking(booking.id)}
-                    >
-                      取消
-                    </Button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -657,22 +791,18 @@ export default function TeacherRoomBookingPage() {
 
       {/* 预约弹窗 */}
       <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>预约 {selectedRoomData?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-500">日期：</span>
-                <span className="font-medium">{selectedSlot?.date}</span>
+            {/* 已选时段 */}
+            <div className="p-3 rounded-lg bg-blue-50 text-sm">
+              <div className="flex items-center gap-2 text-blue-700 mb-1">
+                <Info className="h-4 w-4" />
+                <span className="font-medium">已选 {selectedSlots.length} 个时段</span>
               </div>
-              <div>
-                <span className="text-gray-500">时段：</span>
-                <span className="font-medium">
-                  {TIME_SLOTS.find(s => s.id === selectedSlot?.slot)?.label}
-                </span>
-              </div>
+              <p className="text-blue-600">{getSelectedSlotsText()}</p>
             </div>
             
             <div className="space-y-2">

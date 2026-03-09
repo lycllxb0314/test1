@@ -2,42 +2,50 @@
  * 教室预约 API
  * 
  * GET - 获取预约列表
- * POST - 创建新预约（同时创建审批实例和发送通知）
+ * POST - 创建新预约（支持多时段）
  * 
- * 时段模式：使用 time_slot 字段（如 morning_1, afternoon_2 等）
+ * 时段模式：使用 time_slots 数组字段（如 ['morning_1', 'morning_2']）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 /**
- * 检查时段冲突
+ * 检查时段冲突（支持多时段）
  */
-function hasSlotConflict(
+function hasSlotsConflict(
   existingBookings: Array<{
     id: string;
     title: string;
-    time_slot: string;
+    time_slot: string | null;
+    time_slots: string[] | null;
     status: string;
     booking_date: string;
   }>,
-  newBooking: { bookingDate: string; timeSlot: string }
-): { hasConflict: boolean; conflictWith?: { bookingId: string; title: string } } {
+  newBooking: { bookingDate: string; timeSlots: string[] }
+): { hasConflict: boolean; conflicts: Array<{ bookingId: string; title: string; slot: string }> } {
+  const conflicts: Array<{ bookingId: string; title: string; slot: string }> = [];
+  
   for (const booking of existingBookings) {
     if (booking.status === 'rejected' || booking.status === 'cancelled') continue;
     
-    if (booking.booking_date === newBooking.bookingDate && booking.time_slot === newBooking.timeSlot) {
-      return {
-        hasConflict: true,
-        conflictWith: {
+    // 获取已有预约的时段（兼容单时段和多时段）
+    const existingSlots: string[] = booking.time_slots || 
+      (booking.time_slot ? [booking.time_slot] : []);
+    
+    // 检查是否有交集
+    for (const newSlot of newBooking.timeSlots) {
+      if (existingSlots.includes(newSlot)) {
+        conflicts.push({
           bookingId: booking.id,
           title: booking.title,
-        },
-      };
+          slot: newSlot,
+        });
+      }
     }
   }
   
-  return { hasConflict: false };
+  return { hasConflict: conflicts.length > 0, conflicts };
 }
 
 /**
@@ -114,7 +122,8 @@ export async function GET(request: NextRequest) {
       query = query.eq('purpose', purpose);
     }
     if (timeSlot) {
-      query = query.eq('time_slot', timeSlot);
+      // 使用包含查询检查时段是否在数组中
+      query = query.contains('time_slots', [timeSlot]);
     }
     if (search) {
       query = query.or(`title.ilike.%${search}%,applicant_name.ilike.%${search}%,room_name.ilike.%${search}%`);
@@ -141,7 +150,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST - 创建新预约
+ * POST - 创建新预约（支持多时段）
  */
 export async function POST(request: NextRequest) {
   try {
@@ -158,7 +167,8 @@ export async function POST(request: NextRequest) {
       title,
       description,
       bookingDate,
-      timeSlot,  // 课表时段
+      timeSlot,   // 兼容单时段
+      timeSlots,  // 多时段数组
       expectedAttendees,
       attendeeType,
       cleaningRequired,
@@ -168,8 +178,11 @@ export async function POST(request: NextRequest) {
       department,
     } = body;
     
+    // 统一时段数据（兼容单时段和多时段）
+    const finalTimeSlots: string[] = timeSlots || (timeSlot ? [timeSlot] : []);
+    
     // 验证必填字段
-    if (!roomId || !roomName || !purpose || !title || !bookingDate || !timeSlot || !expectedAttendees) {
+    if (!roomId || !roomName || !purpose || !title || !bookingDate || finalTimeSlots.length === 0 || !expectedAttendees) {
       return NextResponse.json(
         { success: false, error: '缺少必填字段' },
         { status: 400 }
@@ -179,19 +192,22 @@ export async function POST(request: NextRequest) {
     // 检查时段冲突
     const { data: existingBookings } = await client
       .from('room_bookings')
-      .select('id, title, time_slot, status, booking_date')
+      .select('id, title, time_slot, time_slots, status, booking_date')
       .eq('room_id', roomId)
       .eq('booking_date', bookingDate)
       .in('status', ['pending', 'approved', 'in_progress']);
     
-    const conflict = hasSlotConflict(existingBookings || [], {
+    const conflictResult = hasSlotsConflict(existingBookings || [], {
       bookingDate,
-      timeSlot,
+      timeSlots: finalTimeSlots,
     });
     
-    if (conflict.hasConflict) {
+    if (conflictResult.hasConflict) {
+      const conflictDetails = conflictResult.conflicts.map(c => 
+        `${slotLabelMap[c.slot] || c.slot}（${c.title}）`
+      ).join('、');
       return NextResponse.json(
-        { success: false, error: `该时段已被预约：${conflict.conflictWith?.title}` },
+        { success: false, error: `以下时段已被预约：${conflictDetails}` },
         { status: 400 }
       );
     }
@@ -215,8 +231,9 @@ export async function POST(request: NextRequest) {
         title,
         description,
         booking_date: bookingDate,
-        time_slot: timeSlot,
-        duration: 45, // 默认时长，时段模式下不使用
+        time_slot: finalTimeSlots[0], // 保留单时段字段兼容
+        time_slots: finalTimeSlots,   // 新增多时段数组
+        duration: 45 * finalTimeSlots.length, // 根据时段数量计算时长
         expected_attendees: expectedAttendees,
         attendee_type: attendeeType,
         cleaning_required: cleaningRequired || false,
@@ -235,7 +252,7 @@ export async function POST(request: NextRequest) {
     
     // ==================== 创建审批实例 ====================
     const approvalInstanceId = crypto.randomUUID();
-    const slotLabel = slotLabelMap[timeSlot] || timeSlot;
+    const slotsLabel = finalTimeSlots.map(s => slotLabelMap[s] || s).join('、');
     const approvalTitle = `教室预约审批：${title}`;
     
     // 创建审批实例
@@ -259,8 +276,8 @@ export async function POST(request: NextRequest) {
           location,
           purpose,
           booking_date: bookingDate,
-          time_slot: timeSlot,
-          time_slot_label: slotLabel,
+          time_slots: finalTimeSlots,
+          time_slots_label: slotsLabel,
           expected_attendees: expectedAttendees,
           description,
         },
@@ -288,7 +305,7 @@ export async function POST(request: NextRequest) {
       const notificationContent = `
 预约详情：
 - 教室：${roomName}（${building}）
-- 时间：${bookingDate} ${slotLabel}
+- 时间：${bookingDate} ${slotsLabel}
 - 用途：${purposeMap[purpose] || purpose}
 - 预约人：${applicantName || '未知'}
 - 预期人数：${expectedAttendees}人
