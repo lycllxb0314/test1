@@ -84,7 +84,20 @@ export async function PUT(request: NextRequest) {
     const approvedBy = currentNodeRecord.approved_by || [];
     const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
 
-    if (!approverIds.includes(user.id)) {
+    console.log('[Approval Action] Permission check:', { 
+      approverIds, 
+      approvedUserIds, 
+      currentUserId: user.id,
+      isEmptyApproverIds: approverIds.length === 0
+    });
+
+    // 教室预约审批特殊处理：approver_ids 为空时，任何部门成员都可以审批
+    const isRoomBooking = instance.business_type === 'room_booking';
+    const canApprove = approverIds.length === 0 
+      ? isRoomBooking  // 教室预约且审批人为空，任何人都可审批
+      : approverIds.includes(user.id);  // 否则需要在审批人列表中
+
+    if (!canApprove) {
       return NextResponse.json({
         success: false,
         error: '您没有权限审批此申请',
