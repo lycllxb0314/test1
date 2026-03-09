@@ -1,12 +1,13 @@
 # 软件设计文档 (SDD)
 
 **项目名称**: 龙岩师范附属小学智慧校园管理平台  
-**文档版本**: v4.0  
-**编制日期**: 2026年3月  
+**文档版本**: v4.1  
+**编制日期**: 2025年1月  
 **编制单位**: 智慧校园项目组
 
 **版本历史**:
-- v4.0 (2026-03): **全面重构**：根据实际代码结构重写，详细描述84个页面、156个API、79个组件的实现细节
+- v4.1 (2025-01): **流程修正与模块补充**：修正教师请假流程（选定领导审批+会签/或签），补充教务系统8个模块，完善管理后台7个子模块
+- v4.0 (2025-01): **全面重构**：根据实际代码结构重写，详细描述84个页面、156个API、79个组件的实现细节
 - v3.1 (2024-03): 手动排课系统重构
 - v3.0 (2024-03): 数据孤岛整改
 
@@ -1407,16 +1408,255 @@ const FLOW_STEPS = [
 
 ### 3.8 管理后台
 
+管理后台用于管理学校门户首页的内容，包括轮播图、童心教育、办学荣誉、新闻公告等。
+
 #### 3.8.1 轮播图管理 (`/admin/carousel`)
 
-管理学校首页轮播图内容。
+管理学校首页轮播图内容，支持图片、视频、B站视频三种类型。
+
+**轮播项数据结构**：
+```typescript
+interface CarouselItem {
+  id: string;
+  type: 'image' | 'video' | 'bilibili';  // 媒体类型
+  image: string;                          // 封面图URL
+  videoUrl?: string;                      // 视频URL
+  bilibiliUrl?: string;                   // B站嵌入URL
+  bilibiliBvid?: string;                  // B站BV号
+  title: string;                          // 标题
+  subtitle?: string;                      // 副标题
+  tag?: string;                           // 标签（科创特色、艺术教育等）
+  sortOrder: number;                      // 排序序号
+  isActive: boolean;                      // 是否启用
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+**功能模块**：
+- 轮播图列表展示
+- 新增/编辑/删除轮播项
+- 视频上传（上传到对象存储）
+- 拖拽排序
+- 启用/禁用控制
 
 **API接口**：
 | API | 方法 | 功能 |
 |-----|------|------|
-| `/api/admin/portal/carousel` | GET/POST/PUT/DELETE | 轮播图管理 |
+| `/api/admin/portal/carousel` | GET | 获取轮播图列表 |
+| `/api/admin/portal/carousel` | POST | 创建轮播项 |
+| `/api/admin/portal/carousel` | PUT | 更新轮播项 |
+| `/api/admin/portal/carousel?id=xxx` | DELETE | 删除轮播项 |
+| `/api/admin/upload` | POST | 上传文件（图片/视频） |
 
-#### 3.8.2 领导入口 (`/leadership`)
+**默认轮播内容**：
+| 标题 | 副标题 | 标签 | 类型 |
+|------|--------|------|------|
+| 少年科学院成立 | 中科院谢华安院士亲自指导 | 科创特色 | B站视频 |
+| 校园艺术节 | 全国艺术教育先进单位 | 艺术教育 | 图片 |
+| 阳光体育运动 | 体质健康合格率全市第一梯队 | 阳光体育 | 图片 |
+| 少先队活动 | 有效德育引领童心成长 | 德育实践 | 图片 |
+| 高效课堂 | 高效课堂发展童心智慧 | 教学特色 | 图片 |
+
+#### 3.8.2 童心教育管理
+
+管理学校门户首页的"童心教育六大路径"内容。
+
+**童心教育路径**：
+| 路径 | 标题 | 副标题 | 图标 |
+|------|------|--------|------|
+| 以德育心 | 有效德育引领童心 | 德育实践 | Shield |
+| 以智启心 | 高效课堂发展童心 | 教学特色 | Lightbulb |
+| 以体健心 | 阳光体育运动童心 | 体育健康 | Activity |
+| 以美润心 | 艺术教育陶冶童心 | 艺术教育 | Palette |
+| 以劳立心 | 劳动实践磨练童心 | 劳动教育 | TreePine |
+| 以爱暖心 | 家校协同温润童心 | 家校共育 | Heart |
+
+**数据结构**：
+```typescript
+interface PhilosophyItem {
+  id: string;
+  icon: string;           // 图标名称
+  title: string;          // 标题
+  subtitle: string;       // 副标题
+  image: string;          // 背景图URL
+  imageKey?: string;      // 对象存储key
+  description?: string;   // 详细描述
+  sortOrder: number;      // 排序
+  isActive: boolean;      // 是否启用
+}
+```
+
+**API接口**：
+| API | 方法 | 功能 |
+|-----|------|------|
+| `/api/admin/portal/philosophy` | GET | 获取童心教育列表 |
+| `/api/admin/portal/philosophy` | POST | 创建路径 |
+| `/api/admin/portal/philosophy` | PUT | 更新路径 |
+| `/api/admin/portal/philosophy?id=xxx` | DELETE | 删除路径 |
+| `/api/admin/portal/philosophy/activities` | GET/POST | 路径相关活动管理 |
+
+#### 3.8.3 办学荣誉管理
+
+管理学校门户首页展示的办学荣誉。
+
+**数据结构**：
+```typescript
+interface HonorItem {
+  id: string;
+  title: string;          // 荣誉名称
+  year?: string;          // 获奖年份
+  description?: string;   // 荣誉描述
+  icon?: string;          // 图标/徽章
+  sortOrder: number;      // 排序
+  isActive: boolean;      // 是否启用
+}
+```
+
+**典型荣誉**：
+- 全国文明校园
+- 全国艺术教育先进单位
+- 全国青少年校园足球特色学校
+- 福建省示范小学
+- 福建省义务教育管理标准化学校
+
+**API接口**：
+| API | 方法 | 功能 |
+|-----|------|------|
+| `/api/admin/portal/honors` | GET | 获取荣誉列表 |
+| `/api/admin/portal/honors` | POST | 创建荣誉 |
+| `/api/admin/portal/honors` | PUT | 更新荣誉 |
+| `/api/admin/portal/honors?id=xxx` | DELETE | 删除荣誉 |
+
+#### 3.8.4 办学成果管理
+
+管理学校门户首页展示的办学成果。
+
+**成果分类**：
+- 教学成果
+- 科研成果
+- 学生获奖
+- 教师获奖
+- 学校荣誉
+
+**数据结构**：
+```typescript
+interface AchievementItem {
+  id: string;
+  title: string;          // 成果标题
+  category: string;       // 成果分类
+  summary?: string;       // 成果摘要
+  content?: string;       // 详细内容
+  images?: string[];      // 图片列表
+  publishStatus: 'pending' | 'published' | 'unpublished';
+  publishedAt?: string;   // 发布时间
+  isPinned: boolean;      // 是否置顶
+  isActive: boolean;
+}
+```
+
+**API接口**：
+| API | 方法 | 功能 |
+|-----|------|------|
+| `/api/admin/portal/achievements` | GET | 获取成果列表 |
+| `/api/admin/portal/achievements` | POST | 创建成果 |
+| `/api/admin/portal/achievements` | PUT | 更新成果 |
+| `/api/admin/portal/achievements?id=xxx` | DELETE | 删除成果 |
+| `/api/admin/portal/achievements/categories` | GET/POST | 成果分类管理 |
+
+#### 3.8.5 公告新闻管理
+
+管理发布到学校门户首页的校园公告和新闻动态。
+
+**信息类型**：
+| 类型 | 说明 | 发布位置 |
+|------|------|----------|
+| announcement | 校园公告 | 学校门户公告栏 |
+| news | 新闻动态 | 学校门户新闻栏 |
+
+**公告分类**：
+- 重要通知
+- 活动预告
+- 规章制度
+- 招生信息
+- 放假通知
+
+**新闻分类**：
+- 校园新闻
+- 荣誉喜报
+- 教育教学
+- 媒体附小
+
+**数据结构**：
+```typescript
+interface Announcement {
+  id: string;
+  title: string;              // 标题
+  summary?: string;           // 摘要
+  content?: string;           // 正文内容
+  type: 'announcement' | 'news';  // 类型
+  category?: string;          // 分类
+  department?: string;        // 发布部门
+  coverImage?: string;        // 封面图
+  images?: string[];          // 图片列表
+  publishStatus: 'pending' | 'scheduled' | 'published' | 'unpublished';
+  publishedAt?: string;       // 发布时间
+  scheduledPublishAt?: string; // 定时发布时间
+  autoUnpublish?: boolean;    // 是否自动下架
+  autoUnpublishAt?: string;   // 自动下架时间
+  isPinned: boolean;          // 是否置顶
+  pinOrder?: number;          // 置顶顺序
+  isActive: boolean;
+}
+```
+
+**发布流程**：
+```
+创建草稿 → 选择类型/分类 → 编辑内容 → 上传封面/图片 → 提交审批 → 审批通过 → 发布到门户
+```
+
+**API接口**：
+| API | 方法 | 功能 |
+|-----|------|------|
+| `/api/admin/portal/announcements` | GET | 获取公告/新闻列表 |
+| `/api/admin/portal/announcements` | POST | 创建公告/新闻 |
+| `/api/admin/portal/announcements` | PUT | 更新公告/新闻 |
+| `/api/admin/portal/announcements?id=xxx` | DELETE | 删除公告/新闻 |
+
+#### 3.8.6 文件上传服务
+
+管理后台的文件上传功能，支持图片和视频上传到对象存储。
+
+**支持的文件类型**：
+- 图片：jpg, jpeg, png, gif, webp
+- 视频：mp4, mov, avi, mkv
+
+**API接口**：
+| API | 方法 | 功能 |
+|-----|------|------|
+| `/api/admin/upload` | POST | 上传文件 |
+| `/api/upload-video` | POST | 上传视频（专用） |
+| `/api/upload-video?prefix=xxx` | GET | 获取已上传文件列表 |
+| `/api/upload-video?key=xxx` | DELETE | 删除文件 |
+
+**上传流程**：
+1. 前端选择文件
+2. 调用上传API，携带文件和标题
+3. API将文件上传到S3兼容对象存储
+4. 返回文件URL和key
+5. 前端将URL保存到对应的数据表中
+
+#### 3.8.7 领导入口 (`/leadership`)
+
+领导层专用入口页面，提供快速导航到各业务系统。
+
+**功能模块**：
+- 领导身份识别
+- 快速入口卡片
+- 待办事项提醒
+- 消息通知入口
+
+#### 3.8.8 领导入口 (`/leadership`)
 
 领导层专用入口页面。
 
@@ -2578,6 +2818,6 @@ NODE_ENV=production
 
 ---
 
-**文档版本**: v1.0
+**文档版本**: v4.1
 **最后更新**: 2025-01-17
 **维护者**: 开发团队
