@@ -39,6 +39,7 @@ export default function MoralDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('messages');
   const [publishOpen, setPublishOpen] = useState(false);
+  const [selectedType, setSelectedType] = useState<'announcement' | 'news' | 'internal_notice'>('announcement');
   const [selectedInstance, setSelectedInstance] = useState<ApprovalInstance | null>(null);
   const [approvalOpen, setApprovalOpen] = useState(false);
 
@@ -292,7 +293,7 @@ export default function MoralDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-3">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => setPublishOpen(true)}>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => { setSelectedType('announcement'); setPublishOpen(true); }}>
                   <CardContent className="p-6 text-center">
                     <div className="p-3 rounded-full bg-pink-100 w-fit mx-auto mb-3">
                       <FileText className="h-6 w-6 text-pink-600" />
@@ -301,7 +302,7 @@ export default function MoralDashboard() {
                     <p className="text-sm text-gray-500 mt-1">发布到学校主页</p>
                   </CardContent>
                 </Card>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => setPublishOpen(true)}>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => { setSelectedType('news'); setPublishOpen(true); }}>
                   <CardContent className="p-6 text-center">
                     <div className="p-3 rounded-full bg-purple-100 w-fit mx-auto mb-3">
                       <FileText className="h-6 w-6 text-purple-600" />
@@ -310,7 +311,7 @@ export default function MoralDashboard() {
                     <p className="text-sm text-gray-500 mt-1">发布到学校主页</p>
                   </CardContent>
                 </Card>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => setPublishOpen(true)}>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => { setSelectedType('internal_notice'); setPublishOpen(true); }}>
                   <CardContent className="p-6 text-center">
                     <div className="p-3 rounded-full bg-green-100 w-fit mx-auto mb-3">
                       <Bell className="h-6 w-6 text-green-600" />
@@ -331,6 +332,7 @@ export default function MoralDashboard() {
         onOpenChange={setPublishOpen}
         onSubmit={handleSubmit}
         department="德育处"
+        defaultType={selectedType}
       />
 
       {/* 审批详情弹窗 */}

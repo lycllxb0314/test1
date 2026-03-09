@@ -136,6 +136,8 @@ export interface PublishNotificationProps {
   showApprovalFlow?: boolean;
   /** 通知对象类型限制 */
   recipientTypes?: ('all' | 'role' | 'class' | 'individual' | 'group')[];
+  /** 默认通知类型：announcement-校园公告, news-新闻动态, internal_notice-内部通知, parent_notice-家长通知 */
+  defaultType?: AnnouncementType;
 }
 
 interface RecipientConfig {
@@ -156,6 +158,7 @@ export function PublishNotificationDialog({
   mode = 'department',
   showApprovalFlow = true,
   recipientTypes = ['all', 'role', 'class', 'individual', 'group'],
+  defaultType,
 }: PublishNotificationProps) {
   const { user } = useAuth();
   const { allTeachers } = useTeachers();
@@ -165,12 +168,18 @@ export function PublishNotificationDialog({
   // === 教师模式：固定为家长通知 ===
   const isTeacherMode = mode === 'teacher';
 
+  // 确定初始类型：优先使用 defaultType，其次根据模式选择
+  const getInitialType = (): AnnouncementType => {
+    if (defaultType) return defaultType;
+    return isTeacherMode ? 'parent_notice' : 'announcement';
+  };
+
   // === 表单状态 ===
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
-  // 教师模式默认为 parent_notice，部门模式默认为 announcement
-  const [type, setType] = useState<AnnouncementType>(isTeacherMode ? 'parent_notice' : 'announcement');
+  // 使用计算出的初始类型
+  const [type, setType] = useState<AnnouncementType>(getInitialType());
   const [category, setCategory] = useState<AnnouncementCategory | NewsCategory | InternalNoticeCategory | ParentNoticeCategory | ''>('');
   const [mediaLevel, setMediaLevel] = useState<MediaLevel | ''>('');
   // 教师模式默认发送给本班家长
@@ -180,6 +189,13 @@ export function PublishNotificationDialog({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 当弹窗打开或 defaultType 变化时，更新类型
+  useEffect(() => {
+    if (open && defaultType) {
+      setType(defaultType);
+    }
+  }, [open, defaultType]);
 
   // === 图片和文件上传 ===
   const [images, setImages] = useState<string[]>([]);
