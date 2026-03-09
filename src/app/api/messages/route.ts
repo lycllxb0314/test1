@@ -237,8 +237,8 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       .select('id, title, content, type, priority, sender_id, sender_name, sender_avatar, recipient_id, is_read, is_archived, metadata, created_at, updated_at, read_at, archived_at, recipient_type, roles, class_ids, grades, user_ids, sender_role, sent_at, expires_at', { count: 'exact' });
 
     if (department) {
-      // 部门工作台：查询发给当前用户的消息 + 部门广播消息
-      // 使用 OR 条件：(recipient_id = userId) OR (recipient_type = 'department' AND metadata->>'target_department' = department)
+      // 部门工作台：查询发给当前用户的个人消息 + 部门广播消息
+      // 注意：部门广播消息不看 recipient_id，只看 target_department
       const deptMapping: Record<string, string> = {
         'academic': 'academic',
         'moral': 'moral',
@@ -246,11 +246,13 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       };
       const targetDept = deptMapping[department] || department;
       
-      // 使用 or 条件
-      query = query.or(`recipient_id.eq.${userId},and(recipient_type.eq.department,metadata->>target_department.eq.${targetDept})`);
+      // 查询条件：
+      // 1. 个人消息：recipient_id = userId AND recipient_type != 'department'
+      // 2. 部门广播：recipient_type = 'department' AND target_department = targetDept
+      query = query.or(`and(recipient_id.eq.${userId},recipient_type.neq.department),and(recipient_type.eq.department,metadata->>target_department.eq.${targetDept})`);
     } else {
-      // 个人消息中心：只查询发给当前用户的消息
-      query = query.eq('recipient_id', userId);
+      // 个人消息中心：只查询发给当前用户的消息（排除部门广播）
+      query = query.eq('recipient_id', userId).neq('recipient_type', 'department');
     }
 
     const { data: messages, error: msgError, count } = await query
