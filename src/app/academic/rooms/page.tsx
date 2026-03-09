@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,13 +27,13 @@ import {
   AlertTriangle,
   FileText,
   ArrowRight,
-  Settings,
   Monitor,
   FlaskConical,
   Presentation,
   Gamepad2,
   Wrench,
   Eye,
+  Loader2,
 } from 'lucide-react';
 import { Room, RoomType, RoomStatus, RoomBooking, BookingStatus, BookingPurpose } from '@/types';
 
@@ -55,288 +55,6 @@ const roomStatusMap: Record<RoomStatus, { label: string; color: string }> = {
   maintenance: { label: '维护中', color: 'text-red-600 bg-red-50' },
   locked: { label: '已锁定', color: 'text-gray-600 bg-gray-50' },
 };
-
-// 模拟教室数据
-const mockRooms: Room[] = [
-  {
-    id: 'room-001',
-    name: '2号楼教研室',
-    code: '2-301',
-    type: 'seminar_room',
-    building: '2号楼',
-    floor: 3,
-    location: '2号楼3层东侧',
-    capacity: 30,
-    area: 80,
-    facilities: {
-      projector: true,
-      computer: true,
-      microphone: false,
-      speaker: true,
-      whiteboard: true,
-      blackboard: false,
-      airConditioner: true,
-      wifi: true,
-      videoConference: false,
-      recording: false,
-    },
-    status: 'available',
-    managerId: 't001',
-    managerName: '张明华',
-    usageStats: {
-      totalBookings: 156,
-      thisMonth: 23,
-      lastUsedAt: '2024-03-15 16:00',
-    },
-    createdAt: '2023-09-01',
-    updatedAt: '2024-03-15',
-  },
-  {
-    id: 'room-002',
-    name: '4号楼教研室',
-    code: '4-201',
-    type: 'seminar_room',
-    building: '4号楼',
-    floor: 2,
-    location: '4号楼2层西侧',
-    capacity: 25,
-    area: 65,
-    facilities: {
-      projector: true,
-      computer: false,
-      microphone: false,
-      speaker: true,
-      whiteboard: true,
-      blackboard: true,
-      airConditioner: true,
-      wifi: true,
-      videoConference: false,
-      recording: false,
-    },
-    status: 'reserved',
-    managerId: 't002',
-    managerName: '李晓红',
-    usageStats: {
-      totalBookings: 98,
-      thisMonth: 15,
-      lastUsedAt: '2024-03-14 17:30',
-    },
-    createdAt: '2023-09-01',
-    updatedAt: '2024-03-14',
-  },
-  {
-    id: 'room-003',
-    name: '1号楼阶梯教室',
-    code: '1-101',
-    type: 'lecture_hall',
-    building: '1号楼',
-    floor: 1,
-    location: '1号楼1层大厅',
-    capacity: 200,
-    area: 350,
-    facilities: {
-      projector: true,
-      computer: true,
-      microphone: true,
-      speaker: true,
-      whiteboard: false,
-      blackboard: true,
-      airConditioner: true,
-      wifi: true,
-      videoConference: true,
-      recording: true,
-    },
-    status: 'available',
-    managerId: 't003',
-    managerName: '王建国',
-    usageStats: {
-      totalBookings: 245,
-      thisMonth: 32,
-      lastUsedAt: '2024-03-15 11:00',
-    },
-    createdAt: '2023-09-01',
-    updatedAt: '2024-03-15',
-  },
-  {
-    id: 'room-004',
-    name: '科学实验室',
-    code: '3-401',
-    type: 'lab',
-    building: '3号楼',
-    floor: 4,
-    location: '3号楼4层',
-    capacity: 50,
-    area: 150,
-    facilities: {
-      projector: true,
-      computer: true,
-      microphone: false,
-      speaker: true,
-      whiteboard: true,
-      blackboard: false,
-      airConditioner: true,
-      wifi: true,
-      videoConference: false,
-      recording: false,
-    },
-    extraFacilities: ['实验器材', '通风系统', '紧急喷淋'],
-    status: 'in_use',
-    managerId: 't004',
-    managerName: '赵明华',
-    usageStats: {
-      totalBookings: 180,
-      thisMonth: 28,
-      lastUsedAt: '2024-03-15 15:30',
-    },
-    createdAt: '2023-09-01',
-    updatedAt: '2024-03-15',
-  },
-  {
-    id: 'room-005',
-    name: '综合楼会议室',
-    code: 'ZH-501',
-    type: 'meeting_room',
-    building: '综合楼',
-    floor: 5,
-    location: '综合楼5层',
-    capacity: 40,
-    area: 100,
-    facilities: {
-      projector: true,
-      computer: true,
-      microphone: true,
-      speaker: true,
-      whiteboard: true,
-      blackboard: false,
-      airConditioner: true,
-      wifi: true,
-      videoConference: true,
-      recording: false,
-    },
-    status: 'maintenance',
-    managerId: 't005',
-    managerName: '陈雨婷',
-    usageStats: {
-      totalBookings: 120,
-      thisMonth: 8,
-      lastUsedAt: '2024-03-10 16:00',
-    },
-    createdAt: '2023-09-01',
-    updatedAt: '2024-03-10',
-  },
-  {
-    id: 'room-006',
-    name: '多媒体教室A',
-    code: 'M-101',
-    type: 'multimedia_room',
-    building: '教学楼',
-    floor: 1,
-    location: '教学楼1层南侧',
-    capacity: 60,
-    area: 120,
-    facilities: {
-      projector: true,
-      computer: true,
-      microphone: true,
-      speaker: true,
-      whiteboard: true,
-      blackboard: false,
-      airConditioner: true,
-      wifi: true,
-      videoConference: false,
-      recording: true,
-    },
-    status: 'available',
-    managerId: 't006',
-    managerName: '刘志强',
-    usageStats: {
-      totalBookings: 210,
-      thisMonth: 35,
-      lastUsedAt: '2024-03-15 14:00',
-    },
-    createdAt: '2023-09-01',
-    updatedAt: '2024-03-15',
-  },
-];
-
-// 模拟今日预约数据
-const mockTodayBookings: RoomBooking[] = [
-  {
-    id: 'b001',
-    roomId: 'room-001',
-    roomName: '2号楼教研室',
-    roomType: 'seminar_room',
-    building: '2号楼',
-    location: '2号楼3层东侧',
-    applicantId: 't001',
-    applicantName: '张明华',
-    applicantRole: 'subject_teacher',
-    department: '语文组',
-    purpose: 'meeting',
-    title: '语文教研组集体备课',
-    bookingDate: '2024-03-18',
-    startTime: '14:00',
-    endTime: '16:00',
-    duration: 120,
-    expectedAttendees: 15,
-    attendeeType: 'teacher',
-    status: 'approved',
-    approvalFlow: [],
-    currentStep: 1,
-    createdAt: '2024-03-15 10:30',
-    updatedAt: '2024-03-15 11:00',
-  },
-  {
-    id: 'b009',
-    roomId: 'room-003',
-    roomName: '1号楼阶梯教室',
-    roomType: 'lecture_hall',
-    building: '1号楼',
-    location: '1号楼1层大厅',
-    applicantId: 't002',
-    applicantName: '李晓红',
-    applicantRole: 'subject_teacher',
-    department: '数学组',
-    purpose: 'training',
-    title: '数学思维训练讲座',
-    bookingDate: '2024-03-18',
-    startTime: '09:00',
-    endTime: '11:00',
-    duration: 120,
-    expectedAttendees: 150,
-    attendeeType: 'student',
-    status: 'in_progress',
-    approvalFlow: [],
-    currentStep: 1,
-    createdAt: '2024-03-14 09:00',
-    updatedAt: '2024-03-14 10:00',
-  },
-  {
-    id: 'b010',
-    roomId: 'room-005',
-    roomName: '综合楼会议室',
-    roomType: 'meeting_room',
-    building: '综合楼',
-    location: '综合楼5层',
-    applicantId: 't003',
-    applicantName: '王建国',
-    applicantRole: 'subject_teacher',
-    department: '科学组',
-    purpose: 'meeting',
-    title: '科学组教研活动',
-    bookingDate: '2024-03-18',
-    startTime: '15:00',
-    endTime: '17:00',
-    duration: 120,
-    expectedAttendees: 10,
-    attendeeType: 'teacher',
-    status: 'approved',
-    approvalFlow: [],
-    currentStep: 1,
-    createdAt: '2024-03-15 14:00',
-    updatedAt: '2024-03-15 15:00',
-  },
-];
 
 // 预约状态映射
 const bookingStatusMap: Record<BookingStatus, { label: string; color: string; icon: any }> = {
@@ -360,36 +78,252 @@ const purposeMap: Record<BookingPurpose, { label: string; color: string }> = {
   other: { label: '其他', color: 'text-gray-600 bg-gray-50' },
 };
 
+// API响应类型
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+// 数据库记录类型（snake_case）
+interface RoomRecord {
+  id: string;
+  name: string;
+  code: string;
+  type: RoomType;
+  building: string;
+  floor: number | null;
+  location: string | null;
+  capacity: number | null;
+  area: number | null;
+  facilities: Record<string, boolean>;
+  extra_facilities: string[] | null;
+  status: RoomStatus;
+  manager_id: string | null;
+  manager_name: string | null;
+  department_id: string | null;
+  usage_stats: {
+    totalBookings: number;
+    thisMonth: number;
+    lastUsedAt?: string;
+  } | null;
+  images: string[] | null;
+  remark: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface BookingRecord {
+  id: string;
+  room_id: string;
+  room_name: string;
+  room_type: RoomType;
+  building: string;
+  location: string | null;
+  applicant_id: string;
+  applicant_name: string;
+  applicant_role: string;
+  department: string | null;
+  phone: string | null;
+  purpose: BookingPurpose;
+  purpose_detail: string | null;
+  title: string;
+  description: string | null;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  duration: number;
+  expected_attendees: number;
+  attendee_type: string | null;
+  required_facilities: string[] | null;
+  status: BookingStatus;
+  cleaning_required: boolean;
+  reject_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// 转换函数：数据库记录 -> 前端类型
+function transformRoom(record: RoomRecord): Room {
+  return {
+    id: record.id,
+    name: record.name,
+    code: record.code,
+    type: record.type,
+    building: record.building,
+    floor: record.floor ?? 0,
+    location: record.location || '',
+    capacity: record.capacity || 30,
+    area: record.area || undefined,
+    facilities: record.facilities as any,
+    extraFacilities: record.extra_facilities || undefined,
+    status: record.status,
+    managerId: record.manager_id || undefined,
+    managerName: record.manager_name || undefined,
+    departmentId: record.department_id || undefined,
+    usageStats: record.usage_stats || undefined,
+    images: record.images || undefined,
+    remark: record.remark || undefined,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function transformBooking(record: BookingRecord): RoomBooking {
+  return {
+    id: record.id,
+    roomId: record.room_id,
+    roomName: record.room_name,
+    roomType: record.room_type,
+    building: record.building,
+    location: record.location || '',
+    applicantId: record.applicant_id,
+    applicantName: record.applicant_name,
+    applicantRole: record.applicant_role as any,
+    department: record.department || undefined,
+    phone: record.phone || undefined,
+    purpose: record.purpose,
+    purposeDetail: record.purpose_detail || undefined,
+    title: record.title,
+    description: record.description || undefined,
+    bookingDate: record.booking_date,
+    startTime: record.start_time,
+    endTime: record.end_time,
+    duration: record.duration,
+    expectedAttendees: record.expected_attendees,
+    attendeeType: record.attendee_type as any,
+    requiredFacilities: record.required_facilities || undefined,
+    status: record.status,
+    cleaningRequired: record.cleaning_required,
+    rejectReason: record.reject_reason || undefined,
+    approvalFlow: [],
+    currentStep: 0,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
 export default function RoomsManagementPage() {
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [todayBookings, setTodayBookings] = useState<RoomBooking[]>([]);
+  const [stats, setStats] = useState({
+    totalRooms: 0,
+    available: 0,
+    inUse: 0,
+    reserved: 0,
+    maintenance: 0,
+    todayBookings: 0,
+    pendingApprovals: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [buildings, setBuildings] = useState<string[]>([]);
+  
+  // 筛选状态
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [buildingFilter, setBuildingFilter] = useState<string>('all');
 
-  // 统计数据
-  const stats = {
-    totalRooms: mockRooms.length,
-    available: mockRooms.filter(r => r.status === 'available').length,
-    inUse: mockRooms.filter(r => r.status === 'in_use').length,
-    reserved: mockRooms.filter(r => r.status === 'reserved').length,
-    maintenance: mockRooms.filter(r => r.status === 'maintenance').length,
-    todayBookings: mockTodayBookings.length,
-    pendingApprovals: 3, // 模拟待审批数量
-  };
+  // 获取统计数据
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/academic/rooms/stats?type=overview');
+      const data: ApiResponse<{
+        rooms: { total: number; available: number; in_use: number; reserved: number; maintenance: number };
+        bookings: { today: number; pending: number };
+      }> = await res.json();
+      
+      if (data.success && data.data) {
+        setStats({
+          totalRooms: data.data.rooms.total,
+          available: data.data.rooms.available,
+          inUse: data.data.rooms.in_use,
+          reserved: data.data.rooms.reserved,
+          maintenance: data.data.rooms.maintenance,
+          todayBookings: data.data.bookings.today,
+          pendingApprovals: data.data.bookings.pending,
+        });
+      }
+    } catch (err) {
+      console.error('获取统计数据失败:', err);
+    }
+  }, []);
 
-  // 获取所有楼栋
-  const buildings = [...new Set(mockRooms.map(r => r.building))];
+  // 获取教室列表
+  const fetchRooms = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (typeFilter !== 'all') params.set('type', typeFilter);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (buildingFilter !== 'all') params.set('building', buildingFilter);
+      if (searchTerm) params.set('search', searchTerm);
+      
+      const res = await fetch(`/api/academic/rooms?${params.toString()}`);
+      const data: ApiResponse<RoomRecord[]> = await res.json();
+      
+      if (data.success && data.data) {
+        const transformedRooms = data.data.map(transformRoom);
+        setRooms(transformedRooms);
+        
+        // 提取楼栋列表
+        const buildingSet = new Set(transformedRooms.map(r => r.building));
+        setBuildings(Array.from(buildingSet));
+      }
+    } catch (err) {
+      console.error('获取教室列表失败:', err);
+    }
+  }, [typeFilter, statusFilter, buildingFilter, searchTerm]);
 
-  // 过滤教室
-  const filteredRooms = mockRooms.filter(room => {
-    const matchSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  // 获取今日预约
+  const fetchTodayBookings = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch(`/api/academic/rooms/bookings?bookingDate=${today}`);
+      const data: ApiResponse<BookingRecord[]> = await res.json();
+      
+      if (data.success && data.data) {
+        setTodayBookings(data.data.map(transformBooking));
+      }
+    } catch (err) {
+      console.error('获取今日预约失败:', err);
+    }
+  }, []);
+
+  // 初始加载
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchStats(), fetchRooms(), fetchTodayBookings()]);
+      setLoading(false);
+    };
+    loadData();
+  }, [fetchStats, fetchRooms, fetchTodayBookings]);
+
+  // 筛选变化时重新获取
+  useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
+
+  // 过滤教室（前端额外筛选）
+  const filteredRooms = rooms.filter(room => {
+    const matchSearch = !searchTerm || 
+                        room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         room.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         room.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchType = typeFilter === 'all' || room.type === typeFilter;
-    const matchStatus = statusFilter === 'all' || room.status === statusFilter;
-    const matchBuilding = buildingFilter === 'all' || room.building === buildingFilter;
-    return matchSearch && matchType && matchStatus && matchBuilding;
+    return matchSearch;
   });
+
+  // 今日日期显示
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日 · 星期${['日', '一', '二', '三', '四', '五', '六'][today.getDay()]}`;
+
+  if (loading) {
+    return (
+      <div className="p-6 lg:p-8 flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-slate-50/50 via-white to-blue-50/30 min-h-screen">
@@ -630,16 +564,16 @@ export default function RoomsManagementPage() {
                     
                     {/* 设施标签 */}
                     <div className="flex flex-wrap gap-1">
-                      {room.facilities.projector && (
+                      {room.facilities?.projector && (
                         <Badge variant="outline" className="text-xs">投影</Badge>
                       )}
-                      {room.facilities.airConditioner && (
+                      {room.facilities?.airConditioner && (
                         <Badge variant="outline" className="text-xs">空调</Badge>
                       )}
-                      {room.facilities.videoConference && (
+                      {room.facilities?.videoConference && (
                         <Badge variant="outline" className="text-xs">视频会议</Badge>
                       )}
-                      {room.facilities.recording && (
+                      {room.facilities?.recording && (
                         <Badge variant="outline" className="text-xs">录播</Badge>
                       )}
                     </div>
@@ -672,16 +606,16 @@ export default function RoomsManagementPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">今日预约情况</CardTitle>
-                  <CardDescription>2024年3月18日 · 星期一</CardDescription>
+                  <CardDescription>{todayStr}</CardDescription>
                 </div>
                 <Badge className="bg-blue-100 text-blue-700">
-                  共 {mockTodayBookings.length} 条预约
+                  共 {todayBookings.length} 条预约
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockTodayBookings.map(booking => {
+                {todayBookings.map(booking => {
                   const StatusIcon = bookingStatusMap[booking.status].icon;
                   return (
                     <div 
@@ -730,7 +664,7 @@ export default function RoomsManagementPage() {
                   );
                 })}
 
-                {mockTodayBookings.length === 0 && (
+                {todayBookings.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <Calendar className="h-10 w-10 mx-auto mb-2 text-gray-300" />
                     <p>今日暂无预约</p>
