@@ -106,13 +106,15 @@ export default function RoomApprovalPage() {
     try {
       // 获取教室预约类型的待审批列表
       const res = await fetch('/api/approvals?type=pending&department=academic');
-      const data: ApiResponse<{ instances: ApprovalInstance[] }> = await res.json();
+      const data = await res.json();
       
       if (data.success && data.data) {
+        // API 返回的 data 直接是数组
+        const allApprovals = Array.isArray(data.data) ? data.data : [];
         // 过滤只显示教室预约类型
-        const roomBookingApprovals = (data.data as any).instances?.filter(
+        const roomBookingApprovals = allApprovals.filter(
           (inst: ApprovalInstance) => inst.businessType === 'room_booking'
-        ) || [];
+        );
         setApprovals(roomBookingApprovals);
       } else {
         setError(data.error || '获取审批列表失败');

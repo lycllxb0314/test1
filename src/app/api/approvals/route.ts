@@ -325,18 +325,22 @@ export async function GET(request: NextRequest) {
       for (const instance of roomBookingInstances || []) {
         // 部门过滤：只显示给教务处
         const businessDept = getBusinessDepartment(instance.business_type);
+        console.log(`[Approval API] Room booking instance: id=${instance.id}, businessDept=${businessDept}, currentDept=${department}`);
         if (department && businessDept !== department) {
+          console.log(`[Approval API] Skipping - department mismatch`);
           continue; // 跳过不属于当前部门的审批
         }
         
         // 获取当前节点的记录
-        const { data: nodeRecord } = await supabase
+        const { data: nodeRecord, error: nodeError } = await supabase
           .from('approval_node_records')
           .select('*')
           .eq('instance_id', instance.id)
           .eq('node_order', instance.current_node_order)
           .eq('status', 'pending')
           .single();
+
+        console.log(`[Approval API] Node record query: instance_id=${instance.id}, node_order=${instance.current_node_order}, result=${nodeRecord ? 'found' : 'not found'}, error=${nodeError?.message || 'none'}`);
 
         if (nodeRecord) {
           // 教室预约审批：教务处任何成员都可以审批
@@ -345,18 +349,24 @@ export async function GET(request: NextRequest) {
           const approvedBy = nodeRecord.approved_by || [];
           const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
           
+          console.log(`[Approval API] Node record found: approverIds=${JSON.stringify(approverIds)}, approvedUserIds=${JSON.stringify(approvedUserIds)}, currentUserId=${user.id}`);
+          
           // 如果审批人列表为空，说明任何部门成员都可以审批
           // 否则需要检查当前用户是否在审批人列表中
           if (approverIds.length === 0) {
             // 任何部门成员都可以审批，只要还没审批过
             if (!approvedUserIds.includes(user.id)) {
+              console.log(`[Approval API] Adding to pending - approver_ids is empty and user not approved yet`);
               pendingInstanceIds.push(instance.id);
             }
           } else if (approverIds.includes(user.id) && !approvedUserIds.includes(user.id)) {
+            console.log(`[Approval API] Adding to pending - user in approver_ids and not approved yet`);
             pendingInstanceIds.push(instance.id);
           }
         }
       }
+
+      console.log(`[Approval API] Total pendingInstanceIds: ${pendingInstanceIds.length}, ids=${JSON.stringify(pendingInstanceIds)}`);
 
       // 处理请假类型的审批（检查节点记录中的审批人UUID）
       // 注意：请假审批不在部门工作台显示，只有当 department 未传入时才处理
