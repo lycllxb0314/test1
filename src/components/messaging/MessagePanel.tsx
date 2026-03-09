@@ -117,6 +117,7 @@ const EVENT_ICONS: Record<MessageEvent, React.ElementType> = {
   system_announcement: Megaphone,
   maintenance_notice: Wrench,
   policy_update: FileText,
+  group_notice: Users,
   schedule_change: Calendar,
   exam_notice: FileText,
   grade_publish: BarChart,

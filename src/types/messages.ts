@@ -16,6 +16,8 @@ export type MessageEvent =
   | 'system_announcement'      // 系统公告
   | 'maintenance_notice'       // 维护通知
   | 'policy_update'           // 政策更新
+  // === 群组通知 ===
+  | 'group_notice'            // 群组通知（根据 target_department 分发）
   // === 教务通知 ===
   | 'schedule_change'          // 调课通知
   | 'exam_notice'             // 考试通知
@@ -186,6 +188,15 @@ export const MESSAGE_EVENT_CONFIGS: Record<MessageEvent, MessageEventConfig> = {
     defaultPriority: 'normal',
     icon: 'FileText',
     color: 'text-blue-600 bg-blue-50',
+  },
+  // === 群组通知 ===
+  group_notice: {
+    event: 'group_notice',
+    name: '群组通知',
+    description: '部门群组内部通知',
+    defaultPriority: 'normal',
+    icon: 'Users',
+    color: 'text-cyan-600 bg-cyan-50',
   },
   // === 教务通知 ===
   schedule_change: {

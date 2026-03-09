@@ -44,6 +44,12 @@ function mapTypeToEvent(dbType: string): MessageEvent {
     safety: 'safety_alert',
     message: 'personal_message',
     reminder: 'task_reminder',
+    // 群组通知类型
+    group_notice_principal: 'system_announcement', // 校长室通知映射为系统公告（全员可见）
+    group_notice_academic: 'group_notice', // 教务处群组通知
+    group_notice_moral: 'group_notice', // 德育处群组通知
+    group_notice_general: 'group_notice', // 总务处群组通知
+    internal_notice: 'personal_message', // 内部通知默认为个人消息
   };
   
   return typeMap[dbType] || 'personal_message';
@@ -52,8 +58,8 @@ function mapTypeToEvent(dbType: string): MessageEvent {
 // 消息分类：部门通知 / 业务通知 / 个人通知
 type MessageScope = 'department' | 'business' | 'personal';
 
-// 根据事件类型确定消息分类
-function getMessageScope(event: MessageEvent): MessageScope {
+// 根据事件类型和元数据确定消息分类
+function getMessageScope(event: MessageEvent, metadata?: Record<string, unknown>): MessageScope {
   // 部门通知：显示在所有部门工作台
   const departmentEvents: MessageEvent[] = [
     'system_announcement',
@@ -91,11 +97,17 @@ function getMessageScope(event: MessageEvent): MessageScope {
   
   if (departmentEvents.includes(event)) return 'department';
   if (businessEvents.includes(event)) return 'business';
+  
+  // 群组通知：根据 target_department 判断作用域
+  if (event === 'group_notice' && metadata?.target_department) {
+    return 'business'; // 群组通知作为业务通知处理
+  }
+  
   return 'personal';
 }
 
-// 根据事件类型获取相关部门
-function getRelevantDepartments(event: MessageEvent): string[] {
+// 根据事件类型和元数据获取相关部门
+function getRelevantDepartments(event: MessageEvent, metadata?: Record<string, unknown>): string[] {
   // 教务相关事件
   const academicEvents: MessageEvent[] = ['schedule_change', 'exam_notice', 'grade_publish', 'homework_assign'];
   // 德育相关事件
@@ -106,6 +118,13 @@ function getRelevantDepartments(event: MessageEvent): string[] {
   if (academicEvents.includes(event)) return ['academic'];
   if (moralEvents.includes(event)) return ['moral'];
   if (generalEvents.includes(event)) return ['general'];
+  
+  // 群组通知：从 metadata 中获取目标部门
+  if (event === 'group_notice' && metadata?.target_department) {
+    const targetDept = metadata.target_department as string;
+    return [targetDept];
+  }
+  
   return []; // 部门通知和个人通知返回空
 }
 
@@ -310,8 +329,8 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     // 部门工作台过滤逻辑
     if (department) {
       filteredMessages = filteredMessages.filter(m => {
-        const scope = getMessageScope(m.event);
-        const relevantDepts = getRelevantDepartments(m.event);
+        const scope = getMessageScope(m.event, m.metadata);
+        const relevantDepts = getRelevantDepartments(m.event, m.metadata);
         
         // 部门通知：显示在所有部门工作台
         if (scope === 'department') return true;

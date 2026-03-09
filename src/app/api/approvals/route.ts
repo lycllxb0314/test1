@@ -863,6 +863,8 @@ async function sendApprovalNotification(
  * - class: 按班级通知（通知班级的家长）
  * - individual: 指定个人
  * - group: 按部门群组通知
+ *   - 校长室(principal_office): 全员可见，显示在所有部门工作台
+ *   - 其他群组: 只推送到对应部门工作台的部门通知
  */
 async function sendInternalNotification(
   supabase: ReturnType<typeof getSupabaseClient>,
@@ -875,6 +877,91 @@ async function sendInternalNotification(
 ) {
   if (!recipients) return;
 
+  // 群组通知特殊处理：根据群组类型决定分发方式
+  if (recipients.type === 'group' && recipients.groupIds && recipients.groupIds.length > 0) {
+    // 校长室群组：全员通知（显示在所有部门工作台）
+    const principalGroupIds = recipients.groupIds.filter(id => id === 'principal_office');
+    // 其他群组：推送到对应部门工作台
+    const otherGroupIds = recipients.groupIds.filter(id => id !== 'principal_office');
+
+    // 处理校长室通知 - 全员发送
+    if (principalGroupIds.length > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id');
+      const allUserIds = users?.map((u: any) => u.id) || [];
+      
+      if (allUserIds.length > 0) {
+        // 创建全员通知消息（department 作用域）
+        const messages = allUserIds.map((userId: string) => ({
+          id: crypto.randomUUID(),
+          title: `【校长室通知】${title}`,
+          content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+          type: 'group_notice_principal',
+          priority: 'normal',
+          sender_id: authorId,
+          sender_name: authorName,
+          recipient_id: userId,
+          recipient_type: 'all',
+          is_read: false,
+          metadata: { 
+            announcement_id: announcementId,
+            group_type: 'principal_office',
+          },
+        }));
+        await supabase.from('messages').insert(messages);
+      }
+    }
+
+    // 处理其他群组通知 - 推送到对应部门工作台
+    for (const groupId of otherGroupIds) {
+      // 根据群组类型确定目标部门
+      const targetDepartment = getGroupTargetDepartment(groupId);
+      if (!targetDepartment) continue;
+
+      // 获取群组成员
+      const { data: members } = await supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_type', groupId);
+      
+      const employeeIds = members?.map((m: any) => m.user_id).filter(Boolean) || [];
+      
+      if (employeeIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id')
+          .in('employee_id', employeeIds);
+        const userIds = users?.map((u: any) => u.id) || [];
+        
+        if (userIds.length > 0) {
+          // 创建部门通知消息
+          const messages = userIds.map((userId: string) => ({
+            id: crypto.randomUUID(),
+            title: `【内部通知】${title}`,
+            content: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+            type: `group_notice_${targetDepartment}`,
+            priority: 'normal',
+            sender_id: authorId,
+            sender_name: authorName,
+            recipient_id: userId,
+            recipient_type: 'group',
+            is_read: false,
+            metadata: { 
+              announcement_id: announcementId,
+              group_type: groupId,
+              target_department: targetDepartment,
+            },
+          }));
+          await supabase.from('messages').insert(messages);
+        }
+      }
+    }
+    
+    return;
+  }
+
+  // 非群组通知的常规处理
   let userIds: string[] = [];
 
   if (recipients.type === 'all') {
@@ -906,7 +993,6 @@ async function sendInternalNotification(
     
   } else if (recipients.type === 'class' && recipients.classIds) {
     // 按班级发送：通知该班级学生的家长
-    // 1. 获取班级学生的家长 account_id
     const { data: parents } = await supabase
       .from('parents')
       .select('account_id')
@@ -917,7 +1003,6 @@ async function sendInternalNotification(
     const accountIds = parents?.map((p: any) => p.account_id).filter(Boolean) || [];
     
     if (accountIds.length > 0) {
-      // 2. 通过 account_id 关联 users 表获取用户 UUID
       const { data: users } = await supabase
         .from('users')
         .select('id')
@@ -928,24 +1013,6 @@ async function sendInternalNotification(
   } else if (recipients.type === 'individual' && recipients.userIds) {
     // 发送给指定用户（直接使用用户ID）
     userIds = recipients.userIds;
-    
-  } else if (recipients.type === 'group' && recipients.groupIds) {
-    // 按群组发送 - group_members.user_id 存的是工号，需要关联 users 表获取 UUID
-    const { data: members } = await supabase
-      .from('group_members')
-      .select('user_id')
-      .in('group_id', recipients.groupIds);
-    
-    const employeeIds = members?.map((m: any) => m.user_id).filter(Boolean) || [];
-    
-    if (employeeIds.length > 0) {
-      // 通过工号获取用户 UUID
-      const { data: users } = await supabase
-        .from('users')
-        .select('id')
-        .in('employee_id', employeeIds);
-      userIds = users?.map((u: any) => u.id) || [];
-    }
   }
 
   // 去重
@@ -969,6 +1036,18 @@ async function sendInternalNotification(
   }));
 
   await supabase.from('messages').insert(messages);
+}
+
+/**
+ * 根据群组类型获取目标部门
+ */
+function getGroupTargetDepartment(groupType: string): string | null {
+  const mapping: Record<string, string> = {
+    'academic_office': 'academic',
+    'moral_office': 'moral',
+    'general_office': 'general',
+  };
+  return mapping[groupType] || null;
 }
 
 /**

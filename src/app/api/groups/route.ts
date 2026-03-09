@@ -33,13 +33,13 @@ export const GET = protectedRoute(async (
           .select('*', { count: 'exact', head: true })
           .eq('group_type', type);
         
-        // 获取群组管理员（部门负责人）
+        // 获取群组管理员（部门负责人）- 使用 maybeSingle 避免没有管理员时报错
         const { data: director } = await supabase
           .from('group_members')
           .select('user_id, users!inner(name)')
           .eq('group_type', type)
           .eq('is_admin', true)
-          .single();
+          .maybeSingle();
         
         const directorData = director as { user_id: string; users: { name: string } } | null;
         

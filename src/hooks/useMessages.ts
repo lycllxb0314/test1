@@ -49,6 +49,7 @@ export function getMessageEventLabel(event: MessageEvent): string {
     system_announcement: '系统公告',
     maintenance_notice: '维护通知',
     policy_update: '政策更新',
+    group_notice: '群组通知',
     schedule_change: '调课通知',
     exam_notice: '考试通知',
     grade_publish: '成绩发布',
