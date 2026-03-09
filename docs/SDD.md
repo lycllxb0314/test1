@@ -890,6 +890,188 @@ type TimeSlot =
 | `/api/teachers/trainings` | GET/POST | 培训记录 |
 | `/api/teachers/achievements` | GET/POST | 教学成果 |
 
+#### 3.2.6 考试管理 (`/academic/exams`)
+
+**功能模块**：
+- 考试列表
+- 新增考试
+- 考试详情
+- 编辑考试
+
+**考试类型**：
+- 期中考试
+- 期末考试
+- 单元测试
+- 模拟考试
+
+**考试信息字段**：
+```typescript
+interface Exam {
+  id: string;
+  name: string;           // 考试名称
+  type: ExamType;         // 考试类型
+  startDate: string;      // 开始日期
+  endDate: string;        // 结束日期
+  grades: number[];       // 参考年级
+  subjects: string[];     // 考试科目
+  status: 'planning' | 'ongoing' | 'grading' | 'completed';
+}
+```
+
+**页面路径**：
+| 路径 | 功能 |
+|------|------|
+| `/academic/exams` | 考试列表 |
+| `/academic/exams/new` | 新增考试 |
+| `/academic/exams/[id]` | 考试详情 |
+| `/academic/exams/[id]/edit` | 编辑考试 |
+
+#### 3.2.7 考勤管理 (`/academic/attendance`)
+
+**功能模块**：
+- 教师考勤记录
+- 出勤统计分析
+- 请假统计
+
+**考勤状态**：
+- 在岗
+- 请假
+- 外出
+- 迟到
+- 早退
+
+#### 3.2.8 新生注册 (`/academic/enrollment`)
+
+**功能模块**：
+- 新生申请列表
+- 审核申请
+- 批量审核
+- 同步到学生库
+
+**申请状态流转**：
+```
+待审核(pending) → 审核中(reviewing) → 已通过(approved) → 已同步(synced)
+                                    ↘ 已拒绝(rejected)
+```
+
+**新生申请信息**：
+```typescript
+interface NewStudentApplication {
+  // 基本信息
+  studentName: string;
+  gender: 'male' | 'female';
+  birthDate: string;
+  idCard?: string;
+  ethnicity?: string;
+  // 申请信息
+  applyGrade: number;
+  applyClassId?: string;
+  // 家庭信息
+  familyType?: '核心家庭' | '单亲家庭' | '重组家庭' | '隔代家庭' | '其他';
+  parents: Parent[];
+  // 联系信息
+  homeAddress: string;
+  phone?: string;
+  // 学生类型
+  studentType: '普通' | '随迁子女' | '留守儿童' | '残疾学生' | '低保家庭';
+  // 状态
+  status: ApplicationStatus;
+}
+```
+
+**API接口**：
+| API | 方法 | 功能 |
+|-----|------|------|
+| `/api/enrollment/applications` | GET | 新生申请列表 |
+| `/api/enrollment/applications/[id]` | GET | 申请详情 |
+| `/api/enrollment/applications/[id]/approve` | POST | 通过申请 |
+| `/api/enrollment/applications/[id]/reject` | POST | 拒绝申请 |
+| `/api/enrollment/batch-approve` | POST | 批量通过 |
+| `/api/enrollment/sync/[id]` | POST | 同步到学生库 |
+
+#### 3.2.9 教研活动 (`/academic/research`)
+
+**功能模块**：
+- 集体备课
+- 听课评课
+- 教研活动记录
+
+**活动类型**：
+- 集体备课
+- 公开课
+- 示范课
+- 观摩课
+- 教学研讨
+
+**状态**：功能开发中，使用 `MaintenancePage` 组件展示维护页面。
+
+#### 3.2.10 质量分析 (`/academic/analysis`)
+
+**功能模块**：
+- 教学质量分析
+- 成绩趋势分析
+- 教师教学评价
+
+**分析维度**：
+- 班级维度
+- 年级维度
+- 学科维度
+- 教师维度
+
+**状态**：功能开发中，使用 `MaintenancePage` 组件展示维护页面。
+
+#### 3.2.11 工作量统计 (`/academic/workload`)
+
+**功能模块**：
+- 教师工作量汇总
+- 课时统计
+- 兼职工作量
+- 月度/学期报表
+
+**工作量类型**：
+- 课时工作量
+- 班主任工作量
+- 年段长工作量
+- 教研组长工作量
+- 其他兼职工作量
+
+**API接口**：
+| API | 方法 | 功能 |
+|-----|------|------|
+| `/api/teachers/workload` | GET | 教师工作量统计 |
+| `/api/workload/summary` | GET | 工作量汇总 |
+
+#### 3.2.12 学校课表 (`/academic/school-schedule`)
+
+**功能模块**：
+- 查看全校课表
+- 按年级/班级筛选
+- 课表打印导出
+
+**视图模式**：
+- 班级课表
+- 教师课表
+- 年级课表
+
+#### 3.2.13 家长管理 (`/academic/parents`)
+
+**功能模块**：
+- 家长列表
+- 家长详情
+- 家长CRUD
+- 关联学生
+
+**家长详情包含**：
+- 基本信息
+- 关联学生
+- 联系记录
+
+**页面路径**：
+| 路径 | 功能 |
+|------|------|
+| `/academic/parents` | 家长列表 |
+| `/academic/parents/[id]` | 家长详情 |
+
 ### 3.3 德育管理系统
 
 #### 3.3.1 德育处工作台 (`/moral`)
@@ -1052,28 +1234,77 @@ export type AccessDeviceType =
 #### 3.5.2 请假管理 (`/teacher/leave`, `/teacher/leave-apply`)
 
 **请假类型**：
-- 病假 (sick)
-- 事假 (personal)
-- 公假 (official)
-- 产假 (maternity)
-- 婚假 (marriage)
-- 丧假 (funeral)
+| 类型 | 是否需要附件 | 说明 |
+|------|-------------|------|
+| 病假 | 是 | 需上传医院证明（诊断证明、病假条） |
+| 事假 | 否 | 因私事请假 |
+| 公假 | 是 | 需上传公派任务通知 |
+| 婚假 | 是 | 需上传结婚证 |
+| 产假 | 是 | 需上传医院产检证明或预产期证明 |
+| 丧假 | 否 | 直系亲属去世 |
+
+**请假申请表单字段**：
+```typescript
+interface LeaveRequestForm {
+  type: LeaveType;           // 请假类型
+  startDate: string;         // 开始日期
+  endDate: string;           // 结束日期
+  duration: number;          // 时长（天数）
+  reason: string;            // 请假原因
+  attachments: Attachment[]; // 附件（病假/公假/婚假/产假必填）
+  needAdjustment: boolean;   // 是否需要调课
+  affectedSlots: AffectedSlot[]; // 受影响的课程时段
+  approverSelection: ApproverSelection[]; // 审批人选择
+  signType: SignType;        // 签批方式：会签(countersign)/或签(parallel)
+}
+```
 
 **审批流程**：
 ```
-┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-│ 教师提交  │───▶│ 年段长审批│───▶│ 教务处备案│───▶│ 调课处理  │
-│ 请假申请  │    │          │    │          │    │ (如需)    │
-└──────────┘    └──────────┘    └──────────┘    └──────────┘
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│  教师提交     │───▶│  选定领导审批 │───▶│  审批通过后   │───▶│  年段长安排   │
+│  请假申请     │    │  (会签/或签)  │    │  创建调课任务 │    │  调课(如需)   │
+└──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
+       │                   │                   │                   │
+       ▼                   ▼                   ▼                   ▼
+  选择审批人：         会签：所有人同意     无需调课：           代课(substitute)
+  - 校长               或签：任一人同意     流程结束             调换(swap)
+  - 书记                                                          取消(cancel)
+  - 教学副校长                                                     补课(makeup)
+  - 德育副校长
+  - 总务副校长
+```
+
+**审批人选择机制**：
+- 教师在提交请假申请时，需从校长室领导中选择审批人
+- 可选审批人角色：校长(principal)、书记(secretary)、教学副校长(academic_vice_principal)、德育副校长(moral_vice_principal)、总务副校长(general_vice_principal)
+- 支持多选：可选择多位领导同时审批
+- 签批方式：
+  - **会签(countersign)**：所有选定的审批人都需要同意
+  - **或签(parallel)**：任一审批人同意即可
+
+**流程状态追踪**：
+```typescript
+// LeaveFlowTracker 组件显示5个步骤
+const FLOW_STEPS = [
+  { key: 'submitted', title: '提交申请', description: '填写请假信息并提交' },
+  { key: 'approving', title: '审批中', description: '等待审批人审核' },
+  { key: 'approved', title: '审批通过', description: '审批人已批准' },
+  { key: 'adjusting', title: '调课安排', description: '年段长安排课程调整' },
+  { key: 'completed', title: '流程完成', description: '数据已同步' },
+];
 ```
 
 **API接口**：
 | API | 方法 | 功能 |
 |-----|------|------|
 | `/api/leave-requests-v2` | GET/POST | 请假申请列表/创建 |
-| `/api/leave-requests-v2/[id]/approve` | POST | 审批请假 |
-| `/api/leave-requests-v2/[id]/cancel` | POST | 取消请假 |
+| `/api/leave-requests-v2?my=true` | GET | 获取我的请假记录 |
+| `/api/leave-requests-v2/[id]/approve` | POST | 审批请假（通过/驳回） |
+| `/api/leave-requests-v2/[id]/cancel` | POST | 取消请假（撤销） |
 | `/api/leave-requests-v2/pending` | GET | 待审批列表 |
+| `/api/users/approvers` | GET | 获取可选审批人列表 |
+| `/api/schedule/weekly` | GET | 获取本周课表（用于选择受影响课程） |
 
 #### 3.5.3 调课管理 (`/teacher/adjust`)
 
