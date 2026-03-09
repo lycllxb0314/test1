@@ -232,11 +232,21 @@ export async function GET(request: NextRequest) {
       }));
 
       // 6. 合并并按时间排序
-      const allInstances = [...instances, ...directInstances]
+      let allInstances = [...instances, ...directInstances]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+      // 部门过滤
+      if (department) {
+        allInstances = allInstances.filter(instance => {
+          const businessDept = getBusinessDepartment(instance.businessType, instance.applicantDepartment);
+          // 部门通知类型的过滤
+          if (businessDept === null) return false; // 个人审批不显示
+          return businessDept === department;
+        });
+      }
+
       // 7. 分页
-      const totalCount = (approvalCount || 0) + (directCount || 0);
+      const totalCount = allInstances.length;
       const paginatedInstances = allInstances.slice(offset, offset + pageSize);
 
       return NextResponse.json({
@@ -378,7 +388,25 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      query = query.in('id', processedInstanceIds.length > 0 ? processedInstanceIds : ['00000000-0000-0000-0000-000000000000']);
+      // 部门过滤：获取实例信息并过滤
+      if (department && processedInstanceIds.length > 0) {
+        const { data: instancesForFilter } = await supabase
+          .from('approval_instances')
+          .select('id, business_type, applicant_department')
+          .in('id', processedInstanceIds);
+        
+        const filteredIds = (instancesForFilter || [])
+          .filter((inst: any) => {
+            const businessDept = getBusinessDepartment(inst.business_type, inst.applicant_department);
+            if (businessDept === null) return false;
+            return businessDept === department;
+          })
+          .map((inst: any) => inst.id);
+        
+        query = query.in('id', filteredIds.length > 0 ? filteredIds : ['00000000-0000-0000-0000-000000000000']);
+      } else {
+        query = query.in('id', processedInstanceIds.length > 0 ? processedInstanceIds : ['00000000-0000-0000-0000-000000000000']);
+      }
     }
 
     if (status) {

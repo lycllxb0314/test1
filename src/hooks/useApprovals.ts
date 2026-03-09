@@ -281,10 +281,12 @@ export function useApprovals(initialType: ApprovalListType = 'pending', departme
   const refreshStatistics = useCallback(() => {
     const doRefresh = async () => {
       try {
+        // 构建 URL，包含 department 参数
+        const deptParam = department ? `&department=${department}` : '';
         const [pendingRes, processedRes, myRes] = await Promise.all([
-          fetch(`/api/approvals?type=pending&pageSize=1`),
-          fetch(`/api/approvals?type=processed&pageSize=1`),
-          fetch(`/api/approvals?type=my&pageSize=1`),
+          fetch(`/api/approvals?type=pending&pageSize=1${deptParam}`),
+          fetch(`/api/approvals?type=processed&pageSize=1${deptParam}`),
+          fetch(`/api/approvals?type=my&pageSize=1${deptParam}`),
         ]);
 
         const [pending, processed, my] = await Promise.all([
@@ -304,7 +306,7 @@ export function useApprovals(initialType: ApprovalListType = 'pending', departme
       }
     };
     doRefresh();
-  }, []);
+  }, [department]);
 
   // === 分页操作 ===
   const goToPage = useCallback((newPage: number) => {

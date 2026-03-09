@@ -325,23 +325,37 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     }
 
     // 计算统计数据
+    // 注意：部门工作台的统计只统计部门相关的消息，不包含个人消息
+    const statsSource = department ? filteredMessages : userMessages;
     const statistics: MessageStatistics = {
-      total: userMessages.length,
-      unread: userMessages.filter(m => m.status === 'unread').length,
-      read: userMessages.filter(m => m.status === 'read').length,
-      archived: userMessages.filter(m => m.status === 'archived').length,
+      total: statsSource.length,
+      unread: statsSource.filter(m => m.status === 'unread').length,
+      read: statsSource.filter(m => m.status === 'read').length,
+      archived: statsSource.filter(m => m.status === 'archived').length,
       byEvent: {} as Record<MessageEvent, number>,
       byPriority: {} as Record<MessagePriority, number>,
     };
 
+    // 部门工作台需要基于过滤后的消息进行分页
+    const finalTotal = department ? filteredMessages.length : (count || 0);
+    const totalPages = Math.max(1, Math.ceil(finalTotal / pageSize));
+    
+    // 部门工作台需要在内存中进行分页
+    let paginatedMessages = filteredMessages;
+    if (department) {
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      paginatedMessages = filteredMessages.slice(start, end);
+    }
+
     return NextResponse.json({
       success: true,
-      data: filteredMessages,
+      data: paginatedMessages,
       pagination: {
         page,
         pageSize,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
+        total: finalTotal,
+        totalPages,
       },
       statistics,
     });

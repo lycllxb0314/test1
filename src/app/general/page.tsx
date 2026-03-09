@@ -3,10 +3,10 @@
 /**
  * 总务处工作台
  * 
- * 主要功能：
- * - 消息面板：消息通知、任务提醒
- * - 发布中心：发布总务相关公告/新闻（需审批）
- * - 审批中心：处理待审批内容（如总务主任）
+ * 部门工作台特点：
+ * - 部门通知：接收校长室等上级部门的通知
+ * - 待办事项：本部门需要处理的审批和任务
+ * - 业务概况：总务相关业务数据统计
  */
 
 import React, { useState, useEffect } from 'react';
@@ -29,6 +29,10 @@ import {
   Clock,
   FileText,
   Plus,
+  AlertTriangle,
+  Shield,
+  AlertCircle,
+  Package,
 } from 'lucide-react';
 
 export default function GeneralDashboard() {
@@ -132,30 +136,18 @@ export default function GeneralDashboard() {
         </div>
       </div>
 
-      {/* 统计卡片 */}
-      <div className="grid gap-4 md:grid-cols-5">
+      {/* 部门工作台统计卡片 - 部门视角 */}
+      <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">未读消息</p>
+                <p className="text-sm text-gray-500">部门通知</p>
                 <p className="text-2xl font-bold text-orange-600">{statistics.unread}</p>
+                <p className="text-xs text-gray-400 mt-1">未读通知</p>
               </div>
               <div className="p-2 rounded-lg bg-orange-100">
                 <Bell className="h-5 w-5 text-orange-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">总消息数</p>
-                <p className="text-2xl font-bold text-blue-600">{statistics.total}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-blue-100">
-                <Bell className="h-5 w-5 text-blue-600" />
               </div>
             </div>
           </CardContent>
@@ -164,11 +156,12 @@ export default function GeneralDashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">待审批</p>
+                <p className="text-sm text-gray-500">待办事项</p>
                 <p className="text-2xl font-bold text-red-600">{approvalStats.pending}</p>
+                <p className="text-xs text-gray-400 mt-1">需处理审批</p>
               </div>
               <div className="p-2 rounded-lg bg-red-100">
-                <CheckCircle className="h-5 w-5 text-red-600" />
+                <AlertCircle className="h-5 w-5 text-red-600" />
               </div>
             </div>
           </CardContent>
@@ -177,11 +170,12 @@ export default function GeneralDashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">已处理</p>
-                <p className="text-2xl font-bold text-green-600">{approvalStats.processed}</p>
+                <p className="text-sm text-gray-500">报修工单</p>
+                <p className="text-2xl font-bold text-green-600">0</p>
+                <p className="text-xs text-gray-400 mt-1">待处理</p>
               </div>
               <div className="p-2 rounded-lg bg-green-100">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+                <Wrench className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardContent>
@@ -190,172 +184,165 @@ export default function GeneralDashboard() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">我发起</p>
-                <p className="text-2xl font-bold text-purple-600">{approvalStats.my}</p>
+                <p className="text-sm text-gray-500">安全检查</p>
+                <p className="text-2xl font-bold text-blue-600">0</p>
+                <p className="text-xs text-gray-400 mt-1">待完成</p>
               </div>
-              <div className="p-2 rounded-lg bg-purple-100">
-                <FileText className="h-5 w-5 text-purple-600" />
+              <div className="p-2 rounded-lg bg-blue-100">
+                <Shield className="h-5 w-5 text-blue-600" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 发布按钮 */}
-      <div className="flex justify-end">
-        <Button onClick={() => setPublishOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          发布公告/新闻
-        </Button>
-      </div>
-
-      {/* 主要内容区域 */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+      {/* Tab 切换 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-white border">
           <TabsTrigger value="messages" className="gap-2">
             <Bell className="h-4 w-4" />
-            消息中心
+            部门通知
           </TabsTrigger>
           <TabsTrigger value="approvals" className="gap-2">
             <CheckCircle className="h-4 w-4" />
-            审批中心
-            {approvalStats.pending > 0 && (
-              <Badge className="ml-1 bg-red-500 text-white text-xs">
-                {approvalStats.pending}
-              </Badge>
-            )}
+            待办事项
+          </TabsTrigger>
+          <TabsTrigger value="publish" className="gap-2">
+            <FileText className="h-4 w-4" />
+            发布通知
           </TabsTrigger>
         </TabsList>
 
-        {/* 消息面板 */}
-        <TabsContent value="messages" className="mt-4">
-          <MessagePanel
-            messages={messages}
-            loading={messagesLoading}
-            error={messagesError}
-            unreadCount={statistics.unread}
-            statistics={statistics}
-            pagination={{
-              page,
-              pageSize,
-              total,
-              totalPages,
-            }}
-            onRefresh={refetch}
-            onMarkAsRead={markAsRead}
-            onMarkAsUnread={markAsUnread}
-            onArchive={archiveMessage}
-            onDelete={deleteMessage}
-            onMarkAllAsRead={markAllAsRead}
-            onPageChange={goToPage}
-          />
+        {/* 部门通知 */}
+        <TabsContent value="messages">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg">部门通知</CardTitle>
+              <CardDescription>
+                来自校长室等上级部门的通知，以及总务相关的业务通知
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <MessagePanel
+                messages={messages}
+                loading={messagesLoading}
+                error={messagesError}
+                unreadCount={statistics.unread}
+                statistics={{ total: statistics.total, unread: statistics.unread }}
+                pagination={{ page, pageSize, total, totalPages }}
+                onRefresh={refetch}
+                onMarkAsRead={markAsRead}
+                onMarkAsUnread={markAsUnread}
+                onArchive={archiveMessage}
+                onDelete={deleteMessage}
+                onMarkAllAsRead={markAllAsRead}
+                onPageChange={goToPage}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* 审批中心 */}
-        <TabsContent value="approvals" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* 待审批列表 */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>待审批</CardTitle>
-                      <CardDescription>需要您审批的公告/新闻</CardDescription>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => fetchApprovals('pending')}>
-                      刷新
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {approvalsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </div>
-                  ) : approvals.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>暂无待审批内容</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {approvals.map((instance) => (
-                        <ApprovalCard
-                          key={instance.id}
-                          instance={instance}
-                          currentUserId={user?.id || ''}
-                          onClick={() => handleOpenApproval(instance)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+        {/* 待办事项 */}
+        <TabsContent value="approvals">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">待办事项</CardTitle>
+                  <CardDescription>
+                    总务相关审批事项，如报修申请、资产采购等
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {approvalsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                </div>
+              ) : approvals.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p>暂无待办事项</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {approvals.map((approval) => (
+                    <ApprovalCard
+                      key={approval.id}
+                      instance={approval}
+                      currentUserId={user?.id || ''}
+                      onClick={() => handleOpenApproval(approval)}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            {/* 快捷操作 */}
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">快捷操作</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start gap-2"
-                    onClick={() => fetchApprovals('processed')}
-                  >
-                    <Clock className="h-4 w-4" />
-                    查看已处理
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start gap-2"
-                    onClick={() => fetchApprovals('my')}
-                  >
-                    <FileText className="h-4 w-4" />
-                    我发起的
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">审批说明</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-gray-600 space-y-2">
-                  <p>• 发布到学校主页需经审批</p>
-                  <p>• 流程：总务主任 → 校长室</p>
-                  <p>• <strong>或签</strong>：任一人通过即可</p>
-                  <p>• <strong>会签</strong>：所有人都需通过</p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+        {/* 发布通知 */}
+        <TabsContent value="publish">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg">发布通知</CardTitle>
+              <CardDescription>
+                发布总务相关的公告、新闻或通知
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => setPublishOpen(true)}>
+                  <CardContent className="p-6 text-center">
+                    <div className="p-3 rounded-full bg-green-100 w-fit mx-auto mb-3">
+                      <FileText className="h-6 w-6 text-green-600" />
+                    </div>
+                    <h3 className="font-medium">校园公告</h3>
+                    <p className="text-sm text-gray-500 mt-1">发布到学校主页</p>
+                  </CardContent>
+                </Card>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => setPublishOpen(true)}>
+                  <CardContent className="p-6 text-center">
+                    <div className="p-3 rounded-full bg-purple-100 w-fit mx-auto mb-3">
+                      <FileText className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <h3 className="font-medium">新闻动态</h3>
+                    <p className="text-sm text-gray-500 mt-1">发布到学校主页</p>
+                  </CardContent>
+                </Card>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => setPublishOpen(true)}>
+                  <CardContent className="p-6 text-center">
+                    <div className="p-3 rounded-full bg-blue-100 w-fit mx-auto mb-3">
+                      <Bell className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <h3 className="font-medium">内部通知</h3>
+                    <p className="text-sm text-gray-500 mt-1">仅校内可见</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
-      {/* 发布对话框 */}
+      {/* 发布弹窗 */}
       <PublishNotificationDialog
         open={publishOpen}
         onOpenChange={setPublishOpen}
         onSubmit={handleSubmit}
-        department="general_office"
-        showApprovalFlow={true}
-        recipientTypes={['all', 'role', 'class', 'individual', 'group']}
+        department="总务处"
       />
 
-      {/* 审批详情对话框 */}
+      {/* 审批详情弹窗 */}
       <ApprovalActionDialog
         open={approvalOpen}
         onOpenChange={setApprovalOpen}
         instance={selectedInstance}
-        currentUserId={user?.id || ''}
         onApprove={handleApprove}
         onReject={handleReject}
         onReturn={handleReturn}
         onWithdraw={handleWithdraw}
+        currentUserId={user?.id || ''}
       />
     </div>
   );
