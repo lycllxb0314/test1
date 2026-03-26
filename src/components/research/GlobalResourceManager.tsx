@@ -44,7 +44,18 @@ import {
   Presentation,
   File,
   Activity,
+  Trash2,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 // ==================== 类型定义 ====================
@@ -115,6 +126,11 @@ export default function GlobalResourceManager() {
   
   // 展开状态
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  
+  // 删除确认对话框状态
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
+  const [deleting, setDeleting] = useState(false);
   
   useEffect(() => {
     loadAllResources();
@@ -217,6 +233,42 @@ export default function GlobalResourceManager() {
       newExpanded.add(themeId);
     }
     setExpandedGroups(newExpanded);
+  };
+  
+  // 打开删除确认对话框
+  const handleDeleteClick = (resource: Resource, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setResourceToDelete(resource);
+    setDeleteDialogOpen(true);
+  };
+  
+  // 确认删除资源
+  const handleDeleteConfirm = async () => {
+    if (!resourceToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/research/resources/${resourceToDelete.id}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.success('资源已删除');
+        setDeleteDialogOpen(false);
+        setResourceToDelete(null);
+        // 重新加载资源列表
+        loadAllResources();
+      } else {
+        toast.error(data.error || '删除失败');
+      }
+    } catch (err) {
+      console.error('删除资源失败:', err);
+      toast.error('删除失败');
+    } finally {
+      setDeleting(false);
+    }
   };
   
   // 筛选资源
@@ -428,17 +480,31 @@ export default function GlobalResourceManager() {
                                       {new Date(resource.createdAt).toLocaleDateString()}
                                     </div>
                                     
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDownload(resource);
-                                      }}
-                                    >
-                                      <Download className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      {resource.fileKey && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDownload(resource);
+                                          }}
+                                          title="下载"
+                                        >
+                                          <Download className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                        onClick={(e) => handleDeleteClick(resource, e)}
+                                        title="删除"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -454,6 +520,29 @@ export default function GlobalResourceManager() {
           })}
         </div>
       )}
+      
+      {/* 删除确认对话框 */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除资源「{resourceToDelete?.title}」吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
