@@ -76,8 +76,7 @@ import {
   SortAsc,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import ResourceManager from '@/components/research/ResourceManager';
-import AchievementManager from '@/components/research/AchievementManager';
+import GlobalResourceManager from '@/components/research/GlobalResourceManager';
 
 // ==================== 类型定义 ====================
 
@@ -554,7 +553,6 @@ export default function ResearchPage() {
                 { value: 'in_progress', label: '进行中', count: themesByStatus.in_progress.length },
                 { value: 'completed', label: '已完成', count: themesByStatus.completed.length },
                 { value: 'resources', label: '资源库', icon: FolderOpen },
-                { value: 'achievements', label: '成果库', icon: Award },
               ].map(tab => (
                 <TabsTrigger
                   key={tab.value}
@@ -765,19 +763,7 @@ export default function ResearchPage() {
           </TabsContent>
           
           <TabsContent value="resources" className="mt-0">
-            <Card className="border-0 shadow-sm">
-              <CardContent className="pt-6">
-                <ResourceManager />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="achievements" className="mt-0">
-            <Card className="border-0 shadow-sm">
-              <CardContent className="pt-6">
-                <AchievementManager />
-              </CardContent>
-            </Card>
+            <GlobalResourceManager />
           </TabsContent>
         </Tabs>
       </div>
