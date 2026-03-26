@@ -314,10 +314,15 @@ export default function TeacherSelector({
                 const isSelected = selectedIds.includes(teacher.id);
                 const isDisabled = Boolean(disabled || (!isSelected && maxSelect && selectedIds.length >= maxSelect));
                 
+                const handleSelect = () => {
+                  if (isDisabled) return;
+                  handleToggleTeacher(teacher.id);
+                };
+                
                 return (
                   <div
                     key={teacher.id}
-                    onClick={() => !isDisabled && handleToggleTeacher(teacher.id)}
+                    onClick={handleSelect}
                     className={cn(
                       'flex items-center gap-3 px-3 py-2.5 transition-colors',
                       isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50',
@@ -325,10 +330,10 @@ export default function TeacherSelector({
                     )}
                   >
                     <Checkbox
-                      checked={isSelected as boolean}
+                      checked={isSelected}
                       disabled={isDisabled}
-                      onCheckedChange={() => handleToggleTeacher(teacher.id)}
-                      className="pointer-events-none"
+                      onCheckedChange={handleSelect}
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={teacher.avatar} />
