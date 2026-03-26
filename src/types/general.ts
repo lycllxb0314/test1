@@ -20,6 +20,7 @@ export type AssetType =
 /** 资产状态 */
 export type AssetStatus = 
   | 'in_use'       // 使用中
+  | '在用'         // 使用中（中文兼容）
   | 'idle'         // 闲置
   | 'repair'       // 维修中
   | 'scrapped'     // 已报废

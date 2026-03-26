@@ -280,3 +280,29 @@ export interface VisitorStatistics {
   inSchoolCount: number;
   weeklyTrend: { date: string; count: number }[];
 }
+
+/** 门禁统计 */
+export interface AccessStatistics {
+  /** 今日进入人数 */
+  todayInCount: number;
+  /** 今日离开人数 */
+  todayOutCount: number;
+  /** 今日总通行人数 */
+  todayTotal?: number;
+  /** 当前在校人数 */
+  currentInSchool: number;
+  /** 异常记录数 */
+  abnormalCount: number;
+  /** 按时段统计 */
+  hourlyTrend: {
+    hour: number;
+    inCount: number;
+    outCount: number;
+  }[];
+  /** 按类型统计 */
+  byType: {
+    type: PersonType;
+    inCount: number;
+    outCount: number;
+  }[];
+}

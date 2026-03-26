@@ -35,6 +35,7 @@ export const APPROVAL_TYPE_LABELS: Record<ApprovalType, string> = {
 export type ApprovalStatus = 
   | 'draft'       // 草稿
   | 'pending'     // 待审批
+  | 'in_progress' // 进行中
   | 'approved'    // 已批准
   | 'rejected'    // 已拒绝
   | 'withdrawn'   // 已撤回
@@ -44,6 +45,7 @@ export type ApprovalStatus =
 export const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, string> = {
   draft: '草稿',
   pending: '待审批',
+  in_progress: '进行中',
   approved: '已批准',
   rejected: '已拒绝',
   withdrawn: '已撤回',
@@ -191,11 +193,45 @@ export interface ApprovalInstance {
   steps: ApprovalStep[];
   approvalFlow: ApprovalNode[];
   nodeRecords?: ApprovalNodeRecord[]; // 节点记录
+  selectedLeaders?: ApproverLeaderRole[]; // 选择的领导
+  approvalMode?: ApprovalMode;        // 审批模式
+  submitAt?: string;                  // 提交时间（兼容字段）
   submittedAt?: string;
   completedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+/** 审批节点类型 */
+export type ApprovalNodeType = 
+  | 'start'           // 开始节点
+  | 'approval'        // 审批节点
+  | 'condition'       // 条件节点
+  | 'parallel'        // 并行节点
+  | 'course_adjust'   // 调课节点
+  | 'sync'            // 同步节点
+  | 'or_sign'         // 或签节点
+  | 'countersign'     // 会签节点
+  | 'end';            // 结束节点
+
+/** 审批模式 */
+export type ApprovalMode = 
+  | 'or'              // 或签（任一人审批即可）
+  | 'and'             // 会签（所有人都需审批）
+  | 'sequence'        // 顺序审批
+  | 'or_sign'         // 或签（别名）
+  | 'countersign';    // 会签（别名）
+
+/** 审批领导角色 */
+export type ApproverLeaderRole = 
+  | 'grade_leader'            // 年段长
+  | 'director'                // 部门主任
+  | 'vice_principal'          // 副校长
+  | 'principal'               // 校长
+  | 'secretary'               // 书记
+  | 'academic_vice_principal' // 教学副校长
+  | 'moral_vice_principal'    // 德育副校长
+  | 'general_vice_principal'; // 总务副校长
 
 /** 审批节点记录 */
 export interface ApprovalNodeRecord {
@@ -203,11 +239,17 @@ export interface ApprovalNodeRecord {
   nodeId: string;
   nodeName: string;
   nodeOrder: number;
-  status: 'pending' | 'approved' | 'rejected';
+  nodeType?: ApprovalNodeType;
+  workflowId?: string;
+  workflowType?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'skipped';
   approverId?: string;
   approverName?: string;
+  approverIds?: string[];             // 多审批人ID
+  approvedBy?: string;                // 实际审批人
   comment?: string;
   actionAt?: string;
+  finishedAt?: string;
 }
 
 /** 提交审批请求 */
@@ -218,6 +260,9 @@ export interface SubmitApprovalRequest {
   department?: string;
   content: Record<string, unknown>;
   attachments?: Array<{ name: string; url: string; size: number; type: string }>;
+  isExternal?: boolean;
+  approvalMode?: ApprovalMode;
+  selectedLeaders?: ApproverLeaderRole[];
 }
 
 /** 审批节点（工作流节点） */
@@ -264,3 +309,64 @@ export interface ApprovalFilters {
   startDate?: string;
   endDate?: string;
 }
+
+/** 待审批查询参数 */
+export interface PendingApprovalQuery {
+  userId?: string;
+  status?: ApprovalStatus | 'all';
+  type?: ApprovalType | 'all';
+  page?: number;
+  pageSize?: number;
+}
+
+// ==================== 公告相关类型（重新导出） ====================
+
+/** 公告类型 */
+export type AnnouncementType = 
+  | '通知' 
+  | '公告' 
+  | '新闻' 
+  | '活动'
+  | 'announcement'      // 公告（英文）
+  | 'news'              // 新闻（英文）
+  | 'internal_notice'   // 内部通知
+  | 'parent_notice'     // 家长通知
+  | 'leave_request'     // 请假通知
+  | 'room_booking';     // 场地预约
+
+/** 公告类别 */
+export type AnnouncementCategory = '校园公告' | '教务公告' | '德育公告' | '总务公告' | '其他';
+
+/** 新闻类别 */
+export type NewsCategory = '学校新闻' | '教务新闻' | '德育新闻' | '总务新闻' | '其他';
+
+/** 内部通知类别 */
+export type InternalNoticeCategory = '会议通知' | '工作安排' | '制度文件' | '其他';
+
+/** 家长通知类别 */
+export type ParentNoticeCategory = '放假通知' | '活动通知' | '缴费通知' | '其他';
+
+/** 媒体级别 */
+export type MediaLevel = '校级' | '区级' | '市级' | '省级' | '国家级';
+
+/** 部门信息 */
+export interface DepartmentInfo {
+  id: string;
+  name: string;
+  description?: string;
+  requiresApproval?: boolean;
+}
+
+/** 部门列表 */
+export const DEPARTMENTS: DepartmentInfo[] = [
+  { id: 'principal_office', name: '校长室', description: '校长办公室', requiresApproval: true },
+  { id: 'academic_affairs', name: '教务处', description: '教学管理', requiresApproval: true },
+  { id: 'moral_education', name: '德育处', description: '德育管理', requiresApproval: true },
+  { id: 'general_affairs', name: '总务处', description: '后勤保障', requiresApproval: true },
+  { id: 'grade_1', name: '一年级组', description: '一年级级部' },
+  { id: 'grade_2', name: '二年级组', description: '二年级级部' },
+  { id: 'grade_3', name: '三年级组', description: '三年级级部' },
+  { id: 'grade_4', name: '四年级组', description: '四年级级部' },
+  { id: 'grade_5', name: '五年级组', description: '五年级级部' },
+  { id: 'grade_6', name: '六年级组', description: '六年级级部' },
+];

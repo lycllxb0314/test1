@@ -5,19 +5,24 @@
  */
 
 import type { UserRole } from './user';
-import type { ApprovalNode, ApprovalRecord } from './approval';
+import type { ApprovalNode, ApprovalNodeRecord } from './approval';
 
 // ==================== 报销类别 ====================
 
 /** 报销类别 */
 export type ExpenseCategory = 
-  | 'teaching'           // 教学用品
-  | 'office'             // 办公用品
-  | 'travel'             // 差旅费
-  | 'training'           // 培训费
-  | 'activity'           // 活动经费
-  | 'maintenance'        // 维修费
-  | 'other';             // 其他
+  | 'teaching'             // 教学用品
+  | 'teaching_materials'   // 教学材料
+  | 'office'               // 办公用品
+  | 'office_supplies'      // 办公用品（兼容）
+  | 'travel'               // 差旅费
+  | 'transportation'       // 交通费
+  | 'training'             // 培训费
+  | 'activity'             // 活动经费
+  | 'maintenance'          // 维修费
+  | 'communication'        // 通讯费
+  | 'equipment'            // 设备费
+  | 'other';               // 其他
 
 /** 报销状态 */
 export type ExpenseStatus = 
@@ -97,7 +102,7 @@ export interface ExpenseReimbursement {
   /** 当前审批步骤 */
   currentStep: number;
   /** 审批记录 */
-  approvalRecords: ApprovalRecord[];
+  approvalRecords: ApprovalNodeRecord[];
   
   // === 财务处理 ===
   /** 财务处理人ID */
@@ -143,6 +148,8 @@ export interface ExpenseCategoryConfig {
 export interface ExpenseStatistics {
   /** 待审批数量 */
   pendingCount: number;
+  /** 待审批金额 */
+  pendingAmount?: number;
   /** 处理中数量 */
   processingCount: number;
   /** 已完成数量 */

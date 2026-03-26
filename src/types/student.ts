@@ -6,6 +6,9 @@
 
 // ==================== 学生基本信息 ====================
 
+/** 学生类型（户籍类型） */
+export type StudentType = '普通' | '随迁子女' | '留守儿童' | '残疾学生' | '低保家庭' | '本地户籍';
+
 /** 学生状态 */
 export type StudentStatus = '在校' | '请假' | '休学' | '毕业' | '转学';
 
@@ -36,7 +39,7 @@ export interface StudentFullProfile {
   ethnicity?: string;
   nativePlace?: string;
   politicalStatus?: string;          // 政治面貌
-  studentType?: '本地户籍' | '随迁子女' | '留守儿童' | '残疾学生' | '低保家庭' | '普通';
+  studentType?: StudentType;
   
   // 班级信息
   classId: string;
@@ -124,6 +127,26 @@ export interface StudentFullProfile {
       activity: string;
       hours: number;
       date: string;
+    }[];
+    warnings?: {
+      id: string;
+      type: string;
+      content: string;
+      date: string;
+      handler?: string;
+      level?: '轻度' | '中度' | '重度' | 'info';
+      createdAt?: string;
+    }[];
+    comprehensiveEvaluation?: {
+      semester: string;
+      level: '优秀' | '良好' | '合格' | '待提高';
+      moralScore?: number;
+      behaviorScore?: number;
+      activityScore?: number;
+      socialScore?: number;
+      volunteerScore?: number;
+      totalScore?: number;
+      comment?: string;
     }[];
   };
   
