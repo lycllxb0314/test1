@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, extractTokens, setAuthCookies } from '@/lib/auth/session';
+import { ok, fail, serverError } from '@/lib/api-utils';
 
 /**
  * GET - 获取当前用户信息
@@ -18,22 +19,14 @@ export async function GET(request: NextRequest) {
     const { accessToken, refreshToken: refreshTokenValue } = extractTokens(request);
 
     if (!accessToken) {
-      return NextResponse.json({
-        success: false,
-        error: '未登录，请先登录',
-        code: 'AUTH_FAILED',
-      }, { status: 401 });
+      return fail('未登录，请先登录', undefined, 401);
     }
 
     // 验证会话
     const result = await validateSession(accessToken, refreshTokenValue || undefined);
 
     if (!result.success) {
-      return NextResponse.json({
-        success: false,
-        error: result.error || '会话已过期，请重新登录',
-        code: 'AUTH_FAILED',
-      }, { status: 401 });
+      return fail(result.error || '会话已过期，请重新登录', undefined, 401);
     }
 
     // 如果需要刷新 Token，生成新的 Token 对
@@ -51,9 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 创建响应
-    const response = NextResponse.json({
-      success: true,
-      data: result.user,
+    const response = ok(result.user, {
       shouldRefresh: result.shouldRefresh,
       newAccessToken, // 返回新的 access_token
     });
@@ -66,9 +57,6 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Get current user error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取用户信息失败',
-    }, { status: 500 });
+    return serverError('获取用户信息失败');
   }
 }

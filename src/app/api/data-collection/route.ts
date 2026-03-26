@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { ok, serverError } from '@/lib/api-utils';
 
 /**
  * GET - 获取数据采集任务列表
@@ -23,25 +24,22 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({
-      success: true,
-      data: (data || []).map((t: any) => ({
-        id: t.id,
-        title: t.title,
-        type: t.type,
-        description: t.description,
-        deadline: t.deadline,
-        targetRoles: t.target_roles || [],
-        submittedCount: t.submitted_count || 0,
-        totalCount: t.total_count || 0,
-        status: t.status,
-        createdBy: t.created_by,
-        createdAt: t.created_at,
-      })),
-    });
+    return ok((data || []).map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      type: t.type,
+      description: t.description,
+      deadline: t.deadline,
+      targetRoles: t.target_roles || [],
+      submittedCount: t.submitted_count || 0,
+      totalCount: t.total_count || 0,
+      status: t.status,
+      createdBy: t.created_by,
+      createdAt: t.created_at,
+    })));
   } catch (error) {
     console.error('Failed to fetch data collection tasks:', error);
-    return NextResponse.json({ success: false, error: '获取数据采集任务失败' }, { status: 500 });
+    return serverError('获取数据采集任务失败');
   }
 }
 
@@ -70,9 +68,9 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, data });
+    return ok(data);
   } catch (error) {
     console.error('Failed to create data collection task:', error);
-    return NextResponse.json({ success: false, error: '创建数据采集任务失败' }, { status: 500 });
+    return serverError('创建数据采集任务失败');
   }
 }

@@ -2,8 +2,9 @@
  * 用户登出 API
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { clearAuthCookies } from '@/lib/auth/session';
+import { ok, serverError } from '@/lib/api-utils';
 
 /**
  * POST - 用户登出
@@ -12,10 +13,7 @@ import { clearAuthCookies } from '@/lib/auth/session';
  */
 export async function POST(request: NextRequest) {
   try {
-    const response = NextResponse.json({
-      success: true,
-      message: '登出成功',
-    });
+    const response = ok(null, { message: '登出成功' });
 
     // 清除认证 Cookie
     clearAuthCookies(response);
@@ -23,9 +21,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Logout error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '登出失败',
-    }, { status: 500 });
+    return serverError('登出失败');
   }
 }

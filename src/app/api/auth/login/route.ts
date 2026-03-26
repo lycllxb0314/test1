@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { login, setAuthCookies, type LoginResult } from '@/lib/auth/session';
-import { rateLimitMiddleware } from '@/lib/rate-limit';
+import { loginRateLimiter, ok, fail, serverError } from '@/lib/api-utils';
 
 /**
  * POST - 用户登录
@@ -23,7 +23,7 @@ import { rateLimitMiddleware } from '@/lib/rate-limit';
  */
 export async function POST(request: NextRequest) {
   // 限流检查（防暴力破解：15分钟内最多5次尝试）
-  const rateLimitResult = await rateLimitMiddleware(request);
+  const rateLimitResult = await loginRateLimiter(request);
   if (rateLimitResult) {
     return rateLimitResult;
   }
@@ -39,26 +39,19 @@ export async function POST(request: NextRequest) {
     const result: LoginResult = await login(username, password, isProduction);
 
     if (!result.success) {
-      return NextResponse.json({
-        success: false,
-        error: result.error || '登录失败',
-      }, { status: 401 });
+      return fail(result.error || '登录失败', undefined, 401);
     }
 
     // 创建响应 - 同时返回 accessToken 以便前端可以使用 Authorization header
-    const response = NextResponse.json({
-      success: true,
-      data: {
-        user: result.user,
-        tokens: result.tokens ? {
-          accessToken: result.tokens.accessToken,
-          refreshToken: result.tokens.refreshToken,
-          expiresIn: result.tokens.expiresIn,
-          refreshExpiresIn: result.tokens.refreshExpiresIn,
-        } : undefined,
-      },
-      message: '登录成功',
-    });
+    const response = ok({
+      user: result.user,
+      tokens: result.tokens ? {
+        accessToken: result.tokens.accessToken,
+        refreshToken: result.tokens.refreshToken,
+        expiresIn: result.tokens.expiresIn,
+        refreshExpiresIn: result.tokens.refreshExpiresIn,
+      } : undefined,
+    }, { message: '登录成功' });
 
     // 设置认证 Cookie
     if (result.tokens && result.user) {
@@ -68,9 +61,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Login error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '登录失败，请稍后重试',
-    }, { status: 500 });
+    return serverError('登录失败，请稍后重试');
   }
 }

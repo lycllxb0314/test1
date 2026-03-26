@@ -4,8 +4,9 @@
  * GET /api/students - 获取学生列表（支持分页、筛选）
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { ok, paginated, fail, serverError, getQueryParams } from '@/lib/api-utils';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
@@ -92,15 +93,7 @@ export async function GET(request: NextRequest) {
         query = query.in('class_id', teacherClassIds);
       } else {
         // 如果该教师没有管理的班级，返回空数据
-        return NextResponse.json({
-          success: true,
-          data: [],
-          pagination: {
-            page,
-            pageSize,
-            total: 0,
-            totalPages: 0,
-          },
+        return paginated([], 0, page, pageSize, {
           statistics: {
             total: 0,
             maleCount: 0,
@@ -122,10 +115,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query;
     
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+      return fail(error.message, undefined, 500);
     }
     
     // 获取所有学生的班级ID
@@ -207,22 +197,9 @@ export async function GET(request: NextRequest) {
       classCount: new Set(formattedData.map(s => s.classId)).size,
     };
     
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
-      pagination: {
-        page,
-        pageSize,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
-      statistics,
-    });
+    return paginated(formattedData, count || 0, page, pageSize, { statistics });
   } catch (error) {
     console.error('Failed to fetch students:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取学生列表失败',
-    }, { status: 500 });
+    return serverError('获取学生列表失败');
   }
 }

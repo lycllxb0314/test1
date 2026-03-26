@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { ok, serverError } from '@/lib/api-utils';
 
 /**
  * GET - 获取空间预约列表
@@ -27,27 +28,24 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({
-      success: true,
-      data: (data || []).map((r: any) => ({
-        id: r.id,
-        spaceId: r.space_id,
-        spaceName: r.space_name,
-        applicantId: r.applicant_id,
-        applicantName: r.applicant_name,
-        reservationDate: r.reservation_date,
-        startTime: r.start_time,
-        endTime: r.end_time,
-        purpose: r.purpose,
-        participants: r.participants || 0,
-        status: r.status,
-        approvedBy: r.approved_by,
-        createdAt: r.created_at,
-      })),
-    });
+    return ok((data || []).map((r: any) => ({
+      id: r.id,
+      spaceId: r.space_id,
+      spaceName: r.space_name,
+      applicantId: r.applicant_id,
+      applicantName: r.applicant_name,
+      reservationDate: r.reservation_date,
+      startTime: r.start_time,
+      endTime: r.end_time,
+      purpose: r.purpose,
+      participants: r.participants || 0,
+      status: r.status,
+      approvedBy: r.approved_by,
+      createdAt: r.created_at,
+    })));
   } catch (error) {
     console.error('Failed to fetch space reservations:', error);
-    return NextResponse.json({ success: false, error: '获取空间预约列表失败' }, { status: 500 });
+    return serverError('获取空间预约列表失败');
   }
 }
 
@@ -78,9 +76,9 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, data });
+    return ok(data);
   } catch (error) {
     console.error('Failed to create space reservation:', error);
-    return NextResponse.json({ success: false, error: '创建空间预约失败' }, { status: 500 });
+    return serverError('创建空间预约失败');
   }
 }

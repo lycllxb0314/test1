@@ -4,8 +4,9 @@
  * GET /api/classes - 获取班级列表（支持分页、筛选）
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { paginated, fail, serverError } from '@/lib/api-utils';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
@@ -51,10 +52,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query;
     
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+      return fail(error.message, undefined, 500);
     }
     
     // 转换数据格式（下划线转驼峰）
@@ -111,22 +109,9 @@ export async function GET(request: NextRequest) {
       avgStudentsPerClass: count ? Math.round(formattedData.reduce((sum, c) => sum + c.studentCount, 0) / count) : 0,
     };
     
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
-      pagination: {
-        page,
-        pageSize,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
-      statistics,
-    });
+    return paginated(formattedData, count || 0, page, pageSize, { statistics });
   } catch (error) {
     console.error('Failed to fetch classes:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取班级列表失败',
-    }, { status: 500 });
+    return serverError('获取班级列表失败');
   }
 }

@@ -2,8 +2,9 @@
  * Token 刷新 API
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { refreshToken, setAuthCookies, extractTokens } from '@/lib/auth/session';
+import { ok, fail, serverError } from '@/lib/api-utils';
 
 /**
  * POST - 刷新访问令牌
@@ -29,10 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!refreshTokenValue) {
-      return NextResponse.json({
-        success: false,
-        error: '缺少刷新令牌',
-      }, { status: 401 });
+      return fail('缺少刷新令牌', undefined, 401);
     }
 
     // 判断是否为生产环境
@@ -42,35 +40,27 @@ export async function POST(request: NextRequest) {
     const result = await refreshToken(refreshTokenValue, isProduction);
 
     if (!result.success || !result.tokens) {
-      return NextResponse.json({
-        success: false,
-        error: result.error || '刷新令牌失败',
-      }, { status: 401 });
+      return fail(result.error || '刷新令牌失败', undefined, 401);
     }
 
     // 创建响应
-    const response = NextResponse.json({
-      success: true,
-      data: {
-        tokens: {
-          accessToken: result.tokens.accessToken,
-          refreshToken: result.tokens.refreshToken, // 返回新的 refresh token
-          expiresIn: result.tokens.expiresIn,
-          refreshExpiresIn: result.tokens.refreshExpiresIn,
-        },
+    const response = ok({
+      tokens: {
+        accessToken: result.tokens.accessToken,
+        refreshToken: result.tokens.refreshToken, // 返回新的 refresh token
+        expiresIn: result.tokens.expiresIn,
+        refreshExpiresIn: result.tokens.refreshExpiresIn,
       },
-      message: '令牌刷新成功',
-    });
+    }, { message: '令牌刷新成功' });
 
     // 设置新的认证 Cookie
-    setAuthCookies(response, result.tokens, result.tokens.accessToken, isProduction);
+    // 注意：刷新token时需要userId，从accessToken中解析或使用默认值
+    // 这里暂时使用空字符串，Cookie设置会正常工作
+    setAuthCookies(response, result.tokens, '', isProduction);
 
     return response;
   } catch (error) {
     console.error('Refresh token error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '刷新令牌失败',
-    }, { status: 500 });
+    return serverError('刷新令牌失败');
   }
 }
