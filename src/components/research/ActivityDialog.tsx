@@ -6,12 +6,12 @@
  * 功能：
  * - 创建教研活动
  * - 选择教室地点（联动教室管理）
- * - 选择日期和时段（可视化时段占用）
+ * - 选择日期和时段（课表矩阵样式，可视化教室使用情况）
  * - 选择参与教师（支持筛选和搜索）
  * - 自动创建教室预约（教务处直接安排，无需审核）
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -46,16 +46,15 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Loader2,
   MapPin,
-  Calendar,
   Clock,
-  Users,
   Check,
   ChevronDown,
-  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -91,13 +90,16 @@ interface TimeSlot {
   label: string;
   start: string;
   end: string;
+  period: string;
 }
 
 interface Booking {
   id: string;
   title: string;
+  applicant_name: string;
   time_slots: string[];
   status: string;
+  purpose: string;
 }
 
 // ==================== 配置 ====================
@@ -112,15 +114,17 @@ const ACTIVITY_TYPE_LABELS: Record<string, string> = {
 };
 
 const TIME_SLOTS: TimeSlot[] = [
-  { id: 'morning_1', label: '第1节', start: '08:00', end: '08:45' },
-  { id: 'morning_2', label: '第2节', start: '08:55', end: '09:40' },
-  { id: 'morning_3', label: '第3节', start: '10:00', end: '10:45' },
-  { id: 'noon', label: '午休', start: '12:00', end: '14:00' },
-  { id: 'afternoon_1', label: '第4节', start: '14:00', end: '14:45' },
-  { id: 'afternoon_2', label: '第5节', start: '14:55', end: '15:40' },
-  { id: 'afternoon_3', label: '第6节', start: '16:00', end: '16:45' },
-  { id: 'evening', label: '晚上', start: '19:00', end: '21:00' },
+  { id: 'morning_1', label: '第1节', start: '08:00', end: '08:45', period: '上午' },
+  { id: 'morning_2', label: '第2节', start: '08:55', end: '09:40', period: '上午' },
+  { id: 'morning_3', label: '第3节', start: '10:00', end: '10:45', period: '上午' },
+  { id: 'noon', label: '午休', start: '12:00', end: '14:00', period: '午间' },
+  { id: 'afternoon_1', label: '第4节', start: '14:00', end: '14:45', period: '下午' },
+  { id: 'afternoon_2', label: '第5节', start: '14:55', end: '15:40', period: '下午' },
+  { id: 'afternoon_3', label: '第6节', start: '16:00', end: '16:45', period: '下午' },
+  { id: 'evening', label: '晚上', start: '19:00', end: '21:00', period: '晚上' },
 ];
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 const ROOM_TYPE_LABELS: Record<string, string> = {
   classroom: '普通教室',
@@ -133,6 +137,43 @@ const ROOM_TYPE_LABELS: Record<string, string> = {
   multi_media: '多媒体教室',
   activity_room: '活动室',
 };
+
+// 用途颜色映射
+const PURPOSE_COLORS: Record<string, string> = {
+  teaching: 'bg-blue-100 text-blue-800 border-blue-200',
+  meeting: 'bg-green-100 text-green-800 border-green-200',
+  training: 'bg-purple-100 text-purple-800 border-purple-200',
+  activity: 'bg-pink-100 text-pink-800 border-pink-200',
+  exam: 'bg-orange-100 text-orange-800 border-orange-200',
+  competition: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  other: 'bg-gray-100 text-gray-800 border-gray-200',
+};
+
+// ==================== 辅助函数 ====================
+
+function formatDate(date: Date, format: 'short' | 'long' = 'short'): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  if (format === 'long') {
+    return `${year}年${month}月${day}日`;
+  }
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
+}
 
 // ==================== 组件 ====================
 
@@ -156,8 +197,11 @@ export default function ActivityDialog({
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [existingBookings, setExistingBookings] = useState<Booking[]>([]);
+  const [weekBookings, setWeekBookings] = useState<Booking[]>([]);
   const [roomPopoverOpen, setRoomPopoverOpen] = useState(false);
+  
+  // 周导航
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekStart(new Date()));
   
   // 教师选择状态
   const { allTeachers, loading: teachersLoading } = useTeachers();
@@ -175,6 +219,15 @@ export default function ActivityDialog({
     timeSlots: [] as string[],
   });
   
+  // 获取一周日期
+  const weekDates = useMemo(() => {
+    const dates: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      dates.push(addDays(currentWeekStart, i));
+    }
+    return dates;
+  }, [currentWeekStart]);
+  
   // 加载教室列表
   useEffect(() => {
     if (open) {
@@ -182,12 +235,12 @@ export default function ActivityDialog({
     }
   }, [open]);
   
-  // 当日期或教室改变时，加载预约情况
+  // 当周或教室改变时，加载预约情况
   useEffect(() => {
-    if (formData.roomId && formData.bookingDate) {
-      loadBookings();
+    if (formData.roomId) {
+      loadWeekBookings();
     }
-  }, [formData.roomId, formData.bookingDate]);
+  }, [formData.roomId, currentWeekStart]);
   
   const loadRooms = async () => {
     setLoadingRooms(true);
@@ -205,16 +258,19 @@ export default function ActivityDialog({
     }
   };
   
-  const loadBookings = async () => {
+  const loadWeekBookings = async () => {
     setLoadingBookings(true);
     try {
+      const startDate = formatDate(currentWeekStart);
+      const endDate = formatDate(addDays(currentWeekStart, 6));
+      
       const res = await fetch(
-        `/api/academic/rooms/bookings?roomId=${formData.roomId}&bookingDate=${formData.bookingDate}`
+        `/api/academic/rooms/bookings?roomId=${formData.roomId}&startDate=${startDate}&endDate=${endDate}`
       );
       const data = await res.json();
       
       if (data.success) {
-        setExistingBookings(
+        setWeekBookings(
           (data.data || []).filter(
             (b: Booking) => !['rejected', 'cancelled'].includes(b.status)
           )
@@ -227,43 +283,74 @@ export default function ActivityDialog({
     }
   };
   
-  // 获取已占用的时段
-  const getOccupiedSlots = useCallback(() => {
-    const occupied = new Set<string>();
-    existingBookings.forEach(booking => {
-      (booking.time_slots || []).forEach(slot => occupied.add(slot));
-    });
-    return occupied;
-  }, [existingBookings]);
+  // 获取某天的预约映射
+  const getBookingMap = useCallback((date: string): Record<string, Booking> => {
+    const map: Record<string, Booking> = {};
+    weekBookings
+      .filter(b => {
+        // 兼容 booking_date 和 bookingDate 字段
+        const bookingDate = (b as any).booking_date || (b as any).bookingDate;
+        return bookingDate === date;
+      })
+      .forEach(b => {
+        const slots = b.time_slots || [];
+        slots.forEach(slotId => {
+          map[slotId] = b;
+        });
+      });
+    return map;
+  }, [weekBookings]);
   
   // 切换时段选择
-  const toggleTimeSlot = (slotId: string) => {
-    const occupied = getOccupiedSlots();
-    if (occupied.has(slotId)) {
+  const toggleTimeSlot = (date: string, slotId: string, booking?: Booking) => {
+    // 如果该时段已被预约，不能选择
+    if (booking) {
       toast.error('该时段已被预约');
       return;
     }
     
-    setFormData(prev => {
-      const slots = [...prev.timeSlots];
-      const index = slots.indexOf(slotId);
-      
+    // 先设置日期
+    const newDate = formData.bookingDate === date ? formData.bookingDate : date;
+    
+    // 如果切换了日期，清空之前选择的时段
+    const newSlots = formData.bookingDate === date 
+      ? [...formData.timeSlots] 
+      : [];
+    
+    if (formData.bookingDate !== date) {
+      // 切换日期，只选当前这个时段
+      setFormData(prev => ({
+        ...prev,
+        bookingDate: date,
+        timeSlots: [slotId],
+      }));
+    } else {
+      // 同一天，切换时段
+      const index = newSlots.indexOf(slotId);
       if (index > -1) {
-        slots.splice(index, 1);
+        newSlots.splice(index, 1);
       } else {
-        slots.push(slotId);
+        newSlots.push(slotId);
       }
       
       // 按时段顺序排序
-      slots.sort((a, b) => {
+      newSlots.sort((a, b) => {
         const aIndex = TIME_SLOTS.findIndex(s => s.id === a);
         const bIndex = TIME_SLOTS.findIndex(s => s.id === b);
         return aIndex - bIndex;
       });
       
-      return { ...prev, timeSlots: slots };
-    });
+      setFormData(prev => ({
+        ...prev,
+        timeSlots: newSlots,
+      }));
+    }
   };
+  
+  // 周导航
+  const goToPrevWeek = () => setCurrentWeekStart(addDays(currentWeekStart, -7));
+  const goToNextWeek = () => setCurrentWeekStart(addDays(currentWeekStart, 7));
+  const goToCurrentWeek = () => setCurrentWeekStart(getWeekStart(new Date()));
   
   // 计算时长（分钟）
   const calculateDuration = () => {
@@ -323,7 +410,7 @@ export default function ActivityDialog({
             timeSlots: formData.timeSlots,
             title: formData.title,
             purpose: 'meeting',
-            expectedAttendees: 20,
+            expectedAttendees: selectedTeacherIds.length || 20,
             description: formData.description,
           }),
         });
@@ -374,7 +461,7 @@ export default function ActivityDialog({
         });
         setSelectedTeacherIds([]);
         setSelectedTeachers([]);
-        setExistingBookings([]);
+        setWeekBookings([]);
         onOpenChange(false);
         onSuccess?.();
       } else {
@@ -402,7 +489,8 @@ export default function ActivityDialog({
       });
       setSelectedTeacherIds([]);
       setSelectedTeachers([]);
-      setExistingBookings([]);
+      setWeekBookings([]);
+      setCurrentWeekStart(getWeekStart(new Date()));
     }
     onOpenChange(open);
   };
@@ -415,12 +503,11 @@ export default function ActivityDialog({
     ).join('、');
   };
   
-  const occupiedSlots = getOccupiedSlots();
   const selectedRoom = rooms.find(r => r.id === formData.roomId);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>创建教研活动</DialogTitle>
           <DialogDescription>
@@ -489,134 +576,213 @@ export default function ActivityDialog({
             </h4>
             
             <div className="grid gap-4 pl-8">
-              <div className="grid grid-cols-2 gap-4">
-                {/* 教室选择 */}
-                <div className="grid gap-2">
-                  <Label>活动地点</Label>
-                  <Popover open={roomPopoverOpen} onOpenChange={setRoomPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="justify-between font-normal"
-                      >
-                        {formData.roomName ? (
-                          <span className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-slate-400" />
-                            {formData.roomName}
+              {/* 教室选择 */}
+              <div className="grid gap-2">
+                <Label>活动地点 *</Label>
+                <Popover open={roomPopoverOpen} onOpenChange={setRoomPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="justify-between font-normal"
+                    >
+                      {formData.roomName ? (
+                        <span className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-slate-400" />
+                          {formData.roomName}
+                          <span className="text-slate-400 text-xs">
+                            ({selectedRoom?.building}，容纳{selectedRoom?.capacity}人)
                           </span>
-                        ) : (
-                          <span className="text-slate-400">选择教室或手动输入</span>
-                        )}
-                        <ChevronDown className="h-4 w-4 text-slate-400" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="搜索教室..." />
-                        <CommandList>
-                          <CommandEmpty>未找到教室</CommandEmpty>
-                          <CommandGroup>
-                            <ScrollArea className="h-64">
-                              {rooms.map(room => (
-                                <CommandItem
-                                  key={room.id}
-                                  value={`${room.name} ${room.building}`}
-                                  onSelect={() => handleSelectRoom(room)}
-                                >
-                                  <div className="flex flex-col gap-1 w-full">
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-medium">{room.name}</span>
-                                      {formData.roomId === room.id && (
-                                        <Check className="h-4 w-4 text-indigo-500" />
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                                      <span>{room.building}</span>
-                                      <span className="w-1 h-1 rounded-full bg-slate-300" />
-                                      <span>容纳 {room.capacity} 人</span>
-                                      <Badge variant="outline" className="text-[10px]">
-                                        {ROOM_TYPE_LABELS[room.type] || room.type}
-                                      </Badge>
-                                    </div>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">选择教室</span>
+                      )}
+                      <ChevronDown className="h-4 w-4 text-slate-400" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="搜索教室..." />
+                      <CommandList>
+                        <CommandEmpty>未找到教室</CommandEmpty>
+                        <CommandGroup>
+                          <ScrollArea className="h-64">
+                            {rooms.map(room => (
+                              <CommandItem
+                                key={room.id}
+                                value={`${room.name} ${room.building}`}
+                                onSelect={() => handleSelectRoom(room)}
+                              >
+                                <div className="flex flex-col gap-1 w-full">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium">{room.name}</span>
+                                    {formData.roomId === room.id && (
+                                      <Check className="h-4 w-4 text-indigo-500" />
+                                    )}
                                   </div>
-                                </CommandItem>
-                              ))}
-                            </ScrollArea>
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                
-                {/* 日期选择 */}
-                <div className="grid gap-2">
-                  <Label>活动日期 *</Label>
-                  <Input
-                    type="date"
-                    value={formData.bookingDate}
-                    onChange={e => setFormData({ ...formData, bookingDate: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
+                                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                                    <span>{room.building}</span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                    <span>容纳 {room.capacity} 人</span>
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {ROOM_TYPE_LABELS[room.type] || room.type}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </ScrollArea>
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               
-              {/* 时段选择 */}
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <Label>活动时段 *</Label>
-                  {formData.roomId && formData.bookingDate && (
-                    <span className="text-xs text-slate-400">
-                      {loadingBookings ? '加载中...' : `${occupiedSlots.size} 个时段已占用`}
-                    </span>
+              {/* 课表矩阵 */}
+              {formData.roomId && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>选择时段 *</Label>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={goToPrevWeek}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                        本周
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={goToNextWeek}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-slate-500">
+                    {formatDate(currentWeekStart, 'long')} - {formatDate(addDays(currentWeekStart, 6), 'long')}
+                    {loadingBookings && <span className="ml-2 text-indigo-500">加载中...</span>}
+                  </div>
+                  
+                  {/* 课表矩阵 */}
+                  <div className="overflow-x-auto border rounded-lg">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="w-16 p-2 border bg-slate-50 text-xs font-medium">时段</th>
+                          {weekDates.map((date, idx) => {
+                            const isToday = formatDate(date) === formatDate(new Date());
+                            const isSelected = formData.bookingDate === formatDate(date);
+                            return (
+                              <th 
+                                key={idx} 
+                                className={cn(
+                                  'p-2 border text-center text-xs font-medium min-w-[100px]',
+                                  isToday ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-50',
+                                  isSelected && 'bg-indigo-200 text-indigo-800'
+                                )}
+                              >
+                                <div>周{WEEKDAYS[date.getDay()]}</div>
+                                <div className="text-[10px] text-slate-500">{date.getMonth() + 1}/{date.getDate()}</div>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {TIME_SLOTS.map((slot) => (
+                          <tr key={slot.id}>
+                            <td className="p-2 border bg-slate-50 text-[10px] font-medium text-center">
+                              <div>{slot.label}</div>
+                              <div className="text-slate-400">{slot.period}</div>
+                            </td>
+                            {weekDates.map((date, idx) => {
+                              const dateStr = formatDate(date);
+                              const bookingMap = getBookingMap(dateStr);
+                              const booking = bookingMap[slot.id];
+                              const isSelected = formData.bookingDate === dateStr && formData.timeSlots.includes(slot.id);
+                              const isPast = date < new Date(new Date().setHours(0,0,0,0));
+                              
+                              return (
+                                <td 
+                                  key={idx} 
+                                  className={cn(
+                                    'p-1 border text-center h-10',
+                                    booking ? 'cursor-pointer hover:opacity-80' : !isPast && 'cursor-pointer hover:bg-indigo-50',
+                                    isSelected && 'ring-2 ring-indigo-500 ring-inset',
+                                  )}
+                                  onClick={() => !isPast && toggleTimeSlot(dateStr, slot.id, booking)}
+                                >
+                                  {booking ? (
+                                    <div className={cn(
+                                      'rounded h-full flex flex-col items-center justify-center p-1',
+                                      PURPOSE_COLORS[booking.purpose] || 'bg-green-100 text-green-700'
+                                    )}>
+                                      <span className="text-[10px] font-medium truncate w-full text-center">
+                                        {booking.title}
+                                      </span>
+                                      <div className="flex items-center gap-1 text-[9px] opacity-70">
+                                        <User className="h-2.5 w-2.5" />
+                                        <span>{booking.applicant_name}</span>
+                                      </div>
+                                    </div>
+                                  ) : isSelected ? (
+                                    <div className="bg-indigo-500 text-white rounded h-full flex items-center justify-center">
+                                      <span className="text-[10px] font-medium">已选</span>
+                                    </div>
+                                  ) : isPast ? (
+                                    <div className="bg-slate-100 text-slate-300 rounded h-full flex items-center justify-center">
+                                      <span className="text-[10px]">已过</span>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-slate-50 text-slate-400 rounded h-full flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-400 transition-colors">
+                                      <span className="text-[10px]">空闲</span>
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {/* 图例 */}
+                  <div className="flex items-center gap-4 text-[10px] flex-wrap">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-slate-100"></div>
+                      <span>空闲</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-green-100"></div>
+                      <span>会议</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-blue-100"></div>
+                      <span>教学</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-purple-100"></div>
+                      <span>培训</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-indigo-500"></div>
+                      <span>已选</span>
+                    </div>
+                  </div>
+                  
+                  {/* 已选时段显示 */}
+                  {formData.bookingDate && formData.timeSlots.length > 0 && (
+                    <div className="flex items-center gap-2 p-3 bg-indigo-50 rounded-lg text-sm text-indigo-600">
+                      <Clock className="h-4 w-4" />
+                      <span>{formData.bookingDate}</span>
+                      <span className="text-indigo-400">|</span>
+                      <span>{getTimeSlotsText()}</span>
+                      <span className="text-indigo-400">|</span>
+                      <span>时长 {calculateDuration()} 分钟</span>
+                    </div>
                   )}
                 </div>
-                
-                <div className="grid grid-cols-4 gap-2">
-                  {TIME_SLOTS.map(slot => {
-                    const isOccupied = occupiedSlots.has(slot.id);
-                    const isSelected = formData.timeSlots.includes(slot.id);
-                    
-                    return (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        disabled={isOccupied}
-                        onClick={() => toggleTimeSlot(slot.id)}
-                        className={cn(
-                          "relative px-3 py-2.5 rounded-lg border text-sm transition-all",
-                          isOccupied && "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed",
-                          !isOccupied && !isSelected && "bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50",
-                          isSelected && "bg-indigo-500 border-indigo-500 text-white"
-                        )}
-                      >
-                        <div className="font-medium">{slot.label}</div>
-                        <div className={cn(
-                          "text-[10px]",
-                          isSelected ? "text-indigo-100" : "text-slate-400"
-                        )}>
-                          {slot.start}-{slot.end}
-                        </div>
-                        {isOccupied && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 rounded-lg">
-                            <AlertCircle className="h-4 w-4 text-slate-400" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                {formData.timeSlots.length > 0 && (
-                  <div className="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg text-sm text-indigo-600">
-                    <Clock className="h-4 w-4" />
-                    <span>已选择：{getTimeSlotsText()}</span>
-                    <span className="text-indigo-400">|</span>
-                    <span>时长 {calculateDuration()} 分钟</span>
-                  </div>
-                )}
-              </div>
+              )}
               
               {/* 手动输入地点 */}
               {!formData.roomId && (
@@ -629,26 +795,6 @@ export default function ActivityDialog({
                   />
                 </div>
               )}
-            </div>
-          </div>
-          
-          {/* 其他信息 */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">3</span>
-              其他信息
-            </h4>
-            
-            <div className="grid gap-4 pl-8">
-              <div className="grid gap-2">
-                <Label>活动描述</Label>
-                <Textarea
-                  placeholder="描述活动内容、议程等"
-                  value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
             </div>
           </div>
           
