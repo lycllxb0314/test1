@@ -4,9 +4,10 @@
  * PUT: 执行审批操作（通过/驳回/退回）
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getUserFromSession } from '@/lib/auth/session';
+import { ok, fail, serverError, unauthorized, notFound, forbidden } from '@/lib/api-utils';
 import { ApprovalActionRequest } from '@/types/approval';
 
 /**
@@ -17,11 +18,7 @@ export async function PUT(request: NextRequest) {
     const supabase = getSupabaseClient();
     const user = await getUserFromSession(request);
     if (!user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: '未登录，请先登录',
-        code: 'AUTH_FAILED' 
-      }, { status: 401 });
+      return unauthorized('未登录，请先登录');
     }
 
     const body: ApprovalActionRequest = await request.json();
@@ -40,10 +37,7 @@ export async function PUT(request: NextRequest) {
       console.error('[Approval Action] Instance error:', instanceError);
     }
     if (!instance) {
-      return NextResponse.json({
-        success: false,
-        error: '审批实例不存在',
-      }, { status: 404 });
+      return notFound('审批实例不存在');
     }
     
     console.log('[Approval Action] Instance found:', { 
@@ -66,11 +60,7 @@ export async function PUT(request: NextRequest) {
     }
     if (!currentNodeRecord) {
       console.error('[Approval Action] No pending node found for instance:', instanceId, 'current_node_order:', instance.current_node_order);
-      return NextResponse.json({
-        success: false,
-        error: '未找到待审批的节点',
-        details: { instanceId, current_node_order: instance.current_node_order }
-      }, { status: 400 });
+      return fail('未找到待审批的节点');
     }
     
     console.log('[Approval Action] Node record found:', { 
@@ -98,17 +88,11 @@ export async function PUT(request: NextRequest) {
       : approverIds.includes(user.id);  // 否则需要在审批人列表中
 
     if (!canApprove) {
-      return NextResponse.json({
-        success: false,
-        error: '您没有权限审批此申请',
-      }, { status: 403 });
+      return forbidden('您没有权限审批此申请');
     }
 
     if (approvedUserIds.includes(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: '您已经审批过了',
-      }, { status: 400 });
+      return fail('您已经审批过了');
     }
 
     const now = new Date().toISOString();
@@ -142,25 +126,16 @@ export async function PUT(request: NextRequest) {
     } else if (action === 'withdraw') {
       // 撤回 - 只有申请人可以撤回
       if (instance.applicant_id !== user.id) {
-        return NextResponse.json({
-          success: false,
-          error: '只有申请人可以撤回',
-        }, { status: 403 });
+        return forbidden('只有申请人可以撤回');
       }
       await handleWithdraw(instance, now);
     }
 
-    return NextResponse.json({
-      success: true,
-      message: getActionMessage(action),
-    });
+    return ok({ message: getActionMessage(action) });
 
   } catch (error) {
     console.error('Approval action error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : '审批操作失败',
-    }, { status: 500 });
+    return serverError(error instanceof Error ? error.message : '审批操作失败');
   }
 }
 

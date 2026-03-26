@@ -6,9 +6,10 @@
  * DELETE: 删除消息
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { ok, fail, serverError, notFound } from '@/lib/api-utils';
 
 // GET: 获取消息详情
 const handleGetMessage = async (
@@ -20,7 +21,7 @@ const handleGetMessage = async (
     const id = params?.id;
     
     if (!id) {
-      return NextResponse.json({ success: false, error: '缺少消息ID' }, { status: 400 });
+      return fail('缺少消息ID');
     }
 
     const client = getSupabaseClient();
@@ -32,7 +33,7 @@ const handleGetMessage = async (
       .single();
 
     if (msgError || !message) {
-      return NextResponse.json({ success: false, error: '消息不存在' }, { status: 404 });
+      return notFound('消息不存在');
     }
 
     const { data: readStatus } = await client
@@ -49,10 +50,10 @@ const handleGetMessage = async (
       isPinned: readStatus?.is_pinned || false,
     };
 
-    return NextResponse.json({ success: true, data: result });
+    return ok(result);
   } catch (err) {
     console.error('Get message API error:', err);
-    return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
+    return serverError('服务器错误');
   }
 };
 
@@ -66,7 +67,7 @@ const handleUpdateMessage = async (
     const id = params?.id;
     
     if (!id) {
-      return NextResponse.json({ success: false, error: '缺少消息ID' }, { status: 400 });
+      return fail('缺少消息ID');
     }
 
     const body = await request.json();
@@ -81,7 +82,7 @@ const handleUpdateMessage = async (
       .single();
 
     if (msgError || !message) {
-      return NextResponse.json({ success: false, error: '消息不存在' }, { status: 404 });
+      return notFound('消息不存在');
     }
 
     const userId = context.user.id;
@@ -99,7 +100,7 @@ const handleUpdateMessage = async (
         
         if (readError) {
           console.error('Failed to mark as read:', readError);
-          return NextResponse.json({ success: false, error: '标记已读失败' }, { status: 500 });
+          return fail('标记已读失败');
         }
         break;
 
@@ -142,13 +143,13 @@ const handleUpdateMessage = async (
         break;
 
       default:
-        return NextResponse.json({ success: false, error: '无效的操作' }, { status: 400 });
+        return fail('无效的操作');
     }
 
-    return NextResponse.json({ success: true, message: '操作成功' });
+    return ok({ message: '操作成功' });
   } catch (err) {
     console.error('Update message API error:', err);
-    return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
+    return serverError('服务器错误');
   }
 };
 
@@ -162,7 +163,7 @@ const handleDeleteMessage = async (
     const id = params?.id;
     
     if (!id) {
-      return NextResponse.json({ success: false, error: '缺少消息ID' }, { status: 400 });
+      return fail('缺少消息ID');
     }
 
     const client = getSupabaseClient();
@@ -175,10 +176,10 @@ const handleDeleteMessage = async (
         deleted_at: new Date().toISOString(),
       }, { onConflict: 'message_id,user_id' });
 
-    return NextResponse.json({ success: true, message: '消息已删除' });
+    return ok({ message: '消息已删除' });
   } catch (err) {
     console.error('Delete message API error:', err);
-    return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 });
+    return serverError('服务器错误');
   }
 };
 

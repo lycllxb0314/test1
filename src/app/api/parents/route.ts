@@ -4,8 +4,9 @@
  * GET /api/parents - 获取家长列表（支持分页、筛选）
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { ok, fail, serverError, paginated } from '@/lib/api-utils';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
@@ -68,10 +69,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query;
     
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+      return fail(error.message);
     }
     
     // 转换数据格式（下划线转驼峰）
@@ -178,22 +176,9 @@ export async function GET(request: NextRequest) {
       }, {} as Record<string, number>),
     };
     
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
-      pagination: {
-        page,
-        pageSize,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
-      statistics,
-    });
+    return paginated(formattedData, count || 0, page, pageSize, { statistics });
   } catch (error) {
     console.error('Failed to fetch parents:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取家长列表失败',
-    }, { status: 500 });
+    return serverError('获取家长列表失败');
   }
 }

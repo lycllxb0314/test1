@@ -5,20 +5,16 @@
  * v3.0: 移除Mock fallback，数据库失败时返回错误响应
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  success, 
-  error, 
-  parseQueryParams,
-  ErrorCode 
-} from '@/lib/api-route-utils';
+import { ok, fail, serverError, getQueryParams } from '@/lib/api-utils';
 
 /**
  * GET - 获取考勤记录
  */
 export async function GET(request: NextRequest) {
-  const params = parseQueryParams(request);
+  const params = getQueryParams(request);
+  const { filters, page, pageSize } = params;
   
   try {
     const client = getSupabaseClient();
@@ -28,19 +24,16 @@ export async function GET(request: NextRequest) {
       .select('*')
       .order('date', { ascending: false });
 
-    if (params.studentId) query = query.eq('student_id', params.studentId);
-    if (params.date) query = query.eq('date', params.date);
-    if (params.startDate) query = query.gte('date', params.startDate);
-    if (params.endDate) query = query.lte('date', params.endDate);
-    if (params.status) query = query.eq('status', params.status);
+    if (filters.studentId) query = query.eq('student_id', filters.studentId);
+    if (filters.date) query = query.eq('date', filters.date);
+    if (filters.startDate) query = query.gte('date', filters.startDate);
+    if (filters.endDate) query = query.lte('date', filters.endDate);
+    if (filters.status) query = query.eq('status', filters.status);
 
     const { data, error: dbError } = await query;
 
     if (dbError) {
-      return NextResponse.json(
-        error('数据库查询失败', ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+      return fail('数据库查询失败');
     }
 
     const formattedData = (data || []).map((record: Record<string, unknown>) => ({
@@ -56,13 +49,10 @@ export async function GET(request: NextRequest) {
       createdAt: record.created_at,
     }));
 
-    return NextResponse.json(success(formattedData));
+    return ok(formattedData);
   } catch (err) {
     console.error('Failed to fetch attendance:', err);
-    return NextResponse.json(
-      error('获取考勤记录失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return serverError('获取考勤记录失败');
   }
 }
 
@@ -76,10 +66,7 @@ export async function POST(request: NextRequest) {
     const { studentId, studentName, classId, className, date, status, reason, recordedBy } = body;
 
     if (!studentId || !date || !status) {
-      return NextResponse.json(
-        error('缺少必要参数', ErrorCode.VALIDATION_ERROR),
-        { status: 400 }
-      );
+      return fail('缺少必要参数');
     }
 
     const { data, error: dbError } = await client
@@ -99,23 +86,17 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (dbError) {
-      return NextResponse.json(
-        error('创建考勤记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+      return fail('创建考勤记录失败: ' + dbError.message);
     }
 
-    return NextResponse.json(success({
+    return ok({
       id: data.id,
       studentId: data.student_id,
       date: data.date,
       status: data.status,
-    }));
+    });
   } catch (err) {
     console.error('Failed to create attendance:', err);
-    return NextResponse.json(
-      error('创建考勤记录失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return serverError('创建考勤记录失败');
   }
 }

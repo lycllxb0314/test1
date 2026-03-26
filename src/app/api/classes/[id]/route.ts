@@ -3,9 +3,9 @@
  * 用于更新班级信息（包括科任）
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { ok, fail, serverError, notFound } from '@/lib/api-utils';
 
 /**
  * GET - 获取单个班级详情
@@ -25,7 +25,7 @@ export async function GET(
       .single();
     
     if (dbError || !data) {
-      return NextResponse.json(error('班级不存在', ErrorCode.NOT_FOUND), { status: 404 });
+      return notFound('班级不存在');
     }
     
     // 转换为驼峰格式
@@ -48,10 +48,10 @@ export async function GET(
       updatedAt: data.updated_at,
     };
     
-    return NextResponse.json(success(formattedData));
+    return ok(formattedData);
   } catch (err) {
     console.error('Failed to fetch class:', err);
-    return NextResponse.json(error('获取班级失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return serverError('获取班级失败');
   }
 }
 
@@ -75,7 +75,7 @@ export async function PATCH(
       .single();
     
     if (fetchError || !currentClass) {
-      return NextResponse.json(error('班级不存在', ErrorCode.NOT_FOUND), { status: 404 });
+      return notFound('班级不存在');
     }
     
     // 构建更新数据
@@ -124,7 +124,7 @@ export async function PATCH(
     
     if (dbError) {
       console.error('Update error:', dbError);
-      return NextResponse.json(error('更新失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+      return fail('更新失败');
     }
     
     // 同步更新 teachers 表的 head_teacher_class_ids
@@ -164,13 +164,13 @@ export async function PATCH(
       }
     }
     
-    return NextResponse.json(success({
+    return ok({
       id: data.id,
       subTeacherId: data.sub_teacher_id,
       subTeacherName: data.sub_teacher_name,
-    }));
+    });
   } catch (err) {
     console.error('Failed to update class:', err);
-    return NextResponse.json(error('更新班级失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return serverError('更新班级失败');
   }
 }

@@ -7,10 +7,11 @@
  * - 添加/移除成员
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { GROUP_CONFIGS, type GroupType, type GroupInfo, type GroupMember } from '@/types';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { ok, fail, serverError, forbidden } from '@/lib/api-utils';
 
 // GET: 获取群组列表或群组成员
 export const GET = protectedRoute(async (
@@ -76,7 +77,7 @@ export const GET = protectedRoute(async (
       }
 
       console.log('[Groups API] Returning groups:', groups.length);
-      return NextResponse.json({ groups });
+      return ok({ groups });
     }
 
     if (action === 'members') {
@@ -84,7 +85,7 @@ export const GET = protectedRoute(async (
       const groupType = searchParams.get('groupType') as GroupType;
       
       if (!groupType || !GROUP_CONFIGS[groupType]) {
-        return NextResponse.json({ error: '无效的群组类型' }, { status: 400 });
+        return fail('无效的群组类型');
       }
 
       const { data: members, error } = await supabase
@@ -108,7 +109,7 @@ export const GET = protectedRoute(async (
 
       if (error) {
         console.error('获取群组成员失败:', error);
-        return NextResponse.json({ error: '获取群组成员失败' }, { status: 500 });
+        return fail('获取群组成员失败');
       }
 
       const formattedMembers: GroupMember[] = (members || []).map((m: Record<string, unknown>) => {
@@ -128,7 +129,7 @@ export const GET = protectedRoute(async (
         };
       });
 
-      return NextResponse.json({ members: formattedMembers });
+      return ok({ members: formattedMembers });
     }
 
     if (action === 'candidates') {
@@ -137,7 +138,7 @@ export const GET = protectedRoute(async (
       const search = searchParams.get('search') || '';
       
       if (!groupType || !GROUP_CONFIGS[groupType]) {
-        return NextResponse.json({ error: '无效的群组类型' }, { status: 400 });
+        return fail('无效的群组类型');
       }
 
       // 获取已在群组中的用户ID
@@ -168,16 +169,16 @@ export const GET = protectedRoute(async (
 
       if (error) {
         console.error('获取候选人失败:', error);
-        return NextResponse.json({ error: '获取候选人失败' }, { status: 500 });
+        return fail('获取候选人失败');
       }
 
-      return NextResponse.json({ candidates: candidates || [] });
+      return ok({ candidates: candidates || [] });
     }
 
-    return NextResponse.json({ error: '未知的操作' }, { status: 400 });
+    return fail('未知的操作');
   } catch (error) {
     console.error('群组API错误:', error);
-    return NextResponse.json({ error: '服务器内部错误' }, { status: 500 });
+    return serverError('服务器内部错误');
   }
 });
 
@@ -215,16 +216,16 @@ export const POST = protectedRoute(async (
       .single();
 
     if (!isPrincipalOffice && !isGroupAdmin) {
-      return NextResponse.json({ error: '无权限操作此群组' }, { status: 403 });
+      return forbidden('无权限操作此群组');
     }
 
     if (action === 'add_members') {
       if (!groupType || !GROUP_CONFIGS[groupType]) {
-        return NextResponse.json({ error: '无效的群组类型' }, { status: 400 });
+        return fail('无效的群组类型');
       }
 
       if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-        return NextResponse.json({ error: '请选择要添加的用户' }, { status: 400 });
+        return fail('请选择要添加的用户');
       }
 
       // 批量添加成员
@@ -243,17 +244,17 @@ export const POST = protectedRoute(async (
 
       if (error) {
         console.error('添加成员失败:', error);
-        return NextResponse.json({ error: '添加成员失败' }, { status: 500 });
+        return fail('添加成员失败');
       }
 
-      return NextResponse.json({ success: true, addedCount: userIds.length });
+      return ok({ success: true, addedCount: userIds.length });
     }
 
     if (action === 'set_admin') {
       const { targetUserId, isAdmin } = body as { targetUserId?: string; isAdmin?: boolean };
       
       if (!groupType || !targetUserId) {
-        return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
+        return fail('缺少必要参数');
       }
 
       const { error } = await supabase
@@ -264,16 +265,16 @@ export const POST = protectedRoute(async (
 
       if (error) {
         console.error('设置管理员失败:', error);
-        return NextResponse.json({ error: '设置管理员失败' }, { status: 500 });
+        return fail('设置管理员失败');
       }
 
-      return NextResponse.json({ success: true });
+      return ok({ success: true });
     }
 
-    return NextResponse.json({ error: '未知的操作' }, { status: 400 });
+    return fail('未知的操作');
   } catch (error) {
     console.error('群组API错误:', error);
-    return NextResponse.json({ error: '服务器内部错误' }, { status: 500 });
+    return serverError('服务器内部错误');
   }
 });
 
@@ -290,7 +291,7 @@ export const DELETE = protectedRoute(async (
     const userId = context.user.id;
 
     if (!groupType || !targetUserId) {
-      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
+      return fail('缺少必要参数');
     }
 
     // 权限检查
@@ -310,7 +311,7 @@ export const DELETE = protectedRoute(async (
       .single();
 
     if (!isPrincipalOffice && !isGroupAdmin) {
-      return NextResponse.json({ error: '无权限操作此群组' }, { status: 403 });
+      return forbidden('无权限操作此群组');
     }
 
     // 不允许移除自动加入的成员
@@ -322,7 +323,7 @@ export const DELETE = protectedRoute(async (
       .single();
 
     if (member?.join_type === 'auto') {
-      return NextResponse.json({ error: '自动加入的成员不能手动移除' }, { status: 400 });
+      return fail('自动加入的成员不能手动移除');
     }
 
     const { error } = await supabase
@@ -333,12 +334,12 @@ export const DELETE = protectedRoute(async (
 
     if (error) {
       console.error('移除成员失败:', error);
-      return NextResponse.json({ error: '移除成员失败' }, { status: 500 });
+      return fail('移除成员失败');
     }
 
-    return NextResponse.json({ success: true });
+    return ok({ success: true });
   } catch (error) {
     console.error('群组API错误:', error);
-    return NextResponse.json({ error: '服务器内部错误' }, { status: 500 });
+    return serverError('服务器内部错误');
   }
 });

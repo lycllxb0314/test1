@@ -8,17 +8,18 @@
  * - 审批请假申请
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { success, error, ErrorCode, parseQueryParams, createPagination } from '@/lib/api-route-utils';
+import { ok, fail, serverError, paginated, getQueryParams } from '@/lib/api-utils';
 
 // ==================== GET - 获取请假列表 ====================
 
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const client = getSupabaseClient();
-    const params = parseQueryParams(request);
+    const params = getQueryParams(request);
+    const { filters, page, pageSize } = params;
     
     // 构建查询
     let query = client
@@ -27,28 +28,26 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       .order('created_at', { ascending: false });
     
     // 筛选条件
-    if (params.applicantId) {
-      query = query.eq('applicant_id', params.applicantId);
-    } else if (params.my) {
+    if (filters.applicantId) {
+      query = query.eq('applicant_id', filters.applicantId);
+    } else if (filters.my) {
       // 我的请假：使用当前用户的工号
       query = query.eq('applicant_id', user.employeeId);
     }
-    if (params.status) {
-      query = query.eq('status', params.status);
+    if (filters.status) {
+      query = query.eq('status', filters.status);
     }
-    if (params.type) {
-      query = query.eq('type', params.type);
+    if (filters.type) {
+      query = query.eq('type', filters.type);
     }
-    if (params.startDate) {
-      query = query.gte('start_date', params.startDate);
+    if (filters.startDate) {
+      query = query.gte('start_date', filters.startDate);
     }
-    if (params.endDate) {
-      query = query.lte('end_date', params.endDate);
+    if (filters.endDate) {
+      query = query.lte('end_date', filters.endDate);
     }
     
     // 分页
-    const page = params.page || 1;
-    const pageSize = params.pageSize || 20;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     
@@ -58,7 +57,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     
     if (dbError) {
       console.error('获取请假列表失败:', dbError);
-      return NextResponse.json(error('获取请假列表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+      return fail('获取请假列表失败');
     }
     
     // 获取审批实例数据
@@ -97,14 +96,11 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       return mapped;
     });
     
-    return NextResponse.json({
-      ...success(leaveRequests, 'database'),
-      pagination: createPagination(count || 0, page, pageSize),
-    });
+    return paginated(leaveRequests, count || 0, page, pageSize);
     
   } catch (err) {
     console.error('获取请假列表失败:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return serverError('服务器错误');
   }
 });
 
@@ -117,7 +113,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     
     // 验证必填字段
     if (!body.type || !body.startDate || !body.endDate || !body.reason) {
-      return NextResponse.json(error('缺少必填字段', ErrorCode.VALIDATION_ERROR), { status: 400 });
+      return fail('缺少必填字段');
     }
     
     // 获取申请人信息
@@ -174,7 +170,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     
     if (dbError) {
       console.error('创建请假申请失败:', dbError);
-      return NextResponse.json(error('创建请假申请失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+      return fail('创建请假申请失败');
     }
     
     // 2. 如果需要调课，创建调课记录
@@ -341,11 +337,11 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
       }
     }
     
-    return NextResponse.json(success(mapLeaveRequest(data), 'database'));
+    return ok(mapLeaveRequest(data));
     
   } catch (err) {
     console.error('提交请假申请失败:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return serverError('服务器错误');
   }
 });
 

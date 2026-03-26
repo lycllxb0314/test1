@@ -5,9 +5,9 @@
  * POST: 创建新考试
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, ErrorCode, successPaginated } from '@/lib/api-route-utils';
+import { ok, fail, serverError, paginated } from '@/lib/api-utils';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 // ==================== 类型定义 ====================
@@ -114,21 +114,16 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const { data, error: dbError, count } = await query;
     
     if (dbError) {
-      return NextResponse.json(error('获取考试列表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+      return fail('获取考试列表失败');
     }
     
     // 转换数据格式
     const exams = (data || []).map(mapExamFromDb);
     
-    return NextResponse.json(successPaginated(exams, {
-      page,
-      pageSize,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / pageSize),
-    }));
+    return paginated(exams, count || 0, page, pageSize);
   } catch (err) {
     console.error('获取考试列表失败:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return serverError('服务器错误');
   }
 });
 
@@ -141,7 +136,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     
     // 验证必填字段
     if (!body.name || !body.type || !body.startDate) {
-      return NextResponse.json(error('缺少必填字段', ErrorCode.VALIDATION_ERROR), { status: 400 });
+      return fail('缺少必填字段');
     }
     
     // 生成考试ID
@@ -177,13 +172,13 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     
     if (dbError) {
       console.error('创建考试失败:', dbError);
-      return NextResponse.json(error('创建考试失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+      return fail('创建考试失败');
     }
     
-    return NextResponse.json(success(mapExamFromDb(data)));
+    return ok(mapExamFromDb(data));
   } catch (err) {
     console.error('创建考试失败:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return serverError('服务器错误');
   }
 });
 

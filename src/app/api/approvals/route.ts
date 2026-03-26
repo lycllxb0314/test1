@@ -11,9 +11,10 @@
  * - 请假审批 → 根据审批人（不在部门工作台显示）
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getUserFromSession } from '@/lib/auth/session';
+import { ok, fail, serverError, paginated, unauthorized } from '@/lib/api-utils';
 import { 
   ApprovalInstance, 
   ApprovalFlow, 
@@ -131,11 +132,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseClient();
     const user = await getUserFromSession(request);
     if (!user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: '未登录，请先登录',
-        code: 'AUTH_FAILED' 
-      }, { status: 401 });
+      return unauthorized('未登录，请先登录');
     }
 
     const { searchParams } = new URL(request.url);
@@ -249,16 +246,7 @@ export async function GET(request: NextRequest) {
       const totalCount = allInstances.length;
       const paginatedInstances = allInstances.slice(offset, offset + pageSize);
 
-      return NextResponse.json({
-        success: true,
-        data: paginatedInstances,
-        pagination: {
-          page,
-          pageSize,
-          total: totalCount,
-          totalPages: Math.ceil(totalCount / pageSize),
-        },
-      });
+      return paginated(paginatedInstances, totalCount, page, pageSize);
     } else if (type === 'pending') {
       // 待我审批的 - 需要检查当前节点是否包含当前用户
       // 1. 获取所有进行中的实例（公告/新闻等）
@@ -556,23 +544,11 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({
-      success: true,
-      data: instances,
-      pagination: {
-        page,
-        pageSize,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
-    });
+    return paginated(instances, count || 0, page, pageSize);
 
   } catch (error) {
     console.error('Get approvals error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : '获取审批列表失败',
-    }, { status: 500 });
+    return serverError(error instanceof Error ? error.message : '获取审批列表失败');
   }
 }
 
@@ -589,11 +565,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseClient();
     const user = await getUserFromSession(request);
     if (!user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: '未登录，请先登录',
-        code: 'AUTH_FAILED' 
-      }, { status: 401 });
+      return unauthorized('未登录，请先登录');
     }
 
     const body: SubmitApprovalRequest = await request.json();
@@ -666,13 +638,10 @@ export async function POST(request: NextRequest) {
     if (type === 'internal_notice') {
       await sendInternalNotification(supabase, announcementId, title, content, user.id, user.name, recipients);
       
-      return NextResponse.json({
-        success: true,
-        data: {
-          announcementId,
-          status: 'published',
-          message: '内部通知发布成功',
-        },
+      return ok({
+        announcementId,
+        status: 'published',
+        message: '内部通知发布成功',
       });
     }
 
@@ -680,13 +649,10 @@ export async function POST(request: NextRequest) {
     if (type === 'parent_notice') {
       await sendParentNotification(supabase, announcementId, title, content, user.id, user.name, recipients);
       
-      return NextResponse.json({
-        success: true,
-        data: {
-          announcementId,
-          status: 'published',
-          message: '家长通知发布成功',
-        },
+      return ok({
+        announcementId,
+        status: 'published',
+        message: '家长通知发布成功',
       });
     }
 
@@ -711,13 +677,10 @@ export async function POST(request: NextRequest) {
       // 发送通知给相关人员
       await sendNotifications(user.id, title, summary || content, department);
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          announcementId,
-          status: scheduledPublishAt ? 'scheduled' : 'published',
-          message: scheduledPublishAt ? '已设置定时发布' : '发布成功',
-        },
+      return ok({
+        announcementId,
+        status: scheduledPublishAt ? 'scheduled' : 'published',
+        message: scheduledPublishAt ? '已设置定时发布' : '发布成功',
       });
     }
 
@@ -732,10 +695,7 @@ export async function POST(request: NextRequest) {
 
     if (flowError || !flow) {
       // 如果没有找到对应部门的流程，使用默认流程
-      return NextResponse.json({
-        success: false,
-        error: '未找到对应的审批流程',
-      }, { status: 400 });
+      return fail('未找到对应的审批流程');
     }
 
     // 4. 创建审批实例
@@ -832,22 +792,16 @@ export async function POST(request: NextRequest) {
       await sendApprovalNotification(instanceId, firstApprovalNode.approver_ids, title, user.name);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        announcementId,
-        instanceId,
-        status: 'pending_approval',
-        message: '已提交审批',
-      },
+    return ok({
+      announcementId,
+      instanceId,
+      status: 'pending_approval',
+      message: '已提交审批',
     });
 
   } catch (error) {
     console.error('Submit approval error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : '提交审批失败',
-    }, { status: 500 });
+    return serverError(error instanceof Error ? error.message : '提交审批失败');
   }
 }
 

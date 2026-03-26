@@ -7,18 +7,12 @@
  * 3. 发送消息给审批人
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { 
   getMockLeaveRequests,
 } from '@/lib/mock/academic.mock';
-import { 
-  success, 
-  error, 
-  parseQueryParams, 
-  createPagination,
-  ErrorCode 
-} from '@/lib/api-route-utils';
+import { ok, fail, serverError, paginated, getQueryParams, forbidden, notFound } from '@/lib/api-utils';
 import type { LeaveRequest } from '@/types';
 
 /**
@@ -34,7 +28,8 @@ import type { LeaveRequest } from '@/types';
  * - pageSize: 每页数量
  */
 export async function GET(request: NextRequest) {
-  const params = parseQueryParams(request);
+  const params = getQueryParams(request);
+  const { filters, page, pageSize } = params;
   
   try {
     const client = getSupabaseClient();
@@ -46,25 +41,23 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
     
     // 应用筛选
-    if (params.applicantId) {
-      query = query.eq('applicant_id', params.applicantId);
+    if (filters.applicantId) {
+      query = query.eq('applicant_id', filters.applicantId);
     }
-    if (params.status) {
-      query = query.eq('status', params.status);
+    if (filters.status) {
+      query = query.eq('status', filters.status);
     }
-    if (params.type) {
-      query = query.eq('type', params.type);
+    if (filters.type) {
+      query = query.eq('type', filters.type);
     }
-    if (params.startDate) {
-      query = query.gte('start_time', params.startDate);
+    if (filters.startDate) {
+      query = query.gte('start_time', filters.startDate);
     }
-    if (params.endDate) {
-      query = query.lte('end_time', params.endDate);
+    if (filters.endDate) {
+      query = query.lte('end_time', filters.endDate);
     }
     
     // 分页
-    const page = params.page || 1;
-    const pageSize = params.pageSize || 20;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     
@@ -77,49 +70,32 @@ export async function GET(request: NextRequest) {
       
       // 使用Mock数据
       const mockData = getMockLeaveRequests({
-        applicantId: params.applicantId as string,
-        status: params.status as string,
-        type: params.type as string,
+        applicantId: filters.applicantId as string,
+        status: filters.status as string,
+        type: filters.type as string,
       });
       
       const start = (page - 1) * pageSize;
       const end = start + pageSize;
       
-      return NextResponse.json({
-        success: true,
-        data: mockData.slice(start, end),
-        pagination: createPagination(mockData.length, page, pageSize),
-        source: 'mock',
-      });
+      return paginated(mockData.slice(start, end), count || mockData.length, page, pageSize);
     }
     
-    return NextResponse.json({
-      success: true,
-      data: data || [],
-      pagination: createPagination(count || 0, page, pageSize),
-      source: 'database',
-    });
+    return paginated(data || [], count || 0, page, pageSize);
   } catch (err) {
     console.error('Failed to fetch leave requests:', err);
     
     // 使用Mock数据作为fallback
-    const page = params.page || 1;
-    const pageSize = params.pageSize || 20;
     const mockData = getMockLeaveRequests({
-      applicantId: params.applicantId as string,
-      status: params.status as string,
-      type: params.type as string,
+      applicantId: filters.applicantId as string,
+      status: filters.status as string,
+      type: filters.type as string,
     });
     
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
     
-    return NextResponse.json({
-      success: true,
-      data: mockData.slice(start, end),
-      pagination: createPagination(mockData.length, page, pageSize),
-      source: 'mock',
-    });
+    return paginated(mockData.slice(start, end), mockData.length, page, pageSize);
   }
 }
 
@@ -168,10 +144,7 @@ export async function POST(request: NextRequest) {
     
     if (dbError) {
       console.error('创建请假申请失败:', dbError);
-      return NextResponse.json(
-        error('创建请假申请失败: ' + dbError.message, ErrorCode.INTERNAL_ERROR),
-        { status: 500 }
-      );
+      return fail('创建请假申请失败: ' + dbError.message);
     }
     
     // 2. 创建审批实例
@@ -262,29 +235,22 @@ export async function POST(request: NextRequest) {
     
     await Promise.all(messagePromises.filter(Boolean));
     
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: leaveRequest.id,
-        applicantId: leaveRequest.applicant_id,
-        applicantName: leaveRequest.applicant_name,
-        type: leaveRequest.type,
-        startDate: leaveRequest.start_date,
-        endDate: leaveRequest.end_date,
-        duration: leaveRequest.duration,
-        reason: leaveRequest.reason,
-        status: leaveRequest.status,
-        approvers: approverSelection,
-        approvalInstanceId: approvalInstanceResult?.id,
-      },
-      message: '请假申请已提交，等待审批',
+    return ok({
+      id: leaveRequest.id,
+      applicantId: leaveRequest.applicant_id,
+      applicantName: leaveRequest.applicant_name,
+      type: leaveRequest.type,
+      startDate: leaveRequest.start_date,
+      endDate: leaveRequest.end_date,
+      duration: leaveRequest.duration,
+      reason: leaveRequest.reason,
+      status: leaveRequest.status,
+      approvers: approverSelection,
+      approvalInstanceId: approvalInstanceResult?.id,
     });
   } catch (err) {
     console.error('Failed to create leave request:', err);
-    return NextResponse.json(
-      error('创建请假申请失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return serverError('创建请假申请失败');
   }
 }
 
@@ -311,10 +277,7 @@ export async function PUT(request: NextRequest) {
       .single();
     
     if (fetchError || !leaveRequest) {
-      return NextResponse.json(
-        error('未找到请假申请', ErrorCode.NOT_FOUND),
-        { status: 404 }
-      );
+      return notFound('请假申请');
     }
     
     // 2. 更新请假申请状态
@@ -338,10 +301,7 @@ export async function PUT(request: NextRequest) {
     
     if (dbError) {
       console.error('更新请假申请失败:', dbError);
-      return NextResponse.json(
-        error('更新请假申请失败', ErrorCode.INTERNAL_ERROR),
-        { status: 500 }
-      );
+      return fail('更新请假申请失败');
     }
     
     // 3. 更新审批实例状态
@@ -430,19 +390,12 @@ export async function PUT(request: NextRequest) {
       }
     }
     
-    return NextResponse.json({
-      success: true,
-      data: { 
-        id, 
-        status: action === 'approve' ? 'approved' : 'rejected',
-      },
-      message: action === 'approve' ? '审批通过' : '已拒绝',
+    return ok({ 
+      id, 
+      status: action === 'approve' ? 'approved' : 'rejected',
     });
   } catch (err) {
     console.error('Failed to update leave request:', err);
-    return NextResponse.json(
-      error('更新请假申请失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return serverError('更新请假申请失败');
   }
 }
