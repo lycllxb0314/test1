@@ -69,6 +69,7 @@ import {
   type MediaLevel,
   type ApproverLeaderRole,
   type ApprovalMode,
+  type ApprovalType,
 } from '@/types/approval';
 import { useTeachers } from '@/hooks/useTeachers';
 import { useClasses } from '@/hooks/useClasses';
@@ -78,6 +79,28 @@ import { useGroups } from '@/hooks/useGroups';
 
 /** 根据类型获取分类选项 */
 const CATEGORY_OPTIONS: Record<AnnouncementType, { value: string; label: string }[]> = {
+  '通知': [
+    { value: '重要通知', label: '重要通知' },
+    { value: '活动预告', label: '活动预告' },
+    { value: '规章制度', label: '规章制度' },
+    { value: '招生信息', label: '招生信息' },
+    { value: '放假通知', label: '放假通知' },
+  ],
+  '公告': [
+    { value: '重要公告', label: '重要公告' },
+    { value: '活动公告', label: '活动公告' },
+    { value: '制度公告', label: '制度公告' },
+  ],
+  '新闻': [
+    { value: '校园新闻', label: '校园新闻' },
+    { value: '荣誉喜报', label: '荣誉喜报' },
+    { value: '教育教学', label: '教育教学' },
+    { value: '媒体附小', label: '媒体附小' },
+  ],
+  '活动': [
+    { value: '校园活动', label: '校园活动' },
+    { value: '班级活动', label: '班级活动' },
+  ],
   announcement: [
     { value: '重要通知', label: '重要通知' },
     { value: '活动预告', label: '活动预告' },
@@ -109,8 +132,8 @@ const CATEGORY_OPTIONS: Record<AnnouncementType, { value: string; label: string 
     { value: '家校沟通', label: '家校沟通' },
     { value: '其他通知', label: '其他通知' },
   ],
-  leave_request: [], // 请假审批无分类
-  room_booking: [], // 教室预约无分类
+  leave_request: [],
+  room_booking: [],
 };
 
 /** 媒体级别选项（新闻动态-媒体附小分类下使用） */
@@ -305,8 +328,8 @@ export function PublishNotificationDialog({
       const request: SubmitApprovalRequest = {
         title: title.trim(),
         summary: summary.trim() || undefined,
-        content: content.trim(),
-        type,
+        content: { text: content.trim() },
+        type: type as ApprovalType | 'announcement' | 'news' | 'internal_notice' | 'parent_notice',
         category: category ? category as AnnouncementCategory | NewsCategory | InternalNoticeCategory : undefined,
         mediaLevel: mediaLevel || undefined,
         department,
@@ -321,9 +344,6 @@ export function PublishNotificationDialog({
         recipients: (type === 'internal_notice' || type === 'parent_notice') ? recipientConfig : undefined,
         customFlow: needsApproval ? {
           skipDepartmentDirector,
-          approvalType,
-          selectedLeaders,
-          approvalMode,
         } : undefined,
       };
 

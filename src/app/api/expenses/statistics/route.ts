@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
       pendingAmount,
       approvedAmount,
       totalAmount,
+      monthPaidAmount: completedCount > 0 ? yearlyAmount * 0.3 : 0, // 临时模拟
+      monthPaidCount: completedCount > 0 ? Math.floor(completedCount * 0.3) : 0, // 临时模拟
     };
 
     return NextResponse.json({

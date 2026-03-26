@@ -193,7 +193,7 @@ export async function canViewStudentSensitiveData(
   
   // 5. 家长：检查是否是自己孩子
   if (user.role === 'parent') {
-    const isParent = student.parents?.some(p => p.id === user.id);
+    const isParent = student.parents?.some((p: { id?: string }) => p.id === user.id);
     if (isParent) {
       return {
         allowed: true,

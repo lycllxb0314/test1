@@ -245,17 +245,26 @@ export interface ApprovalNodeRecord {
   status: 'pending' | 'approved' | 'rejected' | 'skipped';
   approverId?: string;
   approverName?: string;
+  approverRole?: string;
   approverIds?: string[];             // 多审批人ID
-  approvedBy?: string;                // 实际审批人
+  approvedBy?: Array<{
+    userId?: string;
+    userName?: string;
+    action: string;
+    comment?: string;
+    time: string;
+  }>;                // 实际审批人列表
   comment?: string;
+  action?: string;  // 审批动作
   actionAt?: string;
   finishedAt?: string;
 }
 
 /** 提交审批请求 */
 export interface SubmitApprovalRequest {
-  type: ApprovalType;
+  type: ApprovalType | 'announcement' | 'news' | 'internal_notice' | 'parent_notice';
   title: string;
+  summary?: string;
   urgentLevel?: 'normal' | 'urgent' | 'very_urgent';
   department?: string;
   content: Record<string, unknown>;
@@ -263,6 +272,23 @@ export interface SubmitApprovalRequest {
   isExternal?: boolean;
   approvalMode?: ApprovalMode;
   selectedLeaders?: ApproverLeaderRole[];
+  category?: string;
+  mediaLevel?: string;
+  coverImage?: string;
+  images?: string[];
+  scheduledPublishAt?: string;
+  autoUnpublish?: boolean;
+  autoUnpublishAt?: string;
+  recipients?: {
+    type: 'all' | 'role' | 'class' | 'individual' | 'group';
+    roles?: string[];
+    classIds?: string[];
+    userIds?: string[];
+    groupIds?: string[];
+  };
+  customFlow?: {
+    skipDepartmentDirector?: boolean;
+  };
 }
 
 /** 审批节点（工作流节点） */
@@ -315,6 +341,7 @@ export interface PendingApprovalQuery {
   userId?: string;
   status?: ApprovalStatus | 'all';
   type?: ApprovalType | 'all';
+  department?: string;
   page?: number;
   pageSize?: number;
 }
@@ -338,7 +365,7 @@ export type AnnouncementType =
 export type AnnouncementCategory = '校园公告' | '教务公告' | '德育公告' | '总务公告' | '其他';
 
 /** 新闻类别 */
-export type NewsCategory = '学校新闻' | '教务新闻' | '德育新闻' | '总务新闻' | '其他';
+export type NewsCategory = '学校新闻' | '教务新闻' | '德育新闻' | '总务新闻' | '媒体附小' | '其他';
 
 /** 内部通知类别 */
 export type InternalNoticeCategory = '会议通知' | '工作安排' | '制度文件' | '其他';

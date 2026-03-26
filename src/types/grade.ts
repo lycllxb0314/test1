@@ -130,15 +130,15 @@ export interface Exam {
   id: string;
   name: string;
   type: ExamType | '期中考试' | '期末考试' | '单元测试' | '模拟考试' | '其他';
-  semester: string;
+  semester?: string;
   startDate: string;
   endDate: string;
   grades: number[];
   subjects?: string[];                  // 考试科目（兼容字段）
-  courses: ExamCourse[];
-  status: 'planned' | 'ongoing' | 'grading' | 'completed';
+  courses?: ExamCourse[];
+  status: 'planned' | 'ongoing' | 'grading' | 'completed' | 'planning';
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 /** 考试科目 */

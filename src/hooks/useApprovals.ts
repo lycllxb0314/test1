@@ -95,6 +95,7 @@ const DEFAULT_STATISTICS: ApprovalStatistics = {
     approved: 0,
     rejected: 0,
     withdrawn: 0,
+    cancelled: 0,
   },
 };
 
@@ -110,6 +111,7 @@ export function getApprovalStatusLabel(status: ApprovalStatus): string {
     approved: '已通过',
     rejected: '已驳回',
     withdrawn: '已撤回',
+    cancelled: '已取消',
   };
   return labels[status] || status;
 }
@@ -122,6 +124,7 @@ export function getApprovalStatusColor(status: ApprovalStatus): string {
     approved: 'bg-green-100 text-green-600',
     rejected: 'bg-red-100 text-red-600',
     withdrawn: 'bg-gray-100 text-gray-500',
+    cancelled: 'bg-gray-100 text-gray-500',
   };
   return colors[status] || 'bg-gray-100 text-gray-600';
 }
@@ -134,6 +137,7 @@ export function getApprovalStatusIcon(status: ApprovalStatus): string {
     approved: '✅',
     rejected: '❌',
     withdrawn: '↩️',
+    cancelled: '🚫',
   };
   return icons[status] || '❓';
 }

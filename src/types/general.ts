@@ -49,8 +49,8 @@ export interface Asset {
   status: AssetStatus;
   images?: string[];
   note?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ==================== 教室管理 ====================
@@ -247,19 +247,19 @@ export type RepairStatus =
 /** 维修申请 */
 export interface RepairRequest {
   id: string;
-  type: 'asset' | 'facility' | 'other';
+  type?: 'asset' | 'facility' | 'other';
   assetId?: string;
   assetName?: string;
   item?: string;                        // 维修项目（兼容字段）
-  location: string;
-  description: string;
-  urgency: 'low' | 'normal' | 'high' | 'urgent';
+  location?: string;
+  description?: string;
+  urgency?: 'low' | 'normal' | 'high' | 'urgent';
   priority?: 'urgent' | 'high' | 'normal' | 'low';
   images?: string[];
-  applicantId: string;
-  applicantName: string;
-  department: string;
-  status: RepairStatus;
+  applicantId?: string;
+  applicantName?: string;
+  department?: string;
+  status?: RepairStatus;
   assigneeId?: string;
   assigneeName?: string;
   estimatedCost?: number;
@@ -270,8 +270,8 @@ export interface RepairRequest {
   completedDate?: string;
   completedAt?: string;
   note?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ==================== 采购管理 ====================

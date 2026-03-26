@@ -78,8 +78,8 @@ export default function RepairsPage() {
   };
 
   const filteredRepairs = mockRepairRequests.filter(repair => {
-    const matchesSearch = repair.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         repair.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (repair.item || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (repair.location || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || repair.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -214,19 +214,19 @@ export default function RepairsPage() {
                   <TableCell>
                     <div className="flex items-center gap-1 text-gray-600">
                       <MapPin className="h-3 w-3" />
-                      {repair.location}
+                      {repair.location || '-'}
                     </div>
                   </TableCell>
-                  <TableCell>{getPriorityBadge(repair.priority)}</TableCell>
-                  <TableCell>{getStatusBadge(repair.status)}</TableCell>
+                  <TableCell>{getPriorityBadge(repair.priority || 'normal')}</TableCell>
+                  <TableCell>{getStatusBadge(repair.status || 'pending')}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <User className="h-3 w-3 text-gray-400" />
-                      {repair.applicantName}
+                      {repair.applicantName || '-'}
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-gray-500">
-                    {repair.createdAt.split(' ')[0]}
+                    {(repair.createdAt || '').split(' ')[0] || '-'}
                   </TableCell>
                   <TableCell>
                     <Button size="sm" variant="outline">详情</Button>

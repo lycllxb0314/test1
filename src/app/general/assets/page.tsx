@@ -106,15 +106,15 @@ export default function AssetsPage() {
   const filteredAssets = assetsData.filter((asset) => {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          asset.assetNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         asset.location.toLowerCase().includes(searchTerm.toLowerCase());
+                         (asset.location || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || asset.category === categoryFilter;
     const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
   // 计算统计
-  const totalValue = assetsData.reduce((sum, asset) => sum + asset.value, 0);
-  const totalQuantity = assetsData.reduce((sum, asset) => sum + asset.quantity, 0);
+  const totalValue = assetsData.reduce((sum, asset) => sum + (asset.value || 0), 0);
+  const totalQuantity = assetsData.reduce((sum, asset) => sum + (asset.quantity || 0), 0);
 
   // 获取状态徽章
   const getStatusBadge = (status: string) => {
@@ -287,12 +287,12 @@ export default function AssetsPage() {
                     <Badge variant="outline">{asset.category}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-gray-600">{asset.specification || '-'}</TableCell>
-                  <TableCell>{asset.quantity} {asset.unit}</TableCell>
-                  <TableCell className="font-medium">¥{asset.value.toLocaleString()}</TableCell>
+                  <TableCell>{asset.quantity || 0} {asset.unit || '个'}</TableCell>
+                  <TableCell className="font-medium">¥{(asset.value || 0).toLocaleString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1 text-gray-600">
                       <MapPin className="h-3 w-3" />
-                      {asset.location}
+                      {asset.location || '-'}
                     </div>
                   </TableCell>
                   <TableCell>{getStatusBadge(asset.status)}</TableCell>

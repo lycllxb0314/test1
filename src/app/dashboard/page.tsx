@@ -366,7 +366,7 @@ export default function DashboardPage() {
                         <Badge variant="destructive" className="text-[10px] px-1 py-0">重要</Badge>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{item.publishAt.split(' ')[0]}</p>
+                    <p className="text-xs text-gray-500 mt-1">{(item.publishAt || item.createdAt || '').split(' ')[0]}</p>
                   </div>
                 </div>
               ))}

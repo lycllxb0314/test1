@@ -52,6 +52,7 @@ const STATUS_CONFIG: Record<ApprovalStatus, { label: string; color: string; icon
   approved: { label: '已通过', color: 'bg-green-100 text-green-600', icon: CheckCircle2 },
   rejected: { label: '已驳回', color: 'bg-red-100 text-red-600', icon: XCircle },
   withdrawn: { label: '已撤回', color: 'bg-gray-100 text-gray-600', icon: MinusCircle },
+  cancelled: { label: '已取消', color: 'bg-gray-100 text-gray-600', icon: MinusCircle },
 };
 
 const NODE_STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -62,6 +63,9 @@ const NODE_STATUS_CONFIG: Record<string, { label: string; color: string; icon: R
 };
 
 const LEADER_ROLE_LABELS: Record<ApproverLeaderRole, string> = {
+  grade_leader: '年段长',
+  director: '部门主任',
+  vice_principal: '副校长',
   principal: '校长',
   secretary: '书记',
   academic_vice_principal: '教学副校长',
@@ -230,14 +234,14 @@ function ApprovalNodeCard({ record, isLast, isCurrent }: ApprovalNodeCardProps) 
         {/* 审批人信息 */}
         {approvedBy && approvedBy.length > 0 && (
           <div className="space-y-2">
-            {approvedBy.map((action, index) => (
+            {approvedBy.map((action: { userName?: string; action: string; comment?: string; time: string }, index: number) => (
               <div key={index} className="flex items-center gap-2 text-sm">
                 <Avatar className="h-6 w-6">
                   <AvatarFallback className="text-xs">
-                    {action.userName.slice(0, 1)}
+                    {(action.userName || '').slice(0, 1)}
                   </AvatarFallback>
                 </Avatar>
-                <span>{action.userName}</span>
+                <span>{action.userName || '未知'}</span>
                 {action.action === 'approved' && (
                   <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
                     同意

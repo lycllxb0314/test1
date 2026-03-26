@@ -10,6 +10,14 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 // 类型定义
 // ============================================
 
+export interface ApprovalFilters {
+  status?: string;
+  type?: string;
+  applicantId?: string;
+  department?: string;
+  [key: string]: unknown;
+}
+
 export interface ApprovalInstance {
   id: string;
   flowId?: string;

@@ -284,25 +284,49 @@ export interface VisitorStatistics {
 /** 门禁统计 */
 export interface AccessStatistics {
   /** 今日进入人数 */
-  todayInCount: number;
+  todayInCount?: number;
   /** 今日离开人数 */
-  todayOutCount: number;
+  todayOutCount?: number;
   /** 今日总通行人数 */
   todayTotal?: number;
+  /** 今日进入 */
+  todayIn?: number;
+  /** 今日离开 */
+  todayOut?: number;
   /** 当前在校人数 */
-  currentInSchool: number;
+  currentInSchool?: number;
   /** 异常记录数 */
-  abnormalCount: number;
+  abnormalCount?: number;
+  /** 异常类型 */
+  abnormalTypes?: { type: string; count: number }[];
   /** 按时段统计 */
-  hourlyTrend: {
+  hourlyTrend?: {
     hour: number;
     inCount: number;
     outCount: number;
   }[];
+  /** 按时段统计（兼容） */
+  hourlyStats?: {
+    hour: number;
+    in: number;
+    out: number;
+  }[];
   /** 按类型统计 */
-  byType: {
+  byType?: {
     type: PersonType;
     inCount: number;
     outCount: number;
+  }[];
+  /** 按人员类型统计 */
+  byPersonType?: {
+    type: PersonType;
+    count: number;
+  }[];
+  /** 设备统计 */
+  deviceStats?: {
+    deviceId: string;
+    deviceName: string;
+    total: number;
+    abnormal: number;
   }[];
 }

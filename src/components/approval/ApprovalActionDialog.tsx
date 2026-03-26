@@ -205,11 +205,11 @@ export function ApprovalActionDialog({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">业务类型：</span>
-                  <span>{getBusinessTypeLabel(instance.businessType)}</span>
+                  <span>{getBusinessTypeLabel(instance.businessType || '')}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">提交时间：</span>
-                  <span>{new Date(instance.submitAt || instance.createdAt).toLocaleString()}</span>
+                  <span>{new Date(instance.submitAt || instance.createdAt || '').toLocaleString()}</span>
                 </div>
               </div>
             </CardContent>
@@ -376,18 +376,30 @@ export function ApprovalActionDialog({
                 <CardTitle className="text-sm font-medium">审批内容</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-sm max-w-none">
-                  <p className="whitespace-pre-wrap">{instance.business.content}</p>
-                </div>
-                {'coverImage' in instance.business && instance.business.coverImage && (
-                  <div className="mt-4">
-                    <img
-                      src={instance.business.coverImage}
-                      alt="封面图片"
-                      className="rounded-lg max-h-48 object-cover"
-                    />
-                  </div>
-                )}
+                {(() => {
+                  const content = instance.business?.content;
+                  const displayContent = typeof content === 'string' 
+                    ? content 
+                    : content 
+                      ? JSON.stringify(content) 
+                      : '';
+                  return (
+                    <>
+                      <div className="prose prose-sm max-w-none">
+                        <p className="whitespace-pre-wrap">{displayContent}</p>
+                      </div>
+                      {instance.business?.coverImage && (
+                        <div className="mt-4">
+                          <img
+                            src={typeof instance.business.coverImage === 'string' ? instance.business.coverImage : String(instance.business.coverImage)}
+                            alt="封面图片"
+                            className="rounded-lg max-h-48 object-cover"
+                          />
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
           )}
@@ -403,8 +415,9 @@ export function ApprovalActionDialog({
                 {instance.nodeRecords
                   ?.sort((a, b) => a.nodeOrder - b.nodeOrder)
                   .map((node, index) => {
-                    const isCurrent = node.nodeOrder === instance.currentNodeOrder;
-                    const isPast = node.nodeOrder < instance.currentNodeOrder;
+                    const currentNodeOrder = instance.currentNodeOrder ?? 0;
+                    const isCurrent = node.nodeOrder === currentNodeOrder;
+                    const isPast = node.nodeOrder < currentNodeOrder;
 
                     return (
                       <div
@@ -454,10 +467,10 @@ export function ApprovalActionDialog({
                           {/* 审批人信息 */}
                           {node.status === 'pending' && (
                             <p className="text-xs text-gray-500 mt-1">
-                              待审批：{node.approverIds.length} 人
+                              待审批：{(node.approverIds || []).length} 人
                               {node.nodeType === 'countersign' && (
                                 <span className="ml-2">
-                                  （已审批：{node.approvedBy.length} 人）
+                                  （已审批：{(node.approvedBy || []).length} 人）
                                 </span>
                               )}
                             </p>
@@ -466,7 +479,7 @@ export function ApprovalActionDialog({
                           {/* 已审批记录 */}
                           {node.approvedBy && node.approvedBy.length > 0 && (
                             <div className="mt-2 space-y-1">
-                              {node.approvedBy.map((record, idx) => (
+                              {node.approvedBy.map((record: { userName?: string; action: string; comment?: string; time: string }, idx: number) => (
                                 <div
                                   key={idx}
                                   className="flex items-center gap-2 text-xs"
@@ -679,7 +692,7 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              {getBusinessTypeLabel(instance.businessType)}
+              {getBusinessTypeLabel(instance.businessType || '')}
             </Badge>
             <h4 className="font-medium">{instance.title}</h4>
             {canApprove && (

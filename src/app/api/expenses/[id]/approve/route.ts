@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mockExpenses } from '@/lib/expense-data';
-import type { ExpenseReimbursement, ApprovalRecord } from '@/types';
+import type { ExpenseReimbursement, ApprovalNodeRecord } from '@/types';
 
 /**
  * POST - 审批报销申请
@@ -41,18 +41,18 @@ export async function POST(
       }
 
       // 添加审批记录
-      const record: ApprovalRecord = {
+      const record: ApprovalNodeRecord = {
         id: `rec-${Date.now()}`,
-        workflowId: id,
-        workflowType: 'leave',
         nodeId: expense.approvalFlow[currentStep]?.id || '',
         nodeName: expense.approvalFlow[currentStep]?.name || '',
+        nodeOrder: currentStep,
+        status: 'approved',
         approverId: approverId || 'unknown',
         approverName: approverName || '审批人',
         approverRole: 'subject_teacher',
         action: 'approve',
         comment: comment,
-        createdAt: new Date().toISOString(),
+        actionAt: new Date().toISOString(),
       };
       expense.approvalRecords.push(record);
 
@@ -73,18 +73,18 @@ export async function POST(
       }
 
       // 添加拒绝记录
-      const record: ApprovalRecord = {
+      const record: ApprovalNodeRecord = {
         id: `rec-${Date.now()}`,
-        workflowId: id,
-        workflowType: 'leave',
         nodeId: expense.approvalFlow[currentStep]?.id || '',
         nodeName: expense.approvalFlow[currentStep]?.name || '',
+        nodeOrder: currentStep,
+        status: 'rejected',
         approverId: approverId || 'unknown',
         approverName: approverName || '审批人',
         approverRole: 'subject_teacher',
         action: 'reject',
         comment: comment,
-        createdAt: new Date().toISOString(),
+        actionAt: new Date().toISOString(),
       };
       expense.approvalRecords.push(record);
 

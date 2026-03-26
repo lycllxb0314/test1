@@ -26,6 +26,7 @@ function createClass(
     id,
     name,
     grade,
+    gradeName: `${grade}年级`,
     classNumber,
     headTeacherId,
     headTeacherName,

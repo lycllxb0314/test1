@@ -24,8 +24,9 @@ export interface Student {
   grade: number;
   status: StudentStatus;
   avatar?: string;
-  createdAt: string;
-  updatedAt: string;
+  parents?: Parent[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** 学生完整档案 */

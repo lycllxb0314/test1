@@ -227,7 +227,11 @@ export function MoralTabContent({ profile, canViewWarnings = false }: MoralTabCo
           <CardContent>
             <div className="space-y-3">
               {moralPerformance.warnings.map((warning) => {
-                const levelInfo = getWarningLevelInfo(warning.level);
+                // 转换level类型
+                const level = warning.level === '重度' ? 'danger' as const :
+                              warning.level === '中度' ? 'warning' as const :
+                              'info' as const;
+                const levelInfo = getWarningLevelInfo(level);
                 return (
                   <div 
                     key={warning.id} 
@@ -239,8 +243,8 @@ export function MoralTabContent({ profile, canViewWarnings = false }: MoralTabCo
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{warning.type}</span>
                           <Badge className={levelInfo.badge}>
-                            {warning.level === 'danger' ? '高风险' : 
-                             warning.level === 'warning' ? '中风险' : '低风险'}
+                            {level === 'danger' ? '高风险' : 
+                             level === 'warning' ? '中风险' : '低风险'}
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">

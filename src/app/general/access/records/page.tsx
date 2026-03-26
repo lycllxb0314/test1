@@ -88,7 +88,7 @@ export default function AccessRecordsPage() {
   // 过滤记录
   const filteredRecords = mockRecords.filter(record => {
     const matchSearch = record.personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        record.organization.toLowerCase().includes(searchTerm.toLowerCase());
+                        (record.organization || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchType = typeFilter === 'all' || record.personType === typeFilter;
     const matchStatus = statusFilter === 'all' || record.status === statusFilter;
     const matchDirection = directionFilter === 'all' || record.direction === directionFilter;
@@ -250,9 +250,10 @@ export default function AccessRecordsPage() {
             </TableHeader>
             <TableBody>
               {filteredRecords.map(record => {
-                const typeInfo = personTypeMap[record.personType];
-                const statusInfo = statusMap[record.status];
+                const typeInfo = personTypeMap[record.personType] || { label: '未知', color: 'text-gray-600 bg-gray-50' };
+                const statusInfo = statusMap[record.status || 'success'] || { label: '未知', color: 'text-gray-600 bg-gray-50', icon: CheckCircle };
                 const StatusIcon = statusInfo.icon;
+                const accessTimeStr = record.accessTime || '';
 
                 return (
                   <TableRow key={record.id} className={`hover:bg-gray-50 ${record.isAbnormal ? 'bg-red-50/50' : ''}`}>
@@ -260,8 +261,8 @@ export default function AccessRecordsPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-gray-400" />
                         <div>
-                          <p className="font-medium">{record.accessTime.split(' ')[1]}</p>
-                          <p className="text-xs text-gray-400">{record.accessTime.split(' ')[0]}</p>
+                          <p className="font-medium">{accessTimeStr.split(' ')[1] || ''}</p>
+                          <p className="text-xs text-gray-400">{accessTimeStr.split(' ')[0] || ''}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -272,7 +273,7 @@ export default function AccessRecordsPage() {
                         </div>
                         <div>
                           <p className="font-medium">{record.personName}</p>
-                          <p className="text-xs text-gray-400">{record.organization}</p>
+                          <p className="text-xs text-gray-400">{record.organization || '-'}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -294,7 +295,7 @@ export default function AccessRecordsPage() {
                         <span>{record.direction === 'in' ? '进入' : '离开'}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-600">{methodMap[record.method].label}</TableCell>
+                    <TableCell className="text-gray-600">{methodMap[record.method || 'face'].label}</TableCell>
                     <TableCell>
                       {record.temperature ? (
                         <span className={record.temperature > 37.3 ? 'text-red-600 font-medium' : 'text-gray-600'}>

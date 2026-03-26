@@ -224,7 +224,7 @@ const mockStudentProfiles: Record<string, StudentFullProfile> = {
       ],
       // 德育预警（权限控制：德育主任、班主任、家长可见）
       warnings: [
-        { id: 'mw1', type: '行为关注', level: 'info', content: '近期课堂专注度有所下降，需要关注', createdAt: '2024-11-10' },
+        { id: 'mw1', type: '行为关注', level: 'info', content: '近期课堂专注度有所下降，需要关注', date: '2024-11-10', createdAt: '2024-11-10' },
       ],
       // 综合素质评价
       comprehensiveEvaluation: [

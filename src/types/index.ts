@@ -276,18 +276,32 @@ export interface Announcement {
   mediaLevel?: MediaLevel;
   authorId?: string;
   authorName?: string;
-  publisherId: string;
-  publisherName: string;
+  publisherId?: string;
+  publisherName?: string;
   department?: string;
   coverImage?: string;
   images?: string[];
   targetRoles?: string[];
   targetDepartments?: string[];
-  isTop: boolean;
-  isImportant: boolean;
+  isTop?: boolean;
+  isImportant?: boolean;
+  isExternal?: boolean;
+  externalId?: string;
+  publishStatus?: string;
+  status?: string;
+  viewCount?: number;
+  isPinned?: boolean;
+  pinOrder?: number;
+  metadata?: Record<string, unknown>;
+  publishedAt?: string;
+  scheduledPublishAt?: string;
+  unpublishedAt?: string;
+  autoUnpublish?: boolean;
+  autoUnpublishAt?: string;
   attachments?: string[];
-  publishAt: string;
-  createdAt: string;
+  publishAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ==================== 请假申请（兼容旧类型） ====================
@@ -454,28 +468,45 @@ export interface HabitGoal {
   id: string;
   code?: string;
   title?: string;
-  gradeLevel?: number;
-  studentId: string;
+  description?: string;
+  gradeLevel?: string | number;
+  indicators?: string[];
+  maxScore?: number;
+  studentId?: string;
   category: string;
-  goal: string;
-  month: string;
-  achieved: boolean;
-  createdAt: string;
-  updatedAt: string;
+  goal?: string;
+  month?: string;
+  achieved?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** 学生月度目标 */
 export interface StudentMonthlyGoal {
   id: string;
   studentId: string;
+  classId?: string;
+  className?: string;
+  grade?: number;
   month: string;
   goals: {
     id?: string;
     goalId?: string;
     category: string;
     goal: string;
+    title?: string;
+    description?: string;
+    records?: unknown[];
+    totalDays?: number;
+    achievedDays?: number;
+    achievementRate?: number;
+    isAchieved?: boolean;
     achieved: boolean;
   }[];
+  totalGoals?: number;
+  achievedGoals?: number;
+  achievementRate?: number;
+  isHabitStar?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -500,6 +531,7 @@ export interface HabitStar {
 export interface StudentHabitProfile {
   id: string;
   studentId: string;
+  studentName?: string;
   overallScore: number;
   level: '优秀' | '良好' | '合格' | '待提高';
   habitStarCount: number;
@@ -786,41 +818,72 @@ export type AcademicYear = string;
 
 /** 年度综合数据 */
 export interface YearlyComprehensiveData {
-  year: string;
-  totalStudents: number;
-  totalTeachers: number;
-  totalClasses: number;
-  averageScore: number;
-  excellentRate: number;
-  passRate: number;
-  moralScore: number;
-  habitScore: number;
-  attendanceRate: number;
+  year?: string;
+  academicYear?: string;
+  totalStudents?: number;
+  totalTeachers?: number;
+  totalClasses?: number;
+  averageScore?: number;
+  excellentRate?: number;
+  passRate?: number;
+  moralScore?: number;
+  habitScore?: number;
+  attendanceRate?: number;
   honors?: {
-    total: number;
-    summary?: string;
-    byLevel: { [key: string]: number } | { level: string; count: number }[];
+    academicYear?: string;
+    honors?: {
+      id: string;
+      title: string;
+      level: string;
+      category: string;
+      date: string;
+    }[];
+    total?: number;
+    summary?: string | {
+      total: number;
+      byLevel: { [key: string]: number };
+      byCategory: { [key: string]: number };
+    };
+    byLevel?: { [key: string]: number } | { level: string; count: number }[];
     byCategory?: { [key: string]: number } | { type: string; count: number }[];
     byType?: { type: string; count: number }[];
   };
   moral?: {
-    praiseCount: number;
-    improveCount: number;
-    behaviorScore: number;
+    praiseCount?: number;
+    improveCount?: number;
+    behaviorScore?: number;
     avgBehaviorScore?: number;
-    activityCount: number;
+    activityCount?: number;
     totalActivityCount?: number;
-    volunteerHours: number;
+    volunteerHours?: number;
     totalVolunteerHours?: number;
     totalStarCount?: number;
+    overallLevel?: string;
   };
   academic?: {
-    averageScore: number;
+    averageScore?: number;
     avgScore?: number;
     rank?: number;
-    excellentRate: number;
-    passRate: number;
+    excellentRate?: number;
+    passRate?: number;
     improvement?: number;
-    subjectScores: { subject: string; averageScore: number; passRate: number }[];
+    subjectAverages?: { subject: string; avgScore: number; trend: string }[];
+    subjectScores?: { subject: string; averageScore: number; passRate: number }[];
+  };
+  timeline?: {
+    academicYear: string;
+    events: {
+      id: string;
+      date: string;
+      type: string;
+      title: string;
+      description: string;
+      academicYear: string;
+    }[];
+    highlights: unknown[];
+  };
+  evaluation?: {
+    totalScore: number;
+    level: string;
   };
 }

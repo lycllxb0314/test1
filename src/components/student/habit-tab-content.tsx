@@ -253,7 +253,7 @@ export function HabitTabContent({ profile }: HabitTabContentProps) {
                           <Badge variant="outline" className="text-xs">
                             {habitCategoryNames[assessment.category]}
                           </Badge>
-                          <span>{getSceneName(assessment.scene)}</span>
+                          <span>{getSceneName(assessment.scene || 'other')}</span>
                           <span>·</span>
                           <span>{assessment.recorderName}</span>
                         </div>

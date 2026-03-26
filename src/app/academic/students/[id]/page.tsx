@@ -56,7 +56,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { useStudents } from '@/hooks';
-import { StudentFullProfile, Parent } from '@/types';
+import { StudentFullProfile, Parent, StudentType } from '@/types';
 import { toast } from 'sonner';
 import { HabitTabContent } from '@/components/student/habit-tab-content';
 import { MoralTabContent } from '@/components/student/moral-tab-content';
@@ -205,7 +205,7 @@ export default function StudentDetailPage({ params }: PageProps) {
     gradeName: '一年级',
     headTeacherName: '',
     enrollmentDate: '',
-    studentType: '' as '' | '普通' | '随迁子女' | '留守儿童' | '残疾学生' | '低保家庭',
+    studentType: '' as '' | StudentType,
     status: '在校' as '在校' | '请假' | '休学' | '毕业' | '转学',
     // 联系信息
     phone: '',

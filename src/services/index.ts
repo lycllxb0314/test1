@@ -26,7 +26,6 @@ export type { CreateUserParams, UpdateUserParams } from './user.service';
 // 审批服务
 export { ApprovalService, approvalService } from './approval.service';
 export type { 
-  SubmitApprovalParams, 
-  ApprovalNodeParams, 
-  ApprovalActionParams 
+  SubmitApprovalParams,
+  ApprovalListParams
 } from './approval.service';
