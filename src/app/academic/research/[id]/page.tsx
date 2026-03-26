@@ -55,7 +55,6 @@ import {
   Play,
   User,
   FileText,
-  Settings,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -127,11 +126,11 @@ const THEME_TYPE_CONFIG: Record<ThemeType, { label: string; icon: React.ElementT
 
 const STATUS_CONFIG: Record<ThemeStatus, { label: string; color: string }> = {
   draft: { label: '草稿', color: 'text-gray-600' },
-  pending: { label: '待审核', color: 'text-amber-600' },
-  approved: { label: '已通过', color: 'text-blue-600' },
   in_progress: { label: '进行中', color: 'text-green-600' },
   completed: { label: '已完成', color: 'text-emerald-600' },
   archived: { label: '已归档', color: 'text-gray-500' },
+  pending: { label: '待审核', color: 'text-amber-600' },
+  approved: { label: '已通过', color: 'text-blue-600' },
 };
 
 // ==================== 组件 ====================
@@ -361,20 +360,11 @@ export default function ResearchThemeDetailPage() {
             <div className="flex items-center gap-2">
               {theme.status === 'draft' && (
                 <Button 
-                  onClick={() => handleStatusChange('pending')}
-                  className="bg-white text-slate-900 hover:bg-white/90"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  提交审核
-                </Button>
-              )}
-              {theme.status === 'approved' && (
-                <Button 
                   onClick={() => handleStatusChange('in_progress')}
                   className="bg-white text-slate-900 hover:bg-white/90"
                 >
                   <Play className="h-4 w-4 mr-2" />
-                  开始教研
+                  发布教研
                 </Button>
               )}
               {theme.status === 'in_progress' && (
@@ -386,10 +376,15 @@ export default function ResearchThemeDetailPage() {
                   完成教研
                 </Button>
               )}
-              <Button variant="secondary" className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                <Settings className="h-4 w-4 mr-2" />
-                设置
-              </Button>
+              {theme.status === 'completed' && (
+                <Button 
+                  onClick={() => handleStatusChange('archived')}
+                  variant="secondary"
+                  className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+                >
+                  归档
+                </Button>
+              )}
             </div>
           </div>
         </div>

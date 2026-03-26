@@ -154,11 +154,11 @@ const SUBJECTS = ['语文', '数学', '英语', '音乐', '体育', '美术', '�
 
 const STATUS_CONFIG: Record<ThemeStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
   draft: { label: '草稿', variant: 'secondary', color: 'text-gray-600' },
-  pending: { label: '待审核', variant: 'outline', color: 'text-amber-600' },
-  approved: { label: '已通过', variant: 'outline', color: 'text-blue-600' },
   in_progress: { label: '进行中', variant: 'default', color: 'text-green-600' },
   completed: { label: '已完成', variant: 'default', color: 'text-emerald-600' },
   archived: { label: '已归档', variant: 'secondary', color: 'text-gray-500' },
+  pending: { label: '待审核', variant: 'outline', color: 'text-amber-600' },
+  approved: { label: '已通过', variant: 'outline', color: 'text-blue-600' },
 };
 
 // ==================== 组件 ====================
