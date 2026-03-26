@@ -83,6 +83,10 @@ interface TeacherSelectorProps {
   defaultGrade?: string;
   /** 容器样式 */
   className?: string;
+  /** 外部传入的教师数据（优先使用） */
+  teachers?: TeacherInfo[];
+  /** 外部传入的加载状态 */
+  loading?: boolean;
 }
 
 // ==================== 组件实现 ====================
@@ -96,6 +100,8 @@ export default function TeacherSelector({
   defaultSubject = 'all',
   defaultGrade = 'all',
   className,
+  teachers: externalTeachers,
+  loading: externalLoading,
 }: TeacherSelectorProps) {
   // === 状态 ===
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,8 +109,12 @@ export default function TeacherSelector({
   const [subjectFilter, setSubjectFilter] = useState(defaultSubject);
   const [showFilters, setShowFilters] = useState(false);
   
-  // === 获取教师数据 ===
-  const { allTeachers, loading } = useTeachers();
+  // === 获取教师数据（支持外部传入或内部获取）===
+  const { allTeachers: internalTeachers, loading: internalLoading, refetch } = useTeachers();
+  
+  // 优先使用外部传入的数据
+  const allTeachers = externalTeachers ?? internalTeachers;
+  const loading = externalLoading ?? internalLoading;
   
   // === 筛选后的教师列表 ===
   const filteredTeachers = useMemo(() => {

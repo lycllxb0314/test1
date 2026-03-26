@@ -62,6 +62,7 @@ import { toast } from 'sonner';
 import ResourceLibrary from '@/components/research/ResourceLibrary';
 import LessonDesignEditor from '@/components/research/LessonDesignEditor';
 import TeacherSelector, { type SelectedTeacher } from '@/components/research/TeacherSelector';
+import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
 
 import { 
   THEME_TYPE_LABELS,
@@ -138,6 +139,9 @@ export default function ResearchThemeDetailPage() {
   const router = useRouter();
   const params = useParams();
   const themeId = params.id as string;
+  
+  // 页面级别获取教师数据（避免 Dialog 内部懒加载导致数据未准备好）
+  const { allTeachers, loading: teachersLoading } = useTeachers();
   
   const [theme, setTheme] = useState<ThemeDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -734,6 +738,8 @@ export default function ResearchThemeDetailPage() {
                 }}
                 defaultSubject={theme?.subject || 'all'}
                 placeholder="选择参与本次活动的教师"
+                teachers={allTeachers}
+                loading={teachersLoading}
               />
             </div>
           </div>
