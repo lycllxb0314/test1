@@ -2,6 +2,13 @@
 
 /**
  * 教研主题详情页面
+ * 
+ * 功能：
+ * - 主题信息展示
+ * - 教研阶段管理
+ * - 教研活动记录
+ * - 专项教研设计
+ * - 教研成果沉淀
  */
 
 import React, { useState, useEffect } from 'react';
@@ -12,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import {
   ArrowLeft,
   Calendar,
@@ -28,13 +36,31 @@ import {
   Loader2,
   FileText,
   Activity,
+  Plus,
+  Settings,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// ==================== 类型定义 ====================
+import ActivityDialog from '@/components/research/ActivityDialog';
+import ResourceManager from '@/components/research/ResourceManager';
+import AchievementManager from '@/components/research/AchievementManager';
+import BigUnitEditor from '@/components/research/BigUnitEditor';
+import ProjectEditor from '@/components/research/ProjectEditor';
+import PracticeEditor from '@/components/research/PracticeEditor';
+import AITeachingEditor from '@/components/research/AITeachingEditor';
 
-type ThemeType = 'big_unit' | 'project' | 'practice' | 'ai_enabled' | 'custom';
-type ThemeStatus = 'draft' | 'pending' | 'approved' | 'in_progress' | 'completed' | 'archived';
+import { 
+  THEME_TYPE_LABELS,
+  THEME_LEVEL_LABELS,
+  THEME_STATUS_LABELS,
+  ACTIVITY_TYPE_LABELS,
+  type ThemeType,
+  type ThemeStatus,
+  type ResearchStage,
+  type ResearchActivity,
+} from '@/types/research';
+
+// ==================== 类型定义 ====================
 
 interface ThemeDetail {
   id: string;
@@ -52,32 +78,14 @@ interface ThemeDetail {
   startDate?: string;
   endDate?: string;
   participantIds?: string[];
-  stages: Stage[];
-  activities: Activity[];
-  statistics?: Statistics;
+  stages: ResearchStage[];
+  activities: ResearchActivity[];
+  statistics?: {
+    total_activities: number;
+    completed_activities: number;
+    achievements_count: number;
+  };
   specialData?: unknown;
-}
-
-interface Stage {
-  id: string;
-  name: string;
-  status: string;
-  orderNum: number;
-}
-
-interface Activity {
-  id: string;
-  title: string;
-  type: string;
-  typeLabel: string;
-  status: string;
-  scheduledAt?: string;
-}
-
-interface Statistics {
-  total_activities: number;
-  completed_activities: number;
-  achievements_count: number;
 }
 
 // ==================== 配置 ====================
@@ -109,6 +117,7 @@ export default function ResearchThemeDetailPage() {
   const [theme, setTheme] = useState<ThemeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   
   useEffect(() => {
     loadTheme();
@@ -307,6 +316,7 @@ export default function ResearchThemeDetailPage() {
           <TabsTrigger value="overview">教研方案</TabsTrigger>
           <TabsTrigger value="activities">教研活动</TabsTrigger>
           <TabsTrigger value="special">专项教研</TabsTrigger>
+          <TabsTrigger value="resources">教研资源</TabsTrigger>
           <TabsTrigger value="achievements">教研成果</TabsTrigger>
         </TabsList>
         
@@ -314,11 +324,17 @@ export default function ResearchThemeDetailPage() {
           {/* 教研阶段 */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">教研阶段</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">教研阶段</CardTitle>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  管理阶段
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {theme.stages.length === 0 ? (
-                <p className="text-gray-400 text-center py-4">暂无教研阶段</p>
+                <p className="text-gray-400 text-center py-4">暂无教研阶段，点击"管理阶段"添加</p>
               ) : (
                 <div className="space-y-3">
                   {theme.stages.map((stage, idx) => (
@@ -328,8 +344,13 @@ export default function ResearchThemeDetailPage() {
                       </div>
                       <div className="flex-1">
                         <h4 className="font-medium">{stage.name}</h4>
+                        {stage.description && (
+                          <p className="text-sm text-gray-500">{stage.description}</p>
+                        )}
                       </div>
-                      <Badge variant="outline">{stage.status === 'completed' ? '已完成' : '进行中'}</Badge>
+                      <Badge variant="outline">
+                        {stage.status === 'completed' ? '已完成' : stage.status === 'in_progress' ? '进行中' : '待开始'}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -343,22 +364,25 @@ export default function ResearchThemeDetailPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">教研活动记录</CardTitle>
-                <Button size="sm">
-                  <Activity className="h-4 w-4 mr-2" />
+                <Button size="sm" onClick={() => setActivityDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
                   新建活动
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               {theme.activities.length === 0 ? (
-                <p className="text-gray-400 text-center py-4">暂无教研活动</p>
+                <p className="text-gray-400 text-center py-4">暂无教研活动，点击"新建活动"开始</p>
               ) : (
                 <div className="space-y-3">
                   {theme.activities.map(activity => (
                     <div key={activity.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer">
                       <div className="flex-1">
                         <h4 className="font-medium">{activity.title}</h4>
-                        <p className="text-sm text-gray-500">{activity.typeLabel}</p>
+                        <p className="text-sm text-gray-500">
+                          {ACTIVITY_TYPE_LABELS[activity.type as keyof typeof ACTIVITY_TYPE_LABELS] || activity.type}
+                          {activity.location && ` · ${activity.location}`}
+                        </p>
                       </div>
                       {activity.scheduledAt && (
                         <span className="text-sm text-gray-500">
@@ -366,7 +390,7 @@ export default function ResearchThemeDetailPage() {
                         </span>
                       )}
                       <Badge variant="outline">
-                        {activity.status === 'completed' ? '已完成' : '待进行'}
+                        {activity.status === 'completed' ? '已完成' : activity.status === 'in_progress' ? '进行中' : '待进行'}
                       </Badge>
                     </div>
                   ))}
@@ -374,6 +398,13 @@ export default function ResearchThemeDetailPage() {
               )}
             </CardContent>
           </Card>
+          
+          <ActivityDialog
+            open={activityDialogOpen}
+            onOpenChange={setActivityDialogOpen}
+            themeId={themeId}
+            onSuccess={loadTheme}
+          />
         </TabsContent>
         
         <TabsContent value="special" className="mt-4">
@@ -383,35 +414,50 @@ export default function ResearchThemeDetailPage() {
               <CardDescription>专项教研设计内容</CardDescription>
             </CardHeader>
             <CardContent>
-              {theme.specialData ? (
-                <div className="space-y-4">
-                  <p className="text-gray-500">专项教研数据已加载，可根据类型显示不同编辑界面</p>
-                </div>
-              ) : (
+              {theme.type === 'big_unit' && (
+                <BigUnitEditor 
+                  themeId={themeId} 
+                  design={theme.specialData as any}
+                  onSave={loadTheme}
+                />
+              )}
+              {theme.type === 'project' && (
+                <ProjectEditor 
+                  themeId={themeId} 
+                  design={theme.specialData as any}
+                  onSave={loadTheme}
+                />
+              )}
+              {theme.type === 'practice' && (
+                <PracticeEditor 
+                  themeId={themeId} 
+                  activity={theme.specialData as any}
+                  onSave={loadTheme}
+                />
+              )}
+              {theme.type === 'ai_enabled' && (
+                <AITeachingEditor 
+                  themeId={themeId} 
+                  app={theme.specialData as any}
+                  onSave={loadTheme}
+                />
+              )}
+              {theme.type === 'custom' && (
                 <div className="text-center py-8">
-                  <TypeIcon className={`h-12 w-12 ${typeConfig.color} mx-auto mb-4 opacity-50`} />
-                  <p className="text-gray-500">暂无专项教研数据</p>
-                  <Button className="mt-4" size="sm">
-                    开始设计
-                  </Button>
+                  <Target className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">自定义主题可自由记录教研内容</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
         
+        <TabsContent value="resources" className="mt-4">
+          <ResourceManager subject={theme.subject} />
+        </TabsContent>
+        
         <TabsContent value="achievements" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">教研成果</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">暂无教研成果</p>
-              </div>
-            </CardContent>
-          </Card>
+          <AchievementManager themeId={themeId} />
         </TabsContent>
       </Tabs>
     </div>
