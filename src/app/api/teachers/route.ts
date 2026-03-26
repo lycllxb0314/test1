@@ -2,25 +2,26 @@
  * 教师列表 API
  * 
  * GET /api/teachers - 获取教师列表（支持分页、筛选）
+ * 
+ * 使用统一的 API 工具：
+ * - ok() / paginated() - 成功响应
+ * - fail() / serverError() - 错误响应
+ * - getQueryParams() - 解析查询参数
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { ok, paginated, serverError, getQueryParams, withApi } from '@/lib/api-utils';
 
 export async function GET(request: NextRequest) {
   try {
     const client = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
-    
-    // 分页参数
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '500');
+    const { page, pageSize, search, filters } = getQueryParams(request);
     
     // 筛选参数
-    const search = searchParams.get('search');
-    const role = searchParams.get('role');
-    const department = searchParams.get('department');
-    const status = searchParams.get('status');
+    const role = filters.role as string | undefined;
+    const department = filters.department as string | undefined;
+    const status = filters.status as string | undefined;
     
     // 构建查询
     let query = client
@@ -52,10 +53,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query;
     
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+      return serverError(error.message);
     }
     
     // 转换数据格式（下划线转驼峰）
@@ -155,22 +153,9 @@ export async function GET(request: NextRequest) {
       byTitle: titleStats,
     };
     
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
-      pagination: {
-        page,
-        pageSize,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
-      statistics,
-    });
+    return paginated(formattedData, count || 0, page, pageSize, { statistics });
   } catch (error) {
     console.error('Failed to fetch teachers:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取教师列表失败',
-    }, { status: 500 });
+    return serverError('获取教师列表失败');
   }
 }

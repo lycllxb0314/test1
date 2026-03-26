@@ -32,6 +32,8 @@ export interface ApiResponse<T = unknown> {
   pagination?: Pagination;
   /** 附加消息 */
   message?: string;
+  /** 额外元数据（如统计信息） */
+  [key: string]: unknown;
 }
 
 /**

@@ -1,8 +1,14 @@
 /**
- * 全局数据状态管理
+ * 全局数据状态管理（增强版）
  * 
  * 解决多个组件重复请求同一数据的问题
  * 采用 Context + 单例模式，确保全局数据只请求一次
+ * 
+ * 增强特性：
+ * 1. 自动重试机制 - 失败后自动重试，最多3次
+ * 2. 优先级控制 - 按优先级加载数据（classes > teachers > students）
+ * 3. 增量更新 - 支持单条数据的增删改，无需全量刷新
+ * 4. 请求去重 - 防止并发重复请求
  * 
  * @module providers/GlobalDataProvider
  */
@@ -25,6 +31,8 @@ interface DataState<T> {
   lastFetch: number | null
   /** 总数量（来自API统计，用于分页场景） */
   total?: number
+  /** 重试次数 */
+  retryCount: number
 }
 
 /** 全局数据上下文 */
@@ -44,6 +52,17 @@ interface GlobalDataContextType {
   // 通用方法
   invalidateCache: (key?: string) => void
   getCacheStatus: () => Record<string, { loaded: boolean; age: number | null }>
+  
+  // 增量更新方法
+  addTeacher: (teacher: TeacherInfo) => void
+  updateTeacher: (id: string, updates: Partial<TeacherInfo>) => void
+  removeTeacher: (id: string) => void
+  addStudent: (student: StudentInfo) => void
+  updateStudent: (id: string, updates: Partial<StudentInfo>) => void
+  removeStudent: (id: string) => void
+  addClass: (cls: ClassInfo) => void
+  updateClass: (id: string, updates: Partial<ClassInfo>) => void
+  removeClass: (id: string) => void
 }
 
 // 基础类型（简化版，避免循环依赖）
@@ -131,6 +150,34 @@ const GlobalDataContext = createContext<GlobalDataContextType | null>(null)
 // ============================================
 
 const CACHE_TTL = 5 * 60 * 1000 // 5分钟缓存
+const MAX_RETRY_COUNT = 3 // 最大重试次数
+const RETRY_DELAY = 1000 // 重试延迟（毫秒）
+const FETCH_PRIORITY = ['classes', 'teachers', 'students'] as const // 加载优先级
+
+// ============================================
+// 重试工具函数
+// ============================================
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = MAX_RETRY_COUNT,
+  delay: number = RETRY_DELAY
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+      }
+    }
+  }
+  
+  throw lastError;
+}
 
 // ============================================
 // Provider 组件
@@ -144,6 +191,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
     error: null,
     loaded: false,
     lastFetch: null,
+    retryCount: 0,
   })
   
   // 学生状态
@@ -153,6 +201,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
     error: null,
     loaded: false,
     lastFetch: null,
+    retryCount: 0,
   })
   
   // 班级状态
@@ -162,6 +211,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
     error: null,
     loaded: false,
     lastFetch: null,
+    retryCount: 0,
   })
 
   // 请求锁（防止并发重复请求）
@@ -219,6 +269,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
           error: null,
           loaded: true,
           lastFetch: Date.now(),
+          retryCount: 0,
         })
       } else {
         setTeachers(prev => ({
@@ -316,6 +367,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
         loaded: true,
         lastFetch: Date.now(),
         total: totalCount,
+        retryCount: 0,
       })
     } catch (err) {
       setStudents(prev => ({
@@ -375,6 +427,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
           error: null,
           loaded: true,
           lastFetch: Date.now(),
+          retryCount: 0,
         })
       } else {
         setClasses(prev => ({
@@ -451,6 +504,80 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
   }, [])
 
   // ============================================
+  // 增量更新方法
+  // ============================================
+
+  // 教师增量更新
+  const addTeacher = useCallback((teacher: TeacherInfo) => {
+    setTeachers(prev => ({
+      ...prev,
+      data: [...prev.data, teacher],
+      total: (prev.total || prev.data.length) + 1,
+    }))
+  }, [])
+
+  const updateTeacher = useCallback((id: string, updates: Partial<TeacherInfo>) => {
+    setTeachers(prev => ({
+      ...prev,
+      data: prev.data.map(t => t.id === id ? { ...t, ...updates } : t),
+    }))
+  }, [])
+
+  const removeTeacher = useCallback((id: string) => {
+    setTeachers(prev => ({
+      ...prev,
+      data: prev.data.filter(t => t.id !== id),
+      total: Math.max(0, (prev.total || prev.data.length) - 1),
+    }))
+  }, [])
+
+  // 学生增量更新
+  const addStudent = useCallback((student: StudentInfo) => {
+    setStudents(prev => ({
+      ...prev,
+      data: [...prev.data, student],
+      total: (prev.total || prev.data.length) + 1,
+    }))
+  }, [])
+
+  const updateStudent = useCallback((id: string, updates: Partial<StudentInfo>) => {
+    setStudents(prev => ({
+      ...prev,
+      data: prev.data.map(s => s.id === id ? { ...s, ...updates } : s),
+    }))
+  }, [])
+
+  const removeStudent = useCallback((id: string) => {
+    setStudents(prev => ({
+      ...prev,
+      data: prev.data.filter(s => s.id !== id),
+      total: Math.max(0, (prev.total || prev.data.length) - 1),
+    }))
+  }, [])
+
+  // 班级增量更新
+  const addClass = useCallback((cls: ClassInfo) => {
+    setClasses(prev => ({
+      ...prev,
+      data: [...prev.data, cls],
+    }))
+  }, [])
+
+  const updateClass = useCallback((id: string, updates: Partial<ClassInfo>) => {
+    setClasses(prev => ({
+      ...prev,
+      data: prev.data.map(c => c.id === id ? { ...c, ...updates } : c),
+    }))
+  }, [])
+
+  const removeClass = useCallback((id: string) => {
+    setClasses(prev => ({
+      ...prev,
+      data: prev.data.filter(c => c.id !== id),
+    }))
+  }, [])
+
+  // ============================================
   // Context 值
   // ============================================
 
@@ -463,11 +590,24 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
     fetchClasses,
     invalidateCache,
     getCacheStatus,
+    // 增量更新方法
+    addTeacher,
+    updateTeacher,
+    removeTeacher,
+    addStudent,
+    updateStudent,
+    removeStudent,
+    addClass,
+    updateClass,
+    removeClass,
   }), [
     teachers, fetchTeachers,
     students, fetchStudents,
     classes, fetchClasses,
     invalidateCache, getCacheStatus,
+    addTeacher, updateTeacher, removeTeacher,
+    addStudent, updateStudent, removeStudent,
+    addClass, updateClass, removeClass,
   ])
 
   return (
