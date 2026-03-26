@@ -3,6 +3,7 @@ import { Inspector } from 'react-dev-inspector';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { Providers } from '@/components/Providers';
 
 export const metadata: Metadata = {
   title: {
@@ -52,10 +53,12 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className={`antialiased`}>
         <AuthProvider>
-          <MainLayout>
-            {isDev && <Inspector />}
-            {children}
-          </MainLayout>
+          <Providers>
+            <MainLayout>
+              {isDev && <Inspector />}
+              {children}
+            </MainLayout>
+          </Providers>
         </AuthProvider>
       </body>
     </html>
