@@ -1484,3 +1484,349 @@ export const routineScores = pgTable("routine_scores", {
 	index("idx_routine_scores_grade").using("btree", table.grade.asc().nullsLast().op("int4_ops")),
 	index("idx_routine_scores_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
 ]);
+
+// ==================== 教研系统 ====================
+
+// 教研主题表
+export const researchThemes = pgTable("research_themes", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	title: varchar({ length: 200 }).notNull(),
+	type: varchar({ length: 50 }).notNull(), // big_unit, project, practice, ai_enabled, custom
+	subject: varchar({ length: 50 }).notNull(), // 语文、数学、英语等
+	level: varchar({ length: 50 }).notNull(), // school, grade, subject_group
+	description: text(),
+	objectives: text(), // JSON 数组，教研目标
+	keyPoints: text("key_points"), // JSON 数组，研究重难点
+ startDate: date("start_date"),
+	endDate: date("end_date"),
+	status: varchar({ length: 50 }).default('draft'), // draft, pending, approved, in_progress, completed, archived
+	creatorId: varchar("creator_id", { length: 50 }).notNull(),
+	creatorName: varchar("creator_name", { length: 50 }).notNull(),
+	participantIds: text("participant_ids").array(),
+	approverId: varchar("approver_id", { length: 50 }),
+	approverName: varchar("approver_name", { length: 50 }),
+	approvedAt: timestamp("approved_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_research_themes_creator").using("btree", table.creatorId.asc().nullsLast().op("text_ops")),
+	index("idx_research_themes_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("idx_research_themes_subject").using("btree", table.subject.asc().nullsLast().op("text_ops")),
+	index("idx_research_themes_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
+]);
+
+// 教研方案表
+export const researchSchemes = pgTable("research_schemes", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id").notNull(),
+	content: jsonb().notNull(), // 方案内容，包含阶段任务、分工等
+	templateType: varchar("template_type", { length: 50 }), // 使用的模板类型
+	version: integer().default(1),
+	status: varchar({ length: 50 }).default('draft'), // draft, pending, approved
+	creatorId: varchar("creator_id", { length: 50 }).notNull(),
+	approverId: varchar("approver_id", { length: 50 }),
+	approverName: varchar("approver_name", { length: 50 }),
+	approvedAt: timestamp("approved_at", { withTimezone: true, mode: 'string' }),
+	comment: text(), // 审核意见
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_research_schemes_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "research_schemes_theme_id_fkey"
+	}).onDelete("cascade"),
+]);
+
+// 教研阶段表
+export const researchStages = pgTable("research_stages", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id").notNull(),
+	name: varchar({ length: 100 }).notNull(),
+	description: text(),
+	orderNum: integer("order_num").default(0),
+	startDate: date("start_date"),
+	endDate: date("end_date"),
+	status: varchar({ length: 50 }).default('pending'), // pending, in_progress, completed
+	tasks: jsonb(), // 阶段任务列表
+	responsibleIds: text("responsible_ids").array(), // 负责人ID列表
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_research_stages_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "research_stages_theme_id_fkey"
+	}).onDelete("cascade"),
+]);
+
+// 教研活动表
+export const researchActivities = pgTable("research_activities", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id").notNull(),
+	stageId: uuid("stage_id"),
+	title: varchar({ length: 200 }).notNull(),
+	type: varchar({ length: 50 }).notNull(), // seminar, lesson_observation, collective_prep, training, etc.
+	description: text(),
+	location: varchar({ length: 200 }),
+	scheduledAt: timestamp("scheduled_at", { withTimezone: true, mode: 'string' }),
+	duration: integer(), // 分钟
+	hostId: varchar("host_id", { length: 50 }),
+	hostName: varchar("host_name", { length: 50 }),
+	participantIds: text("participant_ids").array(),
+	actualParticipantIds: text("actual_participant_ids").array(),
+	status: varchar({ length: 50 }).default('scheduled'), // scheduled, in_progress, completed, cancelled
+	meetingMinutes: text(), // 会议纪要
+	attachments: jsonb(), // 附件列表
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_research_activities_host").using("btree", table.hostId.asc().nullsLast().op("text_ops")),
+	index("idx_research_activities_scheduled").using("btree", table.scheduledAt.asc().nullsLast().op("timestamptz_ops")),
+	index("idx_research_activities_stage").using("btree", table.stageId.asc().nullsLast().op("uuid_ops")),
+	index("idx_research_activities_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "research_activities_theme_id_fkey"
+	}).onDelete("cascade"),
+	foreignKey({
+		columns: [table.stageId],
+		foreignColumns: [researchStages.id],
+		name: "research_activities_stage_id_fkey"
+	}).onDelete("set null"),
+]);
+
+// 教研参与记录表
+export const researchParticipations = pgTable("research_participations", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	activityId: uuid("activity_id").notNull(),
+	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
+	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
+	role: varchar({ length: 50 }).default('participant'), // host, speaker, recorder, participant
+	signedIn: boolean("signed_in").default(false),
+	signedInAt: timestamp("signed_in_at", { withTimezone: true, mode: 'string' }),
+	speechContent: text("speech_content"), // 发言内容
+	speechDuration: integer("speech_duration"), // 发言时长（秒）
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_research_participations_activity").using("btree", table.activityId.asc().nullsLast().op("uuid_ops")),
+	index("idx_research_participations_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
+	unique("research_participations_activity_teacher_key").on(table.activityId, table.teacherId),
+	foreignKey({
+		columns: [table.activityId],
+		foreignColumns: [researchActivities.id],
+		name: "research_participations_activity_id_fkey"
+	}).onDelete("cascade"),
+]);
+
+// 教研资源表
+export const researchResources = pgTable("research_resources", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	title: varchar({ length: 200 }).notNull(),
+	description: text(),
+	type: varchar({ length: 50 }).notNull(), // template, lesson_case, tool, guide
+	themeType: varchar("theme_type", { length: 50 }), // 关联的主题类型
+	subject: varchar({ length: 50 }), // 关联的学科
+	tags: text().array(),
+	fileUrl: varchar("file_url", { length: 500 }),
+	fileName: varchar("file_name", { length: 200 }),
+	content: text(), // 文本内容
+	viewCount: integer("view_count").default(0),
+	downloadCount: integer("download_count").default(0),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_research_resources_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
+	index("idx_research_resources_theme_type").using("btree", table.themeType.asc().nullsLast().op("text_ops")),
+]);
+
+// 教研成果表
+export const researchAchievements = pgTable("research_achievements", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id"),
+	title: varchar({ length: 200 }).notNull(),
+	type: varchar({ length: 50 }).notNull(), // lesson_plan, lesson_case, paper, student_work, report
+	subject: varchar({ length: 50 }),
+	description: text(),
+	content: jsonb(), // 成果内容
+	fileUrl: varchar("file_url", { length: 500 }),
+	fileName: varchar("file_name", { length: 200 }),
+	authorIds: text("author_ids").array(),
+	authorNames: text("author_names").array(),
+	status: varchar({ length: 50 }).default('draft'), // draft, pending, published
+	viewCount: integer("view_count").default(0),
+	isPublic: boolean("is_public").default(false),
+	publishedAt: timestamp("published_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_research_achievements_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	index("idx_research_achievements_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "research_achievements_theme_id_fkey"
+	}).onDelete("set null"),
+]);
+
+// ==================== 专项教研表 ====================
+
+// 大单元教学设计表
+export const bigUnitDesigns = pgTable("big_unit_designs", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id").notNull(),
+	unitName: varchar("unit_name", { length: 200 }).notNull(),
+	grade: integer().notNull(),
+	subject: varchar({ length: 50 }).notNull(),
+	unitGoals: jsonb(), // 单元目标
+	coreKnowledge: jsonb("core_knowledge"), // 核心知识点
+	keyCompetencies: jsonb("key_competencies"), // 能力素养点
+	difficultPoints: jsonb("difficult_points"), // 重难点
+	errorPronePoints: jsonb("error_prone_points"), // 易错点
+	lessonCount: integer("lesson_count"), // 课时数
+	lessonDesigns: jsonb("lesson_designs"), // 课时设计列表
+	homeworkDesigns: jsonb("homework_designs"), // 作业设计
+	evaluationTasks: jsonb("evaluation_tasks"), // 评价任务
+	effectAnalysis: jsonb("effect_analysis"), // 成效分析
+	creatorId: varchar("creator_id", { length: 50 }).notNull(),
+	creatorName: varchar("creator_name", { length: 50 }).notNull(),
+	collaboratorIds: text("collaborator_ids").array(),
+	version: integer().default(1),
+	status: varchar({ length: 50 }).default('draft'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_big_unit_designs_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	index("idx_big_unit_designs_subject").using("btree", table.subject.asc().nullsLast().op("text_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "big_unit_designs_theme_id_fkey"
+	}).onDelete("cascade"),
+]);
+
+// 项目式教学设计表
+export const projectDesigns = pgTable("project_designs", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id").notNull(),
+	projectName: varchar("project_name", { length: 200 }).notNull(),
+	grade: integer().notNull(),
+	subjects: text().array().notNull(), // 涉及的学科（支持跨学科）
+	drivingQuestion: text("driving_question").notNull(), // 驱动问题
+	projectGoal: text("project_goal"), // 项目目标
+	tasks: jsonb(), // 阶段任务
+	timeline: jsonb(), // 时间安排
+	teamRoles: jsonb("team_roles"), // 人员分工
+	learningSheets: jsonb("learning_sheets"), // 学习单
+	evaluationRubrics: jsonb("evaluation_rubrics"), // 评价量表
+	implementationRecords: jsonb("implementation_records"), // 实施记录
+	studentWorks: jsonb("student_works"), // 学生作品
+	reflection: text(), // 教学反思
+	creatorId: varchar("creator_id", { length: 50 }).notNull(),
+	creatorName: varchar("creator_name", { length: 50 }).notNull(),
+	collaboratorIds: text("collaborator_ids").array(),
+	status: varchar({ length: 50 }).default('draft'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_project_designs_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "project_designs_theme_id_fkey"
+	}).onDelete("cascade"),
+]);
+
+// 学科实践活动表
+export const practiceActivities = pgTable("practice_activities", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id").notNull(),
+	activityName: varchar("activity_name", { length: 200 }).notNull(),
+	subject: varchar({ length: 50 }).notNull(),
+	grade: integer().notNull(),
+	activityType: varchar("activity_type", { length: 50 }), // oral, experiment, measurement, skill_training, handicraft
+	description: text(),
+	objectives: jsonb(), // 活动目标
+	materials: jsonb(), // 所需材料
+	procedure: jsonb(), // 活动流程
+	difficultyLevel: varchar("difficulty_level", { length: 20 }), // 难度等级
+	timeRequired: integer("time_required"), // 所需时间（分钟）
+	classManagement: text("class_management"), // 课堂纪律管理要点
+	implementationRecords: jsonb("implementation_records"), // 实施记录
+	problems: jsonb(), // 遇到的问题
+	solutions: jsonb(), // 解决方案
+	studentWorks: jsonb("student_works"), // 学生作品
+	photos: jsonb(), // 活动照片
+	reflection: text(), // 教学反思
+	creatorId: varchar("creator_id", { length: 50 }).notNull(),
+	creatorName: varchar("creator_name", { length: 50 }).notNull(),
+	status: varchar({ length: 50 }).default('draft'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_practice_activities_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	index("idx_practice_activities_subject").using("btree", table.subject.asc().nullsLast().op("text_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "practice_activities_theme_id_fkey"
+	}).onDelete("cascade"),
+]);
+
+// AI赋能教学应用表
+export const aiTeachingApps = pgTable("ai_teaching_apps", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id").notNull(),
+	appName: varchar("app_name", { length: 200 }).notNull(),
+	subject: varchar({ length: 50 }).notNull(),
+	aiToolType: varchar("ai_tool_type", { length: 50 }), // lesson_prep, teaching, grading, analysis
+	aiToolName: varchar("ai_tool_name", { length: 100 }), // AI工具名称
+	description: text(),
+	useCase: text("use_case"), // 使用场景
+	operationSteps: jsonb("operation_steps"), // 操作步骤
+	prompts: jsonb(), // 提示词模板
+	generatedContent: jsonb("generated_content"), // 生成的内容
+	optimizedContent: jsonb("optimized_content"), // 优化后的内容
+	classroomIntegration: text("classroom_integration"), // 课堂融合方式
+	effectAnalysis: jsonb("effect_analysis"), // 效果分析
+	videoUrl: varchar("video_url", { length: 500 }), // 课堂实录视频
+	lessonCase: jsonb("lesson_case"), // 课例
+	creatorId: varchar("creator_id", { length: 50 }).notNull(),
+	creatorName: varchar("creator_name", { length: 50 }).notNull(),
+	collaboratorIds: text("collaborator_ids").array(),
+	status: varchar({ length: 50 }).default('draft'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_ai_teaching_apps_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	index("idx_ai_teaching_apps_subject").using("btree", table.subject.asc().nullsLast().op("text_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "ai_teaching_apps_theme_id_fkey"
+	}).onDelete("cascade"),
+]);
+
+// 教研统计表（用于快速查询统计）
+export const researchStatistics = pgTable("research_statistics", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	themeId: uuid("theme_id").notNull(),
+	totalActivities: integer("total_activities").default(0),
+	completedActivities: integer("completed_activities").default(0),
+	totalParticipants: integer("total_participants").default(0),
+	averageAttendance: numeric("average_attendance", { precision: 5, scale: 2 }).default('0'),
+	achievementsCount: integer("achievements_count").default(0),
+	resourcesCount: integer("resources_count").default(0),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_research_statistics_theme").using("btree", table.themeId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+		columns: [table.themeId],
+		foreignColumns: [researchThemes.id],
+		name: "research_statistics_theme_id_fkey"
+	}).onDelete("cascade"),
+]);
