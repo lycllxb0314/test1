@@ -60,6 +60,7 @@ import {
 import { toast } from 'sonner';
 
 import ResourceLibrary from '@/components/research/ResourceLibrary';
+import StageManager from '@/components/research/StageManager';
 import LessonDesignEditor from '@/components/research/LessonDesignEditor';
 import TeacherSelector, { type SelectedTeacher } from '@/components/research/TeacherSelector';
 import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
@@ -532,48 +533,12 @@ export default function ResearchThemeDetailPage() {
               </Card>
             </div>
             
-            {/* 教研阶段 */}
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base">教研阶段</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {theme.stages.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Target className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-                    <p className="text-slate-400">暂无教研阶段</p>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-200" />
-                    <div className="space-y-4">
-                      {theme.stages.map((stage, idx) => (
-                        <div key={stage.id} className="relative flex items-start gap-4 pl-4">
-                          <div className={`relative z-10 w-4 h-4 rounded-full border-2 ${
-                            stage.status === 'completed' 
-                              ? 'bg-emerald-500 border-emerald-500' 
-                              : stage.status === 'in_progress'
-                              ? 'bg-blue-500 border-blue-500'
-                              : 'bg-white border-slate-300'
-                          }`} />
-                          <div className="flex-1 bg-slate-50 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-1">
-                              <h4 className="font-medium text-slate-900">{stage.name}</h4>
-                              <Badge variant="outline" className="text-xs">
-                                {stage.status === 'completed' ? '已完成' : stage.status === 'in_progress' ? '进行中' : '待开始'}
-                              </Badge>
-                            </div>
-                            {stage.description && (
-                              <p className="text-sm text-slate-500">{stage.description}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* 教研阶段管理 */}
+            <StageManager 
+              themeId={themeId}
+              stages={theme.stages}
+              onUpdate={loadTheme}
+            />
           </TabsContent>
           
           {/* 教研活动 */}

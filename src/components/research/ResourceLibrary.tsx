@@ -1,19 +1,25 @@
 'use client';
 
 /**
- * 教务端 - 资源库组件
+ * 教务端 - 主题资源库组件
  * 
- * 设计理念：
- * - 主题资源库包含：活动资源库 + 其他资源
- * - 活动资源库：来自教研活动中的教学设计、课例等
- * - 其他资源：教务直接上传到主题的资源
+ * 层级结构：
+ * - 主题资源库（如"大单元教学"主题的资源库）
+ *   ├── 活动资源库（来自各教研活动的资源）
+ *   │   ├── 活动1的教学设计
+ *   │   ├── 活动2的优秀课例
+ *   │   └── ...
+ *   └── 其他资源（教务直接上传到主题的资源）
+ *       ├── 学术论文
+ *       ├── 课件资源
+ *       └── ...
  * 
  * 文件夹分类：
- * - 教学设计（来自活动）
- * - 优秀课例（来自活动或上传）
- * - 学术论文（上传）
- * - 课件资源（上传）
- * - 其他资源（上传）
+ * - 教学设计
+ * - 优秀课例
+ * - 学术论文
+ * - 课件资源
+ * - 其他资源
  */
 
 import React, { useState, useEffect } from 'react';
@@ -38,6 +44,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   FolderOpen,
   FileText,
@@ -64,6 +75,8 @@ import {
   Activity,
   Folder,
   ChevronRight,
+  ChevronDown,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ThemeType } from '@/types/research';
@@ -77,8 +90,6 @@ interface ResourceFolder {
   color: string;
   description: string;
   count: number;
-  activityCount: number; // 来自活动的数量
-  uploadCount: number;   // 上传的数量
 }
 
 interface Resource {
@@ -91,11 +102,18 @@ interface Resource {
   fileUrl?: string;
   content?: unknown;
   sourceType: 'activity' | 'theme_direct'; // 来自活动 or 直接上传到主题
-  sourceId?: string;
   activityId?: string;
   activityTitle?: string;
   teacherName?: string;
   createdAt: string;
+}
+
+interface ActivityGroup {
+  id: string;
+  title: string;
+  type: string;
+  scheduledAt?: string;
+  resources: Resource[];
 }
 
 // ==================== 配置 ====================
@@ -108,8 +126,6 @@ const DEFAULT_FOLDERS: ResourceFolder[] = [
     color: 'text-blue-500 bg-blue-50', 
     description: '教研活动中的教学设计', 
     count: 0,
-    activityCount: 0,
-    uploadCount: 0,
   },
   { 
     id: 'excellent_case', 
@@ -118,8 +134,6 @@ const DEFAULT_FOLDERS: ResourceFolder[] = [
     color: 'text-purple-500 bg-purple-50', 
     description: '优质课例视频', 
     count: 0,
-    activityCount: 0,
-    uploadCount: 0,
   },
   { 
     id: 'academic_paper', 
@@ -128,8 +142,6 @@ const DEFAULT_FOLDERS: ResourceFolder[] = [
     color: 'text-amber-500 bg-amber-50', 
     description: '教研论文', 
     count: 0,
-    activityCount: 0,
-    uploadCount: 0,
   },
   { 
     id: 'courseware', 
@@ -138,8 +150,6 @@ const DEFAULT_FOLDERS: ResourceFolder[] = [
     color: 'text-emerald-500 bg-emerald-50', 
     description: 'PPT、微课等', 
     count: 0,
-    activityCount: 0,
-    uploadCount: 0,
   },
   { 
     id: 'other', 
@@ -148,8 +158,6 @@ const DEFAULT_FOLDERS: ResourceFolder[] = [
     color: 'text-slate-500 bg-slate-50', 
     description: '其他文档', 
     count: 0,
-    activityCount: 0,
-    uploadCount: 0,
   },
 ];
 
@@ -164,11 +172,6 @@ const FILE_TYPE_ICONS: Record<string, React.ElementType> = {
   'application/x-rar-compressed': FileArchive,
 };
 
-const SOURCE_TYPE_LABELS = {
-  activity: { label: '活动资源库', color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
-  theme_direct: { label: '其他资源', color: 'text-slate-600 bg-slate-50 border-slate-200' },
-};
-
 // ==================== 组件 ====================
 
 interface ResourceLibraryProps {
@@ -180,14 +183,18 @@ interface ResourceLibraryProps {
 export default function ResourceLibrary({ themeId, themeType, subject }: ResourceLibraryProps) {
   const [folders, setFolders] = useState<ResourceFolder[]>(DEFAULT_FOLDERS);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [activityGroups, setActivityGroups] = useState<ActivityGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [selectedSource, setSelectedSource] = useState<'all' | 'activity' | 'theme_direct'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'folder' | 'activity'>('folder');
+  const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  // 活动分组展开状态
+  const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   
   // 上传表单
   const [uploadForm, setUploadForm] = useState({
@@ -211,25 +218,50 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
         setResources(resourceList);
         
         // 更新文件夹计数
-        const counts: Record<string, { total: number; activity: number; upload: number }> = {};
+        const counts: Record<string, number> = {};
         resourceList.forEach((r: Resource) => {
-          if (!counts[r.folderId]) {
-            counts[r.folderId] = { total: 0, activity: 0, upload: 0 };
-          }
-          counts[r.folderId].total++;
-          if (r.sourceType === 'activity') {
-            counts[r.folderId].activity++;
-          } else {
-            counts[r.folderId].upload++;
-          }
+          counts[r.folderId] = (counts[r.folderId] || 0) + 1;
         });
         
         setFolders(DEFAULT_FOLDERS.map(f => ({
           ...f,
-          count: counts[f.id]?.total || 0,
-          activityCount: counts[f.id]?.activity || 0,
-          uploadCount: counts[f.id]?.upload || 0,
+          count: counts[f.id] || 0,
         })));
+        
+        // 按活动分组
+        const groups: Map<string, ActivityGroup> = new Map();
+        
+        // 添加"教务上传"分组
+        groups.set('theme_direct', {
+          id: 'theme_direct',
+          title: '其他资源',
+          type: 'theme_direct',
+          resources: [],
+        });
+        
+        resourceList.forEach((r: Resource) => {
+          if (r.sourceType === 'activity' && r.activityId) {
+            if (!groups.has(r.activityId)) {
+              groups.set(r.activityId, {
+                id: r.activityId,
+                title: r.activityTitle || '未知活动',
+                type: 'activity',
+                scheduledAt: r.createdAt,
+                resources: [],
+              });
+            }
+            groups.get(r.activityId)!.resources.push(r);
+          } else {
+            groups.get('theme_direct')!.resources.push(r);
+          }
+        });
+        
+        // 移除空分组
+        if (groups.get('theme_direct')?.resources.length === 0) {
+          groups.delete('theme_direct');
+        }
+        
+        setActivityGroups(Array.from(groups.values()));
       }
     } catch (err) {
       console.error('加载资源失败:', err);
@@ -291,7 +323,7 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
           fileKey: uploadData.key,
           fileUrl: uploadData.url,
           fileName: uploadForm.file.name,
-          sourceType: 'theme_direct', // 标记为主题直接上传
+          sourceType: 'theme_direct',
         }),
       });
       
@@ -321,7 +353,6 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
         const data = await res.json();
         
         if (data.url) {
-          // 使用 fetch + blob 模式下载
           const response = await fetch(data.url);
           const blob = await response.blob();
           const blobUrl = window.URL.createObjectURL(blob);
@@ -358,12 +389,11 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
     }
   };
   
-  // 筛选资源
+  // 筛选资源（按文件夹视图）
   const filteredResources = resources.filter(r => {
     const matchesFolder = !selectedFolder || r.folderId === selectedFolder;
-    const matchesSource = selectedSource === 'all' || r.sourceType === selectedSource;
     const matchesSearch = !searchQuery || r.title.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFolder && matchesSource && matchesSearch;
+    return matchesFolder && matchesSearch;
   });
   
   // 统计信息
@@ -371,6 +401,7 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
     total: resources.length,
     activityCount: resources.filter(r => r.sourceType === 'activity').length,
     uploadCount: resources.filter(r => r.sourceType === 'theme_direct').length,
+    activityGroups: activityGroups.filter(g => g.type === 'activity').length,
   };
   
   const getFileIcon = (type: string) => {
@@ -388,39 +419,35 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
+  
+  const toggleActivity = (activityId: string) => {
+    const newExpanded = new Set(expandedActivities);
+    if (newExpanded.has(activityId)) {
+      newExpanded.delete(activityId);
+    } else {
+      newExpanded.add(activityId);
+    }
+    setExpandedActivities(newExpanded);
+  };
 
   return (
     <div className="space-y-6">
-      {/* 资源来源说明 */}
-      <Card className="border-0 shadow-sm bg-gradient-to-r from-indigo-50 to-purple-50">
+      {/* 资源库说明 */}
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-indigo-50 via-white to-purple-50">
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
                 <Folder className="h-5 w-5 text-indigo-500" />
-                <span className="font-medium text-slate-700">主题资源库</span>
-                <Badge variant="secondary" className="ml-1">{stats.total}</Badge>
+                <span className="font-semibold text-slate-800">主题资源库</span>
+                <Badge variant="secondary" className="ml-1">{stats.total} 个资源</Badge>
               </div>
-              
-              <div className="flex items-center gap-4 text-sm text-slate-500">
-                <div className="flex items-center gap-1.5">
-                  <Activity className="h-4 w-4 text-indigo-400" />
-                  <span>活动资源库</span>
-                  <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600">
-                    {stats.activityCount}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Upload className="h-4 w-4 text-slate-400" />
-                  <span>其他资源</span>
-                  <Badge variant="outline" className="text-xs border-slate-200 text-slate-600">
-                    {stats.uploadCount}
-                  </Badge>
-                </div>
-              </div>
+              <p className="text-sm text-slate-500">
+                包含活动资源库（来自 {stats.activityGroups} 个教研活动）和教务直接上传的资源
+              </p>
             </div>
             
-            <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
+            <Button onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
               上传资源
             </Button>
@@ -428,50 +455,27 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
         </CardContent>
       </Card>
       
-      {/* 文件夹列表 */}
-      <div className="grid grid-cols-5 gap-3">
-        {folders.map(folder => {
-          const Icon = folder.icon;
-          const isSelected = selectedFolder === folder.id;
-          return (
-            <Card 
-              key={folder.id}
-              className={`cursor-pointer transition-all border-0 shadow-sm ${
-                isSelected 
-                  ? 'ring-2 ring-indigo-500 bg-indigo-50' 
-                  : 'hover:shadow-md hover:bg-slate-50'
-              }`}
-              onClick={() => setSelectedFolder(isSelected ? null : folder.id)}
-            >
-              <CardContent className="pt-4 pb-3 text-center">
-                <div className={`inline-flex p-2.5 rounded-xl ${folder.color} mb-2`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h4 className="font-medium text-slate-900 text-sm">{folder.name}</h4>
-                <p className="text-xs text-slate-400 mt-0.5">{folder.count} 个文件</p>
-                
-                {/* 来源统计 */}
-                {folder.count > 0 && (
-                  <div className="flex items-center justify-center gap-2 mt-2 text-xs">
-                    {folder.activityCount > 0 && (
-                      <span className="text-indigo-500">{folder.activityCount} 活动</span>
-                    )}
-                    {folder.activityCount > 0 && folder.uploadCount > 0 && (
-                      <span className="text-slate-300">|</span>
-                    )}
-                    {folder.uploadCount > 0 && (
-                      <span className="text-slate-500">{folder.uploadCount} 上传</span>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-      
-      {/* 工具栏 */}
+      {/* 视图切换 */}
       <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === 'folder' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('folder')}
+          >
+            <FolderOpen className="h-4 w-4 mr-2" />
+            按文件夹
+          </Button>
+          <Button
+            variant={viewMode === 'activity' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('activity')}
+          >
+            <Activity className="h-4 w-4 mr-2" />
+            按活动
+          </Button>
+        </div>
+        
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -483,54 +487,20 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
             />
           </div>
           
-          {/* 来源筛选 */}
-          <Select value={selectedSource} onValueChange={(v) => setSelectedSource(v as any)}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="来源筛选" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部来源</SelectItem>
-              <SelectItem value="activity">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-indigo-500" />
-                  活动资源库
-                </div>
-              </SelectItem>
-              <SelectItem value="theme_direct">
-                <div className="flex items-center gap-2">
-                  <Upload className="h-4 w-4 text-slate-500" />
-                  其他资源
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {selectedFolder && (
-            <Badge variant="secondary" className="gap-1">
-              {folders.find(f => f.id === selectedFolder)?.name}
-              <X 
-                className="h-3 w-3 cursor-pointer" 
-                onClick={() => setSelectedFolder(null)}
-              />
-            </Badge>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2">
           <div className="flex border border-slate-200 rounded-lg p-0.5 bg-white">
             <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              variant={displayMode === 'list' ? 'secondary' : 'ghost'}
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => setViewMode('list')}
+              onClick={() => setDisplayMode('list')}
             >
               <List className="h-4 w-4" />
             </Button>
             <Button
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              variant={displayMode === 'grid' ? 'secondary' : 'ghost'}
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => setViewMode('grid')}
+              onClick={() => setDisplayMode('grid')}
             >
               <Grid className="h-4 w-4" />
             </Button>
@@ -538,155 +508,298 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
         </div>
       </div>
       
-      {/* 资源列表 */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-        </div>
-      ) : filteredResources.length === 0 ? (
-        <Card className="border-dashed border-2 border-slate-200 bg-slate-50/50">
-          <CardContent className="py-12 text-center">
-            <FolderOpen className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-            <p className="text-slate-400 mb-4">暂无资源</p>
-            <Button onClick={() => setUploadDialogOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              上传第一个文件
-            </Button>
-          </CardContent>
-        </Card>
-      ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-4 gap-4">
-          {filteredResources.map(resource => {
-            const FileIcon = getFileIcon(resource.type);
-            const folder = folders.find(f => f.id === resource.folderId);
-            const sourceLabel = SOURCE_TYPE_LABELS[resource.sourceType];
-            return (
-              <Card key={resource.id} className="group border-0 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="pt-4 pb-3">
-                  <div className={`inline-flex p-3 rounded-xl ${folder?.color || 'bg-slate-100'} mb-3`}>
-                    <FileIcon className="h-6 w-6" />
-                  </div>
-                  <h4 className="font-medium text-slate-900 text-sm truncate mb-1">{resource.title}</h4>
-                  <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-                    <span>{formatFileSize(resource.size)}</span>
-                  </div>
-                  
-                  {/* 来源标签 */}
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${sourceLabel.color}`}
-                  >
-                    {resource.sourceType === 'activity' && <Activity className="h-3 w-3 mr-1" />}
-                    {resource.sourceType === 'theme_direct' && <Upload className="h-3 w-3 mr-1" />}
-                    {sourceLabel.label}
-                  </Badge>
-                  
-                  {resource.teacherName && (
-                    <p className="text-xs text-slate-400 mt-1.5">{resource.teacherName}</p>
-                  )}
-                  
-                  <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDownload(resource)}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    {resource.sourceType === 'theme_direct' && (
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDelete(resource.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-0">
-            <div className="divide-y divide-slate-100">
+      {/* 按文件夹视图 */}
+      {viewMode === 'folder' && (
+        <>
+          {/* 文件夹列表 */}
+          <div className="grid grid-cols-5 gap-3">
+            {folders.map(folder => {
+              const Icon = folder.icon;
+              const isSelected = selectedFolder === folder.id;
+              return (
+                <Card 
+                  key={folder.id}
+                  className={`cursor-pointer transition-all border-0 shadow-sm ${
+                    isSelected 
+                      ? 'ring-2 ring-indigo-500 bg-indigo-50' 
+                      : 'hover:shadow-md hover:bg-slate-50'
+                  }`}
+                  onClick={() => setSelectedFolder(isSelected ? null : folder.id)}
+                >
+                  <CardContent className="pt-4 pb-3 text-center">
+                    <div className={`inline-flex p-2.5 rounded-xl ${folder.color} mb-2`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h4 className="font-medium text-slate-900 text-sm">{folder.name}</h4>
+                    <p className="text-xs text-slate-400 mt-0.5">{folder.count} 个文件</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          
+          {/* 资源列表 */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
+          ) : filteredResources.length === 0 ? (
+            <Card className="border-dashed border-2 border-slate-200 bg-slate-50/50">
+              <CardContent className="py-12 text-center">
+                <FolderOpen className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+                <p className="text-slate-400 mb-4">暂无资源</p>
+                <Button onClick={() => setUploadDialogOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  上传第一个文件
+                </Button>
+              </CardContent>
+            </Card>
+          ) : displayMode === 'grid' ? (
+            <div className="grid grid-cols-4 gap-4">
               {filteredResources.map(resource => {
                 const FileIcon = getFileIcon(resource.type);
                 const folder = folders.find(f => f.id === resource.folderId);
-                const sourceLabel = SOURCE_TYPE_LABELS[resource.sourceType];
                 return (
-                  <div 
-                    key={resource.id}
-                    className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors group"
-                  >
-                    <div className={`p-2.5 rounded-xl ${folder?.color || 'bg-slate-100'}`}>
-                      <FileIcon className="h-5 w-5" />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h4 className="font-medium text-slate-900 truncate">{resource.title}</h4>
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs shrink-0 ${sourceLabel.color}`}
-                        >
-                          {resource.sourceType === 'activity' && <Activity className="h-3 w-3 mr-1" />}
-                          {resource.sourceType === 'theme_direct' && <Upload className="h-3 w-3 mr-1" />}
-                          {sourceLabel.label}
-                        </Badge>
+                  <Card key={resource.id} className="group border-0 shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="pt-4 pb-3">
+                      <div className={`inline-flex p-3 rounded-xl ${folder?.color || 'bg-slate-100'} mb-3`}>
+                        <FileIcon className="h-6 w-6" />
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <span>{folder?.name}</span>
-                        {resource.size && (
-                          <>
-                            <span className="w-1 h-1 rounded-full bg-slate-300" />
-                            <span>{formatFileSize(resource.size)}</span>
-                          </>
-                        )}
-                        {resource.teacherName && (
-                          <>
-                            <span className="w-1 h-1 rounded-full bg-slate-300" />
-                            <span>{resource.teacherName}</span>
-                          </>
-                        )}
-                        {resource.activityTitle && (
-                          <>
-                            <span className="w-1 h-1 rounded-full bg-slate-300" />
-                            <span className="text-indigo-500">{resource.activityTitle}</span>
-                          </>
-                        )}
+                      <h4 className="font-medium text-slate-900 text-sm truncate mb-1">{resource.title}</h4>
+                      <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+                        <span>{formatFileSize(resource.size)}</span>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-sm text-slate-400">
-                      {new Date(resource.createdAt).toLocaleDateString()}
-                    </div>
-                    
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDownload(resource)}>
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      {resource.sourceType === 'theme_direct' && (
+                      
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${
+                          resource.sourceType === 'activity' 
+                            ? 'text-indigo-600 bg-indigo-50 border-indigo-200' 
+                            : 'text-slate-600 bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        {resource.sourceType === 'activity' ? (
+                          <>
+                            <Activity className="h-3 w-3 mr-1" />
+                            {resource.activityTitle || '活动资源'}
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-3 w-3 mr-1" />
+                            教务上传
+                          </>
+                        )}
+                      </Badge>
+                      
+                      {resource.teacherName && (
+                        <p className="text-xs text-slate-400 mt-1.5">{resource.teacherName}</p>
+                      )}
+                      
+                      <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDownload(resource)}>
+                          <Download className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDelete(resource.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      )}
-                    </div>
-                  </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100">
+                  {filteredResources.map(resource => {
+                    const FileIcon = getFileIcon(resource.type);
+                    const folder = folders.find(f => f.id === resource.folderId);
+                    return (
+                      <div 
+                        key={resource.id}
+                        className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors group"
+                      >
+                        <div className={`p-2.5 rounded-xl ${folder?.color || 'bg-slate-100'}`}>
+                          <FileIcon className="h-5 w-5" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <h4 className="font-medium text-slate-900 truncate">{resource.title}</h4>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs shrink-0 ${
+                                resource.sourceType === 'activity' 
+                                  ? 'text-indigo-600 bg-indigo-50 border-indigo-200' 
+                                  : 'text-slate-600 bg-slate-50 border-slate-200'
+                              }`}
+                            >
+                              {resource.sourceType === 'activity' ? (
+                                <>
+                                  <Activity className="h-3 w-3 mr-1" />
+                                  {resource.activityTitle || '活动资源'}
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="h-3 w-3 mr-1" />
+                                  教务上传
+                                </>
+                              )}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <span>{folder?.name}</span>
+                            {resource.size && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                <span>{formatFileSize(resource.size)}</span>
+                              </>
+                            )}
+                            {resource.teacherName && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                <span>{resource.teacherName}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 text-sm text-slate-400">
+                          {new Date(resource.createdAt).toLocaleDateString()}
+                        </div>
+                        
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDownload(resource)}>
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDelete(resource.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+      
+      {/* 按活动视图 */}
+      {viewMode === 'activity' && (
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
+          ) : activityGroups.length === 0 ? (
+            <Card className="border-dashed border-2 border-slate-200 bg-slate-50/50">
+              <CardContent className="py-12 text-center">
+                <Activity className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+                <p className="text-slate-400">暂无资源</p>
+              </CardContent>
+            </Card>
+          ) : (
+            activityGroups.map(group => {
+              const isExpanded = expandedActivities.has(group.id);
+              const filteredGroupResources = group.resources.filter(r => 
+                !searchQuery || r.title.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+              
+              if (filteredGroupResources.length === 0) return null;
+              
+              return (
+                <Card key={group.id} className="border-0 shadow-sm overflow-hidden">
+                  <Collapsible open={isExpanded} onOpenChange={() => toggleActivity(group.id)}>
+                    <CollapsibleTrigger asChild>
+                      <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${
+                            group.type === 'activity' 
+                              ? 'bg-indigo-100 text-indigo-600' 
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {group.type === 'activity' ? (
+                              <Activity className="h-5 w-5" />
+                            ) : (
+                              <Upload className="h-5 w-5" />
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-slate-900">{group.title}</h4>
+                            <p className="text-sm text-slate-500">
+                              {group.resources.length} 个资源
+                              {group.scheduledAt && (
+                                <span className="ml-2">
+                                  · {new Date(group.scheduledAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{filteredGroupResources.length}</Badge>
+                          {isExpanded ? (
+                            <ChevronDown className="h-5 w-5 text-slate-400" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-slate-400" />
+                          )}
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="border-t border-slate-100 divide-y divide-slate-100">
+                        {filteredGroupResources.map(resource => {
+                          const FileIcon = getFileIcon(resource.type);
+                          const folder = folders.find(f => f.id === resource.folderId);
+                          return (
+                            <div 
+                              key={resource.id}
+                              className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50 transition-colors group"
+                            >
+                              <div className={`p-2 rounded-lg ${folder?.color || 'bg-slate-100'}`}>
+                                <FileIcon className="h-4 w-4" />
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <h5 className="font-medium text-slate-900 text-sm truncate">{resource.title}</h5>
+                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                  <span>{folder?.name}</span>
+                                  {resource.size && <span>· {formatFileSize(resource.size)}</span>}
+                                  {resource.teacherName && <span>· {resource.teacherName}</span>}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleDownload(resource)}>
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => handleDelete(resource.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              );
+            })
+          )}
+        </div>
       )}
       
       {/* 上传对话框 */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>上传资源到主题</DialogTitle>
+            <DialogTitle>上传资源到主题资源库</DialogTitle>
             <DialogDescription>
-              上传的资源将归属于「其他资源」，可在主题资源库中查看
+              上传的资源将归属于本主题资源库
             </DialogDescription>
           </DialogHeader>
           
