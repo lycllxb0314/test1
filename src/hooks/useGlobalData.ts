@@ -628,11 +628,137 @@ export function useGlobalStudents(initialFilters?: StudentFilters) {
 }
 
 // ============================================
+// 班级聚合相关类型（从 useClasses 复用）
+// ============================================
+
+/** 班级状态 */
+export type ClassStatus = 'active' | 'inactive' | 'graduated'
+
+/** 教师基本信息（班级聚合用） */
+export interface TeacherBasicInfo {
+  id: string
+  name: string
+  gender?: string
+  phone?: string
+  subject?: string
+  title?: string
+  avatar?: string
+  primarySubject?: string
+  subjects?: string[]
+  headTeacherClassId?: string
+  headTeacherClassName?: string
+  subTeacherClasses?: Array<{ classId: string; className: string }>
+}
+
+/** 学生基本信息（班级聚合用） */
+export interface StudentBasicInfo {
+  id: string
+  studentNo: string
+  name: string
+  gender: 'male' | 'female'
+  birthDate?: string
+  status: '在校' | '请假' | '休学' | '毕业' | '转学'
+  avatar?: string
+  parents: Parent[]
+}
+
+/** 家长基本信息（班级聚合展示用） */
+export interface ParentBasicInfo {
+  id?: string
+  name: string
+  relation: string
+  relationName: string
+  phone?: string
+  isPrimary: boolean
+  wechat?: string
+  avatar?: string
+  studentId: string
+  studentName: string
+  classId: string
+  className: string
+  grade: number
+  headTeacherId?: string
+  headTeacherName?: string
+}
+
+/** 教师候选人（用于智能推荐） */
+export interface TeacherCandidate {
+  id: string
+  name: string
+  subject: string
+  subjects: string[]
+  primaryRole: string
+  department?: string
+  title?: string
+  teachableGrades: number[]
+  isRecommended: boolean
+  matchReason?: string
+  currentClassId?: string
+  currentClassName?: string
+  isHeadTeacher: boolean
+}
+
+/** 班级容器 - 核心聚合根 */
+export interface ClassContainer {
+  id: string
+  name: string
+  grade: number
+  gradeName: string
+  classNumber: number
+  headTeacherId: string
+  headTeacherName: string
+  headTeacher?: TeacherBasicInfo
+  subTeacherId?: string
+  subTeacherName?: string
+  subTeacher?: TeacherBasicInfo
+  students: StudentBasicInfo[]
+  studentCount: number
+  maleStudentCount: number
+  femaleStudentCount: number
+  parents: ParentBasicInfo[]
+  parentCount: number
+  classroomId?: string
+  classroomName?: string
+  building?: string
+  floor?: number
+  status: ClassStatus
+  motto?: string
+  features?: string[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+/** 班级统计信息 */
+export interface ClassStatistics {
+  totalClasses: number
+  activeClasses: number
+  inactiveClasses: number
+  totalStudents: number
+  totalParents: number
+  classesWithSubTeacher: number
+  classesWithoutSubTeacher: number
+  gradeDistribution: Record<number, number>
+  avgStudentsPerClass: number
+  avgParentsPerClass: number
+}
+
+// 年级名称映射
+const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级']
+
+// ============================================
 // 全局班级数据 Hook（兼容 useClasses）
 // ============================================
 
 export function useGlobalClasses(initialFilters?: ClassFilters) {
-  const { classes: globalClasses, fetchClasses, invalidateCache } = useGlobalData()
+  // 获取全局数据：classes、teachers、students
+  const { 
+    classes: globalClasses, 
+    fetchClasses, 
+    invalidateCache,
+    teachers: globalTeachers,
+    students: globalStudents,
+  } = useGlobalData()
+  
   const [filters, setFilters] = useState<ClassFilters>(initialFilters || {})
   const [page, setPage] = useState(1)
   const [pageSize, setPageSizeState] = useState<number>(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE)
@@ -644,15 +770,146 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
     }
   }, [globalClasses.loaded, globalClasses.loading, fetchClasses])
 
-  // 筛选后的数据
+  // ========== 核心聚合逻辑 ==========
+  // 将全局的 classes、teachers、students 聚合成 ClassContainer
+  const allClassesWithAggregation = useMemo(() => {
+    // 如果数据未加载，返回空数组
+    if (!globalClasses.loaded || globalClasses.data.length === 0) {
+      return [] as ClassContainer[]
+    }
+
+    // 构建教师映射
+    const teachersMap: Record<string, TeacherInfo> = {}
+    globalTeachers.data.forEach(t => {
+      teachersMap[t.id] = t
+    })
+
+    // 构建学生映射（按班级分组）
+    const studentsByClass: Record<string, StudentInfo[]> = {}
+    globalStudents.data.forEach(s => {
+      if (!studentsByClass[s.classId]) {
+        studentsByClass[s.classId] = []
+      }
+      studentsByClass[s.classId].push(s)
+    })
+
+    // 聚合班级数据
+    return globalClasses.data.map((cls): ClassContainer => {
+      const classStudents = studentsByClass[cls.id] || []
+      
+      // 转换学生信息
+      const students: StudentBasicInfo[] = classStudents.map(s => ({
+        id: s.id,
+        studentNo: s.studentNo,
+        name: s.name,
+        gender: s.gender,
+        birthDate: s.birthDate,
+        status: s.status as StudentBasicInfo['status'],
+        avatar: s.avatar,
+        parents: s.parents,
+      }))
+
+      // 获取班主任详情
+      const headTeacherId = cls.headTeacherId || ''
+      const headTeacher = headTeacherId ? teachersMap[headTeacherId] : undefined
+      const headTeacherName = cls.headTeacherName || headTeacher?.name || ''
+
+      // 获取科任详情
+      const subTeacherId = cls.subTeacherId
+      const subTeacher = subTeacherId ? teachersMap[subTeacherId] : undefined
+
+      // 聚合家长信息
+      const parents: ParentBasicInfo[] = []
+      students.forEach(student => {
+        if (student.parents && student.parents.length > 0) {
+          student.parents.forEach(parent => {
+            parents.push({
+              id: parent.id,
+              name: parent.name,
+              relation: (parent.relation as string) || (parent.relationship as string) || 'other',
+              relationName: (parent.relationship as string) || (parent.relationName as string) || '家长',
+              phone: parent.phone,
+              isPrimary: parent.isPrimary || false,
+              wechat: parent.wechat as string | undefined,
+              avatar: parent.avatar as string | undefined,
+              studentId: student.id,
+              studentName: student.name,
+              classId: cls.id,
+              className: cls.name,
+              grade: cls.grade,
+              headTeacherId,
+              headTeacherName,
+            })
+          })
+        }
+      })
+
+      return {
+        id: cls.id,
+        name: cls.name,
+        grade: cls.grade,
+        gradeName: cls.gradeName,
+        classNumber: cls.classNumber || 1,
+        headTeacherId,
+        headTeacherName,
+        headTeacher: headTeacher ? {
+          id: headTeacher.id,
+          name: headTeacher.name,
+          gender: headTeacher.gender,
+          phone: headTeacher.phone,
+          subject: headTeacher.subject,
+          primarySubject: headTeacher.subject,
+          subjects: headTeacher.teachableSubjects,
+          title: headTeacher.title,
+          avatar: headTeacher.avatar,
+          headTeacherClassId: headTeacher.headTeacherClassId,
+          headTeacherClassName: headTeacher.headTeacherClassName,
+          subTeacherClasses: headTeacher.subTeacherClasses,
+        } : undefined,
+        subTeacherId,
+        subTeacherName: cls.subTeacherName || subTeacher?.name,
+        subTeacher: subTeacher ? {
+          id: subTeacher.id,
+          name: subTeacher.name,
+          gender: subTeacher.gender,
+          phone: subTeacher.phone,
+          subject: subTeacher.subject,
+          primarySubject: subTeacher.subject,
+          subjects: subTeacher.teachableSubjects,
+          title: subTeacher.title,
+          avatar: subTeacher.avatar,
+          headTeacherClassId: subTeacher.headTeacherClassId,
+          headTeacherClassName: subTeacher.headTeacherClassName,
+          subTeacherClasses: subTeacher.subTeacherClasses,
+        } : undefined,
+        students,
+        studentCount: students.length,
+        maleStudentCount: students.filter(s => s.gender === 'male').length,
+        femaleStudentCount: students.filter(s => s.gender === 'female').length,
+        parents,
+        parentCount: parents.length,
+        classroomId: cls.classroomId,
+        classroomName: cls.classroomName,
+        building: cls.building,
+        floor: cls.floor,
+        status: (cls.status as ClassStatus) || 'active',
+        motto: cls.motto,
+        features: cls.features,
+        createdAt: cls.createdAt,
+        updatedAt: cls.updatedAt,
+      }
+    })
+  }, [globalClasses, globalTeachers.data, globalStudents.data])
+
+  // ========== 筛选逻辑 ==========
   const filteredClasses = useMemo(() => {
-    let result = globalClasses.data
+    let result = allClassesWithAggregation
 
     if (filters.search) {
       const searchLower = filters.search.toLowerCase()
       result = result.filter(c => 
         c.name.toLowerCase().includes(searchLower) ||
-        c.headTeacherName?.toLowerCase().includes(searchLower)
+        c.headTeacherName.toLowerCase().includes(searchLower)
       )
     }
 
@@ -660,10 +917,14 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
       result = result.filter(c => c.grade === filters.grade)
     }
 
-    return result
-  }, [globalClasses.data, filters])
+    if (filters.status && filters.status !== 'all') {
+      result = result.filter(c => c.status === filters.status)
+    }
 
-  // 分页
+    return result
+  }, [allClassesWithAggregation, filters])
+
+  // ========== 分页逻辑 ==========
   const total = filteredClasses.length
   const totalPages = Math.ceil(total / pageSize)
 
@@ -689,37 +950,145 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
     setPageSize: (size) => { setPageSizeState(size); setPage(1) },
   }), [page, pageSize, total, totalPages, goToPage])
 
-  // 统计数据
-  const statistics = useMemo(() => {
+  // ========== 统计数据 ==========
+  const statistics = useMemo<ClassStatistics>(() => {
     const gradeDistribution: Record<number, number> = {}
-
-    globalClasses.data.forEach(c => {
+    
+    allClassesWithAggregation.forEach(c => {
       gradeDistribution[c.grade] = (gradeDistribution[c.grade] || 0) + 1
     })
-
+    
+    const totalStudents = allClassesWithAggregation.reduce((sum, c) => sum + c.studentCount, 0)
+    const totalParents = allClassesWithAggregation.reduce((sum, c) => sum + c.parentCount, 0)
+    
     return {
-      total: globalClasses.data.length,
-      totalStudents: globalClasses.data.reduce((sum, c) => sum + (c.studentCount || 0), 0),
+      totalClasses: allClassesWithAggregation.length,
+      activeClasses: allClassesWithAggregation.filter(c => c.status === 'active').length,
+      inactiveClasses: allClassesWithAggregation.filter(c => c.status !== 'active').length,
+      totalStudents,
+      totalParents,
+      classesWithSubTeacher: allClassesWithAggregation.filter(c => c.subTeacherId).length,
+      classesWithoutSubTeacher: allClassesWithAggregation.filter(c => !c.subTeacherId).length,
       gradeDistribution,
+      avgStudentsPerClass: allClassesWithAggregation.length > 0 ? Math.round(totalStudents / allClassesWithAggregation.length) : 0,
+      avgParentsPerClass: allClassesWithAggregation.length > 0 ? Math.round(totalParents / allClassesWithAggregation.length) : 0,
     }
-  }, [globalClasses.data])
+  }, [allClassesWithAggregation])
 
-  // 工具方法
+  // ========== 工具方法 ==========
   const getClassById = useCallback((id: string) => 
-    globalClasses.data.find(c => c.id === id),
-  [globalClasses.data])
+    allClassesWithAggregation.find(c => c.id === id),
+  [allClassesWithAggregation])
 
   const getClassesByGrade = useCallback((grade: number) => 
-    globalClasses.data.filter(c => c.grade === grade),
-  [globalClasses.data])
+    allClassesWithAggregation.filter(c => c.grade === grade),
+  [allClassesWithAggregation])
 
-  // 分配副班主任（科任）
+  const getClassesByHeadTeacher = useCallback((teacherId: string) => 
+    allClassesWithAggregation.filter(c => c.headTeacherId === teacherId),
+  [allClassesWithAggregation])
+
+  const getStudentsByClass = useCallback((classId: string) => {
+    const cls = allClassesWithAggregation.find(c => c.id === classId)
+    return cls?.students || []
+  }, [allClassesWithAggregation])
+
+  const getParentsByClass = useCallback((classId: string) => {
+    const cls = allClassesWithAggregation.find(c => c.id === classId)
+    return cls?.parents || []
+  }, [allClassesWithAggregation])
+
+  const getPrimaryParentsByClass = useCallback((classId: string) => {
+    const cls = allClassesWithAggregation.find(c => c.id === classId)
+    return cls?.parents.filter(p => p.isPrimary) || []
+  }, [allClassesWithAggregation])
+
+  // ========== 班级管理方法 ==========
+  const createClass = useCallback(async (data: Partial<ClassContainer>): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/classes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('classes')
+        fetchClasses(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('创建班级失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchClasses])
+
+  const updateClass = useCallback(async (id: string, data: Partial<ClassContainer>): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/classes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('classes')
+        fetchClasses(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('更新班级失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchClasses])
+
+  const deleteClass = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/classes/${id}`, {
+        method: 'DELETE',
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('classes')
+        fetchClasses(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('删除班级失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchClasses])
+
+  const updateHeadTeacher = useCallback(async (classId: string, teacherId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/classes/${classId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ head_teacher_id: teacherId }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('classes')
+        invalidateCache('teachers')
+        fetchClasses(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('更新班主任失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchClasses])
+
   const assignSubTeacher = useCallback(async (classId: string, teacherId: string): Promise<boolean> => {
     try {
       const response = await fetch(`/api/classes/${classId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sub_teacher_id: teacherId || null }),
+        body: JSON.stringify({ sub_teacher_id: teacherId }),
       })
       const result = await response.json()
       if (result.success) {
@@ -734,61 +1103,117 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
     }
   }, [invalidateCache, fetchClasses])
 
-  // 更新班主任
-  const updateHeadTeacher = useCallback(async (classId: string, teacherId: string): Promise<boolean> => {
+  const removeSubTeacher = useCallback(async (classId: string): Promise<boolean> => {
     try {
       const response = await fetch(`/api/classes/${classId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ head_teacher_id: teacherId }),
+        body: JSON.stringify({ sub_teacher_id: null }),
       })
       const result = await response.json()
       if (result.success) {
         invalidateCache('classes')
         fetchClasses(true)
-        // 同时刷新教师数据（因为班主任可能变化）
-        invalidateCache('teachers')
         return true
       }
       return false
     } catch (err) {
-      console.error('更新班主任失败:', err)
+      console.error('移除副班主任失败:', err)
       return false
     }
   }, [invalidateCache, fetchClasses])
 
-  // 获取推荐的副班主任
-  const getRecommendedSubTeachers = useCallback((classId: string, _grade: number, _subject: string) => {
-    // 简单实现：返回所有科任教师
-    return globalClasses.data
-      .filter(c => c.id !== classId)
-      .slice(0, 5)
-      .map(c => ({
-        id: `rec-${c.id}`,
-        name: c.headTeacherName || '推荐教师',
-        subject: '语文',
-        isRecommended: true,
-      }))
-  }, [globalClasses.data])
+  // ========== 科任智能推荐 ==========
+  const getRecommendedSubTeachers = useCallback((
+    classId: string,
+    candidates: TeacherCandidate[]
+  ): TeacherCandidate[] => {
+    const targetClass = allClassesWithAggregation.find(c => c.id === classId)
+    if (!targetClass) return []
+    
+    const targetGrade = targetClass.grade
+    const headTeacherId = targetClass.headTeacherId
+    
+    // 筛选符合条件的教师
+    const filtered = candidates.filter(teacher => {
+      // 排除该班班主任
+      if (teacher.id === headTeacherId) return false
+      
+      // 主要角色必须是班主任或科任教师
+      if (teacher.primaryRole !== 'head_teacher' && teacher.primaryRole !== 'subject_teacher') {
+        return false
+      }
+      
+      // 检查可任教年级
+      if (teacher.teachableGrades && teacher.teachableGrades.length > 0) {
+        return teacher.teachableGrades.includes(targetGrade)
+      }
+      
+      return true
+    })
+    
+    // 按推荐优先级排序
+    return filtered.map(teacher => {
+      let isRecommended = false
+      let matchReason = ''
+      
+      if (teacher.teachableGrades && teacher.teachableGrades.includes(targetGrade)) {
+        isRecommended = true
+        matchReason = `可任教${GRADE_NAMES[targetGrade]}`
+      } else {
+        matchReason = '未设置任教年级'
+      }
+      
+      return {
+        ...teacher,
+        isRecommended,
+        matchReason,
+      }
+    }).sort((a, b) => {
+      if (a.isRecommended && !b.isRecommended) return -1
+      if (!a.isRecommended && b.isRecommended) return 1
+      return a.name.localeCompare(b.name)
+    })
+  }, [allClassesWithAggregation])
 
+  // ========== 返回值 ==========
   return {
+    // 数据
+    allClasses: allClassesWithAggregation,
     classes,
-    allClasses: filteredClasses,
-    loading: globalClasses.loading,
+    loading: globalClasses.loading || (globalClasses.loaded && globalTeachers.data.length === 0),
     error: globalClasses.error,
     statistics,
     pagination,
+    
+    // 筛选
     filters,
     setFilters: (newFilters: ClassFilters) => {
       setFilters(newFilters)
       setPage(1)
     },
+    
+    // 查询方法
     fetchClasses: () => fetchClasses(true),
     refetch: () => { invalidateCache('classes'); fetchClasses(true) },
     getClassById,
     getClassesByGrade,
-    assignSubTeacher,
+    getClassesByHeadTeacher,
+    
+    // 学生/家长聚合查询
+    getStudentsByClass,
+    getParentsByClass,
+    getPrimaryParentsByClass,
+    
+    // 班级管理
+    createClass,
+    updateClass,
+    deleteClass,
     updateHeadTeacher,
+    assignSubTeacher,
+    removeSubTeacher,
+    
+    // 科任智能推荐
     getRecommendedSubTeachers,
   }
 }

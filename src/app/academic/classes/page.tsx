@@ -63,14 +63,21 @@ import {
   GraduationCap,
   Trophy,
 } from 'lucide-react';
-import { useClasses, type ClassContainer, type StudentBasicInfo, type ParentBasicInfo, type TeacherCandidate, type ClassStatistics } from '@/hooks/useClasses';
-import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
+import { 
+  useGlobalClasses, 
+  type ClassContainer, 
+  type StudentBasicInfo, 
+  type ParentBasicInfo, 
+  type TeacherCandidate, 
+  type ClassStatistics 
+} from '@/hooks/useGlobalData';
+import { useGlobalTeachers, type TeacherInfo } from '@/hooks/useGlobalData';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
 
 export default function ClassesPage() {
-  // Hooks
+  // 使用全局数据 Hooks（避免重复请求）
   const { 
     classes, 
     allClasses,
@@ -82,13 +89,13 @@ export default function ClassesPage() {
     updateHeadTeacher,
     filters,
     setFilters,
-  } = useClasses();
+  } = useGlobalClasses();
   
   const { 
     teachers, 
     allTeachers,
     loading: teachersLoading,
-  } = useTeachers();
+  } = useGlobalTeachers();
   
   const loading = classesLoading || teachersLoading;
   

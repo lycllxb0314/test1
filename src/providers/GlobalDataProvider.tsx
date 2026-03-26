@@ -99,9 +99,24 @@ interface ClassInfo {
   name: string
   grade: number
   gradeName: string
+  classNumber?: number
   headTeacherId?: string
   headTeacherName?: string
+  subTeacherId?: string
+  subTeacherName?: string
   studentCount: number
+  maleStudentCount?: number
+  femaleStudentCount?: number
+  parentCount?: number
+  classroomId?: string
+  classroomName?: string
+  building?: string
+  floor?: number
+  status?: string
+  motto?: string
+  features?: string[]
+  createdAt?: string
+  updatedAt?: string
   [key: string]: unknown
 }
 
