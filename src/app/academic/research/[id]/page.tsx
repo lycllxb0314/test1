@@ -5,22 +5,36 @@
  * 
  * 设计理念：
  * - 沉浸式头部，清晰的信息层次
- * - 流畅的标签页导航
- * - 专项教研编辑器集成
+ * - 教研活动为核心，教学设计关联到活动
+ * - 资源库统一管理文件和成果
  */
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   ArrowLeft,
   Calendar,
@@ -33,39 +47,25 @@ import {
   Edit,
   CheckCircle,
   Clock,
-  AlertCircle,
   Loader2,
-  FileText,
   Activity,
   Plus,
-  Settings,
-  MoreVertical,
-  Eye,
-  MessageSquare,
-  Paperclip,
-  Sparkles,
-  TrendingUp,
-  Award,
   FolderOpen,
   ChevronRight,
   Play,
-  Pause,
+  User,
+  FileText,
+  Settings,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import ActivityDialog from '@/components/research/ActivityDialog';
-import ResourceManager from '@/components/research/ResourceManager';
-import AchievementManager from '@/components/research/AchievementManager';
-import BigUnitEditor from '@/components/research/BigUnitEditor';
-import ProjectEditor from '@/components/research/ProjectEditor';
-import PracticeEditor from '@/components/research/PracticeEditor';
-import AITeachingEditor from '@/components/research/AITeachingEditor';
+import ResourceLibrary from '@/components/research/ResourceLibrary';
+import LessonDesignEditor from '@/components/research/LessonDesignEditor';
 
 import { 
   THEME_TYPE_LABELS,
-  THEME_LEVEL_LABELS,
-  THEME_STATUS_LABELS,
   ACTIVITY_TYPE_LABELS,
+  ACTIVITY_STATUS_LABELS,
   type ThemeType,
   type ThemeStatus,
   type ResearchStage,
@@ -73,6 +73,19 @@ import {
 } from '@/types/research';
 
 // ==================== 类型定义 ====================
+
+interface LessonDesign {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  title: string;
+  content: unknown;
+  createdAt: string;
+}
+
+interface ActivityWithDesigns extends ResearchActivity {
+  lessonDesigns?: LessonDesign[];
+}
 
 interface ThemeDetail {
   id: string;
@@ -91,57 +104,31 @@ interface ThemeDetail {
   endDate?: string;
   participantIds?: string[];
   stages: ResearchStage[];
-  activities: ResearchActivity[];
+  activities: ActivityWithDesigns[];
   statistics?: {
     total_activities: number;
     completed_activities: number;
-    achievements_count: number;
+    resources_count: number;
   };
-  specialData?: unknown;
 }
 
 // ==================== 配置 ====================
 
-const THEME_TYPE_CONFIG: Record<ThemeType, { label: string; icon: React.ElementType; gradient: string; features: string[] }> = {
-  big_unit: { 
-    label: '大单元教学', 
-    icon: BookOpen, 
-    gradient: 'from-blue-500 to-cyan-500',
-    features: ['单元目标', '课时设计', '作业设计', '成效分析']
-  },
-  project: { 
-    label: '项目式教学', 
-    icon: Lightbulb, 
-    gradient: 'from-amber-500 to-orange-500',
-    features: ['驱动问题', '阶段任务', '团队分工', '成果展示']
-  },
-  practice: { 
-    label: '学科实践', 
-    icon: FlaskConical, 
-    gradient: 'from-emerald-500 to-teal-500',
-    features: ['活动设计', '材料准备', '流程记录', '教学反思']
-  },
-  ai_enabled: { 
-    label: 'AI赋能教学', 
-    icon: Cpu, 
-    gradient: 'from-violet-500 to-purple-500',
-    features: ['工具应用', '提示词设计', '课堂融合', '效果评估']
-  },
-  custom: { 
-    label: '自定义主题', 
-    icon: Target, 
-    gradient: 'from-slate-500 to-gray-500',
-    features: ['自定义内容']
-  },
+const THEME_TYPE_CONFIG: Record<ThemeType, { label: string; icon: React.ElementType; gradient: string }> = {
+  big_unit: { label: '大单元教学', icon: BookOpen, gradient: 'from-blue-500 to-cyan-500' },
+  project: { label: '项目式教学', icon: Lightbulb, gradient: 'from-amber-500 to-orange-500' },
+  practice: { label: '学科实践', icon: FlaskConical, gradient: 'from-emerald-500 to-teal-500' },
+  ai_enabled: { label: 'AI赋能教学', icon: Cpu, gradient: 'from-violet-500 to-purple-500' },
+  custom: { label: '自定义主题', icon: Target, gradient: 'from-slate-500 to-gray-500' },
 };
 
-const STATUS_ACTIONS: Record<ThemeStatus, { canEdit: boolean; canSubmit: boolean; canApprove: boolean; canComplete: boolean }> = {
-  draft: { canEdit: true, canSubmit: true, canApprove: false, canComplete: false },
-  pending: { canEdit: false, canSubmit: false, canApprove: true, canComplete: false },
-  approved: { canEdit: true, canSubmit: false, canApprove: false, canComplete: false },
-  in_progress: { canEdit: true, canSubmit: false, canApprove: false, canComplete: true },
-  completed: { canEdit: false, canSubmit: false, canApprove: false, canComplete: false },
-  archived: { canEdit: false, canSubmit: false, canApprove: false, canComplete: false },
+const STATUS_CONFIG: Record<ThemeStatus, { label: string; color: string }> = {
+  draft: { label: '草稿', color: 'text-gray-600' },
+  pending: { label: '待审核', color: 'text-amber-600' },
+  approved: { label: '已通过', color: 'text-blue-600' },
+  in_progress: { label: '进行中', color: 'text-green-600' },
+  completed: { label: '已完成', color: 'text-emerald-600' },
+  archived: { label: '已归档', color: 'text-gray-500' },
 };
 
 // ==================== 组件 ====================
@@ -155,6 +142,18 @@ export default function ResearchThemeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<ActivityWithDesigns | null>(null);
+  const [designDialogOpen, setDesignDialogOpen] = useState(false);
+  
+  // 创建活动表单
+  const [activityForm, setActivityForm] = useState({
+    title: '',
+    type: 'lesson_observation',
+    location: '',
+    scheduledAt: '',
+    description: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
   
   useEffect(() => {
     loadTheme();
@@ -180,61 +179,58 @@ export default function ResearchThemeDetailPage() {
     }
   };
   
-  const handleSubmit = async () => {
+  const handleStatusChange = async (newStatus: ThemeStatus) => {
     try {
-      const res = await fetch(`/api/research/themes/${themeId}/approve`, {
+      const res = await fetch(`/api/research/themes/${themeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.success('状态更新成功');
+        loadTheme();
+      } else {
+        toast.error(data.error || '更新失败');
+      }
+    } catch (err) {
+      toast.error('更新失败');
+    }
+  };
+  
+  const handleCreateActivity = async () => {
+    if (!activityForm.title.trim()) {
+      toast.error('请输入活动名称');
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/research/activities', {
         method: 'POST',
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success('已提交审核');
-        loadTheme();
-      } else {
-        toast.error(data.error || '提交失败');
-      }
-    } catch (err) {
-      toast.error('提交失败');
-    }
-  };
-  
-  const handleStart = async () => {
-    try {
-      const res = await fetch(`/api/research/themes/${themeId}`, {
-        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'in_progress' }),
+        body: JSON.stringify({
+          themeId,
+          ...activityForm,
+          scheduledAt: activityForm.scheduledAt || null,
+        }),
       });
+      
       const data = await res.json();
       
       if (data.success) {
-        toast.success('已开始教研');
+        toast.success('活动创建成功');
+        setActivityDialogOpen(false);
+        setActivityForm({ title: '', type: 'lesson_observation', location: '', scheduledAt: '', description: '' });
         loadTheme();
       } else {
-        toast.error(data.error || '操作失败');
+        toast.error(data.error || '创建失败');
       }
     } catch (err) {
-      toast.error('操作失败');
-    }
-  };
-  
-  const handleComplete = async () => {
-    try {
-      const res = await fetch(`/api/research/themes/${themeId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'completed' }),
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success('教研已完成');
-        loadTheme();
-      } else {
-        toast.error(data.error || '操作失败');
-      }
-    } catch (err) {
-      toast.error('操作失败');
+      toast.error('创建失败');
+    } finally {
+      setSubmitting(false);
     }
   };
   
@@ -254,7 +250,7 @@ export default function ResearchThemeDetailPage() {
   }
   
   const typeConfig = THEME_TYPE_CONFIG[theme.type];
-  const statusActions = STATUS_ACTIONS[theme.status];
+  const statusConfig = STATUS_CONFIG[theme.status];
   const TypeIcon = typeConfig.icon;
   const progress = theme.statistics?.total_activities 
     ? Math.round((theme.statistics.completed_activities / theme.statistics.total_activities) * 100) 
@@ -275,7 +271,6 @@ export default function ResearchThemeDetailPage() {
       {/* 沉浸式头部 */}
       <div className={`bg-gradient-to-br ${typeConfig.gradient} text-white`}>
         <div className="max-w-7xl mx-auto px-6 py-8">
-          {/* 返回按钮 */}
           <Button 
             variant="ghost" 
             onClick={() => router.push('/academic/research')}
@@ -285,7 +280,6 @@ export default function ResearchThemeDetailPage() {
             返回列表
           </Button>
           
-          {/* 主题信息 */}
           <div className="flex items-start justify-between gap-6">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-4">
@@ -295,12 +289,8 @@ export default function ResearchThemeDetailPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-1">
                     <h1 className="text-2xl font-bold">{theme.title}</h1>
-                    <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                      {theme.status === 'in_progress' ? '进行中' : 
-                       theme.status === 'completed' ? '已完成' :
-                       theme.status === 'draft' ? '草稿' :
-                       theme.status === 'pending' ? '待审核' :
-                       theme.status === 'approved' ? '已通过' : '已归档'}
+                    <Badge className="bg-white/20 text-white border-white/30">
+                      {statusConfig.label}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-4 text-white/80 text-sm">
@@ -313,24 +303,17 @@ export default function ResearchThemeDetailPage() {
                 </div>
               </div>
               
-              {/* 目标标签 */}
               {theme.objectives && theme.objectives.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-4">
                   {theme.objectives.slice(0, 3).map((obj, idx) => (
-                    <Badge key={idx} variant="secondary" className="bg-white/15 text-white border-0 hover:bg-white/25">
+                    <Badge key={idx} variant="secondary" className="bg-white/15 text-white border-0">
                       <CheckCircle className="h-3 w-3 mr-1.5" />
                       {obj.length > 30 ? obj.slice(0, 30) + '...' : obj}
                     </Badge>
                   ))}
-                  {theme.objectives.length > 3 && (
-                    <Badge variant="secondary" className="bg-white/15 text-white border-0">
-                      +{theme.objectives.length - 3}
-                    </Badge>
-                  )}
                 </div>
               )}
               
-              {/* 时间信息 */}
               <div className="flex items-center gap-6 text-sm text-white/80">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
@@ -351,39 +334,37 @@ export default function ResearchThemeDetailPage() {
             
             {/* 操作按钮 */}
             <div className="flex items-center gap-2">
-              {statusActions.canSubmit && (
+              {theme.status === 'draft' && (
                 <Button 
-                  onClick={handleSubmit}
+                  onClick={() => handleStatusChange('pending')}
                   className="bg-white text-slate-900 hover:bg-white/90"
                 >
                   <Play className="h-4 w-4 mr-2" />
                   提交审核
                 </Button>
               )}
-              {statusActions.canComplete && (
-                <Button 
-                  onClick={handleComplete}
-                  className="bg-white text-slate-900 hover:bg-white/90"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  完成教研
-                </Button>
-              )}
               {theme.status === 'approved' && (
                 <Button 
-                  onClick={handleStart}
+                  onClick={() => handleStatusChange('in_progress')}
                   className="bg-white text-slate-900 hover:bg-white/90"
                 >
                   <Play className="h-4 w-4 mr-2" />
                   开始教研
                 </Button>
               )}
-              {statusActions.canEdit && (
-                <Button variant="secondary" className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                  <Edit className="h-4 w-4 mr-2" />
-                  编辑
+              {theme.status === 'in_progress' && (
+                <Button 
+                  onClick={() => handleStatusChange('completed')}
+                  className="bg-white text-slate-900 hover:bg-white/90"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  完成教研
                 </Button>
               )}
+              <Button variant="secondary" className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                <Settings className="h-4 w-4 mr-2" />
+                设置
+              </Button>
             </div>
           </div>
         </div>
@@ -438,11 +419,11 @@ export default function ResearchThemeDetailPage() {
             <CardContent className="pt-4 pb-3">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-purple-50">
-                  <Award className="h-5 w-5 text-purple-500" />
+                  <FolderOpen className="h-5 w-5 text-purple-500" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-slate-900">{theme.statistics?.achievements_count || 0}</div>
-                  <div className="text-xs text-slate-500">教研成果</div>
+                  <div className="text-2xl font-bold text-slate-900">{theme.statistics?.resources_count || 0}</div>
+                  <div className="text-xs text-slate-500">资源文件</div>
                 </div>
               </div>
             </CardContent>
@@ -473,9 +454,7 @@ export default function ResearchThemeDetailPage() {
               {[
                 { value: 'overview', label: '教研方案', icon: FileText },
                 { value: 'activities', label: '教研活动', icon: Activity, count: theme.activities.length },
-                { value: 'special', label: typeConfig.label, icon: TypeIcon },
                 { value: 'resources', label: '资源库', icon: FolderOpen },
-                { value: 'achievements', label: '成果库', icon: Award },
               ].map(tab => (
                 <TabsTrigger
                   key={tab.value}
@@ -497,7 +476,6 @@ export default function ResearchThemeDetailPage() {
           {/* 教研方案 */}
           <TabsContent value="overview" className="mt-0 space-y-6">
             <div className="grid md:grid-cols-3 gap-6">
-              {/* 描述 */}
               <Card className="md:col-span-2 border-0 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">主题描述</CardTitle>
@@ -509,7 +487,6 @@ export default function ResearchThemeDetailPage() {
                 </CardContent>
               </Card>
               
-              {/* 教研目标 */}
               <Card className="border-0 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">教研目标</CardTitle>
@@ -534,23 +511,13 @@ export default function ResearchThemeDetailPage() {
             {/* 教研阶段 */}
             <Card className="border-0 shadow-sm">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">教研阶段</CardTitle>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    管理阶段
-                  </Button>
-                </div>
+                <CardTitle className="text-base">教研阶段</CardTitle>
               </CardHeader>
               <CardContent>
                 {theme.stages.length === 0 ? (
                   <div className="text-center py-8">
                     <Target className="h-12 w-12 text-slate-200 mx-auto mb-3" />
                     <p className="text-slate-400">暂无教研阶段</p>
-                    <Button variant="outline" size="sm" className="mt-3">
-                      <Plus className="h-4 w-4 mr-2" />
-                      添加阶段
-                    </Button>
                   </div>
                 ) : (
                   <div className="relative">
@@ -564,11 +531,7 @@ export default function ResearchThemeDetailPage() {
                               : stage.status === 'in_progress'
                               ? 'bg-blue-500 border-blue-500'
                               : 'bg-white border-slate-300'
-                          }`}>
-                            {stage.status === 'completed' && (
-                              <CheckCircle className="w-4 h-4 text-white -m-0.5" />
-                            )}
-                          </div>
+                          }`} />
                           <div className="flex-1 bg-slate-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-1">
                               <h4 className="font-medium text-slate-900">{stage.name}</h4>
@@ -605,123 +568,23 @@ export default function ResearchThemeDetailPage() {
                 {theme.activities.length === 0 ? (
                   <div className="text-center py-12">
                     <Activity className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-                    <p className="text-slate-400">暂无教研活动</p>
-                    <Button size="sm" className="mt-3" onClick={() => setActivityDialogOpen(true)}>
+                    <p className="text-slate-400 mb-4">暂无教研活动</p>
+                    <Button size="sm" onClick={() => setActivityDialogOpen(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       新建活动
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {theme.activities.map(activity => (
-                      <div 
+                      <ActivityCard 
                         key={activity.id} 
-                        className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 cursor-pointer transition-all"
-                      >
-                        <div className={`p-2 rounded-lg ${
-                          activity.status === 'completed' 
-                            ? 'bg-emerald-50' 
-                            : activity.status === 'in_progress'
-                            ? 'bg-blue-50'
-                            : 'bg-slate-100'
-                        }`}>
-                          <Activity className={`h-5 w-5 ${
-                            activity.status === 'completed' 
-                              ? 'text-emerald-500' 
-                              : activity.status === 'in_progress'
-                              ? 'text-blue-500'
-                              : 'text-slate-400'
-                          }`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-slate-900">{activity.title}</h4>
-                          <p className="text-sm text-slate-500">
-                            {ACTIVITY_TYPE_LABELS[activity.type as keyof typeof ACTIVITY_TYPE_LABELS] || activity.type}
-                            {activity.location && ` · ${activity.location}`}
-                          </p>
-                        </div>
-                        {activity.scheduledAt && (
-                          <div className="text-sm text-slate-400">
-                            {new Date(activity.scheduledAt).toLocaleDateString()}
-                          </div>
-                        )}
-                        <Badge variant="outline" className={
-                          activity.status === 'completed' 
-                            ? 'text-emerald-600 border-emerald-200' 
-                            : activity.status === 'in_progress'
-                            ? 'text-blue-600 border-blue-200'
-                            : 'text-slate-500'
-                        }>
-                          {activity.status === 'completed' ? '已完成' : activity.status === 'in_progress' ? '进行中' : '待进行'}
-                        </Badge>
-                        <ChevronRight className="h-5 w-5 text-slate-300" />
-                      </div>
+                        activity={activity}
+                        themeType={theme.type}
+                        onClick={() => setSelectedActivity(activity)}
+                        onUpdate={loadTheme}
+                      />
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            
-            <ActivityDialog
-              open={activityDialogOpen}
-              onOpenChange={setActivityDialogOpen}
-              themeId={themeId}
-              onSuccess={loadTheme}
-            />
-          </TabsContent>
-          
-          {/* 专项教研 */}
-          <TabsContent value="special" className="mt-0">
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg bg-gradient-to-br ${typeConfig.gradient}`}>
-                    <TypeIcon className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{typeConfig.label}设计</CardTitle>
-                    <CardDescription>专项教研内容编辑</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {theme.type === 'big_unit' && (
-                  <BigUnitEditor 
-                    themeId={themeId} 
-                    design={theme.specialData as any}
-                    onSave={loadTheme}
-                  />
-                )}
-                {theme.type === 'project' && (
-                  <ProjectEditor 
-                    themeId={themeId} 
-                    design={theme.specialData as any}
-                    onSave={loadTheme}
-                  />
-                )}
-                {theme.type === 'practice' && (
-                  <PracticeEditor 
-                    themeId={themeId} 
-                    activity={theme.specialData as any}
-                    onSave={loadTheme}
-                  />
-                )}
-                {theme.type === 'ai_enabled' && (
-                  <AITeachingEditor 
-                    themeId={themeId} 
-                    app={theme.specialData as any}
-                    onSave={loadTheme}
-                  />
-                )}
-                {theme.type === 'custom' && (
-                  <div className="text-center py-16">
-                    <div className={`inline-flex p-4 rounded-2xl bg-gradient-to-br ${typeConfig.gradient} mb-4`}>
-                      <Target className="h-10 w-10 text-white" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">自定义主题</h3>
-                    <p className="text-slate-500 max-w-md mx-auto">
-                      自定义主题可自由记录教研内容，通过添加活动和成果来沉淀教研资料
-                    </p>
                   </div>
                 )}
               </CardContent>
@@ -730,23 +593,466 @@ export default function ResearchThemeDetailPage() {
           
           {/* 资源库 */}
           <TabsContent value="resources" className="mt-0">
-            <Card className="border-0 shadow-sm">
-              <CardContent className="pt-6">
-                <ResourceManager subject={theme.subject} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* 成果库 */}
-          <TabsContent value="achievements" className="mt-0">
-            <Card className="border-0 shadow-sm">
-              <CardContent className="pt-6">
-                <AchievementManager themeId={themeId} />
-              </CardContent>
-            </Card>
+            <ResourceLibrary themeId={themeId} themeType={theme.type} subject={theme.subject} />
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* 创建活动对话框 */}
+      <Dialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>创建教研活动</DialogTitle>
+            <DialogDescription>
+              创建一个新的教研活动，可以添加多个教师的教学设计
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>活动名称 *</Label>
+              <Input
+                value={activityForm.title}
+                onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
+                placeholder="例如：第一次集体备课"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>活动类型</Label>
+                <Select value={activityForm.type} onValueChange={(v) => setActivityForm({ ...activityForm, type: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lesson_observation">听课评课</SelectItem>
+                    <SelectItem value="collective_prep">集体备课</SelectItem>
+                    <SelectItem value="seminar">研讨会</SelectItem>
+                    <SelectItem value="training">培训学习</SelectItem>
+                    <SelectItem value="workshop">工作坊</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>活动地点</Label>
+                <Input
+                  value={activityForm.location}
+                  onChange={(e) => setActivityForm({ ...activityForm, location: e.target.value })}
+                  placeholder="例如：三楼会议室"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>活动时间</Label>
+              <Input
+                type="datetime-local"
+                value={activityForm.scheduledAt}
+                onChange={(e) => setActivityForm({ ...activityForm, scheduledAt: e.target.value })}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>活动描述</Label>
+              <Textarea
+                value={activityForm.description}
+                onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
+                placeholder="描述活动内容和安排..."
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActivityDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleCreateActivity} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              创建活动
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 活动详情对话框 */}
+      {selectedActivity && (
+        <ActivityDetailDialog
+          activity={selectedActivity}
+          themeId={themeId}
+          themeType={theme.type}
+          open={!!selectedActivity}
+          onOpenChange={(open) => !open && setSelectedActivity(null)}
+          onUpdate={loadTheme}
+        />
+      )}
     </div>
+  );
+}
+
+// ==================== 子组件 ====================
+
+function ActivityCard({ 
+  activity, 
+  themeType,
+  onClick 
+}: { 
+  activity: ActivityWithDesigns;
+  themeType: ThemeType;
+  onClick: () => void;
+  onUpdate: () => void;
+}) {
+  const typeConfig = THEME_TYPE_CONFIG[themeType];
+  
+  return (
+    <div 
+      className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 hover:bg-slate-50 cursor-pointer transition-all"
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <h4 className="font-medium text-slate-900 mb-1">{activity.title}</h4>
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <span>{ACTIVITY_TYPE_LABELS[activity.type as keyof typeof ACTIVITY_TYPE_LABELS] || activity.type}</span>
+            {activity.location && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-slate-300" />
+                <span>{activity.location}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <Badge variant="outline" className={
+          activity.status === 'completed' 
+            ? 'text-emerald-600 border-emerald-200' 
+            : activity.status === 'in_progress'
+            ? 'text-blue-600 border-blue-200'
+            : 'text-slate-500'
+        }>
+          {ACTIVITY_STATUS_LABELS[activity.status as keyof typeof ACTIVITY_STATUS_LABELS] || activity.status}
+        </Badge>
+      </div>
+      
+      {activity.lessonDesigns && activity.lessonDesigns.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <FileText className="h-4 w-4" />
+          <span>{activity.lessonDesigns.length} 份教学设计</span>
+          {activity.lessonDesigns.slice(0, 2).map((d, i) => (
+            <Badge key={i} variant="secondary" className="text-xs">
+              {d.teacherName}
+            </Badge>
+          ))}
+          {activity.lessonDesigns.length > 2 && (
+            <span className="text-xs">+{activity.lessonDesigns.length - 2}</span>
+          )}
+        </div>
+      )}
+      
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-sm">
+        {activity.scheduledAt ? (
+          <span className="text-slate-400">
+            {new Date(activity.scheduledAt).toLocaleString('zh-CN', { 
+              month: 'numeric', 
+              day: 'numeric', 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}
+          </span>
+        ) : (
+          <span className="text-slate-400">时间待定</span>
+        )}
+        <ChevronRight className="h-5 w-5 text-slate-300" />
+      </div>
+    </div>
+  );
+}
+
+function ActivityDetailDialog({
+  activity,
+  themeId,
+  themeType,
+  open,
+  onOpenChange,
+  onUpdate,
+}: {
+  activity: ActivityWithDesigns;
+  themeId: string;
+  themeType: ThemeType;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdate: () => void;
+}) {
+  const [addingDesign, setAddingDesign] = useState(false);
+  const [designForm, setDesignForm] = useState({
+    teacherName: '',
+    title: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [editingDesign, setEditingDesign] = useState<{
+    id: string;
+    title: string;
+    teacherName: string;
+    content: any;
+  } | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  
+  const handleAddDesign = async () => {
+    if (!designForm.teacherName.trim() || !designForm.title.trim()) {
+      toast.error('请填写完整信息');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const res = await fetch('/api/research/designs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activityId: activity.id,
+          themeId,
+          teacherName: designForm.teacherName,
+          title: designForm.title,
+          designType: themeType,
+          content: {}, // 初始内容为空
+        }),
+      });
+      
+      const result = await res.json();
+      if (result.success) {
+        toast.success('教学设计添加成功');
+        setAddingDesign(false);
+        setDesignForm({ teacherName: '', title: '' });
+        onUpdate();
+      } else {
+        toast.error(result.error || '添加失败');
+      }
+    } catch (err) {
+      console.error('添加教学设计失败:', err);
+      toast.error('添加失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  const handleEditDesign = (design: { id: string; title: string; teacherName: string; content: any }) => {
+    setEditingDesign(design);
+    setEditorOpen(true);
+  };
+  
+  const handleCreateAndEdit = async () => {
+    if (!designForm.teacherName.trim() || !designForm.title.trim()) {
+      toast.error('请填写完整信息');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const res = await fetch('/api/research/designs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activityId: activity.id,
+          themeId,
+          teacherName: designForm.teacherName,
+          title: designForm.title,
+          designType: themeType,
+          content: {},
+        }),
+      });
+      
+      const result = await res.json();
+      if (result.success) {
+        // 直接打开编辑器
+        setEditingDesign({
+          id: result.data.id,
+          title: designForm.title,
+          teacherName: designForm.teacherName,
+          content: {},
+        });
+        setAddingDesign(false);
+        setDesignForm({ teacherName: '', title: '' });
+        setEditorOpen(true);
+        onUpdate();
+      } else {
+        toast.error(result.error || '添加失败');
+      }
+    } catch (err) {
+      console.error('添加教学设计失败:', err);
+      toast.error('添加失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  const typeConfig = THEME_TYPE_CONFIG[themeType];
+  
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-lg bg-gradient-to-br ${typeConfig.gradient}`}>
+              <Activity className="h-4 w-4 text-white" />
+            </div>
+            {activity.title}
+          </DialogTitle>
+          <DialogDescription>
+            {ACTIVITY_TYPE_LABELS[activity.type as keyof typeof ACTIVITY_TYPE_LABELS]}
+            {activity.location && ` · ${activity.location}`}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-6 py-4">
+          {/* 活动信息 */}
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="border-0 bg-slate-50">
+              <CardContent className="pt-4 pb-3">
+                <div className="text-xs text-slate-500 mb-1">活动时间</div>
+                <div className="font-medium">
+                  {activity.scheduledAt 
+                    ? new Date(activity.scheduledAt).toLocaleString('zh-CN')
+                    : '待定'}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 bg-slate-50">
+              <CardContent className="pt-4 pb-3">
+                <div className="text-xs text-slate-500 mb-1">活动状态</div>
+                <div className="font-medium">
+                  {ACTIVITY_STATUS_LABELS[activity.status as keyof typeof ACTIVITY_STATUS_LABELS]}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 bg-slate-50">
+              <CardContent className="pt-4 pb-3">
+                <div className="text-xs text-slate-500 mb-1">教学设计</div>
+                <div className="font-medium">{activity.lessonDesigns?.length || 0} 份</div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {activity.description && (
+            <div>
+              <h4 className="text-sm font-medium text-slate-700 mb-2">活动描述</h4>
+              <p className="text-slate-600">{activity.description}</p>
+            </div>
+          )}
+          
+          {/* 教学设计列表 */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-slate-700">教学设计</h4>
+              <Button size="sm" variant="outline" onClick={() => setAddingDesign(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                添加设计
+              </Button>
+            </div>
+            
+            {addingDesign && (
+              <Card className="border-dashed border-2 mb-3">
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">授课教师</Label>
+                      <Input
+                        value={designForm.teacherName}
+                        onChange={(e) => setDesignForm({ ...designForm, teacherName: e.target.value })}
+                        placeholder="教师姓名"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">设计标题</Label>
+                      <Input
+                        value={designForm.title}
+                        onChange={(e) => setDesignForm({ ...designForm, title: e.target.value })}
+                        placeholder="例如：第一课时"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleCreateAndEdit} disabled={saving}>
+                      {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      添加并编辑
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleAddDesign} disabled={saving}>
+                      仅添加
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setAddingDesign(false)}>
+                      取消
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {activity.lessonDesigns && activity.lessonDesigns.length > 0 ? (
+              <div className="space-y-2">
+                {activity.lessonDesigns.map((design, idx) => (
+                  <div 
+                    key={design.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-all hover:bg-slate-50"
+                    onClick={() => handleEditDesign({
+                      id: design.id,
+                      title: design.title,
+                      teacherName: design.teacherName,
+                      content: design.content,
+                    })}
+                  >
+                    <div className="p-2 rounded-lg bg-indigo-50">
+                      <FileText className="h-4 w-4 text-indigo-500" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-slate-900">{design.title}</div>
+                      <div className="text-sm text-slate-500">{design.teacherName}</div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditDesign({
+                        id: design.id,
+                        title: design.title,
+                        teacherName: design.teacherName,
+                        content: design.content,
+                      });
+                    }}>
+                      编辑
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400">
+                <FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <p>暂无教学设计</p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            关闭
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    
+    {/* 教学设计编辑器 */}
+    <LessonDesignEditor
+      open={editorOpen}
+      onOpenChange={setEditorOpen}
+      themeId={themeId}
+      themeType={themeType}
+      activityId={activity.id}
+      design={editingDesign || undefined}
+      onSave={() => {
+        setEditorOpen(false);
+        setEditingDesign(null);
+        onUpdate();
+      }}
+    />
+  </>
   );
 }

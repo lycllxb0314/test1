@@ -1,96 +1,192 @@
 /**
  * 教研资源 API
+ * 
+ * 功能：
+ * - GET: 获取资源列表
+ * - POST: 创建资源
+ * - DELETE: 删除资源
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getUserFromSession } from '@/lib/auth/session';
 import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { S3Storage } from 'coze-coding-dev-sdk';
+
+const supabase = getSupabaseClient();
+
+// 初始化对象存储
+const storage = new S3Storage({
+  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
+  accessKey: '',
+  secretKey: '',
+  bucketName: process.env.COZE_BUCKET_NAME,
+  region: 'cn-beijing',
+});
 
 /**
- * GET - 获取教研资源列表
+ * GET - 获取资源列表
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
-    
-    const type = searchParams.get('type');
-    const themeType = searchParams.get('themeType');
-    const subject = searchParams.get('subject');
-    const tag = searchParams.get('tag');
+    const themeId = searchParams.get('themeId');
+    const folderId = searchParams.get('folderId');
     
     let query = supabase
       .from('research_resources')
       .select('*')
-      .eq('is_active', true);
+      .order('created_at', { ascending: false });
     
-    if (type) query = query.eq('type', type);
-    if (themeType) query = query.eq('theme_type', themeType);
-    if (subject) query = query.eq('subject', subject);
-    if (tag) query = query.contains('tags', [tag]);
-    
-    query = query.order('created_at', { ascending: false });
-    
-    const { data, error: fetchError } = await query;
-    
-    if (fetchError) {
-      console.error('获取教研资源失败:', fetchError);
-      return NextResponse.json(error('获取教研资源失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    if (themeId) {
+      query = query.eq('theme_id', themeId);
     }
     
-    return NextResponse.json({ success: true, data: data || [] });
+    if (folderId) {
+      query = query.eq('folder_id', folderId);
+    }
+    
+    const { data, error: dbError } = await query;
+    
+    if (dbError) {
+      console.error('查询资源失败:', dbError);
+      return NextResponse.json(error('查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    }
+    
+    return NextResponse.json({
+      success: true,
+      data: data?.map(r => ({
+        id: r.id,
+        title: r.title,
+        folderId: r.folder_id,
+        type: r.type,
+        size: r.size,
+        fileKey: r.file_key,
+        sourceType: r.source_type,
+        sourceId: r.source_id,
+        teacherName: r.teacher_name,
+        activityTitle: r.activity_title,
+        createdAt: r.created_at,
+      })) || [],
+    });
   } catch (err) {
-    console.error('教研资源API错误:', err);
+    console.error('获取资源列表失败:', err);
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }
 
 /**
- * POST - 创建教研资源
+ * POST - 创建资源
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
     const user = await getUserFromSession(request);
-    
     if (!user) {
       return NextResponse.json(error('未登录', ErrorCode.UNAUTHORIZED), { status: 401 });
     }
     
     const body = await request.json();
+    const { themeId, title, folderId, type, size, fileKey, sourceType, sourceId, teacherName, activityTitle, content } = body;
     
-    if (!body.title || !body.type) {
-      return NextResponse.json(error('缺少必填字段', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    if (!themeId || !title || !folderId) {
+      return NextResponse.json(error('缺少必要参数', ErrorCode.BAD_REQUEST), { status: 400 });
     }
     
-    const { data, error: createError } = await supabase
+    const { data, error: dbError } = await supabase
       .from('research_resources')
       .insert({
-        title: body.title,
-        description: body.description || '',
-        type: body.type,
-        theme_type: body.themeType || null,
-        subject: body.subject || null,
-        tags: body.tags || [],
-        file_url: body.fileUrl || null,
-        file_name: body.fileName || null,
-        content: body.content || null,
-        view_count: 0,
-        download_count: 0,
-        is_active: true,
+        theme_id: themeId,
+        title,
+        folder_id: folderId,
+        type: type || 'application/octet-stream',
+        size,
+        file_key: fileKey,
+        source_type: sourceType || 'upload',
+        source_id: sourceId,
+        teacher_name: teacherName,
+        activity_title: activityTitle,
+        content: content ? JSON.stringify(content) : null,
+        creator_id: user.id,
       })
       .select()
       .single();
     
-    if (createError) {
-      console.error('创建教研资源失败:', createError);
-      return NextResponse.json(error('创建教研资源失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    if (dbError) {
+      console.error('创建资源失败:', dbError);
+      return NextResponse.json(error('创建失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
-    return NextResponse.json({ success: true, data, message: '资源创建成功' });
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: data.id,
+        title: data.title,
+        folderId: data.folder_id,
+        type: data.type,
+        size: data.size,
+        fileKey: data.file_key,
+        sourceType: data.source_type,
+        createdAt: data.created_at,
+      },
+    });
   } catch (err) {
-    console.error('创建教研资源API错误:', err);
+    console.error('创建资源失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+}
+
+/**
+ * DELETE - 删除资源
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getUserFromSession(request);
+    if (!user) {
+      return NextResponse.json(error('未登录', ErrorCode.UNAUTHORIZED), { status: 401 });
+    }
+    
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(error('缺少资源ID', ErrorCode.BAD_REQUEST), { status: 400 });
+    }
+    
+    // 获取资源信息
+    const { data: resource, error: fetchError } = await supabase
+      .from('research_resources')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError || !resource) {
+      return NextResponse.json(error('资源不存在', ErrorCode.NOT_FOUND), { status: 404 });
+    }
+    
+    // 删除对象存储中的文件
+    if (resource.file_key) {
+      try {
+        await storage.deleteFile({ fileKey: resource.file_key });
+      } catch (e) {
+        console.error('删除文件失败:', e);
+        // 继续删除数据库记录
+      }
+    }
+    
+    // 删除数据库记录
+    const { error: deleteError } = await supabase
+      .from('research_resources')
+      .delete()
+      .eq('id', id);
+    
+    if (deleteError) {
+      console.error('删除资源记录失败:', deleteError);
+      return NextResponse.json(error('删除失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    }
+    
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('删除资源失败:', err);
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }

@@ -1,115 +1,135 @@
+/**
+ * 教研活动 API
+ * 
+ * 功能：
+ * - GET: 获取活动列表
+ * - POST: 创建活动
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { getUserFromSession } from '@/lib/auth/session';
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
+
+const supabase = getSupabaseClient();
+
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  seminar: '研讨会',
+  lesson_observation: '听课评课',
+  collective_prep: '集体备课',
+  training: '培训学习',
+  workshop: '工作坊',
+  salon: '教学沙龙',
+};
+
+const ACTIVITY_STATUS_LABELS: Record<string, string> = {
+  scheduled: '已安排',
+  in_progress: '进行中',
+  completed: '已完成',
+  cancelled: '已取消',
+};
 
 /**
- * GET - 获取教研活动列表
- * 查询参数：
- * - page: 页码
- * - pageSize: 每页数量
- * - type: 活动类型
- * - department: 教研组
- * - status: 状态
+ * GET - 获取活动列表
  */
 export async function GET(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
+    const themeId = searchParams.get('themeId');
     
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
-    const type = searchParams.get('type');
-    const department = searchParams.get('department');
-    const status = searchParams.get('status');
-    const teacherId = searchParams.get('teacherId');
-
-    let query = client
+    let query = supabase
       .from('research_activities')
-      .select('*', { count: 'exact' });
-
-    if (type) {
-      query = query.eq('type', type);
+      .select('*')
+      .order('scheduled_at', { ascending: false });
+    
+    if (themeId) {
+      query = query.eq('theme_id', themeId);
     }
-    if (department) {
-      query = query.eq('department', department);
+    
+    const { data, error: dbError } = await query;
+    
+    if (dbError) {
+      console.error('查询活动失败:', dbError);
+      return NextResponse.json(error('查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (teacherId) {
-      // 查找参与者包含该教师的活动
-      query = query.contains('participant_ids', [teacherId]);
-    }
-
-    // 分页
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to);
-    query = query.order('start_date', { ascending: false });
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
-    }
-
+    
     return NextResponse.json({
       success: true,
-      data: {
-        data: data || [],
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
+      data: data?.map(a => ({
+        id: a.id,
+        themeId: a.theme_id,
+        title: a.title,
+        type: a.type,
+        typeLabel: ACTIVITY_TYPE_LABELS[a.type as string] || a.type,
+        description: a.description,
+        location: a.location,
+        scheduledAt: a.scheduled_at,
+        duration: a.duration,
+        hostName: a.host_name,
+        status: a.status,
+        statusLabel: ACTIVITY_STATUS_LABELS[a.status as string] || a.status,
+        createdAt: a.created_at,
+      })) || [],
     });
-  } catch (error) {
-    console.error('Failed to fetch research activities:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取教研活动列表失败',
-    }, { status: 500 });
+  } catch (err) {
+    console.error('获取活动列表失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }
 
 /**
- * POST - 创建教研活动
+ * POST - 创建活动
  */
 export async function POST(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
+    const user = await getUserFromSession(request);
+    if (!user) {
+      return NextResponse.json(error('未登录', ErrorCode.UNAUTHORIZED), { status: 401 });
+    }
+    
     const body = await request.json();
-
-    const { data, error } = await client
+    const { themeId, title, type, description, location, scheduledAt, duration } = body;
+    
+    if (!themeId || !title) {
+      return NextResponse.json(error('缺少必要参数', ErrorCode.BAD_REQUEST), { status: 400 });
+    }
+    
+    const { data, error: dbError } = await supabase
       .from('research_activities')
       .insert({
-        ...body,
-        status: body.status || 'planning',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        theme_id: themeId,
+        title,
+        type: type || 'lesson_observation',
+        description,
+        location,
+        scheduled_at: scheduledAt || null,
+        duration: duration || null,
+        host_id: user.id,
+        host_name: user.name,
+        status: 'scheduled',
       })
       .select()
       .single();
-
-    if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+    
+    if (dbError) {
+      console.error('创建活动失败:', dbError);
+      return NextResponse.json(error('创建失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
-
+    
     return NextResponse.json({
       success: true,
-      data,
-      message: '教研活动创建成功',
+      data: {
+        id: data.id,
+        themeId: data.theme_id,
+        title: data.title,
+        type: data.type,
+        typeLabel: ACTIVITY_TYPE_LABELS[data.type as string],
+        status: data.status,
+        statusLabel: ACTIVITY_STATUS_LABELS[data.status as string],
+      },
     });
-  } catch (error) {
-    console.error('Failed to create research activity:', error);
-    return NextResponse.json({
-      success: false,
-      error: '创建教研活动失败',
-    }, { status: 500 });
+  } catch (err) {
+    console.error('创建活动失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }
