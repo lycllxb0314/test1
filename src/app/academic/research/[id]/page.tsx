@@ -19,7 +19,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -28,13 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   ArrowLeft,
   Calendar,
@@ -61,8 +53,7 @@ import { toast } from 'sonner';
 import ResourceLibrary from '@/components/research/ResourceLibrary';
 import StageManager from '@/components/research/StageManager';
 import LessonDesignEditor from '@/components/research/LessonDesignEditor';
-import TeacherSelector, { type SelectedTeacher } from '@/components/research/TeacherSelector';
-import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
+import ActivityDialog from '@/components/research/ActivityDialog';
 
 import { 
   THEME_TYPE_LABELS,
@@ -140,27 +131,12 @@ export default function ResearchThemeDetailPage() {
   const params = useParams();
   const themeId = params.id as string;
   
-  // 页面级别获取教师数据（避免 Dialog 内部懒加载导致数据未准备好）
-  const { allTeachers, loading: teachersLoading } = useTeachers();
-  
   const [theme, setTheme] = useState<ThemeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<ActivityWithDesigns | null>(null);
   const [designDialogOpen, setDesignDialogOpen] = useState(false);
-  
-  // 创建活动表单
-  const [activityForm, setActivityForm] = useState({
-    title: '',
-    type: 'lesson_observation',
-    location: '',
-    scheduledAt: '',
-    description: '',
-    participantIds: [] as string[],
-  });
-  const [selectedTeachers, setSelectedTeachers] = useState<SelectedTeacher[]>([]);
-  const [submitting, setSubmitting] = useState(false);
   
   useEffect(() => {
     loadTheme();
@@ -203,58 +179,6 @@ export default function ResearchThemeDetailPage() {
       }
     } catch (err) {
       toast.error('更新失败');
-    }
-  };
-  
-  const handleCreateActivity = async () => {
-    if (!activityForm.title.trim()) {
-      toast.error('请输入活动名称');
-      return;
-    }
-    
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/research/activities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          themeId,
-          title: activityForm.title,
-          type: activityForm.type,
-          location: activityForm.location,
-          scheduledAt: activityForm.scheduledAt || null,
-          description: activityForm.description,
-          participantIds: activityForm.participantIds,
-          participants: selectedTeachers.map(t => ({
-            id: t.id,
-            name: t.name,
-            subject: t.subject,
-          })),
-        }),
-      });
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success('活动创建成功');
-        setActivityDialogOpen(false);
-        setActivityForm({ 
-          title: '', 
-          type: 'lesson_observation', 
-          location: '', 
-          scheduledAt: '', 
-          description: '',
-          participantIds: [],
-        });
-        setSelectedTeachers([]);
-        loadTheme();
-      } else {
-        toast.error(data.error || '创建失败');
-      }
-    } catch (err) {
-      toast.error('创建失败');
-    } finally {
-      setSubmitting(false);
     }
   };
   
@@ -582,129 +506,13 @@ export default function ResearchThemeDetailPage() {
         </Tabs>
       </div>
       
-      {/* 创建活动对话框 - 横屏大卡片 */}
-      <Dialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen}>
-        <DialogContent className="max-w-4xl p-0 gap-0 !flex !flex-row max-h-[85vh]">
-          {/* 左侧：活动基本信息 */}
-          <div className="w-[320px] shrink-0 border-r bg-slate-50/50 flex flex-col">
-            <div className="p-6 border-b bg-white shrink-0">
-              <DialogTitle className="text-xl">创建教研活动</DialogTitle>
-              <DialogDescription className="mt-1.5">
-                创建一个新的教研活动
-              </DialogDescription>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              <div className="space-y-2">
-                <Label className="text-slate-700">活动名称 *</Label>
-                <Input
-                  value={activityForm.title}
-                  onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
-                  placeholder="例如：第一次集体备课"
-                  className="bg-white"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-slate-700">活动类型</Label>
-                <Select value={activityForm.type} onValueChange={(v) => setActivityForm({ ...activityForm, type: v })}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lesson_observation">听课评课</SelectItem>
-                    <SelectItem value="collective_prep">集体备课</SelectItem>
-                    <SelectItem value="seminar">研讨会</SelectItem>
-                    <SelectItem value="training">培训学习</SelectItem>
-                    <SelectItem value="workshop">工作坊</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-slate-700">活动地点</Label>
-                <Input
-                  value={activityForm.location}
-                  onChange={(e) => setActivityForm({ ...activityForm, location: e.target.value })}
-                  placeholder="例如：三楼会议室"
-                  className="bg-white"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-slate-700">活动时间</Label>
-                <Input
-                  type="datetime-local"
-                  value={activityForm.scheduledAt}
-                  onChange={(e) => setActivityForm({ ...activityForm, scheduledAt: e.target.value })}
-                  className="bg-white"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-slate-700">活动描述</Label>
-                <Textarea
-                  value={activityForm.description}
-                  onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
-                  placeholder="描述活动内容和安排..."
-                  rows={4}
-                  className="bg-white resize-none"
-                />
-              </div>
-            </div>
-            
-            {/* 底部按钮 */}
-            <div className="p-4 border-t bg-white flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setActivityDialogOpen(false)}
-                className="flex-1"
-              >
-                取消
-              </Button>
-              <Button 
-                onClick={handleCreateActivity} 
-                disabled={submitting || !activityForm.title.trim()}
-                className="flex-1"
-              >
-                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                创建活动
-              </Button>
-            </div>
-          </div>
-          
-          {/* 右侧：教师选择 */}
-          <div className="flex-1 min-w-0 flex flex-col">
-            <div className="p-6 border-b bg-white shrink-0">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg text-slate-900">选择参与教师</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">按年级和学科筛选教师</p>
-                </div>
-                {selectedTeachers.length > 0 && (
-                  <Badge variant="secondary" className="px-3 py-1">
-                    已选 {selectedTeachers.length} 人
-                  </Badge>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6">
-              <TeacherSelector
-                selectedIds={activityForm.participantIds}
-                onChange={(ids, teachers) => {
-                  setActivityForm({ ...activityForm, participantIds: ids });
-                  setSelectedTeachers(teachers);
-                }}
-                defaultSubject={theme?.subject || 'all'}
-                placeholder="选择参与本次活动的教师"
-                teachers={allTeachers}
-                loading={teachersLoading}
-              />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* 创建活动对话框 */}
+      <ActivityDialog
+        open={activityDialogOpen}
+        onOpenChange={setActivityDialogOpen}
+        themeId={themeId}
+        onSuccess={loadTheme}
+      />
       
       {/* 活动详情对话框 */}
       {selectedActivity && (

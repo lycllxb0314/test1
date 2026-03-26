@@ -7,6 +7,7 @@
  * - 创建教研活动
  * - 选择教室地点（联动教室管理）
  * - 选择日期和时段（可视化时段占用）
+ * - 选择参与教师（支持筛选和搜索）
  * - 自动创建教室预约（教务处直接安排，无需审核）
  */
 
@@ -45,6 +46,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Loader2,
   MapPin,
@@ -57,6 +59,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import TeacherSelector, { type SelectedTeacher } from './TeacherSelector';
+import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
 
 // ==================== 类型定义 ====================
 
@@ -155,6 +159,11 @@ export default function ActivityDialog({
   const [existingBookings, setExistingBookings] = useState<Booking[]>([]);
   const [roomPopoverOpen, setRoomPopoverOpen] = useState(false);
   
+  // 教师选择状态
+  const { allTeachers, loading: teachersLoading } = useTeachers();
+  const [selectedTeachers, setSelectedTeachers] = useState<SelectedTeacher[]>([]);
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+  
   // 表单数据
   const [formData, setFormData] = useState({
     title: '',
@@ -164,7 +173,6 @@ export default function ActivityDialog({
     roomName: '',
     bookingDate: '',
     timeSlots: [] as string[],
-    participantIds: '',
   });
   
   // 加载教室列表
@@ -344,9 +352,7 @@ export default function ActivityDialog({
           location: formData.roomName || '',
           scheduledAt: formData.bookingDate ? `${formData.bookingDate}T${TIME_SLOTS.find(s => s.id === formData.timeSlots[0])?.start || '08:00'}` : null,
           duration: calculateDuration(),
-          participantIds: formData.participantIds 
-            ? formData.participantIds.split(',').map(s => s.trim()).filter(Boolean)
-            : [],
+          participantIds: selectedTeacherIds,
           bookingId,
           roomId: formData.roomId,
         }),
@@ -365,8 +371,9 @@ export default function ActivityDialog({
           roomName: '',
           bookingDate: '',
           timeSlots: [],
-          participantIds: '',
         });
+        setSelectedTeacherIds([]);
+        setSelectedTeachers([]);
         setExistingBookings([]);
         onOpenChange(false);
         onSuccess?.();
@@ -392,8 +399,9 @@ export default function ActivityDialog({
         roomName: '',
         bookingDate: '',
         timeSlots: [],
-        participantIds: '',
       });
+      setSelectedTeacherIds([]);
+      setSelectedTeachers([]);
       setExistingBookings([]);
     }
     onOpenChange(open);
@@ -412,11 +420,11 @@ export default function ActivityDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>创建教研活动</DialogTitle>
           <DialogDescription>
-            安排教研活动，选择教室和时间，系统将自动完成教室预约
+            安排教研活动，选择教室、时间和参与教师，系统将自动完成教室预约
           </DialogDescription>
         </DialogHeader>
         
@@ -641,13 +649,50 @@ export default function ActivityDialog({
                   rows={3}
                 />
               </div>
-              
+            </div>
+          </div>
+          
+          {/* 参与教师 */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">3</span>
+              参与教师
+              {selectedTeachers.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  已选 {selectedTeachers.length} 人
+                </Badge>
+              )}
+            </h4>
+            
+            <div className="pl-8">
+              <TeacherSelector
+                selectedIds={selectedTeacherIds}
+                onChange={(ids, teachers) => {
+                  setSelectedTeacherIds(ids);
+                  setSelectedTeachers(teachers);
+                }}
+                placeholder="选择参与本次活动的教师"
+                teachers={allTeachers}
+                loading={teachersLoading}
+              />
+            </div>
+          </div>
+          
+          {/* 其他信息 */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">4</span>
+              其他信息
+            </h4>
+            
+            <div className="grid gap-4 pl-8">
               <div className="grid gap-2">
-                <Label>参与教师ID（用逗号分隔）</Label>
-                <Input
-                  placeholder="如：t001, t002, t003"
-                  value={formData.participantIds}
-                  onChange={e => setFormData({ ...formData, participantIds: e.target.value })}
+                <Label>活动描述</Label>
+                <Textarea
+                  placeholder="描述活动内容、议程等"
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
                 />
               </div>
             </div>
