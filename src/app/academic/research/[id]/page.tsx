@@ -61,6 +61,7 @@ import { toast } from 'sonner';
 
 import ResourceLibrary from '@/components/research/ResourceLibrary';
 import LessonDesignEditor from '@/components/research/LessonDesignEditor';
+import TeacherSelector, { type SelectedTeacher } from '@/components/research/TeacherSelector';
 
 import { 
   THEME_TYPE_LABELS,
@@ -152,7 +153,9 @@ export default function ResearchThemeDetailPage() {
     location: '',
     scheduledAt: '',
     description: '',
+    participantIds: [] as string[],
   });
+  const [selectedTeachers, setSelectedTeachers] = useState<SelectedTeacher[]>([]);
   const [submitting, setSubmitting] = useState(false);
   
   useEffect(() => {
@@ -212,8 +215,17 @@ export default function ResearchThemeDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           themeId,
-          ...activityForm,
+          title: activityForm.title,
+          type: activityForm.type,
+          location: activityForm.location,
           scheduledAt: activityForm.scheduledAt || null,
+          description: activityForm.description,
+          participantIds: activityForm.participantIds,
+          participants: selectedTeachers.map(t => ({
+            id: t.id,
+            name: t.name,
+            subject: t.subject,
+          })),
         }),
       });
       
@@ -222,7 +234,15 @@ export default function ResearchThemeDetailPage() {
       if (data.success) {
         toast.success('活动创建成功');
         setActivityDialogOpen(false);
-        setActivityForm({ title: '', type: 'lesson_observation', location: '', scheduledAt: '', description: '' });
+        setActivityForm({ 
+          title: '', 
+          type: 'lesson_observation', 
+          location: '', 
+          scheduledAt: '', 
+          description: '',
+          participantIds: [],
+        });
+        setSelectedTeachers([]);
         loadTheme();
       } else {
         toast.error(data.error || '创建失败');
@@ -661,6 +681,19 @@ export default function ResearchThemeDetailPage() {
                 onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
                 placeholder="描述活动内容和安排..."
                 rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>参与教师</Label>
+              <TeacherSelector
+                selectedIds={activityForm.participantIds}
+                onChange={(ids, teachers) => {
+                  setActivityForm({ ...activityForm, participantIds: ids });
+                  setSelectedTeachers(teachers);
+                }}
+                defaultSubject={theme?.subject || 'all'}
+                placeholder="选择参与本次活动的教师"
               />
             </div>
           </div>

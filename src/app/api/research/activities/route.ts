@@ -88,7 +88,17 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
-    const { themeId, title, type, description, location, scheduledAt, duration } = body;
+    const { 
+      themeId, 
+      title, 
+      type, 
+      description, 
+      location, 
+      scheduledAt, 
+      duration,
+      participantIds,
+      participants,
+    } = body;
     
     if (!themeId || !title) {
       return NextResponse.json(error('缺少必要参数', ErrorCode.BAD_REQUEST), { status: 400 });
@@ -107,6 +117,7 @@ export async function POST(request: NextRequest) {
         host_id: user.id,
         host_name: user.name,
         status: 'scheduled',
+        participants: participants || [],
       })
       .select()
       .single();
@@ -126,6 +137,7 @@ export async function POST(request: NextRequest) {
         typeLabel: ACTIVITY_TYPE_LABELS[data.type as string],
         status: data.status,
         statusLabel: ACTIVITY_STATUS_LABELS[data.status as string],
+        participants: data.participants,
       },
     });
   } catch (err) {
