@@ -351,9 +351,15 @@ export interface ProjectDesign {
   projectName: string;
   grade: number;
   subjects: string[];
+  subject?: string; // 兼容字段
   drivingQuestion: string;
   projectGoal?: string;
+  background?: string;
+  realWorldConnection?: string;
+  finalProduct?: string;
+  presentationForm?: string;
   tasks?: ProjectTask[];
+  stages?: ProjectStage[];
   timeline?: ProjectTimeline[];
   teamRoles?: TeamRole[];
   learningSheets?: LearningSheet[];
@@ -369,13 +375,32 @@ export interface ProjectDesign {
   updatedAt: string;
 }
 
+/** 项目阶段 */
+export interface ProjectStage {
+  name: string;
+  objectives?: string;
+  tasks?: ProjectStageTask[];
+  duration?: number;
+}
+
+/** 项目阶段任务 */
+export interface ProjectStageTask {
+  title: string;
+  description?: string;
+  assignee?: string;
+  deadline?: string;
+}
+
 /** 项目任务 */
 export interface ProjectTask {
   phase: string;
   name: string;
+  title?: string; // 兼容字段
   description?: string;
   deliverables?: string[];
   duration: number;
+  assignee?: string;
+  deadline?: string;
 }
 
 /** 项目时间线 */
@@ -486,18 +511,27 @@ export interface AITeachingApp {
   id: string;
   themeId: string;
   appName: string;
+  name?: string; // 兼容字段
+  grade?: number;
   subject: string;
   aiToolType: AIToolType;
   aiToolTypeLabel: string;
   aiToolName?: string;
+  aiTools?: string[]; // 使用的AI工具列表
+  scenario?: string; // 应用场景
   description?: string;
   useCase?: string;
+  objectives?: string[]; // 应用目标
   operationSteps?: OperationStep[];
+  integrationSteps?: string[]; // 课堂融合步骤
   prompts?: PromptTemplate[];
   generatedContent?: Record<string, unknown>;
   optimizedContent?: Record<string, unknown>;
   classroomIntegration?: string;
   effectAnalysis?: AIEffectAnalysis;
+  effects?: string; // 应用效果
+  challenges?: string; // 遇到的问题
+  suggestions?: string; // 改进建议
   videoUrl?: string;
   lessonCase?: LessonCase;
   creatorId: string;
@@ -521,7 +555,21 @@ export interface PromptTemplate {
   name: string;
   prompt: string;
   description?: string;
+  purpose?: string; // 使用目的
+  notes?: string; // 使用心得
 }
+
+/** AI工具选项 */
+export const AI_TOOL_OPTIONS = [
+  { value: 'chatgpt', label: 'ChatGPT' },
+  { value: 'claude', label: 'Claude' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'copilot', label: 'Microsoft Copilot' },
+  { value: 'doubao', label: '豆包' },
+  { value: 'kimi', label: 'Kimi' },
+  { value: 'deepseek', label: 'DeepSeek' },
+  { value: 'other', label: '其他' },
+] as const;
 
 /** AI效果分析 */
 export interface AIEffectAnalysis {

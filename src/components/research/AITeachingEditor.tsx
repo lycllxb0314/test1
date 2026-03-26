@@ -2,11 +2,16 @@
 
 /**
  * AI赋能教学应用编辑组件
+ * 
+ * 设计理念：
+ * - AI工具应用场景
+ * - 提示词设计
+ * - 效果评估
  */
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Plus,
   Trash2,
@@ -26,20 +30,14 @@ import {
   Loader2,
   Cpu,
   Target,
-  FileText,
-  Sparkles,
-  Video,
-  BarChart,
+  MessageSquare,
+  Lightbulb,
+  Zap,
+  CheckCircle2,
+  Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { 
-  SUBJECTS, 
-  AI_TOOL_TYPE_LABELS,
-  type AITeachingApp,
-  type AIToolType,
-  type OperationStep,
-  type PromptTemplate
-} from '@/types/research';
+import { SUBJECTS, AI_TOOL_OPTIONS, type AITeachingApp, type PromptTemplate } from '@/types/research';
 
 interface AITeachingEditorProps {
   themeId: string;
@@ -51,38 +49,40 @@ export default function AITeachingEditor({ themeId, app, onSave }: AITeachingEdi
   const [saving, setSaving] = useState(false);
   
   const [formData, setFormData] = useState({
-    appName: app?.appName || '',
+    appName: app?.appName || app?.name || '',
+    grade: app?.grade || 3,
     subject: app?.subject || '语文',
-    aiToolType: app?.aiToolType || 'lesson_prep' as AIToolType,
-    aiToolName: app?.aiToolName || '',
-    description: app?.description || '',
-    useCase: app?.useCase || '',
-    operationSteps: app?.operationSteps || [] as OperationStep[],
-    prompts: app?.prompts || [] as PromptTemplate[],
-    classroomIntegration: app?.classroomIntegration || '',
-    videoUrl: app?.videoUrl || '',
+    scenario: app?.scenario || '',
+    aiTools: app?.aiTools || [],
+    objectives: app?.objectives || [''],
+    prompts: (app?.prompts as (PromptTemplate & { purpose?: string; notes?: string })[] | undefined) || [],
+    integrationSteps: app?.integrationSteps || [''],
+    effects: app?.effects || '',
+    challenges: app?.challenges || '',
+    suggestions: app?.suggestions || '',
   });
   
   useEffect(() => {
     if (app) {
       setFormData({
-        appName: app.appName || '',
+        appName: app.appName || app.name || '',
+        grade: app.grade || 3,
         subject: app.subject || '语文',
-        aiToolType: app.aiToolType || 'lesson_prep',
-        aiToolName: app.aiToolName || '',
-        description: app.description || '',
-        useCase: app.useCase || '',
-        operationSteps: app.operationSteps || [],
-        prompts: app.prompts || [],
-        classroomIntegration: app.classroomIntegration || '',
-        videoUrl: app.videoUrl || '',
+        scenario: app.scenario || '',
+        aiTools: app.aiTools || [],
+        objectives: app.objectives?.length ? app.objectives : [''],
+        prompts: (app.prompts as (PromptTemplate & { purpose?: string; notes?: string })[] | undefined) || [],
+        integrationSteps: app.integrationSteps?.length ? app.integrationSteps : [''],
+        effects: app.effects || '',
+        challenges: app.challenges || '',
+        suggestions: app.suggestions || '',
       });
     }
   }, [app]);
   
   const handleSave = async () => {
-    if (!formData.appName || !formData.subject) {
-      toast.error('请填写应用名称和学科');
+    if (!formData.appName) {
+      toast.error('请填写应用名称');
       return;
     }
     
@@ -91,15 +91,17 @@ export default function AITeachingEditor({ themeId, app, onSave }: AITeachingEdi
       const payload = {
         themeId,
         appName: formData.appName,
+        name: formData.appName,
+        grade: formData.grade,
         subject: formData.subject,
-        aiToolType: formData.aiToolType,
-        aiToolName: formData.aiToolName,
-        description: formData.description,
-        useCase: formData.useCase,
-        operationSteps: formData.operationSteps.filter(s => s.title.trim()),
-        prompts: formData.prompts.filter(p => p.name.trim() && p.prompt.trim()),
-        classroomIntegration: formData.classroomIntegration,
-        videoUrl: formData.videoUrl,
+        scenario: formData.scenario,
+        aiTools: formData.aiTools,
+        objectives: formData.objectives.filter((o: string) => o.trim()),
+        prompts: formData.prompts.filter((p: PromptTemplate) => p.prompt.trim()),
+        integrationSteps: formData.integrationSteps.filter((s: string) => s.trim()),
+        effects: formData.effects,
+        challenges: formData.challenges,
+        suggestions: formData.suggestions,
       };
       
       const res = await fetch('/api/research/ai-teaching', {
@@ -124,309 +126,439 @@ export default function AITeachingEditor({ themeId, app, onSave }: AITeachingEdi
     }
   };
   
+  const copyPrompt = (prompt: string) => {
+    navigator.clipboard.writeText(prompt);
+    toast.success('已复制到剪贴板');
+  };
+
   return (
     <div className="space-y-6">
       {/* 基本信息 */}
-      <Card>
+      <Card className="border-0 shadow-sm bg-gradient-to-br from-violet-50 to-purple-50/50">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Cpu className="h-5 w-5" />
-            AI应用基本信息
-          </CardTitle>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500">
+              <Cpu className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-base">AI教学应用基本信息</CardTitle>
+              <CardDescription>填写AI赋能教学应用的基础信息</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>应用名称 *</Label>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-2 space-y-2">
+              <Label className="text-sm font-medium">应用名称 *</Label>
               <Input
-                placeholder="如：AI辅助作文批改"
                 value={formData.appName}
-                onChange={e => setFormData({ ...formData, appName: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, appName: e.target.value })}
+                placeholder="例如：AI辅助作文批改"
+                className="bg-white h-11"
               />
             </div>
-            <div className="space-y-2">
-              <Label>AI工具名称</Label>
-              <Input
-                placeholder="如：ChatGPT、文心一言"
-                value={formData.aiToolName}
-                onChange={e => setFormData({ ...formData, aiToolName: e.target.value })}
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>学科</Label>
-              <Select 
-                value={formData.subject} 
-                onValueChange={v => setFormData({ ...formData, subject: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUBJECTS.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>AI工具类型</Label>
-              <Select 
-                value={formData.aiToolType} 
-                onValueChange={v => setFormData({ ...formData, aiToolType: v as AIToolType })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(AI_TOOL_TYPE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">年级</Label>
+                <Select 
+                  value={String(formData.grade)} 
+                  onValueChange={(v) => setFormData({ ...formData, grade: Number(v) })}
+                >
+                  <SelectTrigger className="bg-white h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1,2,3,4,5,6].map(g => (
+                      <SelectItem key={g} value={String(g)}>{g}年级</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">学科</Label>
+                <Select 
+                  value={formData.subject} 
+                  onValueChange={(v) => setFormData({ ...formData, subject: v })}
+                >
+                  <SelectTrigger className="bg-white h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUBJECTS.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           
           <div className="space-y-2">
-            <Label>应用描述</Label>
-            <Textarea
-              placeholder="描述该AI应用的教学场景和目标"
-              value={formData.description}
-              onChange={e => setFormData({ ...formData, description: e.target.value })}
-              rows={2}
-            />
+            <Label className="text-sm font-medium">应用场景</Label>
+            <Select 
+              value={formData.scenario} 
+              onValueChange={(v) => setFormData({ ...formData, scenario: v })}
+            >
+              <SelectTrigger className="bg-white h-11">
+                <SelectValue placeholder="选择AI应用场景" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lesson_planning">教案设计</SelectItem>
+                <SelectItem value="content_generation">内容生成</SelectItem>
+                <SelectItem value="homework_grading">作业批改</SelectItem>
+                <SelectItem value="student_evaluation">学情分析</SelectItem>
+                <SelectItem value="teaching_assistant">课堂助手</SelectItem>
+                <SelectItem value="resource_creation">资源制作</SelectItem>
+                <SelectItem value="other">其他</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="space-y-2">
-            <Label>使用场景</Label>
-            <Textarea
-              placeholder="描述具体的教学场景，如备课、课堂互动、作业批改等"
-              value={formData.useCase}
-              onChange={e => setFormData({ ...formData, useCase: e.target.value })}
-              rows={2}
-            />
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Target className="h-4 w-4 text-violet-500" />
+              应用目标
+            </Label>
+            <div className="space-y-2">
+              {formData.objectives.map((obj: string, idx: number) => (
+                <div key={idx} className="flex gap-2">
+                  <div className="flex-shrink-0 w-6 h-6 rounded bg-violet-100 flex items-center justify-center text-xs font-medium text-violet-600 mt-2">
+                    {idx + 1}
+                  </div>
+                  <Textarea
+                    value={obj}
+                    onChange={(e) => {
+                      const newObjs = formData.objectives.map((o: string, i: number) => i === idx ? e.target.value : o);
+                      setFormData({ ...formData, objectives: newObjs });
+                    }}
+                    placeholder="例如：提高作文批改效率，为学生提供个性化反馈..."
+                    className="flex-1 min-h-[50px] bg-white"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 mt-1"
+                    onClick={() => {
+                      if (formData.objectives.length > 1) {
+                        const newObjs = formData.objectives.filter((_: string, i: number) => i !== idx);
+                        setFormData({ ...formData, objectives: newObjs });
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-slate-400" />
+                  </Button>
+                </div>
+              ))}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full border-dashed"
+                onClick={() => setFormData({ ...formData, objectives: [...formData.objectives, ''] })}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                添加目标
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
       
-      {/* 详细设计 */}
-      <Tabs defaultValue="steps">
-        <TabsList className="grid grid-cols-4 w-full">
-          <TabsTrigger value="steps">
-            <Target className="h-4 w-4 mr-1" />
-            操作步骤
-          </TabsTrigger>
-          <TabsTrigger value="prompts">
-            <Sparkles className="h-4 w-4 mr-1" />
-            提示词模板
-          </TabsTrigger>
-          <TabsTrigger value="integration">
-            <FileText className="h-4 w-4 mr-1" />
-            课堂融合
-          </TabsTrigger>
-          <TabsTrigger value="video">
-            <Video className="h-4 w-4 mr-1" />
-            课堂实录
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="steps" className="mt-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">操作步骤</CardTitle>
-                <Button 
-                  variant="outline" 
-                  size="sm"
+      {/* AI工具选择 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-base">AI工具</CardTitle>
+              <CardDescription>选择使用的AI工具</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {AI_TOOL_OPTIONS.map(tool => {
+              const isSelected = formData.aiTools.includes(tool.value);
+              return (
+                <Badge
+                  key={tool.value}
+                  variant={isSelected ? 'default' : 'outline'}
+                  className={`px-3 py-1.5 cursor-pointer transition-all ${
+                    isSelected 
+                      ? 'bg-violet-500 hover:bg-violet-600 text-white' 
+                      : 'hover:bg-slate-100'
+                  }`}
                   onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      operationSteps: [
-                        ...prev.operationSteps,
-                        { step: prev.operationSteps.length + 1, title: '', description: '' }
-                      ],
-                    }));
+                    if (isSelected) {
+                      setFormData({ 
+                        ...formData, 
+                        aiTools: formData.aiTools.filter((t: string) => t !== tool.value) 
+                      });
+                    } else {
+                      setFormData({ 
+                        ...formData, 
+                        aiTools: [...formData.aiTools, tool.value] 
+                      });
+                    }
                   }}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  添加步骤
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {formData.operationSteps.length === 0 ? (
-                <p className="text-center text-gray-400 py-4">暂无操作步骤</p>
-              ) : (
-                <div className="space-y-4">
-                  {formData.operationSteps.map((step, index) => (
-                    <div key={index} className="p-4 border rounded-lg space-y-2">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline">步骤{step.step}</Badge>
-                        <Input
-                          placeholder="步骤标题"
-                          value={step.title}
-                          onChange={e => {
-                            const newSteps = [...formData.operationSteps];
-                            newSteps[index] = { ...newSteps[index], title: e.target.value };
-                            setFormData({ ...formData, operationSteps: newSteps });
-                          }}
-                          className="flex-1"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              operationSteps: prev.operationSteps.filter((_, i) => i !== index),
-                            }));
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-gray-400" />
-                        </Button>
-                      </div>
-                      <Textarea
-                        placeholder="详细描述操作内容"
-                        value={step.description}
-                        onChange={e => {
-                          const newSteps = [...formData.operationSteps];
-                          newSteps[index] = { ...newSteps[index], description: e.target.value };
-                          setFormData({ ...formData, operationSteps: newSteps });
-                        }}
-                        rows={2}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="prompts" className="mt-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">提示词模板</CardTitle>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      prompts: [...prev.prompts, { name: '', prompt: '', description: '' }],
-                    }));
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  添加模板
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {formData.prompts.length === 0 ? (
-                <p className="text-center text-gray-400 py-4">暂无提示词模板</p>
-              ) : (
-                <div className="space-y-4">
-                  {formData.prompts.map((prompt, index) => (
-                    <div key={index} className="p-4 border rounded-lg space-y-3">
-                      <div className="flex items-center gap-3">
-                        <Input
-                          placeholder="模板名称"
-                          value={prompt.name}
-                          onChange={e => {
-                            const newPrompts = [...formData.prompts];
-                            newPrompts[index] = { ...newPrompts[index], name: e.target.value };
-                            setFormData({ ...formData, prompts: newPrompts });
-                          }}
-                          className="flex-1"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              prompts: prev.prompts.filter((_, i) => i !== index),
-                            }));
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-gray-400" />
-                        </Button>
-                      </div>
-                      <Textarea
-                        placeholder="输入提示词内容"
-                        value={prompt.prompt}
-                        onChange={e => {
-                          const newPrompts = [...formData.prompts];
-                          newPrompts[index] = { ...newPrompts[index], prompt: e.target.value };
+                  {tool.label}
+                </Badge>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* 提示词设计 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500">
+              <MessageSquare className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-base">提示词设计</CardTitle>
+              <CardDescription>设计有效的AI提示词</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {formData.prompts.map((p, idx) => (
+              <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-pink-50 text-pink-600 border-pink-200">
+                      提示词 {idx + 1}
+                    </Badge>
+                    {p.name && <span className="text-sm font-medium">{p.name}</span>}
+                  </div>
+                  <div className="flex gap-2">
+                    {p.prompt && (
+                      <Button variant="ghost" size="sm" onClick={() => copyPrompt(p.prompt)}>
+                        <Copy className="h-4 w-4 mr-1" />
+                        复制
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => {
+                        if (formData.prompts.length > 1) {
+                          const newPrompts = formData.prompts.filter((_, i) => i !== idx);
                           setFormData({ ...formData, prompts: newPrompts });
-                        }}
-                        rows={4}
-                        className="font-mono text-sm"
-                      />
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-slate-400" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="grid gap-3">
+                  <Input
+                    value={p.name}
+                    onChange={(e) => {
+                      const newPrompts = formData.prompts.map((pr, i) => 
+                        i === idx ? { ...pr, name: e.target.value } : pr
+                      );
+                      setFormData({ ...formData, prompts: newPrompts });
+                    }}
+                    placeholder="提示词名称，如：作文批改提示词"
+                    className="bg-white h-10"
+                  />
+                  
+                  <Textarea
+                    value={p.prompt}
+                    onChange={(e) => {
+                      const newPrompts = formData.prompts.map((pr, i) => 
+                        i === idx ? { ...pr, prompt: e.target.value } : pr
+                      );
+                      setFormData({ ...formData, prompts: newPrompts });
+                    }}
+                    placeholder="你是一位经验丰富的语文教师，请帮我批改以下学生作文..."
+                    rows={4}
+                    className="bg-white font-mono text-sm"
+                  />
+                  
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-500">使用目的</Label>
                       <Input
-                        placeholder="模板说明（可选）"
-                        value={prompt.description}
-                        onChange={e => {
-                          const newPrompts = [...formData.prompts];
-                          newPrompts[index] = { ...newPrompts[index], description: e.target.value };
+                        value={p.purpose || ''}
+                        onChange={(e) => {
+                          const newPrompts = formData.prompts.map((pr, i) => 
+                            i === idx ? { ...pr, purpose: e.target.value } : pr
+                          );
                           setFormData({ ...formData, prompts: newPrompts });
                         }}
+                        placeholder="这个提示词的用途"
+                        className="bg-white h-9"
                       />
                     </div>
-                  ))}
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-500">使用心得</Label>
+                      <Input
+                        value={p.notes || ''}
+                        onChange={(e) => {
+                          const newPrompts = formData.prompts.map((pr, i) => 
+                            i === idx ? { ...pr, notes: e.target.value } : pr
+                          );
+                          setFormData({ ...formData, prompts: newPrompts });
+                        }}
+                        placeholder="使用技巧或注意事项"
+                        className="bg-white h-9"
+                      />
+                    </div>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="integration" className="mt-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                <Label>课堂融合方式</Label>
+              </div>
+            ))}
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full border-dashed"
+              onClick={() => setFormData({ 
+                ...formData, 
+                prompts: [...formData.prompts, { name: '', prompt: '', purpose: '', notes: '' }] 
+              })}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              添加提示词
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* 课堂融合步骤 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500">
+              <Lightbulb className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-base">课堂融合步骤</CardTitle>
+              <CardDescription>如何将AI工具融入教学过程</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {formData.integrationSteps.map((step: string, idx: number) => (
+              <div key={idx} className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-sm font-medium text-amber-600 mt-1">
+                  {idx + 1}
+                </div>
                 <Textarea
-                  placeholder="描述如何将该AI工具融入课堂教学，包括使用时机、学生互动方式等"
-                  value={formData.classroomIntegration}
-                  onChange={e => setFormData({ ...formData, classroomIntegration: e.target.value })}
-                  rows={6}
+                  value={step}
+                  onChange={(e) => {
+                    const newSteps = formData.integrationSteps.map((s: string, i: number) => i === idx ? e.target.value : s);
+                    setFormData({ ...formData, integrationSteps: newSteps });
+                  }}
+                  placeholder={`第${idx + 1}步：描述如何将AI工具融入教学...`}
+                  className="flex-1 min-h-[60px] bg-white"
                 />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 mt-1"
+                  onClick={() => {
+                    if (formData.integrationSteps.length > 1) {
+                      const newSteps = formData.integrationSteps.filter((_: string, i: number) => i !== idx);
+                      setFormData({ ...formData, integrationSteps: newSteps });
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-slate-400" />
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            ))}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full border-dashed"
+              onClick={() => setFormData({ ...formData, integrationSteps: [...formData.integrationSteps, ''] })}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              添加步骤
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* 效果评估与反思 */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">应用效果</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.effects}
+              onChange={(e) => setFormData({ ...formData, effects: e.target.value })}
+              placeholder="描述AI工具应用后的效果，如效率提升、学生反馈等..."
+              rows={4}
+            />
+          </CardContent>
+        </Card>
         
-        <TabsContent value="video" className="mt-4">
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <div className="space-y-2">
-                <Label>课堂实录视频链接</Label>
-                <Input
-                  placeholder="输入视频URL"
-                  value={formData.videoUrl}
-                  onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
-                />
-              </div>
-              {formData.videoUrl && (
-                <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-400">视频预览区域</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">遇到的问题</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.challenges}
+              onChange={(e) => setFormData({ ...formData, challenges: e.target.value })}
+              placeholder="记录使用过程中遇到的问题和困难..."
+              rows={4}
+            />
+          </CardContent>
+        </Card>
+      </div>
+      
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">改进建议</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={formData.suggestions}
+            onChange={(e) => setFormData({ ...formData, suggestions: e.target.value })}
+            placeholder="总结经验教训，提出改进建议..."
+            rows={3}
+          />
+        </CardContent>
+      </Card>
       
       {/* 保存按钮 */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          <Save className="h-4 w-4 mr-2" />
-          保存设计
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+        <Button variant="outline" className="min-w-24">
+          预览
+        </Button>
+        <Button 
+          onClick={handleSave} 
+          disabled={saving}
+          className="min-w-24 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              保存中
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              保存设计
+            </>
+          )}
         </Button>
       </div>
     </div>
