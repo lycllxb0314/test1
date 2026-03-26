@@ -208,13 +208,6 @@ export default function TeacherSelector({
   
   return (
     <div className={cn('space-y-3', className)}>
-      {/* 调试信息 - 临时 */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="text-xs text-slate-500 bg-slate-100 p-2 rounded">
-          调试: loading={String(loading)}, externalTeachers={externalTeachers?.length ?? 'null'}, internalTeachers={internalTeachers?.length ?? 'null'}, allTeachers={allTeachers?.length ?? 0}, filtered={filteredTeachers?.length ?? 0}
-        </div>
-      )}
-      
       {/* 已选教师显示 */}
       {selectedTeachers.length > 0 && (
         <div className="space-y-2">
