@@ -352,9 +352,21 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
           name: c.name as string,
           grade: (c.grade as number) || 1,
           gradeName: GRADE_NAMES[c.grade as number] || '一年级',
+          classNumber: (c.classNumber as number) || (c.class_number as number),
           headTeacherId: (c.headTeacherId as string) || (c.head_teacher_id as string),
           headTeacherName: (c.headTeacherName as string) || (c.head_teacher_name as string),
+          subTeacherId: (c.subTeacherId as string) || (c.sub_teacher_id as string),
+          subTeacherName: (c.subTeacherName as string) || (c.sub_teacher_name as string),
           studentCount: (c.studentCount as number) || (c.student_count as number) || 0,
+          classroomId: (c.classroomId as string) || (c.classroom_id as string),
+          classroomName: (c.classroomName as string) || (c.classroom_name as string),
+          building: c.building as string,
+          floor: c.floor as number,
+          status: (c.status as string) || 'active',
+          motto: c.motto as string,
+          features: c.features as string[],
+          createdAt: (c.createdAt as string) || (c.created_at as string),
+          updatedAt: (c.updatedAt as string) || (c.updated_at as string),
         }))
 
         setClasses({
