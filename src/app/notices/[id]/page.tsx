@@ -13,6 +13,7 @@ import {
   Clock,
   ChevronRight,
 } from 'lucide-react';
+import { SafeHtml } from '@/components/ui/safe-html';
 
 // 公告详情类型
 interface AnnouncementDetail {
@@ -249,14 +250,14 @@ export default function NoticeDetailPage() {
           
           {/* 文章正文 */}
           <div className="p-6">
-            <div 
+            <SafeHtml 
+              html={notice.content || ''}
               className="prose prose-[#3D2314] max-w-none
                 prose-headings:text-[#3D2314] prose-headings:font-bold
                 prose-p:text-[#3D2314]/90 prose-p:leading-relaxed
                 prose-a:text-[#8B5A2B] prose-a:no-underline hover:prose-a:underline
                 prose-img:rounded-xl prose-img:shadow-lg
               "
-              dangerouslySetInnerHTML={{ __html: notice.content || '' }}
             />
             
             {/* 图片画廊 */}

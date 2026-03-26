@@ -1,20 +1,13 @@
 /**
  * 教师培训 API
  * 
- * GET: 获取教师培训列表
- * POST: 添加教师培训
- * PUT: 更新教师培训
- * DELETE: 删除教师培训
- * 
- * 数据来源：使用 lib/mock/teachers.mock.ts 统一数据源
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  MOCK_TEACHER_TRAININGS, 
-  getMockTeacherTrainings 
-} from '@/lib/mock/teachers.mock';
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
 import type { TeacherTraining } from '@/types';
 
 /**
@@ -38,21 +31,13 @@ export async function GET(request: NextRequest) {
     if (type) query = query.eq('type', type);
     if (status) query = query.eq('status', status);
 
-    const { data, error } = await query;
+    const { data, error: dbError } = await query;
 
-    if (error || !data || data.length === 0) {
-      // 使用统一 Mock 数据
-      const mockData = getMockTeacherTrainings({
-        teacherId: teacherId || undefined,
-        type: type || undefined,
-        status: status || undefined,
-      });
-
-      return NextResponse.json({ 
-        success: true, 
-        data: mockData, 
-        source: 'mock' 
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('数据库查询失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
     const formattedData: TeacherTraining[] = (data || []).map((training: Record<string, unknown>) => ({
@@ -69,19 +54,13 @@ export async function GET(request: NextRequest) {
       notes: training.notes as string,
     }));
 
-    return NextResponse.json({ 
-      success: true, 
-      data: formattedData, 
-      source: 'database' 
-    });
-  } catch (error) {
-    console.error('Failed to fetch teacher trainings:', error);
-    // 兜底：返回统一 Mock 数据
-    return NextResponse.json({ 
-      success: true, 
-      data: getMockTeacherTrainings(), 
-      source: 'mock' 
-    });
+    return NextResponse.json(success(formattedData, 'database'));
+  } catch (err) {
+    console.error('Failed to fetch teacher trainings:', err);
+    return NextResponse.json(
+      error('获取教师培训失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -94,7 +73,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { teacherId, name, type, organizer, startDate, endDate, hours, status, certificate, notes } = body;
 
-    const { data, error } = await client
+    const { data, error: dbError } = await client
       .from('teacher_trainings')
       .insert({
         teacher_id: teacherId,
@@ -111,50 +90,32 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      // 返回 Mock 创建结果
-      return NextResponse.json({
-        success: true,
-        data: { 
-          id: `t-${Date.now()}`, 
-          teacherId, 
-          name, 
-          type, 
-          organizer, 
-          startDate, 
-          endDate, 
-          hours: hours || 0, 
-          status: status || '进行中', 
-          certificate, 
-          notes 
-        },
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('添加培训失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: data.id,
-        teacherId: data.teacher_id,
-        name: data.name,
-        type: data.type,
-        organizer: data.organizer,
-        startDate: data.start_date,
-        endDate: data.end_date,
-        hours: data.hours,
-        status: data.status,
-        certificate: data.certificate,
-        notes: data.notes,
-      },
-      source: 'database',
-    });
-  } catch (error) {
-    console.error('Failed to create teacher training:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: '添加培训失败' 
-    }, { status: 500 });
+    return NextResponse.json(success({
+      id: data.id,
+      teacherId: data.teacher_id,
+      name: data.name,
+      type: data.type,
+      organizer: data.organizer,
+      startDate: data.start_date,
+      endDate: data.end_date,
+      hours: data.hours,
+      status: data.status,
+      certificate: data.certificate,
+      notes: data.notes,
+    }, 'database'));
+  } catch (err) {
+    console.error('Failed to create teacher training:', err);
+    return NextResponse.json(
+      error('添加培训失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -167,7 +128,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, name, type, organizer, startDate, endDate, hours, status, certificate, notes } = body;
 
-    const { data, error } = await client
+    const { data, error: dbError } = await client
       .from('teacher_trainings')
       .update({
         name,
@@ -184,37 +145,32 @@ export async function PUT(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        data: { id, name, type, organizer, startDate, endDate, hours, status, certificate, notes },
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('更新培训失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      data: {
-        id: data.id,
-        teacherId: data.teacher_id,
-        name: data.name,
-        type: data.type,
-        organizer: data.organizer,
-        startDate: data.start_date,
-        endDate: data.end_date,
-        hours: data.hours,
-        status: data.status,
-        certificate: data.certificate,
-        notes: data.notes,
-      },
-      source: 'database' 
-    });
-  } catch (error) {
-    console.error('Failed to update teacher training:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: '更新培训失败' 
-    }, { status: 500 });
+    return NextResponse.json(success({
+      id: data.id,
+      teacherId: data.teacher_id,
+      name: data.name,
+      type: data.type,
+      organizer: data.organizer,
+      startDate: data.start_date,
+      endDate: data.end_date,
+      hours: data.hours,
+      status: data.status,
+      certificate: data.certificate,
+      notes: data.notes,
+    }, 'database'));
+  } catch (err) {
+    console.error('Failed to update teacher training:', err);
+    return NextResponse.json(
+      error('更新培训失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -228,35 +184,30 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({
-        success: false,
-        error: '缺少培训ID',
-      }, { status: 400 });
+      return NextResponse.json(
+        error('缺少培训ID', ErrorCode.BAD_REQUEST),
+        { status: 400 }
+      );
     }
 
-    const { error } = await client
+    const { error: dbError } = await client
       .from('teacher_trainings')
       .delete()
       .eq('id', id);
 
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        message: '培训已删除（mock模式）',
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('删除培训失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      message: '培训已删除',
-      source: 'database',
-    });
-  } catch (error) {
-    console.error('Failed to delete teacher training:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: '删除培训失败' 
-    }, { status: 500 });
+    return NextResponse.json({ success: true, message: '培训已删除' });
+  } catch (err) {
+    console.error('Failed to delete teacher training:', err);
+    return NextResponse.json(
+      error('删除培训失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

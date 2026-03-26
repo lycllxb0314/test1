@@ -14,6 +14,7 @@ import {
   Trophy,
   Loader2
 } from 'lucide-react';
+import { SafeHtml } from '@/components/ui/safe-html';
 
 // 图标名称到组件的映射
 const iconMap: Record<string, any> = {
@@ -234,9 +235,9 @@ export default function AchievementDetailPage() {
 
           {/* 正文内容 */}
           <div className="bg-white rounded-2xl p-6 md:p-8 shadow-lg border border-[#E8DDD0]/50 mb-8">
-            <div 
+            <SafeHtml 
+              html={content}
               className="prose prose-lg max-w-none text-[#3D2314] leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: content }}
             />
           </div>
 

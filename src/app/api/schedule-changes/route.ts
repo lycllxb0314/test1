@@ -1,7 +1,8 @@
 /**
  * 调课管理 API
  * 
- * 使用统一的路由处理模式和集中的Mock数据
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
  * 
  * 功能：
  * 1. 获取调课记录列表
@@ -12,15 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  MOCK_SCHEDULE_CHANGES, 
-  getMockScheduleChanges,
-  type ScheduleChangeRecord 
-} from '@/lib/mock/academic.mock';
 import { success, error, parseQueryParams, ErrorCode } from '@/lib/api-route-utils';
-
-// 内存存储（用于开发环境）
-let scheduleChangesStore: ScheduleChangeRecord[] = [...MOCK_SCHEDULE_CHANGES];
 
 /**
  * GET - 获取调课记录
@@ -57,22 +50,16 @@ export async function GET(request: NextRequest) {
     const { data, error: dbError, count } = await query;
     
     if (dbError) {
-      console.log('Database query failed, using mock data:', dbError.message);
-      
-      // 使用集中的Mock数据
-      const mockData = getMockScheduleChanges({
-        applicantId: params.teacherId as string,
-        status: params.status as string,
-        grade: params.grade as number,
-      });
-      
-      // 处理特殊操作
-      if (params.action === 'pending') {
-        const pendingRecords = mockData.filter(r => r.status === 'pending');
-        return NextResponse.json(success(pendingRecords, 'mock'));
-      }
-      
-      return NextResponse.json(success(mockData, 'mock'));
+      return NextResponse.json(
+        error('数据库查询失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
+    }
+    
+    // 处理特殊操作
+    if (params.action === 'pending') {
+      const pendingRecords = (data || []).filter(r => r.status === 'pending');
+      return NextResponse.json(success(pendingRecords, 'database'));
     }
     
     return NextResponse.json({
@@ -81,15 +68,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error('Failed to fetch schedule changes:', err);
-    
-    // 使用Mock数据作为fallback
-    const mockData = getMockScheduleChanges({
-      applicantId: params.teacherId as string,
-      status: params.status as string,
-      grade: params.grade as number,
-    });
-    
-    return NextResponse.json(success(mockData, 'mock'));
+    return NextResponse.json(
+      error('获取调课记录失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -126,40 +108,19 @@ export async function POST(request: NextRequest) {
       .single();
     
     if (dbError) {
-      console.error('Database insert error:', dbError);
-      
-      // 返回mock成功响应
-      const newRecord: ScheduleChangeRecord = {
-        id: `sc-${Date.now()}`,
-        leaveRequestId: body.leaveRequestId,
-        applicantId: body.applicantId,
-        applicantName: body.applicantName,
-        applicantSubject: body.applicantSubject,
-        applicantGrade: body.applicantGrade,
-        leaveType: body.leaveType,
-        leaveStartDate: body.leaveStartDate,
-        leaveEndDate: body.leaveEndDate,
-        leaveReason: body.leaveReason,
-        originalClassId: body.originalClassId,
-        originalClassName: body.originalClassName,
-        originalSubject: body.originalSubject,
-        originalWeekDay: body.originalWeekDay,
-        originalPeriodIndex: body.originalPeriodIndex,
-        originalPeriodName: body.originalPeriodName,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      };
-      
-      // 添加到内存存储
-      scheduleChangesStore.push(newRecord);
-      
-      return NextResponse.json(success(newRecord, 'mock'));
+      return NextResponse.json(
+        error('创建调课记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
     
     return NextResponse.json(success(data, 'database'));
   } catch (err) {
     console.error('Failed to create schedule change:', err);
-    return NextResponse.json(error('创建调课记录失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return NextResponse.json(
+      error('创建调课记录失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -202,27 +163,25 @@ export async function PUT(request: NextRequest) {
       .single();
     
     if (dbError) {
-      console.error('Database update error:', dbError);
-      
-      // 更新内存存储
-      const index = scheduleChangesStore.findIndex(r => r.id === id);
-      if (index !== -1) {
-        scheduleChangesStore[index] = {
-          ...scheduleChangesStore[index],
-          ...updates,
-          status: action === 'cancel' ? 'cancelled' : 'completed',
-          adjustType: action,
-          updatedAt: new Date().toISOString(),
-        };
-        return NextResponse.json(success(scheduleChangesStore[index], 'mock'));
-      }
-      
-      return NextResponse.json(error('调课记录不存在', ErrorCode.NOT_FOUND), { status: 404 });
+      return NextResponse.json(
+        error('更新调课记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
+    }
+    
+    if (!data) {
+      return NextResponse.json(
+        error('调课记录不存在', ErrorCode.NOT_FOUND),
+        { status: 404 }
+      );
     }
     
     return NextResponse.json(success(data, 'database'));
   } catch (err) {
     console.error('Failed to update schedule change:', err);
-    return NextResponse.json(error('更新调课记录失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return NextResponse.json(
+      error('更新调课记录失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

@@ -10,14 +10,12 @@
  * 4. 科任：任教班级学生，完整显示
  * 5. 普通教师：无权限
  * 6. 家长：仅自己孩子，完整显示
+ * 
+ * v3.0: 移除Mock依赖，使用数据库查询
  */
 
-import { UserRole } from '@/types';
-import { 
-  getMockClassTeachersByTeacherId,
-  getMockTeacherClassRelation 
-} from '@/lib/mock/class-teachers.mock';
-import { getMockStudent } from '@/lib/mock/students.mock';
+import { UserRole, AdministrativeRole } from '@/types';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 // ============================================
 // 类型定义
@@ -64,8 +62,6 @@ export interface UserContext {
 // 角色权限常量
 // ============================================
 
-import { AdministrativeRole } from '@/types';
-
 /**
  * 拥有全校访问权限的主要角色
  */
@@ -84,26 +80,6 @@ const GLOBAL_ACCESS_ADMIN_ROLES: AdministrativeRole[] = [
   'academic_director',  // 教务主任
   'moral_director',     // 德育主任
   'general_director',   // 总务主任
-];
-
-/**
- * 有条件访问权限的角色（需要进一步判断关系）
- */
-const CONDITIONAL_ACCESS_ROLES: UserRole[] = [
-  'head_teacher',       // 班主任
-  'subject_teacher',    // 科任教师
-  'skill_teacher',      // 技能课教师
-  'parent',             // 家长
-];
-
-/**
- * 有条件访问权限的兼任职务
- */
-const CONDITIONAL_ACCESS_ADMIN_ROLES: AdministrativeRole[] = [
-  'grade_leader',       // 年段长
-  'research_group_leader',       // 教研组组长
-  'research_group_deputy_leader', // 教研组副组长
-  'young_pioneer_counselor',      // 少先队大队辅导员
 ];
 
 // ============================================
@@ -135,8 +111,14 @@ export async function canViewStudentSensitiveData(
   }
   
   // 2. 获取学生信息
-  const student = getMockStudent(studentId);
-  if (!student) {
+  const client = getSupabaseClient();
+  const { data: student, error } = await client
+    .from('students')
+    .select('id, grade, class_id, class_name, parents')
+    .eq('id', studentId)
+    .single();
+  
+  if (error || !student) {
     return {
       allowed: false,
       reason: '学生不存在',
@@ -164,7 +146,13 @@ export async function canViewStudentSensitiveData(
   // 4. 班主任/科任教师/技能课教师：检查班级教师关系
   if (user.role === 'head_teacher' || user.role === 'subject_teacher' || user.role === 'skill_teacher') {
     // 检查是否是该学生的班主任或科任
-    const relation = getMockTeacherClassRelation(student.classId, user.id);
+    const { data: relation } = await client
+      .from('class_teachers')
+      .select('*')
+      .eq('class_id', student.class_id)
+      .eq('teacher_id', user.id)
+      .eq('status', 'active')
+      .single();
     
     if (relation) {
       if (relation.position === 'head_teacher') {
@@ -172,14 +160,14 @@ export async function canViewStudentSensitiveData(
           allowed: true,
           reason: '班主任权限',
           level: 'full',
-          scope: `本班（${student.className}）学生`,
+          scope: `本班（${student.class_name}）学生`,
         };
       } else {
         return {
           allowed: true,
           reason: '科任权限',
           level: 'full',
-          scope: `任教班级（${student.className}）学生`,
+          scope: `任教班级（${student.class_name}）学生`,
         };
       }
     }
@@ -193,7 +181,8 @@ export async function canViewStudentSensitiveData(
   
   // 5. 家长：检查是否是自己孩子
   if (user.role === 'parent') {
-    const isParent = student.parents?.some((p: { id?: string }) => p.id === user.id);
+    const parents = student.parents as Array<{ id?: string }> | null;
+    const isParent = parents?.some(p => p.id === user.id);
     if (isParent) {
       return {
         allowed: true,
@@ -252,7 +241,7 @@ export async function filterStudentsByPermission(
  * @param user 用户上下文
  * @returns 可访问的班级ID列表
  */
-export function getUserAccessibleClassIds(user: UserContext): string[] {
+export async function getUserAccessibleClassIds(user: UserContext): Promise<string[]> {
   
   // 领导层/部门负责人：全校所有班级
   if (GLOBAL_ACCESS_ROLES.includes(user.role)) {
@@ -260,15 +249,27 @@ export function getUserAccessibleClassIds(user: UserContext): string[] {
     return [];
   }
   
+  const client = getSupabaseClient();
+  
   // 班主任/科任教师/技能课教师：返回任教班级
   if (user.role === 'head_teacher' || user.role === 'subject_teacher' || user.role === 'skill_teacher') {
-    return getMockClassTeachersByTeacherId(user.id).map(ct => ct.classId);
+    const { data } = await client
+      .from('class_teachers')
+      .select('class_id')
+      .eq('teacher_id', user.id)
+      .eq('status', 'active');
+    
+    return (data || []).map((ct: { class_id: string }) => ct.class_id);
   }
   
   // 年段长：返回管理的年级的所有班级
   if (user.additionalRoles?.includes('grade_leader') && user.managedGrades) {
-    // 需要根据年级查询班级，这里简化处理
-    return [];
+    const { data } = await client
+      .from('classes')
+      .select('id')
+      .in('grade', user.managedGrades);
+    
+    return (data || []).map((c: { id: string }) => c.id);
   }
   
   return [];

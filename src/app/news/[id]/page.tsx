@@ -14,6 +14,7 @@ import {
   ChevronRight,
   ExternalLink,
 } from 'lucide-react';
+import { SafeHtml } from '@/components/ui/safe-html';
 
 // 新闻详情类型
 interface NewsDetail {
@@ -284,14 +285,14 @@ export default function NewsDetailPage() {
           
           {/* 文章正文 */}
           <div className="p-6">
-            <div 
+            <SafeHtml 
+              html={news.content || ''}
               className="prose prose-[#3D2314] max-w-none
                 prose-headings:text-[#3D2314] prose-headings:font-bold
                 prose-p:text-[#3D2314]/90 prose-p:leading-relaxed
                 prose-a:text-[#8B5A2B] prose-a:no-underline hover:prose-a:underline
                 prose-img:rounded-xl prose-img:shadow-lg
               "
-              dangerouslySetInnerHTML={{ __html: news.content || '' }}
             />
             
             {/* 图片画廊 */}

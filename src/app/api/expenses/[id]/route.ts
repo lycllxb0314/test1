@@ -1,5 +1,13 @@
+/**
+ * 费用报销详情API路由
+ * 
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock依赖，数据库失败时返回错误响应
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { mockExpenses } from '@/lib/expense-data';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
 import type { ExpenseReimbursement, ExpenseItem } from '@/types';
 
 /**
@@ -11,26 +19,31 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const expense = mockExpenses.find((e: ExpenseReimbursement) => e.id === id);
+    const client = getSupabaseClient();
+    
+    const { data, error: dbError } = await client
+      .from('expense_reimbursements')
+      .select(`
+        *,
+        items:expense_items(*)
+      `)
+      .eq('id', id)
+      .single();
 
-    if (!expense) {
-      return NextResponse.json({
-        success: false,
-        error: '报销申请不存在',
-      }, { status: 404 });
+    if (dbError || !data) {
+      return NextResponse.json(
+        error('报销申请不存在', ErrorCode.NOT_FOUND),
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: expense,
-      source: 'mock',
-    });
-  } catch (error) {
-    console.error('Get expense error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取报销详情失败',
-    }, { status: 500 });
+    return NextResponse.json(success(data, 'database'));
+  } catch (err) {
+    console.error('Get expense error:', err);
+    return NextResponse.json(
+      error('获取报销详情失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -44,56 +57,61 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const expenseIndex = mockExpenses.findIndex((e: ExpenseReimbursement) => e.id === id);
-
-    if (expenseIndex === -1) {
-      return NextResponse.json({
-        success: false,
-        error: '报销申请不存在',
-      }, { status: 404 });
-    }
-
-    const expense = mockExpenses[expenseIndex];
+    const client = getSupabaseClient();
     
-    // 只有草稿状态才能修改
-    if (expense.status !== 'draft') {
-      return NextResponse.json({
-        success: false,
-        error: '只有草稿状态的报销申请才能修改',
-      }, { status: 400 });
+    // 检查是否存在且为草稿状态
+    const { data: existing, error: fetchError } = await client
+      .from('expense_reimbursements')
+      .select('id, status')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError || !existing) {
+      return NextResponse.json(
+        error('报销申请不存在', ErrorCode.NOT_FOUND),
+        { status: 404 }
+      );
+    }
+    
+    if (existing.status !== 'draft') {
+      return NextResponse.json(
+        error('只有草稿状态的报销申请才能修改', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
     }
 
-    // 更新字段
-    const updatedExpense: ExpenseReimbursement = {
-      ...expense,
-      ...body,
-      id: expense.id,
-      expenseNo: expense.expenseNo,
-      applicantId: expense.applicantId,
-      applicantName: expense.applicantName,
-      applicantRole: expense.applicantRole,
-      createdAt: expense.createdAt,
-      updatedAt: new Date().toISOString(),
-    };
-
-    // 重新计算总金额
+    // 计算总金额
+    let totalAmount = body.totalAmount;
     if (body.items && Array.isArray(body.items)) {
-      updatedExpense.totalAmount = body.items.reduce((sum: number, item: ExpenseItem) => sum + item.amount, 0);
+      totalAmount = body.items.reduce((sum: number, item: ExpenseItem) => sum + item.amount, 0);
     }
 
-    mockExpenses[expenseIndex] = updatedExpense;
+    // 更新报销申请
+    const { data, error: dbError } = await client
+      .from('expense_reimbursements')
+      .update({
+        ...body,
+        total_amount: totalAmount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-    return NextResponse.json({
-      success: true,
-      data: updatedExpense,
-      source: 'mock',
-    });
-  } catch (error) {
-    console.error('Update expense error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '更新报销申请失败',
-    }, { status: 500 });
+    if (dbError) {
+      return NextResponse.json(
+        error('更新报销申请失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(success(data, 'database'));
+  } catch (err) {
+    console.error('Update expense error:', err);
+    return NextResponse.json(
+      error('更新报销申请失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -106,38 +124,49 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const expenseIndex = mockExpenses.findIndex((e: ExpenseReimbursement) => e.id === id);
-
-    if (expenseIndex === -1) {
-      return NextResponse.json({
-        success: false,
-        error: '报销申请不存在',
-      }, { status: 404 });
-    }
-
-    const expense = mockExpenses[expenseIndex];
+    const client = getSupabaseClient();
     
-    // 只有草稿或已拒绝状态才能删除
-    if (expense.status !== 'draft' && expense.status !== 'rejected') {
-      return NextResponse.json({
-        success: false,
-        error: '该状态的报销申请不能删除',
-      }, { status: 400 });
+    // 检查是否存在且状态允许删除
+    const { data: existing, error: fetchError } = await client
+      .from('expense_reimbursements')
+      .select('id, status')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError || !existing) {
+      return NextResponse.json(
+        error('报销申请不存在', ErrorCode.NOT_FOUND),
+        { status: 404 }
+      );
+    }
+    
+    if (existing.status !== 'draft' && existing.status !== 'rejected') {
+      return NextResponse.json(
+        error('该状态的报销申请不能删除', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
     }
 
-    mockExpenses.splice(expenseIndex, 1);
+    // 删除报销申请（级联删除明细）
+    const { error: dbError } = await client
+      .from('expense_reimbursements')
+      .delete()
+      .eq('id', id);
 
-    return NextResponse.json({
-      success: true,
-      data: null,
-      source: 'mock',
-    });
-  } catch (error) {
-    console.error('Delete expense error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '删除报销申请失败',
-    }, { status: 500 });
+    if (dbError) {
+      return NextResponse.json(
+        error('删除报销申请失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(success(null, 'database'));
+  } catch (err) {
+    console.error('Delete expense error:', err);
+    return NextResponse.json(
+      error('删除报销申请失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -150,38 +179,54 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const expenseIndex = mockExpenses.findIndex((e: ExpenseReimbursement) => e.id === id);
-
-    if (expenseIndex === -1) {
-      return NextResponse.json({
-        success: false,
-        error: '报销申请不存在',
-      }, { status: 404 });
-    }
-
-    const expense = mockExpenses[expenseIndex];
+    const client = getSupabaseClient();
     
-    if (expense.status !== 'draft') {
-      return NextResponse.json({
-        success: false,
-        error: '只有草稿状态的报销申请才能提交',
-      }, { status: 400 });
+    // 检查是否存在且为草稿状态
+    const { data: existing, error: fetchError } = await client
+      .from('expense_reimbursements')
+      .select('id, status')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError || !existing) {
+      return NextResponse.json(
+        error('报销申请不存在', ErrorCode.NOT_FOUND),
+        { status: 404 }
+      );
+    }
+    
+    if (existing.status !== 'draft') {
+      return NextResponse.json(
+        error('只有草稿状态的报销申请才能提交', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
     }
 
-    expense.status = 'pending';
-    expense.submittedAt = new Date().toISOString();
-    expense.updatedAt = new Date().toISOString();
+    // 更新状态为待审批
+    const { data, error: dbError } = await client
+      .from('expense_reimbursements')
+      .update({
+        status: 'pending',
+        submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-    return NextResponse.json({
-      success: true,
-      data: expense,
-      source: 'mock',
-    });
-  } catch (error) {
-    console.error('Submit expense error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '提交报销申请失败',
-    }, { status: 500 });
+    if (dbError) {
+      return NextResponse.json(
+        error('提交报销申请失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(success(data, 'database'));
+  } catch (err) {
+    console.error('Submit expense error:', err);
+    return NextResponse.json(
+      error('提交报销申请失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

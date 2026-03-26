@@ -1,6 +1,13 @@
+/**
+ * 费用报销审批API路由
+ * 
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock依赖，数据库失败时返回错误响应
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { mockExpenses } from '@/lib/expense-data';
-import type { ExpenseReimbursement, ApprovalNodeRecord } from '@/types';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
 
 /**
  * POST - 审批报销申请
@@ -13,96 +20,85 @@ export async function POST(
     const { id } = await params;
     const body = await request.json();
     const { approved, comment, approverId, approverName } = body;
-
-    const expenseIndex = mockExpenses.findIndex((e: ExpenseReimbursement) => e.id === id);
-    if (expenseIndex === -1) {
-      return NextResponse.json({
-        success: false,
-        error: '报销申请不存在',
-      }, { status: 404 });
+    const client = getSupabaseClient();
+    
+    // 获取报销申请
+    const { data: expense, error: fetchError } = await client
+      .from('expense_reimbursements')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError || !expense) {
+      return NextResponse.json(
+        error('报销申请不存在', ErrorCode.NOT_FOUND),
+        { status: 404 }
+      );
     }
-
-    const expense = mockExpenses[expenseIndex];
     
     if (expense.status !== 'pending') {
-      return NextResponse.json({
-        success: false,
-        error: '该报销申请不在待审批状态',
-      }, { status: 400 });
+      return NextResponse.json(
+        error('该报销申请不在待审批状态', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
     }
 
-    // 更新状态
+    let newStatus = expense.status;
+    let newCurrentStep = expense.current_step;
+
     if (approved) {
-      // 更新当前审批节点状态
-      const currentStep = expense.currentStep;
-      if (expense.approvalFlow[currentStep]) {
-        expense.approvalFlow[currentStep].status = 'approved';
-        expense.approvalFlow[currentStep].approvedAt = new Date().toISOString();
-      }
-
-      // 添加审批记录
-      const record: ApprovalNodeRecord = {
-        id: `rec-${Date.now()}`,
-        nodeId: expense.approvalFlow[currentStep]?.id || '',
-        nodeName: expense.approvalFlow[currentStep]?.name || '',
-        nodeOrder: currentStep,
-        status: 'approved',
-        approverId: approverId || 'unknown',
-        approverName: approverName || '审批人',
-        approverRole: 'subject_teacher',
-        action: 'approve',
-        comment: comment,
-        actionAt: new Date().toISOString(),
-      };
-      expense.approvalRecords.push(record);
-
       // 移动到下一步
-      const nextStep = currentStep + 1;
-      if (nextStep >= expense.approvalFlow.length) {
-        // 流程完成，进入财务处理阶段
-        expense.status = 'approved';
-        expense.currentStep = expense.approvalFlow.length - 1;
-      } else {
-        expense.currentStep = nextStep;
+      newCurrentStep = (expense.current_step || 0) + 1;
+      
+      // 检查是否完成所有审批步骤
+      const totalSteps = expense.approval_flow?.length || 2;
+      if (newCurrentStep >= totalSteps) {
+        newStatus = 'approved';
       }
     } else {
-      // 拒绝
-      const currentStep = expense.currentStep;
-      if (expense.approvalFlow[currentStep]) {
-        expense.approvalFlow[currentStep].status = 'rejected';
-      }
-
-      // 添加拒绝记录
-      const record: ApprovalNodeRecord = {
-        id: `rec-${Date.now()}`,
-        nodeId: expense.approvalFlow[currentStep]?.id || '',
-        nodeName: expense.approvalFlow[currentStep]?.name || '',
-        nodeOrder: currentStep,
-        status: 'rejected',
-        approverId: approverId || 'unknown',
-        approverName: approverName || '审批人',
-        approverRole: 'subject_teacher',
-        action: 'reject',
-        comment: comment,
-        actionAt: new Date().toISOString(),
-      };
-      expense.approvalRecords.push(record);
-
-      expense.status = 'rejected';
+      newStatus = 'rejected';
     }
 
-    expense.updatedAt = new Date().toISOString();
+    // 更新报销申请
+    const { data, error: dbError } = await client
+      .from('expense_reimbursements')
+      .update({
+        status: newStatus,
+        current_step: newCurrentStep,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-    return NextResponse.json({
-      success: true,
-      data: expense,
-      source: 'mock',
-    });
-  } catch (error) {
-    console.error('Approve expense error:', error);
-    return NextResponse.json({
-      success: false,
-      error: '审批失败',
-    }, { status: 500 });
+    if (dbError) {
+      return NextResponse.json(
+        error('审批失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
+    }
+
+    // 添加审批记录
+    await client
+      .from('approval_records')
+      .insert({
+        workflow_id: id,
+        workflow_type: 'expense',
+        node_id: `step-${expense.current_step}`,
+        node_name: `审批节点${expense.current_step + 1}`,
+        approver_id: approverId || 'unknown',
+        approver_name: approverName || '审批人',
+        action: approved ? 'approve' : 'reject',
+        comment: comment,
+        created_at: new Date().toISOString(),
+      });
+
+    return NextResponse.json(success(data, 'database'));
+  } catch (err) {
+    console.error('Approve expense error:', err);
+    return NextResponse.json(
+      error('审批失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

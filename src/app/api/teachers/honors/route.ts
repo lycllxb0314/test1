@@ -1,6 +1,13 @@
+/**
+ * 教师荣誉 API
+ * 
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { getMockTeacherHonors } from '@/lib/mock/teachers.mock';
+import { success, error, ErrorCode } from '@/lib/api-route-utils';
 
 /**
  * GET - 获取教师荣誉列表
@@ -19,13 +26,13 @@ export async function GET(request: NextRequest) {
 
     if (teacherId) query = query.eq('teacher_id', teacherId);
 
-    const { data, error } = await query;
+    const { data, error: dbError } = await query;
 
-    if (error) {
-      // 数据库失败，使用Mock数据
-      const filteredData = getMockTeacherHonors({ teacherId: teacherId || undefined });
-
-      return NextResponse.json({ success: true, data: filteredData, source: 'mock' });
+    if (dbError) {
+      return NextResponse.json(
+        error('数据库查询失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
     const formattedData = (data || []).map((honor: Record<string, unknown>) => ({
@@ -40,10 +47,13 @@ export async function GET(request: NextRequest) {
       attachments: honor.attachments || [],
     }));
 
-    return NextResponse.json({ success: true, data: formattedData, source: 'database' });
-  } catch (error) {
-    console.error('Failed to fetch teacher honors:', error);
-    return NextResponse.json({ success: true, data: getMockTeacherHonors(), source: 'mock' });
+    return NextResponse.json(success(formattedData, 'database'));
+  } catch (err) {
+    console.error('Failed to fetch teacher honors:', err);
+    return NextResponse.json(
+      error('获取教师荣誉失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -56,7 +66,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { teacherId, title, level, category, issuer, date, certificateNo, attachments } = body;
 
-    const { data, error } = await client
+    const { data, error: dbError } = await client
       .from('teacher_honors')
       .insert({
         teacher_id: teacherId,
@@ -71,32 +81,30 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        data: { id: `h-${Date.now()}`, teacherId, title, level, category, issuer, date, certificateNo, attachments: attachments || [] },
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('添加荣誉失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: data.id,
-        teacherId: data.teacher_id,
-        title: data.title,
-        level: data.level,
-        category: data.category,
-        issuer: data.issuer,
-        date: data.date,
-        certificateNo: data.certificate_no,
-        attachments: data.attachments || [],
-      },
-      source: 'database',
-    });
-  } catch (error) {
-    console.error('Failed to create teacher honor:', error);
-    return NextResponse.json({ success: false, error: '添加荣誉失败' }, { status: 500 });
+    return NextResponse.json(success({
+      id: data.id,
+      teacherId: data.teacher_id,
+      title: data.title,
+      level: data.level,
+      category: data.category,
+      issuer: data.issuer,
+      date: data.date,
+      certificateNo: data.certificate_no,
+      attachments: data.attachments || [],
+    }, 'database'));
+  } catch (err) {
+    console.error('Failed to create teacher honor:', err);
+    return NextResponse.json(
+      error('添加荣誉失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -109,7 +117,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, title, level, category, issuer, date, certificateNo, attachments } = body;
 
-    const { data, error } = await client
+    const { data, error: dbError } = await client
       .from('teacher_honors')
       .update({
         title,
@@ -124,18 +132,20 @@ export async function PUT(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        data: { id, title, level, category, issuer, date, certificateNo, attachments: attachments || [] },
-        source: 'mock',
-      });
+    if (dbError) {
+      return NextResponse.json(
+        error('更新荣誉失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, data, source: 'database' });
-  } catch (error) {
-    console.error('Failed to update teacher honor:', error);
-    return NextResponse.json({ success: false, error: '更新荣誉失败' }, { status: 500 });
+    return NextResponse.json(success(data, 'database'));
+  } catch (err) {
+    console.error('Failed to update teacher honor:', err);
+    return NextResponse.json(
+      error('更新荣誉失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -149,18 +159,27 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ success: false, error: '缺少荣誉ID' }, { status: 400 });
+      return NextResponse.json(
+        error('缺少荣誉ID', ErrorCode.BAD_REQUEST),
+        { status: 400 }
+      );
     }
 
-    const { error } = await client.from('teacher_honors').delete().eq('id', id);
+    const { error: dbError } = await client.from('teacher_honors').delete().eq('id', id);
 
-    if (error) {
-      return NextResponse.json({ success: true, source: 'mock' });
+    if (dbError) {
+      return NextResponse.json(
+        error('删除荣誉失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, source: 'database' });
-  } catch (error) {
-    console.error('Failed to delete teacher honor:', error);
-    return NextResponse.json({ success: false, error: '删除荣誉失败' }, { status: 500 });
+  } catch (err) {
+    console.error('Failed to delete teacher honor:', err);
+    return NextResponse.json(
+      error('删除荣誉失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }

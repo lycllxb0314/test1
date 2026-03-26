@@ -1,6 +1,9 @@
 /**
  * 请假申请 API
  * 
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ * 
  * 流程：
  * 1. 创建 leave_requests 记录
  * 2. 创建 approval_instances 审批实例
@@ -9,11 +12,7 @@
 
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  getMockLeaveRequests,
-} from '@/lib/mock/academic.mock';
-import { ok, fail, serverError, paginated, getQueryParams, forbidden, notFound } from '@/lib/api-utils';
-import type { LeaveRequest } from '@/types';
+import { ok, fail, serverError, paginated, getQueryParams, notFound } from '@/lib/api-utils';
 
 /**
  * GET - 获取请假申请列表
@@ -66,36 +65,13 @@ export async function GET(request: NextRequest) {
     const { data, error: dbError, count } = await query;
     
     if (dbError) {
-      console.log('Database query failed, using mock data:', dbError.message);
-      
-      // 使用Mock数据
-      const mockData = getMockLeaveRequests({
-        applicantId: filters.applicantId as string,
-        status: filters.status as string,
-        type: filters.type as string,
-      });
-      
-      const start = (page - 1) * pageSize;
-      const end = start + pageSize;
-      
-      return paginated(mockData.slice(start, end), count || mockData.length, page, pageSize);
+      return fail('数据库查询失败: ' + dbError.message);
     }
     
     return paginated(data || [], count || 0, page, pageSize);
   } catch (err) {
     console.error('Failed to fetch leave requests:', err);
-    
-    // 使用Mock数据作为fallback
-    const mockData = getMockLeaveRequests({
-      applicantId: filters.applicantId as string,
-      status: filters.status as string,
-      type: filters.type as string,
-    });
-    
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    
-    return paginated(mockData.slice(start, end), mockData.length, page, pageSize);
+    return serverError('获取请假申请列表失败');
   }
 }
 

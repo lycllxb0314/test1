@@ -1,21 +1,18 @@
 /**
  * 基准课表 API
  * 
- * 使用统一的路由处理模式和集中的Mock数据
+ * 数据源：Supabase 数据库（唯一数据源）
+ * v3.0: 移除Mock fallback，数据库失败时返回错误响应
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  getMockBaseSchedule,
-} from '@/lib/mock/schedules.mock';
 import { 
   success, 
   error, 
   parseQueryParams, 
   ErrorCode 
 } from '@/lib/api-route-utils';
-import type { BaseScheduleSlot } from '@/types';
 
 /**
  * GET - 获取基准课表
@@ -52,28 +49,19 @@ export async function GET(request: NextRequest) {
     const { data, error: dbError } = await query;
     
     if (dbError) {
-      console.log('Database query failed, using mock data:', dbError.message);
-      
-      // 使用Mock数据
-      const mockData = getMockBaseSchedule({
-        classId: params.classId as string,
-        semester: params.semester as string
-      });
-      
-      return NextResponse.json(success(mockData, 'mock'));
+      return NextResponse.json(
+        error('数据库查询失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
     }
     
     return NextResponse.json(success(data || [], 'database'));
   } catch (err) {
     console.error('Failed to fetch base schedules:', err);
-    
-    // 使用Mock数据作为fallback
-    const mockData = getMockBaseSchedule({
-      classId: params.classId as string,
-      semester: params.semester as string
-    });
-    
-    return NextResponse.json(success(mockData, 'mock'));
+    return NextResponse.json(
+      error('获取基准课表失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
 
@@ -98,9 +86,8 @@ export async function POST(request: NextRequest) {
       .select();
     
     if (dbError) {
-      console.error('Database insert error:', dbError);
       return NextResponse.json(
-        error('创建课表失败', ErrorCode.INTERNAL_ERROR),
+        error('创建课表失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
         { status: 500 }
       );
     }
@@ -141,8 +128,10 @@ export async function PUT(request: NextRequest) {
         .single();
       
       if (dbError) {
-        console.error('Database update error:', dbError);
-        return NextResponse.json(success({ id: body.id, ...body.data }, 'mock'));
+        return NextResponse.json(
+          error('更新课表失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+          { status: 500 }
+        );
       }
       
       return NextResponse.json(success(data, 'database'));
@@ -150,7 +139,7 @@ export async function PUT(request: NextRequest) {
     
     // 批量更新
     if (Array.isArray(body.slots)) {
-      const updates = body.slots.map((slot: BaseScheduleSlot) =>
+      const updatePromises = body.slots.map((slot: { id: string }) =>
         client
           .from('base_schedules')
           .update({
@@ -160,7 +149,7 @@ export async function PUT(request: NextRequest) {
           .eq('id', slot.id)
       );
       
-      await Promise.all(updates);
+      await Promise.all(updatePromises);
       
       return NextResponse.json({
         success: true,
@@ -201,8 +190,10 @@ export async function DELETE(request: NextRequest) {
         .eq('id', id);
       
       if (dbError) {
-        console.error('Database delete error:', dbError);
-        return NextResponse.json(success({ id }, 'mock'));
+        return NextResponse.json(
+          error('删除课表失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+          { status: 500 }
+        );
       }
     } else if (classId) {
       // 删除班级所有课表
@@ -212,8 +203,10 @@ export async function DELETE(request: NextRequest) {
         .eq('class_id', classId);
       
       if (dbError) {
-        console.error('Database delete error:', dbError);
-        return NextResponse.json(success({ classId }, 'mock'));
+        return NextResponse.json(
+          error('删除课表失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+          { status: 500 }
+        );
       }
     }
     

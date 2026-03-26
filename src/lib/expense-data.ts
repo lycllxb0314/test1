@@ -1,4 +1,10 @@
-import type { ExpenseReimbursement, ExpenseCategory } from '@/types';
+/**
+ * 费用报销数据模块
+ * 
+ * v3.0: 移除Mock数据，保留静态配置
+ */
+
+import type { ExpenseCategory } from '@/types';
 
 // 报销类别配置
 export const expenseCategories: { id: ExpenseCategory; name: string; icon: string }[] = [
@@ -14,169 +20,9 @@ export const expenseCategories: { id: ExpenseCategory; name: string; icon: strin
   { id: 'other', name: '其他', icon: '📋' },
 ];
 
-// 模拟发票图片（使用占位图）
-const mockInvoiceImage1 = 'https://via.placeholder.com/400x300/4F46E5/FFFFFF?text=发票-打印纸';
-const mockInvoiceImage2 = 'https://via.placeholder.com/400x300/059669/FFFFFF?text=发票-签字笔';
-const mockInvoiceImage3 = 'https://via.placeholder.com/400x300/DC2626/FFFFFF?text=发票-高铁票';
-const mockInvoiceImage4 = 'https://via.placeholder.com/400x300/7C3AED/FFFFFF?text=发票-住宿费';
-const mockPaymentVoucher = 'https://via.placeholder.com/400x300/16A34A/FFFFFF?text=银行转账凭证';
-
-// 模拟报销数据
-export const mockExpenses: ExpenseReimbursement[] = [
-  {
-    id: 'EXP-2024-001',
-    expenseNo: 'BX20240315001',
-    title: '教学办公用品采购',
-    applicantId: 'teacher-001',
-    applicantName: '张老师',
-    applicantRole: 'subject_teacher',
-    department: '语文教研组',
-    phone: '13800138001',
-    category: 'office_supplies',
-    items: [
-      { id: 'item-001', name: 'A4打印纸', category: 'office_supplies', amount: 280, expenseDate: '2024-03-10', invoiceNo: 'FP-2024-001', invoiceImages: [mockInvoiceImage1] },
-      { id: 'item-002', name: '签字笔', category: 'office_supplies', amount: 120, expenseDate: '2024-03-10', invoiceNo: 'FP-2024-002', invoiceImages: [mockInvoiceImage2] },
-      { id: 'item-003', name: '文件夹', category: 'office_supplies', amount: 100, expenseDate: '2024-03-12' },
-    ],
-    totalAmount: 500,
-    description: '语文教研组办公用品采购',
-    status: 'approved',
-    approvalFlow: [
-      { id: 'node-1', name: '部门负责人', approverRole: 'academic_director', status: 'approved', approvedAt: '2024-03-16' },
-      { id: 'node-2', name: '总务主任', approverRole: 'general_director', status: 'approved', approvedAt: '2024-03-17' },
-      { id: 'node-3', name: '财务处理', approverRole: 'general_director', status: 'pending' },
-    ],
-    currentStep: 2,
-    approvalRecords: [
-      { id: 'rec-1', workflowId: 'EXP-2024-001', workflowType: 'leave', nodeId: 'node-1', nodeName: '部门负责人', approverId: 'director-001', approverName: '王主任', approverRole: 'academic_director', action: 'approve', comment: '同意', createdAt: '2024-03-16 09:30:00' },
-      { id: 'rec-2', workflowId: 'EXP-2024-001', workflowType: 'leave', nodeId: 'node-2', nodeName: '总务主任', approverId: 'director-002', approverName: '李主任', approverRole: 'general_director', action: 'approve', comment: '同意报销', createdAt: '2024-03-17 14:20:00' },
-    ],
-    createdAt: '2024-03-15 10:30:00',
-    updatedAt: '2024-03-17 14:20:00',
-    submittedAt: '2024-03-15 10:30:00',
-  },
-  {
-    id: 'EXP-2024-002',
-    expenseNo: 'BX20240314001',
-    title: '外出培训差旅费',
-    applicantId: 'teacher-002',
-    applicantName: '李老师',
-    applicantRole: 'subject_teacher',
-    department: '数学教研组',
-    phone: '13800138002',
-    category: 'travel',
-    items: [
-      { id: 'item-004', name: '高铁票', category: 'travel', amount: 553, invoiceNo: 'GT20240310', expenseDate: '2024-03-10', invoiceImages: [mockInvoiceImage3] },
-      { id: 'item-005', name: '住宿费', category: 'travel', amount: 450, invoiceNo: 'HOTEL20240310', expenseDate: '2024-03-10', invoiceImages: [mockInvoiceImage4] },
-      { id: 'item-006', name: '餐饮费', category: 'travel', amount: 200, expenseDate: '2024-03-10' },
-    ],
-    totalAmount: 1203,
-    description: '参加省级数学教学研讨会差旅费用',
-    status: 'pending',
-    approvalFlow: [
-      { id: 'node-1', name: '部门负责人', approverRole: 'academic_director', status: 'approved', approvedAt: '2024-03-14' },
-      { id: 'node-2', name: '总务主任', approverRole: 'general_director', status: 'pending' },
-      { id: 'node-3', name: '财务处理', approverRole: 'general_director', status: 'pending' },
-    ],
-    currentStep: 1,
-    approvalRecords: [
-      { id: 'rec-3', workflowId: 'EXP-2024-002', workflowType: 'leave', nodeId: 'node-1', nodeName: '部门负责人', approverId: 'director-001', approverName: '王主任', approverRole: 'academic_director', action: 'approve', comment: '同意，培训很重要', createdAt: '2024-03-14 16:00:00' },
-    ],
-    createdAt: '2024-03-14 11:20:00',
-    updatedAt: '2024-03-14 16:00:00',
-    submittedAt: '2024-03-14 11:20:00',
-  },
-  {
-    id: 'EXP-2024-003',
-    expenseNo: 'BX20240312001',
-    title: '少先队活动经费',
-    applicantId: 'teacher-003',
-    applicantName: '王老师',
-    applicantRole: 'head_teacher',
-    department: '少先队',
-    phone: '13800138003',
-    category: 'activity',
-    items: [
-      { id: 'item-007', name: '活动奖品', category: 'activity', amount: 300, expenseDate: '2024-03-08', invoiceImages: ['https://via.placeholder.com/400x300/F59E0B/FFFFFF?text=奖品发票'] },
-      { id: 'item-008', name: '活动道具', category: 'activity', amount: 200, expenseDate: '2024-03-08', invoiceImages: ['https://via.placeholder.com/400x300/10B981/FFFFFF?text=道具发票'] },
-      { id: 'item-009', name: '横幅制作', category: 'activity', amount: 150, expenseDate: '2024-03-08' },
-    ],
-    totalAmount: 650,
-    description: '植树节活动经费',
-    attachments: ['receipt-001.jpg', 'receipt-002.jpg'],
-    status: 'completed',
-    approvalFlow: [
-      { id: 'node-1', name: '部门负责人', approverRole: 'moral_director', status: 'approved', approvedAt: '2024-03-12' },
-      { id: 'node-2', name: '总务主任', approverRole: 'general_director', status: 'approved', approvedAt: '2024-03-13' },
-      { id: 'node-3', name: '财务处理', approverRole: 'general_director', status: 'approved', approvedAt: '2024-03-14' },
-    ],
-    currentStep: 3,
-    approvalRecords: [
-      { id: 'rec-4', workflowId: 'EXP-2024-003', workflowType: 'leave', nodeId: 'node-1', nodeName: '部门负责人', approverId: 'director-003', approverName: '刘主任', approverRole: 'moral_director', action: 'approve', createdAt: '2024-03-12 15:00:00' },
-      { id: 'rec-5', workflowId: 'EXP-2024-003', workflowType: 'leave', nodeId: 'node-2', nodeName: '总务主任', approverId: 'director-002', approverName: '李主任', approverRole: 'general_director', action: 'approve', createdAt: '2024-03-13 10:00:00' },
-    ],
-    financeHandlerId: 'finance-001',
-    financeHandlerName: '财务小张',
-    paymentNo: 'PAY-2024-003',
-    bankTransactionNo: 'BANK-20240314-001',
-    paymentDate: '2024-03-14',
-    paymentVouchers: [mockPaymentVoucher],
-    createdAt: '2024-03-12 09:00:00',
-    updatedAt: '2024-03-14 16:00:00',
-    submittedAt: '2024-03-12 09:00:00',
-    completedAt: '2024-03-14 16:00:00',
-  },
-  {
-    id: 'EXP-2024-004',
-    expenseNo: 'BX20240310001',
-    title: '教学材料采购',
-    applicantId: 'teacher-004',
-    applicantName: '陈老师',
-    applicantRole: 'subject_teacher',
-    department: '英语教研组',
-    phone: '13800138004',
-    category: 'teaching_materials',
-    items: [
-      { id: 'item-010', name: '英语教辅资料', category: 'teaching_materials', amount: 380, expenseDate: '2024-03-08' },
-      { id: 'item-011', name: '英语绘本', category: 'teaching_materials', amount: 220, expenseDate: '2024-03-08' },
-    ],
-    totalAmount: 600,
-    description: '英语教学辅助材料采购',
-    status: 'rejected',
-    approvalFlow: [
-      { id: 'node-1', name: '部门负责人', approverRole: 'academic_director', status: 'rejected' },
-    ],
-    currentStep: 0,
-    approvalRecords: [
-      { id: 'rec-6', workflowId: 'EXP-2024-004', workflowType: 'leave', nodeId: 'node-1', nodeName: '部门负责人', approverId: 'director-001', approverName: '王主任', approverRole: 'academic_director', action: 'reject', comment: '材料已有库存，暂不需要采购', createdAt: '2024-03-10 14:00:00' },
-    ],
-    createdAt: '2024-03-10 10:00:00',
-    updatedAt: '2024-03-10 14:00:00',
-    submittedAt: '2024-03-10 10:00:00',
-  },
-  {
-    id: 'EXP-2024-005',
-    expenseNo: 'BX20240318001',
-    title: '教研活动材料费',
-    applicantId: 'teacher-005',
-    applicantName: '赵老师',
-    applicantRole: 'head_teacher',  // 年段长通常是班主任兼任
-    department: '语文教研组',
-    phone: '13800138005',
-    category: 'training',
-    items: [
-      { id: 'item-012', name: '教研活动材料', category: 'training', amount: 450, expenseDate: '2024-03-16' },
-    ],
-    totalAmount: 450,
-    description: '年级组教研活动材料费用',
-    status: 'draft',
-    approvalFlow: [
-      { id: 'node-1', name: '部门负责人', approverRole: 'academic_director', status: 'pending' },
-      { id: 'node-2', name: '总务主任', approverRole: 'general_director', status: 'pending' },
-    ],
-    currentStep: 0,
-    approvalRecords: [],
-    createdAt: '2024-03-17 16:00:00',
-    updatedAt: '2024-03-17 16:00:00',
-  },
-];
+/**
+ * 获取报销类别名称
+ */
+export function getExpenseCategoryName(category: ExpenseCategory): string {
+  return expenseCategories.find(c => c.id === category)?.name || category;
+}
