@@ -44,6 +44,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Award,
@@ -192,6 +206,7 @@ export default function StudentHonorsPage() {
   // === 表单状态 ===
   const [formData, setFormData] = useState({
     studentId: '',
+    studentName: '',
     title: '',
     level: '校级' as HonorLevel,
     category: '综合' as HonorCategory,
@@ -200,6 +215,10 @@ export default function StudentHonorsPage() {
     certificateNo: '',
     description: '',
   });
+  
+  // === 学生搜索状态 ===
+  const [studentSearchOpen, setStudentSearchOpen] = useState(false);
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
 
   // ==================== 数据加载 ====================
 
@@ -276,6 +295,7 @@ export default function StudentHonorsPage() {
     setDialogMode('create');
     setFormData({
       studentId: '',
+      studentName: '',
       title: '',
       level: '校级',
       category: '综合',
@@ -284,6 +304,7 @@ export default function StudentHonorsPage() {
       certificateNo: '',
       description: '',
     });
+    setStudentSearchTerm('');
     setDialogOpen(true);
   };
 
@@ -293,6 +314,7 @@ export default function StudentHonorsPage() {
     setSelectedHonor(honor);
     setFormData({
       studentId: honor.studentId,
+      studentName: honor.studentName,
       title: honor.title,
       level: honor.level,
       category: honor.category,
@@ -301,6 +323,7 @@ export default function StudentHonorsPage() {
       certificateNo: honor.certificateNo || '',
       description: honor.description || '',
     });
+    setStudentSearchTerm(honor.studentName);
     setDialogOpen(true);
   };
 
@@ -866,25 +889,75 @@ export default function StudentHonorsPage() {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
-            {/* 学生选择 */}
+            {/* 学生选择 - 搜索式 */}
             <div className="grid gap-2">
               <Label>学生 *</Label>
-              <Select 
-                value={formData.studentId} 
-                onValueChange={(v) => setFormData(prev => ({ ...prev, studentId: v }))}
-                disabled={dialogMode === 'edit'}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择学生" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} ({s.className})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={studentSearchOpen} onOpenChange={setStudentSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={studentSearchOpen}
+                    className="justify-between font-normal"
+                    disabled={dialogMode === 'edit'}
+                  >
+                    {formData.studentName || '搜索选择学生...'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command shouldFilter={false}>
+                    <CommandInput 
+                      placeholder="输入学生姓名或学号搜索..." 
+                      value={studentSearchTerm}
+                      onValueChange={setStudentSearchTerm}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {studentSearchTerm ? '未找到匹配的学生' : '请输入姓名或学号搜索'}
+                      </CommandEmpty>
+                      <CommandGroup className="max-h-[300px] overflow-auto">
+                        {students
+                          .filter(s => 
+                            !studentSearchTerm || 
+                            s.name.includes(studentSearchTerm) || 
+                            s.studentNo?.includes(studentSearchTerm) ||
+                            s.className?.includes(studentSearchTerm)
+                          )
+                          .slice(0, 50) // 限制显示数量
+                          .map((s) => (
+                            <CommandItem
+                              key={s.id}
+                              value={s.id}
+                              onSelect={() => {
+                                setFormData(prev => ({ 
+                                  ...prev, 
+                                  studentId: s.id,
+                                  studentName: s.name,
+                                }));
+                                setStudentSearchTerm(s.name);
+                                setStudentSearchOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  formData.studentId === s.id ? 'opacity-100' : 'opacity-0'
+                                }`}
+                              />
+                              <span className="font-medium">{s.name}</span>
+                              <span className="ml-2 text-muted-foreground text-sm">
+                                {s.studentNo} · {s.className}
+                              </span>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {dialogMode === 'edit' && (
+                <p className="text-xs text-muted-foreground">编辑时不可更改学生</p>
+              )}
             </div>
 
             {/* 荣誉名称 */}
