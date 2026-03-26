@@ -741,9 +741,8 @@ export const approvalInstances = pgTable("approval_instances", {
 	flowId: uuid("flow_id"),
 	flowName: varchar("flow_name", { length: 100 }),
 	businessType: varchar("business_type", { length: 50 }).notNull(),
-	businessId: uuid("business_id").notNull(),
+	businessId: varchar("business_id", { length: 100 }).notNull(),
 	title: varchar({ length: 255 }).notNull(),
-	applicantId: uuid("applicant_id"),
 	applicantName: varchar("applicant_name", { length: 100 }),
 	applicantDepartment: varchar("applicant_department", { length: 100 }),
 	currentNodeOrder: integer("current_node_order").default(1),
@@ -753,19 +752,14 @@ export const approvalInstances = pgTable("approval_instances", {
 	metadata: jsonb().default({}),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	applicantId: varchar("applicant_id", { length: 100 }),
 }, (table) => [
-	index("idx_approval_instances_applicant").using("btree", table.applicantId.asc().nullsLast().op("uuid_ops")),
-	index("idx_approval_instances_business").using("btree", table.businessType.asc().nullsLast().op("text_ops"), table.businessId.asc().nullsLast().op("uuid_ops")),
+	index("idx_approval_instances_business").using("btree", table.businessType.asc().nullsLast().op("text_ops"), table.businessId.asc().nullsLast().op("text_ops")),
 	index("idx_approval_instances_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
 	foreignKey({
 			columns: [table.flowId],
 			foreignColumns: [approvalFlows.id],
 			name: "approval_instances_flow_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.applicantId],
-			foreignColumns: [users.id],
-			name: "approval_instances_applicant_id_fkey"
 		}).onDelete("set null"),
 ]);
 
@@ -1370,39 +1364,6 @@ export const informationCollectionResponses = pgTable("information_collection_re
 	unique("information_collection_responses_collection_id_parent_id_key").on(table.collectionId, table.parentId),
 ]);
 
-// ============================================================
-// 教室管理相关表
-// ============================================================
-
-// 教室表
-export const rooms = pgTable("rooms", {
-	id: varchar({ length: 50 }).primaryKey().notNull(),
-	name: varchar({ length: 200 }).notNull(),
-	code: varchar({ length: 50 }).notNull(),
-	type: varchar({ length: 50 }).notNull(), // seminar_room, lecture_hall, multimedia_room, lab, meeting_room, activity_room
-	building: varchar({ length: 100 }).notNull(),
-	floor: integer(),
-	location: varchar({ length: 200 }),
-	capacity: integer().default(30),
-	area: integer(),
-	facilities: jsonb().default({}),
-	extraFacilities: jsonb("extra_facilities"),
-	status: varchar({ length: 20 }).default('available').notNull(), // available, in_use, reserved, maintenance, locked
-	managerId: varchar("manager_id", { length: 50 }),
-	managerName: varchar("manager_name", { length: 100 }),
-	departmentId: varchar("department_id", { length: 50 }),
-	usageStats: jsonb("usage_stats"),
-	images: jsonb(),
-	remark: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_rooms_building").using("btree", table.building.asc().nullsLast().op("text_ops")),
-	index("idx_rooms_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
-	index("idx_rooms_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
-]);
-
-// 教室预约表
 export const roomBookings = pgTable("room_bookings", {
 	id: varchar({ length: 50 }).primaryKey().notNull(),
 	roomId: varchar("room_id", { length: 50 }).notNull(),
@@ -1415,7 +1376,7 @@ export const roomBookings = pgTable("room_bookings", {
 	applicantRole: varchar("applicant_role", { length: 50 }).notNull(),
 	department: varchar({ length: 100 }),
 	phone: varchar({ length: 20 }),
-	purpose: varchar({ length: 50 }).notNull(), // teaching, meeting, training, activity, exam, defense, competition, other
+	purpose: varchar({ length: 50 }).notNull(),
 	purposeDetail: varchar("purpose_detail", { length: 500 }),
 	title: varchar({ length: 200 }).notNull(),
 	description: text(),
@@ -1424,9 +1385,9 @@ export const roomBookings = pgTable("room_bookings", {
 	endTime: varchar("end_time", { length: 10 }).notNull(),
 	duration: integer().notNull(),
 	expectedAttendees: integer("expected_attendees").notNull(),
-	attendeeType: varchar("attendee_type", { length: 20 }), // teacher, student, mixed, external
+	attendeeType: varchar("attendee_type", { length: 20 }),
 	requiredFacilities: jsonb("required_facilities"),
-	status: varchar({ length: 20 }).default('pending').notNull(), // pending, approved, rejected, cancelled, completed, in_progress
+	status: varchar({ length: 20 }).default('pending').notNull(),
 	approvalFlow: jsonb("approval_flow").default([]),
 	currentStep: integer("current_step").default(0),
 	rejectReason: text("reject_reason"),
@@ -1444,14 +1405,82 @@ export const roomBookings = pgTable("room_bookings", {
 	cleaningRequested: boolean("cleaning_requested").default(false),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	timeSlot: varchar("time_slot", { length: 50 }),
+	timeSlots: text("time_slots").array(),
 }, (table) => [
+	index("idx_room_bookings_applicant").using("btree", table.applicantId.asc().nullsLast().op("text_ops")),
 	index("idx_room_bookings_date").using("btree", table.bookingDate.asc().nullsLast().op("date_ops")),
 	index("idx_room_bookings_room").using("btree", table.roomId.asc().nullsLast().op("text_ops")),
 	index("idx_room_bookings_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
-	index("idx_room_bookings_applicant").using("btree", table.applicantId.asc().nullsLast().op("text_ops")),
 	foreignKey({
 			columns: [table.roomId],
 			foreignColumns: [rooms.id],
 			name: "room_bookings_room_id_fkey"
 		}).onDelete("cascade"),
+]);
+
+export const rooms = pgTable("rooms", {
+	id: varchar({ length: 50 }).primaryKey().notNull(),
+	name: varchar({ length: 100 }).notNull(),
+	building: varchar({ length: 100 }),
+	floor: integer(),
+	capacity: integer().default(50),
+	type: varchar({ length: 50 }).notNull(),
+	facilities: jsonb(),
+	status: varchar({ length: 20 }).default('available'),
+	description: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	code: varchar({ length: 50 }),
+	location: varchar({ length: 200 }),
+	area: integer(),
+	extraFacilities: jsonb("extra_facilities"),
+	managerId: varchar("manager_id", { length: 50 }),
+	managerName: varchar("manager_name", { length: 100 }),
+	departmentId: varchar("department_id", { length: 50 }),
+	usageStats: jsonb("usage_stats"),
+	images: jsonb(),
+	remark: text(),
+}, (table) => [
+	index("idx_rooms_status").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("idx_rooms_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
+]);
+
+// 值日老师安排表
+export const dutyTeachers = pgTable("duty_teachers", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
+	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
+	grade: integer().notNull(),
+	weekDay: integer("week_day").notNull(),
+	isActive: boolean("is_active").default(true),
+	startDate: date("start_date"),
+	endDate: date("end_date"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_duty_teachers_grade").using("btree", table.grade.asc().nullsLast().op("int4_ops")),
+	index("idx_duty_teachers_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
+	index("idx_duty_teachers_week_day").using("btree", table.weekDay.asc().nullsLast().op("int4_ops")),
+]);
+
+// 班级常规评分表
+export const routineScores = pgTable("routine_scores", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	classId: varchar("class_id", { length: 50 }).notNull(),
+	className: varchar("class_name", { length: 50 }).notNull(),
+	grade: integer().notNull(),
+	date: date().notNull(),
+	category: varchar({ length: 50 }).notNull(),
+	score: integer().notNull(),
+	maxScore: integer("max_score").default(10),
+	teacherId: varchar("teacher_id", { length: 50 }).notNull(),
+	teacherName: varchar("teacher_name", { length: 50 }).notNull(),
+	remark: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_routine_scores_class").using("btree", table.classId.asc().nullsLast().op("text_ops")),
+	index("idx_routine_scores_date").using("btree", table.date.asc().nullsLast().op("date_ops")),
+	index("idx_routine_scores_grade").using("btree", table.grade.asc().nullsLast().op("int4_ops")),
+	index("idx_routine_scores_teacher").using("btree", table.teacherId.asc().nullsLast().op("text_ops")),
 ]);

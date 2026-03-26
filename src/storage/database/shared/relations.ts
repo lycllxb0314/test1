@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { workflowConfigs, workflowInstances, approvalRecords, courses, teacherCourses, semesters, dailySchedules, users, approvalFlows, approvalFlowNodes, approvalInstances, approvalNodeRecords, announcements, messages, messageReads, scheduleDrafts, scheduleSlots, childHeartPaths, philosophyActivities, achievementCategories, achievements, students, habitStars, habitGoalTemplates, habitStudentGoals, habitDailyRecords, moralActivities, moralActivitySubmissions, informationCollections, informationCollectionResponses } from "./schema";
+import { workflowConfigs, workflowInstances, approvalRecords, courses, teacherCourses, semesters, dailySchedules, users, approvalFlows, approvalFlowNodes, approvalInstances, approvalNodeRecords, announcements, messages, messageReads, scheduleDrafts, scheduleSlots, childHeartPaths, philosophyActivities, achievementCategories, achievements, students, habitStars, habitGoalTemplates, habitStudentGoals, habitDailyRecords, moralActivities, moralActivitySubmissions, informationCollections, informationCollectionResponses, rooms, roomBookings } from "./schema";
 
 export const workflowInstancesRelations = relations(workflowInstances, ({one, many}) => ({
 	workflowConfig: one(workflowConfigs, {
@@ -53,7 +53,6 @@ export const approvalFlowsRelations = relations(approvalFlows, ({one, many}) => 
 
 export const usersRelations = relations(users, ({many}) => ({
 	approvalFlows: many(approvalFlows),
-	approvalInstances: many(approvalInstances),
 	announcements: many(announcements),
 	messages_senderId: many(messages, {
 		relationName: "messages_senderId_users_id"
@@ -75,10 +74,6 @@ export const approvalInstancesRelations = relations(approvalInstances, ({one, ma
 	approvalFlow: one(approvalFlows, {
 		fields: [approvalInstances.flowId],
 		references: [approvalFlows.id]
-	}),
-	user: one(users, {
-		fields: [approvalInstances.applicantId],
-		references: [users.id]
 	}),
 	approvalNodeRecords: many(approvalNodeRecords),
 }));
@@ -205,4 +200,15 @@ export const informationCollectionResponsesRelations = relations(informationColl
 
 export const informationCollectionsRelations = relations(informationCollections, ({many}) => ({
 	informationCollectionResponses: many(informationCollectionResponses),
+}));
+
+export const roomBookingsRelations = relations(roomBookings, ({one}) => ({
+	room: one(rooms, {
+		fields: [roomBookings.roomId],
+		references: [rooms.id]
+	}),
+}));
+
+export const roomsRelations = relations(rooms, ({many}) => ({
+	roomBookings: many(roomBookings),
 }));

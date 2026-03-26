@@ -137,6 +137,7 @@ const moralNav: NavItem[] = [
   { name: '习惯养成', href: '/moral/habit', icon: Target, description: '八大习惯目标管理', badge: '新' },
   { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '发布管理德育活动', badge: '新' },
   { name: '学生荣誉', href: '/moral/honors', icon: Award, description: '学生荣誉管理与可视化', badge: '新' },
+  { name: '班级常规', href: '/moral/routine', icon: ClipboardCheck, description: '班级常规评比与值日管理', badge: '新' },
 ];
 
 // 教师空间导航 - 基础功能（所有教师可见，待重建）
@@ -192,6 +193,7 @@ export function AppSidebar() {
   const [activeModule, setActiveModule] = useState<ModuleType | null>(null);
   const [expandedItems, setExpandedItems] = useState<string[]>([]); // 展开的三级菜单项
   const [userGroups, setUserGroups] = useState<{ groupType: GroupType }[]>([]); // 用户群组成员身份
+  const [isDutyTeacher, setIsDutyTeacher] = useState(false); // 是否为值日老师
 
   // 处理退出登录
   const handleLogout = async () => {
@@ -212,6 +214,23 @@ export function AppSidebar() {
         .catch(err => console.error('获取用户群组失败:', err));
     }
   }, [user?.id]);
+
+  // 检查是否为值日老师
+  useEffect(() => {
+    if (user?.id && (user.role === 'head_teacher' || user.role === 'subject_teacher')) {
+      fetch(`/api/duty-teachers?teacherId=${user.id}&active=true`)
+        .then(res => res.json())
+        .then(data => {
+          setIsDutyTeacher(data.success && data.data?.length > 0);
+        })
+        .catch(err => {
+          console.error('检查值日状态失败:', err);
+          setIsDutyTeacher(false);
+        });
+    } else {
+      setIsDutyTeacher(false);
+    }
+  }, [user?.id, user?.role]);
 
   // 根据当前路径确定活跃模块
   useEffect(() => {
@@ -272,19 +291,37 @@ export function AppSidebar() {
       case 'moral':
         return moralNav;
       case 'teacher':
+        // 值日工作导航项
+        const dutyNavItem: NavItem = { 
+          name: '值日工作', 
+          href: '/teacher/duty', 
+          icon: ClipboardCheck, 
+          description: '班级常规评分',
+          badge: '值日'
+        };
+        
         // 班主任有基础功能 + 班主任专属功能
         if (isHeadTeacher) {
-          return [...teacherBaseNav, ...headTeacherNav];
+          const nav = [...teacherBaseNav, ...headTeacherNav];
+          if (isDutyTeacher) nav.push(dutyNavItem);
+          return nav;
         }
         // 科任教师（副班主任）有基础功能 + 科任教师功能
         if (isSubTeacher) {
-          return [...teacherBaseNav, ...subTeacherNav];
+          const nav = [...teacherBaseNav, ...subTeacherNav];
+          if (isDutyTeacher) nav.push(dutyNavItem);
+          return nav;
         }
         // 年段长有基础功能 + 年段长专属功能
         if (isGradeLeader) {
-          return [...teacherBaseNav, ...gradeLeaderNav];
+          const nav = [...teacherBaseNav, ...gradeLeaderNav];
+          if (isDutyTeacher) nav.push(dutyNavItem);
+          return nav;
         }
-        // 普通教师只有基础功能
+        // 普通教师只有基础功能，但如果是值日老师则显示值日工作
+        if (isDutyTeacher) {
+          return [...teacherBaseNav, dutyNavItem];
+        }
         return teacherBaseNav;
       case 'parent':
         return parentNav;
