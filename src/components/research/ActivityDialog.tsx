@@ -63,7 +63,7 @@ export default function ActivityDialog({
     
     setSubmitting(true);
     try {
-      const res = await fetch('/api/research/activities-new', {
+      const res = await fetch('/api/research/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

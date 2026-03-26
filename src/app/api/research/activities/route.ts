@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { 
       themeId, 
+      stageId,
       title, 
       type, 
       description, 
@@ -108,6 +109,7 @@ export async function POST(request: NextRequest) {
       .from('research_activities')
       .insert({
         theme_id: themeId,
+        stage_id: stageId || null,
         title,
         type: type || 'lesson_observation',
         description,
@@ -117,6 +119,7 @@ export async function POST(request: NextRequest) {
         host_id: user.id,
         host_name: user.name,
         status: 'scheduled',
+        participant_ids: participantIds || [],
         participants: participants || [],
       })
       .select()
@@ -127,11 +130,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(error('创建失败', ErrorCode.DATABASE_ERROR), { status: 500 });
     }
     
+    // 更新主题统计
+    const { data: currentStats } = await supabase
+      .from('research_statistics')
+      .select('total_activities')
+      .eq('theme_id', themeId)
+      .single();
+    
+    if (currentStats) {
+      await supabase
+        .from('research_statistics')
+        .update({
+          total_activities: (currentStats.total_activities || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('theme_id', themeId);
+    }
+    
     return NextResponse.json({
       success: true,
       data: {
         id: data.id,
         themeId: data.theme_id,
+        stageId: data.stage_id,
         title: data.title,
         type: data.type,
         typeLabel: ACTIVITY_TYPE_LABELS[data.type as string],
