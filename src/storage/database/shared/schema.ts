@@ -1580,6 +1580,8 @@ export const researchActivities = pgTable("research_activities", {
 	status: varchar({ length: 50 }).default('scheduled'), // scheduled, in_progress, completed, cancelled
 	meetingMinutes: text(), // 会议纪要
 	attachments: jsonb(), // 附件列表
+	bookingId: varchar("booking_id", { length: 100 }), // 关联教室预约ID
+	roomId: varchar("room_id", { length: 100 }), // 关联教室ID
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [

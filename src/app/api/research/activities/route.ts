@@ -99,6 +99,8 @@ export async function POST(request: NextRequest) {
       duration,
       participantIds,
       participants,
+      bookingId,
+      roomId,
     } = body;
     
     if (!themeId || !title) {
@@ -121,6 +123,8 @@ export async function POST(request: NextRequest) {
         status: 'scheduled',
         participant_ids: participantIds || [],
         participants: participants || [],
+        booking_id: bookingId || null,
+        room_id: roomId || null,
       })
       .select()
       .single();
@@ -159,6 +163,11 @@ export async function POST(request: NextRequest) {
         status: data.status,
         statusLabel: ACTIVITY_STATUS_LABELS[data.status as string],
         participants: data.participants,
+        bookingId: data.booking_id,
+        roomId: data.room_id,
+        location: data.location,
+        scheduledAt: data.scheduled_at,
+        duration: data.duration,
       },
     });
   } catch (err) {
