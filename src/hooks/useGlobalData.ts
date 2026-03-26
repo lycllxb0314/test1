@@ -503,14 +503,14 @@ export function useGlobalStudents(initialFilters?: StudentFilters) {
     })
 
     return {
-      total: globalStudents.data.length,
+      total: globalStudents.total ?? globalStudents.data.length,
       maleCount: globalStudents.data.filter(s => s.gender === 'male').length,
       femaleCount: globalStudents.data.filter(s => s.gender === 'female').length,
       classCount: new Set(globalStudents.data.map(s => s.classId)).size,
       gradeDistribution,
       statusDistribution,
     }
-  }, [globalStudents.data])
+  }, [globalStudents.data, globalStudents.total])
 
   // 工具方法
   const getStudentById = useCallback((id: string) => 

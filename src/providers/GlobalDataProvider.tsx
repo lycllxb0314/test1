@@ -23,6 +23,8 @@ interface DataState<T> {
   error: string | null
   loaded: boolean
   lastFetch: number | null
+  /** 总数量（来自API统计，用于分页场景） */
+  total?: number
 }
 
 /** 全局数据上下文 */
@@ -221,7 +223,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teachers.loaded, teachers.lastFetch])
 
-  // 获取学生数据
+  // 获取学生数据（分页循环获取，绕过 Supabase 1000 行限制）
   const fetchStudents = useCallback(async (force = false) => {
     if (fetchingRef.current.has('students')) return
     
@@ -234,39 +236,72 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
     setStudents(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const response = await fetch(`/api/students?pageSize=${PAGINATION.ENTITY_CONFIG.students.maxTotal}`)
-      const result = await response.json()
-
-      if (result.success && result.data) {
-        const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级']
-        
-        const formattedData: StudentInfo[] = result.data.map((s: Record<string, unknown>) => ({
-          id: s.id as string,
-          studentNo: (s.studentNo as string) || (s.student_no as string) || '',
-          name: s.name as string,
-          gender: (s.gender as StudentInfo['gender']) || 'male',
-          grade: (s.grade as number) || 1,
-          gradeName: GRADE_NAMES[s.grade as number] || '一年级',
-          classId: (s.classId as string) || (s.class_id as string) || '',
-          className: (s.className as string) || (s.class_name as string) || '',
-          status: (s.status as string) || '在校',
-          parents: (s.parents as Parent[]) || [],
-        }))
-
-        setStudents({
-          data: formattedData,
-          loading: false,
-          error: null,
-          loaded: true,
-          lastFetch: Date.now(),
-        })
-      } else {
+      const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级']
+      const BATCH_SIZE = 1000 // Supabase 每次最多返回 1000 行
+      let allData: StudentInfo[] = []
+      let totalCount = 0
+      
+      // 首次请求获取 total
+      const firstResponse = await fetch(`/api/students?page=1&pageSize=${BATCH_SIZE}`)
+      const firstResult = await firstResponse.json()
+      
+      if (!firstResult.success || !firstResult.data) {
         setStudents(prev => ({
           ...prev,
           loading: false,
-          error: result.error || '获取学生数据失败',
+          error: firstResult.error || '获取学生数据失败',
         }))
+        fetchingRef.current.delete('students')
+        return
       }
+      
+      totalCount = firstResult.pagination?.total || firstResult.statistics?.total || 0
+      allData = firstResult.data.map((s: Record<string, unknown>) => ({
+        id: s.id as string,
+        studentNo: (s.studentNo as string) || (s.student_no as string) || '',
+        name: s.name as string,
+        gender: (s.gender as StudentInfo['gender']) || 'male',
+        grade: (s.grade as number) || 1,
+        gradeName: GRADE_NAMES[s.grade as number] || '一年级',
+        classId: (s.classId as string) || (s.class_id as string) || '',
+        className: (s.className as string) || (s.class_name as string) || '',
+        status: (s.status as string) || '在校',
+        parents: (s.parents as Parent[]) || [],
+      }))
+      
+      // 计算还需要多少次请求
+      const totalPages = Math.ceil(totalCount / BATCH_SIZE)
+      
+      // 循环获取剩余页面
+      for (let page = 2; page <= totalPages; page++) {
+        const response = await fetch(`/api/students?page=${page}&pageSize=${BATCH_SIZE}`)
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          const pageData = result.data.map((s: Record<string, unknown>) => ({
+            id: s.id as string,
+            studentNo: (s.studentNo as string) || (s.student_no as string) || '',
+            name: s.name as string,
+            gender: (s.gender as StudentInfo['gender']) || 'male',
+            grade: (s.grade as number) || 1,
+            gradeName: GRADE_NAMES[s.grade as number] || '一年级',
+            classId: (s.classId as string) || (s.class_id as string) || '',
+            className: (s.className as string) || (s.class_name as string) || '',
+            status: (s.status as string) || '在校',
+            parents: (s.parents as Parent[]) || [],
+          }))
+          allData = [...allData, ...pageData]
+        }
+      }
+
+      setStudents({
+        data: allData,
+        loading: false,
+        error: null,
+        loaded: true,
+        lastFetch: Date.now(),
+        total: totalCount,
+      })
     } catch (err) {
       setStudents(prev => ({
         ...prev,

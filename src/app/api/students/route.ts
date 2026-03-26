@@ -27,9 +27,11 @@ export async function GET(request: NextRequest) {
     const teacherId = searchParams.get('teacherId');
     
     // 构建查询
+    // 注意：Supabase 默认最多返回 1000 行，需要显式设置 limit
     let query = client
       .from('students')
-      .select('*', { count: 'exact' });
+      .select('*', { count: 'exact' })
+      .limit(pageSize);
     
     // 应用筛选
     if (search) {
