@@ -1,15 +1,22 @@
 'use client';
 
 /**
- * 资源库组件
+ * 教务端 - 资源库组件
  * 
- * 功能：
- * - 文件夹分类管理
- * - 文件上传
- * - 展示教研活动中的教学设计
+ * 设计理念：
+ * - 主题资源库包含：活动资源库 + 其他资源
+ * - 活动资源库：来自教研活动中的教学设计、课例等
+ * - 其他资源：教务直接上传到主题的资源
+ * 
+ * 文件夹分类：
+ * - 教学设计（来自活动）
+ * - 优秀课例（来自活动或上传）
+ * - 学术论文（上传）
+ * - 课件资源（上传）
+ * - 其他资源（上传）
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,25 +32,24 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   FolderOpen,
   FileText,
   Upload,
   Download,
   Trash2,
-  MoreVertical,
   File,
   FileImage,
   FileVideo,
   FileAudio,
   FileSpreadsheet,
   FileArchive,
-  Plus,
   Search,
   Grid,
   List,
@@ -52,10 +58,12 @@ import {
   X,
   Eye,
   BookOpen,
-  GraduationCap,
   Award,
   Video,
   Presentation,
+  Activity,
+  Folder,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ThemeType } from '@/types/research';
@@ -69,6 +77,8 @@ interface ResourceFolder {
   color: string;
   description: string;
   count: number;
+  activityCount: number; // 来自活动的数量
+  uploadCount: number;   // 上传的数量
 }
 
 interface Resource {
@@ -80,21 +90,67 @@ interface Resource {
   fileKey?: string;
   fileUrl?: string;
   content?: unknown;
-  sourceType: 'upload' | 'activity'; // 上传或来自教研活动
+  sourceType: 'activity' | 'theme_direct'; // 来自活动 or 直接上传到主题
   sourceId?: string;
-  teacherName?: string;
+  activityId?: string;
   activityTitle?: string;
+  teacherName?: string;
   createdAt: string;
 }
 
 // ==================== 配置 ====================
 
 const DEFAULT_FOLDERS: ResourceFolder[] = [
-  { id: 'teaching_design', name: '教学设计', icon: BookOpen, color: 'text-blue-500 bg-blue-50', description: '教研活动中的教学设计', count: 0 },
-  { id: 'lesson_case', name: '优秀课例', icon: Video, color: 'text-purple-500 bg-purple-50', description: '优质课例视频', count: 0 },
-  { id: 'paper', name: '学术论文', icon: Award, color: 'text-amber-500 bg-amber-50', description: '教研论文', count: 0 },
-  { id: 'presentation', name: '课件资源', icon: Presentation, color: 'text-emerald-500 bg-emerald-50', description: 'PPT、微课等', count: 0 },
-  { id: 'other', name: '其他资源', icon: FolderOpen, color: 'text-slate-500 bg-slate-50', description: '其他文档', count: 0 },
+  { 
+    id: 'lesson_design', 
+    name: '教学设计', 
+    icon: BookOpen, 
+    color: 'text-blue-500 bg-blue-50', 
+    description: '教研活动中的教学设计', 
+    count: 0,
+    activityCount: 0,
+    uploadCount: 0,
+  },
+  { 
+    id: 'excellent_case', 
+    name: '优秀课例', 
+    icon: Video, 
+    color: 'text-purple-500 bg-purple-50', 
+    description: '优质课例视频', 
+    count: 0,
+    activityCount: 0,
+    uploadCount: 0,
+  },
+  { 
+    id: 'academic_paper', 
+    name: '学术论文', 
+    icon: Award, 
+    color: 'text-amber-500 bg-amber-50', 
+    description: '教研论文', 
+    count: 0,
+    activityCount: 0,
+    uploadCount: 0,
+  },
+  { 
+    id: 'courseware', 
+    name: '课件资源', 
+    icon: Presentation, 
+    color: 'text-emerald-500 bg-emerald-50', 
+    description: 'PPT、微课等', 
+    count: 0,
+    activityCount: 0,
+    uploadCount: 0,
+  },
+  { 
+    id: 'other', 
+    name: '其他资源', 
+    icon: FolderOpen, 
+    color: 'text-slate-500 bg-slate-50', 
+    description: '其他文档', 
+    count: 0,
+    activityCount: 0,
+    uploadCount: 0,
+  },
 ];
 
 const FILE_TYPE_ICONS: Record<string, React.ElementType> = {
@@ -106,6 +162,11 @@ const FILE_TYPE_ICONS: Record<string, React.ElementType> = {
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': FileSpreadsheet,
   'application/zip': FileArchive,
   'application/x-rar-compressed': FileArchive,
+};
+
+const SOURCE_TYPE_LABELS = {
+  activity: { label: '活动资源库', color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
+  theme_direct: { label: '其他资源', color: 'text-slate-600 bg-slate-50 border-slate-200' },
 };
 
 // ==================== 组件 ====================
@@ -121,6 +182,7 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<'all' | 'activity' | 'theme_direct'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -145,17 +207,28 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
       const data = await res.json();
       
       if (data.success) {
-        setResources(data.data || []);
+        const resourceList = data.data || [];
+        setResources(resourceList);
         
         // 更新文件夹计数
-        const counts: Record<string, number> = {};
-        (data.data || []).forEach((r: Resource) => {
-          counts[r.folderId] = (counts[r.folderId] || 0) + 1;
+        const counts: Record<string, { total: number; activity: number; upload: number }> = {};
+        resourceList.forEach((r: Resource) => {
+          if (!counts[r.folderId]) {
+            counts[r.folderId] = { total: 0, activity: 0, upload: 0 };
+          }
+          counts[r.folderId].total++;
+          if (r.sourceType === 'activity') {
+            counts[r.folderId].activity++;
+          } else {
+            counts[r.folderId].upload++;
+          }
         });
         
         setFolders(DEFAULT_FOLDERS.map(f => ({
           ...f,
-          count: counts[f.id] || 0,
+          count: counts[f.id]?.total || 0,
+          activityCount: counts[f.id]?.activity || 0,
+          uploadCount: counts[f.id]?.upload || 0,
         })));
       }
     } catch (err) {
@@ -204,7 +277,7 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
       
       setUploadProgress(50);
       
-      // 2. 保存资源记录
+      // 2. 保存资源记录（标记为主题直接上传）
       const res = await fetch('/api/research/resources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -212,10 +285,13 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
           themeId,
           title: uploadForm.title,
           folderId: uploadForm.folderId,
+          resourceType: uploadForm.folderId,
           type: uploadForm.file.type,
           size: uploadForm.file.size,
           fileKey: uploadData.key,
-          sourceType: 'upload',
+          fileUrl: uploadData.url,
+          fileName: uploadForm.file.name,
+          sourceType: 'theme_direct', // 标记为主题直接上传
         }),
       });
       
@@ -285,9 +361,17 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
   // 筛选资源
   const filteredResources = resources.filter(r => {
     const matchesFolder = !selectedFolder || r.folderId === selectedFolder;
+    const matchesSource = selectedSource === 'all' || r.sourceType === selectedSource;
     const matchesSearch = !searchQuery || r.title.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFolder && matchesSearch;
+    return matchesFolder && matchesSource && matchesSearch;
   });
+  
+  // 统计信息
+  const stats = {
+    total: resources.length,
+    activityCount: resources.filter(r => r.sourceType === 'activity').length,
+    uploadCount: resources.filter(r => r.sourceType === 'theme_direct').length,
+  };
   
   const getFileIcon = (type: string) => {
     for (const [key, icon] of Object.entries(FILE_TYPE_ICONS)) {
@@ -307,6 +391,43 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
 
   return (
     <div className="space-y-6">
+      {/* 资源来源说明 */}
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-indigo-50 to-purple-50">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Folder className="h-5 w-5 text-indigo-500" />
+                <span className="font-medium text-slate-700">主题资源库</span>
+                <Badge variant="secondary" className="ml-1">{stats.total}</Badge>
+              </div>
+              
+              <div className="flex items-center gap-4 text-sm text-slate-500">
+                <div className="flex items-center gap-1.5">
+                  <Activity className="h-4 w-4 text-indigo-400" />
+                  <span>活动资源库</span>
+                  <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-600">
+                    {stats.activityCount}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Upload className="h-4 w-4 text-slate-400" />
+                  <span>其他资源</span>
+                  <Badge variant="outline" className="text-xs border-slate-200 text-slate-600">
+                    {stats.uploadCount}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            
+            <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              上传资源
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
       {/* 文件夹列表 */}
       <div className="grid grid-cols-5 gap-3">
         {folders.map(folder => {
@@ -328,6 +449,21 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
                 </div>
                 <h4 className="font-medium text-slate-900 text-sm">{folder.name}</h4>
                 <p className="text-xs text-slate-400 mt-0.5">{folder.count} 个文件</p>
+                
+                {/* 来源统计 */}
+                {folder.count > 0 && (
+                  <div className="flex items-center justify-center gap-2 mt-2 text-xs">
+                    {folder.activityCount > 0 && (
+                      <span className="text-indigo-500">{folder.activityCount} 活动</span>
+                    )}
+                    {folder.activityCount > 0 && folder.uploadCount > 0 && (
+                      <span className="text-slate-300">|</span>
+                    )}
+                    {folder.uploadCount > 0 && (
+                      <span className="text-slate-500">{folder.uploadCount} 上传</span>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
@@ -346,6 +482,28 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
               className="pl-10 w-64"
             />
           </div>
+          
+          {/* 来源筛选 */}
+          <Select value={selectedSource} onValueChange={(v) => setSelectedSource(v as any)}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="来源筛选" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部来源</SelectItem>
+              <SelectItem value="activity">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-indigo-500" />
+                  活动资源库
+                </div>
+              </SelectItem>
+              <SelectItem value="theme_direct">
+                <div className="flex items-center gap-2">
+                  <Upload className="h-4 w-4 text-slate-500" />
+                  其他资源
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
           
           {selectedFolder && (
             <Badge variant="secondary" className="gap-1">
@@ -377,11 +535,6 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
               <Grid className="h-4 w-4" />
             </Button>
           </div>
-          
-          <Button onClick={() => setUploadDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            上传文件
-          </Button>
         </div>
       </div>
       
@@ -406,6 +559,7 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
           {filteredResources.map(resource => {
             const FileIcon = getFileIcon(resource.type);
             const folder = folders.find(f => f.id === resource.folderId);
+            const sourceLabel = SOURCE_TYPE_LABELS[resource.sourceType];
             return (
               <Card key={resource.id} className="group border-0 shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="pt-4 pb-3">
@@ -413,14 +567,23 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
                     <FileIcon className="h-6 w-6" />
                   </div>
                   <h4 className="font-medium text-slate-900 text-sm truncate mb-1">{resource.title}</h4>
-                  <div className="flex items-center justify-between text-xs text-slate-400">
+                  <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                     <span>{formatFileSize(resource.size)}</span>
-                    {resource.sourceType === 'activity' && (
-                      <Badge variant="outline" className="text-xs">
-                        来自活动
-                      </Badge>
-                    )}
                   </div>
+                  
+                  {/* 来源标签 */}
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${sourceLabel.color}`}
+                  >
+                    {resource.sourceType === 'activity' && <Activity className="h-3 w-3 mr-1" />}
+                    {resource.sourceType === 'theme_direct' && <Upload className="h-3 w-3 mr-1" />}
+                    {sourceLabel.label}
+                  </Badge>
+                  
+                  {resource.teacherName && (
+                    <p className="text-xs text-slate-400 mt-1.5">{resource.teacherName}</p>
+                  )}
                   
                   <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -429,9 +592,11 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDownload(resource)}>
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDelete(resource.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {resource.sourceType === 'theme_direct' && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDelete(resource.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -445,6 +610,7 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
               {filteredResources.map(resource => {
                 const FileIcon = getFileIcon(resource.type);
                 const folder = folders.find(f => f.id === resource.folderId);
+                const sourceLabel = SOURCE_TYPE_LABELS[resource.sourceType];
                 return (
                   <div 
                     key={resource.id}
@@ -455,7 +621,17 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-slate-900 truncate">{resource.title}</h4>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h4 className="font-medium text-slate-900 truncate">{resource.title}</h4>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs shrink-0 ${sourceLabel.color}`}
+                        >
+                          {resource.sourceType === 'activity' && <Activity className="h-3 w-3 mr-1" />}
+                          {resource.sourceType === 'theme_direct' && <Upload className="h-3 w-3 mr-1" />}
+                          {sourceLabel.label}
+                        </Badge>
+                      </div>
                       <div className="flex items-center gap-2 text-sm text-slate-500">
                         <span>{folder?.name}</span>
                         {resource.size && (
@@ -464,10 +640,16 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
                             <span>{formatFileSize(resource.size)}</span>
                           </>
                         )}
-                        {resource.sourceType === 'activity' && resource.teacherName && (
+                        {resource.teacherName && (
                           <>
                             <span className="w-1 h-1 rounded-full bg-slate-300" />
                             <span>{resource.teacherName}</span>
+                          </>
+                        )}
+                        {resource.activityTitle && (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-slate-300" />
+                            <span className="text-indigo-500">{resource.activityTitle}</span>
                           </>
                         )}
                       </div>
@@ -484,9 +666,11 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDownload(resource)}>
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDelete(resource.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {resource.sourceType === 'theme_direct' && (
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDelete(resource.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -500,9 +684,9 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>上传文件</DialogTitle>
+            <DialogTitle>上传资源到主题</DialogTitle>
             <DialogDescription>
-              选择文件并填写信息后上传
+              上传的资源将归属于「其他资源」，可在主题资源库中查看
             </DialogDescription>
           </DialogHeader>
           
