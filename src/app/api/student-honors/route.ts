@@ -56,10 +56,31 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const grade = searchParams.get('grade');
     const className = searchParams.get('className');
+    const classId = searchParams.get('classId');
     const year = searchParams.get('year');
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '20');
     const needStatistics = searchParams.get('statistics') === 'true';
+    
+    // 如果指定了classId，先获取该班级的学生ID列表
+    let studentIds: string[] = [];
+    if (classId) {
+      const { data: classStudents } = await supabase
+        .from('students')
+        .select('id')
+        .eq('class_id', classId);
+      studentIds = (classStudents || []).map((s: Record<string, unknown>) => s.id as string);
+      
+      // 如果该班级没有学生，返回空结果
+      if (studentIds.length === 0) {
+        return NextResponse.json({
+          success: true,
+          data: [],
+          pagination: { page, pageSize, total: 0, totalPages: 0 },
+          statistics: null,
+        });
+      }
+    }
     
     // 构建基础查询
     let query = supabase
@@ -81,6 +102,9 @@ export async function GET(request: NextRequest) {
     }
     if (className) {
       query = query.eq('class_name', className);
+    }
+    if (classId && studentIds.length > 0) {
+      query = query.in('student_id', studentIds);
     }
     if (year) {
       query = query.gte('date', `${year}-01-01`).lte('date', `${year}-12-31`);
