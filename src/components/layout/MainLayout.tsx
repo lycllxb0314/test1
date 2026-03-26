@@ -136,6 +136,7 @@ const moralNav: NavItem[] = [
   { name: '德育工作台', href: '/moral', icon: LayoutDashboard, description: '德育处工作台' },
   { name: '习惯养成', href: '/moral/habit', icon: Target, description: '八大习惯目标管理', badge: '新' },
   { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '发布管理德育活动', badge: '新' },
+  { name: '学生荣誉', href: '/moral/honors', icon: Award, description: '学生荣誉管理与可视化', badge: '新' },
 ];
 
 // 教师空间导航 - 基础功能（所有教师可见，待重建）
