@@ -624,9 +624,9 @@ export default function ResearchThemeDetailPage() {
       
       {/* 创建活动对话框 - 横屏大卡片 */}
       <Dialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0 gap-0">
+        <DialogContent className="max-w-4xl p-0 gap-0">
           {/* 左侧：活动基本信息 */}
-          <div className="w-[320px] border-r bg-slate-50/50 flex flex-col">
+          <div className="w-[320px] border-r bg-slate-50/50 flex flex-col shrink-0">
             <div className="p-6 border-b bg-white">
               <DialogTitle className="text-xl">创建教研活动</DialogTitle>
               <DialogDescription className="mt-1.5">
@@ -634,7 +634,7 @@ export default function ResearchThemeDetailPage() {
               </DialogDescription>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-6 space-y-5 max-h-[calc(90vh-140px)]">
               <div className="space-y-2">
                 <Label className="text-slate-700">活动名称 *</Label>
                 <Input
@@ -714,8 +714,9 @@ export default function ResearchThemeDetailPage() {
           </div>
           
           {/* 右侧：教师选择 */}
+          {/* 右侧：教师选择 */}
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="p-6 border-b bg-white">
+            <div className="p-6 border-b bg-white shrink-0">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-lg text-slate-900">选择参与教师</h3>
@@ -729,7 +730,7 @@ export default function ResearchThemeDetailPage() {
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 max-h-[calc(90vh-100px)]">
               <TeacherSelector
                 selectedIds={activityForm.participantIds}
                 onChange={(ids, teachers) => {

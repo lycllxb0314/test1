@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { X, Search, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
@@ -118,7 +117,8 @@ export default function TeacherSelector({
   
   // === 筛选后的教师列表 ===
   const filteredTeachers = useMemo(() => {
-    let result = allTeachers;
+    // 确保 allTeachers 是数组
+    let result = allTeachers || [];
     
     // 按年级筛选
     if (gradeFilter !== 'all') {
@@ -148,7 +148,7 @@ export default function TeacherSelector({
   
   // === 已选教师信息 ===
   const selectedTeachers = useMemo(() => {
-    return allTeachers
+    return (allTeachers || [])
       .filter(t => selectedIds.includes(t.id))
       .map(t => ({
         id: t.id,
@@ -208,6 +208,13 @@ export default function TeacherSelector({
   
   return (
     <div className={cn('space-y-3', className)}>
+      {/* 调试信息 - 临时 */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="text-xs text-slate-500 bg-slate-100 p-2 rounded">
+          调试: loading={String(loading)}, externalTeachers={externalTeachers?.length ?? 'null'}, internalTeachers={internalTeachers?.length ?? 'null'}, allTeachers={allTeachers?.length ?? 0}, filtered={filteredTeachers?.length ?? 0}
+        </div>
+      )}
+      
       {/* 已选教师显示 */}
       {selectedTeachers.length > 0 && (
         <div className="space-y-2">
@@ -307,8 +314,8 @@ export default function TeacherSelector({
       </div>
       
       {/* 教师列表 */}
-      <div className="border rounded-lg">
-        <ScrollArea className="h-[240px]">
+      <div className="border rounded-lg overflow-hidden">
+        <div className="h-[240px] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-slate-400 text-sm">加载中...</div>
@@ -317,6 +324,7 @@ export default function TeacherSelector({
             <div className="flex flex-col items-center justify-center h-full py-8">
               <User className="h-8 w-8 text-slate-300 mb-2" />
               <p className="text-slate-400 text-sm">没有找到符合条件的教师</p>
+              <p className="text-slate-300 text-xs mt-1">共 {allTeachers?.length || 0} 位教师可用</p>
             </div>
           ) : (
             <div className="divide-y">
@@ -375,7 +383,7 @@ export default function TeacherSelector({
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </div>
       
       {/* 统计信息 */}
