@@ -30,10 +30,10 @@ interface WatermarkProps {
 
 export default function Watermark({
   text,
-  opacity = 0.08,
-  fontSize = 14,
+  opacity = 0.06,
+  fontSize = 16,
   rotate = -22,
-  gap = 100,
+  gap = 200,
   visible = true,
 }: WatermarkProps) {
   const { user } = useAuth();
