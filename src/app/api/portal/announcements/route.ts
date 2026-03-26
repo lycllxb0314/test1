@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { Announcement, NewsCategory, MediaLevel } from '@/types/approval';
+import type { Announcement, NewsCategory, MediaLevel } from '@/types';
 
 /** 主页展示的公告/新闻项 */
 export interface PortalAnnouncement {

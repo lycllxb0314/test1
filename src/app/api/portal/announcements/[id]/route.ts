@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { Announcement } from '@/types/approval';
+import type { Announcement } from '@/types';
 
 /**
  * 获取公告详情

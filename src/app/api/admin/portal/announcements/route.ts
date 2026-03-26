@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { AnnouncementType, NewsCategory, MediaLevel } from '@/types/approval';
+import type { AnnouncementType, NewsCategory, MediaLevel } from '@/types';
 
 /** 创建/更新请求体 */
 interface AnnouncementInput {

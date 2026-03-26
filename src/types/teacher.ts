@@ -179,19 +179,104 @@ export interface UpdateClassTeacherRequest {
 
 /** 教师工作量统计 */
 export interface TeacherWorkload {
+  id: string;
   teacherId: string;
   teacherName: string;
   semester: string;
-  // 总课时
-  totalHours: number;
-  // 各科目课时
-  subjectHours: Record<string, number>;
-  // 班主任课时
-  headTeacherHours: number;
-  // 代课课时
+  month?: number;                      // 月度统计时使用（1-12）
+  
+  // === 基准课时 ===
+  /** 周课时（实际安排的课时数量，从课表查询） */
+  baseWeeklyHours: number;
+  /** 月应上课时 = 周课时 * 4 */
+  expectedHours: number;
+  
+  // === 实际授课 ===
+  /** 自己上的课 = 月应上课时 - 请假课时 */
+  selfTaughtHours: number;
+  /** 请假课时 */
+  leaveHours: number;
+  /** 请假详情 */
+  leaveDetails: Array<{
+    date: string;
+    leaveType: string;
+    hours: number;
+  }>;
+  
+  // === 代课 ===
+  /** 帮人代课的课 */
   substituteHours: number;
-  // 公开课/教研活动课时
-  researchHours: number;
-  // 其他课时
-  otherHours: number;
+  /** 代课详情 */
+  substituteDetails: Array<{
+    date: string;
+    classId: string;
+    className: string;
+    subject: string;
+    originalTeacherId: string;
+    originalTeacherName: string;
+    hours: number;
+  }>;
+  
+  // === 课后服务 ===
+  /** 课后服务节数 */
+  afterSchoolServiceHours: number;
+  /** 课后服务详情 */
+  afterSchoolServiceDetails: Array<{
+    date: string;
+    serviceType: string;
+    classId: string;
+    className: string;
+    hours: number;
+  }>;
+  
+  // === 统计 ===
+  /** 实际工作量 = 月应上课时 - 请假课时 + 代课课时 */
+  totalWorkload: number;
+  /** 与预期差异 */
+  variance: number;
+  /** 备注 */
+  remark?: string;
+  
+  updatedAt: string;
+}
+
+/** 教师月度工作量汇总 */
+export interface TeacherMonthlyWorkloadSummary {
+  teacherId: string;
+  teacherName: string;
+  semester: string;
+  month: number;
+  
+  // 周课时
+  baseWeeklyHours: number;
+  
+  // 本月统计
+  workingDays: number;                 // 工作日天数
+  expectedHours: number;               // 应上课时
+  selfTaughtHours: number;             // 自己上的课
+  leaveHours: number;                  // 请假课时
+  substituteHours: number;             // 代课课时
+  afterSchoolServiceHours: number;     // 课后服务
+  
+  // 总计
+  totalWorkload: number;
+  variance: number;
+  
+  // 趋势（与上月对比）
+  trend: {
+    totalWorkloadChange: number;
+    leaveHoursChange: number;
+    substituteHoursChange: number;
+  };
+}
+
+/** 工作量统计查询参数 */
+export interface WorkloadQueryParams {
+  teacherId?: string;
+  semester?: string;
+  month?: number;
+  startDate?: string;
+  endDate?: string;
+  departmentId?: string;
+  grade?: number;
 }
