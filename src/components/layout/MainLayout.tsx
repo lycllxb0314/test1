@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AdministrativeRole } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Watermark from '@/components/Watermark';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -893,7 +894,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   // 公共页面不显示侧边栏
   if (isPublicPage || !user) {
-    return <>{children}</>;
+    return (
+      <>
+        {children}
+      </>
+    );
   }
 
   return (
@@ -902,6 +907,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 overflow-auto">
         {children}
       </main>
+      <Watermark />
     </div>
   );
 }
