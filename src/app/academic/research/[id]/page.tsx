@@ -5,7 +5,7 @@
  * 
  * 设计理念：
  * - 沉浸式头部，清晰的信息层次
- * - 教研活动为核心，教学设计关联到活动
+ * - 教研活动为核心
  * - 资源库统一管理文件和成果
  */
 
@@ -17,8 +17,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -45,14 +43,12 @@ import {
   FolderOpen,
   ChevronRight,
   Play,
-  User,
   FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import ResourceLibrary from '@/components/research/ResourceLibrary';
 import StageManager from '@/components/research/StageManager';
-import LessonDesignEditor from '@/components/research/LessonDesignEditor';
 import ActivityDialog from '@/components/research/ActivityDialog';
 
 import { 
@@ -66,19 +62,6 @@ import {
 } from '@/types/research';
 
 // ==================== 类型定义 ====================
-
-interface LessonDesign {
-  id: string;
-  teacherId: string;
-  teacherName: string;
-  title: string;
-  content: unknown;
-  createdAt: string;
-}
-
-interface ActivityWithDesigns extends ResearchActivity {
-  lessonDesigns?: LessonDesign[];
-}
 
 interface ThemeDetail {
   id: string;
@@ -97,7 +80,7 @@ interface ThemeDetail {
   endDate?: string;
   participantIds?: string[];
   stages: ResearchStage[];
-  activities: ActivityWithDesigns[];
+  activities: ResearchActivity[];
   statistics?: {
     total_activities: number;
     completed_activities: number;
@@ -135,8 +118,7 @@ export default function ResearchThemeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState<ActivityWithDesigns | null>(null);
-  const [designDialogOpen, setDesignDialogOpen] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<ResearchActivity | null>(null);
   
   useEffect(() => {
     loadTheme();
@@ -490,7 +472,6 @@ export default function ResearchThemeDetailPage() {
                         activity={activity}
                         themeType={theme.type}
                         onClick={() => setSelectedActivity(activity)}
-                        onUpdate={loadTheme}
                       />
                     ))}
                   </div>
@@ -518,11 +499,9 @@ export default function ResearchThemeDetailPage() {
       {selectedActivity && (
         <ActivityDetailDialog
           activity={selectedActivity}
-          themeId={themeId}
           themeType={theme.type}
           open={!!selectedActivity}
           onOpenChange={(open) => !open && setSelectedActivity(null)}
-          onUpdate={loadTheme}
         />
       )}
     </div>
@@ -536,10 +515,9 @@ function ActivityCard({
   themeType,
   onClick 
 }: { 
-  activity: ActivityWithDesigns;
+  activity: ResearchActivity;
   themeType: ThemeType;
   onClick: () => void;
-  onUpdate: () => void;
 }) {
   const typeConfig = THEME_TYPE_CONFIG[themeType];
   
@@ -572,21 +550,6 @@ function ActivityCard({
         </Badge>
       </div>
       
-      {activity.lessonDesigns && activity.lessonDesigns.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <FileText className="h-4 w-4" />
-          <span>{activity.lessonDesigns.length} 份教学设计</span>
-          {activity.lessonDesigns.slice(0, 2).map((d, i) => (
-            <Badge key={i} variant="secondary" className="text-xs">
-              {d.teacherName}
-            </Badge>
-          ))}
-          {activity.lessonDesigns.length > 2 && (
-            <span className="text-xs">+{activity.lessonDesigns.length - 2}</span>
-          )}
-        </div>
-      )}
-      
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-sm">
         {activity.scheduledAt ? (
           <span className="text-slate-400">
@@ -608,127 +571,20 @@ function ActivityCard({
 
 function ActivityDetailDialog({
   activity,
-  themeId,
   themeType,
   open,
   onOpenChange,
-  onUpdate,
 }: {
-  activity: ActivityWithDesigns;
-  themeId: string;
+  activity: ResearchActivity;
   themeType: ThemeType;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdate: () => void;
 }) {
-  const [addingDesign, setAddingDesign] = useState(false);
-  const [designForm, setDesignForm] = useState({
-    teacherName: '',
-    title: '',
-  });
-  const [saving, setSaving] = useState(false);
-  const [editingDesign, setEditingDesign] = useState<{
-    id: string;
-    title: string;
-    teacherName: string;
-    content: any;
-  } | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
-  
-  const handleAddDesign = async () => {
-    if (!designForm.teacherName.trim() || !designForm.title.trim()) {
-      toast.error('请填写完整信息');
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      const res = await fetch('/api/research/designs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          activityId: activity.id,
-          themeId,
-          teacherName: designForm.teacherName,
-          title: designForm.title,
-          designType: themeType,
-          content: {}, // 初始内容为空
-        }),
-      });
-      
-      const result = await res.json();
-      if (result.success) {
-        toast.success('教学设计添加成功');
-        setAddingDesign(false);
-        setDesignForm({ teacherName: '', title: '' });
-        onUpdate();
-      } else {
-        toast.error(result.error || '添加失败');
-      }
-    } catch (err) {
-      console.error('添加教学设计失败:', err);
-      toast.error('添加失败');
-    } finally {
-      setSaving(false);
-    }
-  };
-  
-  const handleEditDesign = (design: { id: string; title: string; teacherName: string; content: any }) => {
-    setEditingDesign(design);
-    setEditorOpen(true);
-  };
-  
-  const handleCreateAndEdit = async () => {
-    if (!designForm.teacherName.trim() || !designForm.title.trim()) {
-      toast.error('请填写完整信息');
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      const res = await fetch('/api/research/designs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          activityId: activity.id,
-          themeId,
-          teacherName: designForm.teacherName,
-          title: designForm.title,
-          designType: themeType,
-          content: {},
-        }),
-      });
-      
-      const result = await res.json();
-      if (result.success) {
-        // 直接打开编辑器
-        setEditingDesign({
-          id: result.data.id,
-          title: designForm.title,
-          teacherName: designForm.teacherName,
-          content: {},
-        });
-        setAddingDesign(false);
-        setDesignForm({ teacherName: '', title: '' });
-        setEditorOpen(true);
-        onUpdate();
-      } else {
-        toast.error(result.error || '添加失败');
-      }
-    } catch (err) {
-      console.error('添加教学设计失败:', err);
-      toast.error('添加失败');
-    } finally {
-      setSaving(false);
-    }
-  };
-  
   const typeConfig = THEME_TYPE_CONFIG[themeType];
   
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className={`p-1.5 rounded-lg bg-gradient-to-br ${typeConfig.gradient}`}>
@@ -742,9 +598,9 @@ function ActivityDetailDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
+        <div className="space-y-4 py-4">
           {/* 活动信息 */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <Card className="border-0 bg-slate-50">
               <CardContent className="pt-4 pb-3">
                 <div className="text-xs text-slate-500 mb-1">活动时间</div>
@@ -763,109 +619,21 @@ function ActivityDetailDialog({
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-0 bg-slate-50">
-              <CardContent className="pt-4 pb-3">
-                <div className="text-xs text-slate-500 mb-1">教学设计</div>
-                <div className="font-medium">{activity.lessonDesigns?.length || 0} 份</div>
-              </CardContent>
-            </Card>
           </div>
           
           {activity.description && (
             <div>
               <h4 className="text-sm font-medium text-slate-700 mb-2">活动描述</h4>
-              <p className="text-slate-600">{activity.description}</p>
+              <p className="text-slate-600 text-sm">{activity.description}</p>
             </div>
           )}
           
-          {/* 教学设计列表 */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-slate-700">教学设计</h4>
-              <Button size="sm" variant="outline" onClick={() => setAddingDesign(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                添加设计
-              </Button>
+          {activity.participantIds && activity.participantIds.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-slate-700 mb-2">参与教师</h4>
+              <p className="text-slate-600 text-sm">{activity.participantIds.length} 位教师</p>
             </div>
-            
-            {addingDesign && (
-              <Card className="border-dashed border-2 mb-3">
-                <CardContent className="pt-4">
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">授课教师</Label>
-                      <Input
-                        value={designForm.teacherName}
-                        onChange={(e) => setDesignForm({ ...designForm, teacherName: e.target.value })}
-                        placeholder="教师姓名"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">设计标题</Label>
-                      <Input
-                        value={designForm.title}
-                        onChange={(e) => setDesignForm({ ...designForm, title: e.target.value })}
-                        placeholder="例如：第一课时"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleCreateAndEdit} disabled={saving}>
-                      {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      添加并编辑
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleAddDesign} disabled={saving}>
-                      仅添加
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setAddingDesign(false)}>
-                      取消
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {activity.lessonDesigns && activity.lessonDesigns.length > 0 ? (
-              <div className="space-y-2">
-                {activity.lessonDesigns.map((design, idx) => (
-                  <div 
-                    key={design.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-all hover:bg-slate-50"
-                    onClick={() => handleEditDesign({
-                      id: design.id,
-                      title: design.title,
-                      teacherName: design.teacherName,
-                      content: design.content,
-                    })}
-                  >
-                    <div className="p-2 rounded-lg bg-indigo-50">
-                      <FileText className="h-4 w-4 text-indigo-500" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-slate-900">{design.title}</div>
-                      <div className="text-sm text-slate-500">{design.teacherName}</div>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditDesign({
-                        id: design.id,
-                        title: design.title,
-                        teacherName: design.teacherName,
-                        content: design.content,
-                      });
-                    }}>
-                      编辑
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-slate-400">
-                <FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p>暂无教学设计</p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
         
         <DialogFooter>
@@ -875,21 +643,5 @@ function ActivityDetailDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    
-    {/* 教学设计编辑器 */}
-    <LessonDesignEditor
-      open={editorOpen}
-      onOpenChange={setEditorOpen}
-      themeId={themeId}
-      themeType={themeType}
-      activityId={activity.id}
-      design={editingDesign || undefined}
-      onSave={() => {
-        setEditorOpen(false);
-        setEditingDesign(null);
-        onUpdate();
-      }}
-    />
-  </>
   );
 }
