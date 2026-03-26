@@ -1627,7 +1627,7 @@ export const researchResources = pgTable("research_resources", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	title: varchar({ length: 200 }).notNull(),
 	description: text(),
-	type: varchar({ length: 50 }).notNull(), // template, lesson_case, tool, guide
+	type: varchar({ length: 200 }).notNull(), // MIME type, template, lesson_case, tool, guide
 	themeType: varchar("theme_type", { length: 50 }), // 关联的主题类型
 	subject: varchar({ length: 50 }), // 关联的学科
 	tags: text().array(),
