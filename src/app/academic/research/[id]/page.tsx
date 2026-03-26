@@ -618,31 +618,33 @@ export default function ResearchThemeDetailPage() {
         </Tabs>
       </div>
       
-      {/* 创建活动对话框 */}
+      {/* 创建活动对话框 - 横屏大卡片 */}
       <Dialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>创建教研活动</DialogTitle>
-            <DialogDescription>
-              创建一个新的教研活动，可以添加多个教师的教学设计
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>活动名称 *</Label>
-              <Input
-                value={activityForm.title}
-                onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
-                placeholder="例如：第一次集体备课"
-              />
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0 gap-0">
+          {/* 左侧：活动基本信息 */}
+          <div className="w-[320px] border-r bg-slate-50/50 flex flex-col">
+            <div className="p-6 border-b bg-white">
+              <DialogTitle className="text-xl">创建教研活动</DialogTitle>
+              <DialogDescription className="mt-1.5">
+                创建一个新的教研活动
+              </DialogDescription>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
               <div className="space-y-2">
-                <Label>活动类型</Label>
+                <Label className="text-slate-700">活动名称 *</Label>
+                <Input
+                  value={activityForm.title}
+                  onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
+                  placeholder="例如：第一次集体备课"
+                  className="bg-white"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-slate-700">活动类型</Label>
                 <Select value={activityForm.type} onValueChange={(v) => setActivityForm({ ...activityForm, type: v })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -656,36 +658,74 @@ export default function ResearchThemeDetailPage() {
               </div>
               
               <div className="space-y-2">
-                <Label>活动地点</Label>
+                <Label className="text-slate-700">活动地点</Label>
                 <Input
                   value={activityForm.location}
                   onChange={(e) => setActivityForm({ ...activityForm, location: e.target.value })}
                   placeholder="例如：三楼会议室"
+                  className="bg-white"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-slate-700">活动时间</Label>
+                <Input
+                  type="datetime-local"
+                  value={activityForm.scheduledAt}
+                  onChange={(e) => setActivityForm({ ...activityForm, scheduledAt: e.target.value })}
+                  className="bg-white"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-slate-700">活动描述</Label>
+                <Textarea
+                  value={activityForm.description}
+                  onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
+                  placeholder="描述活动内容和安排..."
+                  rows={4}
+                  className="bg-white resize-none"
                 />
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label>活动时间</Label>
-              <Input
-                type="datetime-local"
-                value={activityForm.scheduledAt}
-                onChange={(e) => setActivityForm({ ...activityForm, scheduledAt: e.target.value })}
-              />
+            {/* 底部按钮 */}
+            <div className="p-4 border-t bg-white flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setActivityDialogOpen(false)}
+                className="flex-1"
+              >
+                取消
+              </Button>
+              <Button 
+                onClick={handleCreateActivity} 
+                disabled={submitting || !activityForm.title.trim()}
+                className="flex-1"
+              >
+                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                创建活动
+              </Button>
+            </div>
+          </div>
+          
+          {/* 右侧：教师选择 */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="p-6 border-b bg-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-lg text-slate-900">选择参与教师</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">按年级和学科筛选教师</p>
+                </div>
+                {selectedTeachers.length > 0 && (
+                  <Badge variant="secondary" className="px-3 py-1">
+                    已选 {selectedTeachers.length} 人
+                  </Badge>
+                )}
+              </div>
             </div>
             
-            <div className="space-y-2">
-              <Label>活动描述</Label>
-              <Textarea
-                value={activityForm.description}
-                onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
-                placeholder="描述活动内容和安排..."
-                rows={3}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>参与教师</Label>
+            <div className="flex-1 overflow-y-auto p-6">
               <TeacherSelector
                 selectedIds={activityForm.participantIds}
                 onChange={(ids, teachers) => {
@@ -697,16 +737,6 @@ export default function ResearchThemeDetailPage() {
               />
             </div>
           </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setActivityDialogOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleCreateActivity} disabled={submitting}>
-              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              创建活动
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
       
