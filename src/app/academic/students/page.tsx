@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useStudents, type StudentStatus, type StudentInfo } from '@/hooks/useStudents';
+import { useGlobalStudents, type StudentStatus, type StudentInfo } from '@/hooks/useGlobalData';
 import { PAGINATION } from '@/lib/pagination-config';
 import {
   Dialog,
@@ -100,7 +100,7 @@ const getGenderStyle = (gender: string) => {
 export default function StudentsPage() {
   const router = useRouter();
   
-  // 使用统一Hook获取学生列表（内置前端分页）
+  // 使用全局数据Hook获取学生列表（避免重复请求）
   const { 
     students,           // 当前页数据
     statistics, 
@@ -110,7 +110,7 @@ export default function StudentsPage() {
     refetch,
     deleteStudent,
     setFilters,
-  } = useStudents();
+  } = useGlobalStudents();
   
   // 搜索和筛选状态
   const [searchTerm, setSearchTerm] = useState('');

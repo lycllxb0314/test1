@@ -63,7 +63,7 @@ import {
   GraduationCap,
   Trophy,
 } from 'lucide-react';
-import { useClasses, type ClassContainer, type TeacherCandidate, type StudentBasicInfo, type ParentBasicInfo } from '@/hooks/useClasses';
+import { useClasses, type ClassContainer, type StudentBasicInfo, type ParentBasicInfo, type TeacherCandidate, type ClassStatistics } from '@/hooks/useClasses';
 import { useTeachers, type TeacherInfo } from '@/hooks/useTeachers';
 
 // 年级名称映射

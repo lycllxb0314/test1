@@ -14,6 +14,80 @@ import { useGlobalData } from '@/providers/GlobalDataProvider'
 import { PAGINATION } from '@/lib/pagination-config'
 
 // ============================================
+// 角色常量（从 useTeachers 复用）
+// ============================================
+
+/** 教师主要角色类型 */
+export type TeacherRole = 
+  | 'principal'
+  | 'secretary'
+  | 'academic_vice_principal'
+  | 'moral_vice_principal'
+  | 'general_vice_principal'
+  | 'head_teacher'
+  | 'subject_teacher'
+  | 'skill_teacher'
+  | 'subject_head'
+
+/** 行政职务类型 */
+export type AdministrativeRole = 
+  | 'academic_director'
+  | 'moral_director'
+  | 'general_director'
+  | 'grade_leader'
+  | 'research_group_leader'
+  | 'research_group_deputy_leader'
+  | 'young_pioneer_counselor'
+
+/** 角色标签映射 */
+export const TEACHER_ROLE_LABELS: Record<TeacherRole, string> = {
+  principal: '校长',
+  secretary: '书记',
+  academic_vice_principal: '教学副校长',
+  moral_vice_principal: '德育副校长',
+  general_vice_principal: '总务副校长',
+  head_teacher: '班主任',
+  subject_teacher: '科任教师',
+  skill_teacher: '技能课教师',
+  subject_head: '学科组长',
+}
+
+/** 行政职务标签映射 */
+export const ADMINISTRATIVE_ROLE_LABELS: Record<AdministrativeRole, string> = {
+  academic_director: '教务主任',
+  moral_director: '德育主任',
+  general_director: '总务主任',
+  grade_leader: '年段长',
+  research_group_leader: '教研组组长',
+  research_group_deputy_leader: '教研组副组长',
+  young_pioneer_counselor: '少先队大队辅导员',
+}
+
+/** 角色颜色映射 */
+export const TEACHER_ROLE_COLORS: Record<TeacherRole, { bg: string; text: string }> = {
+  principal: { bg: 'bg-red-100', text: 'text-red-700' },
+  secretary: { bg: 'bg-red-100', text: 'text-red-700' },
+  academic_vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  moral_vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  general_vice_principal: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  head_teacher: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  subject_teacher: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  skill_teacher: { bg: 'bg-green-100', text: 'text-green-700' },
+  subject_head: { bg: 'bg-teal-100', text: 'text-teal-700' },
+}
+
+/** 行政职务颜色映射 */
+export const ADMINISTRATIVE_ROLE_COLORS: Record<AdministrativeRole, { bg: string; text: string }> = {
+  academic_director: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  moral_director: { bg: 'bg-pink-100', text: 'text-pink-700' },
+  general_director: { bg: 'bg-slate-100', text: 'text-slate-700' },
+  grade_leader: { bg: 'bg-purple-100', text: 'text-purple-700' },
+  research_group_leader: { bg: 'bg-orange-100', text: 'text-orange-700' },
+  research_group_deputy_leader: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
+  young_pioneer_counselor: { bg: 'bg-rose-100', text: 'text-rose-700' },
+}
+
+// ============================================
 // 类型定义（从现有 hooks 复用）
 // ============================================
 
@@ -75,7 +149,7 @@ export interface StudentInfo {
   emergencyPhone?: string
   headTeacherId?: string
   headTeacherName?: string
-  status: StudentStatus
+  status: StudentStatus | string
   habitStars?: number
   createdAt?: string
   updatedAt?: string
@@ -117,6 +191,7 @@ export interface TeacherInfo {
   graduationDate?: string
   joinDate?: string
   teachYears?: number
+  subTeacherClasses?: Array<{ classId: string; className: string }>
   createdAt?: string
   updatedAt?: string
   [key: string]: unknown
@@ -270,6 +345,58 @@ export function useGlobalTeachers(initialFilters?: TeacherFilters) {
     globalTeachers.data.filter(t => t.teachableGrades?.includes(grade)),
   [globalTeachers.data])
 
+  // 更新教师角色（调用API）
+  const updateTeacherRole = useCallback(async (config: {
+    teacherId: string
+    primaryRole: TeacherRole
+    additionalRoles: AdministrativeRole[]
+    primarySubject: string
+    secondarySubjects: string[]
+    totalWeeklyHours: number
+    teachableGrades: number[]
+  }): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/teachers/${config.teacherId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: config.primaryRole,
+          additional_roles: config.additionalRoles,
+          primary_subject: config.primarySubject,
+          secondary_subjects: config.secondarySubjects,
+          total_weekly_hours: config.totalWeeklyHours,
+          teachable_grades: config.teachableGrades,
+          is_head_teacher: config.primaryRole === 'head_teacher',
+        }),
+      })
+      
+      if (response.ok) {
+        // 刷新数据
+        invalidateCache('teachers')
+        fetchTeachers(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('更新教师角色失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchTeachers])
+
+  // 获取角色标签
+  const getRoleLabel = useCallback((role: TeacherRole | AdministrativeRole): string => {
+    return TEACHER_ROLE_LABELS[role as TeacherRole] || 
+           ADMINISTRATIVE_ROLE_LABELS[role as AdministrativeRole] || 
+           role
+  }, [])
+
+  // 获取角色颜色
+  const getRoleColor = useCallback((role: TeacherRole | AdministrativeRole): { bg: string; text: string } => {
+    return TEACHER_ROLE_COLORS[role as TeacherRole] || 
+           ADMINISTRATIVE_ROLE_COLORS[role as AdministrativeRole] || 
+           { bg: 'bg-gray-100', text: 'text-gray-700' }
+  }, [])
+
   return {
     teachers,
     allTeachers: filteredTeachers,
@@ -289,6 +416,9 @@ export function useGlobalTeachers(initialFilters?: TeacherFilters) {
     getTeachersByDepartment,
     getHeadTeacherByClass,
     getTeachersByGrade,
+    updateTeacherRole,
+    getRoleLabel,
+    getRoleColor,
   }
 }
 
@@ -410,6 +540,67 @@ export function useGlobalStudents(initialFilters?: StudentFilters) {
     return student.parents.find(p => p.isPrimary) || student.parents[0]
   }, [globalStudents.data])
 
+  // 创建学生（调用API）
+  const createStudent = useCallback(async (data: Partial<StudentInfo> & { classId: string }): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('students')
+        fetchStudents(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('创建学生失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchStudents])
+
+  // 更新学生（调用API）
+  const updateStudent = useCallback(async (id: string, data: Partial<StudentInfo>): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/students/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('students')
+        fetchStudents(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('更新学生失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchStudents])
+
+  // 删除学生（调用API）
+  const deleteStudent = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/students/${id}`, {
+        method: 'DELETE',
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('students')
+        fetchStudents(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('删除学生失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchStudents])
+
   return {
     students,
     allStudents: filteredStudents,
@@ -430,6 +621,9 @@ export function useGlobalStudents(initialFilters?: StudentFilters) {
     getStudentsByStatus,
     getParentsByStudent,
     getPrimaryParent,
+    createStudent,
+    updateStudent,
+    deleteStudent,
   }
 }
 
@@ -519,6 +713,64 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
     globalClasses.data.filter(c => c.grade === grade),
   [globalClasses.data])
 
+  // 分配副班主任（科任）
+  const assignSubTeacher = useCallback(async (classId: string, teacherId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/classes/${classId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sub_teacher_id: teacherId || null }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('classes')
+        fetchClasses(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('分配副班主任失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchClasses])
+
+  // 更新班主任
+  const updateHeadTeacher = useCallback(async (classId: string, teacherId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/classes/${classId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ head_teacher_id: teacherId }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        invalidateCache('classes')
+        fetchClasses(true)
+        // 同时刷新教师数据（因为班主任可能变化）
+        invalidateCache('teachers')
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('更新班主任失败:', err)
+      return false
+    }
+  }, [invalidateCache, fetchClasses])
+
+  // 获取推荐的副班主任
+  const getRecommendedSubTeachers = useCallback((classId: string, _grade: number, _subject: string) => {
+    // 简单实现：返回所有科任教师
+    return globalClasses.data
+      .filter(c => c.id !== classId)
+      .slice(0, 5)
+      .map(c => ({
+        id: `rec-${c.id}`,
+        name: c.headTeacherName || '推荐教师',
+        subject: '语文',
+        isRecommended: true,
+      }))
+  }, [globalClasses.data])
+
   return {
     classes,
     allClasses: filteredClasses,
@@ -535,5 +787,8 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
     refetch: () => { invalidateCache('classes'); fetchClasses(true) },
     getClassById,
     getClassesByGrade,
+    assignSubTeacher,
+    updateHeadTeacher,
+    getRecommendedSubTeachers,
   }
 }

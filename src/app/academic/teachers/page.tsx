@@ -60,14 +60,16 @@ import {
 } from 'lucide-react';
 import { DeleteConfirmDialog } from '@/components/common/DeleteConfirmDialog';
 import { BatchToolbar, SelectColumn, type BatchAction } from '@/components/common/BatchToolbar';
-// 使用统一的 hook
+// 使用全局数据 hooks（避免重复请求）
 import {
-  useTeachers,
+  useGlobalTeachers,
   type TeacherInfo,
   type TeacherRole,
+  type AdministrativeRole,
   TEACHER_ROLE_LABELS,
   TEACHER_ROLE_COLORS,
-} from '@/hooks/useTeachers';
+  ADMINISTRATIVE_ROLE_LABELS,
+} from '@/hooks/useGlobalData';
 import { useFrontendPagination, PAGINATION } from '@/hooks';
 
 // 教师数据类型
@@ -131,9 +133,10 @@ const statusOptions = [
 export default function TeachersPage() {
   const router = useRouter();
   
-  // 使用统一的 hook
+  // 使用全局数据 hook（避免重复请求）
   const {
     teachers: teacherList,
+    allTeachers,
     loading,
     statistics,
     fetchTeachers,
@@ -142,7 +145,7 @@ export default function TeachersPage() {
     updateTeacherRole,
     getRoleLabel,
     getRoleColor,
-  } = useTeachers();
+  } = useGlobalTeachers();
   
   // 搜索和筛选
   const [searchTerm, setSearchTerm] = useState('');
@@ -655,17 +658,17 @@ export default function TeachersPage() {
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1">
                       <Badge className={`text-[10px] px-1 py-0 h-4 ${
-                        TEACHER_ROLE_COLORS[teacher.primaryRole]?.bg || 'bg-gray-100'
+                        TEACHER_ROLE_COLORS[teacher.primaryRole as TeacherRole]?.bg || 'bg-gray-100'
                       } ${
-                        TEACHER_ROLE_COLORS[teacher.primaryRole]?.text || 'text-gray-700'
+                        TEACHER_ROLE_COLORS[teacher.primaryRole as TeacherRole]?.text || 'text-gray-700'
                       }`}>
-                        {getRoleLabel(teacher.primaryRole)}
+                        {getRoleLabel(teacher.primaryRole as TeacherRole | AdministrativeRole)}
                       </Badge>
                       {teacher.additionalRoles && teacher.additionalRoles.length > 0 && (
                         <div className="flex flex-wrap gap-0.5">
                           {teacher.additionalRoles.slice(0, 2).map((role, i) => (
                             <Badge key={i} variant="outline" className="text-[10px] px-1 py-0 h-4 text-gray-500">
-                              {getRoleLabel(role)}（兼）
+                              {getRoleLabel(role as TeacherRole | AdministrativeRole)}（兼）
                             </Badge>
                           ))}
                           {teacher.additionalRoles.length > 2 && (
