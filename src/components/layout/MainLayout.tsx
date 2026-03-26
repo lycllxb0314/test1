@@ -129,7 +129,6 @@ const academicNav: NavItem[] = [
   { name: '教室管理', href: '/academic/rooms', icon: DoorOpen, description: '教室资源与预约' },
   { name: '教研活动', href: '/academic/research', icon: Target, description: '集体备课与听课评课', badge: '智慧' },
   { name: '教师考勤', href: '/academic/attendance', icon: CheckSquare, description: '教师考勤管理' },
-  { name: '质量分析', href: '/academic/analysis', icon: BarChart3, description: '教学质量分析' },
 ];
 
 // 德育管理导航
