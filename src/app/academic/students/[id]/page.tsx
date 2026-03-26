@@ -230,6 +230,18 @@ export default function StudentDetailPage({ params }: PageProps) {
     isPrimary: false,
     wechat: '',
   });
+  
+  // 学生荣誉数据状态
+  const [studentHonors, setStudentHonors] = useState<Array<{
+    id: string;
+    title: string;
+    level: string;
+    category: string;
+    issuer: string;
+    date: string;
+    description?: string;
+  }>>([]);
+  const [honorsLoading, setHonorsLoading] = useState(false);
 
   // 获取班级列表
   useEffect(() => {
@@ -286,6 +298,28 @@ export default function StudentDetailPage({ params }: PageProps) {
       });
     }
   }, [profile]);
+  
+  // 获取学生荣誉数据
+  useEffect(() => {
+    const fetchHonors = async () => {
+      if (!id) return;
+      setHonorsLoading(true);
+      try {
+        const res = await fetch(`/api/student-honors?studentId=${id}&pageSize=100`, {
+          credentials: 'include',
+        });
+        const result = await res.json();
+        if (result.success) {
+          setStudentHonors(result.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch student honors:', err);
+      } finally {
+        setHonorsLoading(false);
+      }
+    };
+    fetchHonors();
+  }, [id]);
   
   // 处理班级变更
   const handleClassChange = (classId: string) => {
@@ -605,6 +639,7 @@ export default function StudentDetailPage({ params }: PageProps) {
         <TabsList className="bg-card border rounded-lg p-1">
           <TabsTrigger value="overview">基本信息</TabsTrigger>
           <TabsTrigger value="family">家庭信息</TabsTrigger>
+          <TabsTrigger value="honors">在校荣誉</TabsTrigger>
         </TabsList>
 
         {/* 基本信息 */}
@@ -985,6 +1020,83 @@ export default function StudentDetailPage({ params }: PageProps) {
                   <p className="text-muted-foreground">暂无家长信息</p>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 在校荣誉 */}
+        <TabsContent value="honors" className="space-y-4 mt-4">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                在校荣誉
+              </CardTitle>
+              <CardDescription>
+                该学生获得的各项荣誉和奖项
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {honorsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : studentHonors.length > 0 ? (
+                <div className="space-y-3">
+                  {studentHonors.map((honor) => (
+                    <div 
+                      key={honor.id} 
+                      className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        honor.level === '国家级' ? 'bg-red-100 text-red-600' :
+                        honor.level === '省级' ? 'bg-purple-100 text-purple-600' :
+                        honor.level === '市级' ? 'bg-blue-100 text-blue-600' :
+                        honor.level === '区级' ? 'bg-green-100 text-green-600' :
+                        honor.level === '校级' ? 'bg-orange-100 text-orange-600' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        <Award className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{honor.title}</span>
+                          <Badge variant="secondary" className={`text-xs ${
+                            honor.level === '国家级' ? 'bg-red-50 text-red-700' :
+                            honor.level === '省级' ? 'bg-purple-50 text-purple-700' :
+                            honor.level === '市级' ? 'bg-blue-50 text-blue-700' :
+                            honor.level === '区级' ? 'bg-green-50 text-green-700' :
+                            honor.level === '校级' ? 'bg-orange-50 text-orange-700' :
+                            'bg-gray-50 text-gray-700'
+                          }`}>
+                            {honor.level}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {honor.category}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {honor.date}
+                          </span>
+                          {honor.issuer && (
+                            <span>颁发单位：{honor.issuer}</span>
+                          )}
+                        </div>
+                        {honor.description && (
+                          <p className="mt-2 text-sm text-muted-foreground">{honor.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Trophy className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-muted-foreground">暂无荣誉记录</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
