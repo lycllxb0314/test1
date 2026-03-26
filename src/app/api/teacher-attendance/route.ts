@@ -193,6 +193,162 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * PATCH - 快速更新考勤状态（标记迟到/旷工/恢复正常）
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const client = getSupabaseClient();
+    const body = await request.json();
+    
+    const { teacherId, teacherName, date, status, remark } = body;
+    
+    if (!teacherId || !date || !status) {
+      return NextResponse.json(
+        error('缺少必要参数', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
+    }
+    
+    // 验证状态值
+    const validStatuses = ['present', 'late', 'absent'];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json(
+        error('无效的考勤状态', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
+    }
+    
+    // 获取教师的 UUID（从 users 表通过 employee_id 查找）
+    // 首先从 teachers 表获取 employee_id
+    const { data: teacherData } = await client
+      .from('teachers')
+      .select('id, employee_id')
+      .eq('id', teacherId)
+      .single();
+    
+    let teacherUUID: string | null = null;
+    
+    if (teacherData?.employee_id) {
+      // 通过 employee_id 在 users 表查找 UUID
+      const { data: userData } = await client
+        .from('users')
+        .select('id')
+        .eq('employee_id', teacherData.employee_id)
+        .single();
+      
+      teacherUUID = userData?.id;
+    }
+    
+    // 如果找不到 UUID，使用一个生成的 UUID（基于 teacherId）
+    // 这样可以确保记录能被创建
+    if (!teacherUUID) {
+      // 使用数据库生成的 UUID
+      const { data: newUUID } = await client
+        .rpc('gen_random_uuid')
+        .single();
+      teacherUUID = newUUID as string;
+    }
+    
+    // 检查是否已存在记录
+    const { data: existing } = await client
+      .from('teacher_attendance')
+      .select('id, status')
+      .eq('teacher_id', teacherUUID)
+      .eq('date', date)
+      .single();
+    
+    if (existing) {
+      // 如果要恢复正常状态且当前是late/absent，则删除记录
+      if (status === 'present' && (existing.status === 'late' || existing.status === 'absent')) {
+        const { error: deleteError } = await client
+          .from('teacher_attendance')
+          .delete()
+          .eq('id', existing.id);
+        
+        if (deleteError) {
+          return NextResponse.json(
+            error('恢复状态失败', ErrorCode.DATABASE_ERROR),
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json(success({ 
+          message: '已恢复正常状态',
+          action: 'deleted',
+          recordId: existing.id 
+        }));
+      }
+      
+      // 更新记录
+      const { data, error: dbError } = await client
+        .from('teacher_attendance')
+        .update({
+          status,
+          remark: remark || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+      
+      if (dbError) {
+        return NextResponse.json(
+          error('更新考勤状态失败', ErrorCode.DATABASE_ERROR),
+          { status: 500 }
+        );
+      }
+      
+      return NextResponse.json(success({ 
+        message: '考勤状态已更新',
+        action: 'updated',
+        data 
+      }));
+    } else {
+      // 如果是恢复正常状态，不需要创建记录
+      if (status === 'present') {
+        return NextResponse.json(success({ 
+          message: '状态正常，无需创建记录',
+          action: 'none'
+        }));
+      }
+      
+      // 创建新记录
+      const { data, error: dbError } = await client
+        .from('teacher_attendance')
+        .insert({
+          teacher_id: teacherUUID,
+          teacher_name: teacherName,
+          date,
+          status,
+          remark: remark || null,
+        })
+        .select()
+        .single();
+      
+      if (dbError) {
+        console.error('创建考勤记录失败:', dbError);
+        return NextResponse.json(
+          error('创建考勤记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+          { status: 500 }
+        );
+      }
+      
+      return NextResponse.json(success({ 
+        message: '考勤记录已创建',
+        action: 'created',
+        data 
+      }));
+    }
+  } catch (err) {
+    console.error('更新考勤状态失败:', err);
+    return NextResponse.json(
+      error('更新考勤状态失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * 获取日考勤数据
  */
 async function getDailyAttendance(client: any, date?: string): Promise<NextResponse> {
@@ -231,10 +387,10 @@ async function getDailyAttendance(client: any, date?: string): Promise<NextRespo
     .select('*')
     .eq('date', targetDate);
   
-  // 构建考勤记录映射
-  const attendanceMap = new Map<string, any>();
+  // 构建考勤记录映射（使用 teacher_name 作为 key，因为 teacher_id 是 UUID 而 teachers.id 是 varchar）
+  const attendanceByNameMap = new Map<string, any>();
   (attendanceRecords || []).forEach((record: any) => {
-    attendanceMap.set(record.teacher_id, record);
+    attendanceByNameMap.set(record.teacher_name, record);
   });
   
   // 4. 构建结果
@@ -253,8 +409,8 @@ async function getDailyAttendance(client: any, date?: string): Promise<NextRespo
       leaveType = leave.type;
     }
     
-    // 检查是否有考勤记录（迟到/旷工标记）
-    const attendance = attendanceMap.get(teacher.id);
+    // 检查是否有考勤记录（迟到/旷工标记）- 使用教师姓名匹配
+    const attendance = attendanceByNameMap.get(teacher.name);
     if (attendance) {
       recordId = attendance.id;
       if (attendance.status === 'late' && status === 'normal') {
@@ -363,11 +519,11 @@ async function getMonthlyAttendance(client: any, month?: string): Promise<NextRe
     }
   });
   
-  // 构建考勤记录映射（按教师+日期）
-  const attendanceByTeacherDate = new Map<string, any>();
+  // 构建考勤记录映射（按教师姓名+日期，因为 teacher_id 是 UUID 而 teachers.id 是 varchar）
+  const attendanceByNameDate = new Map<string, any>();
   (attendanceRecords || []).forEach((record: any) => {
-    const key = `${record.teacher_id}_${record.date}`;
-    attendanceByTeacherDate.set(key, record);
+    const key = `${record.teacher_name}_${record.date}`;
+    attendanceByNameDate.set(key, record);
   });
   
   // 计算工作日（排除周末）
@@ -405,8 +561,8 @@ async function getMonthlyAttendance(client: any, month?: string): Promise<NextRe
     let leaveDays = 0;
     
     workDays.forEach(date => {
-      const key = `${teacher.id}_${date}`;
-      const attendance = attendanceByTeacherDate.get(key);
+      const key = `${teacher.name}_${date}`;
+      const attendance = attendanceByNameDate.get(key);
       
       // 先检查是否请假
       if (leaveDates.has(date)) {
@@ -457,8 +613,8 @@ async function getMonthlyAttendance(client: any, month?: string): Promise<NextRe
     let leave = 0;
     
     byTeacher.forEach(teacher => {
-      const key = `${teacher.teacherId}_${date}`;
-      const attendance = attendanceByTeacherDate.get(key);
+      const key = `${teacher.teacherName}_${date}`;
+      const attendance = attendanceByNameDate.get(key);
       const hasLeave = teacher.leaveRecords.some(l => l.date === date);
       
       if (hasLeave) {

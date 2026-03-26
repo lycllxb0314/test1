@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -30,9 +31,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 import {
   CheckCircle2,
   XCircle,
@@ -51,6 +60,10 @@ import {
   UserCheck,
   UserX,
   Timer,
+  MoreHorizontal,
+  Edit,
+  RotateCcw,
+  CheckCircle,
 } from 'lucide-react';
 
 // ==================== 类型定义 ====================
@@ -169,6 +182,13 @@ export default function TeacherAttendancePage() {
   // 详情弹窗
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherAttendanceRecord | null>(null);
+  
+  // 标记弹窗
+  const [showMarkDialog, setShowMarkDialog] = useState(false);
+  const [markingTeacher, setMarkingTeacher] = useState<TeacherAttendanceRecord | null>(null);
+  const [markStatus, setMarkStatus] = useState<'late' | 'absent'>('late');
+  const [markRemark, setMarkRemark] = useState('');
+  const [marking, setMarking] = useState(false);
 
   // 获取部门列表
   const departments = useMemo(() => {
@@ -213,6 +233,79 @@ export default function TeacherAttendancePage() {
   useEffect(() => {
     fetchData();
   }, [viewType, selectedDate, selectedMonth]);
+
+  // 标记考勤状态
+  const handleMarkStatus = useCallback(async () => {
+    if (!markingTeacher) return;
+    
+    setMarking(true);
+    try {
+      const response = await fetch('/api/teacher-attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacherId: markingTeacher.teacherId,
+          teacherName: markingTeacher.teacherName,
+          date: selectedDate,
+          status: markStatus,
+          remark: markRemark,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`已标记为${markStatus === 'late' ? '迟到' : '旷工'}`);
+        setShowMarkDialog(false);
+        setMarkingTeacher(null);
+        setMarkRemark('');
+        fetchData();
+      } else {
+        toast.error(result.error || '标记失败');
+      }
+    } catch (err) {
+      console.error('标记考勤状态失败:', err);
+      toast.error('标记失败');
+    } finally {
+      setMarking(false);
+    }
+  }, [markingTeacher, markStatus, markRemark, selectedDate, fetchData]);
+
+  // 恢复正常状态
+  const handleRestoreNormal = useCallback(async (record: TeacherAttendanceRecord) => {
+    try {
+      const response = await fetch('/api/teacher-attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacherId: record.teacherId,
+          teacherName: record.teacherName,
+          date: selectedDate,
+          status: 'present',
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('已恢复正常状态');
+        fetchData();
+      } else {
+        toast.error(result.error || '恢复失败');
+      }
+    } catch (err) {
+      console.error('恢复考勤状态失败:', err);
+      toast.error('恢复失败');
+    }
+  }, [selectedDate, fetchData]);
+
+  // 打开标记弹窗
+  const openMarkDialog = useCallback((record: TeacherAttendanceRecord, status: 'late' | 'absent') => {
+    setMarkingTeacher(record);
+    setMarkStatus(status);
+    setMarkRemark('');
+    setShowMarkDialog(true);
+  }, []);
 
   // 过滤数据
   const filteredRecords = useMemo(() => {
@@ -391,6 +484,8 @@ export default function TeacherAttendancePage() {
                   <TeacherAttendanceTable 
                     records={filteredRecords} 
                     onViewDetail={handleViewDetail}
+                    onMarkStatus={openMarkDialog}
+                    onRestoreNormal={handleRestoreNormal}
                   />
                 </CardContent>
               </Card>
@@ -520,6 +615,71 @@ export default function TeacherAttendancePage() {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDetailDialog(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 标记考勤状态弹窗 */}
+      <Dialog open={showMarkDialog} onOpenChange={setShowMarkDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              标记为{markStatus === 'late' ? '迟到' : '旷工'}
+            </DialogTitle>
+            <DialogDescription>
+              教师：{markingTeacher?.teacherName}（{markingTeacher?.employeeId}）
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3">
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${markStatus === 'late' ? 'bg-amber-500/10 text-amber-600' : 'bg-red-500/10 text-red-600'}`}>
+                {markStatus === 'late' ? <Timer className="h-6 w-6" /> : <UserX className="h-6 w-6" />}
+              </div>
+              <div>
+                <p className="font-medium">{markingTeacher?.teacherName}</p>
+                <p className="text-sm text-muted-foreground">{markingTeacher?.department}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant={markStatus === 'late' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setMarkStatus('late')}
+                className="flex-1"
+              >
+                <Timer className="h-4 w-4 mr-1" />
+                迟到
+              </Button>
+              <Button
+                variant={markStatus === 'absent' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setMarkStatus('absent')}
+                className="flex-1"
+              >
+                <UserX className="h-4 w-4 mr-1" />
+                旷工
+              </Button>
+            </div>
+            
+            <div>
+              <Label className="text-xs text-muted-foreground">备注（可选）</Label>
+              <Textarea
+                placeholder="请输入备注信息..."
+                value={markRemark}
+                onChange={(e) => setMarkRemark(e.target.value)}
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMarkDialog(false)}>取消</Button>
+            <Button onClick={handleMarkStatus} disabled={marking}>
+              {marking ? '标记中...' : '确认标记'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -698,10 +858,14 @@ function MonthlySummaryCards({ summary, month }: { summary?: MonthlyAttendanceRe
 // 教师考勤表格
 function TeacherAttendanceTable({ 
   records, 
-  onViewDetail 
+  onViewDetail,
+  onMarkStatus,
+  onRestoreNormal,
 }: { 
   records: TeacherAttendanceRecord[];
   onViewDetail: (record: TeacherAttendanceRecord) => void;
+  onMarkStatus: (record: TeacherAttendanceRecord, status: 'late' | 'absent') => void;
+  onRestoreNormal: (record: TeacherAttendanceRecord) => void;
 }) {
   if (records.length === 0) {
     return (
@@ -722,7 +886,7 @@ function TeacherAttendanceTable({
           <TableHead>学科</TableHead>
           <TableHead>状态</TableHead>
           <TableHead>备注</TableHead>
-          <TableHead className="w-[80px]">操作</TableHead>
+          <TableHead className="w-[120px]">操作</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -744,13 +908,75 @@ function TeacherAttendanceTable({
               {record.leaveType ? `${record.leaveType}` : record.remark || '-'}
             </TableCell>
             <TableCell>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => onViewDetail(record)}
-              >
-                详情
-              </Button>
+              <div className="flex items-center gap-1">
+                {/* 只有正常或迟到/旷工状态才能标记 */}
+                {record.status === 'normal' && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onMarkStatus(record, 'late')}>
+                        <Timer className="h-4 w-4 mr-2 text-amber-600" />
+                        标记迟到
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onMarkStatus(record, 'absent')}>
+                        <UserX className="h-4 w-4 mr-2 text-red-600" />
+                        标记旷工
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => onViewDetail(record)}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        查看详情
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {(record.status === 'late' || record.status === 'absent') && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onRestoreNormal(record)}>
+                        <RotateCcw className="h-4 w-4 mr-2 text-green-600" />
+                        恢复正常
+                      </DropdownMenuItem>
+                      {record.status === 'late' && (
+                        <DropdownMenuItem onClick={() => onMarkStatus(record, 'absent')}>
+                          <UserX className="h-4 w-4 mr-2 text-red-600" />
+                          改为旷工
+                        </DropdownMenuItem>
+                      )}
+                      {record.status === 'absent' && (
+                        <DropdownMenuItem onClick={() => onMarkStatus(record, 'late')}>
+                          <Timer className="h-4 w-4 mr-2 text-amber-600" />
+                          改为迟到
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => onViewDetail(record)}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        查看详情
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {/* 请假状态只能查看详情 */}
+                {record.status === 'leave' && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => onViewDetail(record)}
+                  >
+                    详情
+                  </Button>
+                )}
+              </div>
             </TableCell>
           </TableRow>
         ))}
