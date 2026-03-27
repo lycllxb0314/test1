@@ -200,7 +200,7 @@ export interface SeatingStatistics {
 
 /** 默认座位表配置 */
 export const DEFAULT_SEATING_CONFIG: SeatingConfig = {
-  rows: 6,
+  rows: 8,
   columns: 8,
   layout: 'matrix',
   podiumPosition: 'top',
