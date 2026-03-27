@@ -7,7 +7,7 @@
 
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, fail, serverError, getQueryParams } from '@/lib/api-utils';
+import { ok, fail, serverError, getQueryParams } from '@/lib/api';
 
 /**
  * GET - 获取作业列表

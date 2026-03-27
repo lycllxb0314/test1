@@ -7,7 +7,7 @@
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getUserFromSession } from '@/lib/auth/session';
-import { ok, fail, serverError, unauthorized, notFound, forbidden } from '@/lib/api-utils';
+import { ok, fail, serverError, unauthorized, notFound, forbidden } from '@/lib/api';
 import { ApprovalActionRequest } from '@/types/approval';
 
 /**

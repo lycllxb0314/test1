@@ -11,7 +11,7 @@
 
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, paginated, serverError, getQueryParams, withApi } from '@/lib/api-utils';
+import { ok, paginated, serverError, getQueryParams, withApi } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   try {

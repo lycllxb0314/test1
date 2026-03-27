@@ -7,7 +7,7 @@
 
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, fail, serverError, paginated } from '@/lib/api-utils';
+import { ok, fail, serverError, paginated } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 // ==================== 类型定义 ====================

@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { login, setAuthCookies, type LoginResult } from '@/lib/auth/session';
-import { loginRateLimiter, ok, fail, serverError } from '@/lib/api-utils';
+import { loginRateLimiter, ok, fail, serverError } from '@/lib/api';
 
 /**
  * POST - 用户登录

@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { error, ErrorCode } from '@/lib/api-route-utils';
+import { error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 

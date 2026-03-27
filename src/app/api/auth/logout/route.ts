@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server';
 import { clearAuthCookies } from '@/lib/auth/session';
-import { ok, serverError } from '@/lib/api-utils';
+import { ok, serverError } from '@/lib/api';
 
 /**
  * POST - 用户登出

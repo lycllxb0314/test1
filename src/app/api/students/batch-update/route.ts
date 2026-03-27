@@ -9,7 +9,7 @@
 
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, fail, serverError, withApi, sensitiveRateLimiter } from '@/lib/api-utils';
+import { ok, fail, serverError, withApi, sensitiveRateLimiter } from '@/lib/api';
 
 /**
  * POST - 批量更新学生

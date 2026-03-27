@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { success, error, ErrorCode } from '@/lib/api';
 
 const supabase = getSupabaseClient();
 

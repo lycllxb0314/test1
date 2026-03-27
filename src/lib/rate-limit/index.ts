@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ErrorCode } from '../api-response';
+import { ErrorCode } from '../api';
 
 // ============================================
 // 类型定义

@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getUserFromSession } from '@/lib/auth/session';
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { success, error, ErrorCode } from '@/lib/api';
 
 const THEME_TYPE_LABELS: Record<string, string> = {
   big_unit: '大单元教学',

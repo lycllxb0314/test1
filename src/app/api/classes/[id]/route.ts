@@ -5,7 +5,7 @@
 
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, fail, serverError, notFound } from '@/lib/api-utils';
+import { ok, fail, serverError, notFound } from '@/lib/api';
 
 /**
  * GET - 获取单个班级详情

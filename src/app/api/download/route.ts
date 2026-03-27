@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Storage } from 'coze-coding-dev-sdk';
 import { getUserFromSession } from '@/lib/auth/session';
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { success, error, ErrorCode } from '@/lib/api';
 
 // 初始化对象存储
 const storage = new S3Storage({

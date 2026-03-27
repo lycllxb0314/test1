@@ -6,7 +6,7 @@
 
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, fail, serverError, paginated } from '@/lib/api-utils';
+import { ok, fail, serverError, paginated } from '@/lib/api';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];

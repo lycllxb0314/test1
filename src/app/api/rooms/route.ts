@@ -12,7 +12,7 @@ import {
   error, 
   parseQueryParams,
   ErrorCode 
-} from '@/lib/api-route-utils';
+} from '@/lib/api';
 
 /**
  * GET - 获取教室列表

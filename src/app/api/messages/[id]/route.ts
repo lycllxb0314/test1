@@ -9,7 +9,7 @@
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { ok, fail, serverError, notFound } from '@/lib/api-utils';
+import { ok, fail, serverError, notFound } from '@/lib/api';
 
 // GET: 获取消息详情
 const handleGetMessage = async (

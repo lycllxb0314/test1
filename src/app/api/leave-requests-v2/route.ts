@@ -11,7 +11,7 @@
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { ok, fail, serverError, paginated, getQueryParams } from '@/lib/api-utils';
+import { ok, fail, serverError, paginated, getQueryParams } from '@/lib/api';
 
 // ==================== GET - 获取请假列表 ====================
 

@@ -13,7 +13,7 @@ import {
   parseQueryParams, 
   createPagination,
   ErrorCode 
-} from '@/lib/api-route-utils';
+} from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import type { ExpenseItem } from '@/types';
 

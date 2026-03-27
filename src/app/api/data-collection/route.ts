@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, serverError } from '@/lib/api-utils';
+import { ok, serverError } from '@/lib/api';
 
 /**
  * GET - 获取数据采集任务列表

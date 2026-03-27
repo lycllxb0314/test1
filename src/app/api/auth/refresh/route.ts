@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server';
 import { refreshToken, setAuthCookies, extractTokens } from '@/lib/auth/session';
-import { ok, fail, serverError } from '@/lib/api-utils';
+import { ok, fail, serverError } from '@/lib/api';
 
 /**
  * POST - 刷新访问令牌

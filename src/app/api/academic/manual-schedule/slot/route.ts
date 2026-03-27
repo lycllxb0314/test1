@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 // GET - 获取某个班级的课表

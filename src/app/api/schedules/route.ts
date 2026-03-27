@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, parseQueryParams, ErrorCode } from '@/lib/api-route-utils';
+import { success, error, parseQueryParams, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**

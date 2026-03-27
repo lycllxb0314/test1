@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getUserFromSession } from '@/lib/auth/session';
-import { error, ErrorCode } from '@/lib/api-route-utils';
+import { error, ErrorCode } from '@/lib/api';
 
 /**
  * GET - 获取教研阶段列表

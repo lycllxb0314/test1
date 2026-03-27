@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, extractTokens, setAuthCookies } from '@/lib/auth/session';
-import { ok, fail, serverError } from '@/lib/api-utils';
+import { ok, fail, serverError } from '@/lib/api';
 
 /**
  * GET - 获取当前用户信息

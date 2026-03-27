@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getUserFromSession } from '@/lib/auth/session';
-import { success, error, ErrorCode } from '@/lib/api-route-utils';
+import { success, error, ErrorCode } from '@/lib/api';
 
 /** 荣誉级别 */
 type HonorLevel = '国家级' | '省级' | '市级' | '区级' | '校级' | '班级';

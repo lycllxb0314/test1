@@ -11,7 +11,7 @@ import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { GROUP_CONFIGS, type GroupType, type GroupInfo, type GroupMember } from '@/types';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { ok, fail, serverError, forbidden } from '@/lib/api-utils';
+import { ok, fail, serverError, forbidden } from '@/lib/api';
 
 // GET: 获取群组列表或群组成员
 export const GET = protectedRoute(async (

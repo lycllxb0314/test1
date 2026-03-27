@@ -12,7 +12,7 @@
 
 import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, fail, serverError, paginated, getQueryParams, notFound } from '@/lib/api-utils';
+import { ok, fail, serverError, paginated, getQueryParams, notFound } from '@/lib/api';
 
 /**
  * GET - 获取请假申请列表
