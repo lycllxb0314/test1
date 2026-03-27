@@ -11,6 +11,66 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { success, error, ErrorCode } from '@/lib/api';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+// 类型定义
+type TeacherRow = {
+  employee_id: string;
+  name: string;
+  primary_subject: string | null;
+  department: string | null;
+  status: string;
+};
+
+type WorkloadRow = {
+  employee_id: string;
+  academic_year: string;
+  semester: string;
+  week_number: number;
+  week_start_date: string;
+  week_end_date: string;
+  total_lessons: number | null;
+  actual_lessons: number | null;
+  substitute_lessons: number | null;
+  adjusted_lessons: number | null;
+  leave_days: number | null;
+};
+
+type ScheduleSlotRow = {
+  employee_id: string;
+  class_id: string;
+  class_name: string;
+  subject: string;
+  week_day: number;
+  period_index: number;
+};
+
+type LeaveRequestRow = {
+  id: string;
+  applicant_id: string;
+  start_date: string;
+  end_date: string;
+  leave_type: string;
+  type: string | null;
+  duration: number | null;
+  reason: string | null;
+  status: string;
+};
+
+type CourseAdjustmentRow = {
+  id: string;
+  applicant_id: string;
+  applicant_name: string | null;
+  substitute_employee_id: string | null;
+  substitute_name: string | null;
+  class_id: string;
+  class_name: string | null;
+  subject: string | null;
+  week_day: number | null;
+  period_index: number | null;
+  effective_week: string;
+  status: string;
+};
 
 /**
  * GET - 获取工作量数据
@@ -70,7 +130,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
  * 批量获取教师工作量
  */
 async function getBatchWorkload(
-  client: any, 
+  client: SupabaseClient, 
   baseYear: number, 
   semester: string, 
   month: number,
@@ -122,28 +182,28 @@ async function getBatchWorkload(
     const { data: schedules } = await client
       .from('schedule_slots')
       .select('employee_id')
-      .in('employee_id', teachers?.map((t: any) => t.employee_id) || []);
+      .in('employee_id', (teachers as TeacherRow[] || []).map((t) => t.employee_id) || []);
     
     // 统计每个教师的周课时（schedule_slots 中每条记录代表一节课）
     const scheduleCount: Record<string, number> = {};
-    schedules?.forEach((s: any) => {
+    (schedules as { employee_id: string }[] || []).forEach((s) => {
       if (s.employee_id) {
         scheduleCount[s.employee_id] = (scheduleCount[s.employee_id] || 0) + 1;
       }
     });
     
     // 组装数据
-    const result = teachers?.map((teacher: any) => {
+    const result = (teachers as TeacherRow[] || []).map((teacher) => {
       // 汇总该教师该月的所有周工作量
-      const teacherWorkloads = workloads?.filter((w: any) => w.employee_id === teacher.employee_id) || [];
+      const teacherWorkloads = (workloads as WorkloadRow[] || []).filter((w) => w.employee_id === teacher.employee_id);
       
       // schedule_slots 存储的是每周课程安排，每条记录代表一节课
       // 所以 totalLessons 就是每周课时数
       const weeklyLessons = scheduleCount[teacher.employee_id] || 0;
       const monthLessons = weeklyLessons * 4; // 月应上课时（每周课时 × 4周）
       
-      const substituteLessons = teacherWorkloads.reduce((sum: number, w: any) => sum + (w.substitute_lessons || 0), 0);
-      const adjustedLessons = teacherWorkloads.reduce((sum: number, w: any) => sum + (w.adjusted_lessons || 0), 0);
+      const substituteLessons = teacherWorkloads.reduce((sum, w) => sum + (w.substitute_lessons || 0), 0);
+      const adjustedLessons = teacherWorkloads.reduce((sum, w) => sum + (w.adjusted_lessons || 0), 0);
       
       // 计算实际工作量
       const actualLessons = monthLessons - adjustedLessons + substituteLessons;
@@ -167,10 +227,10 @@ async function getBatchWorkload(
           actualLessons: actualLessons,
           substituteLessons,
           adjustedLessons,
-          leaveDays: teacherWorkloads.reduce((sum: number, w: any) => sum + (w.leave_days || 0), 0),
+          leaveDays: teacherWorkloads.reduce((sum, w) => sum + (w.leave_days || 0), 0),
         },
       };
-    }) || [];
+    });
     
     return NextResponse.json(success(result, 'database'));
     
@@ -184,7 +244,7 @@ async function getBatchWorkload(
  * 获取单个教师工作量详情
  */
 async function getTeacherWorkload(
-  client: any,
+  client: SupabaseClient,
   teacherId: string,
   baseYear: number,
   semester: string,
@@ -257,13 +317,13 @@ async function getTeacherWorkload(
     // 计算总课时
     // schedule_slots 存储的是每周课程安排，每条记录代表一节课
     // 所以 schedules?.length 就是每周课时数
-    const weeklyLessons = schedules?.length || 0;
+    const weeklyLessons = (schedules as ScheduleSlotRow[])?.length || 0;
     const monthLessons = weeklyLessons * 4; // 月应上课时（每周课时 × 4周）
     
     // 代课课时 = 教师帮别人代课的节数
-    const substituteLessons = substitutes?.length || 0;
+    const substituteLessons = (substitutes as CourseAdjustmentRow[])?.length || 0;
     // 被代课课时 = 教师请假，由他人代课的节数
-    const adjustedLessons = substitutedByOthers?.length || 0;
+    const adjustedLessons = (substitutedByOthers as CourseAdjustmentRow[])?.length || 0;
     // 实际授课 = 月应上课时 - 被代课 + 代课
     const actualLessons = monthLessons - adjustedLessons + substituteLessons;
     
@@ -283,7 +343,7 @@ async function getTeacherWorkload(
       // 实际授课
       selfTaughtHours: monthLessons - adjustedLessons,
       leaveHours: adjustedLessons,
-      leaveDetails: leaves?.map((l: any) => ({
+      leaveDetails: (leaves as LeaveRequestRow[])?.map((l) => ({
         date: l.start_date,
         leaveType: l.type || l.leave_type,
         hours: l.duration || 1,
@@ -291,7 +351,7 @@ async function getTeacherWorkload(
       
       // 代课
       substituteHours: substituteLessons,
-      substituteDetails: substitutes?.map((s: any) => ({
+      substituteDetails: (substitutes as CourseAdjustmentRow[])?.map((s) => ({
         date: s.effective_week,
         classId: s.class_id,
         className: s.class_name,
@@ -303,7 +363,7 @@ async function getTeacherWorkload(
       
       // 被代课（请假导致他人代课）
       adjustedHours: adjustedLessons,
-      adjustedDetails: substitutedByOthers?.map((s: any) => ({
+      adjustedDetails: (substitutedByOthers as CourseAdjustmentRow[])?.map((s) => ({
         date: s.effective_week,
         classId: s.class_id,
         className: s.class_name,
@@ -328,11 +388,11 @@ async function getTeacherWorkload(
         actualLessons,
         substituteLessons,
         adjustedLessons,
-        leaveDays: leaves?.length || 0,
+        leaveDays: (leaves as LeaveRequestRow[])?.length || 0,
       },
       
       // 周明细
-      weeklyBreakdown: workloads?.map((w: any) => ({
+      weeklyBreakdown: (workloads as WorkloadRow[])?.map((w) => ({
         weekNumber: w.week_number,
         weekStartDate: w.week_start_date,
         weekEndDate: w.week_end_date,
@@ -343,7 +403,7 @@ async function getTeacherWorkload(
       })),
       
       // 请假记录
-      leaveRecords: leaves?.map((l: any) => ({
+      leaveRecords: (leaves as LeaveRequestRow[])?.map((l) => ({
         id: l.id,
         type: l.leave_type,
         startDate: l.start_date,
@@ -353,7 +413,7 @@ async function getTeacherWorkload(
       })),
       
       // 代课记录
-      substituteRecords: substitutes?.map((s: any) => ({
+      substituteRecords: (substitutes as CourseAdjustmentRow[])?.map((s) => ({
         id: s.id,
         weekDay: s.week_day,
         periodIndex: s.period_index,
@@ -377,7 +437,7 @@ async function getTeacherWorkload(
  * 获取教师月度汇总
  */
 async function getMonthlySummary(
-  client: any,
+  client: SupabaseClient,
   teacherId: string,
   baseYear: number,
   semester: string
@@ -398,9 +458,18 @@ async function getMonthlySummary(
       .order('week_number');
     
     // 按月汇总
-    const monthlyData: Record<number, any> = {};
+    type MonthlyData = {
+      month: number;
+      totalLessons: number;
+      actualLessons: number;
+      substituteLessons: number;
+      adjustedLessons: number;
+      leaveDays: number;
+    };
     
-    workloads?.forEach((w: any) => {
+    const monthlyData: Record<number, MonthlyData> = {};
+    
+    (workloads as WorkloadRow[])?.forEach((w) => {
       const month = new Date(w.week_start_date).getMonth() + 1;
       
       if (!monthlyData[month]) {
@@ -426,8 +495,8 @@ async function getMonthlySummary(
       academicYear: academicYearStr,
       semester,
       monthlySummary: Object.values(monthlyData),
-      totalSubstituteLessons: workloads?.reduce((sum: number, w: any) => sum + (w.substitute_lessons || 0), 0) || 0,
-      totalAdjustedLessons: workloads?.reduce((sum: number, w: any) => sum + (w.adjusted_lessons || 0), 0) || 0,
+      totalSubstituteLessons: (workloads as WorkloadRow[])?.reduce((sum, w) => sum + (w.substitute_lessons || 0), 0) || 0,
+      totalAdjustedLessons: (workloads as WorkloadRow[])?.reduce((sum, w) => sum + (w.adjusted_lessons || 0), 0) || 0,
     };
     
     return NextResponse.json(success(result, 'database'));

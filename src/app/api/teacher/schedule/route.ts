@@ -11,6 +11,50 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+// 类型定义
+type TeacherRow = {
+  id: string;
+  name: string;
+  primary_subject: string | null;
+  employee_id: string;
+};
+
+type ScheduleSlotRow = {
+  id: string;
+  class_id: string;
+  class_name: string;
+  subject: string;
+  teacher_id: string;
+  teacher_name: string | null;
+  week_day: number;
+  period_index: number;
+  grade?: number;
+};
+
+type ClassRow = {
+  id: string;
+  name: string;
+  grade: number;
+  head_teacher_id: string | null;
+  sub_teacher_id: string | null;
+};
+
+type CourseAdjustmentRow = {
+  id: string;
+  class_id: string;
+  class_name: string | null;
+  subject: string | null;
+  week_day: number | null;
+  period_index: number | null;
+  effective_week: string;
+  applicant_id: string;
+  applicant_name: string | null;
+  substitute_employee_id: string | null;
+  substitute_name: string | null;
+  status: string;
+};
 
 // GET: 获取教师课表数据
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
@@ -104,7 +148,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
 });
 
 // 获取教师个人课表
-async function getPersonalSchedule(client: any, teacherId: string) {
+async function getPersonalSchedule(client: SupabaseClient, teacherId: string) {
   // 获取教师信息
   const { data: teacher, error: teacherError } = await client
     .from('teachers')
@@ -127,14 +171,14 @@ async function getPersonalSchedule(client: any, teacherId: string) {
   }
   
   // 获取涉及的班级信息
-  const classIds = [...new Set((slots || []).map((s: any) => s.class_id))];
+  const classIds = [...new Set((slots as ScheduleSlotRow[] || []).map((s) => s.class_id))];
   const { data: classes } = await client
     .from('classes')
     .select('id, name, grade')
     .in('id', classIds);
   
   const classMap = new Map<string, { id: string; name: string; grade: number }>(
-    (classes || []).map((c: any) => [c.id, { id: c.id, name: c.name, grade: c.grade }])
+    (classes as ClassRow[] || []).map((c) => [c.id, { id: c.id, name: c.name, grade: c.grade }])
   );
   
   // ====== 查询调课记录 ======
@@ -193,10 +237,17 @@ async function getPersonalSchedule(client: any, teacherId: string) {
   
   // 构建调课记录映射
   // key: `${week_day}-${period_index}`, value: 调课记录
-  const adjustmentMap = new Map<string, any>();
+  type AdjustmentInfo = CourseAdjustmentRow & {
+    isAdjusted: boolean;
+    adjustmentType: 'substituted' | 'substituting';
+    substituteTeacher?: { name: string; employee_id: string } | null;
+    originalTeacher?: { name: string; employee_id: string };
+  };
+  
+  const adjustmentMap = new Map<string, AdjustmentInfo>();
   
   // 被代课的记录（教师请假，别人代课）
-  (adjustedRecordsAsApplicant || []).forEach((adj: any) => {
+  (adjustedRecordsAsApplicant as CourseAdjustmentRow[] || []).forEach((adj) => {
     const key = `${adj.week_day}-${adj.period_index}`;
     adjustmentMap.set(key, {
       ...adj,
@@ -204,13 +255,13 @@ async function getPersonalSchedule(client: any, teacherId: string) {
       adjustmentType: 'substituted', // 被代课
       substituteTeacher: adj.substitute_name ? {
         name: adj.substitute_name,
-        employee_id: adj.substitute_employee_id,
+        employee_id: adj.substitute_employee_id || '',
       } : null,
     });
   });
   
   // 代课的记录（帮别人代课）
-  (adjustedRecordsAsSubstitute || []).forEach((adj: any) => {
+  (adjustedRecordsAsSubstitute as CourseAdjustmentRow[] || []).forEach((adj) => {
     const key = `${adj.week_day}-${adj.period_index}`;
     if (!adjustmentMap.has(key)) {
       adjustmentMap.set(key, {
@@ -218,20 +269,39 @@ async function getPersonalSchedule(client: any, teacherId: string) {
         isAdjusted: true,
         adjustmentType: 'substituting', // 代课
         originalTeacher: {
-          name: adj.applicant_name,
+          name: adj.applicant_name || '',
           employee_id: adj.applicant_id,
         },
       });
     }
   });
   
+  type ScheduleCell = (ScheduleSlotRow & { 
+    className?: string; 
+    grade?: number; 
+    isAdjusted: boolean; 
+    adjustment: AdjustmentInfo | null 
+  }) | { 
+    id: string; 
+    class_id: string; 
+    subject: string | null; 
+    teacher_id: string; 
+    teacher_name: string; 
+    week_day: number; 
+    period_index: number; 
+    className: string; 
+    grade: number | undefined; 
+    isAdjusted: boolean; 
+    adjustment: AdjustmentInfo 
+  } | null;
+  
   // 构建课表矩阵（6行5列）
-  const scheduleMatrix: (any | null)[][] = [];
+  const scheduleMatrix: ScheduleCell[][] = [];
   for (let period = 0; period < 6; period++) {
-    const row: (any | null)[] = [];
+    const row: ScheduleCell[] = [];
     for (let day = 0; day < 5; day++) {
-      const slot = (slots || []).find(
-        (s: any) => s.week_day === day + 1 && s.period_index === period
+      const slot = (slots as ScheduleSlotRow[] || []).find(
+        (s) => s.week_day === day + 1 && s.period_index === period
       );
       const adjKey = `${day + 1}-${period}`;
       const adjustment = adjustmentMap.get(adjKey);
@@ -269,8 +339,14 @@ async function getPersonalSchedule(client: any, teacherId: string) {
   }
   
   // 按星期分组（用于列表视图）
-  const byWeekday: Record<number, any[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
-  (slots || []).forEach((slot: any) => {
+  const byWeekday: Record<number, (ScheduleSlotRow & { 
+    className?: string; 
+    grade?: number; 
+    isAdjusted: boolean; 
+    adjustment: AdjustmentInfo | null 
+  })[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+  
+  (slots as ScheduleSlotRow[] || []).forEach((slot) => {
     const cls = classMap.get(slot.class_id);
     const adjKey = `${slot.week_day}-${slot.period_index}`;
     const adjustment = adjustmentMap.get(adjKey);
@@ -304,7 +380,7 @@ async function getPersonalSchedule(client: any, teacherId: string) {
 }
 
 // 获取教师任教的班级列表
-async function getTeachingClasses(client: any, teacherId: string) {
+async function getTeachingClasses(client: SupabaseClient, teacherId: string) {
   // 从 schedule_slots 获取该教师任教的班级
   const { data: slots, error: slotsError } = await client
     .from('schedule_slots')
@@ -324,7 +400,9 @@ async function getTeachingClasses(client: any, teacherId: string) {
     totalHours: number;
   }>();
   
-  (slots || []).forEach((slot: any) => {
+  type SlotData = { class_id: string; subject: string; class_name: string | null; grade: number | null };
+  
+  (slots as SlotData[] || []).forEach((slot) => {
     const existing = classMap.get(slot.class_id);
     if (existing) {
       existing.totalHours++;
@@ -357,12 +435,14 @@ async function getTeachingClasses(client: any, teacherId: string) {
   
   // 合并信息
   const teachingClasses = Array.from(classMap.values()).map(cls => {
-    const info = (classesInfo || []).find((c: any) => c.id === cls.classId);
+    const info = classesInfo?.find((c) => c.id === cls.classId);
+    type ClassWithTeacher = { name: string; grade: number; head_teacher?: TeacherRow | null };
+    const typedInfo = info as unknown as ClassWithTeacher | undefined;
     return {
       ...cls,
-      className: info?.name || cls.className,
-      grade: info?.grade || cls.grade,
-      headTeacher: info?.head_teacher || null,
+      className: typedInfo?.name || cls.className,
+      grade: typedInfo?.grade || cls.grade,
+      headTeacher: typedInfo?.head_teacher || null,
     };
   });
   
@@ -376,7 +456,7 @@ async function getTeachingClasses(client: any, teacherId: string) {
 }
 
 // 获取班级课表
-async function getClassSchedule(client: any, classId: string) {
+async function getClassSchedule(client: SupabaseClient, classId: string) {
   // 获取班级信息
   const { data: cls, error: classError } = await client
     .from('classes')
@@ -428,12 +508,12 @@ async function getClassSchedule(client: any, classId: string) {
   }
   
   // 构建课表矩阵
-  const scheduleMatrix: (any | null)[][] = [];
+  const scheduleMatrix: (ScheduleSlotRow | null)[][] = [];
   for (let period = 0; period < 6; period++) {
-    const row: (any | null)[] = [];
+    const row: (ScheduleSlotRow | null)[] = [];
     for (let day = 0; day < 5; day++) {
-      const slot = (slots || []).find(
-        (s: any) => s.week_day === day + 1 && s.period_index === period
+      const slot = (slots as ScheduleSlotRow[] || []).find(
+        (s) => s.week_day === day + 1 && s.period_index === period
       );
       row.push(slot || null);
     }
@@ -442,7 +522,7 @@ async function getClassSchedule(client: any, classId: string) {
   
   // 统计各科目课时
   const subjectCount: Record<string, number> = {};
-  (slots || []).forEach((s: any) => {
+  (slots as ScheduleSlotRow[] || []).forEach((s) => {
     subjectCount[s.subject] = (subjectCount[s.subject] || 0) + 1;
   });
   

@@ -12,6 +12,89 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+// ==================== 类型定义 ====================
+
+/** 课表时段数据库行 */
+type ScheduleSlotRow = {
+  id: string;
+  class_id: string;
+  teacher_id: string;
+  subject: string;
+  week_day: number;
+  period_index: number;
+  room?: string;
+  class_name?: string;
+};
+
+/** 教师数据库行 */
+type TeacherRow = {
+  id: string;
+  name: string;
+  primary_subject?: string;
+  employee_id?: string;
+};
+
+/** 班级数据库行 */
+type ClassRow = {
+  id: string;
+  name: string;
+  grade: number;
+  head_teacher_id?: string;
+  sub_teacher_id?: string;
+};
+
+/** 教师信息（简化） */
+type TeacherInfo = {
+  id: string;
+  name: string;
+  primary_subject?: string;
+};
+
+/** 班级课表项 */
+type ClassScheduleItem = ClassRow & {
+  head_teacher: TeacherInfo | null;
+  sub_teacher: TeacherInfo | null;
+  slots: ScheduleSlotRow[];
+};
+
+/** 年级课表 */
+type GradeSchedule = {
+  grade: number;
+  gradeName: string;
+  classes: ClassScheduleItem[];
+  classCount: number;
+};
+
+/** 教师课表项 */
+type TeacherScheduleItem = TeacherRow & {
+  slots: ScheduleSlotRow[];
+  totalHours: number;
+};
+
+/** 学科课表 */
+type SubjectSchedule = {
+  subject: string;
+  teachers: TeacherScheduleItem[];
+  teacherCount: number;
+};
+
+/** 课表矩阵单元格 */
+type ScheduleCell = (ScheduleSlotRow & { className?: string; grade?: number }) | null;
+
+/** 课表统计 */
+type GradeStat = {
+  grade: number;
+  gradeName: string;
+  classCount: number;
+  slotCount: number;
+};
+
+type SubjectStat = {
+  subject: string;
+  hours: number;
+};
 
 // GET: 获取全校课表数据
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
@@ -56,7 +139,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
 });
 
 // 获取所有班级课表
-async function getAllClassesSchedule(client: any, gradeFilter: string | null, search: string | null) {
+async function getAllClassesSchedule(client: SupabaseClient, gradeFilter: string | null, search: string | null) {
   // 1. 获取所有班级
   let classQuery = client
     .from('classes')
@@ -81,13 +164,13 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
   
   // 2. 获取班主任和副班主任的ID列表
   const teacherIds = new Set<string>();
-  for (const cls of classes || []) {
+  for (const cls of (classes as ClassRow[]) || []) {
     if (cls.head_teacher_id) teacherIds.add(cls.head_teacher_id);
     if (cls.sub_teacher_id) teacherIds.add(cls.sub_teacher_id);
   }
   
   // 3. 获取教师信息
-  let teachers: any[] = [];
+  let teachers: TeacherRow[] = [];
   if (teacherIds.size > 0) {
     const { data: teachersData, error: teachersError } = await client
       .from('teachers')
@@ -95,18 +178,18 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
       .in('id', Array.from(teacherIds));
     
     if (!teachersError && teachersData) {
-      teachers = teachersData;
+      teachers = teachersData as TeacherRow[];
     }
   }
   
   // 教师ID到教师信息映射
-  const teacherMap = new Map<string, any>();
+  const teacherMap = new Map<string, TeacherRow>();
   for (const t of teachers) {
     teacherMap.set(t.id, t);
   }
   
   // 4. 获取所有班级的课表
-  const classIds = classes?.map((c: any) => c.id) || [];
+  const classIds = (classes as ClassRow[])?.map((c) => c.id) || [];
   
   const { data: slots, error: slotsError } = await client
     .from('schedule_slots')
@@ -119,8 +202,8 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
   }
   
   // 按班级分组
-  const slotsByClass = new Map<string, any[]>();
-  for (const slot of slots || []) {
+  const slotsByClass = new Map<string, ScheduleSlotRow[]>();
+  for (const slot of (slots as ScheduleSlotRow[]) || []) {
     if (!slotsByClass.has(slot.class_id)) {
       slotsByClass.set(slot.class_id, []);
     }
@@ -128,8 +211,8 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
   }
   
   // 按年级分组，并关联教师信息
-  const scheduleByGrade = new Map<number, any[]>();
-  for (const cls of classes || []) {
+  const scheduleByGrade = new Map<number, ClassScheduleItem[]>();
+  for (const cls of (classes as ClassRow[]) || []) {
     const grade = cls.grade;
     if (!scheduleByGrade.has(grade)) {
       scheduleByGrade.set(grade, []);
@@ -156,7 +239,7 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
   }
   
   // 构建结果
-  const result: any[] = [];
+  const result: GradeSchedule[] = [];
   scheduleByGrade.forEach((classSchedules, grade) => {
     result.push({
       grade,
@@ -175,13 +258,13 @@ async function getAllClassesSchedule(client: any, gradeFilter: string | null, se
 }
 
 // 获取所有教师课表
-async function getAllTeachersSchedule(client: any, search: string | null) {
+async function getAllTeachersSchedule(client: SupabaseClient, search: string | null) {
   // 先获取有课程的教师ID
   const { data: slotsData } = await client
     .from('schedule_slots')
     .select('teacher_id');
   
-  const teacherIdsWithSlots = [...new Set((slotsData || []).map((s: any) => s.teacher_id).filter(Boolean))];
+  const teacherIdsWithSlots = [...new Set((slotsData as { teacher_id: string }[] || []).map((s) => s.teacher_id).filter(Boolean))];
   
   if (teacherIdsWithSlots.length === 0) {
     return NextResponse.json(success({
@@ -221,8 +304,8 @@ async function getAllTeachersSchedule(client: any, search: string | null) {
   }
   
   // 按教师分组
-  const slotsByTeacher = new Map<string, any[]>();
-  for (const slot of slots || []) {
+  const slotsByTeacher = new Map<string, ScheduleSlotRow[]>();
+  for (const slot of (slots as ScheduleSlotRow[]) || []) {
     if (!slotsByTeacher.has(slot.teacher_id)) {
       slotsByTeacher.set(slot.teacher_id, []);
     }
@@ -230,8 +313,8 @@ async function getAllTeachersSchedule(client: any, search: string | null) {
   }
   
   // 按学科分组
-  const teachersBySubject = new Map<string, any[]>();
-  for (const teacher of teachers || []) {
+  const teachersBySubject = new Map<string, TeacherScheduleItem[]>();
+  for (const teacher of (teachers as TeacherRow[]) || []) {
     const subject = teacher.primary_subject || '其他';
     if (!teachersBySubject.has(subject)) {
       teachersBySubject.set(subject, []);
@@ -244,7 +327,7 @@ async function getAllTeachersSchedule(client: any, search: string | null) {
   }
   
   // 构建结果
-  const result: any[] = [];
+  const result: SubjectSchedule[] = [];
   teachersBySubject.forEach((teacherList, subject) => {
     result.push({
       subject,
@@ -262,7 +345,7 @@ async function getAllTeachersSchedule(client: any, search: string | null) {
 }
 
 // 获取单个教师课表
-async function getTeacherSchedule(client: any, teacherId: string) {
+async function getTeacherSchedule(client: SupabaseClient, teacherId: string) {
   // 获取教师信息
   const { data: teacher, error: teacherError } = await client
     .from('teachers')
@@ -285,21 +368,23 @@ async function getTeacherSchedule(client: any, teacherId: string) {
   }
   
   // 获取涉及的班级信息
-  const classIds = [...new Set((slots || []).map((s: any) => s.class_id))];
+  const classIds = [...new Set((slots as ScheduleSlotRow[] || []).map((s) => s.class_id))];
   const { data: classes } = await client
     .from('classes')
     .select('id, name, grade')
     .in('id', classIds);
   
-  const classMap = new Map<string, { id: string; name: string; grade: number }>((classes || []).map((c: any) => [c.id, c]));
+  const classMap = new Map<string, { id: string; name: string; grade: number }>(
+    (classes as { id: string; name: string; grade: number }[] || []).map((c) => [c.id, c])
+  );
   
   // 构建课表矩阵
-  const scheduleMatrix: any[][] = [];
+  const scheduleMatrix: ScheduleCell[][] = [];
   for (let period = 0; period < 6; period++) {
-    const row: any[] = [];
+    const row: ScheduleCell[] = [];
     for (let day = 0; day < 5; day++) {
-      const slot = (slots || []).find(
-        (s: any) => s.week_day === day + 1 && s.period_index === period
+      const slot = (slots as ScheduleSlotRow[] || []).find(
+        (s) => s.week_day === day + 1 && s.period_index === period
       );
       if (slot) {
         const cls = classMap.get(slot.class_id);
@@ -321,12 +406,12 @@ async function getTeacherSchedule(client: any, teacherId: string) {
     scheduleMatrix,
     slots: slots || [],
     totalHours: (slots || []).length,
-    classes: classMap,
+    classes: Object.fromEntries(classMap),
   }));
 }
 
 // 获取单个班级课表
-async function getClassSchedule(client: any, classId: string) {
+async function getClassSchedule(client: SupabaseClient, classId: string) {
   // 获取班级信息
   const { data: cls, error: classError } = await client
     .from('classes')
@@ -339,8 +424,8 @@ async function getClassSchedule(client: any, classId: string) {
   }
   
   // 获取班主任和副班主任信息
-  const teacherIds = [cls.head_teacher_id, cls.sub_teacher_id].filter(Boolean);
-  let teacherMap = new Map<string, any>();
+  const teacherIds = [cls.head_teacher_id, cls.sub_teacher_id].filter((id): id is string => Boolean(id));
+  const teacherMap = new Map<string, TeacherRow>();
   
   if (teacherIds.length > 0) {
     const { data: teachers } = await client
@@ -348,7 +433,7 @@ async function getClassSchedule(client: any, classId: string) {
       .select('id, name, primary_subject')
       .in('id', teacherIds);
     
-    (teachers || []).forEach((t: any) => teacherMap.set(t.id, t));
+    (teachers as TeacherRow[] || []).forEach((t) => teacherMap.set(t.id, t));
   }
   
   const headTeacher = cls.head_teacher_id ? teacherMap.get(cls.head_teacher_id) : null;
@@ -379,12 +464,12 @@ async function getClassSchedule(client: any, classId: string) {
   }
   
   // 构建课表矩阵
-  const scheduleMatrix: any[][] = [];
+  const scheduleMatrix: ScheduleCell[][] = [];
   for (let period = 0; period < 6; period++) {
-    const row: any[] = [];
+    const row: ScheduleCell[] = [];
     for (let day = 0; day < 5; day++) {
-      const slot = (slots || []).find(
-        (s: any) => s.week_day === day + 1 && s.period_index === period
+      const slot = (slots as ScheduleSlotRow[] || []).find(
+        (s) => s.week_day === day + 1 && s.period_index === period
       );
       row.push(slot || null);
     }
@@ -400,7 +485,7 @@ async function getClassSchedule(client: any, classId: string) {
 }
 
 // 获取课表统计概览
-async function getScheduleSummary(client: any) {
+async function getScheduleSummary(client: SupabaseClient) {
   // 获取班级统计
   const { data: classes } = await client
     .from('classes')
@@ -413,19 +498,19 @@ async function getScheduleSummary(client: any) {
   
   // 按年级统计
   const gradeStats = new Map<number, { classCount: number; slotCount: number }>();
-  const classGradeMap = new Map<string, number>((classes || []).map((c: any) => [c.id as string, c.grade as number]));
+  const classGradeMap = new Map<string, number>((classes as { id: string; grade: number }[] || []).map((c) => [c.id, c.grade]));
   
   for (let grade = 1; grade <= 6; grade++) {
     gradeStats.set(grade, { classCount: 0, slotCount: 0 });
   }
   
-  (classes || []).forEach((c: any) => {
+  (classes as { id: string; grade: number }[] || []).forEach((c) => {
     const grade = c.grade;
     const stat = gradeStats.get(grade);
     if (stat) stat.classCount++;
   });
   
-  (slots || []).forEach((s: any) => {
+  (slots as { teacher_id: string; class_id: string; subject: string }[] || []).forEach((s) => {
     const grade = classGradeMap.get(s.class_id);
     if (grade) {
       const stat = gradeStats.get(grade);
@@ -435,7 +520,7 @@ async function getScheduleSummary(client: any) {
   
   // 教师课时统计
   const teacherHours = new Map<string, number>();
-  (slots || []).forEach((s: any) => {
+  (slots as { teacher_id: string; class_id: string; subject: string }[] || []).forEach((s) => {
     if (s.teacher_id) {
       teacherHours.set(s.teacher_id, (teacherHours.get(s.teacher_id) || 0) + 1);
     }
@@ -443,7 +528,7 @@ async function getScheduleSummary(client: any) {
   
   // 按学科统计课时
   const subjectHours = new Map<string, number>();
-  (slots || []).forEach((s: any) => {
+  (slots as { teacher_id: string; class_id: string; subject: string }[] || []).forEach((s) => {
     if (s.subject) {
       subjectHours.set(s.subject, (subjectHours.get(s.subject) || 0) + 1);
     }
