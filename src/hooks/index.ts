@@ -15,6 +15,19 @@
 export { useQuery, usePaginatedQuery, useMutation, useQueryClient } from './core/use-query';
 
 // ============================================
+// 错误处理 Hooks
+// ============================================
+
+export {
+  useError,
+  createAppError,
+  getErrorLog,
+  clearErrorLog,
+  setupGlobalErrorHandler,
+} from './useError';
+export type { AppError, UseErrorReturn, HandleErrorOptions, RetryOptions } from './useError';
+
+// ============================================
 // 业务 Hooks
 // ============================================
 
