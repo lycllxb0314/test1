@@ -1,7 +1,7 @@
 /**
  * API客户端模块
  * 
- * 四层架构中的第四层（API Client层）
+ * 六层架构中的第四层（API Client层）
  * 负责HTTP请求封装、缓存、重试等
  * 
  * 架构层次：
@@ -10,6 +10,7 @@
  * 3. API层 - HTTP接口
  * 4. API Client层 - HTTP请求封装（本层）
  * 5. Hook层 - React框架适配
+ * 6. Component层 - UI展示
  * 
  * @module api-client
  */

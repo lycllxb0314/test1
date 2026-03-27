@@ -1,8 +1,14 @@
 /**
  * 数据获取Hook - 核心实现
  * 
- * 提供数据获取、缓存、状态管理的通用Hook
+ * 六层架构中的第五层（Hook层）
  * 作为React框架与API Client层的适配器
+ * 
+ * 职责：
+ * - 状态管理 (useState, useReducer)
+ * - 副作用处理 (useEffect)
+ * - 缓存控制
+ * - 响应式数据获取
  * 
  * @module hooks/core/use-query
  */

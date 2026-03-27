@@ -3,12 +3,13 @@
  * 
  * 定义系统的核心抽象接口，确保各层的解耦和一致性
  * 
- * 架构层次：
+ * 六层架构：
  * 1. Repository层 - 数据访问抽象
  * 2. Service层 - 业务逻辑抽象
  * 3. API层 - HTTP接口抽象
  * 4. API Client层 - 请求封装抽象
  * 5. Hook层 - React框架适配
+ * 6. Component层 - UI展示
  * 
  * @module abstract
  */
