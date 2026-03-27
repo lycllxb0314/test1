@@ -2,6 +2,21 @@ import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { ok, serverError } from '@/lib/api';
 
+// 类型定义
+interface DataCollectionTaskRow {
+  id: string;
+  title: string;
+  type: string;
+  description: string | null;
+  deadline: string;
+  target_roles: string[] | null;
+  submitted_count: number | null;
+  total_count: number | null;
+  status: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 /**
  * GET - 获取数据采集任务列表
  */
@@ -24,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return ok((data || []).map((t: any) => ({
+    return ok((data || []).map((t: DataCollectionTaskRow) => ({
       id: t.id,
       title: t.title,
       type: t.type,

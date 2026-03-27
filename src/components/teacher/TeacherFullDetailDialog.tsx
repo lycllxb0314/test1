@@ -68,6 +68,7 @@ import {
   MapPin,
   IdCard,
   CheckCircle,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   TeacherRole,
@@ -240,7 +241,7 @@ interface TeacherFullDetailDialogProps {
 
 // 获取记录类型信息
 const getRecordTypeInfo = (type: string) => {
-  const typeMap: Record<string, { icon: any; color: string; label: string }> = {
+  const typeMap: Record<string, { icon: LucideIcon; color: string; label: string }> = {
     education: { icon: GraduationCap, color: 'text-blue-500', label: '学历' },
     title: { icon: Award, color: 'text-purple-500', label: '职称' },
     position: { icon: Briefcase, color: 'text-orange-500', label: '职务' },

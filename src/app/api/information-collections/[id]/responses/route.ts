@@ -255,11 +255,12 @@ export const POST = protectedRoute(async (
       success: true,
       message: '提交成功',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[信息收集响应] 提交异常:', error);
+    const message = error instanceof Error ? error.message : '未知错误';
     return NextResponse.json({ 
       success: false, 
-      error: `提交失败: ${error?.message || '未知错误'}` 
+      error: `提交失败: ${message}` 
     }, { status: 500 });
   }
 });

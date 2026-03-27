@@ -11,6 +11,29 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
+// 类型定义
+interface ScheduleSlotRow {
+  id: string;
+  class_id: string;
+  class_name: string;
+  grade: number;
+  week_day: number;
+  period_index: number;
+  period_name: string | null;
+  subject: string;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  draft_id: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface DraftUpdateData {
+  updated_at: string;
+  name?: string;
+  description?: string;
+}
+
 /**
  * GET - 获取草稿详情（包含所有课表数据）
  */
@@ -48,7 +71,7 @@ const getDraft = async (
     
     // 获取草稿的所有课表数据
     // Supabase默认限制1000行，使用分批查询获取所有数据
-    const allSlots: any[] = [];
+    const allSlots: ScheduleSlotRow[] = [];
     const batchSize = 1000;
     let offset = 0;
     
@@ -117,7 +140,7 @@ const updateDraft = async (
     
     const { name, description } = body;
     
-    const updateData: Record<string, any> = {
+    const updateData: DraftUpdateData = {
       updated_at: new Date().toISOString(),
     };
     

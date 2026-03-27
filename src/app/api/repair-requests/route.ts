@@ -1,6 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+interface RepairRequestRow {
+  id: string;
+  applicant_id: string;
+  applicant_name: string;
+  applicant_department: string | null;
+  type: string;
+  location: string;
+  description: string | null;
+  images: string[] | null;
+  urgency: string;
+  status: string;
+  assigned_to: string | null;
+  assigned_name: string | null;
+  estimated_cost: number | null;
+  actual_cost: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  feedback: string | null;
+  rating: number | null;
+  created_at: string;
+}
+
+interface RepairUpdateData {
+  status?: string;
+  assigned_to?: string;
+  assigned_name?: string;
+  estimated_cost?: number;
+  actual_cost?: number;
+  started_at?: string;
+  completed_at?: string;
+  feedback?: string;
+  rating?: number;
+}
+
 /**
  * GET - 获取维修申请列表
  * 查询参数：
@@ -48,7 +83,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 格式化返回数据
-    const formattedData = (data || []).map((repair: any) => ({
+    const formattedData = (data || []).map((repair: RepairRequestRow) => ({
       id: repair.id,
       applicantId: repair.applicant_id,
       applicantName: repair.applicant_name,
@@ -145,7 +180,7 @@ export async function PUT(request: NextRequest) {
 
     const { id, ...updates } = body;
 
-    const updateData: any = {};
+    const updateData: RepairUpdateData = {};
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.assignedTo !== undefined) updateData.assigned_to = updates.assignedTo;
     if (updates.assignedName !== undefined) updateData.assigned_name = updates.assignedName;

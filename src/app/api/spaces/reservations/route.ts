@@ -2,6 +2,23 @@ import { NextRequest } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { ok, serverError } from '@/lib/api';
 
+// 类型定义
+interface SpaceReservationRow {
+  id: string;
+  space_id: string;
+  space_name: string;
+  applicant_id: string;
+  applicant_name: string;
+  reservation_date: string;
+  start_time: string;
+  end_time: string;
+  purpose: string;
+  participants: number | null;
+  status: string;
+  approved_by: string | null;
+  created_at: string;
+}
+
 /**
  * GET - 获取空间预约列表
  */
@@ -28,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return ok((data || []).map((r: any) => ({
+    return ok((data || []).map((r: SpaceReservationRow) => ({
       id: r.id,
       spaceId: r.space_id,
       spaceName: r.space_name,

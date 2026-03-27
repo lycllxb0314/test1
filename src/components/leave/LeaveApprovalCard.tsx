@@ -29,7 +29,7 @@ import {
   AlertCircle,
   Users,
 } from 'lucide-react';
-import type { LeaveApprovalItem } from '@/hooks/useLeaveApproval';
+import type { LeaveApprovalItem, ApproverSelection, AffectedSlot, ApprovalRecord } from '@/hooks/useLeaveApproval';
 
 interface LeaveApprovalCardProps {
   item: LeaveApprovalItem;
@@ -161,9 +161,9 @@ export function LeaveApprovalCard({ item, onApprove, onReject }: LeaveApprovalCa
           <div className="mt-3 pt-3 border-t flex items-center gap-2 text-xs text-gray-500">
             <Users className="h-3 w-3" />
             <span>审批人：</span>
-            {item.approverSelection.map((a: any, idx: number) => (
+            {item.approverSelection.map((a: ApproverSelection, idx: number) => (
               <Badge key={idx} variant="outline" className="text-xs">
-                {a.userName}
+                {a.name}
                 {a.signType === 'countersign' ? '（会签）' : '（或签）'}
               </Badge>
             ))}
@@ -217,7 +217,7 @@ export function LeaveApprovalCard({ item, onApprove, onReject }: LeaveApprovalCa
               <div>
                 <label className="text-sm font-medium text-gray-500">需调课节次</label>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {item.affectedSlots.map((slot: any, idx: number) => (
+                  {item.affectedSlots.map((slot: AffectedSlot, idx: number) => (
                     <Badge key={idx} variant="outline" className="text-sm">
                       周{WEEKDAYS[slot.weekDay - 1]}第{slot.periodIndex + 1}节 - {slot.className} ({slot.subject})
                     </Badge>
@@ -230,9 +230,9 @@ export function LeaveApprovalCard({ item, onApprove, onReject }: LeaveApprovalCa
             <div>
               <label className="text-sm font-medium text-gray-500">审批人</label>
               <div className="mt-2 flex flex-wrap gap-2">
-                {item.approverSelection.map((a: any, idx: number) => (
+                {item.approverSelection.map((a: ApproverSelection, idx: number) => (
                   <Badge key={idx} variant="secondary" className="text-sm">
-                    {a.userName}
+                    {a.name}
                     <span className="ml-1 text-xs text-gray-500">
                       {a.signType === 'countersign' ? '会签' : '或签'}
                     </span>
@@ -246,7 +246,7 @@ export function LeaveApprovalCard({ item, onApprove, onReject }: LeaveApprovalCa
               <div>
                 <label className="text-sm font-medium text-gray-500">审批记录</label>
                 <div className="mt-2 space-y-2">
-                  {item.approvedByList.map((a: any, idx: number) => (
+                  {item.approvedByList.map((a: ApprovalRecord, idx: number) => (
                     <div key={idx} className="flex items-center gap-2 text-sm p-2 bg-green-50 rounded">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <span className="font-medium">{a.userName}</span>

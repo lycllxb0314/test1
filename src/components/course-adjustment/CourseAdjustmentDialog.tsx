@@ -36,6 +36,40 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+// 原始课时段类型
+interface OriginalSlot {
+  classId: string;
+  className: string;
+  grade: number;
+  weekDay: number;
+  periodIndex: number;
+  subject: string;
+  teacherId: string;
+  teacherName: string;
+}
+
+// 调课结果类型
+interface AdjustResult {
+  action: string;
+  substituteEmployeeId?: string;
+  substituteName?: string;
+  completedAt?: string;
+}
+
+// 同步状态类型
+interface SyncStatus {
+  synced: boolean;
+  syncedAt?: string;
+  error?: string;
+}
+
+// 通知状态类型
+interface NotifyStatus {
+  notified: boolean;
+  notifiedAt?: string;
+  recipients?: string[];
+}
+
 // 调课记录类型
 interface CourseAdjustment {
   id: string;
@@ -46,8 +80,8 @@ interface CourseAdjustment {
   adjusterId?: string;
   adjusterName?: string;
   adjustType?: string;
-  originalSlot?: any;
-  adjustResult?: any;
+  originalSlot?: OriginalSlot;
+  adjustResult?: AdjustResult;
   reason?: string;
   reasonType?: string;
   status: string;
@@ -71,8 +105,8 @@ interface CourseAdjustment {
   approvedByName?: string;
   approvedAt?: string;
   // 同步状态
-  syncStatus?: any;
-  notifyStatus?: any;
+  syncStatus?: SyncStatus;
+  notifyStatus?: NotifyStatus;
   // 时间戳
   createdAt?: string;
   updatedAt?: string;

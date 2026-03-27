@@ -538,7 +538,7 @@ function CarouselManagement() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>类型</Label>
-              <Select value={formData.type} onValueChange={(v: any) => setFormData({ ...formData, type: v })}>
+              <Select value={formData.type} onValueChange={(v: 'image' | 'video' | 'bilibili') => setFormData({ ...formData, type: v })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

@@ -337,9 +337,9 @@ export default function ResourceLibrary({ themeId, themeType, subject }: Resourc
       } else {
         throw new Error(data.error || '保存失败');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('上传失败:', err);
-      toast.error(err.message || '上传失败');
+      toast.error(err instanceof Error ? err.message : '上传失败');
     } finally {
       setUploading(false);
       setUploadProgress(0);

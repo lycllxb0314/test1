@@ -317,7 +317,7 @@ export class UserService extends BaseService {
     keyword: string,
     options?: { role?: UserRole; department?: string }
   ): Promise<ServiceResult<User[]>> {
-    const filters: any = {};
+    const filters: Record<string, string> = {};
     if (options?.role) filters.role = options.role;
     if (options?.department) filters.department = options.department;
     

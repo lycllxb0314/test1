@@ -10,6 +10,33 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
+// 类型定义
+interface ScheduleSlotRow {
+  id: string;
+  class_id: string;
+  class_name: string;
+  grade: number;
+  week_day: number;
+  period_index: number;
+  period_name: string | null;
+  subject: string;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  employee_id: string | null;
+  draft_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string | null;
+}
+
+interface SlotUpdateData {
+  updated_at: string;
+  subject?: string;
+  teacher_id?: string;
+  employee_id?: string | null;
+  teacher_name?: string;
+}
+
 /**
  * GET - 获取正式课表数据
  */
@@ -22,7 +49,7 @@ const getOfficialSchedule = async (request: NextRequest, { user }: ExtendedRoute
     const grade = searchParams.get('grade');
     
     // 使用分批查询获取所有数据（Supabase默认限制1000行）
-    const allSlots: any[] = [];
+    const allSlots: ScheduleSlotRow[] = [];
     const batchSize = 1000;
     let offset = 0;
     
@@ -101,7 +128,7 @@ const updateOfficialSlot = async (request: NextRequest, { user }: ExtendedRouteC
       employeeId = teacherData?.employee_id || null;
     }
     
-    const updateData: Record<string, any> = {
+    const updateData: SlotUpdateData = {
       updated_at: new Date().toISOString(),
     };
     

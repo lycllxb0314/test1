@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+interface AccessDeviceNested {
+  id: string;
+  name: string;
+  location: string | null;
+}
+
+interface AccessRecordRow {
+  id: string;
+  person_id: string;
+  person_name: string;
+  person_type: string;
+  person_organization: string | null;
+  device_id: string;
+  direction: string;
+  status: string;
+  temperature: number | null;
+  occurred_at: string;
+  access_devices: AccessDeviceNested | AccessDeviceNested[] | null;
+}
+
 /**
  * GET - 获取通行记录
  * 查询参数：
@@ -76,20 +97,25 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const formattedData = (data || []).map((record: any) => ({
-      id: record.id,
-      personId: record.person_id,
-      personName: record.person_name,
-      personType: record.person_type,
-      organization: record.person_organization,
-      deviceId: record.device_id,
-      deviceName: record.access_devices?.name || '',
-      deviceLocation: record.access_devices?.location || '',
-      direction: record.direction,
-      status: record.status,
-      temperature: record.temperature,
-      occurredAt: record.occurred_at,
-    }));
+    const formattedData = (data || []).map((record: AccessRecordRow) => {
+      const device = Array.isArray(record.access_devices) 
+        ? record.access_devices[0] 
+        : record.access_devices;
+      return {
+        id: record.id,
+        personId: record.person_id,
+        personName: record.person_name,
+        personType: record.person_type,
+        organization: record.person_organization,
+        deviceId: record.device_id,
+        deviceName: device?.name || '',
+        deviceLocation: device?.location || '',
+        direction: record.direction,
+        status: record.status,
+        temperature: record.temperature,
+        occurredAt: record.occurred_at,
+      };
+    });
 
     return NextResponse.json({
       success: true,

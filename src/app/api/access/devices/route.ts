@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+interface AccessDeviceRow {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  status: string;
+  location: string | null;
+  ip_address: string | null;
+  last_online_at: string | null;
+  created_at: string;
+}
+
+interface DeviceUpdateData {
+  status?: string;
+  last_online_at?: string;
+  name?: string;
+  location?: string;
+  ip_address?: string;
+}
+
 /**
  * GET - 获取门禁设备列表
  * 查询参数：
@@ -35,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     // 获取每个设备的今日通行次数
     const today = new Date().toISOString().split('T')[0];
-    const formattedData = await Promise.all((data || []).map(async (device: any) => {
+    const formattedData = await Promise.all((data || []).map(async (device: AccessDeviceRow) => {
       const { count: todayCount } = await client
         .from('access_records')
         .select('id', { count: 'exact', head: true })
@@ -120,7 +141,7 @@ export async function PUT(request: NextRequest) {
 
     const { id, status, name, location, ipAddress } = body;
 
-    const updateData: any = {};
+    const updateData: DeviceUpdateData = {};
     if (status !== undefined) {
       updateData.status = status;
       if (status === 'online') {

@@ -49,6 +49,28 @@ interface Exam {
   publishedAt?: string;
 }
 
+interface ExamRow {
+  id: string;
+  name: string;
+  type: string;
+  semester: string | null;
+  description: string | null;
+  grades: number[] | null;
+  grade: number | null;
+  subjects: ExamSubject[] | null;
+  exam_rooms: ExamRoom[] | null;
+  start_date: string;
+  end_date: string;
+  status: 'planning' | 'published' | 'in_progress' | 'completed' | 'cancelled';
+  total_students: number | null;
+  submitted_count: number | null;
+  created_by: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+}
+
 // 考试类型选项
 const EXAM_TYPES = [
   { value: '期中考试', label: '期中考试' },
@@ -184,13 +206,13 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
 
 // ==================== 辅助函数 ====================
 
-function mapExamFromDb(dbExam: any): Exam {
+function mapExamFromDb(dbExam: ExamRow): Exam {
   return {
     id: dbExam.id,
     name: dbExam.name,
     type: dbExam.type,
     semester: dbExam.semester || '',
-    description: dbExam.description,
+    description: dbExam.description || undefined,
     grades: dbExam.grades || (dbExam.grade ? [dbExam.grade] : []),
     subjects: dbExam.subjects || [],
     examRooms: dbExam.exam_rooms || [],
@@ -199,11 +221,11 @@ function mapExamFromDb(dbExam: any): Exam {
     status: dbExam.status,
     totalStudents: dbExam.total_students || 0,
     submittedCount: dbExam.submitted_count || 0,
-    createdBy: dbExam.created_by,
-    createdByName: dbExam.created_by_name,
+    createdBy: dbExam.created_by || undefined,
+    createdByName: dbExam.created_by_name || undefined,
     createdAt: dbExam.created_at,
     updatedAt: dbExam.updated_at,
-    publishedAt: dbExam.published_at,
+    publishedAt: dbExam.published_at || undefined,
   };
 }
 

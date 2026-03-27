@@ -10,6 +10,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import type { Announcement, NewsCategory, MediaLevel } from '@/types';
 
+// 类型定义
+interface AnnouncementRow {
+  id: string;
+  title: string;
+  summary: string | null;
+  content: string | null;
+  category: NewsCategory | null;
+  media_level: MediaLevel | null;
+  cover_image: string | null;
+  published_at: string | null;
+  view_count: number | null;
+  is_pinned: boolean | null;
+  type: string;
+}
+
 /** 主页展示的公告/新闻项 */
 export interface PortalAnnouncement {
   id: string;
@@ -100,15 +115,15 @@ export async function GET(request: NextRequest) {
 /**
  * 将数据库记录映射为门户展示格式
  */
-function mapToPortalAnnouncement(item: any): PortalAnnouncement {
+function mapToPortalAnnouncement(item: AnnouncementRow): PortalAnnouncement {
   return {
     id: item.id,
     title: item.title,
     summary: item.summary || (item.content ? item.content.substring(0, 200) + (item.content.length > 200 ? '...' : '') : undefined),
-    category: item.category,
-    mediaLevel: item.media_level,
-    coverImage: item.cover_image,
-    publishedAt: item.published_at,
+    category: item.category || undefined,
+    mediaLevel: item.media_level || undefined,
+    coverImage: item.cover_image || undefined,
+    publishedAt: item.published_at || undefined,
     viewCount: item.view_count || 0,
     isPinned: item.is_pinned || false,
   };

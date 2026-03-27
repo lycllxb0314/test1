@@ -1,6 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+interface RoomRow {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  building: string | null;
+  location: string | null;
+}
+
+interface RoomBookingRow {
+  id: string;
+  room_id: string;
+  applicant_id: string;
+  applicant_name: string;
+  purpose: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  attendees_count: number | null;
+  facilities_needed: string[] | null;
+  notes: string | null;
+  approver_id: string | null;
+  approver_name: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  rooms: RoomRow[] | null; // Supabase 嵌套查询返回数组
+}
+
+interface FormattedBooking {
+  id: string;
+  roomId: string;
+  roomName: string;
+  roomCode: string;
+  roomType: string;
+  building: string;
+  location: string;
+  applicantId: string;
+  applicantName: string;
+  purpose: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  attendeesCount: number | null;
+  facilitiesNeeded: string[] | null;
+  notes: string | null;
+  approverId: string | null;
+  approverName: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+interface BookingUpdateData {
+  approver_id: string;
+  approver_name: string;
+  approved_at: string;
+  status?: string;
+  rejection_reason?: string;
+}
+
 /**
  * GET - 获取教室预约列表
  * 查询参数：
@@ -79,29 +141,32 @@ export async function GET(request: NextRequest) {
     }
 
     // 格式化返回数据
-    const formattedData = (data || []).map((booking: any) => ({
-      id: booking.id,
-      roomId: booking.room_id,
-      roomName: booking.rooms?.name || '',
-      roomCode: booking.rooms?.code || '',
-      roomType: booking.rooms?.type || '',
-      building: booking.rooms?.building || '',
-      location: booking.rooms?.location || '',
-      applicantId: booking.applicant_id,
-      applicantName: booking.applicant_name,
-      purpose: booking.purpose,
-      startTime: booking.start_time,
-      endTime: booking.end_time,
-      status: booking.status,
-      attendeesCount: booking.attendees_count,
-      facilitiesNeeded: booking.facilities_needed || [],
-      notes: booking.notes,
-      approverId: booking.approver_id,
-      approverName: booking.approver_name,
-      approvedAt: booking.approved_at,
-      rejectionReason: booking.rejection_reason,
-      createdAt: booking.created_at,
-    }));
+    const formattedData: FormattedBooking[] = (data || []).map((booking: RoomBookingRow) => {
+      const room = booking.rooms?.[0]; // Supabase 嵌套查询返回数组
+      return {
+        id: booking.id,
+        roomId: booking.room_id,
+        roomName: room?.name || '',
+        roomCode: room?.code || '',
+        roomType: room?.type || '',
+        building: room?.building || '',
+        location: room?.location || '',
+        applicantId: booking.applicant_id,
+        applicantName: booking.applicant_name,
+        purpose: booking.purpose,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        status: booking.status,
+        attendeesCount: booking.attendees_count,
+        facilitiesNeeded: booking.facilities_needed || [],
+        notes: booking.notes,
+        approverId: booking.approver_id,
+        approverName: booking.approver_name,
+        approvedAt: booking.approved_at,
+        rejectionReason: booking.rejection_reason,
+        createdAt: booking.created_at,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -195,7 +260,7 @@ export async function PUT(request: NextRequest) {
 
     const { id, action, approverId, approverName, rejectionReason } = body;
 
-    const updateData: any = {
+    const updateData: BookingUpdateData = {
       approver_id: approverId,
       approver_name: approverName,
       approved_at: new Date().toISOString(),

@@ -68,7 +68,7 @@ interface ResearchTheme {
   subject: string;
 }
 
-interface Resource {
+interface ResourceFromApi {
   id: string;
   title: string;
   resourceType: string;
@@ -78,6 +78,9 @@ interface Resource {
   fileUrl?: string;
   teacherName?: string;
   createdAt: string;
+}
+
+interface Resource extends ResourceFromApi {
   themeId: string;
   themeTitle: string;
   themeType: string;
@@ -150,7 +153,7 @@ export default function GlobalResourceManager() {
       const themes = themesData.data || [];
       
       // 2. 获取每个主题的资源
-      const resourcePromises = themes.map((theme: any) => 
+      const resourcePromises = themes.map((theme: ResearchTheme) => 
         fetch(`/api/research/resources?themeId=${theme.id}`).then(res => res.json())
       );
       
@@ -160,15 +163,16 @@ export default function GlobalResourceManager() {
       const allResources: Resource[] = [];
       const groups: ThemeGroup[] = [];
       
-      themes.forEach((theme: any, index: number) => {
+      themes.forEach((theme: ResearchTheme, index: number) => {
         const themeResources = resourcesResults[index]?.data || [];
         
         if (themeResources.length > 0) {
           const themeConfig = THEME_TYPE_CONFIG[theme.type] || THEME_TYPE_CONFIG.custom;
           
           // 为每个资源添加主题信息
-          const resourcesWithTheme = themeResources.map((r: any) => ({
+          const resourcesWithTheme = themeResources.map((r: ResourceFromApi) => ({
             ...r,
+            themeId: theme.id,
             themeTitle: theme.title,
             themeType: theme.type,
             themeTypeLabel: themeConfig.label,

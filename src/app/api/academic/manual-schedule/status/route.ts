@@ -8,6 +8,16 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
+// 类型定义
+interface ClassSlotData {
+  slots: unknown[];
+}
+
+interface ScheduleDraftRow {
+  updated_at: string;
+  schedule_data: ClassSlotData[] | null;
+}
+
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const client = getSupabaseClient();
@@ -31,7 +41,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
         .eq('grade', grade),
     ]);
     
-    const draft = draftResult.data;
+    const draft = draftResult.data as ScheduleDraftRow | null;
     
     return NextResponse.json(success({
       grade,
@@ -39,7 +49,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       hasDraft: !!draft,
       draftUpdatedAt: draft?.updated_at || null,
       draftSlotsCount: draft?.schedule_data 
-        ? (draft.schedule_data as any[]).reduce((acc: number, c: any) => acc + (c.slots?.length || 0), 0) 
+        ? draft.schedule_data.reduce((acc: number, c: ClassSlotData) => acc + (c.slots?.length || 0), 0) 
         : 0,
       // 正式课表状态（schedule_slots）
       hasOfficial: (officialResult.count || 0) > 0,

@@ -219,7 +219,10 @@ export async function POST(request: NextRequest) {
 /**
  * 获取统计数据
  */
-async function getStatistics(supabase: any, year?: string | null) {
+async function getStatistics(
+  supabase: ReturnType<typeof getSupabaseClient>, 
+  year?: string | null
+) {
   try {
     // 基础查询
     let baseQuery = supabase.from('student_honors').select('*');

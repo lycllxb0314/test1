@@ -43,6 +43,35 @@ import {
 
 // ==================== 类型定义 ====================
 
+// 附件类型
+interface Attachment {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  size?: number;
+}
+
+// 请假信息类型
+interface LeaveInfo {
+  type: string;
+  startDate: string;
+  endDate: string;
+  duration: number;
+  durationUnit: string;
+  reason: string;
+  attachments?: Attachment[];
+  approverSelection?: Array<{ employeeId: string; name: string; userName?: string }>;
+  needAdjustment?: boolean;
+}
+
+// 审批人类型
+interface Approver {
+  employeeId: string;
+  name: string;
+  userName?: string;
+}
+
 export interface ApprovalActionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -120,7 +149,7 @@ export function ApprovalActionDialog({
   // 判断是否为教室预约类型
   const isRoomBooking = instance.businessType === 'room_booking';
   // 使用类型断言来处理联合类型
-  const leaveInfo = isLeaveRequest ? (instance.business as any) : null;
+  const leaveInfo = isLeaveRequest ? (instance.business as unknown as LeaveInfo) : null;
   // 教室预约信息从 metadata 中获取
   const roomBookingInfo = isRoomBooking ? (instance.metadata as {
     room_id?: string;
@@ -252,7 +281,7 @@ export function ApprovalActionDialog({
                     <div className="text-sm">
                       <span className="text-gray-500">附件：</span>
                       <div className="mt-2 space-y-2">
-                        {leaveInfo.attachments.map((attachment: any, index: number) => (
+                        {leaveInfo.attachments.map((attachment: Attachment, index: number) => (
                           <div 
                             key={index} 
                             className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -739,9 +768,9 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
           )}
           
           {/* 请假类型显示审批人 */}
-          {isLeaveRequest && approvers.length > 0 && (
+          {isLeaveRequest && leaveInfo?.approverSelection && leaveInfo.approverSelection.length > 0 && (
             <p className="text-xs text-gray-400 mt-1">
-              审批人：{approvers.map((a: any) => a.userName || a.name).join('、')}
+              审批人：{leaveInfo.approverSelection.map((a: Approver) => a.userName || a.name).join('、')}
             </p>
           )}
         </div>

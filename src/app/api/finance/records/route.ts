@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+interface FinancialRecordRow {
+  id: string;
+  type: string;
+  category: string;
+  amount: number;
+  description: string | null;
+  transaction_date: string;
+  payer: string | null;
+  payee: string | null;
+  invoice_number: string | null;
+  status: string;
+  approved_by: string | null;
+  created_at: string;
+}
+
 /**
  * GET - 获取财务记录列表
  */
@@ -33,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: (data || []).map((r: any) => ({
+      data: (data || []).map((r: FinancialRecordRow) => ({
         id: r.id,
         type: r.type,
         category: r.category,

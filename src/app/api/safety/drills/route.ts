@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+interface SafetyDrillRow {
+  id: string;
+  type: string;
+  title: string;
+  drill_date: string;
+  location: string;
+  participants: number | null;
+  duration: number | null;
+  result: string | null;
+  issues: string[] | null;
+  improvements: string[] | null;
+  organizer: string;
+  created_at: string;
+}
+
 /**
  * GET - 获取安全演练列表
  */
@@ -25,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: (data || []).map((d: any) => ({
+      data: (data || []).map((d: SafetyDrillRow) => ({
         id: d.id,
         type: d.type,
         title: d.title,

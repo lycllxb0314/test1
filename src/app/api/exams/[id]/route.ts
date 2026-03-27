@@ -37,7 +37,7 @@ export const GET = protectedRoute(async (
     }
     
     // 获取参考班级信息
-    let classes: any[] = [];
+    let classes: Array<{ id: string; name: string; grade: number; head_teacher_id: string | null }> = [];
     if (data.grades && data.grades.length > 0) {
       const { data: classesData } = await client
         .from('classes')
@@ -187,7 +187,29 @@ export const DELETE = protectedRoute(async (
 
 // ==================== 辅助函数 ====================
 
-function mapExamFromDb(dbExam: Record<string, unknown>) {
+interface ExamRow {
+  id: string;
+  name: string;
+  type: string;
+  semester: string | null;
+  description: string | null;
+  grades: number[] | null;
+  grade: number | null;
+  subjects: unknown[] | null;
+  exam_rooms: unknown[] | null;
+  start_date: string;
+  end_date: string;
+  status: string;
+  total_students: number | null;
+  submitted_count: number | null;
+  created_by: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+}
+
+function mapExamFromDb(dbExam: ExamRow) {
   return {
     id: dbExam.id,
     name: dbExam.name,

@@ -101,7 +101,7 @@ export async function GET(
       themeType: theme?.type || '',
       themeTypeLabel: themeTypeLabels[theme?.type] || '',
       subject: theme?.subject || '',
-      participants: (participants || []).map((p: any) => {
+      participants: (participants || []).map((p: { teacher_id: string; teachers: { id: string; name: string; subject: string } | { id: string; name: string; subject: string }[] }) => {
         const teacher = Array.isArray(p.teachers) ? p.teachers[0] : p.teachers;
         return {
           id: teacher?.id || p.teacher_id,

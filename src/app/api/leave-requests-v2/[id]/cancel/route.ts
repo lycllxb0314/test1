@@ -10,6 +10,24 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { success, error, ErrorCode } from '@/lib/api';
 
+// 类型定义
+interface ApproverSelection {
+  employeeId: string;
+  name: string;
+  role: string;
+}
+
+interface LeaveRequestRow {
+  id: string;
+  applicant_id: string;
+  applicant_name: string;
+  type: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  approver_selection: ApproverSelection[] | null;
+}
+
 /**
  * POST - 撤销请假申请
  */
@@ -74,7 +92,7 @@ export const POST = protectedRoute(async (
     // 通知已选的审批人
     const approverSelection = leaveRequest.approver_selection || [];
     if (approverSelection.length > 0) {
-      const notifications = approverSelection.map((approver: any) => ({
+      const notifications = approverSelection.map((approver: ApproverSelection) => ({
         title: `【已撤销】请假申请`,
         content: `${leaveRequest.applicant_name}已撤销${leaveRequest.type}申请（${leaveRequest.start_date}至${leaveRequest.end_date}）。`,
         event: 'leave_approval',

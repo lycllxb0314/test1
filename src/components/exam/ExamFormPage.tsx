@@ -136,7 +136,7 @@ export default function ExamFormPage({ examId, initialData }: ExamFormProps) {
   };
 
   // 更新字段
-  const updateField = (field: keyof ExamForm, value: any) => {
+  const updateField = (field: keyof ExamForm, value: string | number[] | ExamSubject[] | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -171,7 +171,7 @@ export default function ExamFormPage({ examId, initialData }: ExamFormProps) {
   };
 
   // 更新科目
-  const updateSubject = (index: number, field: keyof ExamSubject, value: any) => {
+  const updateSubject = (index: number, field: keyof ExamSubject, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       subjects: prev.subjects.map((s, i) => {

@@ -1,6 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+interface VisitorRow {
+  id: string;
+  name: string;
+  phone: string | null;
+  id_card: string | null;
+  purpose: string;
+  host_id: string;
+  host_name: string;
+  host_department: string | null;
+  expected_arrival_time: string;
+  actual_arrival_time: string | null;
+  actual_leave_time: string | null;
+  status: string;
+  temperature: number | null;
+  remark: string | null;
+  created_at: string;
+}
+
+interface VisitorUpdateData {
+  status?: string;
+  approver_id?: string;
+  approver_name?: string;
+  approved_at?: string;
+  actual_arrival_time?: string;
+  actual_leave_time?: string;
+  temperature?: number;
+  remark?: string;
+}
+
 /**
  * GET - 获取访客列表
  * 查询参数：
@@ -55,7 +85,7 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const formattedData = (data || []).map((visitor: any) => ({
+    const formattedData = (data || []).map((visitor: VisitorRow) => ({
       id: visitor.id,
       name: visitor.name,
       phone: visitor.phone,
@@ -150,7 +180,7 @@ export async function PUT(request: NextRequest) {
 
     const { id, action, temperature, remark, approverId, approverName } = body;
 
-    const updateData: any = {};
+    const updateData: VisitorUpdateData = {};
 
     switch (action) {
       case 'approve':

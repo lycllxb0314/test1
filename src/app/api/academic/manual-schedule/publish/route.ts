@@ -8,6 +8,32 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
+// 类型定义
+interface SlotData {
+  subject: string;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  week_day: number;
+  period_index: number;
+}
+
+interface ClassScheduleData {
+  classId: string;
+  className: string;
+  slots: SlotData[];
+}
+
+interface SlotInsertData {
+  class_id: string;
+  class_name: string;
+  grade: number;
+  subject: string;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  week_day: number;
+  period_index: number;
+}
+
 // 定稿 - 发布正式课表
 export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
@@ -36,9 +62,9 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     }
     
     // 2. 批量插入新的课表记录到 schedule_slots
-    const slotsToInsert: any[] = [];
+    const slotsToInsert: SlotInsertData[] = [];
     
-    for (const classSchedule of scheduleData) {
+    for (const classSchedule of scheduleData as ClassScheduleData[]) {
       const { classId, className, slots } = classSchedule;
       
       for (const slot of slots || []) {

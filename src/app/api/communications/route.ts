@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+interface CommunicationRow {
+  id: string;
+  type: string;
+  title: string;
+  content: string | null;
+  sender_id: string;
+  sender_name: string;
+  receiver_ids: string[] | null;
+  is_read: boolean;
+  read_at: string | null;
+  priority: string;
+  attachments: string[] | null;
+  created_at: string;
+}
+
 /**
  * GET - 获取通知消息列表
  * 查询参数：
@@ -39,7 +55,7 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const formattedData = (data || []).map((item: any) => ({
+    const formattedData = (data || []).map((item: CommunicationRow) => ({
       id: item.id,
       type: item.type,
       title: item.title,

@@ -36,6 +36,61 @@ const ACTIVITY_STATUS_LABELS: Record<string, string> = {
   cancelled: '已取消',
 };
 
+// 类型定义
+interface ResearchThemeRow {
+  id: string;
+  title: string;
+  type: string;
+  subject: string;
+  status: string;
+}
+
+interface ResearchActivityRow {
+  id: string;
+  title: string;
+  type: string;
+  description: string | null;
+  location: string | null;
+  scheduled_at: string | null;
+  status: string;
+  theme_id: string;
+  participants: Array<{ id: string; name?: string; role?: string }> | null;
+  created_at: string;
+}
+
+interface ActivityDetail {
+  id: string;
+  title: string;
+  type: string;
+  typeLabel: string;
+  description: string | null;
+  location: string | null;
+  scheduledAt: string | null;
+  status: string;
+  statusLabel: string;
+  themeId: string;
+  themeTitle: string;
+  themeType: string;
+  themeTypeLabel: string;
+  subject: string;
+  participants: Array<{ id: string; name?: string; role?: string }> | null;
+  resourceCount: number;
+  createdAt: string;
+}
+
+interface ThemeGroup {
+  id: string;
+  title: string;
+  type: string;
+  typeLabel: string;
+  subject: string;
+  status: string;
+  statusLabel: string;
+  activityCount: number;
+  resourceCount: number;
+  activities: ActivityDetail[];
+}
+
 /**
  * GET - 获取教师参与的教研活动
  */
@@ -137,23 +192,12 @@ export async function GET(request: NextRequest) {
 }
 
 function buildResult(
-  activities: any[], 
-  themeMap: Map<string, any>,
-  teacherId: string
-) {
+  activities: ResearchActivityRow[], 
+  themeMap: Map<string, ResearchThemeRow>,
+  _teacherId: string
+): ThemeGroup[] {
   // 按主题分组
-  const themeGroups = new Map<string, {
-    id: string;
-    title: string;
-    type: string;
-    typeLabel: string;
-    subject: string;
-    status: string;
-    statusLabel: string;
-    activityCount: number;
-    resourceCount: number;
-    activities: any[];
-  }>();
+  const themeGroups = new Map<string, ThemeGroup>();
   
   for (const activity of activities) {
     const theme = themeMap.get(activity.theme_id);

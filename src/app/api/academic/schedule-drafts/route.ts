@@ -10,6 +10,40 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
+// 类型定义
+interface SlotInput {
+  id?: string;
+  classId: string;
+  className: string;
+  grade: number;
+  weekDay?: number;
+  week_day?: number;
+  periodIndex?: number;
+  period_index?: number;
+  periodName?: string;
+  period_name?: string;
+  subject: string;
+  teacherId?: string;
+  teacher_id?: string;
+  teacherName?: string;
+  teacher_name?: string;
+}
+
+interface SlotInsertData {
+  id?: string;
+  class_id: string;
+  class_name: string;
+  grade: number;
+  week_day: number;
+  period_index: number;
+  period_name: string | undefined;
+  subject: string;
+  teacher_id: string | undefined;
+  teacher_name: string | undefined;
+  draft_id: string;
+  status: string;
+}
+
 /**
  * GET - 获取草稿列表
  */
@@ -87,13 +121,13 @@ const saveDraft = async (request: NextRequest, { user }: ExtendedRouteContext) =
     
     // 保存课表数据
     if (slots && slots.length > 0) {
-      const slotsData = slots.map((slot: any) => {
-        const data: any = {
+      const slotsData: SlotInsertData[] = slots.map((slot: SlotInput) => {
+        const data: SlotInsertData = {
           class_id: slot.classId,
           class_name: slot.className,
           grade: slot.grade,
-          week_day: slot.weekDay || slot.week_day,
-          period_index: slot.periodIndex || slot.period_index,
+          week_day: slot.weekDay || slot.week_day || 0,
+          period_index: slot.periodIndex || slot.period_index || 0,
           period_name: slot.periodName || slot.period_name,
           subject: slot.subject,
           teacher_id: slot.teacherId || slot.teacher_id,

@@ -15,6 +15,18 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+interface TeacherRow {
+  id: string;
+  name: string;
+  subjects: string[] | null;
+  role: string | null;
+  primary_subject: string | null;
+  secondary_subjects: string[] | null;
+  total_weekly_hours: number | null;
+  teachable_grades: number[] | null;
+  main_class_count: number | null;
+}
+
 interface UpdateResult {
   role: string;
   subject: string;
@@ -34,8 +46,10 @@ export async function GET() {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
     
+    const typedTeachers = (teachers || []) as TeacherRow[];
+    
     // 计算每个教师的 teachable_subjects
-    const teachersWithTeachable = (teachers || []).map(t => ({
+    const teachersWithTeachable = typedTeachers.map(t => ({
       ...t,
       teachable_subjects: [
         t.primary_subject,
@@ -44,11 +58,11 @@ export async function GET() {
     }));
     
     const stats = {
-      total: teachers?.length || 0,
+      total: typedTeachers.length,
       byRole: {
-        head_teacher: teachers?.filter(t => t.role === 'head_teacher').length || 0,
-        subject_teacher: teachers?.filter(t => t.role === 'subject_teacher').length || 0,
-        skill_teacher: teachers?.filter(t => t.role === 'skill_teacher').length || 0,
+        head_teacher: typedTeachers.filter(t => t.role === 'head_teacher').length,
+        subject_teacher: typedTeachers.filter(t => t.role === 'subject_teacher').length,
+        skill_teacher: typedTeachers.filter(t => t.role === 'skill_teacher').length,
       },
       needUpdate: teachersWithTeachable.filter(t => !t.primary_subject).length,
     };
@@ -59,8 +73,9 @@ export async function GET() {
       sampleTeachers: teachersWithTeachable.slice(0, 5),
     });
     
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
@@ -68,7 +83,11 @@ export async function GET() {
  * 根据学科筛选教师
  * 由于 subjects 是 jsonb/text 字段，使用文本匹配方式
  */
-async function getTeachersBySubject(client: any, subject: string, role?: string): Promise<any[]> {
+async function getTeachersBySubject(
+  client: ReturnType<typeof getSupabaseClient>, 
+  subject: string, 
+  role?: string
+): Promise<TeacherRow[]> {
   // 使用 text 类型的 ilike 查询
   let query = client
     .from('teachers')
@@ -86,7 +105,7 @@ async function getTeachersBySubject(client: any, subject: string, role?: string)
     return [];
   }
   
-  return data || [];
+  return (data || []) as TeacherRow[];
 }
 
 export async function POST() {
@@ -269,10 +288,11 @@ export async function POST() {
       },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('更新教师配置失败:', error);
+    const message = error instanceof Error ? error.message : '更新失败';
     return NextResponse.json(
-      { success: false, error: error.message || '更新失败' },
+      { success: false, error: message },
       { status: 500 }
     );
   }

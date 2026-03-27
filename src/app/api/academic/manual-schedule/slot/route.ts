@@ -7,6 +7,23 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
+// 类型定义
+interface ScheduleSlotRow {
+  id: string;
+  class_id: string;
+  class_name: string;
+  grade: number;
+  week_day: number;
+  period_index: number;
+  period_name: string | null;
+  subject: string;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  employee_id: string | null;
+  status: string;
+  created_at: string;
+}
+
 // GET - 获取某个班级的课表
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
@@ -28,7 +45,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     }
     
     // 转换为二维数组格式 [weekday][period]
-    const schedule: any[][] = [[], [], [], [], []];
+    const schedule: (ScheduleSlotRow | null)[][] = [[], [], [], [], []];
     
     for (const slot of slots || []) {
       const dayIndex = slot.week_day - 1;
