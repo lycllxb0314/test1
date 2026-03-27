@@ -32,33 +32,43 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CourseAdjustmentDialog } from '@/components/course-adjustment/CourseAdjustmentDialog';
+import type { CourseAdjustment } from '@/components/course-adjustment/CourseAdjustmentDialog';
 
 // ==================== 数据类型定义 ====================
 
 type AdjustStatus = 'pending' | 'processing' | 'completed' | 'cancelled';
 
-interface CourseAdjustmentItem {
+// 本地调课数据类型（与 API 返回的数据结构匹配）
+interface LocalCourseAdjustment {
   id: string;
   leaveRequestId?: string;
-  applicantId: string;
-  applicantName: string;
-  grade: number;
-  classId: string;
-  className: string;
-  subject: string;
-  weekDay: number;
-  periodIndex: number;
+  applicantId?: string;
+  applicantName?: string;
+  grade?: number;
+  classId?: string;
+  className?: string;
+  subject?: string;
+  weekDay?: number;
+  periodIndex?: number;
   periodName?: string;
-  effectiveWeek: string | number;
-  status: AdjustStatus;
-  adjustType?: 'substitute' | 'swap' | 'cancel' | 'makeup';
+  effectiveWeek?: string | number;
+  status: AdjustStatus | string;
+  adjustType?: 'substitute' | 'swap' | 'cancel' | 'makeup' | string;
   substituteEmployeeId?: string;
   substituteName?: string;
   reason?: string;
-  createdAt: string;
+  createdAt?: string;
   updatedAt?: string;
   completedAt?: string;
-  originalSlot?: any;
+  originalSlot?: {
+    grade?: number;
+    classId?: string;
+    className?: string;
+    subject?: string;
+    weekDay?: number;
+    periodIndex?: number;
+    periodName?: string;
+  };
 }
 
 // 星期几映射
@@ -77,10 +87,10 @@ const gradeNames: Record<number, string> = {
 export default function GradeLeaderAdjustPage() {
   // 状态
   const [loading, setLoading] = useState(true);
-  const [adjustments, setAdjustments] = useState<CourseAdjustmentItem[]>([]);
+  const [adjustments, setAdjustments] = useState<LocalCourseAdjustment[]>([]);
   
   // 对话框状态
-  const [selectedAdjust, setSelectedAdjust] = useState<CourseAdjustmentItem | null>(null);
+  const [selectedAdjust, setSelectedAdjust] = useState<LocalCourseAdjustment | null>(null);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
 
@@ -109,14 +119,15 @@ export default function GradeLeaderAdjustPage() {
   };
 
   // 获取状态徽章
-  const getStatusBadge = (status: AdjustStatus) => {
+  const getStatusBadge = (status: AdjustStatus | string) => {
     const statusMap: Record<AdjustStatus, { label: string; color: string }> = {
       pending: { label: '待处理', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
       processing: { label: '处理中', color: 'bg-blue-100 text-blue-700 border-blue-200' },
       completed: { label: '已完成', color: 'bg-green-100 text-green-700 border-green-200' },
       cancelled: { label: '已取消', color: 'bg-gray-100 text-gray-700 border-gray-200' },
     };
-    const { label, color } = statusMap[status];
+    const statusInfo = statusMap[status as AdjustStatus] || { label: status, color: 'bg-gray-100 text-gray-700 border-gray-200' };
+    const { label, color } = statusInfo;
     return <Badge className={`${color} border`}>{label}</Badge>;
   };
 
@@ -140,13 +151,13 @@ export default function GradeLeaderAdjustPage() {
   };
 
   // 打开处理对话框
-  const handleOpenProcess = (adjust: CourseAdjustmentItem) => {
+  const handleOpenProcess = (adjust: LocalCourseAdjustment) => {
     setSelectedAdjust(adjust);
     setShowProcessDialog(true);
   };
 
   // 打开详情对话框
-  const handleOpenDetail = (adjust: CourseAdjustmentItem) => {
+  const handleOpenDetail = (adjust: LocalCourseAdjustment) => {
     setSelectedAdjust(adjust);
     setShowDetailDialog(true);
   };
@@ -294,24 +305,24 @@ export default function GradeLeaderAdjustPage() {
                         <div className="flex items-center gap-2 mb-2">
                           {getStatusBadge(adjust.status)}
                           <Badge variant="outline" className="text-orange-600 border-orange-200">
-                            {gradeNames[adjust.grade] || `${adjust.grade}年级`}
+                            {adjust.grade ? (gradeNames[adjust.grade] || `${adjust.grade}年级`) : '未知年级'}
                           </Badge>
-                          <span className="text-sm text-gray-500">{adjust.createdAt}</span>
+                          <span className="text-sm text-gray-500">{adjust.createdAt || ''}</span>
                         </div>
                         <div className="flex items-center gap-4 mb-2">
                           <div className="flex items-center gap-1">
                             <User className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">{adjust.applicantName}</span>
-                            <span className="text-sm text-gray-500">({adjust.subject})</span>
+                            <span className="font-medium">{adjust.applicantName || '未知'}</span>
+                            <span className="text-sm text-gray-500">({adjust.subject || '未知学科'})</span>
                           </div>
                           <div className="flex items-center gap-1 text-sm text-gray-600">
                             <Calendar className="h-4 w-4" />
-                            第{adjust.effectiveWeek}周
+                            第{adjust.effectiveWeek || '?'}周
                           </div>
                         </div>
                         <div className="text-sm text-gray-600 mb-2">
                           <span className="font-medium">原课程：</span>
-                          {adjust.className} · {weekDayNames[adjust.weekDay]} 第{adjust.periodIndex + 1}节 · {adjust.subject}
+                          {adjust.className || '未知班级'} · {adjust.weekDay ? weekDayNames[adjust.weekDay] : '未知'} 第{(adjust.periodIndex ?? -1) + 1}节 · {adjust.subject || '未知学科'}
                         </div>
                         {adjust.reason && (
                           <div className="text-sm text-gray-500">
@@ -357,12 +368,12 @@ export default function GradeLeaderAdjustPage() {
                           <Badge variant="outline" className="text-green-600 border-green-200">
                             {getAdjustTypeName(adjust.adjustType)}
                           </Badge>
-                          <span className="text-sm text-gray-500">{adjust.completedAt}</span>
+                          <span className="text-sm text-gray-500">{adjust.completedAt || ''}</span>
                         </div>
                         <div className="flex items-center gap-4 mb-2">
                           <div className="flex items-center gap-1">
                             <User className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">{adjust.applicantName}</span>
+                            <span className="font-medium">{adjust.applicantName || '未知'}</span>
                           </div>
                           {adjust.substituteName && (
                             <div className="text-sm text-gray-600">
@@ -371,7 +382,7 @@ export default function GradeLeaderAdjustPage() {
                           )}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {adjust.className} · {weekDayNames[adjust.weekDay]} 第{adjust.periodIndex + 1}节
+                          {adjust.className || '未知班级'} · {adjust.weekDay ? weekDayNames[adjust.weekDay] : '未知'} 第{(adjust.periodIndex ?? -1) + 1}节
                         </div>
                         {adjust.reason && (
                           <div className="text-sm text-gray-500 mt-1">备注：{adjust.reason}</div>
@@ -395,10 +406,10 @@ export default function GradeLeaderAdjustPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           {getStatusBadge(adjust.status)}
-                          <span className="text-sm text-gray-500">{adjust.createdAt}</span>
+                          <span className="text-sm text-gray-500">{adjust.createdAt || ''}</span>
                         </div>
                         <div className="text-sm">
-                          {adjust.applicantName} · {adjust.className} · {adjust.subject}
+                          {adjust.applicantName || '未知'} · {adjust.className || '未知班级'} · {adjust.subject || '未知学科'}
                         </div>
                       </div>
                       {adjust.status === 'pending' && (
@@ -442,23 +453,23 @@ export default function GradeLeaderAdjustPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">申请人</span>
-                  <span>{selectedAdjust.applicantName}</span>
+                  <span>{selectedAdjust.applicantName || '未知'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">年级</span>
-                  <span>{gradeNames[selectedAdjust.grade] || `${selectedAdjust.grade}年级`}</span>
+                  <span>{selectedAdjust.grade ? (gradeNames[selectedAdjust.grade] || `${selectedAdjust.grade}年级`) : '未知'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">班级</span>
-                  <span>{selectedAdjust.className}</span>
+                  <span>{selectedAdjust.className || '未知'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">课程</span>
-                  <span>{selectedAdjust.subject}</span>
+                  <span>{selectedAdjust.subject || '未知'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">时间</span>
-                  <span>第{selectedAdjust.effectiveWeek}周 {weekDayNames[selectedAdjust.weekDay]} 第{selectedAdjust.periodIndex + 1}节</span>
+                  <span>第{selectedAdjust.effectiveWeek || '?'}周 {selectedAdjust.weekDay ? weekDayNames[selectedAdjust.weekDay] : '未知'} 第{(selectedAdjust.periodIndex ?? -1) + 1}节</span>
                 </div>
                 {selectedAdjust.substituteName && (
                   <>

@@ -214,7 +214,7 @@ const mockDevices: AccessDevice[] = [
 ];
 
 // 设备类型映射
-const deviceTypeMap: Record<AccessDeviceType, { label: string; icon: any; color: string }> = {
+const deviceTypeMap: Record<AccessDeviceType, { label: string; icon: React.ComponentType<{ className?: string }>; color: string }> = {
   gate: { label: '校门闸机', icon: DoorOpen, color: 'text-blue-600 bg-blue-50' },
   building: { label: '楼宇门禁', icon: Monitor, color: 'text-green-600 bg-green-50' },
   classroom: { label: '教室门禁', icon: Monitor, color: 'text-purple-600 bg-purple-50' },
@@ -223,7 +223,7 @@ const deviceTypeMap: Record<AccessDeviceType, { label: string; icon: any; color:
 };
 
 // 设备状态映射
-const deviceStatusMap: Record<AccessDeviceStatus, { label: string; color: string; icon: any }> = {
+const deviceStatusMap: Record<AccessDeviceStatus, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   online: { label: '在线', color: 'text-green-600 bg-green-50', icon: Wifi },
   offline: { label: '离线', color: 'text-gray-600 bg-gray-50', icon: WifiOff },
   maintenance: { label: '维护中', color: 'text-yellow-600 bg-yellow-50', icon: Settings },

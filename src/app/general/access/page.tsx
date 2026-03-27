@@ -82,7 +82,7 @@ const personTypeMap: Record<string, { label: string; color: string }> = {
 };
 
 // 设备状态映射
-const deviceStatusMap: Record<string, { label: string; color: string; icon: any }> = {
+const deviceStatusMap: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   online: { label: '在线', color: 'text-green-600 bg-green-50', icon: Wifi },
   offline: { label: '离线', color: 'text-gray-600 bg-gray-50', icon: WifiOff },
   fault: { label: '故障', color: 'text-red-600 bg-red-50', icon: AlertTriangle },

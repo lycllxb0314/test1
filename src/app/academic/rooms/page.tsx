@@ -38,7 +38,7 @@ import {
 import { Room, RoomType, RoomStatus, RoomBooking, BookingStatus, BookingPurpose } from '@/types';
 
 // 教室类型映射
-const roomTypeMap: Record<RoomType, { label: string; icon: any; color: string }> = {
+const roomTypeMap: Record<RoomType, { label: string; icon: React.ComponentType<{ className?: string }>; color: string }> = {
   seminar_room: { label: '教研室', icon: Users, color: 'text-blue-600 bg-blue-50' },
   lecture_hall: { label: '阶梯教室', icon: Presentation, color: 'text-purple-600 bg-purple-50' },
   multimedia_room: { label: '多媒体教室', icon: Monitor, color: 'text-indigo-600 bg-indigo-50' },
@@ -57,7 +57,7 @@ const roomStatusMap: Record<RoomStatus, { label: string; color: string }> = {
 };
 
 // 预约状态映射
-const bookingStatusMap: Record<BookingStatus, { label: string; color: string; icon: any }> = {
+const bookingStatusMap: Record<BookingStatus, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   pending: { label: '待审批', color: 'text-orange-600 bg-orange-50', icon: Clock },
   approved: { label: '已批准', color: 'text-green-600 bg-green-50', icon: CheckCircle },
   rejected: { label: '已拒绝', color: 'text-red-600 bg-red-50', icon: AlertTriangle },

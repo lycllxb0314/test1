@@ -105,6 +105,20 @@ interface Parent {
   updatedAt: string;
 }
 
+// 批量操作结果类型
+interface BatchResultItem {
+  name: string;
+  defaultPassword?: string;
+  newPassword?: string;
+}
+
+interface BatchResults {
+  success: number;
+  failed: number;
+  data?: BatchResultItem[];
+  errors?: string[];
+}
+
 // 班级类型定义
 interface Class {
   id: string;
@@ -145,7 +159,7 @@ export default function ParentsPage() {
   const [resultDialogOpen, setResultDialogOpen] = useState(false);
   const [selectedParent, setSelectedParent] = useState<Parent | null>(null);
   const [importData, setImportData] = useState('');
-  const [batchResults, setBatchResults] = useState<any>(null);
+  const [batchResults, setBatchResults] = useState<BatchResults | null>(null);
   
   // 加载家长数据
   const loadParents = useCallback(async () => {
@@ -865,7 +879,7 @@ export default function ParentsPage() {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="font-medium mb-2">账号信息：</p>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {batchResults.data.map((item: any, index: number) => (
+                    {batchResults.data.map((item: BatchResultItem, index: number) => (
                       <div key={index} className="text-sm flex justify-between">
                         <span>{item.name}</span>
                         <span className="text-gray-500">

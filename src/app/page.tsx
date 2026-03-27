@@ -27,6 +27,7 @@ import {
   Play,
   X,
   ExternalLink,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { roleConfigs, administrativeRoleConfigs } from '@/config/roles';
@@ -85,6 +86,15 @@ const defaultCarouselItems: CarouselItem[] = [
   },
 ];
 
+// 童心教育路径类型定义（API 返回格式）
+interface PhilosophyData {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  image: string;
+}
+
 // 童心教育路径类型定义
 interface ChildHeartPathItem {
   id?: string;
@@ -142,6 +152,69 @@ interface SchoolHonor {
   year?: string;
 }
 
+// API 返回类型定义
+interface PortalAnnouncement {
+  id: string;
+  title: string;
+  summary?: string;
+  category?: string;
+  mediaLevel?: string;
+  coverImage?: string;
+  publishedAt?: string;
+}
+
+interface CarouselData {
+  id: string;
+  type: 'image' | 'video' | 'bilibili';
+  image: string;
+  videoUrl?: string;
+  bilibiliUrl?: string;
+  bilibiliBvid?: string;
+  title: string;
+  subtitle?: string;
+  tag?: string;
+}
+
+interface PhilosophyData {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  image: string;
+}
+
+interface HonorData {
+  id: string;
+  title: string;
+  year?: string;
+}
+
+interface AchievementCategoryData {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  tag?: string;
+  description?: string;
+  featured_award_title?: string;
+  featured_award_content?: string;
+  stats?: Array<{ label: string; value: string }>;
+  honors_list?: Array<{ title: string; year?: string; subtitle?: string }>;
+}
+
+interface AchievementCategoryState {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  tag?: string;
+  description?: string;
+  featuredAwardTitle?: string;
+  featuredAwardContent?: string;
+  stats?: Array<{ label: string; value: string }>;
+  honorsList?: Array<{ title: string; year?: string; subtitle?: string }>;
+}
+
 // 默认办学荣誉（作为后备）
 const defaultHonors: SchoolHonor[] = [
   { title: '全国文明校园', year: '连续8届' },
@@ -159,7 +232,7 @@ const quickLinks = [
 ];
 
 // 图标名称到组件的映射
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, LucideIcon> = {
   Shield,
   Lightbulb,
   Palette,
@@ -195,19 +268,7 @@ export default function HomePage() {
   const [dataLoading, setDataLoading] = useState(true);
   
   // 成果特色办学分类数据
-  interface AchievementCategoryData {
-    id: string;
-    name: string;
-    slug: string;
-    icon: string;
-    tag?: string;
-    description?: string;
-    featuredAwardTitle?: string;
-    featuredAwardContent?: string;
-    stats?: { label: string; value: string }[];
-    honorsList?: { title: string; subtitle?: string }[];
-  }
-  const [achievementCategories, setAchievementCategories] = useState<AchievementCategoryData[]>([]);
+  const [achievementCategories, setAchievementCategories] = useState<AchievementCategoryState[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -229,7 +290,7 @@ export default function HomePage() {
       if (announcementsResult.success) {
         // 映射新闻数据（API返回空数组时也更新状态）
         const newsData = announcementsResult.data.news || [];
-        setNewsItems(newsData.map((item: any) => ({
+        setNewsItems(newsData.map((item: PortalAnnouncement) => ({
           id: item.id,
           title: item.title,
           summary: item.summary || '',
@@ -241,7 +302,7 @@ export default function HomePage() {
         
         // 映射公告数据（API返回空数组时也更新状态）
         const announcementsData = announcementsResult.data.announcements || [];
-        setNotices(announcementsData.map((item: any) => ({
+        setNotices(announcementsData.map((item: PortalAnnouncement) => ({
           id: item.id,
           title: item.title,
           date: item.publishedAt ? item.publishedAt.split('T')[0] : '',
@@ -251,7 +312,7 @@ export default function HomePage() {
       // 处理轮播图数据
       const carouselResult = await carouselRes.json();
       if (carouselResult.success && carouselResult.data && carouselResult.data.length > 0) {
-        setCarouselItems(carouselResult.data.map((item: any) => ({
+        setCarouselItems(carouselResult.data.map((item: CarouselData) => ({
           id: item.id,
           type: item.type,
           image: item.image,
@@ -267,7 +328,7 @@ export default function HomePage() {
       // 处理童心教育数据
       const philosophyResult = await philosophyRes.json();
       if (philosophyResult.success && philosophyResult.data && philosophyResult.data.length > 0) {
-        setChildHeartPaths(philosophyResult.data.map((item: any) => ({
+        setChildHeartPaths(philosophyResult.data.map((item: PhilosophyData) => ({
           id: item.id,
           icon: item.icon,
           title: item.title,
@@ -279,7 +340,7 @@ export default function HomePage() {
       // 处理办学荣誉数据
       const honorsResult = await honorsRes.json();
       if (honorsResult.success && honorsResult.data && honorsResult.data.length > 0) {
-        setHonors(honorsResult.data.map((item: any) => ({
+        setHonors(honorsResult.data.map((item: HonorData) => ({
           id: item.id,
           title: item.title,
           year: item.year || '',
@@ -290,7 +351,7 @@ export default function HomePage() {
       const achievementsRes = await fetch('/api/portal/achievements/categories');
       const achievementsResult = await achievementsRes.json();
       if (achievementsResult.success && achievementsResult.data && achievementsResult.data.length > 0) {
-        setAchievementCategories(achievementsResult.data.map((item: any) => ({
+        setAchievementCategories(achievementsResult.data.map((item: AchievementCategoryData) => ({
           id: item.id,
           name: item.name,
           slug: item.slug,
@@ -301,7 +362,7 @@ export default function HomePage() {
           featuredAwardContent: item.featured_award_content,
           stats: item.stats || [],
           honorsList: item.honors_list || [],
-        })));
+        } as AchievementCategoryState)));
       }
     } catch (error) {
       console.error('Failed to fetch portal data:', error);

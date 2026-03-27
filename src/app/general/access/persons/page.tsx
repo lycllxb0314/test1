@@ -58,6 +58,7 @@ import {
   Calendar,
   MoreHorizontal,
   RefreshCw,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -94,7 +95,7 @@ const mockStaff: AccessPerson[] = [
 ];
 
 // 人员类型映射
-const personTypeMap: Record<PersonType, { label: string; icon: any; color: string }> = {
+const personTypeMap: Record<PersonType, { label: string; icon: LucideIcon; color: string }> = {
   student: { label: '学生', icon: GraduationCap, color: 'text-blue-600 bg-blue-50' },
   teacher: { label: '教师', icon: Users, color: 'text-green-600 bg-green-50' },
   staff: { label: '后勤', icon: Briefcase, color: 'text-orange-600 bg-orange-50' },

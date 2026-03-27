@@ -62,7 +62,7 @@ const personTypeMap: Record<PersonType, { label: string; color: string }> = {
 };
 
 // 通行方式映射
-const methodMap: Record<string, { label: string; icon: any }> = {
+const methodMap: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   face: { label: '人脸识别', icon: User },
   card: { label: '刷卡', icon: User },
   qrcode: { label: '二维码', icon: User },
@@ -71,7 +71,7 @@ const methodMap: Record<string, { label: string; icon: any }> = {
 };
 
 // 状态映射
-const statusMap: Record<string, { label: string; color: string; icon: any }> = {
+const statusMap: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   success: { label: '通行成功', color: 'text-green-600 bg-green-50', icon: CheckCircle },
   denied: { label: '拒绝通行', color: 'text-red-600 bg-red-50', icon: XCircle },
   timeout: { label: '超时异常', color: 'text-orange-600 bg-orange-50', icon: AlertTriangle },

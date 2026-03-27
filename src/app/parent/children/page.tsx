@@ -29,10 +29,35 @@ import {
   Home,
 } from 'lucide-react';
 
+// 子女信息类型
+interface ChildInfo {
+  id: string;
+  name: string;
+  gender: string;
+  avatar: string;
+  classId: string;
+  className: string;
+  grade: number;
+  studentNo: string;
+  birthDate: string;
+  idCard: string;
+  ethnicity: string;
+  nativePlace: string;
+  address: string;
+  phone: string;
+  status: string;
+  parents: Array<{
+    name: string;
+    relation: string;
+    phone: string;
+    isEmergency: boolean;
+  }>;
+}
+
 export default function ChildrenPage() {
   const { user } = useAuth();
   const [editDialog, setEditDialog] = useState(false);
-  const [selectedChild, setSelectedChild] = useState<any>(null);
+  const [selectedChild, setSelectedChild] = useState<ChildInfo | null>(null);
 
   // 模拟子女数据
   const children = [
@@ -60,7 +85,7 @@ export default function ChildrenPage() {
   ];
 
   // 打开编辑对话框
-  const handleEdit = (child: any) => {
+  const handleEdit = (child: ChildInfo) => {
     setSelectedChild({ ...child });
     setEditDialog(true);
   };

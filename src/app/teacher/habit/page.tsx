@@ -72,6 +72,16 @@ interface Student {
   avatar?: string;
 }
 
+// API 返回的学生类型
+interface StudentFromApi {
+  id: string;
+  name: string;
+  studentNo?: string;
+  studentNumber?: string;
+  classId?: string;
+  avatar?: string;
+}
+
 // 月度目标类型
 interface MonthlyGoal {
   id: string;
@@ -173,7 +183,7 @@ export default function TeacherHabitPage() {
       const res = await fetch(`/api/students?teacherId=${user?.id}&pageSize=100`);
       const data = await res.json();
       if (data.success) {
-        setStudents(data.data.map((s: any) => ({
+        setStudents(data.data.map((s: StudentFromApi) => ({
           id: s.id,
           name: s.name,
           studentNumber: s.studentNo || s.studentNumber || '',

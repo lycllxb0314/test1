@@ -130,7 +130,7 @@ export default function SchoolSchedulePage() {
   // 详情弹窗
   const [detailDialog, setDetailDialog] = useState<{
     type: 'class' | 'teacher';
-    data: any;
+    data: ClassInfo | TeacherInfo;
     scheduleMatrix: (SlotData | null)[][];
   } | null>(null);
 

@@ -14,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, X, Clock, User, Sparkles, RefreshCw, Save, FileText, Database, Copy, Clipboard, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useClasses } from '@/hooks/useClasses';
+import type { ClassContainer } from '@/hooks/useClasses';
 import { SubjectHoursPanel } from '@/components/schedule/subject-hours-panel';
 import { SUBJECT_COLORS, getSubjectColor } from '@/lib/subject-colors';
 import { getGradeSubjectHours } from '@/lib/schedule-config';
@@ -107,7 +108,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   const { grade: gradeParam } = use(params);
   const grade = parseInt(gradeParam);
   const { classes, loading: classesLoading, getClassesByGrade, refetch: refetchClasses } = useClasses();
-  const [gradeClasses, setGradeClasses] = useState<any[]>([]);
+  const [gradeClasses, setGradeClasses] = useState<ClassContainer[]>([]);
   const [schedulesMap, setSchedulesMap] = useState<Map<string, SlotData[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<ScheduleStatus | null>(null);
@@ -251,7 +252,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   };
 
   // 点击格子
-  const handleSlotClick = (cls: any, weekDay: number, periodIndex: number) => {
+  const handleSlotClick = (cls: ClassContainer, weekDay: number, periodIndex: number) => {
     const slot = getSlot(cls.id, weekDay, periodIndex);
     
     // 确定本班的语文老师和数学老师
@@ -458,7 +459,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
   };
 
   // 右键菜单处理
-  const handleContextMenu = (e: React.MouseEvent, cls: any, weekDay: number, periodIndex: number) => {
+  const handleContextMenu = (e: React.MouseEvent, cls: ClassContainer, weekDay: number, periodIndex: number) => {
     e.preventDefault();
     const slot = getSlot(cls.id, weekDay, periodIndex);
     const available = isSlotAvailable(weekDay, periodIndex);

@@ -167,7 +167,7 @@ const mockVisitors: Visitor[] = [
 ];
 
 // 访客状态映射
-const statusMap: Record<string, { label: string; color: string; icon: any }> = {
+const statusMap: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   pending: { label: '待审批', color: 'text-orange-600 bg-orange-50', icon: Clock },
   approved: { label: '已批准', color: 'text-green-600 bg-green-50', icon: CheckCircle },
   arrived: { label: '已到访', color: 'text-blue-600 bg-blue-50', icon: UserCheck },

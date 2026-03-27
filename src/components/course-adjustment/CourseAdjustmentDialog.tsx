@@ -38,14 +38,15 @@ import { toast } from 'sonner';
 
 // 原始课时段类型
 interface OriginalSlot {
-  classId: string;
-  className: string;
-  grade: number;
-  weekDay: number;
-  periodIndex: number;
-  subject: string;
-  teacherId: string;
-  teacherName: string;
+  classId?: string;
+  className?: string;
+  grade?: number;
+  weekDay?: number;
+  periodIndex?: number;
+  subject?: string;
+  teacherId?: string;
+  teacherName?: string;
+  periodName?: string;
 }
 
 // 调课结果类型
@@ -75,8 +76,8 @@ interface CourseAdjustment {
   id: string;
   leaveRequestId?: string;
   workflowInstanceId?: string;
-  applicantId: string;
-  applicantName: string;
+  applicantId?: string;
+  applicantName?: string;
   adjusterId?: string;
   adjusterName?: string;
   adjustType?: string;
@@ -112,6 +113,8 @@ interface CourseAdjustment {
   updatedAt?: string;
   completedAt?: string;
 }
+
+export type { CourseAdjustment };
 
 // 推荐教师类型
 interface RecommendedTeacher {

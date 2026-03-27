@@ -77,6 +77,21 @@ interface Resource {
   createdAt: string;
 }
 
+interface ResourceFromApi {
+  id: string;
+  title: string;
+  type: string;
+  resourceType: string;
+  size?: number;
+  fileUrl?: string;
+  fileName?: string;
+  fileKey?: string;
+  teacherName?: string;
+  activityTitle?: string;
+  folderId?: string;
+  createdAt: string;
+}
+
 // ==================== 配置 ====================
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
@@ -155,7 +170,7 @@ export default function TeacherResearchDetailPage() {
       const themeRes = await fetch(`/api/research/resources?themeId=${activity.themeId}`);
       const themeData = await themeRes.json();
       if (themeData.success) {
-        setThemeResources((themeData.data || []).map((r: any) => ({
+        setThemeResources((themeData.data || []).map((r: ResourceFromApi) => ({
           ...r,
           sourceType: 'theme' as const,
         })));
@@ -165,7 +180,7 @@ export default function TeacherResearchDetailPage() {
       const activityRes = await fetch(`/api/research/resources?activityId=${activityId}`);
       const activityData = await activityRes.json();
       if (activityData.success) {
-        setActivityResources((activityData.data || []).map((r: any) => ({
+        setActivityResources((activityData.data || []).map((r: ResourceFromApi) => ({
           ...r,
           sourceType: 'activity' as const,
         })));

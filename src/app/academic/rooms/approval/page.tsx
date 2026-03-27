@@ -53,7 +53,7 @@ type BookingStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'comple
 type BookingPurpose = 'teaching' | 'meeting' | 'training' | 'activity' | 'exam' | 'defense' | 'competition' | 'other';
 
 // 状态映射
-const statusMap: Record<BookingStatus, { label: string; color: string; icon: any }> = {
+const statusMap: Record<BookingStatus, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   pending: { label: '待审批', color: 'text-orange-600 bg-orange-50', icon: Clock },
   approved: { label: '已批准', color: 'text-green-600 bg-green-50', icon: CheckCircle },
   rejected: { label: '已拒绝', color: 'text-red-600 bg-red-50', icon: XCircle },

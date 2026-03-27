@@ -21,6 +21,7 @@ import { useApprovals } from '@/hooks/useApprovals';
 import { MessagePanel } from '@/components/messaging/MessagePanel';
 import { PublishNotificationDialog } from '@/components/approval/PublishNotificationDialog';
 import { CourseAdjustmentDialog } from '@/components/course-adjustment/CourseAdjustmentDialog';
+import type { CourseAdjustment } from '@/components/course-adjustment/CourseAdjustmentDialog';
 import type { SubmitApprovalRequest } from '@/types/approval';
 import { cn } from '@/lib/utils';
 import {
@@ -74,12 +75,12 @@ export default function TeacherPage() {
   const [publishOpen, setPublishOpen] = useState(false);
   
   // 调课相关状态
-  const [adjustments, setAdjustments] = useState<any[]>([]);
-  const [completedAdjustments, setCompletedAdjustments] = useState<any[]>([]);
+  const [adjustments, setAdjustments] = useState<CourseAdjustment[]>([]);
+  const [completedAdjustments, setCompletedAdjustments] = useState<CourseAdjustment[]>([]);
   const [adjustmentLoading, setAdjustmentLoading] = useState(false);
   const [completedLoading, setCompletedLoading] = useState(false);
   const [adjustViewMode, setAdjustViewMode] = useState<'pending' | 'completed'>('pending');
-  const [selectedAdjust, setSelectedAdjust] = useState<any>(null);
+  const [selectedAdjust, setSelectedAdjust] = useState<CourseAdjustment | null>(null);
   const [showAdjustDialog, setShowAdjustDialog] = useState(false);
 
   // 判断是否是班主任
@@ -178,7 +179,7 @@ export default function TeacherPage() {
   };
 
   // 打开调课处理对话框
-  const handleOpenAdjustDialog = (adjust: any) => {
+  const handleOpenAdjustDialog = (adjust: CourseAdjustment) => {
     setSelectedAdjust(adjust);
     setShowAdjustDialog(true);
   };
@@ -470,7 +471,7 @@ export default function TeacherPage() {
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            {adjustments.map((adjust: any) => (
+                            {adjustments.map((adjust: CourseAdjustment) => (
                               <Card 
                                 key={adjust.id} 
                                 className="border-l-4 border-l-amber-500 hover:shadow-md transition-shadow cursor-pointer bg-card"
@@ -535,7 +536,7 @@ export default function TeacherPage() {
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            {completedAdjustments.map((adjust: any) => (
+                            {completedAdjustments.map((adjust: CourseAdjustment) => (
                               <Card 
                                 key={adjust.id} 
                                 className="border-l-4 border-l-green-500 bg-card"

@@ -47,6 +47,7 @@ import {
   Save,
   X,
   Loader2,
+  type LucideIcon,
 } from 'lucide-react';
 import { TeacherProfile } from '@/types';
 import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement, TEACHER_ROLE_LABELS, TEACHER_ROLE_COLORS, ADMINISTRATIVE_ROLE_LABELS, ADMINISTRATIVE_ROLE_COLORS, type AdministrativeRole, type TeacherRole, type TeacherRoleConfig } from '@/hooks';
@@ -102,7 +103,7 @@ const getHonorLevelColor = (level: string) => {
 
 // 获取记录类型图标和颜色
 const getRecordTypeInfo = (type: string) => {
-  const typeMap: Record<string, { icon: any; color: string; label: string }> = {
+  const typeMap: Record<string, { icon: LucideIcon; color: string; label: string }> = {
     education: { icon: GraduationCap, color: 'text-blue-500', label: '学历' },
     title: { icon: Award, color: 'text-purple-500', label: '职称' },
     position: { icon: Briefcase, color: 'text-orange-500', label: '职务' },
