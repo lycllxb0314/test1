@@ -69,6 +69,11 @@ import {
   Star,
   Award,
   BookOpen,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Calendar,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStudents, type StudentInfo } from '@/hooks/useStudents';
@@ -76,6 +81,9 @@ import { useClasses } from '@/hooks/useClasses';
 import { useFrontendPagination } from '@/hooks/useApi';
 import { PAGINATION } from '@/lib/pagination-config';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useClassDailyRoutine, useClassWeeklyRoutine } from '@/hooks/useClassRoutine';
+import { ROUTINE_SCORE_CATEGORIES, ROUTINE_CATEGORY_LABELS, ROUTINE_CATEGORY_MAX_SCORES } from '@/types/class-routine';
+import type { RoutineScoreCategory } from '@/types/class-routine';
 import { toast } from 'sonner';
 
 // 获取状态颜色
@@ -127,8 +135,6 @@ export default function ClassManagePage() {
     refetch: refetchClasses
   } = useClasses();
 
-  const loading = studentsLoading || classesLoading;
-
   // 班主任：自己的班级；科任：选择的班级
   const classId = useMemo(() => {
     if (isHeadTeacher()) {
@@ -151,6 +157,25 @@ export default function ClassManagePage() {
   const currentClass = useMemo(() => {
     return allClasses.find(c => c.id === classId);
   }, [allClasses, classId]);
+
+  // 获取常规评分数据（今日）
+  const today = new Date().toISOString().split('T')[0];
+  const { 
+    categoryScores, 
+    totalScore, 
+    maxTotalScore, 
+    scoreRate,
+    loading: routineLoading 
+  } = useClassDailyRoutine({ classId, date: today });
+
+  // 获取本周评比（假设当前是第几周，需要根据学期计算）
+  const currentAcademicYear = new Date().getFullYear().toString();
+  const { evaluation: weeklyEvaluation } = useClassWeeklyRoutine({ 
+    classId, 
+    academicYear: currentAcademicYear 
+  });
+
+  const loading = studentsLoading || classesLoading || routineLoading;
 
   // 筛选当前班级的学生
   const students = useMemo(() => {
@@ -515,6 +540,125 @@ export default function ClassManagePage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* 常规评比卡片 */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-primary" />
+                      班级常规评比
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      今日评分 ({today})
+                    </CardDescription>
+                  </div>
+                  {weeklyEvaluation && (
+                    <div className="flex items-center gap-2">
+                      <Award className={`h-5 w-5 ${
+                        weeklyEvaluation.level === '优秀' ? 'text-green-600' :
+                        weeklyEvaluation.level === '良好' ? 'text-blue-600' :
+                        'text-orange-600'
+                      }`} />
+                      <span className="text-sm font-medium">本周评比：{weeklyEvaluation.level}</span>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {routineLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">加载常规评分数据...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* 总评分 */}
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <Target className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">今日总评分</p>
+                          <p className="text-2xl font-bold text-primary">
+                            {totalScore.toFixed(1)} / {maxTotalScore}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">得分率</p>
+                        <div className="flex items-center gap-2">
+                          {scoreRate >= 90 ? (
+                            <TrendingUp className="h-5 w-5 text-green-600" />
+                          ) : scoreRate >= 70 ? (
+                            <Target className="h-5 w-5 text-blue-600" />
+                          ) : (
+                            <TrendingDown className="h-5 w-5 text-orange-600" />
+                          )}
+                          <span className={`text-2xl font-bold ${
+                            scoreRate >= 90 ? 'text-green-600' :
+                            scoreRate >= 70 ? 'text-blue-600' :
+                            'text-orange-600'
+                          }`}>
+                            {scoreRate.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 各维度评分 */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {categoryScores.map((item) => {
+                        const rate = item.maxScore > 0 ? (item.score / item.maxScore) * 100 : 0;
+                        const colorClass = rate >= 90 ? 'text-green-600' : rate >= 70 ? 'text-blue-600' : 'text-orange-600';
+                        const bgClass = rate >= 90 ? 'bg-green-50 border-green-200' : rate >= 70 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200';
+                        
+                        return (
+                          <div key={item.category} className={`p-3 rounded-lg border ${bgClass}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                {ROUTINE_CATEGORY_LABELS[item.category]}
+                              </span>
+                              <span className={`text-lg font-bold ${colorClass}`}>
+                                {item.score}
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className={`h-2 rounded-full transition-all ${
+                                  rate >= 90 ? 'bg-green-500' : rate >= 70 ? 'bg-blue-500' : 'bg-orange-500'
+                                }`}
+                                style={{ width: `${Math.min(rate, 100)}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between mt-1">
+                              <span className="text-xs text-gray-500">满分 {item.maxScore}</span>
+                              <span className={`text-xs ${colorClass}`}>{rate.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* 查看更多 */}
+                    <div className="flex justify-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => router.push('/teacher/habit')}
+                        className="gap-2"
+                      >
+                        查看历史评分记录
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* 快捷操作 */}
             <Card className="border-0 shadow-md">

@@ -523,6 +523,36 @@ export const GRADE_NAMES: Record<Grade, string> = {
   6: '六年级',
 };
 
+// ==================== 班级常规评比 ====================
+export type {
+  RoutineScoreCategory,
+  WeeklyEvaluationLevel,
+  ClassRoutineScoreRow,
+  ClassWeeklyEvaluationRow,
+  DutyTeacherRow,
+  ClassRoutineScore,
+  ClassWeeklyEvaluation,
+  DutyTeacher,
+  ClassDailyScoreSummary,
+  ClassWeeklyScoreSummary,
+  GradeWeeklyRanking,
+  RoutineScoreQueryParams,
+  WeeklyEvaluationQueryParams,
+  DutyTeacherQueryParams,
+  CreateRoutineScoreParams,
+  BatchCreateRoutineScoresParams,
+  CreateDutyTeacherParams,
+  UpdateDutyTeacherParams,
+} from './class-routine';
+
+export {
+  ROUTINE_SCORE_CATEGORIES,
+  ROUTINE_CATEGORY_MAX_SCORES,
+  ROUTINE_CATEGORY_COLORS,
+  EVALUATION_LEVEL_THRESHOLDS,
+  WEEK_DAY_LABELS,
+} from './class-routine';
+
 // ==================== 工作流类型 ====================
 
 /** 工作流配置 */

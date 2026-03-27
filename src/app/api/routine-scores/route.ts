@@ -1,220 +1,200 @@
 /**
  * 班级常规评分 API
  * 
- * 功能：
- * - GET: 获取班级常规评分记录（支持统计）
- * - POST: 创建评分记录
+ * GET: 查询评分记录
+ * POST: 创建评分记录
+ * 
+ * @module app/api/routine-scores/route
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { getUserFromSession } from '@/lib/auth/session';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { success, error, ErrorCode } from '@/lib/api';
-
-/** 评分维度 */
-type ScoreCategory = '文明礼仪' | '遵守纪律' | '班容班貌' | '环境卫生' | '文体活动' | '学习习惯';
-
-/** 评分记录 */
-interface ScoreRecord {
-  classId: string;
-  className: string;
-  grade: number;
-  date: string;
-  category: ScoreCategory;
-  score: number;
-  maxScore: number;
-  teacherId: string;
-  teacherName: string;
-  remark?: string;
-}
+import { classRoutineService } from '@/services/class-routine.service';
 
 /**
- * GET - 获取班级常规评分记录
+ * GET - 查询评分记录
  * 
- * 查询参数：
- * - classId: 按班级筛选
- * - grade: 按年级筛选
- * - category: 按评分维度筛选
- * - startDate/endDate: 日期范围
+ * Query params:
+ * - classId: 班级ID
+ * - grade: 年级
+ * - date: 日期
+ * - startDate: 开始日期
+ * - endDate: 结束日期
+ * - category: 评分维度
+ * - teacherId: 教师ID
  * - summary: 是否返回汇总统计
  */
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+  const { searchParams } = new URL(request.url);
+  
+  const classId = searchParams.get('classId') || undefined;
+  const gradeParam = searchParams.get('grade');
+  const date = searchParams.get('date') || undefined;
+  const startDate = searchParams.get('startDate') || undefined;
+  const endDate = searchParams.get('endDate') || undefined;
+  const category = searchParams.get('category') as RoutineScoreCategory | null;
+  const teacherId = searchParams.get('teacherId') || undefined;
+  const needSummary = searchParams.get('summary') === 'true';
+
+  const grade = gradeParam ? parseInt(gradeParam) : undefined;
+
+  const params: RoutineScoreQueryParams = {
+    classId,
+    grade,
+    date,
+    startDate,
+    endDate,
+    category: category || undefined,
+    teacherId,
+  };
+
+  // 获取评分记录
+  const scoresResult = await classRoutineService.queryScores(params);
+  
+  if (!scoresResult.success) {
+    return NextResponse.json(error(scoresResult.error || '查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+  }
+
+  const scores = scoresResult.data || [];
+
+  // 如果需要汇总
+  if (needSummary) {
+    // 获取统计数据
+    const statsResult = await classRoutineService.getStatistics(params);
     
-    const classId = searchParams.get('classId');
-    const grade = searchParams.get('grade');
-    const category = searchParams.get('category');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const needSummary = searchParams.get('summary') === 'true';
-    
-    // 构建查询
-    let query = supabase
-      .from('routine_scores')
-      .select('*', { count: 'exact' });
-    
-    // 筛选条件
-    if (classId) {
-      query = query.eq('class_id', classId);
+    // 按班级汇总排名
+    const classRankingMap = new Map<string, {
+      classId: string;
+      className: string;
+      grade: number;
+      totalScore: number;
+      count: number;
+    }>();
+
+    for (const score of scores) {
+      const existing = classRankingMap.get(score.classId) || {
+        classId: score.classId,
+        className: '',
+        grade: score.grade,
+        totalScore: 0,
+        count: 0,
+      };
+      existing.totalScore += score.score;
+      existing.count += 1;
+      classRankingMap.set(score.classId, existing);
     }
-    if (grade) {
-      query = query.eq('grade', parseInt(grade));
+
+    // 计算平均分并排序
+    const classRanking = Array.from(classRankingMap.values())
+      .map(c => ({
+        ...c,
+        avgScore: c.count > 0 ? c.totalScore / c.count : 0,
+      }))
+      .sort((a, b) => b.avgScore - a.avgScore);
+
+    // 按年级和维度汇总
+    const byCategory: Record<string, { totalScore: number; count: number }> = {};
+    const byGrade: Record<number, { totalScore: number; count: number }> = {};
+
+    for (const score of scores) {
+      // 按维度
+      if (!byCategory[score.category]) {
+        byCategory[score.category] = { totalScore: 0, count: 0 };
+      }
+      byCategory[score.category].totalScore += score.score;
+      byCategory[score.category].count += 1;
+
+      // 按年级
+      if (!byGrade[score.grade]) {
+        byGrade[score.grade] = { totalScore: 0, count: 0 };
+      }
+      byGrade[score.grade].totalScore += score.score;
+      byGrade[score.grade].count += 1;
     }
-    if (category) {
-      query = query.eq('category', category);
-    }
-    if (startDate) {
-      query = query.gte('date', startDate);
-    }
-    if (endDate) {
-      query = query.lte('date', endDate);
-    }
-    
-    query = query.order('date', { ascending: false });
-    
-    const { data, error: fetchError, count } = await query;
-    
-    if (fetchError) {
-      console.error('获取评分记录失败:', fetchError);
-      return NextResponse.json(error('获取评分记录失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-    
-    // 转换数据格式
-    const records = (data || []).map((item: Record<string, unknown>) => ({
-      id: item.id,
-      classId: item.class_id,
-      className: item.class_name,
-      grade: item.grade,
-      date: item.date,
-      category: item.category,
-      score: item.score,
-      maxScore: item.max_score,
-      teacherId: item.teacher_id,
-      teacherName: item.teacher_name,
-      remark: item.remark,
-      createdAt: item.created_at,
-    }));
-    
-    // 如果需要汇总统计
-    let summary = null;
-    if (needSummary && records.length > 0) {
-      // 按班级汇总
-      const byClass: Record<string, { className: string; grade: number; totalScore: number; count: number; avgScore: number }> = {};
-      
-      // 按维度汇总
-      const byCategory: Record<string, { totalScore: number; count: number }> = {};
-      
-      // 按年级汇总
-      const byGrade: Record<number, { totalScore: number; count: number }> = {};
-      
-      records.forEach((r: typeof records[0]) => {
-        const classId = r.classId as string;
-        const className = r.className as string;
-        const grade = r.grade as number;
-        const category = r.category as string;
-        const score = r.score as number;
-        const maxScore = r.maxScore as number;
-        
-        // 按班级
-        if (!byClass[classId]) {
-          byClass[classId] = { className, grade, totalScore: 0, count: 0, avgScore: 0 };
-        }
-        byClass[classId].totalScore += score;
-        byClass[classId].count++;
-        
-        // 按维度
-        if (!byCategory[category]) {
-          byCategory[category] = { totalScore: 0, count: 0 };
-        }
-        byCategory[category].totalScore += score;
-        byCategory[category].count++;
-        
-        // 按年级
-        if (!byGrade[grade]) {
-          byGrade[grade] = { totalScore: 0, count: 0 };
-        }
-        byGrade[grade].totalScore += score;
-        byGrade[grade].count++;
-      });
-      
-      // 计算平均分
-      Object.values(byClass).forEach(c => {
-        c.avgScore = Math.round((c.totalScore / c.count) * 100) / 100;
-      });
-      
-      // 班级排名
-      const classRanking = Object.entries(byClass)
-        .map(([id, data]) => ({ classId: id, ...data }))
-        .sort((a, b) => b.avgScore - a.avgScore);
-      
-      summary = {
-        totalRecords: records.length,
+
+    return NextResponse.json(success({
+      data: scores,
+      summary: {
+        totalRecords: scores.length,
         byCategory,
         byGrade,
         classRanking,
-      };
-    }
-    
-    return NextResponse.json({
-      success: true,
-      data: records,
-      count,
-      summary,
-    });
-  } catch (err) {
-    console.error('班级常规评分API错误:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+      },
+    }, 'database'));
   }
-}
+
+  return NextResponse.json(success(scores, 'database'));
+});
+
+// 导入类型
+import type { RoutineScoreCategory, RoutineScoreQueryParams } from '@/types/class-routine';
 
 /**
  * POST - 创建评分记录
+ * 
+ * Body:
+ * - classId: 班级ID (必填)
+ * - grade: 年级 (必填)
+ * - date: 日期 (必填)
+ * - scores: 评分数组 [{ category, score, maxScore? }] (批量)
+ * - 或单独: category, score, maxScore?, remark?
  */
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
-    const supabase = getSupabaseClient();
-    const user = await getUserFromSession(request);
-    
-    if (!user) {
-      return NextResponse.json(error('未登录', ErrorCode.UNAUTHORIZED), { status: 401 });
-    }
-    
     const body = await request.json();
     
     // 验证必填字段
-    if (!body.classId || !body.className || !body.grade || !body.date || !body.category || body.score === undefined) {
-      return NextResponse.json(error('缺少必填字段', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    if (!body.classId || !body.grade || !body.date) {
+      return NextResponse.json(error('缺少必填字段', ErrorCode.BAD_REQUEST), { status: 400 });
     }
-    
-    // 创建评分记录
-    const { data, error: createError } = await supabase
-      .from('routine_scores')
-      .insert({
-        class_id: body.classId,
-        class_name: body.className,
+
+    // 批量创建
+    if (body.scores && Array.isArray(body.scores)) {
+      if (body.scores.length === 0) {
+        return NextResponse.json(error('评分数组不能为空', ErrorCode.BAD_REQUEST), { status: 400 });
+      }
+
+      const result = await classRoutineService.batchCreateScores({
+        classId: body.classId,
         grade: body.grade,
         date: body.date,
-        category: body.category,
-        score: body.score,
-        max_score: body.maxScore || 10,
-        teacher_id: user.id,
-        teacher_name: user.name,
-        remark: body.remark,
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-    
-    if (createError) {
-      console.error('创建评分记录失败:', createError);
-      return NextResponse.json(error('创建评分记录失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+        scores: body.scores,
+        teacherId: user.id,
+        teacherName: user.name,
+      });
+
+      if (!result.success) {
+        return NextResponse.json(error(result.error || '创建失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+      }
+
+      return NextResponse.json(success(result.data, 'database'));
     }
-    
-    return NextResponse.json(success(data, 'database'));
+
+    // 单条创建
+    if (!body.category || body.score === undefined) {
+      return NextResponse.json(error('缺少评分维度或分数', ErrorCode.BAD_REQUEST), { status: 400 });
+    }
+
+    const result = await classRoutineService.createScore({
+      classId: body.classId,
+      grade: body.grade,
+      date: body.date,
+      category: body.category,
+      score: body.score,
+      maxScore: body.maxScore,
+      teacherId: user.id,
+      teacherName: user.name,
+      remark: body.remark,
+    });
+
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '创建失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    }
+
+    return NextResponse.json(success(result.data, 'database'));
   } catch (err) {
-    console.error('创建评分记录API错误:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    console.error('创建评分记录失败:', err);
+    return NextResponse.json(error('创建失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});

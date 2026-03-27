@@ -147,3 +147,21 @@ export {
   CollectionResponseRepository,
   collectionResponseRepository,
 } from './information-collection.repository';
+
+// ============================================
+// 班级常规评比管理
+// ============================================
+export {
+  ClassRoutineRepository,
+  classRoutineRepository,
+} from './class-routine.repository';
+
+export {
+  DutyTeacherRepository,
+  dutyTeacherRepository,
+} from './duty-teacher.repository';
+
+export {
+  WeeklyEvaluationRepository,
+  weeklyEvaluationRepository,
+} from './weekly-evaluation.repository';

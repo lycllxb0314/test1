@@ -121,3 +121,11 @@ export {
   CollectionResponseService,
   collectionResponseService,
 } from './information-collection.service';
+
+// ============================================
+// 班级常规评比服务
+// ============================================
+export {
+  ClassRoutineService,
+  classRoutineService,
+} from './class-routine.service';
