@@ -118,15 +118,23 @@ export function useGroups(): UseGroupsReturn {
 
       console.log('[useGroups] API response:', result);
 
-      if (result.groups) {
-        setGroups(result.groups);
-      } else if (result.success && result.data) {
-        setGroups(result.data);
+      // 提取群组数据，确保是数组
+      // API 返回格式: { success: true, data: { groups: [...] } }
+      let groupsData: GroupInfo[] = [];
+      if (result.success && result.data?.groups && Array.isArray(result.data.groups)) {
+        groupsData = result.data.groups;
+      } else if (Array.isArray(result.groups)) {
+        groupsData = result.groups;
+      } else if (Array.isArray(result.data)) {
+        groupsData = result.data;
+      } else if (Array.isArray(result)) {
+        groupsData = result;
       } else {
-        console.error('[useGroups] API error:', result.error);
+        console.error('[useGroups] API error: invalid data format', result);
         setError(result.error || '获取群组列表失败');
-        setGroups([]);
       }
+      
+      setGroups(groupsData);
     } catch (err) {
       if (!mountedRef.current) return;
       console.error('获取群组列表失败:', err);
@@ -320,14 +328,18 @@ export function useGroups(): UseGroupsReturn {
     const membersByType = {} as Record<GroupType, number>;
     let totalMembers = 0;
 
-    groups.forEach(g => {
-      groupsByType[g.type as GroupType] = (groupsByType[g.type as GroupType] || 0) + 1;
-      membersByType[g.type as GroupType] = (membersByType[g.type as GroupType] || 0) + (g.memberCount || 0);
+    // 防御性检查：确保 groups 是数组
+    const groupList = Array.isArray(groups) ? groups : [];
+    
+    groupList.forEach(g => {
+      const groupType = g.type as GroupType;
+      groupsByType[groupType] = (groupsByType[groupType] || 0) + 1;
+      membersByType[groupType] = (membersByType[groupType] || 0) + (g.memberCount || 0);
       totalMembers += g.memberCount || 0;
     });
 
     return {
-      totalGroups: groups.length,
+      totalGroups: groupList.length,
       totalMembers,
       groupsByType,
       membersByType,
