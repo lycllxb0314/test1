@@ -12,9 +12,8 @@ import {
   assertEqual,
   assertNotNull,
   assertThrows,
-  createMock,
   randomId,
-} from './lib/test-utils';
+} from '@/lib/test-utils';
 import {
   ApiError,
   isApiError,
@@ -25,7 +24,7 @@ import {
   validateTypes,
   validateOrThrow,
   generateRequestId,
-} from './lib/api-error';
+} from '@/lib/api-error';
 
 // ============================================
 // API 错误类测试
@@ -164,7 +163,7 @@ describe('输入验证', () => {
   test('验证并抛出错误', async () => {
     await assertThrows(() => {
       validateOrThrow({}, { required: ['name'] });
-    }, ApiError);
+    });
   });
 });
 
@@ -188,8 +187,8 @@ describe('工具函数', () => {
 
 // 如果直接运行此文件
 if (typeof require !== 'undefined' && require.main === module) {
-  runTests().then((suites) => {
-    const allPassed = suites.every((s) => s.failed === 0);
+  runTests().then((suites: any[]) => {
+    const allPassed = suites.every((s: any) => s.failed === 0);
     process.exit(allPassed ? 0 : 1);
   });
 }

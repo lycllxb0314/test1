@@ -78,3 +78,71 @@ export type {
   SubmitApprovalParams,
   ApprovalListParams
 } from './approval.service';
+
+// ============================================
+// 课程服务
+// ============================================
+export { CourseService, courseService } from './course.service';
+
+// ============================================
+// 考试服务
+// ============================================
+export { ExamService, examService, ExamScoreService, examScoreService } from './exam.service';
+
+// ============================================
+// 作业服务
+// ============================================
+export {
+  HomeworkService,
+  homeworkService,
+  HomeworkSubmissionService,
+  homeworkSubmissionService,
+} from './homework.service';
+
+// ============================================
+// 教研服务
+// ============================================
+export {
+  ResearchActivityService,
+  researchActivityService,
+  ResearchStageService,
+  researchStageService,
+  ResearchAchievementService,
+  researchAchievementService,
+  ResearchResourceService,
+  researchResourceService,
+} from './research.service';
+
+// ============================================
+// 德育服务
+// ============================================
+export {
+  MoralActivityService,
+  moralActivityService,
+  MoralActivitySubmissionService,
+  moralActivitySubmissionService,
+} from './moral.service';
+
+// ============================================
+// 习惯培养服务
+// ============================================
+export {
+  HabitGoalService,
+  habitGoalService,
+  StudentHabitGoalService,
+  studentHabitGoalService,
+  HabitRecordService,
+  habitRecordService,
+  HabitStarService,
+  habitStarService,
+} from './habit.service';
+
+// ============================================
+// 信息采集服务
+// ============================================
+export {
+  InformationCollectionService,
+  informationCollectionService,
+  CollectionResponseService,
+  collectionResponseService,
+} from './information-collection.service';
