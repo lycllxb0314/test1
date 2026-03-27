@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCache } from './useCache';
 import type {
   ClassRoutineScore,
   DutyTeacher,
@@ -105,47 +106,44 @@ interface UseClassDailyRoutineReturn {
 
 /**
  * 获取评分记录
+ * 
+ * 使用缓存机制：
+ * - 缓存时间：2分钟
+ * - 请求去重：避免并发重复请求
  */
 export function useRoutineScores(options: UseRoutineScoresOptions = {}): UseRoutineScoresReturn {
   const { classId, grade, date, startDate, endDate, autoFetch = true } = options;
 
-  const [scores, setScores] = useState<ClassRoutineScore[]>([]);
-  const [summary, setSummary] = useState<RoutineScoresSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
+  const { 
+    data: scores, 
+    loading, 
+    error, 
+    refetch 
+  } = useCache<ClassRoutineScore[]>({
+    key: 'routine-scores',
+    params: { classId, grade, date, startDate, endDate },
+    fetcher: async () => {
       const params = new URLSearchParams();
       if (classId) params.set('classId', classId);
       if (grade !== undefined) params.set('grade', grade.toString());
       if (date) params.set('date', date);
       if (startDate) params.set('startDate', startDate);
       if (endDate) params.set('endDate', endDate);
-      params.set('summary', 'true');
 
       const res = await fetch(`/api/routine-scores?${params.toString()}`, {
         credentials: 'include',
       });
 
       const result = await res.json();
-
       if (result.success) {
-        setScores(result.data || []);
-        setSummary(result.summary || null);
-      } else {
-        setError(result.error || '获取数据失败');
+        return result.data || [];
       }
-    } catch (err) {
-      console.error('获取评分记录失败:', err);
-      setError('获取数据失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [classId, grade, date, startDate, endDate]);
+      throw new Error(result.error || '获取数据失败');
+    },
+    ttl: 2 * 60 * 1000, // 2分钟缓存
+    enabled: autoFetch,
+    immediate: true,
+  });
 
   const createScore = useCallback(async (params: CreateRoutineScoreParams): Promise<boolean> => {
     try {
@@ -159,7 +157,7 @@ export function useRoutineScores(options: UseRoutineScoresOptions = {}): UseRout
       const result = await res.json();
 
       if (result.success) {
-        fetchData();
+        refetch();
         return true;
       }
       return false;
@@ -167,7 +165,7 @@ export function useRoutineScores(options: UseRoutineScoresOptions = {}): UseRout
       console.error('创建评分记录失败:', err);
       return false;
     }
-  }, [fetchData]);
+  }, [refetch]);
 
   const batchCreateScores = useCallback(async (params: BatchCreateRoutineScoresParams): Promise<boolean> => {
     try {
@@ -181,7 +179,7 @@ export function useRoutineScores(options: UseRoutineScoresOptions = {}): UseRout
       const result = await res.json();
 
       if (result.success) {
-        fetchData();
+        refetch();
         return true;
       }
       return false;
@@ -189,20 +187,45 @@ export function useRoutineScores(options: UseRoutineScoresOptions = {}): UseRout
       console.error('批量创建评分记录失败:', err);
       return false;
     }
-  }, [fetchData]);
+  }, [refetch]);
 
-  useEffect(() => {
-    if (autoFetch) {
-      fetchData();
+  // 计算汇总数据
+  const summary = useMemo<RoutineScoresSummary | null>(() => {
+    if (!scores) return null;
+
+    const byCategory: Record<string, { totalScore: number; count: number }> = {};
+    const byGrade: Record<number, { totalScore: number; count: number }> = {};
+
+    for (const s of scores) {
+      // 按维度汇总
+      if (!byCategory[s.category]) {
+        byCategory[s.category] = { totalScore: 0, count: 0 };
+      }
+      byCategory[s.category].totalScore += s.score;
+      byCategory[s.category].count++;
+
+      // 按年级汇总
+      if (!byGrade[s.grade]) {
+        byGrade[s.grade] = { totalScore: 0, count: 0 };
+      }
+      byGrade[s.grade].totalScore += s.score;
+      byGrade[s.grade].count++;
     }
-  }, [autoFetch, fetchData]);
+
+    return {
+      totalRecords: scores.length,
+      byCategory,
+      byGrade,
+      classRanking: [], // TODO: 实现班级排名逻辑
+    };
+  }, [scores]);
 
   return {
-    scores,
+    scores: scores || [],
     summary,
     loading,
-    error,
-    refetch: fetchData,
+    error: error?.message || null,
+    refetch,
     createScore,
     batchCreateScores,
   };
@@ -212,19 +235,23 @@ export function useRoutineScores(options: UseRoutineScoresOptions = {}): UseRout
 
 /**
  * 获取值日教师
+ * 
+ * 使用缓存机制：
+ * - 缓存时间：5分钟（值日教师安排变化频率低）
+ * - 请求去重：避免并发重复请求
  */
 export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTeachersReturn {
   const { grade, isActive = true, autoFetch = true } = options;
 
-  const [dutyTeachers, setDutyTeachers] = useState<DutyTeacher[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
+  const { 
+    data: dutyTeachers, 
+    loading, 
+    error, 
+    refetch 
+  } = useCache<DutyTeacher[]>({
+    key: 'duty-teachers',
+    params: { grade, isActive },
+    fetcher: async () => {
       const params = new URLSearchParams();
       if (grade !== undefined) params.set('grade', grade.toString());
       params.set('active', isActive.toString());
@@ -234,19 +261,15 @@ export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTe
       });
 
       const result = await res.json();
-
       if (result.success) {
-        setDutyTeachers(result.data || []);
-      } else {
-        setError(result.error || '获取数据失败');
+        return result.data || [];
       }
-    } catch (err) {
-      console.error('获取值日教师失败:', err);
-      setError('获取数据失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [grade, isActive]);
+      throw new Error(result.error || '获取数据失败');
+    },
+    ttl: 5 * 60 * 1000, // 5分钟缓存
+    enabled: autoFetch,
+    immediate: true,
+  });
 
   const createDutyTeacher = useCallback(async (params: {
     teacherId: string;
@@ -265,7 +288,7 @@ export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTe
       const result = await res.json();
 
       if (result.success) {
-        fetchData();
+        refetch();
         return true;
       }
       return false;
@@ -273,7 +296,7 @@ export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTe
       console.error('创建值日教师安排失败:', err);
       return false;
     }
-  }, [fetchData]);
+  }, [refetch]);
 
   const updateDutyTeacher = useCallback(async (params: {
     id: string;
@@ -292,7 +315,7 @@ export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTe
       const result = await res.json();
 
       if (result.success) {
-        fetchData();
+        refetch();
         return true;
       }
       return false;
@@ -300,7 +323,7 @@ export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTe
       console.error('更新值日教师安排失败:', err);
       return false;
     }
-  }, [fetchData]);
+  }, [refetch]);
 
   const deleteDutyTeacher = useCallback(async (id: string): Promise<boolean> => {
     try {
@@ -312,7 +335,7 @@ export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTe
       const result = await res.json();
 
       if (result.success) {
-        fetchData();
+        refetch();
         return true;
       }
       return false;
@@ -320,19 +343,13 @@ export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTe
       console.error('删除值日教师安排失败:', err);
       return false;
     }
-  }, [fetchData]);
-
-  useEffect(() => {
-    if (autoFetch) {
-      fetchData();
-    }
-  }, [autoFetch, fetchData]);
+  }, [refetch]);
 
   return {
-    dutyTeachers,
+    dutyTeachers: dutyTeachers || [],
     loading,
-    error,
-    refetch: fetchData,
+    error: error?.message || null,
+    refetch,
     createDutyTeacher,
     updateDutyTeacher,
     deleteDutyTeacher,
@@ -343,24 +360,29 @@ export function useDutyTeachers(options: UseDutyTeachersOptions = {}): UseDutyTe
 
 /**
  * 获取班级日评分（用于班级详情页展示）
+ * 
+ * 使用缓存机制：
+ * - 缓存时间：2分钟（常规评分更新频率较低）
+ * - 请求去重：避免并发重复请求
+ * - 自动过期：数据过期后自动刷新
  */
 export function useClassDailyRoutine(options: UseClassDailyRoutineOptions): UseClassDailyRoutineReturn {
   const { classId, date, autoFetch = true } = options;
 
-  const [dailyScores, setDailyScores] = useState<ClassRoutineScore[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   // 默认今天
   const targetDate = date || new Date().toISOString().split('T')[0];
 
-  const fetchData = useCallback(async () => {
-    if (!classId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
+  // 使用缓存 hook
+  const { 
+    data: dailyScores, 
+    loading, 
+    error, 
+    refetch,
+    isFromCache 
+  } = useCache<ClassRoutineScore[]>({
+    key: 'routine-scores-daily',
+    params: { classId, date: targetDate },
+    fetcher: async () => {
       const params = new URLSearchParams();
       params.set('classId', classId);
       params.set('date', targetDate);
@@ -370,19 +392,15 @@ export function useClassDailyRoutine(options: UseClassDailyRoutineOptions): UseC
       });
 
       const result = await res.json();
-
       if (result.success) {
-        setDailyScores(result.data || []);
-      } else {
-        setError(result.error || '获取数据失败');
+        return result.data || [];
       }
-    } catch (err) {
-      console.error('获取班级日评分失败:', err);
-      setError('获取数据失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [classId, targetDate]);
+      throw new Error(result.error || '获取数据失败');
+    },
+    ttl: 2 * 60 * 1000, // 2分钟缓存
+    enabled: autoFetch && !!classId,
+    immediate: true,
+  });
 
   // 按维度汇总
   const categoryScores = useMemo(() => {
@@ -392,11 +410,13 @@ export function useClassDailyRoutine(options: UseClassDailyRoutineOptions): UseC
       map.set(category, { score: 0, maxScore: ROUTINE_CATEGORY_MAX_SCORES[category] });
     }
 
-    for (const s of dailyScores) {
-      const existing = map.get(s.category);
-      if (existing) {
-        existing.score += s.score;
-        existing.maxScore = Math.max(existing.maxScore, s.maxScore);
+    if (dailyScores) {
+      for (const s of dailyScores) {
+        const existing = map.get(s.category);
+        if (existing) {
+          existing.score += s.score;
+          existing.maxScore = Math.max(existing.maxScore, s.maxScore);
+        }
       }
     }
 
@@ -419,21 +439,15 @@ export function useClassDailyRoutine(options: UseClassDailyRoutineOptions): UseC
     return maxTotalScore > 0 ? (totalScore / maxTotalScore) * 100 : 0;
   }, [totalScore, maxTotalScore]);
 
-  useEffect(() => {
-    if (autoFetch && classId) {
-      fetchData();
-    }
-  }, [autoFetch, classId, fetchData]);
-
   return {
-    dailyScores,
+    dailyScores: dailyScores || [],
     categoryScores,
     totalScore,
     maxTotalScore,
     scoreRate,
     loading,
-    error,
-    refetch: fetchData,
+    error: error?.message || null,
+    refetch,
   };
 }
 
@@ -455,21 +469,23 @@ interface UseClassWeeklyRoutineReturn {
 
 /**
  * 获取班级周评分
+ * 
+ * 使用缓存机制：
+ * - 缓存时间：5分钟（周评比数据更新频率低）
+ * - 请求去重：避免并发重复请求
  */
 export function useClassWeeklyRoutine(options: UseClassWeeklyRoutineOptions): UseClassWeeklyRoutineReturn {
   const { classId, academicYear, weekNumber, autoFetch = true } = options;
 
-  const [evaluation, setEvaluation] = useState<ClassWeeklyEvaluation | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!classId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
+  const { 
+    data: evaluation, 
+    loading, 
+    error, 
+    refetch 
+  } = useCache<ClassWeeklyEvaluation | null>({
+    key: 'weekly-evaluation',
+    params: { classId, academicYear, weekNumber },
+    fetcher: async () => {
       const params = new URLSearchParams();
       params.set('classId', classId);
       if (academicYear) params.set('academicYear', academicYear);
@@ -480,30 +496,20 @@ export function useClassWeeklyRoutine(options: UseClassWeeklyRoutineOptions): Us
       });
 
       const result = await res.json();
-
       if (result.success) {
-        setEvaluation(result.data || null);
-      } else {
-        setError(result.error || '获取数据失败');
+        return result.data || null;
       }
-    } catch (err) {
-      console.error('获取班级周评分失败:', err);
-      setError('获取数据失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [classId, academicYear, weekNumber]);
-
-  useEffect(() => {
-    if (autoFetch && classId) {
-      fetchData();
-    }
-  }, [autoFetch, classId, fetchData]);
+      throw new Error(result.error || '获取数据失败');
+    },
+    ttl: 5 * 60 * 1000, // 5分钟缓存
+    enabled: autoFetch && !!classId,
+    immediate: true,
+  });
 
   return {
-    evaluation,
+    evaluation: evaluation || null,
     loading,
-    error,
-    refetch: fetchData,
+    error: error?.message || null,
+    refetch,
   };
 }
