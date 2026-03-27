@@ -8,82 +8,16 @@
 
 import { BaseRepository, QueryOptions, PaginatedResult } from './base.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import type {
+  InformationCollection,
+  CollectionResponse,
+  CollectionStatus,
+  FieldType,
+  FormField,
+} from '@/types/information-collection';
 
-/**
- * 信息采集状态
- */
-export type CollectionStatus = 'draft' | 'published' | 'closed' | 'archived';
-
-/**
- * 字段类型
- */
-export type FieldType = 
-  | 'text' 
-  | 'textarea' 
-  | 'number' 
-  | 'select' 
-  | 'radio' 
-  | 'checkbox' 
-  | 'date' 
-  | 'file' 
-  | 'image';
-
-/**
- * 表单字段
- */
-export interface FormField {
-  id: string;
-  name: string;
-  label: string;
-  type: FieldType;
-  required: boolean;
-  options?: string[]; // 用于 select/radio/checkbox
-  placeholder?: string;
-  validation?: {
-    min?: number;
-    max?: number;
-    pattern?: string;
-  };
-  order: number;
-}
-
-/**
- * 信息采集表单
- */
-export interface InformationCollection {
-  id: string;
-  title: string;
-  description?: string;
-  fields: FormField[];
-  creatorId: string;
-  creatorName: string;
-  targetUsers: ('teacher' | 'parent' | 'student')[];
-  targetGrades?: number[];
-  targetClasses?: string[];
-  deadline?: string;
-  status: CollectionStatus;
-  responseCount: number;
-  allowMultiple: boolean;
-  anonymous: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * 信息采集响应
- */
-export interface CollectionResponse {
-  id: string;
-  collectionId: string;
-  respondentId: string;
-  respondentName: string;
-  respondentType: 'teacher' | 'parent' | 'student';
-  classId?: string;
-  className?: string;
-  answers: Record<string, unknown>;
-  submittedAt: string;
-  ipAddress?: string;
-}
+// 导出类型供外部使用
+export type { InformationCollection, CollectionResponse, CollectionStatus, FieldType, FormField };
 
 /**
  * 信息采集查询选项

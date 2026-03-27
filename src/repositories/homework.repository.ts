@@ -8,59 +8,15 @@
 
 import { BaseRepository, QueryOptions, PaginatedResult } from './base.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import type {
+  Homework,
+  HomeworkSubmission,
+  HomeworkType,
+  HomeworkStatus,
+} from '@/types/homework';
 
-/**
- * 作业类型
- */
-export type HomeworkType = 'daily' | 'weekly' | 'project' | 'practice';
-
-/**
- * 作业状态
- */
-export type HomeworkStatus = 'draft' | 'published' | 'closed' | 'archived';
-
-/**
- * 作业信息
- */
-export interface Homework {
-  id: string;
-  title: string;
-  description: string;
-  type: HomeworkType;
-  subject: string;
-  teacherId: string;
-  teacherName: string;
-  classId: string;
-  className: string;
-  grade: number;
-  dueDate: string;
-  status: HomeworkStatus;
-  attachments?: string[];
-  requireSubmission: boolean;
-  allowLateSubmission: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * 作业提交
- */
-export interface HomeworkSubmission {
-  id: string;
-  homeworkId: string;
-  studentId: string;
-  studentName: string;
-  classId: string;
-  content?: string;
-  attachments?: string[];
-  submittedAt?: string;
-  status: 'pending' | 'submitted' | 'late' | 'graded';
-  score?: number;
-  feedback?: string;
-  gradedBy?: string;
-  gradedAt?: string;
-  createdAt: string;
-}
+// 导出类型供外部使用
+export type { Homework, HomeworkSubmission, HomeworkType, HomeworkStatus };
 
 /**
  * 作业查询选项

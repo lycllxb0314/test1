@@ -8,67 +8,15 @@
 
 import { BaseRepository, QueryOptions, PaginatedResult } from './base.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import type {
+  MoralActivity,
+  MoralActivitySubmission,
+  MoralActivityType,
+  MoralActivityStatus,
+} from '@/types/moral';
 
-/**
- * 德育活动类型
- */
-export type MoralActivityType = 
-  | 'theme_class'       // 主题班会
-  | 'flag_raising'      // 升旗仪式
-  | 'community_service' // 社区服务
-  | 'competition'       // 德育竞赛
-  | 'lecture'           // 德育讲座
-  | 'practice';         // 社会实践
-
-/**
- * 德育活动状态
- */
-export type MoralActivityStatus = 'planned' | 'ongoing' | 'completed' | 'cancelled';
-
-/**
- * 德育活动
- */
-export interface MoralActivity {
-  id: string;
-  title: string;
-  type: MoralActivityType;
-  description?: string;
-  organizerId: string;
-  organizerName: string;
-  targetGrades?: number[];
-  targetClasses?: string[];
-  startTime: string;
-  endTime: string;
-  location?: string;
-  status: MoralActivityStatus;
-  participantCount?: number;
-  attachments?: string[];
-  images?: string[];
-  content?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * 德育活动提交
- */
-export interface MoralActivitySubmission {
-  id: string;
-  activityId: string;
-  classId: string;
-  className: string;
-  submitterId: string;
-  submitterName: string;
-  content?: string;
-  images?: string[];
-  attachments?: string[];
-  status: 'pending' | 'approved' | 'rejected';
-  reviewComments?: string;
-  score?: number;
-  submittedAt: string;
-  reviewedAt?: string;
-  reviewedBy?: string;
-}
+// 导出类型供外部使用
+export type { MoralActivity, MoralActivitySubmission, MoralActivityType, MoralActivityStatus };
 
 /**
  * 德育查询选项

@@ -8,54 +8,16 @@
 
 import { BaseRepository, QueryOptions, PaginatedResult } from './base.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import type {
+  Exam,
+  ExamScore,
+  ExamType,
+  ExamStatus,
+  ExamQueryParams,
+} from '@/types/exam';
 
-/**
- * 考试类型
- */
-export type ExamType = 'midterm' | 'final' | 'unit' | 'mock';
-
-/**
- * 考试状态
- */
-export type ExamStatus = 'draft' | 'published' | 'ongoing' | 'completed' | 'archived';
-
-/**
- * 考试信息
- */
-export interface Exam {
-  id: string;
-  name: string;
-  type: ExamType;
-  semester: string;
-  grade?: number;
-  subject?: string;
-  startTime: string;
-  endTime: string;
-  status: ExamStatus;
-  totalScore?: number;
-  passingScore?: number;
-  participantCount?: number;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * 考试成绩
- */
-export interface ExamScore {
-  id: string;
-  examId: string;
-  studentId: string;
-  studentName: string;
-  classId: string;
-  className: string;
-  score: number;
-  rank?: number;
-  grade?: string;
-  remarks?: string;
-  createdAt: string;
-}
+// 导出类型供外部使用
+export type { Exam, ExamScore, ExamType, ExamStatus, ExamQueryParams };
 
 /**
  * 考试查询选项

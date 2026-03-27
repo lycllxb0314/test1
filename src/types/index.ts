@@ -1,18 +1,17 @@
 /**
- * 类型定义统一导出
+ * 类型定义导出入口
  * 
- * 采用模块化拆分，按领域组织类型定义
+ * 🚨 推荐从具体模块导入，提高代码可读性和可维护性：
+ * 
+ * ✅ 推荐：
+ *   import { Student } from '@/types/student';
+ *   import { Teacher } from '@/types/teacher';
+ * 
+ * ⚠️ 仅在需要多个类型时使用此入口：
+ *   import { Student, Teacher, Class } from '@/types';
  * 
  * @module types
  */
-
-// 导入需要的类型用于本地接口定义
-import type {
-  AnnouncementType,
-  AnnouncementCategory,
-  MediaLevel,
-  ApprovalNode,
-} from './approval';
 
 // ==================== 用户与角色 ====================
 export type {
@@ -158,7 +157,7 @@ export type {
 export { LEAVE_TYPE_LABELS } from './leave';
 
 // ==================== 审批管理 ====================
-export type {
+import type {
   ApprovalType,
   ApprovalStatus,
   ApprovalStepStatus,
@@ -187,6 +186,36 @@ export type {
   ParentNoticeCategory,
   MediaLevel,
 } from './approval';
+
+export type {
+  ApprovalType,
+  ApprovalStatus,
+  ApprovalStepStatus,
+  ApprovalStep,
+  ApprovalStepType,
+  ApprovalFlowConfig,
+  ApprovalFlowStepConfig,
+  Approval,
+  ApprovalInstance,
+  ApprovalNode,
+  ApprovalNodeRecord,
+  ApprovalNodeType,
+  ApprovalMode,
+  ApproverLeaderRole,
+  ApprovalAttachment,
+  CreateApprovalRequest,
+  SubmitApprovalRequest,
+  ApprovalActionRequest,
+  ApprovalStatistics,
+  ApprovalFilters,
+  PendingApprovalQuery,
+  AnnouncementType,
+  AnnouncementCategory,
+  NewsCategory,
+  InternalNoticeCategory,
+  ParentNoticeCategory,
+  MediaLevel,
+};
 
 export { APPROVAL_TYPE_LABELS, APPROVAL_STATUS_LABELS, DEPARTMENTS } from './approval';
 
