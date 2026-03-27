@@ -3,35 +3,69 @@
  * 
  * 提供习惯培养业务逻辑处理
  * 
+ * ⚠️ 架构原则：
+ * - 通过 DI 容器获取 Repository，不直接 import 具体实现
+ * - Service 层只依赖 Repository 接口，遵循依赖倒置原则
+ * 
  * @module services/habit.service
  */
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
-import {
-  habitGoalRepository,
-  studentHabitGoalRepository,
-  habitRecordRepository,
-  habitStarRepository,
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import type {
+  IHabitGoalRepository,
+  IStudentHabitGoalRepository,
+  IHabitRecordRepository,
+  IHabitStarRepository,
   HabitQueryOptions,
+} from '@/lib/di/interfaces';
+import type {
   HabitGoal,
+  HabitCategory,
+  HabitGoalType,
   StudentHabitGoal,
   HabitRecord,
   HabitStar,
-  HabitCategory,
-} from '@/repositories/habit.repository';
+} from '@/types/habit';
 
 /**
- * 习惯目标 Service
+ * 习惯目标 Service 类
  */
 export class HabitGoalService extends BaseService {
   /**
-   * 获取分页列表
+   * 获取习惯目标 Repository（通过 DI 容器）
    */
-  async getPaginated(
-    options: HabitQueryOptions = {}
-  ): Promise<PaginatedServiceResult<HabitGoal>> {
+  private get habitGoalRepository(): IHabitGoalRepository {
+    return getService(SERVICE_IDENTIFIERS.HabitGoalRepository);
+  }
+
+  /**
+   * 获取目标列表
+   */
+  async getList(options: HabitQueryOptions = {}): Promise<ServiceResult<HabitGoal[]>> {
     try {
-      const result = await habitGoalRepository.findPaginated(options);
+      const filters = options.filters || {};
+      if (filters.isActive === true) {
+        const goals = await this.habitGoalRepository.findActive();
+        return this.ok(goals);
+      }
+      if (filters.category) {
+        const goals = await this.habitGoalRepository.findByCategory(filters.category as HabitCategory);
+        return this.ok(goals);
+      }
+      const goals = await this.habitGoalRepository.findAll();
+      return this.ok(goals);
+    } catch (error) {
+      return this.fail('获取习惯目标列表失败', 'FETCH_ERROR');
+    }
+  }
+
+  /**
+   * 获取分页目标列表
+   */
+  async getPaginated(options: HabitQueryOptions = {}): Promise<PaginatedServiceResult<HabitGoal>> {
+    try {
+      const result = await this.habitGoalRepository.findPaginated(options);
       return {
         success: true,
         data: result.data,
@@ -43,31 +77,18 @@ export class HabitGoalService extends BaseService {
         },
       };
     } catch (error) {
-      return { success: false, error: '获取习惯目标列表失败' };
+      return {
+        success: false,
+        error: '获取习惯目标列表失败',
+      };
     }
   }
 
   /**
-   * 获取活跃目标
-   */
-  async getActive(): Promise<ServiceResult<HabitGoal[]>> {
-    const goals = await habitGoalRepository.findActive();
-    return this.ok(goals);
-  }
-
-  /**
-   * 根据类别获取
-   */
-  async getByCategory(category: HabitCategory): Promise<ServiceResult<HabitGoal[]>> {
-    const goals = await habitGoalRepository.findByCategory(category);
-    return this.ok(goals);
-  }
-
-  /**
-   * 根据ID获取
+   * 根据ID获取目标
    */
   async getById(id: string): Promise<ServiceResult<HabitGoal>> {
-    const goal = await habitGoalRepository.findById(id);
+    const goal = await this.habitGoalRepository.findById(id);
     if (!goal) {
       return this.fail('习惯目标不存在', 'NOT_FOUND');
     }
@@ -78,11 +99,11 @@ export class HabitGoalService extends BaseService {
    * 创建目标
    */
   async create(data: Partial<HabitGoal>): Promise<ServiceResult<HabitGoal>> {
-    if (!data.name || !data.category || !data.type) {
-      return this.fail('目标名称、类别和类型不能为空', 'VALIDATION_ERROR');
+    if (!data.name || !data.category) {
+      return this.fail('目标名称和分类不能为空', 'VALIDATION_ERROR');
     }
 
-    const goal = await habitGoalRepository.create({
+    const goal = await this.habitGoalRepository.create({
       ...data,
       isActive: data.isActive ?? true,
     });
@@ -98,10 +119,16 @@ export class HabitGoalService extends BaseService {
    * 更新目标
    */
   async update(id: string, data: Partial<HabitGoal>): Promise<ServiceResult<HabitGoal>> {
-    const goal = await habitGoalRepository.update(id, data);
+    const existing = await this.habitGoalRepository.findById(id);
+    if (!existing) {
+      return this.fail('习惯目标不存在', 'NOT_FOUND');
+    }
+
+    const goal = await this.habitGoalRepository.update(id, data);
     if (!goal) {
       return this.fail('更新习惯目标失败', 'UPDATE_ERROR');
     }
+
     return this.ok(goal);
   }
 
@@ -109,236 +136,156 @@ export class HabitGoalService extends BaseService {
    * 删除目标
    */
   async delete(id: string): Promise<ServiceResult<void>> {
-    const success = await habitGoalRepository.delete(id);
+    const existing = await this.habitGoalRepository.findById(id);
+    if (!existing) {
+      return this.fail('习惯目标不存在', 'NOT_FOUND');
+    }
+
+    const success = await this.habitGoalRepository.delete(id);
     if (!success) {
       return this.fail('删除习惯目标失败', 'DELETE_ERROR');
     }
+
     return this.ok();
   }
 }
 
 /**
- * 学生习惯目标 Service
+ * 学生习惯目标 Service 类
  */
 export class StudentHabitGoalService extends BaseService {
   /**
-   * 根据学生获取
+   * 获取学生习惯目标 Repository（通过 DI 容器）
+   */
+  private get studentHabitGoalRepository(): IStudentHabitGoalRepository {
+    return getService(SERVICE_IDENTIFIERS.StudentHabitGoalRepository);
+  }
+
+  /**
+   * 根据学生获取目标
    */
   async getByStudent(studentId: string): Promise<ServiceResult<StudentHabitGoal[]>> {
-    const goals = await studentHabitGoalRepository.findByStudent(studentId);
+    const goals = await this.studentHabitGoalRepository.findByStudent(studentId);
     return this.ok(goals);
   }
 
   /**
-   * 根据班级和月份获取
+   * 根据目标获取学生
    */
-  async getByClassAndMonth(
-    classId: string,
-    month: string
-  ): Promise<ServiceResult<StudentHabitGoal[]>> {
-    const goals = await studentHabitGoalRepository.findByClassAndMonth(classId, month);
-    return this.ok(goals);
+  async getByGoal(goalId: string): Promise<ServiceResult<StudentHabitGoal[]>> {
+    const students = await this.studentHabitGoalRepository.findByGoal(goalId);
+    return this.ok(students);
   }
 
   /**
-   * 创建学生目标
+   * 分配目标给学生
    */
-  async create(data: Partial<StudentHabitGoal>): Promise<ServiceResult<StudentHabitGoal>> {
-    if (!data.studentId || !data.goalId || !data.month) {
-      return this.fail('学生ID、目标ID和月份不能为空', 'VALIDATION_ERROR');
+  async assign(studentId: string, goalId: string): Promise<ServiceResult<StudentHabitGoal>> {
+    const assignment = await this.studentHabitGoalRepository.create({
+      studentId,
+      goalId,
+      status: 'active',
+      month: new Date().toISOString().slice(0, 7),
+    } as Partial<StudentHabitGoal>);
+
+    if (!assignment) {
+      return this.fail('分配失败', 'ASSIGN_ERROR');
     }
 
-    const goal = await studentHabitGoalRepository.create({
-      ...data,
-      currentValue: data.currentValue || 0,
-      status: data.status || 'active',
-    });
-
-    if (!goal) {
-      return this.fail('创建学生习惯目标失败', 'CREATE_ERROR');
-    }
-
-    return this.ok(goal);
-  }
-
-  /**
-   * 更新进度
-   */
-  async updateProgress(id: string, value: number): Promise<ServiceResult<StudentHabitGoal>> {
-    const goal = await studentHabitGoalRepository.findById(id);
-    if (!goal) {
-      return this.fail('学生习惯目标不存在', 'NOT_FOUND');
-    }
-
-    const newValue = goal.currentValue + value;
-    const status = newValue >= goal.targetValue ? 'completed' : 'active';
-
-    const updated = await studentHabitGoalRepository.update(id, {
-      currentValue: newValue,
-      status,
-    });
-
-    if (!updated) {
-      return this.fail('更新进度失败', 'UPDATE_ERROR');
-    }
-
-    return this.ok(updated);
+    return this.ok(assignment);
   }
 }
 
 /**
- * 习惯记录 Service
+ * 习惯记录 Service 类
  */
 export class HabitRecordService extends BaseService {
   /**
-   * 根据学生获取
+   * 获取习惯记录 Repository（通过 DI 容器）
    */
-  async getByStudent(studentId: string): Promise<ServiceResult<HabitRecord[]>> {
-    const records = await habitRecordRepository.findByStudent(studentId);
+  private get habitRecordRepository(): IHabitRecordRepository {
+    return getService(SERVICE_IDENTIFIERS.HabitRecordRepository);
+  }
+
+  /**
+   * 根据学生和日期获取记录
+   */
+  async getByStudent(studentId: string, date: string): Promise<ServiceResult<HabitRecord[]>> {
+    const records = await this.habitRecordRepository.findByStudent(studentId, date);
     return this.ok(records);
   }
 
   /**
-   * 根据日期获取
+   * 根据日期获取记录
    */
   async getByDate(date: string): Promise<ServiceResult<HabitRecord[]>> {
-    const records = await habitRecordRepository.findByDate(date);
-    return this.ok(records);
-  }
-
-  /**
-   * 根据学生和日期范围获取
-   */
-  async getByStudentAndDateRange(
-    studentId: string,
-    startDate: string,
-    endDate: string
-  ): Promise<ServiceResult<HabitRecord[]>> {
-    const records = await habitRecordRepository.findByStudentAndDateRange(
-      studentId,
-      startDate,
-      endDate
-    );
+    const records = await this.habitRecordRepository.findByDate(date);
     return this.ok(records);
   }
 
   /**
    * 记录习惯
    */
-  async record(data: Partial<HabitRecord>): Promise<ServiceResult<HabitRecord>> {
-    if (!data.studentId || !data.goalId || !data.date) {
-      return this.fail('学生ID、目标ID和日期不能为空', 'VALIDATION_ERROR');
-    }
-
-    const record = await habitRecordRepository.create({
-      ...data,
-      value: data.value || 1,
-    });
+  async record(studentId: string, goalId: string, value: number, date: string): Promise<ServiceResult<HabitRecord>> {
+    const record = await this.habitRecordRepository.create({
+      studentId,
+      goalId,
+      date,
+      value,
+      recordedAt: new Date().toISOString(),
+    } as Partial<HabitRecord>);
 
     if (!record) {
-      return this.fail('记录失败', 'CREATE_ERROR');
+      return this.fail('记录失败', 'RECORD_ERROR');
     }
 
     return this.ok(record);
   }
-
-  /**
-   * 获取学生某目标月度统计
-   */
-  async getMonthlyTotal(
-    studentId: string,
-    goalId: string,
-    month: string
-  ): Promise<ServiceResult<number>> {
-    const total = await habitRecordRepository.getMonthlyTotal(studentId, goalId, month);
-    return this.ok(total);
-  }
 }
 
 /**
- * 习惯星星 Service
+ * 习惯之星 Service 类
  */
 export class HabitStarService extends BaseService {
   /**
-   * 根据学生获取
+   * 获取习惯之星 Repository（通过 DI 容器）
+   */
+  private get habitStarRepository(): IHabitStarRepository {
+    return getService(SERVICE_IDENTIFIERS.HabitStarRepository);
+  }
+
+  /**
+   * 根据学生获取星星
    */
   async getByStudent(studentId: string): Promise<ServiceResult<HabitStar[]>> {
-    const stars = await habitStarRepository.findByStudent(studentId);
+    const stars = await this.habitStarRepository.findByStudent(studentId);
     return this.ok(stars);
   }
 
   /**
-   * 根据班级和月份获取
+   * 根据日期获取星星
    */
-  async getByClassAndMonth(
-    classId: string,
-    month: string
-  ): Promise<ServiceResult<HabitStar[]>> {
-    const stars = await habitStarRepository.findByClassAndMonth(classId, month);
+  async getByDate(date: string): Promise<ServiceResult<HabitStar[]>> {
+    const stars = await this.habitStarRepository.findByDate(date);
     return this.ok(stars);
   }
 
   /**
-   * 获取班级排行
+   * 授予星星
    */
-  async getClassRanking(
-    classId: string,
-    month: string
-  ): Promise<ServiceResult<HabitStar[]>> {
-    const ranking = await habitStarRepository.getClassRanking(classId, month);
-    return this.ok(ranking);
-  }
-
-  /**
-   * 更新学生星星
-   */
-  async updateStars(
-    studentId: string,
-    month: string,
-    stars: number
-  ): Promise<ServiceResult<HabitStar>> {
-    const result = await habitStarRepository.updateStars(studentId, month, stars);
-    if (!result) {
-      return this.fail('更新星星失败', 'UPDATE_ERROR');
-    }
-    return this.ok(result);
-  }
-
-  /**
-   * 计算并更新学生月度星星
-   */
-  async calculateMonthlyStars(
-    studentId: string,
-    studentName: string,
-    classId: string,
-    className: string,
-    month: string
-  ): Promise<ServiceResult<HabitStar>> {
-    // 获取学生当月所有目标
-    const studentGoals = await studentHabitGoalRepository.findByStudentAndMonth(
+  async award(studentId: string, month: string, totalStars: number): Promise<ServiceResult<HabitStar>> {
+    const star = await this.habitStarRepository.create({
       studentId,
-      month
-    );
+      month,
+      totalStars,
+      level: 1,
+    } as Partial<HabitStar>);
 
-    // 计算总星星
-    let totalStars = 0;
-    for (const goal of studentGoals) {
-      if (goal.status === 'completed') {
-        // 获取目标信息获取积分
-        const goalInfo = await habitGoalRepository.findById(goal.goalId);
-        if (goalInfo) {
-          totalStars += goalInfo.points;
-        }
-      }
+    if (!star) {
+      return this.fail('授予失败', 'AWARD_ERROR');
     }
 
-    // 更新星星记录
-    const result = await habitStarRepository.updateStars(studentId, month, totalStars);
-    if (!result) {
-      return this.fail('计算星星失败', 'CALCULATE_ERROR');
-    }
-
-    return this.ok(result);
+    return this.ok(star);
   }
 }
 

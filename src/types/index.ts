@@ -13,6 +13,95 @@
  * @module types
  */
 
+// ==================== 新模块类型（推荐使用独立模块导入） ====================
+
+// 考试管理（使用别名避免与 grade 模块冲突）
+export type {
+  ExamType as ExamTypeDetail,
+  ExamStatus,
+  Exam as ExamDetail,
+  ExamScore,
+  ExamStatistics,
+  ExamQueryParams,
+  CreateExamParams,
+  UpdateExamParams,
+} from './exam';
+
+// 作业管理
+export type {
+  HomeworkType,
+  HomeworkStatus,
+  Homework,
+  SubmissionStatus,
+  HomeworkSubmission,
+  HomeworkStatistics,
+  HomeworkQueryParams,
+  CreateHomeworkParams,
+  SubmitHomeworkParams,
+} from './homework';
+
+// 德育活动（使用别名避免与 index.ts 中其他定义冲突）
+export type {
+  MoralActivityType,
+  MoralActivityStatus,
+  MoralActivity as MoralActivityDetail,
+  SubmissionReviewStatus,
+  MoralActivitySubmission,
+  MoralActivityQueryParams,
+  MoralActivityStatistics,
+  SubmissionStatistics,
+} from './moral';
+
+// 习惯培养（使用别名避免与 student 模块冲突）
+export type {
+  HabitCategory as HabitCategoryDetail,
+  HabitGoalType,
+  HabitGoal as HabitGoalDetail,
+  StudentGoalStatus,
+  StudentHabitGoal,
+  HabitRecord as HabitRecordDetail,
+  HabitStar as HabitStarDetail,
+  HabitGoalQueryParams,
+  RecordHabitParams,
+} from './habit';
+
+// 信息采集
+export type {
+  CollectionStatus,
+  FieldType,
+  FieldValidation,
+  FormField,
+  TargetUserType,
+  InformationCollection,
+  RespondentType,
+  CollectionResponse,
+  CollectionQueryParams,
+  CreateCollectionParams,
+  SubmitResponseParams,
+  CollectionStatistics,
+} from './information-collection';
+
+// 教研管理
+export type {
+  ThemeType,
+  ThemeLevel,
+  ThemeStatus,
+  ActivityType,
+  ActivityStatus,
+  StageStatus,
+  ResourceType,
+  AchievementType,
+  AchievementStatus,
+  ParticipantRole,
+  ResearchTheme,
+  ResearchStage,
+  ResearchActivity as ResearchActivityDetail,
+  ResearchParticipation,
+  ResearchResource,
+  ResearchAchievement,
+  ResearchStatistics,
+} from './research';
+
 // ==================== 用户与角色 ====================
 export type {
   UserRole,
