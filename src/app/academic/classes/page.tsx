@@ -62,6 +62,11 @@ import {
   Award,
   GraduationCap,
   Trophy,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Calendar,
+  BarChart3,
 } from 'lucide-react';
 import { 
   useGlobalClasses, 
@@ -72,6 +77,9 @@ import {
   type ClassStatistics 
 } from '@/hooks/useGlobalData';
 import { useGlobalTeachers, type TeacherInfo } from '@/hooks/useGlobalData';
+import { useClassDailyRoutine, useClassWeeklyRoutine } from '@/hooks/useClassRoutine';
+import { ROUTINE_CATEGORY_LABELS, ROUTINE_CATEGORY_MAX_SCORES } from '@/types/class-routine';
+import type { RoutineScoreCategory } from '@/types/class-routine';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
@@ -1064,131 +1072,257 @@ export default function ClassesPage() {
 
 // 概览模块
 function OverviewSection({ classData }: { classData: ClassContainer }) {
+  // 获取常规评分数据（今日）
+  const today = new Date().toISOString().split('T')[0];
+  const { 
+    categoryScores, 
+    totalScore, 
+    maxTotalScore, 
+    scoreRate,
+    loading: routineLoading 
+  } = useClassDailyRoutine({ classId: classData.id, date: today });
+
+  // 获取本周评比
+  const currentAcademicYear = new Date().getFullYear().toString();
+  const { evaluation: weeklyEvaluation } = useClassWeeklyRoutine({ 
+    classId: classData.id, 
+    academicYear: currentAcademicYear 
+  });
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      {/* 常规评比卡片 - 跨全宽 */}
       <Card className="border-0 shadow-md">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <School className="h-5 w-5 text-amber-600" />
-            基本信息
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <InfoItem label="班级名称" value={classData.name} />
-            <InfoItem label="年级" value={classData.gradeName} />
-            <InfoItem label="班号" value={classData.classNumber.toString()} />
-            <InfoItem label="教室位置" value={classData.classroomName || '待分配'} />
-          </div>
-          {classData.motto && (
-            <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
-              <div className="text-sm text-amber-600 font-medium">班训</div>
-              <div className="text-gray-700 mt-1">{classData.motto}</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                班级常规评比
+              </CardTitle>
+              <CardDescription className="flex items-center gap-2 mt-1">
+                <Calendar className="h-3.5 w-3.5" />
+                今日评分 ({today})
+              </CardDescription>
             </div>
-          )}
-        </CardContent>
-      </Card>
-      
-      <Card className="border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-blue-600" />
-            学生统计
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-3xl font-bold text-blue-600">{classData.studentCount}</div>
-              <div className="text-sm text-gray-500 mt-1">总人数</div>
-            </div>
-            <div className="text-center p-4 bg-sky-50 rounded-lg">
-              <div className="text-3xl font-bold text-sky-600">{classData.maleStudentCount}</div>
-              <div className="text-sm text-gray-500 mt-1">男生</div>
-            </div>
-            <div className="text-center p-4 bg-pink-50 rounded-lg">
-              <div className="text-3xl font-bold text-pink-600">{classData.femaleStudentCount}</div>
-              <div className="text-sm text-gray-500 mt-1">女生</div>
-            </div>
-          </div>
-          
-          <div className="mt-4">
-            <div className="flex justify-between text-sm text-gray-500 mb-1">
-              <span>性别比例</span>
-              <span>男:女 = {classData.maleStudentCount}:{classData.femaleStudentCount}</span>
-            </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden flex">
-              <div 
-                className="bg-sky-400 h-full" 
-                style={{ width: `${classData.studentCount > 0 ? (classData.maleStudentCount / classData.studentCount) * 100 : 0}%` }}
-              />
-              <div 
-                className="bg-pink-400 h-full" 
-                style={{ width: `${classData.studentCount > 0 ? (classData.femaleStudentCount / classData.studentCount) * 100 : 0}%` }}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card className="border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCircle className="h-5 w-5 text-green-600" />
-            家长通讯录
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-3xl font-bold text-green-600">{classData.parentCount}</div>
-              <div className="text-sm text-gray-500 mt-1">家长总数</div>
-            </div>
-            <div className="text-center p-4 bg-amber-50 rounded-lg">
-              <div className="text-3xl font-bold text-amber-600">
-                {classData.parents.filter(p => p.isPrimary).length}
+            {weeklyEvaluation && (
+              <div className="flex items-center gap-2">
+                <Award className={`h-5 w-5 ${
+                  weeklyEvaluation.level === '优秀' ? 'text-green-600' :
+                  weeklyEvaluation.level === '良好' ? 'text-blue-600' :
+                  'text-orange-600'
+                }`} />
+                <span className="text-sm font-medium">本周评比：{weeklyEvaluation.level}</span>
               </div>
-              <div className="text-sm text-gray-500 mt-1">主要联系人</div>
-            </div>
+            )}
           </div>
-          
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">平均每位学生家长数</span>
-              <span className="font-medium text-gray-900">
-                {classData.studentCount > 0 
-                  ? (classData.parentCount / classData.studentCount).toFixed(1) 
-                  : 0}人
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card className="border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Star className="h-5 w-5 text-yellow-500" />
-            班级特色
-          </CardTitle>
         </CardHeader>
         <CardContent>
-          {classData.features && classData.features.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {classData.features.map((feature, index) => (
-                <Badge key={index} variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                  {feature}
-                </Badge>
-              ))}
+          {routineLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">加载常规评分数据...</span>
             </div>
           ) : (
-            <div className="text-center py-6 text-gray-400">
-              <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">暂未设置班级特色</p>
+            <div className="space-y-6">
+              {/* 总评分 */}
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Target className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">今日总评分</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {totalScore.toFixed(1)} / {maxTotalScore}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">得分率</p>
+                  <div className="flex items-center gap-2">
+                    {scoreRate >= 90 ? (
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                    ) : scoreRate >= 70 ? (
+                      <Target className="h-5 w-5 text-blue-600" />
+                    ) : (
+                      <TrendingDown className="h-5 w-5 text-orange-600" />
+                    )}
+                    <span className={`text-2xl font-bold ${
+                      scoreRate >= 90 ? 'text-green-600' :
+                      scoreRate >= 70 ? 'text-blue-600' :
+                      'text-orange-600'
+                    }`}>
+                      {scoreRate.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 各维度评分 */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {categoryScores.map((item) => {
+                  const rate = item.maxScore > 0 ? (item.score / item.maxScore) * 100 : 0;
+                  const colorClass = rate >= 90 ? 'text-green-600' : rate >= 70 ? 'text-blue-600' : 'text-orange-600';
+                  const bgClass = rate >= 90 ? 'bg-green-50 border-green-200' : rate >= 70 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200';
+                  
+                  return (
+                    <div key={item.category} className={`p-3 rounded-lg border ${bgClass}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-gray-700">
+                          {ROUTINE_CATEGORY_LABELS[item.category]}
+                        </span>
+                        <span className={`text-lg font-bold ${colorClass}`}>
+                          {item.score}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${
+                            rate >= 90 ? 'bg-green-500' : rate >= 70 ? 'bg-blue-500' : 'bg-orange-500'
+                          }`}
+                          style={{ width: `${Math.min(rate, 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-xs text-gray-500">满分 {item.maxScore}</span>
+                        <span className={`text-xs ${colorClass}`}>{rate.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* 原有的四个卡片 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <School className="h-5 w-5 text-amber-600" />
+              基本信息
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <InfoItem label="班级名称" value={classData.name} />
+              <InfoItem label="年级" value={classData.gradeName} />
+              <InfoItem label="班号" value={classData.classNumber.toString()} />
+              <InfoItem label="教室位置" value={classData.classroomName || '待分配'} />
+            </div>
+            {classData.motto && (
+              <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+                <div className="text-sm text-amber-600 font-medium">班训</div>
+                <div className="text-gray-700 mt-1">{classData.motto}</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              学生统计
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-3xl font-bold text-blue-600">{classData.studentCount}</div>
+                <div className="text-sm text-gray-500 mt-1">总人数</div>
+              </div>
+              <div className="text-center p-4 bg-sky-50 rounded-lg">
+                <div className="text-3xl font-bold text-sky-600">{classData.maleStudentCount}</div>
+                <div className="text-sm text-gray-500 mt-1">男生</div>
+              </div>
+              <div className="text-center p-4 bg-pink-50 rounded-lg">
+                <div className="text-3xl font-bold text-pink-600">{classData.femaleStudentCount}</div>
+                <div className="text-sm text-gray-500 mt-1">女生</div>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <div className="flex justify-between text-sm text-gray-500 mb-1">
+                <span>性别比例</span>
+                <span>男:女 = {classData.maleStudentCount}:{classData.femaleStudentCount}</span>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden flex">
+                <div 
+                  className="bg-sky-400 h-full" 
+                  style={{ width: `${classData.studentCount > 0 ? (classData.maleStudentCount / classData.studentCount) * 100 : 0}%` }}
+                />
+                <div 
+                  className="bg-pink-400 h-full" 
+                  style={{ width: `${classData.studentCount > 0 ? (classData.femaleStudentCount / classData.studentCount) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5 text-green-600" />
+              家长通讯录
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <div className="text-3xl font-bold text-green-600">{classData.parentCount}</div>
+                <div className="text-sm text-gray-500 mt-1">家长总数</div>
+              </div>
+              <div className="text-center p-4 bg-amber-50 rounded-lg">
+                <div className="text-3xl font-bold text-amber-600">
+                  {classData.parents.filter(p => p.isPrimary).length}
+                </div>
+                <div className="text-sm text-gray-500 mt-1">主要联系人</div>
+              </div>
+            </div>
+            
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">平均每位学生家长数</span>
+                <span className="font-medium text-gray-900">
+                  {classData.studentCount > 0 
+                    ? (classData.parentCount / classData.studentCount).toFixed(1) 
+                    : 0}人
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-yellow-500" />
+              班级特色
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {classData.features && classData.features.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {classData.features.map((feature, index) => (
+                  <Badge key={index} variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                    {feature}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-400">
+                <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">暂未设置班级特色</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
