@@ -397,3 +397,61 @@ export const DEPARTMENTS: DepartmentInfo[] = [
   { id: 'grade_5', name: '五年级组', description: '五年级级部' },
   { id: 'grade_6', name: '六年级组', description: '六年级级部' },
 ];
+
+// ==================== 公告相关类型 ====================
+
+/** 公告 */
+export interface Announcement {
+  id: string;
+  title: string;
+  summary?: string;
+  content?: string;
+  type: string;
+  category?: string;
+  mediaLevel?: string;
+  authorId?: string;
+  authorName?: string;
+  department?: string;
+  coverImage?: string;
+  images?: string[];
+  attachments?: ApprovalAttachment[];
+  isExternal?: boolean;
+  publishStatus?: string;
+  publishedAt?: string;
+  scheduledPublishAt?: string;
+  unpublishedAt?: string;
+  autoUnpublish?: boolean;
+  autoUnpublishAt?: string;
+  externalId?: string;
+  status?: string;
+  viewCount?: number;
+  isPinned?: boolean;
+  pinOrder?: number;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** 请假信息 */
+export interface LeaveRequestInfo {
+  id: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  duration: number;
+  durationUnit: string;
+  reason: string;
+  needAdjustment?: boolean;
+  affectedSlots?: Array<{
+    date?: string;
+    period?: number;
+    classId?: string;
+    className?: string;
+    teacherId?: string;
+    teacherName?: string;
+    subject?: string;
+  }>;
+  attachments?: ApprovalAttachment[];
+  status: string;
+  createdAt: string;
+}

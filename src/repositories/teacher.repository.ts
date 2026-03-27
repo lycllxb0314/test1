@@ -193,7 +193,7 @@ export class TeacherRepository extends BaseRepository<User> {
     }
     
     const counts: Record<string, number> = {};
-    (data || []).forEach((item: any) => {
+    (data || []).forEach((item: { role: string }) => {
       counts[item.role] = (counts[item.role] || 0) + 1;
     });
     

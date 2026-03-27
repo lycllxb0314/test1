@@ -7,17 +7,16 @@
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
 import { 
   approvalRepository, 
-  ApprovalInstance,
-  Announcement,
-  ApprovalRepository 
+  ApprovalInstanceSimple,
 } from '@/repositories/approval.repository';
+import type { ApprovalInstance, Announcement } from '@/types/approval';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 // ============================================
 // 类型定义
 // ============================================
 
-export interface SubmitApprovalParams {
+export type SubmitApprovalParams = {
   title: string;
   summary?: string;
   content?: string;
@@ -27,7 +26,7 @@ export interface SubmitApprovalParams {
   department?: string;
   coverImage?: string;
   images?: string[];
-  attachments?: any[];
+  attachments?: Array<{ name: string; url: string; size?: number; type?: string }>;
   isExternal?: boolean;
   scheduledPublishAt?: string;
   autoUnpublish?: boolean;
@@ -35,23 +34,23 @@ export interface SubmitApprovalParams {
   isPinned?: boolean;
   recipients?: Recipients;
   customFlow?: { skipDepartmentDirector?: boolean };
-}
+};
 
-export interface Recipients {
+export type Recipients = {
   type: 'all' | 'role' | 'class' | 'individual' | 'group';
   roles?: string[];
   classIds?: string[];
   userIds?: string[];
   groupIds?: string[];
-}
+};
 
-export interface ApprovalListParams {
+export type ApprovalListParams = {
   type: 'my' | 'pending' | 'processed';
   status?: string;
   department?: string;
   page?: number;
   pageSize?: number;
-}
+};
 
 // ============================================
 // 服务类
@@ -71,7 +70,7 @@ export class ApprovalService extends BaseService {
   async getApprovalList(
     userId: string,
     params: ApprovalListParams
-  ): Promise<PaginatedServiceResult<ApprovalInstance>> {
+  ): Promise<PaginatedServiceResult<ApprovalInstanceSimple>> {
     const { type, status, department, page = 1, pageSize = 10 } = params;
 
     switch (type) {
@@ -92,7 +91,7 @@ export class ApprovalService extends BaseService {
   private async getMyApplications(
     userId: string,
     options: { status?: string; department?: string; page: number; pageSize: number }
-  ): Promise<PaginatedServiceResult<ApprovalInstance>> {
+  ): Promise<PaginatedServiceResult<ApprovalInstanceSimple>> {
     // 1. 查询审批实例
     const result = await this.repository.findMyApplications(userId, options);
 
@@ -101,19 +100,20 @@ export class ApprovalService extends BaseService {
 
     // 3. 获取关联的公告数据
     const announcementIds = result.data
-      .filter(i => ['announcement', 'news', 'internal_notice', 'parent_notice'].includes(i.businessType))
-      .map(i => i.businessId);
+      .filter(i => ['announcement', 'news', 'internal_notice', 'parent_notice'].includes(i.businessType || ''))
+      .map(i => i.businessId)
+      .filter((id): id is string => id !== undefined);
     
     const announcements = await this.repository.getAnnouncements(announcementIds);
 
     // 4. 合并公告数据
     const instancesWithBusiness = result.data.map(instance => ({
       ...instance,
-      business: announcements[instance.businessId],
+      business: instance.businessId ? announcements[instance.businessId] : undefined,
     }));
 
     // 5. 转换直接发布的通知为伪审批实例格式
-    const directInstances: ApprovalInstance[] = directAnnouncements.map(a => ({
+    const directInstances: ApprovalInstanceSimple[] = directAnnouncements.map(a => ({
       id: `direct-${a.id}`,
       flowId: undefined,
       flowName: a.type === 'parent_notice' ? '家长通知' : '内部通知',
@@ -124,7 +124,7 @@ export class ApprovalService extends BaseService {
       applicantName: a.authorName || '',
       applicantDepartment: a.department,
       currentNodeOrder: 0,
-      status: 'approved' as const,
+      status: 'approved',
       submitAt: a.createdAt,
       finishAt: a.createdAt,
       createdAt: a.createdAt || '',
@@ -135,13 +135,13 @@ export class ApprovalService extends BaseService {
 
     // 6. 合并并排序
     let allInstances = [...instancesWithBusiness, ...directInstances]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     // 7. 部门过滤
     if (options.department) {
       allInstances = allInstances.filter(instance => {
         const businessDept = this.repository.getBusinessDepartment(
-          instance.businessType,
+          instance.businessType || '',
           instance.applicantDepartment
         );
         return businessDept === options.department;
@@ -170,7 +170,7 @@ export class ApprovalService extends BaseService {
   private async getPendingApprovals(
     userId: string,
     options: { department?: string; page: number; pageSize: number }
-  ): Promise<PaginatedServiceResult<ApprovalInstance>> {
+  ): Promise<PaginatedServiceResult<ApprovalInstanceSimple>> {
     const result = await this.repository.findPendingApprovals(userId, options);
 
     // 获取关联业务数据
@@ -183,7 +183,7 @@ export class ApprovalService extends BaseService {
   private async getProcessedApprovals(
     userId: string,
     options: { department?: string; page: number; pageSize: number }
-  ): Promise<PaginatedServiceResult<ApprovalInstance>> {
+  ): Promise<PaginatedServiceResult<ApprovalInstanceSimple>> {
     const result = await this.repository.findProcessedApprovals(userId, options);
 
     // 获取关联业务数据
@@ -194,20 +194,22 @@ export class ApprovalService extends BaseService {
    * 为审批实例填充业务数据
    */
   private async enrichWithBusinessData(
-    result: { data: ApprovalInstance[]; total: number; page: number; pageSize: number; totalPages: number }
-  ): Promise<PaginatedServiceResult<ApprovalInstance>> {
+    result: { data: ApprovalInstanceSimple[]; total: number; page: number; pageSize: number; totalPages: number }
+  ): Promise<PaginatedServiceResult<ApprovalInstanceSimple>> {
     if (!result.data.length) {
       return { success: true, data: [], pagination: result };
     }
 
     // 分离不同类型的业务ID
     const announcementIds = result.data
-      .filter(i => ['announcement', 'news', 'internal_notice', 'parent_notice'].includes(i.businessType))
-      .map(i => i.businessId);
+      .filter(i => ['announcement', 'news', 'internal_notice', 'parent_notice'].includes(i.businessType || ''))
+      .map(i => i.businessId)
+      .filter((id): id is string => id !== undefined);
 
     const leaveIds = result.data
       .filter(i => i.businessType === 'leave_request')
-      .map(i => i.businessId);
+      .map(i => i.businessId)
+      .filter((id): id is string => id !== undefined);
 
     // 获取关联数据
     const [announcements, leaveRequests] = await Promise.all([
@@ -218,9 +220,9 @@ export class ApprovalService extends BaseService {
     // 合并数据
     const enrichedData = result.data.map(instance => {
       let business = null;
-      if (['announcement', 'news', 'internal_notice', 'parent_notice'].includes(instance.businessType)) {
+      if (['announcement', 'news', 'internal_notice', 'parent_notice'].includes(instance.businessType || '') && instance.businessId) {
         business = announcements[instance.businessId];
-      } else if (instance.businessType === 'leave_request') {
+      } else if (instance.businessType === 'leave_request' && instance.businessId) {
         business = leaveRequests[instance.businessId];
       }
       return { ...instance, business };

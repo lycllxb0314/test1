@@ -55,7 +55,7 @@ export class LeaveRepository extends BaseRepository<LeaveRequest> {
   ): Promise<PaginatedResult<LeaveRequest>> {
     const { status, page = 1, pageSize = 20 } = options;
     
-    const filters: any = { user_id: userId };
+    const filters: Record<string, unknown> = { user_id: userId };
     if (status) filters.status = status;
     
     return this.findPaginated({

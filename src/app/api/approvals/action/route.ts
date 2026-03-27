@@ -9,6 +9,69 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { getUserFromSession } from '@/lib/auth/session';
 import { ok, fail, serverError, unauthorized, notFound, forbidden } from '@/lib/api';
 import { ApprovalActionRequest } from '@/types/approval';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type {
+  ApprovalInstanceRow,
+  ApprovalNodeRecordRow,
+  ApprovedByItem,
+  AffectedSlot,
+} from '@/types/db-helpers';
+
+/** 审批实例（API 内部使用） */
+type ApprovalInstanceDb = {
+  id: string;
+  instance_id?: string;
+  flow_id?: string;
+  flow_name?: string;
+  business_type?: string;
+  business_id?: string;
+  business?: Record<string, unknown>;
+  title: string;
+  applicant_id: string;
+  applicant_name: string;
+  applicant_department?: string;
+  current_node?: string;
+  current_node_order?: number;
+  status: string;
+  submit_at?: string;
+  finish_at?: string;
+  metadata?: {
+    needAdjustment?: boolean;
+    need_adjustment?: boolean;
+    affectedSlots?: AffectedSlot[];
+    affected_slots?: AffectedSlot[];
+    room_name?: string;
+    booking_date?: string;
+    start_time?: string;
+    end_time?: string;
+    purpose?: string;
+  };
+  created_at: string;
+  updated_at: string;
+};
+
+/** 审批信息 */
+type ApprovalInfo = {
+  userId: string;
+  userName: string;
+  action: string;
+  comment?: string;
+  time: string;
+};
+
+/** 课程时段 */
+type CourseSlot = {
+  teacherId?: string;
+  teacherName?: string;
+  employeeId?: string;
+  classId?: string;
+  className?: string;
+  grade?: number;
+  weekDay?: number;
+  periodIndex?: number;
+  subject?: string;
+  weekStartDate?: string;
+};
 
 /**
  * 执行审批操作
@@ -72,7 +135,7 @@ export async function PUT(request: NextRequest) {
     // 3. 检查当前用户是否有权限审批
     const approverIds = currentNodeRecord.approver_ids || [];
     const approvedBy = currentNodeRecord.approved_by || [];
-    const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
+    const approvedUserIds = approvedBy.map((a: ApprovedByItem) => a.userId || a.user_id);
 
     console.log('[Approval Action] Permission check:', { 
       approverIds, 
@@ -143,9 +206,9 @@ export async function PUT(request: NextRequest) {
  * 或签审批通过
  */
 async function handleOrSignApprove(
-  instance: any,
-  nodeRecord: any,
-  approval: any,
+  instance: ApprovalInstanceDb,
+  nodeRecord: ApprovalNodeRecordRow,
+  approval: ApprovalInfo,
   now: string
 ) {
   const supabase = getSupabaseClient();
@@ -154,7 +217,7 @@ async function handleOrSignApprove(
     .from('approval_node_records')
     .update({
       status: 'approved',
-      approved_by: [...nodeRecord.approved_by, approval],
+      approved_by: [...(nodeRecord.approved_by || []), approval],
       final_approver_id: approval.userId,
       final_approver_name: approval.userName,
       action: 'approved',
@@ -172,17 +235,17 @@ async function handleOrSignApprove(
  * 会签审批通过
  */
 async function handleCountersignApprove(
-  instance: any,
-  nodeRecord: any,
-  approval: any,
+  instance: ApprovalInstanceDb,
+  nodeRecord: ApprovalNodeRecordRow,
+  approval: ApprovalInfo,
   now: string
 ) {
   const supabase = getSupabaseClient();
-  const newApprovedBy = [...nodeRecord.approved_by, approval];
+  const newApprovedBy = [...(nodeRecord.approved_by || []), approval];
   const allApproverIds = nodeRecord.approver_ids || [];
   
   // 检查是否所有人都已审批
-  const approvedUserIds = newApprovedBy.map((a: any) => a.userId || a.user_id);
+  const approvedUserIds = newApprovedBy.map((a: ApprovedByItem | ApprovalInfo) => a.userId);
   const allApproved = allApproverIds.every((id: string) => approvedUserIds.includes(id));
 
   if (allApproved) {
@@ -216,9 +279,9 @@ async function handleCountersignApprove(
  * 单人审批通过
  */
 async function handleSingleApprove(
-  instance: any,
-  nodeRecord: any,
-  approval: any,
+  instance: ApprovalInstanceDb,
+  nodeRecord: ApprovalNodeRecordRow,
+  approval: ApprovalInfo,
   now: string
 ) {
   const supabase = getSupabaseClient();
@@ -227,7 +290,7 @@ async function handleSingleApprove(
     .from('approval_node_records')
     .update({
       status: 'approved',
-      approved_by: [...nodeRecord.approved_by, approval],
+      approved_by: [...(nodeRecord.approved_by || []), approval],
       action: 'approved',
       comment: approval.comment,
       finished_at: now,
@@ -242,7 +305,7 @@ async function handleSingleApprove(
 /**
  * 进入下一个节点或完成审批
  */
-async function moveToNextNode(instance: any, now: string) {
+async function moveToNextNode(instance: ApprovalInstanceDb, now: string) {
   const supabase = getSupabaseClient();
   console.log('=== moveToNextNode 开始 ===');
   console.log('instance.id:', instance.id);
@@ -283,7 +346,7 @@ async function moveToNextNode(instance: any, now: string) {
 /**
  * 完成审批
  */
-async function completeApproval(instance: any, now: string) {
+async function completeApproval(instance: ApprovalInstanceDb, now: string) {
   const supabase = getSupabaseClient();
   
   console.log('=== completeApproval 开始 ===');
@@ -312,7 +375,13 @@ async function completeApproval(instance: any, now: string) {
     console.log('affectedSlots.length:', affectedSlots.length);
     
     // 更新请假申请状态
-    const updateData: any = {
+    const updateData: {
+      status: string;
+      approved_at: string;
+      updated_at: string;
+      current_step: number;
+      adjustment_status?: string;
+    } = {
       status: 'approved',
       approved_at: now,
       updated_at: now,
@@ -401,9 +470,9 @@ async function completeApproval(instance: any, now: string) {
  * 驳回审批
  */
 async function handleReject(
-  instance: any,
-  nodeRecord: any,
-  approval: any,
+  instance: ApprovalInstanceDb,
+  nodeRecord: ApprovalNodeRecordRow,
+  approval: ApprovalInfo,
   now: string
 ) {
   const supabase = getSupabaseClient();
@@ -412,7 +481,7 @@ async function handleReject(
     .from('approval_node_records')
     .update({
       status: 'rejected',
-      approved_by: [...nodeRecord.approved_by, approval],
+      approved_by: [...(nodeRecord.approved_by || []), approval],
       final_approver_id: approval.userId,
       final_approver_name: approval.userName,
       action: 'rejected',
@@ -485,9 +554,9 @@ async function handleReject(
  * 退回审批
  */
 async function handleReturn(
-  instance: any,
-  nodeRecord: any,
-  approval: any,
+  instance: ApprovalInstanceDb,
+  nodeRecord: ApprovalNodeRecordRow,
+  approval: ApprovalInfo,
   now: string
 ) {
   const supabase = getSupabaseClient();
@@ -496,7 +565,7 @@ async function handleReturn(
     .from('approval_node_records')
     .update({
       status: 'rejected',
-      approved_by: [...nodeRecord.approved_by, approval],
+      approved_by: [...(nodeRecord.approved_by || []), approval],
       action: 'returned',
       comment: approval.comment,
       finished_at: now,
@@ -552,7 +621,7 @@ async function handleReturn(
 /**
  * 撤回审批
  */
-async function handleWithdraw(instance: any, now: string) {
+async function handleWithdraw(instance: ApprovalInstanceDb, now: string) {
   const supabase = getSupabaseClient();
   // 更新审批实例状态
   await supabase
@@ -615,7 +684,7 @@ async function sendApprovalNotification(
 /**
  * 创建调课记录并通知年段长
  */
-async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
+async function createCourseAdjustmentsAndNotify(instance: ApprovalInstanceDb, supabase: SupabaseClient) {
   console.log('=== createCourseAdjustmentsAndNotify 开始 ===');
   console.log('instance.business_id:', instance.business_id);
   
@@ -656,7 +725,7 @@ async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
 
     // 4. 创建调课记录
     console.log('准备创建调课记录，数量:', affectedSlots.length);
-    const adjustmentRecords = affectedSlots.map((slot: any) => ({
+    const adjustmentRecords = (affectedSlots as CourseSlot[]).map((slot) => ({
       id: crypto.randomUUID(),
       leave_request_id: instance.business_id,
       applicant_id: leaveRequest.applicant_id,
@@ -707,7 +776,7 @@ async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
       console.log('查询用户结果:', { 
         count: allGradeLeaders?.length, 
         error: queryError,
-        users: allGradeLeaders?.map((u: any) => ({ 
+        users: allGradeLeaders?.map((u: { name: string; additional_roles?: string[]; managed_grades?: number[] }) => ({ 
           name: u.name, 
           additional_roles: u.additional_roles,
           managed_grades: u.managed_grades 
@@ -715,26 +784,26 @@ async function createCourseAdjustmentsAndNotify(instance: any, supabase: any) {
       });
 
       // 手动过滤年段长
-      const gradeLeaders = (allGradeLeaders || []).filter((user: any) => {
+      const gradeLeaders = (allGradeLeaders || []).filter((user: { additional_roles?: string[]; managed_grades?: (number | string)[] }) => {
         const hasGradeLeaderRole = Array.isArray(user.additional_roles) && 
           user.additional_roles.includes('grade_leader');
         const managesGrade = Array.isArray(user.managed_grades) && 
-          user.managed_grades.some((g: any) => String(g) === String(grade));
-        console.log(`用户 ${user.name}: hasGradeLeaderRole=${hasGradeLeaderRole}, managesGrade=${managesGrade}, managed_grades=${JSON.stringify(user.managed_grades)}`);
+          user.managed_grades.some((g) => String(g) === String(grade));
+        console.log(`用户 ${user.additional_roles ? 'has role' : 'no role'}: hasGradeLeaderRole=${hasGradeLeaderRole}, managesGrade=${managesGrade}`);
         return hasGradeLeaderRole && managesGrade;
       });
 
       console.log('过滤后的年段长:', gradeLeaders);
 
       if (gradeLeaders && gradeLeaders.length > 0) {
-        const notifications = gradeLeaders.map((leader: any) => ({
+        const notifications = gradeLeaders.map((leader: { id: string; name?: string }) => ({
           id: crypto.randomUUID(),
           title: `【调课待办】${instance.title}`,
           content: `${leaveRequest.applicant_name}因${leaveRequest.type}需要调课，请安排代课教师。
 
-班级：${affectedSlots.map((s: any) => s.className).join('、')}
-时间：${affectedSlots.map((s: any) => `周${['一', '二', '三', '四', '五', '六', '日'][s.weekDay - 1]} 第${s.periodIndex + 1}节`).join('、')}
-科目：${affectedSlots.map((s: any) => s.subject).join('、')}
+班级：${(affectedSlots as CourseSlot[]).map((s) => s.className).join('、')}
+时间：${(affectedSlots as CourseSlot[]).map((s) => `周${['一', '二', '三', '四', '五', '六', '日'][(s.weekDay || 1) - 1]} 第${(s.periodIndex || 0) + 1}节`).join('、')}
+科目：${(affectedSlots as CourseSlot[]).map((s) => s.subject).join('、')}
 原因：${leaveRequest.reason}`,
           type: 'course_adjustment',
           priority: 'high',

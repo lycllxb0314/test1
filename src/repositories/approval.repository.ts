@@ -5,54 +5,81 @@
  */
 
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import type {
+  ApprovalInstance,
+  ApprovalNodeRecord,
+  Announcement,
+  LeaveRequestInfo,
+  ApprovalAttachment,
+  ApprovalStatus,
+} from '@/types/approval';
+import type {
+  ApprovalInstanceRow,
+  ApprovalNodeRecordRow,
+  AnnouncementRow,
+  LeaveRequestRow,
+  ApprovedByItem,
+  AttachmentItem,
+  AffectedSlot,
+} from '@/types/db-helpers';
 
 // ============================================
 // 类型定义
 // ============================================
 
-export interface ApprovalFilters {
+export type ApprovalFilters = {
   status?: string;
   type?: string;
   applicantId?: string;
   department?: string;
   [key: string]: unknown;
-}
+};
 
-export interface ApprovalInstance {
+export type PaginatedResult<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+/** 审批实例（简化版，用于 Repository 返回） */
+export type ApprovalInstanceSimple = {
   id: string;
   flowId?: string;
   flowName?: string;
-  businessType: string;
-  businessId: string;
+  businessType?: string;
+  businessId?: string;
   title: string;
   applicantId: string;
   applicantName: string;
   applicantDepartment?: string;
-  currentNodeOrder: number;
-  status: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'cancelled';
+  currentNodeOrder?: number;
+  status: string;
   submitAt?: string;
   finishAt?: string;
-  metadata?: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-  nodeRecords?: ApprovalNodeRecord[];
-  business?: any;
-}
+  metadata?: Record<string, unknown>;
+  business?: unknown;
+  createdAt?: string;
+  updatedAt?: string;
+  nodeRecords?: ApprovalNodeRecordSimple[];
+};
 
-export interface ApprovalNodeRecord {
+/** 审批节点记录（简化版） */
+export type ApprovalNodeRecordSimple = {
   id: string;
   instanceId: string;
   nodeOrder: number;
   nodeName: string;
-  nodeType: string;
+  nodeType?: string;
   status: string;
-  approverIds: string[];
-  approvedBy: Array<{
+  approverIds?: string[];
+  approvedBy?: Array<{
     userId?: string;
     userName?: string;
-    action: string;
+    action?: string;
     comment?: string;
-    time: string;
+    time?: string;
   }>;
   finalApproverId?: string;
   finalApproverName?: string;
@@ -61,61 +88,7 @@ export interface ApprovalNodeRecord {
   createdAt?: string;
   updatedAt?: string;
   finishedAt?: string;
-}
-
-export interface Announcement {
-  id: string;
-  title: string;
-  summary?: string;
-  content?: string;
-  type: string;
-  category?: string;
-  mediaLevel?: string;
-  authorId?: string;
-  authorName?: string;
-  department?: string;
-  coverImage?: string;
-  images?: string[];
-  attachments?: any[];
-  isExternal?: boolean;
-  publishStatus?: string;
-  publishedAt?: string;
-  scheduledPublishAt?: string;
-  unpublishedAt?: string;
-  autoUnpublish?: boolean;
-  autoUnpublishAt?: string;
-  externalId?: string;
-  status?: string;
-  viewCount?: number;
-  isPinned?: boolean;
-  pinOrder?: number;
-  metadata?: any;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface LeaveRequestInfo {
-  id: string;
-  type: string;
-  startDate: string;
-  endDate: string;
-  duration: number;
-  durationUnit: string;
-  reason: string;
-  needAdjustment?: boolean;
-  affectedSlots?: any[];
-  attachments?: any[];
-  status: string;
-  createdAt: string;
-}
-
-export interface PaginatedResult<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+};
 
 // ============================================
 // Repository 类
@@ -134,7 +107,7 @@ export class ApprovalRepository {
   async findMyApplications(
     applicantId: string,
     options: { status?: string; page?: number; pageSize?: number } = {}
-  ): Promise<PaginatedResult<ApprovalInstance>> {
+  ): Promise<PaginatedResult<ApprovalInstanceSimple>> {
     const { status, page = 1, pageSize = 10 } = options;
     const offset = (page - 1) * pageSize;
 
@@ -194,7 +167,7 @@ export class ApprovalRepository {
   async findPendingApprovals(
     userId: string,
     options: { department?: string; page?: number; pageSize?: number } = {}
-  ): Promise<PaginatedResult<ApprovalInstance>> {
+  ): Promise<PaginatedResult<ApprovalInstanceSimple>> {
     const { department, page = 1, pageSize = 10 } = options;
 
     // 获取所有进行中和待审批的实例
@@ -256,7 +229,7 @@ export class ApprovalRepository {
   async findProcessedApprovals(
     userId: string,
     options: { department?: string; page?: number; pageSize?: number } = {}
-  ): Promise<PaginatedResult<ApprovalInstance>> {
+  ): Promise<PaginatedResult<ApprovalInstanceSimple>> {
     const { department, page = 1, pageSize = 10 } = options;
 
     // 查找节点记录中包含当前用户审批记录的实例
@@ -271,11 +244,11 @@ export class ApprovalRepository {
 
     const processedIds = [...new Set(
       (allRecords || [])
-        .filter((r: any) => {
+        .filter((r: { approved_by?: ApprovedByItem[] }) => {
           const approvedBy = r.approved_by || [];
-          return approvedBy.some((a: any) => a.userId === userId || a.user_id === userId);
+          return approvedBy.some((a) => a.userId === userId || a.user_id === userId);
         })
-        .map((r: any) => r.instance_id)
+        .map((r: { instance_id: string }) => r.instance_id)
     )];
 
     // 部门过滤
@@ -287,11 +260,11 @@ export class ApprovalRepository {
         .in('id', processedIds);
 
       filteredIds = (instancesForFilter || [])
-        .filter((inst: any) => {
+        .filter((inst: { business_type: string; applicant_department?: string }) => {
           const businessDept = this.getBusinessDepartment(inst.business_type, inst.applicant_department);
           return businessDept === department;
         })
-        .map((inst: any) => inst.id);
+        .map((inst: { id: string }) => inst.id);
     }
 
     // 分页
@@ -337,7 +310,7 @@ export class ApprovalRepository {
 
     const approverIds = nodeRecord.approver_ids || [];
     const approvedBy = nodeRecord.approved_by || [];
-    const approvedUserIds = approvedBy.map((a: any) => a.userId || a.user_id);
+    const approvedUserIds = approvedBy.map((a: ApprovedByItem) => a.userId || a.user_id);
 
     // 如果审批人列表为空，任何部门成员都可以审批
     if (approverIds.length === 0) {
@@ -413,7 +386,34 @@ export class ApprovalRepository {
   /**
    * 创建公告
    */
-  async createAnnouncement(data: any): Promise<string | null> {
+  async createAnnouncement(data: {
+    title: string;
+    summary?: string;
+    content?: string;
+    type: string;
+    category?: string;
+    mediaLevel?: string;
+    authorId?: string;
+    authorName?: string;
+    department?: string;
+    coverImage?: string;
+    images?: string[];
+    attachments?: AttachmentItem[];
+    isExternal?: boolean;
+    status?: string;
+    publishStatus?: string;
+    scheduledPublishAt?: string;
+    autoUnpublish?: boolean;
+    autoUnpublishAt?: string;
+    isPinned?: boolean;
+    recipients?: {
+      type: 'all' | 'role' | 'class' | 'individual' | 'group';
+      roles?: string[];
+      classIds?: string[];
+      userIds?: string[];
+      groupIds?: string[];
+    };
+  }): Promise<string | null> {
     const id = crypto.randomUUID();
     
     const { error } = await this.client
@@ -499,7 +499,7 @@ export class ApprovalRepository {
     nodeType: string;
     approverIds: string[];
     status: string;
-    approvedBy?: any[];
+    approvedBy?: ApprovedByItem[];
   }>): Promise<boolean> {
     const nodeRecords = records.map(r => ({
       id: crypto.randomUUID(),
@@ -538,7 +538,7 @@ export class ApprovalRepository {
     senderName?: string;
     recipientId: string;
     recipientType?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   }>): Promise<boolean> {
     const records = messages.map(m => ({
       id: crypto.randomUUID(),
@@ -571,7 +571,21 @@ export class ApprovalRepository {
   /**
    * 获取审批流程
    */
-  async getApprovalFlow(type: string, department: string): Promise<any | null> {
+  async getApprovalFlow(type: string, department: string): Promise<{
+    id: string;
+    type: string;
+    department: string;
+    name?: string;
+    is_active: boolean;
+    nodes: Array<{
+      id: string;
+      flow_id: string;
+      node_order: number;
+      node_name: string;
+      node_type: string;
+      approver_ids?: string[];
+    }>;
+  } | null> {
     const { data, error } = await this.client
       .from('approval_flows')
       .select('*, nodes:approval_flow_nodes(*)')
@@ -655,7 +669,7 @@ export class ApprovalRepository {
   /**
    * 映射审批实例
    */
-  private mapInstance(item: any): ApprovalInstance {
+  private mapInstance(item: ApprovalInstanceRow): ApprovalInstanceSimple {
     return {
       id: item.id,
       flowId: item.flow_id,
@@ -671,16 +685,17 @@ export class ApprovalRepository {
       submitAt: item.submit_at,
       finishAt: item.finish_at,
       metadata: item.metadata,
+      business: item.business,
       createdAt: item.created_at,
       updatedAt: item.updated_at,
-      nodeRecords: item.node_records?.map((nr: any) => this.mapNodeRecord(nr)),
+      nodeRecords: item.node_records?.map((nr: ApprovalNodeRecordRow) => this.mapNodeRecord(nr)),
     };
   }
 
   /**
    * 映射节点记录
    */
-  private mapNodeRecord(nr: any): ApprovalNodeRecord {
+  private mapNodeRecord(nr: ApprovalNodeRecordRow): ApprovalNodeRecordSimple {
     return {
       id: nr.id,
       instanceId: nr.instance_id,
@@ -689,7 +704,7 @@ export class ApprovalRepository {
       nodeType: nr.node_type,
       status: nr.status,
       approverIds: nr.approver_ids || [],
-      approvedBy: (nr.approved_by || []).map((a: any) => ({
+      approvedBy: (nr.approved_by || []).map((a: ApprovedByItem) => ({
         userId: a.userId || a.user_id,
         userName: a.userName || a.user_name,
         action: a.action,
@@ -709,7 +724,7 @@ export class ApprovalRepository {
   /**
    * 映射公告数据
    */
-  private mapAnnouncement(a: any): Announcement {
+  private mapAnnouncement(a: AnnouncementRow): Announcement {
     return {
       id: a.id,
       title: a.title,
@@ -723,7 +738,7 @@ export class ApprovalRepository {
       department: a.department,
       coverImage: a.cover_image,
       images: a.images || [],
-      attachments: a.attachments || [],
+      attachments: (a.attachments || []) as ApprovalAttachment[],
       isExternal: a.is_external,
       publishStatus: a.publish_status,
       publishedAt: a.published_at,

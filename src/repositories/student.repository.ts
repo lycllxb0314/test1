@@ -3,16 +3,17 @@
  */
 
 import { BaseRepository, PaginatedResult } from './base.repository';
-import type { Student } from '@/types';
+import type { Student, Parent } from '@/types';
+import type { StudentRow, ParentRow } from '@/types/db-helpers';
 
 /**
  * 学生查询筛选
  */
-export interface StudentFilters {
+export type StudentFilters = {
   classId?: string;
   grade?: string;
   status?: string;
-}
+};
 
 /**
  * 学生 Repository
@@ -59,7 +60,7 @@ export class StudentRepository extends BaseRepository<Student> {
   async findWithClass(
     filters: StudentFilters = {},
     options: { page?: number; pageSize?: number } = {}
-  ): Promise<PaginatedResult<Student & { class_name?: string }>> {
+  ): Promise<PaginatedResult<Student>> {
     const { page = 1, pageSize = 20 } = options;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -87,9 +88,19 @@ export class StudentRepository extends BaseRepository<Student> {
       return { data: [], total: 0, page, pageSize, totalPages: 0 };
     }
     
-    const students = (data || []).map((s: any) => ({
-      ...s,
-      class_name: s.classes?.name,
+    const students = (data || []).map((s: StudentRow) => ({
+      id: s.id,
+      studentNo: s.student_no,
+      name: s.name,
+      gender: s.gender,
+      birthDate: s.birth_date,
+      classId: s.class_id,
+      className: s.classes?.name,
+      grade: s.grade,
+      status: s.status as Student['status'],
+      avatar: s.avatar,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
     }));
     
     return {
@@ -106,7 +117,7 @@ export class StudentRepository extends BaseRepository<Student> {
    */
   async findDetailById(id: string): Promise<{
     student: Student | null;
-    parents: any[];
+    parents: Parent[];
   }> {
     const [studentResult, parentsResult] = await Promise.all([
       this.findById(id),
@@ -118,7 +129,7 @@ export class StudentRepository extends BaseRepository<Student> {
     
     return {
       student: studentResult,
-      parents: (parentsResult.data || []),
+      parents: (parentsResult.data || []) as Parent[],
     };
   }
   
@@ -126,14 +137,14 @@ export class StudentRepository extends BaseRepository<Student> {
    * 统计班级学生数
    */
   async countByClass(classId: string): Promise<number> {
-    return this.count({ class_id: classId } as any);
+    return this.count({ class_id: classId } as Record<string, unknown>);
   }
   
   /**
    * 统计年级学生数
    */
   async countByGrade(grade: string): Promise<number> {
-    return this.count({ grade } as any);
+    return this.count({ grade } as Record<string, unknown>);
   }
   
   /**
