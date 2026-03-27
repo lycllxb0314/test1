@@ -11,6 +11,35 @@ import { useState, useEffect, useCallback } from 'react';
 
 // ==================== 类型定义 ====================
 
+// 受影响的课时段类型
+export interface AffectedSlot {
+  classId: string;
+  className: string;
+  grade: number;
+  weekDay: number;
+  periodIndex: number;
+  subject: string;
+  teacherId: string;
+  teacherName: string;
+  employeeId: string;
+  weekStartDate?: string;
+}
+
+// 审批人选择类型
+export interface ApproverSelection {
+  employeeId: string;
+  name: string;
+  signType: string;
+}
+
+// 审批记录类型
+export interface ApprovalRecord {
+  employeeId: string;
+  userName: string;
+  action: string;
+  time: string;
+}
+
 export interface LeaveApprovalItem {
   id: string;
   applicantId: string;
@@ -23,10 +52,10 @@ export interface LeaveApprovalItem {
   durationUnit: string;
   reason: string;
   needAdjustment: boolean;
-  affectedSlots: any[];
-  approverSelection: any[];
+  affectedSlots: AffectedSlot[];
+  approverSelection: ApproverSelection[];
   status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed';
-  approvedByList: any[];
+  approvedByList: ApprovalRecord[];
   rejectReason?: string;
   createdAt: string;
   updatedAt: string;

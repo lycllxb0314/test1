@@ -9,6 +9,47 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { success, error, ErrorCode } from '@/lib/api';
 
+// 类型定义
+type ApproverSelection = {
+  employeeId: string;
+  name: string;
+  signType: string;
+};
+
+type ApprovalRecord = {
+  employeeId: string;
+  userName: string;
+  action: string;
+  time: string;
+};
+
+type LeaveRequestRow = {
+  id: string;
+  applicant_id: string;
+  applicant_name: string;
+  applicant_type: string;
+  applicant_grade: number | null;
+  type: string;
+  start_date: string;
+  end_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  duration: number;
+  duration_unit: string;
+  reason: string;
+  attachments: string[];
+  need_adjustment: boolean;
+  affected_slots: Record<string, unknown>[];
+  approver_selection: ApproverSelection[];
+  status: string;
+  current_step: number;
+  approved_by_list: ApprovalRecord[];
+  reject_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  submitted_at: string;
+};
+
 /**
  * GET - 获取待审批请假列表
  */
@@ -46,14 +87,14 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     let filteredData = data || [];
     if (status === 'pending') {
       filteredData = filteredData.filter(item => {
-        const approverSelection = item.approver_selection || [];
-        return approverSelection.some((a: any) => a.employeeId === user.employeeId);
+        const approverSelection = (item as LeaveRequestRow).approver_selection || [];
+        return approverSelection.some((a) => a.employeeId === user.employeeId);
       });
     } else if (status === 'approved') {
       // 筛选已处理的（当前用户已审批的）
       filteredData = filteredData.filter(item => {
-        const approvedByList = item.approved_by_list || [];
-        return approvedByList.some((a: any) => a.employeeId === user.employeeId);
+        const approvedByList = (item as LeaveRequestRow).approved_by_list || [];
+        return approvedByList.some((a) => a.employeeId === user.employeeId);
       });
     }
 
@@ -75,7 +116,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
 /**
  * 辅助函数：转换数据格式
  */
-function mapLeaveRequest(data: any) {
+function mapLeaveRequest(data: LeaveRequestRow) {
   return {
     id: data.id,
     applicantId: data.applicant_id,

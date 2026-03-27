@@ -20,9 +20,40 @@ import {
   ErrorCode,
   parseQueryParams 
 } from '@/lib/api';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // 考勤状态类型
 type AttendanceStatus = 'normal' | 'late' | 'absent' | 'leave';
+
+// 数据库行类型
+type TeacherRow = {
+  id: string;
+  name: string;
+  employee_id: string | null;
+  department: string | null;
+  primary_subject: string | null;
+  subjects: string[] | null;
+  status: string;
+};
+
+type LeaveRequestRow = {
+  id: string;
+  applicant_id: string;
+  applicant_name: string;
+  type: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+};
+
+type AttendanceRow = {
+  id: string;
+  teacher_id: string;
+  teacher_name: string;
+  date: string;
+  status: string;
+  remark: string | null;
+};
 
 // 教师考勤记录
 interface TeacherAttendanceRecord {
@@ -351,7 +382,7 @@ export async function PATCH(request: NextRequest) {
 /**
  * 获取日考勤数据
  */
-async function getDailyAttendance(client: any, date?: string): Promise<NextResponse> {
+async function getDailyAttendance(client: SupabaseClient, date?: string): Promise<NextResponse> {
   const targetDate = date || new Date().toISOString().split('T')[0];
   
   // 1. 获取所有在职教师
@@ -377,7 +408,7 @@ async function getDailyAttendance(client: any, date?: string): Promise<NextRespo
   
   // 构建请假教师映射
   const leaveMap = new Map<string, { type: string; id: string }>();
-  (leaveRecords || []).forEach((leave: any) => {
+  (leaveRecords as LeaveRequestRow[] || []).forEach((leave) => {
     leaveMap.set(leave.applicant_id, { type: leave.type, id: leave.id });
   });
   
@@ -388,13 +419,13 @@ async function getDailyAttendance(client: any, date?: string): Promise<NextRespo
     .eq('date', targetDate);
   
   // 构建考勤记录映射（使用 teacher_name 作为 key，因为 teacher_id 是 UUID 而 teachers.id 是 varchar）
-  const attendanceByNameMap = new Map<string, any>();
-  (attendanceRecords || []).forEach((record: any) => {
+  const attendanceByNameMap = new Map<string, AttendanceRow>();
+  (attendanceRecords as AttendanceRow[] || []).forEach((record) => {
     attendanceByNameMap.set(record.teacher_name, record);
   });
   
   // 4. 构建结果
-  const records: TeacherAttendanceRecord[] = (teachers || []).map((teacher: any) => {
+  const records: TeacherAttendanceRecord[] = (teachers as TeacherRow[] || []).map((teacher) => {
     const employeeId = teacher.employee_id;
     let status: AttendanceStatus = 'normal';
     let leaveType: string | undefined;
@@ -415,10 +446,10 @@ async function getDailyAttendance(client: any, date?: string): Promise<NextRespo
       recordId = attendance.id;
       if (attendance.status === 'late' && status === 'normal') {
         status = 'late';
-        remark = attendance.remark;
+        remark = attendance.remark || undefined;
       } else if (attendance.status === 'absent' && status === 'normal') {
         status = 'absent';
-        remark = attendance.remark;
+        remark = attendance.remark || undefined;
       }
     }
     
@@ -457,7 +488,7 @@ async function getDailyAttendance(client: any, date?: string): Promise<NextRespo
 /**
  * 获取月考勤数据
  */
-async function getMonthlyAttendance(client: any, month?: string): Promise<NextResponse> {
+async function getMonthlyAttendance(client: SupabaseClient, month?: string): Promise<NextResponse> {
   // 解析月份
   let targetMonth: string;
   if (month) {
@@ -501,7 +532,7 @@ async function getMonthlyAttendance(client: any, month?: string): Promise<NextRe
   
   // 构建请假记录映射（按教师分组）
   const leaveByTeacher = new Map<string, { date: string; type: string }[]>();
-  (leaveRecords || []).forEach((leave: any) => {
+  (leaveRecords as LeaveRequestRow[] || []).forEach((leave) => {
     if (!leave.applicant_id) return;
     
     // 展开请假日期
@@ -520,8 +551,8 @@ async function getMonthlyAttendance(client: any, month?: string): Promise<NextRe
   });
   
   // 构建考勤记录映射（按教师姓名+日期，因为 teacher_id 是 UUID 而 teachers.id 是 varchar）
-  const attendanceByNameDate = new Map<string, any>();
-  (attendanceRecords || []).forEach((record: any) => {
+  const attendanceByNameDate = new Map<string, AttendanceRow>();
+  (attendanceRecords as AttendanceRow[] || []).forEach((record) => {
     const key = `${record.teacher_name}_${record.date}`;
     attendanceByNameDate.set(key, record);
   });
@@ -550,10 +581,10 @@ async function getMonthlyAttendance(client: any, month?: string): Promise<NextRe
     leaveRecords: { date: string; type: string }[];
   }
   
-  const byTeacher: TeacherMonthlyData[] = (teachers || []).map((teacher: any) => {
+  const byTeacher: TeacherMonthlyData[] = (teachers as TeacherRow[] || []).map((teacher) => {
     const employeeId = teacher.employee_id;
-    const teacherLeaves = leaveByTeacher.get(employeeId) || [];
-    const leaveDates = new Set(teacherLeaves.map((l: { date: string; type: string }) => l.date));
+    const teacherLeaves = leaveByTeacher.get(employeeId || '') || [];
+    const leaveDates = new Set(teacherLeaves.map((l) => l.date));
     
     let normalDays = 0;
     let lateDays = 0;

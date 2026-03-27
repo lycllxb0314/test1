@@ -10,6 +10,82 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
+// 类型定义
+type TeacherData = {
+  id: string;
+  name: string;
+  gender: string;
+  subjects: string[];
+  department: string;
+  title: string;
+  phone: string;
+  email: string;
+  status: string;
+  role: string;
+  primary_subject: string;
+  secondary_subjects: string[];
+  total_weekly_hours: number;
+  main_class_count: number;
+  main_subject_hours: number;
+  teachable_grades: number[];
+};
+
+type ClassData = {
+  id: string;
+  name: string;
+  grade: number;
+  grade_name: string;
+  class_number: number;
+  head_teacher_id: string | undefined;
+  head_teacher_name: string | undefined;
+  sub_teacher_id: string | undefined;
+  sub_teacher_name: string | undefined;
+  classroom_id: string;
+  classroom_name: string;
+  building: string;
+  student_count: number;
+};
+
+type ParentInfo = {
+  id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  isPrimary: boolean;
+  wechat: string;
+};
+
+type StudentData = {
+  id: string;
+  name: string;
+  gender: string;
+  birth_date: string;
+  class_id: string;
+  class_name: string;
+  grade: number;
+  student_no: string;
+  status: string;
+  ethnicity: string;
+  native_place: string;
+  political_status: string;
+  enrollment_date: string;
+  student_type: string;
+  home_address: string;
+  emergency_contact: string;
+  emergency_phone: string;
+  family_type: string;
+  parents: ParentInfo[];
+};
+
+interface SeedResult {
+  teachers: number;
+  classes: number;
+  students: number;
+  headTeachers: number;
+  subTeachers: number;
+  errors: string[];
+}
+
 // 常用姓氏
 const SURNAMES = ['张', '李', '王', '刘', '陈', '杨', '黄', '赵', '周', '吴', '徐', '孙', '马', '朱', '胡', '郭', '何', '林', '罗', '高'];
 // 男性名字
@@ -90,9 +166,9 @@ export async function POST() {
       { subject: '心育', count: 4 },   // 40班×1节=40节，4人×18节=72节
     ];
     
-    const teachersData: any[] = [];
-    const chineseTeachers: any[] = [];  // 语文老师（可当班主任）
-    const mathTeachers: any[] = [];     // 数学老师（可当班主任）
+    const teachersData: TeacherData[] = [];
+    const chineseTeachers: TeacherData[] = [];  // 语文老师（可当班主任）
+    const mathTeachers: TeacherData[] = [];     // 数学老师（可当班主任）
     
     const titles = ['二级教师', '一级教师', '高级教师', '正高级教师'];
     const titleWeights = [0.3, 0.4, 0.25, 0.05];
@@ -183,7 +259,7 @@ export async function POST() {
     // ==================== 3. 生成班级数据（60个班，按年级分配班主任和科任） ====================
     console.log('生成班级数据...');
     
-    const classesData: any[] = [];
+    const classesData: ClassData[] = [];
     const gradeNames = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
     
     // 按年级追踪已分配的教师（确保不跨年级）
@@ -209,8 +285,8 @@ export async function POST() {
         const building = grade <= 2 ? '教学楼A栋' : grade <= 4 ? '教学楼B栋' : '教学楼C栋';
         const room = `${grade}${String(classNum).padStart(2, '0')}教室`;
         
-        let headTeacher: any;
-        let subTeacher: any;
+        let headTeacher: TeacherData | undefined;
+        let subTeacher: TeacherData | undefined;
         
         if (classNum % 2 === 1) {
           // 单数班：语文班主任 + 数学科任
@@ -324,7 +400,7 @@ export async function POST() {
     const relationships = ['父亲', '母亲', '爷爷', '奶奶', '外公', '外婆'];
     const addresses = ['龙岩市新罗区东城街道', '龙岩市新罗区南城街道', '龙岩市新罗区西城街道', '龙岩市新罗区北城街道', '龙岩市新罗区中城街道'];
     
-    const studentsData: any[] = [];
+    const studentsData: StudentData[] = [];
     const studentStatuses = ['在校', '请假', '休学'];
     const statusWeights = [0.96, 0.03, 0.01];
     
@@ -358,7 +434,7 @@ export async function POST() {
         
         // 生成家长信息（1-2个家长）
         const parentCount = Math.random() > 0.3 ? 2 : 1;
-        const parents: any[] = [];
+        const parents: ParentInfo[] = [];
         const usedRelationships = new Set<string>();
         
         for (let p = 0; p < parentCount; p++) {
@@ -443,12 +519,13 @@ export async function POST() {
       data: result,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('数据生成失败:', error);
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
     return NextResponse.json({
       success: false,
-      message: error.message,
-      errors: [error.message],
+      message: errorMessage,
+      errors: [errorMessage],
     }, { status: 500 });
   }
 }

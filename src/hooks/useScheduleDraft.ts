@@ -87,7 +87,7 @@ export function useScheduleDraft() {
   // 保存草稿
   const saveDraft = useCallback(async (
     name: string,
-    slots: any[],
+    slots: ScheduleSlot[],
     description?: string,
     semester?: string
   ): Promise<ScheduleDraft | null> => {

@@ -52,6 +52,42 @@ export type ApprovalListParams = {
   pageSize?: number;
 };
 
+// 审批节点类型
+type ApprovalNode = {
+  node_order: number;
+  node_name: string;
+  node_type: string;
+  approver_type?: string;
+  approver_roles?: string[];
+  approver_user_ids?: string[];
+  approver_ids?: string[];
+};
+
+// 审批记录类型
+type ApprovalRecord = {
+  instanceId: string;
+  nodeOrder: number;
+  nodeName: string;
+  nodeType: string;
+  approverIds: string[];
+  status: string;
+  approvedBy: ApprovalAction[];
+};
+
+// 审批动作类型
+type ApprovalAction = {
+  userId: string;
+  userName: string;
+  action: string;
+  time: string;
+};
+
+// 家长行类型
+type ParentRow = {
+  account_id: string | null;
+  has_account: boolean;
+};
+
 // ============================================
 // 服务类
 // ============================================
@@ -371,21 +407,13 @@ export class ApprovalService extends BaseService {
    * 构建审批节点记录
    */
   private async buildNodeRecords(
-    nodes: any[],
+    nodes: ApprovalNode[],
     instanceId: string,
     userId: string,
     userName: string,
     customFlow?: { skipDepartmentDirector?: boolean }
-  ): Promise<Array<{
-    instanceId: string;
-    nodeOrder: number;
-    nodeName: string;
-    nodeType: string;
-    approverIds: string[];
-    status: string;
-    approvedBy?: any[];
-  }>> {
-    const records: any[] = [];
+  ): Promise<ApprovalRecord[]> {
+    const records: ApprovalRecord[] = [];
 
     for (const node of nodes) {
       // 根据自定义流程跳过某些节点
@@ -532,7 +560,7 @@ export class ApprovalService extends BaseService {
       .eq('has_account', true)
       .not('account_id', 'is', null);
 
-    const accountIds = [...new Set((parents || []).map((p: any) => p.account_id).filter(Boolean))];
+    const accountIds = [...new Set((parents as ParentRow[] || []).map((p) => p.account_id).filter(Boolean))] as string[];
     if (!accountIds.length) return;
 
     // 发送消息
@@ -598,7 +626,7 @@ export class ApprovalService extends BaseService {
         .in('class_id', recipients.classIds)
         .eq('has_account', true)
         .not('account_id', 'is', null);
-      return [...new Set((parents || []).map((p: any) => p.account_id).filter(Boolean))];
+      return [...new Set((parents as ParentRow[] || []).map((p) => p.account_id).filter(Boolean))] as string[];
     }
 
     if (recipients.type === 'individual' && recipients.userIds?.length) {

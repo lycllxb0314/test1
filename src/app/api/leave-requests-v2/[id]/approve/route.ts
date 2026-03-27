@@ -12,6 +12,53 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { success, error, ErrorCode } from '@/lib/api';
 
+// 类型定义
+type ApproverSelection = {
+  employeeId: string;
+  name: string;
+  signType: string;
+};
+
+type ApprovalRecord = {
+  employeeId: string;
+  userName: string;
+  action: string;
+  time: string;
+};
+
+type AffectedSlot = {
+  classId: string;
+  className: string;
+  grade: number;
+  weekDay: number;
+  periodIndex: number;
+  subject: string;
+  teacherId: string;
+  teacherName: string;
+  employeeId: string;
+  weekStartDate?: string;
+};
+
+type LeaveRequestRow = {
+  id: string;
+  applicant_id: string;
+  applicant_name: string;
+  applicant_grade: number | null;
+  type: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  need_adjustment: boolean;
+  affected_slots: AffectedSlot[];
+  approver_selection: ApproverSelection[];
+  status: string;
+  approved_by_list: ApprovalRecord[] | null;
+};
+
+type CourseAdjustmentRow = {
+  id: string;
+};
+
 /**
  * POST - 审批请假申请
  */
@@ -52,8 +99,8 @@ export const POST = protectedRoute(async (
     }
 
     // 检查当前用户是否为审批人
-    const approverSelection = leaveRequest.approver_selection || [];
-    const isApprover = approverSelection.some((a: any) => a.employeeId === user.employeeId);
+    const approverSelection = (leaveRequest as LeaveRequestRow).approver_selection || [];
+    const isApprover = approverSelection.some((a) => a.employeeId === user.employeeId);
     
     if (!isApprover) {
       return NextResponse.json(error('您不是该请假申请的审批人', ErrorCode.FORBIDDEN), { status: 403 });
@@ -111,24 +158,24 @@ export const POST = protectedRoute(async (
     // 审批通过
     // 检查签批方式
     const signType = approverSelection[0]?.signType || 'countersign';
-    const allApprovers = approverSelection.map((a: any) => a.employeeId);
+    const allApprovers = approverSelection.map((a) => a.employeeId);
     
     // 获取已审批记录
-    let approvedByList = leaveRequest.approved_by_list || [];
+    let approvedByList: ApprovalRecord[] = (leaveRequest as LeaveRequestRow).approved_by_list || [];
     if (!Array.isArray(approvedByList)) {
       approvedByList = [];
     }
 
     // 添加当前审批记录
     approvedByList.push({
-      employeeId: user.employeeId,
+      employeeId: user.employeeId || '',
       userName: user.name,
       action: 'approved',
       time: now,
     });
 
     // 判断是否所有审批人都已同意（会签）或任一审批人同意（或签）
-    const approvedEmployeeIds = approvedByList.map((a: any) => a.employeeId);
+    const approvedEmployeeIds = approvedByList.map((a) => a.employeeId);
     let isFullyApproved = false;
 
     if (signType === 'parallel') {
@@ -214,8 +261,8 @@ export const POST = protectedRoute(async (
     }
 
     // 2. 如果需要调课，创建调课任务并通知年段长
-    if (leaveRequest.need_adjustment && leaveRequest.affected_slots?.length > 0) {
-      const affectedSlots = leaveRequest.affected_slots;
+    if ((leaveRequest as LeaveRequestRow).need_adjustment && (leaveRequest as LeaveRequestRow).affected_slots?.length > 0) {
+      const affectedSlots = (leaveRequest as LeaveRequestRow).affected_slots;
       
       // 获取申请人年级
       const applicantGrade = leaveRequest.applicant_grade;
@@ -266,7 +313,7 @@ export const POST = protectedRoute(async (
       }
 
       // 创建调课记录
-      const adjustmentRecords = affectedSlots.map((slot: any) => ({
+      const adjustmentRecords = affectedSlots.map((slot) => ({
         leave_request_id: leaveRequestId,
         applicant_id: leaveRequest.applicant_id,
         applicant_name: leaveRequest.applicant_name,
@@ -317,7 +364,7 @@ export const POST = protectedRoute(async (
           recipient_type: 'individual',
           metadata: {
             leaveRequestId,
-            adjustmentIds: insertedAdjustments?.map((a: any) => a.id),
+            adjustmentIds: (insertedAdjustments as CourseAdjustmentRow[])?.map((a) => a.id),
             affectedSlotsCount: affectedSlots.length,
           },
           created_at: now,

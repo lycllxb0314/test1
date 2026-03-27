@@ -49,6 +49,13 @@ export interface ApprovalStatistics {
   byStatus: Record<ApprovalStatus, number>;
 }
 
+/** 提交审批响应 */
+export interface SubmitApprovalResponse {
+  success: boolean;
+  data?: ApprovalInstance;
+  error?: string;
+}
+
 /** 审批 Hook 返回类型 */
 export interface UseApprovalsReturn {
   approvals: ApprovalInstance[];
@@ -66,7 +73,7 @@ export interface UseApprovalsReturn {
   setFilters: (filters: Partial<PendingApprovalQuery>) => void;
   clearFilters: () => void;
   fetchApprovals: (type: ApprovalListType) => void;
-  submitApproval: (request: SubmitApprovalRequest) => Promise<{ success: boolean; data?: any; error?: string }>;
+  submitApproval: (request: SubmitApprovalRequest) => Promise<SubmitApprovalResponse>;
   approveApproval: (instanceId: string, comment?: string) => Promise<boolean>;
   rejectApproval: (instanceId: string, comment?: string) => Promise<boolean>;
   returnApproval: (instanceId: string, comment?: string) => Promise<boolean>;

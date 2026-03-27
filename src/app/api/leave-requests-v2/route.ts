@@ -13,6 +13,73 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { ok, fail, serverError, paginated, getQueryParams } from '@/lib/api';
 
+// 类型定义
+type LeaveRequestRow = {
+  id: string;
+  applicant_id: string;
+  applicant_name: string;
+  applicant_type: string;
+  applicant_grade: number | null;
+  type: string;
+  start_date: string;
+  end_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  duration: number;
+  duration_unit: string;
+  reason: string;
+  attachments: string[];
+  need_adjustment: boolean;
+  affected_slots: AffectedSlot[];
+  workflow_instance_id: string | null;
+  status: string;
+  current_step: number;
+  approver_selection: ApproverSelection[];
+  approved_by: string | null;
+  approved_at: string | null;
+  reject_reason: string | null;
+  adjustment_status: string | null;
+  adjusted_by: string | null;
+  adjusted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  submitted_at: string;
+};
+
+type AffectedSlot = {
+  classId: string;
+  className: string;
+  grade: number;
+  weekDay: number;
+  periodIndex: number;
+  subject: string;
+  teacherId: string;
+  teacherName: string;
+  employeeId: string;
+  weekStartDate?: string;
+};
+
+type ApproverSelection = {
+  employeeId: string;
+  name: string;
+  signType: string;
+};
+
+type ApprovalInstanceRow = {
+  id: string;
+  business_id: string;
+  status: string;
+  current_node_order: number;
+  finish_at: string | null;
+  metadata: Record<string, unknown>;
+};
+
+type UserRow = {
+  id: string;
+  employee_id: string;
+  department?: string;
+};
+
 // ==================== GET - 获取请假列表 ====================
 
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
@@ -61,7 +128,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     }
     
     // 获取审批实例数据
-    let approvalInstances: Record<string, any> = {};
+    let approvalInstances: Record<string, ApprovalInstanceRow> = {};
     if (data && data.length > 0) {
       const leaveIds = data.map(d => d.id);
       const { data: instances } = await client
@@ -78,7 +145,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     }
     
     // 转换数据格式，合并审批状态
-    const leaveRequests = (data || []).map(item => {
+    const leaveRequests = (data as LeaveRequestRow[] || []).map(item => {
       const mapped = mapLeaveRequest(item);
       const approval = approvalInstances[item.id];
       
@@ -175,7 +242,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     
     // 2. 如果需要调课，创建调课记录
     if (body.needAdjustment && body.affectedSlots?.length > 0) {
-      const adjustmentRecords = body.affectedSlots.map((slot: any) => ({
+      const adjustmentRecords = body.affectedSlots.map((slot: AffectedSlot) => ({
         leave_request_id: data.id,
         applicant_id: applicantId,
         applicant_name: applicantName,
@@ -257,14 +324,14 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
       } else if (approvalInstanceResult) {
         // 创建审批节点记录
         // 获取所有审批人的UUID
-        const approverEmployeeIds = body.approverSelection.map((a: any) => a.employeeId);
+        const approverEmployeeIds = body.approverSelection.map((a: ApproverSelection) => a.employeeId);
         const { data: approverUsers } = await client
           .from('users')
           .select('id, employee_id')
           .in('employee_id', approverEmployeeIds);
         
         // 创建UUID列表
-        const approverUUIDs = (approverUsers || []).map((u: any) => u.id);
+        const approverUUIDs = (approverUsers as UserRow[] || []).map((u) => u.id);
         
         // 确定节点类型：countersign = 会签（所有人都要签），parallel = 或签（任一人签即可）
         const signType = body.approverSelection[0]?.signType || 'countersign';
@@ -295,12 +362,12 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
         // 4. 发送审批通知给审批人
         // 创建UUID到employee_id的映射
         const approverMap = new Map(
-          (approverUsers || []).map((u: any) => [u.employee_id, u.id])
+          (approverUsers as UserRow[] || []).map((u) => [u.employee_id, u.id])
         );
         
         // 创建消息通知审批人
         const notifications = body.approverSelection
-          .map((approver: any) => {
+          .map((approver: ApproverSelection) => {
             const approverUUID = approverMap.get(approver.employeeId);
             if (!approverUUID) return null;
             
@@ -347,7 +414,7 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
 
 // ==================== 辅助函数 ====================
 
-function mapLeaveRequest(data: any): Record<string, any> {
+function mapLeaveRequest(data: LeaveRequestRow): Record<string, unknown> {
   return {
     id: data.id,
     applicantId: data.applicant_id,

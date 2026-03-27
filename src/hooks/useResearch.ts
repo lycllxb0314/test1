@@ -23,6 +23,29 @@ export type ActivityStatus = 'scheduled' | 'ongoing' | 'completed' | 'cancelled'
 // 资源类型
 export type ResourceType = 'lesson_design' | 'excellent_case' | 'academic_paper' | 'courseware' | 'other';
 
+// 附件类型
+export interface Attachment {
+  name: string;
+  url: string;
+  size?: number;
+  type?: string;
+}
+
+// 参与者类型
+export interface ResearchParticipant {
+  id: string;
+  name: string;
+  role?: string;
+}
+
+// 统计数据类型
+export interface ResearchStatisticsData {
+  totalThemes: number;
+  totalActivities: number;
+  completedActivities: number;
+  totalResources: number;
+}
+
 // 教研主题
 export interface ResearchTheme {
   id: string;
@@ -63,7 +86,7 @@ export interface ResearchActivity {
   actualParticipantIds?: string[];
   status: ActivityStatus;
   meetingMinutes?: string;
-  attachments?: any[];
+  attachments?: Attachment[];
   createdAt: string;
 }
 
@@ -293,7 +316,7 @@ export function useResearchTheme(themeId: string | null) {
       theme: ResearchTheme;
       stages: ResearchStage[];
       activities: ResearchActivity[];
-      statistics: any;
+      statistics: ResearchStatisticsData;
     }>(`/api/research/themes/${themeId}`);
     
     setLoading(false);
@@ -490,7 +513,7 @@ export function useResearchActivities() {
 
 export function useResearchActivity(activityId: string | null) {
   const [activity, setActivity] = useState<ResearchActivity | null>(null);
-  const [participants, setParticipants] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<ResearchParticipant[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -503,7 +526,7 @@ export function useResearchActivity(activityId: string | null) {
     
     const { data, error } = await fetchAPI<{
       activity: ResearchActivity;
-      participants: any[];
+      participants: ResearchParticipant[];
       theme: ResearchTheme;
       stage?: ResearchStage;
     }>(`/api/research/activities/${activityId}`);
@@ -541,7 +564,7 @@ export function useResearchActivity(activityId: string | null) {
   }, [activityId]);
 
   // 完成活动
-  const completeActivity = useCallback(async (meetingMinutes?: string, attachments?: any[]) => {
+  const completeActivity = useCallback(async (meetingMinutes?: string, attachments?: Attachment[]) => {
     if (!activityId) return false;
     
     const { error } = await fetchAPI(`/api/research/activities/${activityId}`, {
