@@ -356,10 +356,104 @@ export class StudentRepository extends BaseRepository<Student> {
 4. **教师工作台** (`/teacher/*`)
    - 消息通知、调课处理
    - 请假申请、工作量统计
+   - **班级 SOP 智能台账** (`/teacher/class-sop`)
 
 5. **家长门户** (`/parent/*`)
    - 子女信息、成绩查询
    - 习惯打卡、信息采集
+
+---
+
+## 班级 SOP 智能台账模块
+
+### 模块概述
+
+解决班主任工作核心痛点：
+- **标准化缺失** → SOP模板库 → "怎么做有章可循"
+- **留痕缺失** → 执行记录+证据附件 → "做了什么有据可查"
+- **责任边界模糊** → 时间线+责任人+签字 → "谁来负责一目了然"
+
+### 核心功能
+
+1. **SOP 模板管理**
+   - 创建/编辑/分享标准操作流程
+   - 系统预置 6 大类 SOP 模板
+   - 支持步骤分解、检查要点、证据要求
+
+2. **执行记录管理**
+   - 按步骤执行、留痕、签字确认
+   - 支持图片、视频等多媒体证据
+   - 自动生成时间线和责任链
+
+3. **台账管理**
+   - 自动从执行记录生成台账条目
+   - 支持查询、统计、导出
+   - 后续跟进提醒
+
+### 文件结构
+
+```
+src/
+├── types/class-sop.ts              # 类型定义
+├── repositories/class-sop.repository.ts  # 数据访问层
+├── services/class-sop.service.ts   # 业务逻辑层
+├── hooks/useClassSOP.ts            # React Hooks
+├── app/
+│   ├── api/class-sop/              # API 路由
+│   │   ├── templates/              # SOP 模板 API
+│   │   ├── executions/             # 执行记录 API
+│   │   ├── ledger/                 # 台账 API
+│   │   └── statistics/             # 统计 API
+│   └── teacher/class-sop/          # 前端页面
+└── supabase/migrations/004_class_sop.sql  # 数据库迁移
+```
+
+### 数据库表
+
+| 表名 | 说明 |
+|------|------|
+| `sop_templates` | SOP 模板表 |
+| `sop_executions` | SOP 执行记录表 |
+| `ledger_entries` | 台账条目表 |
+
+### SOP 类别
+
+| 类别 | 标识 | 说明 |
+|------|------|------|
+| 卫生检查 | hygiene | 班级卫生值日检查 |
+| 安全排查 | safety | 班级安全隐患排查 |
+| 矛盾处理 | conflict | 学生矛盾处理流程 |
+| 家校沟通 | communication | 家校沟通记录 |
+| 违纪处理 | discipline | 学生违纪处理 |
+| 考勤管理 | attendance | 考勤管理 |
+| 活动组织 | activity | 班级活动组织 |
+| 应急处置 | emergency | 突发安全事件应急处置 |
+
+### 使用示例
+
+```typescript
+// 获取 SOP 模板列表
+const { templates } = useSOPTemplates({ category: 'hygiene' });
+
+// 开始执行 SOP
+const { startExecution } = useSOPExecutionActions();
+await startExecution({
+  templateId: 'template-uuid',
+  classId: 'class-uuid',
+  executorId: 'teacher-uuid',
+  executorName: '张老师',
+  className: '一年级1班',
+});
+
+// 更新步骤状态
+await updateStep(executionId, stepOrder, 'complete', {
+  content: '已完成',
+  attachments: [{ type: 'photo', url: '...' }],
+});
+
+// 完成执行
+await completeExecution(executionId, summary, signatures);
+```
 
 ---
 
