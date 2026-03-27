@@ -12,7 +12,7 @@
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
 import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
-import type { ICourseRepository } from '@/lib/di/interfaces';
+import type { ICourseRepository } from '@/types/repository';
 import type { Course, CourseType } from '@/types/course';
 import type { QueryOptions } from '@/repositories/base.repository';
 

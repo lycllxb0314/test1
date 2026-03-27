@@ -12,7 +12,7 @@
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
 import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
-import type { IMoralActivityRepository, IMoralActivitySubmissionRepository, MoralQueryOptions } from '@/lib/di/interfaces';
+import type { IMoralActivityRepository, IMoralActivitySubmissionRepository, MoralQueryOptions } from '@/types/repository';
 import type { MoralActivity, MoralActivitySubmission, MoralActivityStatus, MoralActivityType } from '@/types/moral';
 
 /**

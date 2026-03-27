@@ -16,7 +16,7 @@ import type {
   IInformationCollectionRepository,
   ICollectionResponseRepository,
   CollectionQueryOptions,
-} from '@/lib/di/interfaces';
+} from '@/types/repository';
 import type { InformationCollection, CollectionResponse, CollectionStatus } from '@/types/information-collection';
 
 /**

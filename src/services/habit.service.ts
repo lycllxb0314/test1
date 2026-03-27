@@ -18,7 +18,7 @@ import type {
   IHabitRecordRepository,
   IHabitStarRepository,
   HabitQueryOptions,
-} from '@/lib/di/interfaces';
+} from '@/types/repository';
 import type {
   HabitGoal,
   HabitCategory,

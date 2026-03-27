@@ -12,7 +12,7 @@
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
 import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
-import type { IHomeworkRepository, IHomeworkSubmissionRepository, HomeworkQueryOptions } from '@/lib/di/interfaces';
+import type { IHomeworkRepository, IHomeworkSubmissionRepository, HomeworkQueryOptions } from '@/types/repository';
 import type { Homework, HomeworkSubmission, HomeworkStatus, HomeworkStatistics } from '@/types/homework';
 
 /**

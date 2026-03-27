@@ -145,7 +145,40 @@ export function initializeDI(): void {
 
 // 导出
 export { container, SERVICE_IDENTIFIERS, getService } from './container';
-export type * from './interfaces';
+// 从统一类型目录导出 Repository 接口
+export type {
+  IBaseRepository,
+  IUserRepository,
+  ITeacherRepository,
+  IStudentRepository,
+  IClassRepository,
+  IGradeRepository,
+  IApprovalRepository,
+  IMessageRepository,
+  ICourseRepository,
+  IExamRepository,
+  IExamScoreRepository,
+  IHomeworkRepository,
+  IHomeworkSubmissionRepository,
+  IResearchActivityRepository,
+  IResearchStageRepository,
+  IResearchAchievementRepository,
+  IResearchResourceRepository,
+  IMoralActivityRepository,
+  IMoralActivitySubmissionRepository,
+  IHabitGoalRepository,
+  IStudentHabitGoalRepository,
+  IHabitRecordRepository,
+  IHabitStarRepository,
+  IInformationCollectionRepository,
+  ICollectionResponseRepository,
+  ExamQueryOptions,
+  HomeworkQueryOptions,
+  ResearchQueryOptions,
+  MoralQueryOptions,
+  HabitQueryOptions,
+  CollectionQueryOptions,
+} from '@/types/repository';
 
 // 自动初始化（在模块加载时执行）
 initializeDI();

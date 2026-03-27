@@ -12,7 +12,7 @@
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
 import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
-import type { IExamRepository, IExamScoreRepository, ExamQueryOptions } from '@/lib/di/interfaces';
+import type { IExamRepository, IExamScoreRepository, ExamQueryOptions } from '@/types/repository';
 import type { Exam, ExamScore, ExamStatus, ExamStatistics } from '@/types/exam';
 
 /**

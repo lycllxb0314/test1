@@ -18,7 +18,7 @@ import type {
   IResearchAchievementRepository,
   IResearchResourceRepository,
   ResearchQueryOptions,
-} from '@/lib/di/interfaces';
+} from '@/types/repository';
 import type {
   ResearchActivity,
   ResearchStage,
