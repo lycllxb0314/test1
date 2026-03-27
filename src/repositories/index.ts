@@ -165,3 +165,11 @@ export {
   WeeklyEvaluationRepository,
   weeklyEvaluationRepository,
 } from './weekly-evaluation.repository';
+
+// ============================================
+// 班级座位表管理
+// ============================================
+export {
+  SeatingPlanRepository,
+  seatingPlanRepository,
+} from './seating-plan.repository';

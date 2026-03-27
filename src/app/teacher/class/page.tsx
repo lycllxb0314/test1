@@ -74,6 +74,7 @@ import {
   Target,
   Calendar,
   BarChart3,
+  Grid3X3,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useStudents, type StudentInfo } from '@/hooks/useStudents';
@@ -85,6 +86,21 @@ import { useClassDailyRoutine, useClassWeeklyRoutine } from '@/hooks/useClassRou
 import { ROUTINE_SCORE_CATEGORIES, ROUTINE_CATEGORY_LABELS, ROUTINE_CATEGORY_MAX_SCORES } from '@/types/class-routine';
 import type { RoutineScoreCategory } from '@/types/class-routine';
 import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
+
+// 懒加载座位表组件
+const SeatingPlanView = dynamic(
+  () => import('@/components/seating/SeatingPlanView').then(mod => ({ default: mod.SeatingPlanView })),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="py-12 text-center">
+        <div className="h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-slate-500 mt-2">加载座位表...</p>
+      </div>
+    ),
+  }
+);
 
 // 获取状态颜色
 const getStatusColor = (status: string) => {
@@ -454,6 +470,13 @@ export default function ClassManagePage() {
               >
                 <Users className="h-4 w-4 mr-2" />
                 学生名单 ({totalStudents})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="seating"
+                className="data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700"
+              >
+                <Grid3X3 className="h-4 w-4 mr-2" />
+                座位表
               </TabsTrigger>
               <TabsTrigger 
                 value="parents"
@@ -865,6 +888,15 @@ export default function ClassManagePage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          {/* 座位表 Tab - 懒加载 */}
+          <TabsContent value="seating" className="space-y-6">
+            <SeatingPlanView 
+              classId={classId} 
+              className={className}
+              readOnly={!canManageClass()}
+            />
           </TabsContent>
           
           {/* 家长 Tab */}

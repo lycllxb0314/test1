@@ -553,6 +553,32 @@ export {
   WEEK_DAY_LABELS,
 } from './class-routine';
 
+// ==================== 班级座位表 ====================
+export type {
+  SeatingLayout,
+  SeatStatus,
+  SeatPosition,
+  Seat,
+  SeatingConfig,
+  SeatingPlanRow,
+  SeatingPlan,
+  SeatingPlanQueryParams,
+  SeatingArrangementParams,
+  CreateSeatingPlanParams,
+  UpdateSeatingPlanParams,
+  AssignSeatParams,
+  BatchAssignSeatsParams,
+  ClearSeatParams,
+  SwapSeatsParams,
+  SeatingStatistics,
+} from './seating';
+
+export {
+  DEFAULT_SEATING_CONFIG,
+  SEAT_STATUS_LABELS,
+  SEAT_STATUS_COLORS,
+} from './seating';
+
 // ==================== 工作流类型 ====================
 
 /** 工作流配置 */

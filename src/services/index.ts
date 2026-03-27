@@ -134,3 +134,11 @@ export {
   ClassRoutineService,
   classRoutineService,
 } from './class-routine.service';
+
+// ============================================
+// 班级座位表服务
+// ============================================
+export {
+  SeatingPlanService,
+  seatingPlanService,
+} from './seating-plan.service';
