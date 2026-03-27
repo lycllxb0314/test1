@@ -157,6 +157,7 @@ const headTeacherNav: NavItem[] = [
   { name: '习惯养成', href: '/teacher/habit', icon: Target, description: '制定班级月度习惯目标', badge: '新' },
   { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', badge: '新' },
   { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新' },
+  { name: 'SOP台账', href: '/teacher/class-sop', icon: ClipboardCheck, description: '标准化操作流程与台账管理', badge: '新' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能（待重建）
