@@ -15,30 +15,68 @@
  * ```
  */
 
+// ============================================
 // 基础类
+// ============================================
 export { BaseRepository } from './base.repository';
 export type { QueryOptions, PaginatedResult } from './base.repository';
 
-// 用户
+// ============================================
+// 用户与权限
+// ============================================
 export { UserRepository, userRepository } from './user.repository';
 export type { UserFilters } from './user.repository';
 
-// 教师
+// ============================================
+// 教师管理
+// ============================================
 export { TeacherRepository, teacherRepository } from './teacher.repository';
 export type { TeacherFilters } from './teacher.repository';
 
-// 学生
+// ============================================
+// 学生管理
+// ============================================
 export { StudentRepository, studentRepository } from './student.repository';
 export type { StudentFilters } from './student.repository';
 
-// 审批
+// ============================================
+// 班级管理
+// ============================================
+export { ClassRepository, classRepository } from './class.repository';
+export type { ClassFilters, ClassStatistics } from './class.repository';
+
+// ============================================
+// 考勤管理
+// ============================================
+export { AttendanceRepository, attendanceRepository } from './attendance.repository';
+export type { AttendanceFilters, AttendanceStatistics } from './attendance.repository';
+
+// ============================================
+// 课表管理
+// ============================================
+export { ScheduleRepository, scheduleRepository, ActualScheduleRepository, actualScheduleRepository } from './schedule.repository';
+export type { ScheduleFilters } from './schedule.repository';
+
+// ============================================
+// 成绩管理
+// ============================================
+export { GradeRepository, gradeRepository, ExamRepository, examRepository } from './grade.repository';
+export type { GradeFilters, GradeStatistics } from './grade.repository';
+
+// ============================================
+// 审批管理
+// ============================================
 export { ApprovalRepository, approvalRepository } from './approval.repository';
 export type { ApprovalFilters } from './approval.repository';
 
-// 消息
+// ============================================
+// 消息管理
+// ============================================
 export { MessageRepository, messageRepository } from './message.repository';
 export type { MessageFilters } from './message.repository';
 
-// 请假
+// ============================================
+// 请假管理
+// ============================================
 export { LeaveRepository, leaveRepository } from './leave.repository';
 export type { LeaveFilters } from './leave.repository';
