@@ -26,6 +26,13 @@ export type MessageEvent =
   | 'honor_notice'             // 荣誉通知
   | 'moral_evaluation'         // 德育评价
   | 'habit_record'             // 习惯记录提醒
+  | 'duty_reminder'            // 值日提醒
+  | 'routine_score'            // 班级常规评分通知
+  // === 教研通知 ===
+  | 'research_activity'        // 教研活动通知
+  | 'research_invitation'      // 教研活动邀请
+  | 'research_reminder'        // 教研活动提醒
+  | 'research_result'          // 教研成果通知
   // === 家校沟通 ===
   | 'parent_meeting'           // 家长会通知
   | 'student_absence'          // 学生缺勤
@@ -187,6 +194,60 @@ export const MESSAGE_EVENT_CONFIGS: Record<MessageEvent, MessageEventConfig> = {
     description: '习惯记录提醒通知',
     icon: 'check-circle',
     color: 'cyan',
+    defaultPriority: 'normal',
+    channels: ['in_app'],
+  },
+  duty_reminder: {
+    event: 'duty_reminder',
+    label: '值日提醒',
+    description: '值日教师工作提醒',
+    icon: 'calendar-check',
+    color: 'amber',
+    defaultPriority: 'high',
+    channels: ['in_app', 'wechat'],
+  },
+  routine_score: {
+    event: 'routine_score',
+    label: '班级常规评分',
+    description: '班级常规评分通知',
+    icon: 'clipboard-list',
+    color: 'teal',
+    defaultPriority: 'normal',
+    channels: ['in_app'],
+  },
+  research_activity: {
+    event: 'research_activity',
+    label: '教研活动',
+    description: '教研活动相关通知',
+    icon: 'book-open',
+    color: 'violet',
+    defaultPriority: 'normal',
+    channels: ['in_app', 'wechat'],
+  },
+  research_invitation: {
+    event: 'research_invitation',
+    label: '教研邀请',
+    description: '教研活动邀请通知',
+    icon: 'user-plus',
+    color: 'indigo',
+    defaultPriority: 'normal',
+    channels: ['in_app', 'wechat'],
+  },
+  research_reminder: {
+    event: 'research_reminder',
+    label: '教研提醒',
+    description: '教研活动开始前提醒',
+    icon: 'bell',
+    color: 'orange',
+    defaultPriority: 'high',
+    channels: ['in_app', 'wechat'],
+  },
+  research_result: {
+    event: 'research_result',
+    label: '教研成果',
+    description: '教研成果发布通知',
+    icon: 'award',
+    color: 'green',
     defaultPriority: 'normal',
     channels: ['in_app'],
   },

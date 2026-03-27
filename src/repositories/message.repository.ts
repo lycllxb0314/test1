@@ -3,30 +3,47 @@
  */
 
 import { BaseRepository, PaginatedResult } from './base.repository';
+import type { MessageEvent, MessagePriority } from '@/types/messages';
 
 /**
- * 消息类型定义
+ * 消息类型定义（数据库行）
  */
-export interface Message {
+export type MessageRow = {
   id: string;
   title: string;
   content: string;
   type: string;
+  event?: string;
+  priority?: string;
   sender_id?: string;
   sender_name?: string;
   target_users?: string[];
+  target_roles?: string[];
   target_groups?: string[];
+  related_id?: string;
+  related_type?: string;
+  action_url?: string;
+  action_label?: string;
+  metadata?: Record<string, unknown>;
   status?: string;
   sent_at?: string;
   created_at?: string;
   updated_at?: string;
-}
+};
+
+/**
+ * 消息类型（向后兼容）
+ * @deprecated 使用 MessageRow 代替
+ */
+export type Message = MessageRow;
 
 /**
  * 消息查询筛选
  */
 export interface MessageFilters {
   type?: string;
+  event?: MessageEvent;
+  priority?: MessagePriority;
   senderId?: string;
   targetGroup?: string;
   isRead?: boolean;
@@ -35,7 +52,7 @@ export interface MessageFilters {
 /**
  * 消息 Repository
  */
-export class MessageRepository extends BaseRepository<Message> {
+export class MessageRepository extends BaseRepository<MessageRow> {
   constructor() {
     super('messages');
   }
@@ -45,9 +62,9 @@ export class MessageRepository extends BaseRepository<Message> {
    */
   async findReceived(
     userId: string,
-    options: { type?: string; page?: number; pageSize?: number } = {}
-  ): Promise<PaginatedResult<Message>> {
-    const { type, page = 1, pageSize = 20 } = options;
+    options: { type?: string; event?: string; page?: number; pageSize?: number } = {}
+  ): Promise<PaginatedResult<MessageRow>> {
+    const { type, event, page = 1, pageSize = 20 } = options;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     
@@ -60,6 +77,10 @@ export class MessageRepository extends BaseRepository<Message> {
       query = query.eq('type', type);
     }
     
+    if (event) {
+      query = query.eq('event', event);
+    }
+    
     query = query.order('created_at', { ascending: false }).range(from, to);
     
     const { data, error, count } = await query;
@@ -70,7 +91,7 @@ export class MessageRepository extends BaseRepository<Message> {
     }
     
     return {
-      data: (data || []) as Message[],
+      data: (data || []) as MessageRow[],
       total: count || 0,
       page,
       pageSize,
@@ -84,20 +105,20 @@ export class MessageRepository extends BaseRepository<Message> {
   async findSent(
     senderId: string,
     options: { page?: number; pageSize?: number } = {}
-  ): Promise<PaginatedResult<Message>> {
+  ): Promise<PaginatedResult<MessageRow>> {
     const { page = 1, pageSize = 20 } = options;
     
     return this.findPaginated({
       filters: { sender_id: senderId },
       orderBy: { column: 'created_at', ascending: false },
       pagination: { page, pageSize },
-    });
+    }) as Promise<PaginatedResult<MessageRow>>;
   }
   
   /**
    * 查询未读消息
    */
-  async findUnread(userId: string): Promise<Message[]> {
+  async findUnread(userId: string): Promise<MessageRow[]> {
     // 获取用户收到的消息ID
     const { data: messages, error: msgError } = await this.client
       .from(this.tableName)
@@ -141,7 +162,7 @@ export class MessageRepository extends BaseRepository<Message> {
       return [];
     }
     
-    return (unreadMessages || []) as Message[];
+    return (unreadMessages || []) as MessageRow[];
   }
   
   /**
@@ -180,7 +201,7 @@ export class MessageRepository extends BaseRepository<Message> {
     // 获取用户未读消息
     const unreadMessages = await this.findUnread(userId);
     const toMark = messageIds 
-      ? unreadMessages.filter(m => messageIds.includes(m.id!))
+      ? unreadMessages.filter(m => messageIds.includes(m.id))
       : unreadMessages;
     
     if (!toMark.length) return 0;
@@ -191,7 +212,7 @@ export class MessageRepository extends BaseRepository<Message> {
       read_at: new Date().toISOString(),
     }));
     
-    const { data, error } = await this.client
+    const { error } = await this.client
       .from('message_reads')
       .upsert(records, { onConflict: 'message_id,user_id' });
     
@@ -206,12 +227,12 @@ export class MessageRepository extends BaseRepository<Message> {
   /**
    * 发送消息
    */
-  async sendMessage(message: Partial<Message>): Promise<Message | null> {
+  async sendMessage(message: Partial<MessageRow>): Promise<MessageRow | null> {
     return this.create({
       ...message,
       status: 'sent',
       sent_at: new Date().toISOString(),
-    });
+    }) as Promise<MessageRow | null>;
   }
   
   /**
@@ -221,7 +242,7 @@ export class MessageRepository extends BaseRepository<Message> {
     title: string,
     content: string,
     targetUsers: string[]
-  ): Promise<Message | null> {
+  ): Promise<MessageRow | null> {
     return this.create({
       title,
       content,

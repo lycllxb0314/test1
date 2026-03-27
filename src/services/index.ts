@@ -50,6 +50,11 @@ export { AttendanceService, attendanceService } from './attendance.service';
 export { ApprovalService, approvalService } from './approval.service';
 
 // ============================================
+// 消息服务
+// ============================================
+export { MessageService, messageService } from './message.service';
+
+// ============================================
 // 课程服务
 // ============================================
 export { CourseService, courseService } from './course.service';
