@@ -76,7 +76,24 @@ import {
   ArrowRight,
   FileSignature,
   X,
+  Upload,
+  Image as ImageIcon,
+  FileVideo,
+  FileAudio,
+  File,
+  Loader2,
 } from 'lucide-react';
+
+// ==================== 附件类型 ====================
+
+type AttachmentData = {
+  key: string;
+  url: string;
+  name: string;
+  size: number;
+  type: string;
+  evidenceType: 'photo' | 'video' | 'audio' | 'document';
+};
 
 // ==================== 图标和颜色映射 ====================
 
@@ -212,13 +229,25 @@ export default function ClassSOPPage() {
     executionId: string, 
     stepOrder: number, 
     action: 'start' | 'complete' | 'skip',
-    content?: string
+    content?: string,
+    attachments?: AttachmentData[]
   ) => {
     try {
       const res = await fetch(`/api/class-sop/executions/${executionId}/steps`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, stepOrder, content }),
+        body: JSON.stringify({ 
+          action, 
+          stepOrder, 
+          content,
+          attachments: attachments?.map(a => ({
+            id: a.key,
+            type: a.type,
+            url: a.url,
+            name: a.name,
+            size: a.size,
+          })),
+        }),
       });
       const data = await res.json();
       
@@ -828,16 +857,18 @@ const ExecutionSheet: React.FC<{
   open: boolean;
   onOpenChange: (v: boolean) => void;
   execution: SOPExecution | null;
-  onUpdateStep: (id: string, order: number, action: 'start' | 'complete' | 'skip', content?: string) => void;
+  onUpdateStep: (id: string, order: number, action: 'start' | 'complete' | 'skip', content?: string, attachments?: AttachmentData[]) => void;
   onComplete: (id: string, summary: string) => void;
 }> = ({ open, onOpenChange, execution, onUpdateStep, onComplete }) => {
   const [summary, setSummary] = useState('');
   const [stepContents, setStepContents] = useState<Record<number, string>>({});
+  const [stepAttachments, setStepAttachments] = useState<Record<number, AttachmentData[]>>({});
   
   useEffect(() => {
     if (execution) {
       setSummary('');
       setStepContents({});
+      setStepAttachments({});
     }
   }, [execution?.id]);
   
@@ -883,14 +914,35 @@ const ExecutionSheet: React.FC<{
             {execution.steps.map((step, index) => (
               <StepCard
                 key={index}
-                step={step}
+                step={{
+                  ...step,
+                  attachments: step.attachments?.map(a => ({
+                    key: a.id,
+                    url: a.url,
+                    name: a.name,
+                    size: a.size || 0,
+                    type: a.type,
+                    evidenceType: a.type.startsWith('image') ? 'photo' : 
+                                  a.type.startsWith('video') ? 'video' : 
+                                  a.type.startsWith('audio') ? 'audio' : 'document',
+                  })),
+                }}
                 index={index}
                 isActive={execution.status === 'in_progress'}
                 content={stepContents[step.stepOrder] || ''}
+                attachments={stepAttachments[step.stepOrder] || []}
                 onContentChange={(c) => setStepContents(prev => ({ ...prev, [step.stepOrder]: c }))}
+                onAttachmentsChange={(a) => setStepAttachments(prev => ({ ...prev, [step.stepOrder]: a }))}
                 onStart={() => onUpdateStep(execution.id, step.stepOrder, 'start')}
-                onComplete={() => onUpdateStep(execution.id, step.stepOrder, 'complete', stepContents[step.stepOrder])}
+                onComplete={() => onUpdateStep(
+                  execution.id, 
+                  step.stepOrder, 
+                  'complete', 
+                  stepContents[step.stepOrder],
+                  stepAttachments[step.stepOrder]
+                )}
                 onSkip={(reason) => onUpdateStep(execution.id, step.stepOrder, 'skip', reason)}
+                executionId={execution.id}
               />
             ))}
           </div>
@@ -926,17 +978,22 @@ const ExecutionSheet: React.FC<{
 
 // 步骤卡片
 const StepCard: React.FC<{
-  step: { stepOrder: number; stepTitle: string; status: string; content?: string };
+  step: { stepOrder: number; stepTitle: string; status: string; content?: string; attachments?: AttachmentData[] };
   index: number;
   isActive: boolean;
   content: string;
+  attachments: AttachmentData[];
   onContentChange: (c: string) => void;
+  onAttachmentsChange: (a: AttachmentData[]) => void;
   onStart: () => void;
   onComplete: () => void;
   onSkip: (reason: string) => void;
-}> = ({ step, index, isActive, content, onContentChange, onStart, onComplete, onSkip }) => {
+  executionId?: string;
+}> = ({ step, index, isActive, content, attachments, onContentChange, onAttachmentsChange, onStart, onComplete, onSkip, executionId }) => {
   const [showSkip, setShowSkip] = useState(false);
   const [skipReason, setSkipReason] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   const statusConfig = {
     pending: { icon: Circle, bg: 'bg-slate-200 text-slate-400', label: '待处理' },
@@ -947,6 +1004,60 @@ const StepCard: React.FC<{
   
   const config = statusConfig[step.status as keyof typeof statusConfig];
   const Icon = config.icon;
+  
+  // 文件上传处理
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !executionId) return;
+    
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('executionId', executionId);
+      formData.append('stepOrder', String(step.stepOrder));
+      
+      const res = await fetch('/api/class-sop/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        onAttachmentsChange([...attachments, data.data]);
+      } else {
+        alert(data.error || '上传失败');
+      }
+    } catch (err) {
+      console.error('上传失败:', err);
+      alert('上传失败');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+  
+  // 删除附件
+  const removeAttachment = (index: number) => {
+    onAttachmentsChange(attachments.filter((_, i) => i !== index));
+  };
+  
+  // 格式化文件大小
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+  
+  // 获取附件图标
+  const getAttachmentIcon = (type: string) => {
+    if (type.startsWith('image')) return ImageIcon;
+    if (type.startsWith('video')) return FileVideo;
+    if (type.startsWith('audio')) return FileAudio;
+    return File;
+  };
   
   return (
     <div className={`rounded-xl border ${
@@ -971,16 +1082,96 @@ const StepCard: React.FC<{
               <p className="text-sm text-slate-500 mt-2">{step.content}</p>
             )}
             
+            {/* 显示已有附件 */}
+            {step.attachments && step.attachments.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {step.attachments.map((att, i) => {
+                  const AttIcon = getAttachmentIcon(att.type);
+                  return (
+                    <a
+                      key={i}
+                      href={att.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-700 p-1.5 bg-blue-50 rounded-lg"
+                    >
+                      <AttIcon className="h-3.5 w-3.5" />
+                      <span className="truncate flex-1">{att.name}</span>
+                      <span className="text-slate-400">{formatFileSize(att.size)}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+            
             {/* 进行中 */}
             {step.status === 'in_progress' && isActive && (
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 space-y-3">
                 <Textarea
                   placeholder="记录执行内容..."
                   value={content}
                   onChange={e => onContentChange(e.target.value)}
                   rows={2}
                 />
-                <div className="flex gap-2">
+                
+                {/* 上传区域 */}
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+                    className="hidden"
+                  />
+                  
+                  {/* 已上传的附件 */}
+                  {attachments.length > 0 && (
+                    <div className="space-y-1.5">
+                      {attachments.map((att, i) => {
+                        const AttIcon = getAttachmentIcon(att.type);
+                        return (
+                          <div key={i} className="flex items-center gap-2 text-xs p-2 bg-slate-50 rounded-lg">
+                            <AttIcon className="h-3.5 w-3.5 text-slate-400" />
+                            <span className="truncate flex-1 text-slate-600">{att.name}</span>
+                            <span className="text-slate-400">{formatFileSize(att.size)}</span>
+                            <button
+                              onClick={() => removeAttachment(i)}
+                              className="p-0.5 hover:bg-slate-200 rounded text-slate-400 hover:text-red-500"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                        上传中...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3 w-3 mr-1.5" />
+                        上传材料留痕
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-[10px] text-slate-400 text-center">
+                    支持图片、视频、音频、文档（最大 50MB）
+                  </p>
+                </div>
+                
+                {/* 操作按钮 */}
+                <div className="flex gap-2 pt-2">
                   <Button size="sm" onClick={onComplete}>
                     <CheckCircle className="h-3 w-3 mr-1" />
                     完成
