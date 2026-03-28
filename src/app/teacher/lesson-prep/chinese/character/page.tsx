@@ -1,7 +1,7 @@
 /**
  * 生字专项工具页面
  * 
- * 生成笔顺图、田字格范写、形近字辨析、多音字、听写清单
+ * 生成笔顺图、田字格范写、形近字辨析、多音字、听写清单、本体论推导、配套练习
  */
 
 'use client';
@@ -10,7 +10,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -26,16 +25,20 @@ import {
   BookText,
   Loader2,
   Download,
-  Volume2,
   Eye,
   Grid3X3,
+  Brain,
+  FileText,
+  MessageSquare,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import type {
   CharacterInfo,
   SimilarCharGroup,
   PolyphonicChar,
   DictationItem,
+  OntologyDerivation,
+  ExerciseSet,
+  GradeSentenceRequirement,
 } from '@/types/chinese-prep';
 
 // ==================== 主组件 ====================
@@ -50,6 +53,9 @@ export default function CharacterPage() {
     similarChars: true,
     polyphonic: true,
     dictation: true,
+    ontology: true, // 本体论推导
+    exercises: true, // 配套练习
+    sentences: true, // 造句
   });
   
   // 结果状态
@@ -58,6 +64,9 @@ export default function CharacterPage() {
   const [similarGroups, setSimilarGroups] = useState<SimilarCharGroup[]>([]);
   const [polyphonicChars, setPolyphonicChars] = useState<PolyphonicChar[]>([]);
   const [dictationList, setDictationList] = useState<DictationItem[]>([]);
+  const [ontology, setOntology] = useState<OntologyDerivation[]>([]);
+  const [exercises, setExercises] = useState<ExerciseSet | null>(null);
+  const [sentenceReqs, setSentenceReqs] = useState<GradeSentenceRequirement | null>(null);
   
   // 生成素材
   const handleGenerate = async () => {
@@ -77,18 +86,13 @@ export default function CharacterPage() {
       
       const data = await response.json();
       
-      if (data.characters) {
-        setCharacterInfos(data.characters);
-      }
-      if (data.similarGroups) {
-        setSimilarGroups(data.similarGroups);
-      }
-      if (data.polyphonicChars) {
-        setPolyphonicChars(data.polyphonicChars);
-      }
-      if (data.dictationList) {
-        setDictationList(data.dictationList);
-      }
+      if (data.characters) setCharacterInfos(data.characters);
+      if (data.similarGroups) setSimilarGroups(data.similarGroups);
+      if (data.polyphonicChars) setPolyphonicChars(data.polyphonicChars);
+      if (data.dictationList) setDictationList(data.dictationList);
+      if (data.ontology) setOntology(data.ontology);
+      if (data.exercises) setExercises(data.exercises);
+      if (data.sentenceRequirements) setSentenceReqs(data.sentenceRequirements);
     } catch (error) {
       console.error('生成失败:', error);
     } finally {
@@ -96,37 +100,36 @@ export default function CharacterPage() {
     }
   };
   
-  // 渲染笔顺动画
+  // ==================== 渲染函数 ====================
+  
+  // 渲染笔顺动画和田字格范写
   const renderStrokeOrder = (info: CharacterInfo) => (
     <Card key={info.char} className="overflow-hidden">
-      <CardHeader className="pb-2 bg-blue-50">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <span className="text-3xl font-kai">{info.char}</span>
-          <span className="text-sm text-muted-foreground">{info.pinyin}</span>
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-3">
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl font-bold text-blue-600">{info.char}</span>
+            <span className="text-lg text-muted-foreground">{info.pinyin}</span>
+          </div>
+          <div className="flex gap-2">
+            <Badge variant="secondary">{info.structure}</Badge>
+            <Badge variant="outline">{info.strokeCount}画</Badge>
+          </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-4 space-y-4">
         {/* 基本信息 */}
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div><span className="text-muted-foreground">部首：</span>{info.radical}</div>
-          <div><span className="text-muted-foreground">结构：</span>{info.structure}</div>
-          <div><span className="text-muted-foreground">笔画：</span>{info.strokeCount}画</div>
-          <div><span className="text-muted-foreground">组词：</span>{info.words.slice(0, 3).join('、')}</div>
-        </div>
-        
-        {/* 笔顺展示 */}
-        <div className="border rounded-lg p-3 bg-gray-50">
-          <div className="text-sm text-muted-foreground mb-2">笔顺：</div>
-          <div className="flex flex-wrap gap-1">
-            {info.strokeOrder.map((stroke, idx) => (
-              <Badge key={idx} variant="outline" className="text-xs">
-                {idx + 1}.{stroke}
-              </Badge>
-            ))}
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <span className="text-muted-foreground">部首：</span>
+            <span className="font-medium">{info.radical}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">笔画：</span>
+            <span className="font-medium">{info.strokeOrder.join(' → ')}</span>
           </div>
         </div>
         
-        {/* 田字格范写 - 手写楷体风格 */}
         {/* 田字格范写 - 专业手写楷体风格 */}
         <div className="space-y-2">
           <div className="text-sm text-muted-foreground">田字格范写（楷体）：</div>
@@ -205,6 +208,12 @@ export default function CharacterPage() {
           </div>
         )}
         
+        {/* 组词 */}
+        <div className="text-sm">
+          <span className="text-muted-foreground">组词：</span>
+          <span className="ml-2">{info.words.join('、')}</span>
+        </div>
+        
         {/* 下载按钮 */}
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="flex-1">
@@ -220,69 +229,304 @@ export default function CharacterPage() {
     </Card>
   );
   
+  // 渲染本体论推导
+  const renderOntology = (item: OntologyDerivation) => (
+    <Card key={item.char} className="overflow-hidden">
+      <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 pb-3">
+        <CardTitle className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+            <Brain className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <div className="text-xl font-bold text-purple-700">{item.char} - 本体论推导</div>
+            <div className="text-xs text-muted-foreground">认知 → 理解 → 应用 → 拓展</div>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 space-y-4">
+        {/* 认知阶段 */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-blue-700">
+            <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs">1</span>
+            认知阶段
+          </div>
+          <div className="ml-8 space-y-2 text-sm bg-blue-50 p-3 rounded-lg">
+            <div>
+              <span className="font-medium text-blue-600">字形分析：</span>
+              <span className="text-gray-700">{item.recognition.formAnalysis}</span>
+            </div>
+            <div>
+              <span className="font-medium text-blue-600">读音线索：</span>
+              <span className="text-gray-700">{item.recognition.phoneticClue}</span>
+            </div>
+            <div>
+              <span className="font-medium text-blue-600">书写要点：</span>
+              <span className="text-gray-700">{item.recognition.writingGuide}</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* 理解阶段 */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
+            <span className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-xs">2</span>
+            理解阶段
+          </div>
+          <div className="ml-8 space-y-2 text-sm bg-green-50 p-3 rounded-lg">
+            <div>
+              <span className="font-medium text-green-600">字义：</span>
+              <span className="text-gray-700">{item.understanding.meaning}</span>
+            </div>
+            <div>
+              <span className="font-medium text-green-600">字义演变：</span>
+              <span className="text-gray-700">{item.understanding.meaningEvolution}</span>
+            </div>
+            <div>
+              <span className="font-medium text-green-600">语义场：</span>
+              <span className="text-gray-700">{item.understanding.semanticField.join('、')}</span>
+            </div>
+            <div>
+              <span className="font-medium text-green-600">词语搭配：</span>
+              <span className="text-gray-700">{item.understanding.collocation.join('、')}</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* 应用阶段 */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-orange-700">
+            <span className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-xs">3</span>
+            应用阶段
+          </div>
+          <div className="ml-8 space-y-2 text-sm bg-orange-50 p-3 rounded-lg">
+            <div>
+              <span className="font-medium text-orange-600">基础组词：</span>
+              <span className="text-gray-700">{item.application.basicWords.join('、')}</span>
+            </div>
+            <div>
+              <span className="font-medium text-orange-600">拓展组词：</span>
+              <span className="text-gray-700">{item.application.advancedWords.join('、')}</span>
+            </div>
+            {item.application.sentences && item.application.sentences.length > 0 && (
+              <div>
+                <span className="font-medium text-orange-600">造句：</span>
+                <div className="mt-2 space-y-2">
+                  {item.application.sentences.map((s, idx) => (
+                    <div key={idx} className="p-2 bg-white rounded border-l-4 border-orange-300">
+                      <div className="text-gray-800">{s.sentence}</div>
+                      {s.analysis && (
+                        <div className="text-xs text-muted-foreground mt-1">💡 {s.analysis}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* 拓展阶段 */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-purple-700">
+            <span className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-xs">4</span>
+            拓展阶段
+          </div>
+          <div className="ml-8 space-y-2 text-sm bg-purple-50 p-3 rounded-lg">
+            <div>
+              <span className="font-medium text-purple-600">相关字：</span>
+              <span className="text-gray-700">{item.extension.relatedCharacters.join('、')}</span>
+            </div>
+            <div>
+              <span className="font-medium text-purple-600">文化背景：</span>
+              <span className="text-gray-700">{item.extension.culturalContext}</span>
+            </div>
+            <div>
+              <span className="font-medium text-purple-600">阅读建议：</span>
+              <span className="text-gray-700">{item.extension.readingSuggestion}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+  
+  // 渲染配套练习
+  const renderExercises = () => {
+    if (!exercises) return null;
+    
+    return (
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 pb-3">
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <div className="text-xl font-bold text-emerald-700">{exercises.title}</div>
+                <div className="text-xs text-muted-foreground">
+                  {exercises.grade}年级 | 总分{exercises.totalScore}分 | 建议用时{exercises.timeSuggestion}
+                </div>
+              </div>
+            </div>
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-1" />
+              导出练习
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
+          {exercises.exercises.map((ex, idx) => (
+            <div key={ex.id} className="p-4 border rounded-lg bg-white">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-sm font-bold text-emerald-700">
+                    {idx + 1}
+                  </span>
+                  <div>
+                    <span className="font-medium text-emerald-700">{ex.typeName}</span>
+                    <Badge variant="outline" className="ml-2 text-xs">
+                      {ex.difficulty === 'easy' ? '基础' : ex.difficulty === 'medium' ? '中等' : '拓展'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-sm text-gray-600 mb-2">{ex.instruction}</div>
+              
+              <div className="text-base p-3 bg-gray-50 rounded border">
+                {ex.content}
+              </div>
+              
+              {/* 选择题选项 */}
+              {ex.options && ex.options.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {ex.options.map((opt, optIdx) => (
+                    <div key={optIdx} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50">
+                      <span className="w-6 h-6 rounded border flex items-center justify-center text-sm font-medium">
+                        {String.fromCharCode(65 + optIdx)}
+                      </span>
+                      <span className="text-sm">{opt}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* 答案和解析 */}
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm text-emerald-600 hover:text-emerald-700">
+                  查看答案
+                </summary>
+                <div className="mt-2 p-3 bg-emerald-50 rounded border border-emerald-200">
+                  <div className="text-sm">
+                    <span className="font-medium text-emerald-700">答案：</span>
+                    <span className="text-gray-800">
+                      {Array.isArray(ex.answer) ? ex.answer.join('、') : ex.answer}
+                    </span>
+                  </div>
+                  {ex.explanation && (
+                    <div className="text-sm mt-2">
+                      <span className="font-medium text-emerald-700">解析：</span>
+                      <span className="text-gray-600">{ex.explanation}</span>
+                    </div>
+                  )}
+                </div>
+              </details>
+            </div>
+          ))}
+          
+          {/* 答案汇总 */}
+          <details className="p-4 border rounded-lg bg-emerald-50">
+            <summary className="cursor-pointer font-medium text-emerald-700">
+              答案汇总
+            </summary>
+            <div className="mt-3 text-sm whitespace-pre-line">{exercises.answerKey}</div>
+          </details>
+        </CardContent>
+      </Card>
+    );
+  };
+  
   // 渲染形近字组
   const renderSimilarGroup = (group: SimilarCharGroup, idx: number) => (
     <Card key={idx} className="p-4">
       <div className="flex items-center gap-4 mb-3">
+        <div className="text-3xl font-bold text-blue-600">{group.baseChar}</div>
+        <div className="flex-1 h-px bg-gradient-to-r from-blue-200 to-transparent" />
+        <div className="text-sm text-muted-foreground">形近字辨析</div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-3 mb-3">
         {group.similarChars.map((item, i) => (
-          <div key={i} className="text-center">
-            <div className="text-3xl font-kai mb-1">{item.char}</div>
-            <div className="text-xs text-muted-foreground">{item.pinyin || ''}</div>
+          <div key={i} className="flex items-center gap-2 p-2 bg-blue-50 rounded">
+            <span className="text-2xl">{item.char}</span>
+            <div className="flex-1">
+              <div className="text-sm font-medium">{item.pinyin}</div>
+              <div className="text-xs text-muted-foreground">{item.difference}</div>
+              <div className="text-xs text-blue-600">例：{item.example}</div>
+            </div>
           </div>
         ))}
       </div>
-      <p className="text-sm text-muted-foreground">{group.analysis}</p>
+      
+      <div className="p-3 bg-amber-50 rounded border border-amber-200">
+        <div className="text-sm font-medium text-amber-700">辨析要点：</div>
+        <div className="text-sm mt-1">{group.analysis}</div>
+      </div>
     </Card>
   );
   
   // 渲染多音字
-  const renderPolyphonic = (poly: PolyphonicChar, idx: number) => (
-    <Card key={idx} className="p-4">
-      <div className="text-3xl font-kai text-center mb-3">{poly.char}</div>
+  const renderPolyphonic = (item: PolyphonicChar) => (
+    <Card key={item.char} className="p-4">
+      <div className="text-2xl font-bold text-center mb-3">{item.char}</div>
       <div className="space-y-2">
-        {poly.readings.map((reading, i) => (
-          <div key={i} className="flex items-center gap-2 text-sm">
-            <Badge variant="secondary">{reading.pinyin}</Badge>
-            <span>{reading.example}</span>
+        {item.readings.map((r, i) => (
+          <div key={i} className="p-2 bg-gray-50 rounded">
+            <div className="font-medium text-blue-600">{r.pinyin}</div>
+            <div className="text-xs text-muted-foreground">{r.meaning}</div>
+            <div className="text-xs">例：{r.example}</div>
           </div>
         ))}
-        {poly.记忆口诀 && (
-          <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
-            记忆口诀：{poly.记忆口诀}
-          </div>
-        )}
       </div>
+      {item.记忆口诀 && (
+        <div className="mt-2 p-2 bg-orange-50 rounded text-xs text-orange-700">
+          💡 {item.记忆口诀}
+        </div>
+      )}
     </Card>
   );
   
   // 渲染听写清单
   const renderDictation = () => (
     <Card className="p-4">
-      <CardTitle className="text-lg mb-4">听写清单</CardTitle>
-      <div className="space-y-3">
-        {['easy', 'medium', 'hard'].map(level => {
-          const items = dictationList.filter(d => d.difficulty === level);
-          if (items.length === 0) return null;
-          
-          return (
-            <div key={level}>
-              <div className="text-sm font-medium mb-1">
-                {level === 'easy' ? '基础' : level === 'medium' ? '中等' : '挑战'}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {items.map((item, idx) => (
-                  <Badge key={idx} variant="outline">
-                    {item.words[0]}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="font-semibold">听写清单</h4>
+        <Button variant="outline" size="sm">
+          <Download className="w-4 h-4 mr-1" />
+          导出清单
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {dictationList.map((item, i) => (
+          <div key={i} className="p-3 border rounded-lg">
+            <div className="text-2xl text-center mb-2">{item.char}</div>
+            <div className="text-center text-sm text-muted-foreground mb-2">{item.pinyin}</div>
+            <div className="text-xs text-center">{item.words.join('、')}</div>
+            <Badge 
+              variant="outline" 
+              className="w-full mt-2 justify-center"
+            >
+              {item.difficulty === 'easy' ? '简单' : item.difficulty === 'medium' ? '中等' : '困难'}
+            </Badge>
+          </div>
+        ))}
       </div>
     </Card>
   );
 
+  // ==================== 主渲染 ====================
+  
   return (
     <div className="p-6 space-y-6">
       {/* 顶部导航 */}
@@ -298,7 +542,7 @@ export default function CharacterPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">生字专项</h1>
-            <p className="text-sm text-muted-foreground">原子化素材生成</p>
+            <p className="text-sm text-muted-foreground">完整教学素材生成：认知→理解→应用→巩固</p>
           </div>
         </div>
       </div>
@@ -334,30 +578,43 @@ export default function CharacterPage() {
           </div>
           
           {/* 生成选项 */}
-          <div className="flex flex-wrap gap-4">
-            {[
-              { key: 'strokeOrder', label: '笔顺图' },
-              { key: 'gridWriting', label: '田字格范写' },
-              { key: 'similarChars', label: '形近字辨析' },
-              { key: 'polyphonic', label: '多音字' },
-              { key: 'dictation', label: '听写清单' },
-            ].map(opt => (
-              <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
-                <Checkbox
-                  checked={options[opt.key as keyof typeof options]}
-                  onCheckedChange={(checked) => 
-                    setOptions(prev => ({ ...prev, [opt.key]: checked }))
-                  }
-                />
-                <span className="text-sm">{opt.label}</span>
-              </label>
-            ))}
+          <div className="space-y-3">
+            <div className="text-sm font-medium">生成选项</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { key: 'strokeOrder', label: '笔顺图', icon: '📝' },
+                { key: 'gridWriting', label: '田字格范写', icon: '🔤' },
+                { key: 'similarChars', label: '形近字辨析', icon: '🔍' },
+                { key: 'polyphonic', label: '多音字', icon: '🔊' },
+                { key: 'dictation', label: '听写清单', icon: '📋' },
+                { key: 'ontology', label: '本体论推导', icon: '🧠', highlight: true },
+                { key: 'exercises', label: '配套练习', icon: '📄', highlight: true },
+                { key: 'sentences', label: '造句', icon: '💬', highlight: true },
+              ].map(opt => (
+                <label 
+                  key={opt.key} 
+                  className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors hover:bg-muted ${
+                    opt.highlight ? 'border-purple-200 bg-purple-50' : ''
+                  }`}
+                >
+                  <Checkbox
+                    checked={options[opt.key as keyof typeof options]}
+                    onCheckedChange={(checked) => 
+                      setOptions(prev => ({ ...prev, [opt.key]: checked }))
+                    }
+                  />
+                  <span className="text-lg">{opt.icon}</span>
+                  <span className="text-sm font-medium">{opt.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
           
           <Button 
             onClick={handleGenerate} 
             disabled={!characters.trim() || loading}
             className="w-full"
+            size="lg"
           >
             {loading ? (
               <>
@@ -367,7 +624,7 @@ export default function CharacterPage() {
             ) : (
               <>
                 <Eye className="w-4 h-4 mr-2" />
-                生成素材
+                生成完整教学素材
               </>
             )}
           </Button>
@@ -379,11 +636,39 @@ export default function CharacterPage() {
         <div className="space-y-6">
           {/* 生字卡片 */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">生字详情</h3>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-sm">📝</span>
+              生字详情
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {characterInfos.map(renderStrokeOrder)}
             </div>
           </div>
+          
+          {/* 本体论推导 */}
+          {ontology.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-sm">🧠</span>
+                本体论推导
+                <Badge variant="secondary">认知→理解→应用→拓展</Badge>
+              </h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {ontology.map(renderOntology)}
+              </div>
+            </div>
+          )}
+          
+          {/* 配套练习 */}
+          {exercises && (
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-sm">📄</span>
+                配套练习
+              </h3>
+              {renderExercises()}
+            </div>
+          )}
           
           {/* 形近字辨析 */}
           {similarGroups.length > 0 && (

@@ -32,6 +32,61 @@ export type CharacterInfo = {
   words: string[];
 };
 
+/** 字源信息 */
+export type CharacterOrigin = {
+  char: string;
+  origin: string; // 字源（甲骨文、金文等）
+  evolution: string[]; // 演变过程
+  culturalStory: string; // 文化故事
+  memoryMethod: string; // 记忆方法
+};
+
+/** 造句项（按年级分层） */
+export type SentenceItem = {
+  sentence: string;
+  type: 'simple' | 'compound' | 'complex' | 'rhetorical'; // 简单句、并列句、复杂句、修辞句
+  analysis?: string; // 句式分析（中高年级）
+  keyWords?: string[]; // 关键词标注
+};
+
+/** 本体论推导 */
+export type OntologyDerivation = {
+  char: string;
+  // 认知阶段
+  recognition: {
+    formAnalysis: string; // 字形分析
+    phoneticClue: string; // 读音线索
+    writingGuide: string; // 书写要点
+  };
+  // 理解阶段
+  understanding: {
+    meaning: string; // 字义
+    meaningEvolution: string; // 字义演变
+    semanticField: string[]; // 语义场（相关词）
+    collocation: string[]; // 词语搭配
+  };
+  // 应用阶段
+  application: {
+    basicWords: string[]; // 基础组词
+    advancedWords: string[]; // 拓展组词
+    sentences: SentenceItem[]; // 造句（按年级分层）
+  };
+  // 拓展阶段
+  extension: {
+    relatedCharacters: string[]; // 相关字
+    culturalContext: string; // 文化背景
+    readingSuggestion: string; // 阅读建议
+  };
+};
+
+/** 年级句子要求 */
+export type GradeSentenceRequirement = {
+  grade: number;
+  sentenceCount: number;
+  sentenceType: string;
+  requirements: string[];
+};
+
 /** 形近字组 */
 export type SimilarCharGroup = {
   /** 基准字 */
@@ -79,16 +134,56 @@ export type DictationItem = {
   difficulty: 'easy' | 'medium' | 'hard';
 };
 
+/** 练习类型 */
+export type ExerciseType = 
+  | 'fill_blank' // 填空题
+  | 'multiple_choice' // 选择题
+  | 'matching' // 连线题
+  | 'correction' // 改错题
+  | 'pinyin_write' // 看拼音写汉字
+  | 'stroke_order' // 笔顺排序
+  | 'word_formation' // 组词
+  | 'sentence_completion' // 补充句子
+  | 'sentence_writing'; // 写句子
+
+/** 练习题 */
+export type ExerciseItem = {
+  id: string;
+  type: ExerciseType;
+  typeName: string;
+  instruction: string;
+  content: string;
+  options?: string[]; // 选择题选项
+  answer: string | string[];
+  difficulty: 'easy' | 'medium' | 'hard';
+  explanation?: string;
+  relatedChar?: string; // 关联生字
+};
+
+/** 配套练习 */
+export type ExerciseSet = {
+  title: string;
+  grade: number;
+  totalScore: number;
+  timeSuggestion: string;
+  exercises: ExerciseItem[];
+  answerKey: string;
+};
+
 /** 生字专项请求 */
 export type CharacterRequest = {
   characters: string[]; // 生字列表
   grade: number;
+  lessonTitle?: string; // 课文标题
   generateOptions: {
     strokeOrder: boolean; // 生成笔顺图
     gridWriting: boolean; // 生成田字格范写
     similarChars: boolean; // 生成形近字辨析
     polyphonic: boolean; // 生成多音字
     dictation: boolean; // 生成听写清单
+    ontology: boolean; // 生成本体论推导
+    exercises: boolean; // 生成配套练习
+    sentences: boolean; // 生成造句
   };
 };
 
@@ -98,6 +193,9 @@ export type CharacterResponse = {
   similarGroups: SimilarCharGroup[];
   polyphonicChars: PolyphonicChar[];
   dictationList: DictationItem[];
+  ontology?: OntologyDerivation[]; // 本体论推导
+  exercises?: ExerciseSet; // 配套练习
+  sentenceRequirements?: GradeSentenceRequirement; // 年级造句要求
 };
 
 // ==================== 朗读教学 ====================
