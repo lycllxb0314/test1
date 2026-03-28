@@ -7,8 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2, BookOpen, PenTool, Brain, FileText, Download } from 'lucide-react';
-import type { CharacterInfo, OntologyDerivation, DictationItem } from '@/types/chinese-prep';
+import { ArrowLeft, Loader2, BookOpen, PenTool, Brain, FileText, Download, CheckCircle2 } from 'lucide-react';
+import type { CharacterInfo, OntologyDerivation, DictationItem, ExerciseSet } from '@/types/chinese-prep';
 
 export default function CharacterPage() {
   const [chars, setChars] = useState('');
@@ -18,6 +18,7 @@ export default function CharacterPage() {
     characters: CharacterInfo[];
     ontology: OntologyDerivation[];
     dictationList: DictationItem[];
+    exercises?: ExerciseSet;
   } | null>(null);
   const [err, setErr] = useState('');
 
@@ -44,7 +45,7 @@ export default function CharacterPage() {
             similarChars: true,
             polyphonic: true,
             dictation: true,
-            exercises: false,
+            exercises: true,
           },
         }),
       });
@@ -331,6 +332,93 @@ export default function CharacterPage() {
                         <div className="text-xs text-gray-400">{item.words?.join('、')}</div>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 配套练习 */}
+            {data.exercises && data.exercises.exercises && data.exercises.exercises.length > 0 && (
+              <Card className="border-0 shadow-lg bg-white/90">
+                <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-5 h-5" />
+                      {data.exercises.title}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm font-normal">
+                      <span>共{data.exercises.totalScore}分</span>
+                      <span>|</span>
+                      <span>{data.exercises.timeSuggestion}</span>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  {data.exercises.exercises.map((exercise, idx) => (
+                    <div key={exercise.id} className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-100">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500 text-white font-bold text-sm">
+                            {idx + 1}
+                          </span>
+                          <span className="font-medium text-amber-700">{exercise.typeName}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {exercise.difficulty === 'easy' ? '基础' : exercise.difficulty === 'medium' ? '中等' : '拓展'}
+                          </Badge>
+                        </div>
+                        {exercise.relatedChar && (
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                            生字：{exercise.relatedChar}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="text-sm text-gray-600 mb-3">{exercise.instruction}</div>
+                      
+                      <div className="p-4 bg-white rounded border-2 border-dashed border-amber-200">
+                        {exercise.type === 'pinyin_write' && (
+                          <div className="text-center">
+                            <span className="text-2xl font-medium text-gray-700">{exercise.content}</span>
+                          </div>
+                        )}
+                        {exercise.type === 'word_formation' && (
+                          <div className="text-center">
+                            <span className="text-2xl font-bold text-gray-800">{exercise.content}</span>
+                          </div>
+                        )}
+                        {exercise.type === 'sentence_writing' && (
+                          <div className="text-center">
+                            <span className="text-xl font-medium text-gray-700">用"（　{exercise.content}　）"写句子</span>
+                          </div>
+                        )}
+                        {exercise.type === 'fill_blank' && (
+                          <div className="text-lg text-gray-700">{exercise.content.replace(/_{2,}/g, '______')}</div>
+                        )}
+                      </div>
+                      
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-sm text-amber-600 hover:text-amber-700 font-medium">
+                          参考答案
+                        </summary>
+                        <div className="mt-2 p-3 bg-green-50 rounded border border-green-200">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-700">
+                              {Array.isArray(exercise.answer) ? exercise.answer.join('、') : exercise.answer}
+                            </span>
+                          </div>
+                          {exercise.explanation && (
+                            <div className="mt-1 text-xs text-gray-500">{exercise.explanation}</div>
+                          )}
+                        </div>
+                      </details>
+                    </div>
+                  ))}
+                  
+                  {/* 答案速查 */}
+                  <div className="p-4 bg-gray-50 rounded-lg border">
+                    <div className="font-medium text-gray-700 mb-2">答案速查</div>
+                    <div className="text-sm text-gray-600">{data.exercises.answerKey}</div>
                   </div>
                 </CardContent>
               </Card>

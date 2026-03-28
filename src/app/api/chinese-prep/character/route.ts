@@ -118,14 +118,67 @@ function buildSimplePrompt(
   ],
   "similarGroups": [],
   "polyphonicChars": [],
-  "dictationList": [{"char": "舟", "pinyin": "zhōu", "words": ["小舟"], "difficulty": "easy"}]
+  "dictationList": [{"char": "舟", "pinyin": "zhōu", "words": ["小舟"], "difficulty": "easy"}],
+  "exercises": {
+    "title": "生字练习",
+    "grade": ${grade},
+    "totalScore": 100,
+    "timeSuggestion": "15分钟",
+    "exercises": [
+      {
+        "id": "1",
+        "type": "pinyin_write",
+        "typeName": "看拼音写汉字",
+        "instruction": "根据拼音写出相应的汉字",
+        "content": "zhōu",
+        "answer": "舟",
+        "difficulty": "easy",
+        "relatedChar": "舟"
+      },
+      {
+        "id": "2",
+        "type": "word_formation",
+        "typeName": "组词",
+        "instruction": "用下面的字组词",
+        "content": "舟",
+        "answer": ["小舟", "轻舟"],
+        "difficulty": "easy",
+        "relatedChar": "舟"
+      },
+      {
+        "id": "3",
+        "type": "sentence_writing",
+        "typeName": "写句子",
+        "instruction": "用下面的词语写一个句子",
+        "content": "小舟",
+        "answer": "小舟在湖面上轻轻飘荡。",
+        "difficulty": "medium",
+        "explanation": "主语+状语+谓语结构",
+        "relatedChar": "舟"
+      },
+      {
+        "id": "4",
+        "type": "fill_blank",
+        "typeName": "填空",
+        "instruction": "在横线上填入合适的字",
+        "content": "轻___已过万重山。",
+        "answer": "舟",
+        "difficulty": "medium",
+        "explanation": "出自李白的诗句",
+        "relatedChar": "舟"
+      }
+    ],
+    "answerKey": "1.舟 2.小舟、轻舟 3.略 4.舟"
+  }
 }
 
 要求：
 1. 只输出JSON，不要有解释
 2. 必须包含所有输入生字
 3. strokeGuide要有书写指导
-4. 本体论ontology必须完整`;
+4. 本体论ontology必须完整
+5. exercises必须包含：看拼音写汉字、组词、写句子（造句）、填空四种题型
+6. 每个生字至少有一个写句子练习（造句）`;
 }
 
 /** 解析响应 - 简化版 */
@@ -138,6 +191,7 @@ function parseResponse(
   polyphonicChars: PolyphonicChar[];
   dictationList: DictationItem[];
   ontology: OntologyDerivation[];
+  exercises?: ExerciseSet;
 } {
   let jsonStr = content;
   
@@ -163,6 +217,7 @@ function parseResponse(
       polyphonicChars: data.polyphonicChars || [],
       dictationList: data.dictationList || [],
       ontology: data.ontology || [],
+      exercises: data.exercises || undefined,
     };
   } catch (e) {
     console.error('[JSON Parse Error]', e);
@@ -206,6 +261,7 @@ function parseResponse(
       polyphonicChars: [],
       dictationList: [],
       ontology: [],
+      exercises: undefined,
     };
   }
 }
