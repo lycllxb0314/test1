@@ -145,6 +145,7 @@ const teacherBaseNav: NavItem[] = [
   { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台' },
   { name: '个人档案', href: '/teacher/profile', icon: UserCircle, description: '个人信息维护' },
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排' },
+  { name: '教研活动', href: '/teacher/research', icon: Target, description: '参与教研活动与集体备课', badge: '智慧' },
   { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请' },
   { name: '报销申请', href: '/teacher/expense', icon: DollarSign, description: '费用报销申请' },
   { name: '教室预约', href: '/teacher/room-booking', icon: DoorOpen, description: '预约使用教室' },
