@@ -312,7 +312,9 @@ function parseCharacterResponse(
     jsonStr = jsonObjectMatch[0];
   }
 
+  // 尝试修复常见的JSON格式问题
   try {
+    // 第一次尝试直接解析
     const data = JSON.parse(jsonStr);
     
     return {
@@ -320,20 +322,134 @@ function parseCharacterResponse(
       similarGroups: data.similarGroups || [],
       polyphonicChars: data.polyphonicChars || [],
       dictationList: data.dictationList || [],
-      ontology: data.ontology || [], // 本体论推导必要，始终返回
+      ontology: data.ontology || [],
       exercises: options.exercises ? (data.exercises || undefined) : undefined,
     };
   } catch (e) {
-    console.error('[JSON Parse Error]:', e, '\nContent:', content.substring(0, 500));
+    console.error('[JSON Parse Error, attempting repair]:', e);
     
-    // 解析失败，返回空结果
-    return {
-      characters: [],
-      similarGroups: [],
-      polyphonicChars: [],
-      dictationList: [],
-      ontology: [],
-      exercises: undefined,
-    };
+    // 尝试修复JSON
+    try {
+      // 移除可能的尾部逗号
+      let repaired = jsonStr.replace(/,(\s*[}\]])/g, '$1');
+      
+      // 修复未闭合的字符串（简单处理）
+      // 计算引号数量，如果是奇数则可能有问题
+      
+      const data = JSON.parse(repaired);
+      
+      return {
+        characters: data.characters || [],
+        similarGroups: data.similarGroups || [],
+        polyphonicChars: data.polyphonicChars || [],
+        dictationList: data.dictationList || [],
+        ontology: data.ontology || [],
+        exercises: options.exercises ? (data.exercises || undefined) : undefined,
+      };
+    } catch (e2) {
+      console.error('[JSON Repair Failed]:', e2, '\nContent preview:', content.substring(0, 1000));
+      
+      // 最后尝试：逐段解析
+      return tryPartialParse(jsonStr, inputChars, options);
+    }
   }
+}
+
+/** 尝试部分解析JSON */
+function tryPartialParse(
+  jsonStr: string,
+  inputChars: string[],
+  options: CharacterRequest['generateOptions']
+): {
+  characters: CharacterInfo[];
+  similarGroups: SimilarCharGroup[];
+  polyphonicChars: PolyphonicChar[];
+  dictationList: DictationItem[];
+  ontology: OntologyDerivation[];
+  exercises?: ExerciseSet;
+} {
+  const result = {
+    characters: [] as CharacterInfo[],
+    similarGroups: [] as SimilarCharGroup[],
+    polyphonicChars: [] as PolyphonicChar[],
+    dictationList: [] as DictationItem[],
+    ontology: [] as OntologyDerivation[],
+    exercises: undefined as ExerciseSet | undefined,
+  };
+  
+  // 尝试提取各个部分
+  try {
+    // 提取characters数组
+    const charsMatch = jsonStr.match(/"characters"\s*:\s*\[[\s\S]*?\n\s*\]/);
+    if (charsMatch) {
+      try {
+        const chars = JSON.parse(`{${charsMatch[0]}}`);
+        result.characters = chars.characters || [];
+      } catch (e) {
+        console.error('Failed to parse characters');
+      }
+    }
+    
+    // 提取ontology数组
+    const ontologyMatch = jsonStr.match(/"ontology"\s*:\s*\[[\s\S]*?\n\s*\]/);
+    if (ontologyMatch) {
+      try {
+        const ont = JSON.parse(`{${ontologyMatch[0]}}`);
+        result.ontology = ont.ontology || [];
+      } catch (e) {
+        console.error('Failed to parse ontology');
+      }
+    }
+    
+    // 提取exercises对象
+    if (options.exercises) {
+      const exercisesMatch = jsonStr.match(/"exercises"\s*:\s*\{[\s\S]*?"answerKey"\s*:\s*"[^"]*"\s*\}/);
+      if (exercisesMatch) {
+        try {
+          const ex = JSON.parse(`{${exercisesMatch[0]}}`);
+          result.exercises = ex.exercises;
+        } catch (e) {
+          console.error('Failed to parse exercises');
+        }
+      }
+    }
+    
+    // 提取similarGroups
+    const similarMatch = jsonStr.match(/"similarGroups"\s*:\s*\[[\s\S]*?\n\s*\]/);
+    if (similarMatch) {
+      try {
+        const sim = JSON.parse(`{${similarMatch[0]}}`);
+        result.similarGroups = sim.similarGroups || [];
+      } catch (e) {
+        console.error('Failed to parse similarGroups');
+      }
+    }
+    
+    // 提取polyphonicChars
+    const polyMatch = jsonStr.match(/"polyphonicChars"\s*:\s*\[[\s\S]*?\n\s*\]/);
+    if (polyMatch) {
+      try {
+        const poly = JSON.parse(`{${polyMatch[0]}}`);
+        result.polyphonicChars = poly.polyphonicChars || [];
+      } catch (e) {
+        console.error('Failed to parse polyphonicChars');
+      }
+    }
+    
+    // 提取dictationList
+    const dictMatch = jsonStr.match(/"dictationList"\s*:\s*\[[\s\S]*?\n\s*\]/);
+    if (dictMatch) {
+      try {
+        const dict = JSON.parse(`{${dictMatch[0]}}`);
+        result.dictationList = dict.dictationList || [];
+      } catch (e) {
+        console.error('Failed to parse dictationList');
+      }
+    }
+    
+  } catch (e) {
+    console.error('Partial parse failed:', e);
+  }
+  
+  return result;
 }
