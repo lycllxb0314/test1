@@ -181,9 +181,7 @@ export type CharacterRequest = {
     similarChars: boolean; // 生成形近字辨析
     polyphonic: boolean; // 生成多音字
     dictation: boolean; // 生成听写清单
-    ontology: boolean; // 生成本体论推导
-    exercises: boolean; // 生成配套练习
-    sentences: boolean; // 生成造句
+    exercises: boolean; // 生成配套练习（含造句）
   };
 };
 
@@ -193,9 +191,8 @@ export type CharacterResponse = {
   similarGroups: SimilarCharGroup[];
   polyphonicChars: PolyphonicChar[];
   dictationList: DictationItem[];
-  ontology?: OntologyDerivation[]; // 本体论推导
-  exercises?: ExerciseSet; // 配套练习
-  sentenceRequirements?: GradeSentenceRequirement; // 年级造句要求
+  ontology: OntologyDerivation[]; // 本体论推导（必要）
+  exercises?: ExerciseSet; // 配套练习（含造句）
 };
 
 // ==================== 朗读教学 ====================

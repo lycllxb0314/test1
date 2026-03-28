@@ -1,7 +1,7 @@
 /**
  * 生字专项工具页面
  * 
- * 生成笔顺图、田字格范写、形近字辨析、多音字、听写清单、本体论推导、配套练习
+ * 生成笔顺图、田字格范写、形近字辨析、多音字、听写清单、本体论推导（必要）、配套练习
  */
 
 'use client';
@@ -29,7 +29,6 @@ import {
   Grid3X3,
   Brain,
   FileText,
-  MessageSquare,
 } from 'lucide-react';
 import type {
   CharacterInfo,
@@ -38,7 +37,6 @@ import type {
   DictationItem,
   OntologyDerivation,
   ExerciseSet,
-  GradeSentenceRequirement,
 } from '@/types/chinese-prep';
 
 // ==================== 主组件 ====================
@@ -53,9 +51,7 @@ export default function CharacterPage() {
     similarChars: true,
     polyphonic: true,
     dictation: true,
-    ontology: true, // 本体论推导
-    exercises: true, // 配套练习
-    sentences: true, // 造句
+    exercises: true, // 配套练习（含造句）
   });
   
   // 结果状态
@@ -66,7 +62,6 @@ export default function CharacterPage() {
   const [dictationList, setDictationList] = useState<DictationItem[]>([]);
   const [ontology, setOntology] = useState<OntologyDerivation[]>([]);
   const [exercises, setExercises] = useState<ExerciseSet | null>(null);
-  const [sentenceReqs, setSentenceReqs] = useState<GradeSentenceRequirement | null>(null);
   
   // 生成素材
   const handleGenerate = async () => {
@@ -90,9 +85,8 @@ export default function CharacterPage() {
       if (data.similarGroups) setSimilarGroups(data.similarGroups);
       if (data.polyphonicChars) setPolyphonicChars(data.polyphonicChars);
       if (data.dictationList) setDictationList(data.dictationList);
-      if (data.ontology) setOntology(data.ontology);
+      if (data.ontology) setOntology(data.ontology); // 本体论推导必要
       if (data.exercises) setExercises(data.exercises);
-      if (data.sentenceRequirements) setSentenceReqs(data.sentenceRequirements);
     } catch (error) {
       console.error('生成失败:', error);
     } finally {
@@ -229,7 +223,7 @@ export default function CharacterPage() {
     </Card>
   );
   
-  // 渲染本体论推导
+  // 渲染本体论推导（必要）
   const renderOntology = (item: OntologyDerivation) => (
     <Card key={item.char} className="overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 pb-3">
@@ -350,7 +344,7 @@ export default function CharacterPage() {
     </Card>
   );
   
-  // 渲染配套练习
+  // 渲染配套练习（含造句）
   const renderExercises = () => {
     if (!exercises) return null;
     
@@ -579,22 +573,26 @@ export default function CharacterPage() {
           
           {/* 生成选项 */}
           <div className="space-y-3">
-            <div className="text-sm font-medium">生成选项</div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium">生成选项</div>
+              <Badge variant="secondary" className="text-xs">
+                <Brain className="w-3 h-3 mr-1" />
+                本体论推导为必要内容
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {[
                 { key: 'strokeOrder', label: '笔顺图', icon: '📝' },
                 { key: 'gridWriting', label: '田字格范写', icon: '🔤' },
                 { key: 'similarChars', label: '形近字辨析', icon: '🔍' },
                 { key: 'polyphonic', label: '多音字', icon: '🔊' },
                 { key: 'dictation', label: '听写清单', icon: '📋' },
-                { key: 'ontology', label: '本体论推导', icon: '🧠', highlight: true },
-                { key: 'exercises', label: '配套练习', icon: '📄', highlight: true },
-                { key: 'sentences', label: '造句', icon: '💬', highlight: true },
+                { key: 'exercises', label: '配套练习（含造句）', icon: '📄', highlight: true },
               ].map(opt => (
                 <label 
                   key={opt.key} 
                   className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors hover:bg-muted ${
-                    opt.highlight ? 'border-purple-200 bg-purple-50' : ''
+                    opt.highlight ? 'border-emerald-200 bg-emerald-50' : ''
                   }`}
                 >
                   <Checkbox
@@ -645,13 +643,14 @@ export default function CharacterPage() {
             </div>
           </div>
           
-          {/* 本体论推导 */}
+          {/* 本体论推导（必要） */}
           {ontology.length > 0 && (
             <div>
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <span className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-sm">🧠</span>
                 本体论推导
                 <Badge variant="secondary">认知→理解→应用→拓展</Badge>
+                <Badge variant="outline" className="text-xs">必要内容</Badge>
               </h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {ontology.map(renderOntology)}
@@ -659,12 +658,12 @@ export default function CharacterPage() {
             </div>
           )}
           
-          {/* 配套练习 */}
+          {/* 配套练习（含造句） */}
           {exercises && (
             <div>
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <span className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-sm">📄</span>
-                配套练习
+                配套练习（含造句）
               </h3>
               {renderExercises()}
             </div>

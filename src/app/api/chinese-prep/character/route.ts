@@ -16,7 +16,6 @@ import type {
   CharacterRequest,
   OntologyDerivation,
   ExerciseSet,
-  GradeSentenceRequirement,
 } from '@/types/chinese-prep';
 
 export async function POST(request: NextRequest) {
@@ -56,8 +55,7 @@ export async function POST(request: NextRequest) {
         polyphonicChars: [], 
         dictationList: [],
         ontology: [],
-        exercises: null,
-        sentenceRequirements: null,
+        exercises: undefined,
       },
       { status: 500 }
     );
@@ -134,9 +132,8 @@ function buildCharacterPrompt(
   ]`;
   }
 
-  // 本体论推导
-  if (options.ontology) {
-    prompt += `,
+  // 本体论推导（必要，始终生成）
+  prompt += `,
   "ontology": [
     {
       "char": "舟",
@@ -155,7 +152,7 @@ function buildCharacterPrompt(
         "basicWords": ["小舟", "轻舟"],
         "advancedWords": ["扁舟", "一叶扁舟", "同舟共济"],
         "sentences": [
-          {"sentence": "小舟在湖面上轻轻飘荡。", "type": "simple", "analysis": "简单的主谓句，适合低年级"}
+          {"sentence": "小舟在湖面上轻轻飘荡。", "type": "simple", "analysis": "简单的主谓句，适合${grade}年级"}
         ]
       },
       "extension": {
@@ -165,9 +162,8 @@ function buildCharacterPrompt(
       }
     }
   ]`;
-  }
 
-  // 配套练习
+  // 配套练习（含造句）
   if (options.exercises) {
     prompt += `,
   "exercises": {
@@ -206,20 +202,20 @@ function buildCharacterPrompt(
         "difficulty": "medium",
         "explanation": "量词搭配：一叶扁舟",
         "relatedChar": "舟"
+      },
+      {
+        "id": "4",
+        "type": "sentence_writing",
+        "typeName": "写句子",
+        "instruction": "用下面的字写一句话",
+        "content": "用"舟"写一句话（${sentenceReqs.sentenceType}）",
+        "answer": "小舟在湖面上轻轻飘荡。",
+        "difficulty": "medium",
+        "explanation": "要求：${sentenceReqs.requirements.join('，')}",
+        "relatedChar": "舟"
       }
     ],
-    "answerKey": "1. 舟  2. 小舟、轻舟  3. 叶"
-  }`;
-  }
-
-  // 造句要求和示例
-  if (options.sentences) {
-    prompt += `,
-  "sentenceRequirements": {
-    "grade": ${grade},
-    "sentenceCount": ${sentenceReqs.sentenceCount},
-    "sentenceType": "${sentenceReqs.sentenceType}",
-    "requirements": ${JSON.stringify(sentenceReqs.requirements)}
+    "answerKey": "1. 舟  2. 小舟、轻舟  3. 叶  4. 示例：小舟在湖面上轻轻飘荡。"
   }`;
   }
 
@@ -233,15 +229,21 @@ function buildCharacterPrompt(
 4. 形近字要找出字形相近易混淆的字
 5. 多音字只列出输入生字中是多音字的（如果没有多音字则数组为空）
 6. 听写清单按难度分级
-7. 本体论推导要符合"认知→理解→应用→拓展"的教学规律
-8. 造句要符合${grade}年级学生的认知水平：${sentenceReqs.sentenceType}
-9. 练习题要多样化，包括看拼音写汉字、组词、填空、选择等类型`;
+7. 本体论推导是必要内容，必须包含所有生字的完整推导（认知→理解→应用→拓展）
+8. 本体论中的造句要符合${grade}年级学生的认知水平：${sentenceReqs.sentenceType}
+9. 练习题要多样化，包括看拼音写汉字、组词、填空、写句子等类型
+10. 练习中的写句子题要符合年级要求：${sentenceReqs.requirements.join('，')}`;
 
   return prompt;
 }
 
 /** 获取年级造句要求 */
-function getSentenceRequirements(grade: number): GradeSentenceRequirement {
+function getSentenceRequirements(grade: number): { 
+  grade: number; 
+  sentenceCount: number; 
+  sentenceType: string; 
+  requirements: string[];
+} {
   if (grade <= 2) {
     return {
       grade,
@@ -292,9 +294,8 @@ function parseCharacterResponse(
   similarGroups: SimilarCharGroup[];
   polyphonicChars: PolyphonicChar[];
   dictationList: DictationItem[];
-  ontology?: OntologyDerivation[];
+  ontology: OntologyDerivation[];
   exercises?: ExerciseSet;
-  sentenceRequirements?: GradeSentenceRequirement;
 } {
   // 尝试提取 JSON
   let jsonStr = content;
@@ -319,9 +320,8 @@ function parseCharacterResponse(
       similarGroups: data.similarGroups || [],
       polyphonicChars: data.polyphonicChars || [],
       dictationList: data.dictationList || [],
-      ontology: options.ontology ? (data.ontology || []) : undefined,
+      ontology: data.ontology || [], // 本体论推导必要，始终返回
       exercises: options.exercises ? (data.exercises || undefined) : undefined,
-      sentenceRequirements: options.sentences ? (data.sentenceRequirements || getSentenceRequirements(grade)) : undefined,
     };
   } catch (e) {
     console.error('[JSON Parse Error]:', e, '\nContent:', content.substring(0, 500));
@@ -334,7 +334,6 @@ function parseCharacterResponse(
       dictationList: [],
       ontology: [],
       exercises: undefined,
-      sentenceRequirements: getSentenceRequirements(grade),
     };
   }
 }
