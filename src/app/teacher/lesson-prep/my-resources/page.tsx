@@ -230,53 +230,59 @@ export default function MyResourcesPage() {
               const colorClass = CATEGORY_COLORS[resource.category] || 'bg-gray-500';
               
               return (
-                <Card key={resource.id} className="border-0 shadow-md bg-white/90 hover:shadow-lg transition-shadow overflow-hidden group">
-                  <div className={`${colorClass} p-3`}>
-                    <div className="flex items-center justify-between text-white">
-                      <div className="flex items-center gap-2">
-                        <Icon className="w-5 h-5" />
-                        <span className="text-sm font-medium">
-                          {CATEGORY_NAMES[resource.category]}
-                        </span>
+                <Link key={resource.id} href={`/teacher/lesson-prep/my-resources/${resource.id}`} className="block">
+                  <Card className="border-0 shadow-md bg-white/90 hover:shadow-lg transition-shadow overflow-hidden group cursor-pointer h-full">
+                    <div className={`${colorClass} p-3`}>
+                      <div className="flex items-center justify-between text-white">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-5 h-5" />
+                          <span className="text-sm font-medium">
+                            {CATEGORY_NAMES[resource.category]}
+                          </span>
+                        </div>
+                        {resource.grade && (
+                          <Badge className="bg-white/20 text-white border-0">
+                            {resource.grade}年级
+                          </Badge>
+                        )}
                       </div>
-                      {resource.grade && (
-                        <Badge className="bg-white/20 text-white border-0">
-                          {resource.grade}年级
-                        </Badge>
+                    </div>
+                    <CardContent className="p-4">
+                      <h3 className="font-medium text-gray-800 mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                        {resource.title}
+                      </h3>
+                      {resource.description && (
+                        <p className="text-sm text-gray-500 mb-3 line-clamp-2">
+                          {resource.description}
+                        </p>
                       )}
-                    </div>
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-medium text-gray-800 mb-2 line-clamp-2">
-                      {resource.title}
-                    </h3>
-                    {resource.description && (
-                      <p className="text-sm text-gray-500 mb-3 line-clamp-2">
-                        {resource.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between text-xs text-gray-400">
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1">
-                          <Eye className="w-3.5 h-3.5" />
-                          {resource.viewCount}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {new Date(resource.createdAt).toLocaleDateString()}
-                        </span>
+                      <div className="flex items-center justify-between text-xs text-gray-400">
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5" />
+                            {resource.viewCount}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {new Date(resource.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDelete(resource.id);
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => handleDelete(resource.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               );
             })}
           </div>

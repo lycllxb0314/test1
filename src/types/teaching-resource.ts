@@ -153,10 +153,11 @@ export interface CharacterResourceContent {
   
   /** 听写清单 */
   dictationList?: Array<{
-    char: string;
-    pinyin: string;
-    words: string[];
-    difficulty: string;
+    word: string;           // 听写词语
+    pinyin: string;         // 词语拼音
+    mainChar: string;       // 本课生字
+    charPinyin: string;     // 生字拼音
+    difficulty: 'easy' | 'medium' | 'hard';
   }>;
   
   /** 配套练习 */
