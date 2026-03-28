@@ -4,15 +4,30 @@
  * POST /api/lesson-prep/chat
  * 
  * 流式输出，统一的备课助手，具备文本解读、教学设计、问题设计、评价语言等能力
+ * 支持多模态输入（文本、图片、视频）
  */
 
 import { NextRequest } from 'next/server';
 import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
 
+/** 内容部分 */
+type ContentPart = {
+  type: 'text' | 'image_url' | 'video_url';
+  text?: string;
+  image_url?: {
+    url: string;
+    detail?: 'high' | 'low';
+  };
+  video_url?: {
+    url: string;
+    fps?: number | null;
+  };
+};
+
 /** 对话消息 */
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | ContentPart[];
 };
 
 /** 对话请求 */
@@ -92,7 +107,7 @@ export async function POST(request: NextRequest) {
         
         try {
           const llmStream = client.stream(fullMessages, {
-            model: 'doubao-seed-1-8-251228',
+            model: 'doubao-seed-2-0-pro-260215',
             temperature: 0.8,
           });
 
