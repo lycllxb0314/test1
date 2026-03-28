@@ -270,9 +270,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-gradient-to-br from-emerald-50/30 via-background to-green-50/30">
+    <div className="p-4 space-y-4">
       {/* 顶部工具栏 */}
-      <div className="flex items-center justify-between flex-shrink-0 px-4 py-3 border-b bg-background/80 backdrop-blur-sm">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/teacher/lesson-prep/chinese">
             <Button variant="ghost" size="icon">
@@ -302,53 +302,51 @@ export default function ChatPage() {
       </div>
       
       {/* 对话区域 */}
-      <div className="flex-1 flex flex-col overflow-hidden min-h-0 m-4">
-        <Card className="flex-1 flex flex-col overflow-hidden border shadow-lg min-h-0">
-          {messages.length === 0 && !streamingContent ? (
-            <WelcomeContent />
-          ) : (
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
-              {messages.map(msg => (
-                <MessageBubble key={msg.id} message={msg} />
-              ))}
-              {streamingContent && <StreamingBubble />}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-          
-          {/* 输入区域 */}
-          <div className="border-t p-4 flex-shrink-0 bg-background">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1 relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="说点什么..."
-                  className="min-h-[52px] max-h-[120px] resize-none pr-12"
-                  disabled={isLoading}
-                />
-                <Button
-                  size="icon"
-                  className="absolute right-2 bottom-2 h-8 w-8"
-                  onClick={() => sendMessage(inputValue)}
-                  disabled={!inputValue.trim() || isLoading}
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              按 Enter 发送，Shift + Enter 换行
-            </p>
+      <Card className="h-[calc(100vh-180px)] flex flex-col overflow-hidden border shadow-lg">
+        {messages.length === 0 && !streamingContent ? (
+          <WelcomeContent />
+        ) : (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map(msg => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
+            {streamingContent && <StreamingBubble />}
+            <div ref={messagesEndRef} />
           </div>
-        </Card>
-      </div>
+        )}
+        
+        {/* 输入区域 */}
+        <div className="border-t p-4 flex-shrink-0 bg-background">
+          <div className="flex gap-3 items-end">
+            <div className="flex-1 relative">
+              <Textarea
+                ref={textareaRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="说点什么..."
+                className="min-h-[80px] max-h-[160px] resize-none pr-12"
+                disabled={isLoading}
+              />
+              <Button
+                size="icon"
+                className="absolute right-2 bottom-3 h-8 w-8"
+                onClick={() => sendMessage(inputValue)}
+                disabled={!inputValue.trim() || isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            按 Enter 发送，Shift + Enter 换行
+          </p>
+        </div>
+      </Card>
     </div>
   );
 }
