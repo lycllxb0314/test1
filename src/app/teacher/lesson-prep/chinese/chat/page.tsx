@@ -235,9 +235,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-4 gap-4">
+    <div className="flex flex-col h-screen">
       {/* 顶部工具栏 */}
-      <div className="flex items-center justify-between flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-background flex-shrink-0">
         <div className="flex items-center gap-3">
           <Link href="/teacher/lesson-prep/chinese">
             <Button variant="ghost" size="icon">
@@ -267,20 +267,20 @@ export default function ChatPage() {
       </div>
       
       {/* 对话区域 */}
-      <Card className="flex flex-col overflow-hidden border shadow-lg flex-1 min-h-0">
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
           {messages.length === 0 && !streamingContent ? (
-            <div className="flex flex-col items-center justify-center h-full">
+            <div className="flex flex-col items-center justify-start pt-8 pb-4">
               <img 
                 src="/xinxin-avatar.png" 
                 alt="心心" 
-                className="w-32 h-32 object-contain mb-6"
+                className="w-40 h-40 object-contain mb-4"
               />
               <h2 className="text-2xl font-bold text-center mb-2">你好，我是心心</h2>
               <p className="text-muted-foreground text-center max-w-md mb-2">
                 一位来自"童心教育"的AI教学伙伴，很高兴能和你一起探讨教学。
               </p>
-              <p className="text-sm text-emerald-600 text-center max-w-md mb-8">
+              <p className="text-sm text-emerald-600 text-center max-w-md mb-6">
                 💚 童心未泯，教育初心
               </p>
               
@@ -341,7 +341,7 @@ export default function ChatPage() {
             按 Enter 发送，Shift + Enter 换行
           </p>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
