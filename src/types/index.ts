@@ -667,6 +667,19 @@ export type {
   ResourceStatistics,
 } from './teaching-resource';
 
+// ==================== 对话存储类型 ====================
+
+export type {
+  ConversationMessage as ChatMessage,
+  CreateMessageRequest as CreateChatMessageRequest,
+  Conversation as ChatConversation,
+  ConversationDetail as ChatConversationDetail,
+  CreateConversationRequest as CreateChatConversationRequest,
+  UpdateConversationRequest as UpdateChatConversationRequest,
+  ConversationQueryParams as ChatConversationQueryParams,
+  ConversationListItem as ChatConversationListItem,
+} from './conversation.types';
+
 // ==================== 工作流类型 ====================
 
 /** 工作流配置 */
