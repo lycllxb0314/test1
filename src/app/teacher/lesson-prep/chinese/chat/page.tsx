@@ -168,41 +168,6 @@ export default function ChatPage() {
     }
   };
   
-  // 欢迎内容
-  const WelcomeContent = () => (
-    <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center mb-4 shadow-lg overflow-hidden">
-        <img 
-          src="/xinxin-avatar.png" 
-          alt="心心" 
-          className="w-20 h-20 object-contain"
-        />
-      </div>
-      <h2 className="text-2xl font-bold text-center mb-2">你好，我是心心</h2>
-      <p className="text-muted-foreground text-center max-w-md mb-2">
-        一位来自"童心教育"的AI教学伙伴，很高兴能和你一起探讨教学。
-      </p>
-      <p className="text-sm text-emerald-600 text-center max-w-md mb-8">
-        💚 童心未泯，教育初心
-      </p>
-      
-      <div className="grid grid-cols-2 gap-3 max-w-2xl w-full">
-        {QUICK_STARTS.map((item, idx) => (
-          <Card
-            key={idx}
-            className="p-4 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all"
-            onClick={() => handleQuickStart(item.text)}
-          >
-            <div className="flex items-start gap-3">
-              <item.icon className={cn('w-5 h-5 mt-0.5 flex-shrink-0', item.color)} />
-              <span className="text-sm">{item.text}</span>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-  
   // 消息气泡
   const MessageBubble = ({ message }: { message: Message }) => (
     <div className={cn(
@@ -302,18 +267,50 @@ export default function ChatPage() {
       </div>
       
       {/* 对话区域 */}
-      <Card className="h-[calc(100vh-180px)] flex flex-col overflow-hidden border shadow-lg">
-        {messages.length === 0 && !streamingContent ? (
-          <WelcomeContent />
-        ) : (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
-            {streamingContent && <StreamingBubble />}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+      <Card className="flex flex-col overflow-hidden border shadow-lg" style={{ height: 'calc(100vh - 140px)' }}>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+          {messages.length === 0 && !streamingContent ? (
+            <div className="flex flex-col items-center justify-center h-full">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center mb-4 shadow-lg overflow-hidden">
+                <img 
+                  src="/xinxin-avatar.png" 
+                  alt="心心" 
+                  className="w-20 h-20 object-contain"
+                />
+              </div>
+              <h2 className="text-2xl font-bold text-center mb-2">你好，我是心心</h2>
+              <p className="text-muted-foreground text-center max-w-md mb-2">
+                一位来自"童心教育"的AI教学伙伴，很高兴能和你一起探讨教学。
+              </p>
+              <p className="text-sm text-emerald-600 text-center max-w-md mb-8">
+                💚 童心未泯，教育初心
+              </p>
+              
+              <div className="grid grid-cols-2 gap-3 max-w-2xl w-full">
+                {QUICK_STARTS.map((item, idx) => (
+                  <Card
+                    key={idx}
+                    className="p-4 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all"
+                    onClick={() => handleQuickStart(item.text)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <item.icon className={cn('w-5 h-5 mt-0.5 flex-shrink-0', item.color)} />
+                      <span className="text-sm">{item.text}</span>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              {messages.map(msg => (
+                <MessageBubble key={msg.id} message={msg} />
+              ))}
+              {streamingContent && <StreamingBubble />}
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
         
         {/* 输入区域 */}
         <div className="border-t p-4 flex-shrink-0 bg-background">
