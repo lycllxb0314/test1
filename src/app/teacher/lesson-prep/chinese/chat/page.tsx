@@ -271,13 +271,11 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
           {messages.length === 0 && !streamingContent ? (
             <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center mb-4 shadow-lg overflow-hidden">
-                <img 
-                  src="/xinxin-avatar.png" 
-                  alt="心心" 
-                  className="w-20 h-20 object-contain"
-                />
-              </div>
+              <img 
+                src="/xinxin-avatar.png" 
+                alt="心心" 
+                className="w-32 h-32 object-contain mb-6"
+              />
               <h2 className="text-2xl font-bold text-center mb-2">你好，我是心心</h2>
               <p className="text-muted-foreground text-center max-w-md mb-2">
                 一位来自"童心教育"的AI教学伙伴，很高兴能和你一起探讨教学。
