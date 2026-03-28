@@ -1,6 +1,8 @@
 /**
  * 生字专项 API
  * POST /api/chinese-prep/character
+ * 
+ * 采用分段并行生成策略：每个生字单独调用LLM，并行执行，最后合并结果
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,7 +15,16 @@ import type {
   CharacterRequest,
   OntologyDerivation,
   ExerciseSet,
+  ExerciseItem,
 } from '@/types/chinese-prep';
+
+/** 单个生字的生成结果 */
+interface SingleCharResult {
+  character: CharacterInfo;
+  ontology: OntologyDerivation;
+  dictationList: DictationItem[];
+  exercises: ExerciseItem[];
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,18 +42,15 @@ export async function POST(request: NextRequest) {
     const config = new Config();
     const client = new LLMClient(config, customHeaders);
 
-    // 构建 prompt - 简化版本
-    const prompt = buildSimplePrompt(characters, grade, generateOptions);
-
-    const response = await client.invoke(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.3 }
+    // 并行生成每个生字的素材
+    const results = await Promise.all(
+      characters.map(char => generateSingleCharacter(client, char, grade))
     );
 
-    // 解析响应
-    const result = parseResponse(response.content, characters);
+    // 合并结果
+    const mergedResult = mergeResults(results, grade);
 
-    return NextResponse.json(result);
+    return NextResponse.json(mergedResult);
   } catch (error) {
     console.error('[Character API Error]:', error);
     return NextResponse.json(
@@ -52,151 +60,134 @@ export async function POST(request: NextRequest) {
         polyphonicChars: [], 
         dictationList: [],
         ontology: [],
+        exercises: undefined,
       },
       { status: 500 }
     );
   }
 }
 
-/** 构建简化prompt */
-function buildSimplePrompt(
-  characters: string[],
-  grade: number,
-  options: CharacterRequest['generateOptions']
-): string {
-  const charList = characters.join('、');
-  
-  return `分析生字：${charList}，适用${grade}年级。
+/**
+ * 生成单个生字的完整素材
+ */
+async function generateSingleCharacter(
+  client: LLMClient,
+  char: string,
+  grade: number
+): Promise<SingleCharResult> {
+  const prompt = buildSingleCharPrompt(char, grade);
+
+  const response = await client.invoke(
+    [{ role: 'user', content: prompt }],
+    { temperature: 0.3 }
+  );
+
+  return parseSingleCharResponse(response.content, char);
+}
+
+/**
+ * 构建单个生字的prompt
+ */
+function buildSingleCharPrompt(char: string, grade: number): string {
+  return `分析生字"${char}"，适用${grade}年级。
 
 请严格按照以下JSON格式输出，不要有任何多余文字：
 
 {
-  "characters": [
-    {
-      "char": "舟",
-      "pinyin": "zhōu",
-      "radical": "舟",
-      "structure": "独体字",
-      "strokeCount": 6,
-      "strokeOrder": ["撇", "撇钩", "横", "点", "横", "点"],
-      "strokeGuide": [
-        {"name": "撇", "position": "左上起笔向左下", "tip": "起笔重收笔轻"},
-        {"name": "撇钩", "position": "横中线上方", "tip": "末端出钩"},
-        {"name": "横", "position": "横中线偏上", "tip": "平稳"},
-        {"name": "点", "position": "竖中线左侧", "tip": "轻点"},
-        {"name": "横", "position": "横中线偏下", "tip": "稍长"},
-        {"name": "点", "position": "竖中线右侧", "tip": "对称"}
-      ],
-      "words": ["小舟", "轻舟"]
-    }
-  ],
-  "ontology": [
-    {
-      "char": "舟",
-      "recognition": {
-        "formAnalysis": "象形字，像小船形状",
-        "phoneticClue": "独体字",
-        "writingGuide": "上宽下窄，两点对称"
-      },
-      "understanding": {
-        "meaning": "船",
-        "meaningEvolution": "本义为船",
-        "semanticField": ["船", "舰"],
-        "collocation": ["小舟", "轻舟"]
-      },
-      "application": {
-        "basicWords": ["小舟"],
-        "advancedWords": ["轻舟"],
-        "sentences": [{"sentence": "小舟在湖面上飘荡。", "type": "simple", "analysis": "简单句"}]
-      },
-      "extension": {
-        "relatedCharacters": ["船"],
-        "culturalContext": "古代交通工具",
-        "readingSuggestion": "轻舟已过万重山"
-      }
-    }
-  ],
-  "similarGroups": [],
-  "polyphonicChars": [],
-  "dictationList": [
-    {"word": "小舟", "pinyin": "xiǎo zhōu", "mainChar": "舟", "charPinyin": "zhōu", "difficulty": "easy"},
-    {"word": "轻舟", "pinyin": "qīng zhōu", "mainChar": "舟", "charPinyin": "zhōu", "difficulty": "medium"}
-  ],
-  "exercises": {
-    "title": "生字练习",
-    "grade": ${grade},
-    "totalScore": 100,
-    "timeSuggestion": "15分钟",
-    "exercises": [
-      {
-        "id": "1",
-        "type": "pinyin_write",
-        "typeName": "看拼音写汉字",
-        "instruction": "根据拼音写出相应的汉字",
-        "content": "zhōu",
-        "answer": "舟",
-        "difficulty": "easy",
-        "relatedChar": "舟"
-      },
-      {
-        "id": "2",
-        "type": "word_formation",
-        "typeName": "组词",
-        "instruction": "用下面的字组词",
-        "content": "舟",
-        "answer": ["小舟", "轻舟"],
-        "difficulty": "easy",
-        "relatedChar": "舟"
-      },
-      {
-        "id": "3",
-        "type": "sentence_writing",
-        "typeName": "写句子",
-        "instruction": "用下面的词语写一个句子",
-        "content": "小舟",
-        "answer": "小舟在湖面上轻轻飘荡。",
-        "difficulty": "medium",
-        "explanation": "主语+状语+谓语结构",
-        "relatedChar": "舟"
-      },
-      {
-        "id": "4",
-        "type": "fill_blank",
-        "typeName": "填空",
-        "instruction": "在横线上填入合适的字",
-        "content": "轻___已过万重山。",
-        "answer": "舟",
-        "difficulty": "medium",
-        "explanation": "出自李白的诗句",
-        "relatedChar": "舟"
-      }
+  "character": {
+    "char": "${char}",
+    "pinyin": "字的拼音",
+    "radical": "部首",
+    "structure": "独体字/左右结构/上下结构等",
+    "strokeCount": 笔画数,
+    "strokeOrder": ["第1笔", "第2笔", ...],
+    "strokeGuide": [
+      {"name": "笔画名", "position": "起笔位置描述", "tip": "书写要领"}
     ],
-    "answerKey": "1.舟 2.小舟、轻舟 3.略 4.舟"
-  }
+    "words": ["组词1", "组词2"]
+  },
+  "ontology": {
+    "char": "${char}",
+    "recognition": {
+      "formAnalysis": "字形分析",
+      "phoneticClue": "读音线索",
+      "writingGuide": "书写要点"
+    },
+    "understanding": {
+      "meaning": "字义解释",
+      "meaningEvolution": "字义演变",
+      "semanticField": ["相关字1", "相关字2"],
+      "collocation": ["搭配1", "搭配2"]
+    },
+    "application": {
+      "basicWords": ["基础组词"],
+      "advancedWords": ["拓展组词"],
+      "sentences": [{"sentence": "造句示例", "type": "simple/compound/complex", "analysis": "句式分析"}]
+    },
+    "extension": {
+      "relatedCharacters": ["相关字"],
+      "culturalContext": "文化背景",
+      "readingSuggestion": "阅读建议或诗句"
+    }
+  },
+  "dictationList": [
+    {"word": "组词1", "pinyin": "词语拼音", "mainChar": "${char}", "charPinyin": "字拼音", "difficulty": "easy/medium"},
+    {"word": "组词2", "pinyin": "词语拼音", "mainChar": "${char}", "charPinyin": "字拼音", "difficulty": "easy/medium"}
+  ],
+  "exercises": [
+    {
+      "type": "pinyin_write",
+      "typeName": "看拼音写汉字",
+      "instruction": "根据拼音写出相应的汉字",
+      "content": "字的拼音",
+      "answer": "${char}",
+      "difficulty": "easy",
+      "relatedChar": "${char}"
+    },
+    {
+      "type": "word_formation",
+      "typeName": "组词",
+      "instruction": "用下面的字组词",
+      "content": "${char}",
+      "answer": ["组词1", "组词2"],
+      "difficulty": "easy",
+      "relatedChar": "${char}"
+    },
+    {
+      "type": "sentence_writing",
+      "typeName": "写句子",
+      "instruction": "用下面的词语写一个句子",
+      "content": "组词1",
+      "answer": "造句示例",
+      "difficulty": "medium",
+      "explanation": "句式说明",
+      "relatedChar": "${char}"
+    },
+    {
+      "type": "fill_blank",
+      "typeName": "填空",
+      "instruction": "在横线上填入合适的字",
+      "content": "包含该字的句子或诗句，用___表示填空",
+      "answer": "${char}",
+      "difficulty": "medium",
+      "explanation": "出处或提示",
+      "relatedChar": "${char}"
+    }
+  ]
 }
 
 要求：
-1. 只输出JSON，不要有解释
-2. 必须包含所有输入生字
-3. strokeGuide要有书写指导
-4. 本体论ontology必须完整
-5. exercises必须包含：看拼音写汉字、组词、写句子（造句）、填空四种题型
-6. 每个生字至少有一个写句子练习（造句）
-7. dictationList是组词听写清单，每个生字生成2-3个组词（如"小舟"、"轻舟"），老师读词语，学生写词语`;
+1. 只输出JSON，不要有任何解释
+2. strokeGuide要详细，每个笔画都要有书写指导
+3. 本体论ontology必须完整
+4. exercises必须包含4道题：看拼音写汉字、组词、写句子（造句）、填空
+5. dictationList生成2-3个组词用于听写`;
 }
 
-/** 解析响应 - 简化版 */
-function parseResponse(
-  content: string,
-  inputChars: string[]
-): {
-  characters: CharacterInfo[];
-  similarGroups: SimilarCharGroup[];
-  polyphonicChars: PolyphonicChar[];
-  dictationList: DictationItem[];
-  ontology: OntologyDerivation[];
-  exercises?: ExerciseSet;
-} {
+/**
+ * 解析单个生字的响应
+ */
+function parseSingleCharResponse(content: string, char: string): SingleCharResult {
   let jsonStr = content;
   
   // 提取JSON
@@ -211,61 +202,117 @@ function parseResponse(
     jsonStr = objectMatch[0];
   }
 
-  // 尝试解析
   try {
     const data = JSON.parse(jsonStr);
     
-    return {
-      characters: data.characters || [],
-      similarGroups: data.similarGroups || [],
-      polyphonicChars: data.polyphonicChars || [],
-      dictationList: data.dictationList || [],
-      ontology: data.ontology || [],
-      exercises: data.exercises || undefined,
+    // 默认值处理
+    const character: CharacterInfo = {
+      char: data.character?.char || char,
+      pinyin: data.character?.pinyin || '',
+      radical: data.character?.radical || '',
+      structure: data.character?.structure || '独体字',
+      strokeCount: data.character?.strokeCount || 0,
+      strokeOrder: data.character?.strokeOrder || [],
+      strokePaths: data.character?.strokePaths || [],
+      strokeGuide: data.character?.strokeGuide || [],
+      words: data.character?.words || [],
     };
+
+    const ontology: OntologyDerivation = data.ontology || {
+      char,
+      recognition: { formAnalysis: '', phoneticClue: '', writingGuide: '' },
+      understanding: { meaning: '', meaningEvolution: '', semanticField: [], collocation: [] },
+      application: { basicWords: [], advancedWords: [], sentences: [] },
+      extension: { relatedCharacters: [], culturalContext: '', readingSuggestion: '' },
+    };
+
+    const dictationList: DictationItem[] = data.dictationList || [];
+    const exercises: ExerciseItem[] = data.exercises || [];
+
+    return { character, ontology, dictationList, exercises };
   } catch (e) {
-    console.error('[JSON Parse Error]', e);
+    console.error(`[JSON Parse Error for ${char}]`, e);
     
-    // 如果解析失败，尝试逐个提取字符
-    const extracted: CharacterInfo[] = [];
-    
-    for (const char of inputChars) {
-      // 尝试找到该字符的信息
-      const charPattern = new RegExp(`"char"\\s*:\\s*"${char}"[\\s\\S]{0,500}?\\}`, 'g');
-      const matches = jsonStr.match(charPattern);
-      
-      if (matches) {
-        for (const match of matches) {
-          try {
-            const obj = JSON.parse('{' + match + '}');
-            if (obj.char && obj.pinyin) {
-              extracted.push({
-                char: obj.char,
-                pinyin: obj.pinyin,
-                radical: obj.radical || '',
-                structure: obj.structure || '独体字',
-                strokeCount: obj.strokeCount || 0,
-                strokeOrder: obj.strokeOrder || [],
-                strokePaths: obj.strokePaths || [],
-                strokeGuide: obj.strokeGuide || [],
-                words: obj.words || []
-              });
-              break;
-            }
-          } catch (err) {
-            continue;
-          }
-        }
-      }
-    }
-    
+    // 返回默认值
     return {
-      characters: extracted,
-      similarGroups: [],
-      polyphonicChars: [],
+      character: {
+        char,
+        pinyin: '',
+        radical: '',
+        structure: '独体字',
+        strokeCount: 0,
+        strokeOrder: [],
+        strokePaths: [],
+        strokeGuide: [],
+        words: [],
+      },
+      ontology: {
+        char,
+        recognition: { formAnalysis: '', phoneticClue: '', writingGuide: '' },
+        understanding: { meaning: '', meaningEvolution: '', semanticField: [], collocation: [] },
+        application: { basicWords: [], advancedWords: [], sentences: [] },
+        extension: { relatedCharacters: [], culturalContext: '', readingSuggestion: '' },
+      },
       dictationList: [],
-      ontology: [],
-      exercises: undefined,
+      exercises: [],
     };
   }
+}
+
+/**
+ * 合并所有生字的结果
+ */
+function mergeResults(results: SingleCharResult[], grade: number): {
+  characters: CharacterInfo[];
+  similarGroups: SimilarCharGroup[];
+  polyphonicChars: PolyphonicChar[];
+  dictationList: DictationItem[];
+  ontology: OntologyDerivation[];
+  exercises?: ExerciseSet;
+} {
+  // 合并生字
+  const characters = results.map(r => r.character);
+  
+  // 合并本体论
+  const ontology = results.map(r => r.ontology);
+  
+  // 合并听写清单
+  const dictationList = results.flatMap(r => r.dictationList);
+  
+  // 合并练习题，重新编号
+  let exerciseId = 1;
+  const allExercises: ExerciseItem[] = results.flatMap(r => 
+    r.exercises.map(ex => ({
+      ...ex,
+      id: String(exerciseId++),
+    }))
+  );
+
+  // 计算总分（每题10分）
+  const totalScore = allExercises.length * 10;
+  
+  // 生成答案速查
+  const answerKey = allExercises.map((ex, i) => {
+    const answer = Array.isArray(ex.answer) ? ex.answer.join('、') : ex.answer;
+    return `${i + 1}.${answer}`;
+  }).join(' ');
+
+  // 构建练习集
+  const exercises: ExerciseSet | undefined = allExercises.length > 0 ? {
+    title: `生字练习（${characters.length}个生字）`,
+    grade,
+    totalScore,
+    timeSuggestion: `${Math.ceil(allExercises.length * 3 / 60)}分钟`,
+    exercises: allExercises,
+    answerKey,
+  } : undefined;
+
+  return {
+    characters,
+    similarGroups: [],  // 形近字需要额外处理
+    polyphonicChars: [], // 多音字需要额外处理
+    dictationList,
+    ontology,
+    exercises,
+  };
 }

@@ -167,7 +167,12 @@ export default function CharacterPage() {
                   size="lg"
                 >
                   {loading ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成中...</>
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {chars.split(/[，,\s]+/).filter(Boolean).length > 1 
+                        ? `正在生成 ${chars.split(/[，,\s]+/).filter(Boolean).length} 个生字...` 
+                        : '生成中...'}
+                    </>
                   ) : (
                     '生成教学素材'
                   )}
@@ -268,10 +273,10 @@ export default function CharacterPage() {
                           {char.strokeOrder.map((stroke, i) => (
                             <div 
                               key={i} 
-                              className="flex items-center justify-center w-8 h-8 bg-white rounded border border-orange-200 text-sm font-medium text-gray-700 shadow-sm"
+                              className="flex items-center justify-center min-w-[2.5rem] h-8 px-2 bg-white rounded border border-orange-200 text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap"
                             >
-                              <span className="text-orange-500 text-xs mr-0.5">{i + 1}.</span>
-                              {stroke}
+                              <span className="text-orange-500 text-xs mr-1">{i + 1}.</span>
+                              <span>{stroke}</span>
                             </div>
                           ))}
                         </div>
