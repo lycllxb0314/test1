@@ -56,6 +56,8 @@ export default function CharacterPage() {
   
   // 结果状态
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [characterInfos, setCharacterInfos] = useState<CharacterInfo[]>([]);
   const [similarGroups, setSimilarGroups] = useState<SimilarCharGroup[]>([]);
   const [polyphonicChars, setPolyphonicChars] = useState<PolyphonicChar[]>([]);
@@ -65,10 +67,26 @@ export default function CharacterPage() {
   
   // 生成素材
   const handleGenerate = async () => {
-    if (!characters.trim()) return;
+    if (!characters.trim()) {
+      setError('请输入生字');
+      return;
+    }
     
     setLoading(true);
+    setError(null);
+    setSuccess(false);
+    
+    // 清空之前的结果
+    setCharacterInfos([]);
+    setSimilarGroups([]);
+    setPolyphonicChars([]);
+    setDictationList([]);
+    setOntology([]);
+    setExercises(null);
+    
     try {
+      console.log('开始生成，输入：', characters, '年级：', grade);
+      
       const response = await fetch('/api/chinese-prep/character', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,16 +97,37 @@ export default function CharacterPage() {
         }),
       });
       
-      const data = await response.json();
+      console.log('响应状态：', response.status);
       
-      if (data.characters) setCharacterInfos(data.characters);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API错误响应：', errorText);
+        throw new Error(`请求失败: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('API返回数据：', {
+        characters: data.characters?.length,
+        ontology: data.ontology?.length,
+        exercises: data.exercises ? '有' : '无'
+      });
+      
+      if (data.characters && data.characters.length > 0) {
+        setCharacterInfos(data.characters);
+        setSuccess(true);
+      }
       if (data.similarGroups) setSimilarGroups(data.similarGroups);
       if (data.polyphonicChars) setPolyphonicChars(data.polyphonicChars);
       if (data.dictationList) setDictationList(data.dictationList);
-      if (data.ontology) setOntology(data.ontology); // 本体论推导必要
+      if (data.ontology) setOntology(data.ontology);
       if (data.exercises) setExercises(data.exercises);
+      
+      if (!data.characters || data.characters.length === 0) {
+        setError('生成失败，未返回有效数据，请重试');
+      }
     } catch (error) {
       console.error('生成失败:', error);
+      setError(error instanceof Error ? error.message : '生成失败，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -607,6 +646,22 @@ export default function CharacterPage() {
               ))}
             </div>
           </div>
+          
+          {/* 错误提示 */}
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="text-sm text-red-700 font-medium">❌ {error}</div>
+            </div>
+          )}
+          
+          {/* 成功提示 */}
+          {success && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="text-sm text-green-700 font-medium">
+                ✅ 生成成功！共生成 {characterInfos.length} 个生字素材，请向下查看
+              </div>
+            </div>
+          )}
           
           <Button 
             onClick={handleGenerate} 
