@@ -7,13 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2, BookOpen, PenTool, Brain, FileText, Download, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Loader2, BookOpen, PenTool, Brain, FileText, Download, CheckCircle2, Save, FolderOpen } from 'lucide-react';
 import type { CharacterInfo, OntologyDerivation, DictationItem, ExerciseSet } from '@/types/chinese-prep';
 
 export default function CharacterPage() {
   const [chars, setChars] = useState('');
   const [grade, setGrade] = useState(2);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [data, setData] = useState<{
     characters: CharacterInfo[];
     ontology: OntologyDerivation[];
@@ -21,6 +22,7 @@ export default function CharacterPage() {
     exercises?: ExerciseSet;
   } | null>(null);
   const [err, setErr] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const generate = async () => {
     if (!chars.trim()) {
@@ -31,6 +33,7 @@ export default function CharacterPage() {
     setLoading(true);
     setErr('');
     setData(null);
+    setSaveSuccess(false);
 
     try {
       const res = await fetch('/api/chinese-prep/character', {
@@ -64,6 +67,35 @@ export default function CharacterPage() {
     }
   };
 
+  const saveToResource = async () => {
+    if (!data || !chars.trim()) return;
+    
+    setSaving(true);
+    try {
+      const res = await fetch('/api/teaching-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characters: chars.split(/[，,\s]+/).filter(Boolean),
+          grade,
+          content: data,
+        }),
+      });
+      
+      const json = await res.json();
+      if (json.success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        setErr(json.error || '保存失败');
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -83,9 +115,17 @@ export default function CharacterPage() {
               <p className="text-sm text-gray-500 mt-1">智能生成生字教学素材，助力语文备课</p>
             </div>
           </div>
-          <Badge variant="secondary" className="px-4 py-1.5 text-sm">
-            {grade}年级
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Link href="/teacher/lesson-prep/my-resources">
+              <Button variant="outline" size="sm">
+                <FolderOpen className="w-4 h-4 mr-2" />
+                我的资源库
+              </Button>
+            </Link>
+            <Badge variant="secondary" className="px-4 py-1.5 text-sm">
+              {grade}年级
+            </Badge>
+          </div>
         </div>
 
         {/* 输入区域 */}
@@ -146,6 +186,27 @@ export default function CharacterPage() {
         {data && data.characters.length > 0 && (
           <div className="space-y-6">
             
+            {/* 操作栏 */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                已生成 {data.characters.length} 个生字的教学素材
+              </div>
+              <Button 
+                onClick={saveToResource} 
+                disabled={saving || saveSuccess}
+                variant={saveSuccess ? "default" : "outline"}
+                className={saveSuccess ? "bg-green-600 hover:bg-green-700" : ""}
+              >
+                {saving ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />保存中...</>
+                ) : saveSuccess ? (
+                  <><CheckCircle2 className="w-4 h-4 mr-2" />已保存到资源库</>
+                ) : (
+                  <><Save className="w-4 h-4 mr-2" />保存到我的资源库</>
+                )}
+              </Button>
+            </div>
+            
             {/* 生字卡片 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.characters.map((char, idx) => (
@@ -166,11 +227,11 @@ export default function CharacterPage() {
                       </div>
                     </div>
                   </div>
-                  <CardContent className="p-4 space-y-3">
+                  <CardContent className="p-4 space-y-4">
                     {/* 田字格范写 */}
-                    <div className="flex items-center justify-center py-4">
+                    <div className="flex items-center justify-center py-3">
                       <div 
-                        className="w-32 h-32 relative bg-white shadow-inner rounded"
+                        className="w-28 h-28 relative bg-white shadow-inner rounded"
                         style={{
                           border: '3px solid #dc2626',
                         }}
@@ -188,7 +249,7 @@ export default function CharacterPage() {
                           <span 
                             style={{ 
                               fontFamily: '"KaiTi", "楷体", "STKaiti", serif',
-                              fontSize: '5rem',
+                              fontSize: '4.5rem',
                               lineHeight: 1,
                               color: '#1f2937',
                             }}
@@ -198,6 +259,24 @@ export default function CharacterPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* 笔画顺序展示 */}
+                    {char.strokeOrder && char.strokeOrder.length > 0 && (
+                      <div className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
+                        <div className="text-xs font-medium text-orange-700 mb-2">笔画顺序（共{char.strokeCount}画）</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {char.strokeOrder.map((stroke, i) => (
+                            <div 
+                              key={i} 
+                              className="flex items-center justify-center w-8 h-8 bg-white rounded border border-orange-200 text-sm font-medium text-gray-700 shadow-sm"
+                            >
+                              <span className="text-orange-500 text-xs mr-0.5">{i + 1}.</span>
+                              {stroke}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* 基本信息 */}
                     <div className="grid grid-cols-2 gap-2 text-sm">
@@ -217,18 +296,24 @@ export default function CharacterPage() {
                       <div className="font-medium text-gray-700">{char.words?.join('、')}</div>
                     </div>
 
-                    {/* 笔画指导 */}
+                    {/* 书写指导详情 */}
                     {char.strokeGuide && char.strokeGuide.length > 0 && (
                       <details className="text-sm">
                         <summary className="cursor-pointer text-blue-600 hover:text-blue-700 font-medium">
-                          书写指导
+                          详细书写指导
                         </summary>
-                        <div className="mt-2 space-y-1 text-xs">
-                          {char.strokeGuide.slice(0, 4).map((s, i) => (
-                            <div key={i} className="flex gap-1">
-                              <span className="font-bold text-orange-600">{i+1}.</span>
-                              <span className="font-medium">{s.name}</span>
-                              <span className="text-gray-500">{s.position}</span>
+                        <div className="mt-2 space-y-2 text-xs">
+                          {char.strokeGuide.map((s, i) => (
+                            <div key={i} className="p-2 bg-gray-50 rounded">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-bold text-orange-600">第{i+1}笔：{s.name}</span>
+                              </div>
+                              <div className="text-gray-600">
+                                <span className="text-gray-500">位置：</span>{s.position}
+                              </div>
+                              <div className="text-gray-600">
+                                <span className="text-gray-500">要领：</span>{s.tip}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -314,24 +399,38 @@ export default function CharacterPage() {
               </Card>
             )}
 
-            {/* 听写清单 */}
+            {/* 组词听写清单 */}
             {data.dictationList && data.dictationList.length > 0 && (
               <Card className="border-0 shadow-lg bg-white/90">
                 <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="w-5 h-5" />
-                    听写清单
+                    组词听写清单
                   </CardTitle>
+                  <p className="text-sm text-white/80 mt-1">老师读词语，学生写词语</p>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {data.dictationList.map((item, idx) => (
                       <div key={idx} className="text-center p-4 bg-gradient-to-b from-gray-50 to-white rounded-lg border hover:shadow-md transition-shadow">
-                        <div className="text-3xl font-bold mb-2">{item.char}</div>
+                        <div className="text-3xl font-bold mb-1 text-gray-800">{item.word}</div>
                         <div className="text-sm text-gray-500 mb-2">{item.pinyin}</div>
-                        <div className="text-xs text-gray-400">{item.words?.join('、')}</div>
+                        <div className="flex items-center justify-center gap-1">
+                          <Badge variant="outline" className="text-xs">
+                            生字：{item.mainChar}
+                          </Badge>
+                          <Badge 
+                            variant={item.difficulty === 'easy' ? 'secondary' : item.difficulty === 'medium' ? 'default' : 'destructive'}
+                            className="text-xs"
+                          >
+                            {item.difficulty === 'easy' ? '基础' : item.difficulty === 'medium' ? '中等' : '拓展'}
+                          </Badge>
+                        </div>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-4 p-3 bg-emerald-50 rounded-lg text-sm text-emerald-700">
+                    💡 听写提示：按顺序读出词语，学生写出完整词语。生字"{data.dictationList[0]?.mainChar}"在词语中的位置需要特别注意书写规范。
                   </div>
                 </CardContent>
               </Card>

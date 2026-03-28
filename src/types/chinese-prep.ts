@@ -126,11 +126,12 @@ export type GridWriting = {
   }>;
 };
 
-/** 听写清单项 */
+/** 听写清单项（组词听写） */
 export type DictationItem = {
-  char: string;
-  pinyin: string;
-  words: string[];
+  word: string;           // 听写词语
+  pinyin: string;         // 词语拼音
+  mainChar: string;       // 本课生字（在词语中的位置）
+  charPinyin: string;     // 生字拼音
   difficulty: 'easy' | 'medium' | 'hard';
 };
 

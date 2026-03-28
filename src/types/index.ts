@@ -651,6 +651,22 @@ export type {
   WritingResponse,
 } from './chinese-prep';
 
+// ==================== 教学资源库类型 ====================
+
+export type {
+  ResourceCategory,
+  ResourceType as TeachingResourceType,
+  ResourceStatus,
+  ResourceTag,
+  TeachingResource,
+  CharacterResourceContent,
+  CreateResourceRequest,
+  UpdateResourceRequest,
+  ResourceQueryParams,
+  ResourceListItem,
+  ResourceStatistics,
+} from './teaching-resource';
+
 // ==================== 工作流类型 ====================
 
 /** 工作流配置 */

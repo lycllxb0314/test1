@@ -118,7 +118,10 @@ function buildSimplePrompt(
   ],
   "similarGroups": [],
   "polyphonicChars": [],
-  "dictationList": [{"char": "舟", "pinyin": "zhōu", "words": ["小舟"], "difficulty": "easy"}],
+  "dictationList": [
+    {"word": "小舟", "pinyin": "xiǎo zhōu", "mainChar": "舟", "charPinyin": "zhōu", "difficulty": "easy"},
+    {"word": "轻舟", "pinyin": "qīng zhōu", "mainChar": "舟", "charPinyin": "zhōu", "difficulty": "medium"}
+  ],
   "exercises": {
     "title": "生字练习",
     "grade": ${grade},
@@ -178,7 +181,8 @@ function buildSimplePrompt(
 3. strokeGuide要有书写指导
 4. 本体论ontology必须完整
 5. exercises必须包含：看拼音写汉字、组词、写句子（造句）、填空四种题型
-6. 每个生字至少有一个写句子练习（造句）`;
+6. 每个生字至少有一个写句子练习（造句）
+7. dictationList是组词听写清单，每个生字生成2-3个组词（如"小舟"、"轻舟"），老师读词语，学生写词语`;
 }
 
 /** 解析响应 - 简化版 */

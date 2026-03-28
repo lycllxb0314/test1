@@ -1,7 +1,7 @@
 /**
  * 教师空间 - 备课中心入口
  * 
- * 学科选择页面，展示所有支持的学科
+ * 包含：我的资源库 + 学科选择
  * 点击学科卡片进入对应的备课工具
  */
 
@@ -22,6 +22,10 @@ import {
   Trophy,
   ArrowRight,
   Construction,
+  FolderOpen,
+  Sparkles,
+  FileText,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -115,7 +119,7 @@ const SUBJECTS = [
 
 export default function LessonPrepPage() {
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       {/* 页面标题 */}
       <div>
         <h1 className="text-2xl font-bold">备课中心</h1>
@@ -124,75 +128,124 @@ export default function LessonPrepPage() {
         </p>
       </div>
 
-      {/* 学科卡片网格 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {SUBJECTS.map((subject) => {
-          const Icon = subject.icon;
-          
-          // 未开放的学科
-          if (!subject.available) {
-            return (
-              <Card
-                key={subject.id}
-                className="relative overflow-hidden opacity-60 cursor-not-allowed"
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div className={cn('p-3 rounded-xl', subject.bgColor)}>
-                      <Icon className={cn('w-6 h-6', subject.color)} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{subject.name}</h3>
-                        <Badge variant="outline" className="text-xs">
-                          <Construction className="w-3 h-3 mr-1" />
-                          开发中
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {subject.description}
-                      </p>
-                    </div>
+      {/* 我的资源库 - 独立入口 */}
+      <Link href="/teacher/lesson-prep/my-resources" className="block">
+        <Card className="border-0 shadow-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:shadow-xl transition-all cursor-pointer overflow-hidden group">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-5">
+                <div className="p-4 rounded-2xl bg-white/20 backdrop-blur">
+                  <FolderOpen className="w-8 h-8 text-white" />
+                </div>
+                <div className="text-white">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold">我的教学资源库</h2>
+                    <Badge className="bg-white/20 text-white border-0 hover:bg-white/30">
+                      个人
+                    </Badge>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          }
-          
-          // 已开放的学科
-          return (
-            <Link key={subject.id} href={`/teacher/lesson-prep/${subject.id}`}>
-              <Card className={cn(
-                'cursor-pointer transition-all hover:shadow-lg',
-                subject.borderColor
-              )}>
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div className={cn('p-3 rounded-xl', subject.bgColor)}>
-                      <Icon className={cn('w-6 h-6', subject.color)} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold">{subject.name}</h3>
-                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-white/80 mt-1">
+                    保存和管理您的教学素材，随时调用，高效备课
+                  </p>
+                  <div className="flex items-center gap-4 mt-3 text-sm text-white/70">
+                    <span className="flex items-center gap-1">
+                      <FileText className="w-4 h-4" />
+                      生字专项
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      朗读教学
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="w-4 h-4" />
+                      习作素材
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <ArrowRight className="w-6 h-6 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all" />
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+
+      {/* 学科选择区域 */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-lg font-semibold">选择学科</h2>
+          <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
+        </div>
+
+        {/* 学科卡片网格 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {SUBJECTS.map((subject) => {
+            const Icon = subject.icon;
+            
+            // 未开放的学科
+            if (!subject.available) {
+              return (
+                <Card
+                  key={subject.id}
+                  className="relative overflow-hidden opacity-60 cursor-not-allowed"
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-4">
+                      <div className={cn('p-3 rounded-xl', subject.bgColor)}>
+                        <Icon className={cn('w-6 h-6', subject.color)} />
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {subject.description}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        {subject.features?.map((feature, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">
-                            {feature}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{subject.name}</h3>
+                          <Badge variant="outline" className="text-xs">
+                            <Construction className="w-3 h-3 mr-1" />
+                            开发中
                           </Badge>
-                        ))}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {subject.description}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
+                  </CardContent>
+                </Card>
+              );
+            }
+            
+            // 已开放的学科
+            return (
+              <Link key={subject.id} href={`/teacher/lesson-prep/${subject.id}`}>
+                <Card className={cn(
+                  'cursor-pointer transition-all hover:shadow-lg',
+                  subject.borderColor
+                )}>
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-4">
+                      <div className={cn('p-3 rounded-xl', subject.bgColor)}>
+                        <Icon className={cn('w-6 h-6', subject.color)} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold">{subject.name}</h3>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {subject.description}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 mt-3">
+                          {subject.features?.map((feature, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {feature}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
