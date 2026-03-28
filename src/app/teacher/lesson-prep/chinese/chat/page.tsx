@@ -13,24 +13,15 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   ArrowLeft,
   Send,
   User,
-  Image as ImageIcon,
   Trash2,
   FileText,
   Target,
   MessageCircle,
   Mic,
   Loader2,
-  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,9 +51,6 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  
-  // 年级设置
-  const [grade, setGrade] = useState<number>(4);
   
   // 滚动容器
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -106,7 +94,6 @@ export default function ChatPage() {
         body: JSON.stringify({
           messages: chatHistory,
           subject: 'chinese',
-          grade,
         }),
       });
       
@@ -283,9 +270,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col p-4 gap-4">
+    <div className="fixed inset-0 flex flex-col bg-gradient-to-br from-emerald-50/30 via-background to-green-50/30">
       {/* 顶部工具栏 */}
-      <div className="flex items-center justify-between flex-shrink-0">
+      <div className="flex items-center justify-between flex-shrink-0 px-4 py-3 border-b bg-background/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <Link href="/teacher/lesson-prep/chinese">
             <Button variant="ghost" size="icon">
@@ -306,17 +293,6 @@ export default function ChatPage() {
         </div>
         
         <div className="flex items-center gap-3">
-          <Select value={String(grade)} onValueChange={(v) => setGrade(parseInt(v))}>
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3, 4, 5, 6].map(g => (
-                <SelectItem key={g} value={String(g)}>{g}年级</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
           {messages.length > 0 && (
             <Button variant="ghost" size="icon" onClick={clearChat} title="清空对话">
               <Trash2 className="w-4 h-4" />
@@ -326,51 +302,53 @@ export default function ChatPage() {
       </div>
       
       {/* 对话区域 */}
-      <Card className="flex-1 flex flex-col overflow-hidden">
-        {messages.length === 0 && !streamingContent ? (
-          <WelcomeContent />
-        ) : (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
-            {streamingContent && <StreamingBubble />}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-        
-        {/* 输入区域 */}
-        <div className="border-t p-4 flex-shrink-0">
-          <div className="flex gap-3 items-end">
-            <div className="flex-1 relative">
-              <Textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="说点什么..."
-                className="min-h-[52px] max-h-[120px] resize-none pr-12"
-                disabled={isLoading}
-              />
-              <Button
-                size="icon"
-                className="absolute right-2 bottom-2 h-8 w-8"
-                onClick={() => sendMessage(inputValue)}
-                disabled={!inputValue.trim() || isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0 m-4">
+        <Card className="flex-1 flex flex-col overflow-hidden border shadow-lg min-h-0">
+          {messages.length === 0 && !streamingContent ? (
+            <WelcomeContent />
+          ) : (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+              {messages.map(msg => (
+                <MessageBubble key={msg.id} message={msg} />
+              ))}
+              {streamingContent && <StreamingBubble />}
+              <div ref={messagesEndRef} />
             </div>
+          )}
+          
+          {/* 输入区域 */}
+          <div className="border-t p-4 flex-shrink-0 bg-background">
+            <div className="flex gap-3 items-end">
+              <div className="flex-1 relative">
+                <Textarea
+                  ref={textareaRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="说点什么..."
+                  className="min-h-[52px] max-h-[120px] resize-none pr-12"
+                  disabled={isLoading}
+                />
+                <Button
+                  size="icon"
+                  className="absolute right-2 bottom-2 h-8 w-8"
+                  onClick={() => sendMessage(inputValue)}
+                  disabled={!inputValue.trim() || isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              按 Enter 发送，Shift + Enter 换行
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            按 Enter 发送，Shift + Enter 换行
-          </p>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
