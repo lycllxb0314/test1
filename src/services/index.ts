@@ -142,3 +142,11 @@ export {
   SeatingPlanService,
   seatingPlanService,
 } from './seating-plan.service';
+
+// ============================================
+// 备课中心服务
+// ============================================
+export {
+  LessonPrepService,
+  lessonPrepService,
+} from './lesson-prep.service';

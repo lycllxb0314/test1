@@ -579,6 +579,50 @@ export {
   SEAT_STATUS_COLORS,
 } from './seating';
 
+// ==================== 备课中心类型 ====================
+
+export type {
+  SubjectType,
+  SubjectConfig,
+  PrepFeature,
+  TeachingMethod,
+  PrepDocType,
+  PrepDocStatus,
+  PrepDocument,
+  PrepDocMetadata,
+  TextInterpretationMethod,
+  TextInterpretation,
+  CharacterAnalysis,
+  PlotAnalysis,
+  EnvironmentAnalysis,
+  ThemeAnalysis,
+  WordSensitivity,
+  RhetoricAnalysis,
+  PunctuationAnalysis,
+  BlankAnalysis,
+  TeachingPoint,
+  LessonDesign,
+  TeachingObjective,
+  TeachingStep,
+  TeachingActivity,
+  ClassroomRhythmType,
+  ClassroomStateStrategy,
+  ClassroomStructureStrategy,
+  ClassroomRhythmStrategy,
+  ClassroomStrategy,
+  QuestionDesign,
+  EvaluationLanguage,
+  PrepDocumentQueryParams,
+  CreatePrepDocumentParams,
+  UpdatePrepDocumentParams,
+  PrepDocumentRow,
+} from './lesson-prep';
+
+export {
+  CHINESE_TEACHING_PHILOSOPHY,
+  SUBJECT_CONFIGS,
+} from './lesson-prep';
+
 // ==================== 工作流类型 ====================
 
 /** 工作流配置 */

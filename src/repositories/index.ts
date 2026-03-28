@@ -173,3 +173,11 @@ export {
   SeatingPlanRepository,
   seatingPlanRepository,
 } from './seating-plan.repository';
+
+// ============================================
+// 备课中心管理
+// ============================================
+export {
+  LessonPrepRepository,
+  lessonPrepRepository,
+} from './lesson-prep.repository';
