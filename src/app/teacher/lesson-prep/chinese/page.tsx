@@ -1,369 +1,232 @@
 /**
- * 语文学科备课智能体
+ * 语文学科备课中心入口
  * 
- * 基于王崧舟"诗意语文"教学理念
- * 提供文本解读、教学设计、问题设计、评价语言等专业支持
+ * 四大功能模块：
+ * 1. 备课智能体 - AI对话式教学设计支持
+ * 2. 生字专项 - 笔顺、田字格、形近字、听写清单
+ * 3. 朗读教学 - 范读音频、朗读标注、课堂指导
+ * 4. 习作专项 - 提纲、素材、分层任务、评改指导
  */
 
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft,
-  Send,
-  User,
-  Bot,
-  Trash2,
+  MessageCircle,
+  BookText,
+  Mic2,
+  PenTool,
+  ArrowRight,
+  Sparkles,
   FileText,
   Target,
-  MessageCircle,
-  Mic,
-  Loader2,
-  BookOpen,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// ==================== 类型定义 ====================
+// ==================== 功能模块配置 ====================
 
-type Message = {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-};
-
-// ==================== 快捷入口 ====================
-
-const QUICK_STARTS = [
-  { icon: FileText, text: '我在备《父爱之舟》，想和你讨论一下文本解读', color: 'text-red-500' },
-  { icon: Target, text: '这节课的重难点我有点拿不准，能帮我分析一下吗', color: 'text-green-500' },
-  { icon: MessageCircle, text: '我想设计几个能引发深度思考的问题', color: 'text-orange-500' },
-  { icon: Mic, text: '课堂评价语言总是说得太干瘪，有什么建议吗', color: 'text-purple-500' },
+const MODULES = [
+  {
+    id: 'chat',
+    title: '备课智能体',
+    subtitle: 'AI教学设计伙伴',
+    icon: MessageCircle,
+    color: 'text-red-500',
+    bgColor: 'bg-red-50',
+    borderColor: 'hover:border-red-300',
+    description: '像老教师一样和你对话，深度探讨文本解读、教学设计、问题设计',
+    features: [
+      '文本解读六法引导',
+      '教学设计点面相生',
+      '问题串层次设计',
+      '评价语言生成',
+    ],
+    available: true,
+  },
+  {
+    id: 'character',
+    title: '生字专项',
+    subtitle: '原子化素材生成',
+    icon: BookText,
+    color: 'text-blue-500',
+    bgColor: 'bg-blue-50',
+    borderColor: 'hover:border-blue-300',
+    description: '一键生成笔顺动画、田字格范写、形近字辨析、多音字、听写清单',
+    features: [
+      '笔顺动态矢量图',
+      '田字格标准范写',
+      '形近字辨析卡',
+      '听写清单分级',
+    ],
+    available: true,
+  },
+  {
+    id: 'reading',
+    title: '朗读教学',
+    subtitle: '范读与指导方案',
+    icon: Mic2,
+    color: 'text-green-500',
+    bgColor: 'bg-green-50',
+    borderColor: 'hover:border-green-300',
+    description: '生成分层范读音频、停顿重音标注、齐读组织话术、常见问题应对',
+    features: [
+      '慢速/标准/情感范读',
+      '停顿重音可视化',
+      '齐读指导话术',
+      '朗读问题纠正',
+    ],
+    available: true,
+  },
+  {
+    id: 'writing',
+    title: '习作专项',
+    subtitle: '全流程备课系统',
+    icon: PenTool,
+    color: 'text-purple-500',
+    bgColor: 'bg-purple-50',
+    borderColor: 'hover:border-purple-300',
+    description: '从情境创设到评改指导的完整备课方案，支持分层训练任务设计',
+    features: [
+      '情境创设方案',
+      '好词好句素材库',
+      '分层训练任务',
+      '评改指导模板',
+    ],
+    available: true,
+  },
 ];
 
 // ==================== 主组件 ====================
 
 export default function ChinesePrepPage() {
-  // 对话状态
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [streamingContent, setStreamingContent] = useState('');
-  
-  // 年级设置
-  const [grade, setGrade] = useState<number>(4);
-  
-  // 滚动容器
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
-  // 自动滚动到底部
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
-  
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingContent, scrollToBottom]);
-  
-  // 发送消息
-  const sendMessage = async (content: string) => {
-    if (!content.trim() || isLoading) return;
-    
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: content.trim(),
-      timestamp: new Date(),
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    setIsLoading(true);
-    setStreamingContent('');
-    
-    // 构建对话历史
-    const chatHistory = messages.map(m => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
-    chatHistory.push({ role: 'user', content: content.trim() });
-    
-    try {
-      const response = await fetch('/api/lesson-prep/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: chatHistory,
-          subject: 'chinese',
-          grade,
-        }),
-      });
-      
-      if (!response.ok) throw new Error('请求失败');
-      
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('无法读取响应');
-      
-      const decoder = new TextDecoder();
-      let fullContent = '';
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.content) {
-                fullContent += data.content;
-                setStreamingContent(fullContent);
-              }
-              if (data.done) {
-                const assistantMessage: Message = {
-                  id: `assistant-${Date.now()}`,
-                  role: 'assistant',
-                  content: fullContent,
-                  timestamp: new Date(),
-                };
-                setMessages(prev => [...prev, assistantMessage]);
-                setStreamingContent('');
-              }
-              if (data.error) {
-                throw new Error(data.error);
-              }
-            } catch {
-              // 忽略解析错误
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('对话失败:', error);
-      const errorMessage: Message = {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: '抱歉，我这边出了点问题，咱们重新开始聊？',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      setStreamingContent('');
-    }
-  };
-  
-  // 快捷开始
-  const handleQuickStart = (text: string) => {
-    setInputValue(text);
-    textareaRef.current?.focus();
-  };
-  
-  // 清空对话
-  const clearChat = () => {
-    setMessages([]);
-    setStreamingContent('');
-  };
-  
-  // 键盘发送
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(inputValue);
-    }
-  };
-  
-  // 欢迎内容
-  const WelcomeContent = () => (
-    <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-6">
-        <Bot className="w-8 h-8 text-red-500" />
-      </div>
-      <h2 className="text-2xl font-bold text-center mb-2">你好，我是王老师</h2>
-      <p className="text-muted-foreground text-center max-w-md mb-8">
-        一位有着三十年教学经验的语文老师，很高兴能和你一起探讨教学。
-        你在备什么课？有什么想聊的？
-      </p>
-      
-      <div className="grid grid-cols-2 gap-3 max-w-2xl w-full">
-        {QUICK_STARTS.map((item, idx) => (
-          <Card
-            key={idx}
-            className="p-4 cursor-pointer hover:shadow-md hover:border-red-200 transition-all"
-            onClick={() => handleQuickStart(item.text)}
-          >
-            <div className="flex items-start gap-3">
-              <item.icon className={cn('w-5 h-5 mt-0.5 flex-shrink-0', item.color)} />
-              <span className="text-sm">{item.text}</span>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-  
-  // 消息气泡
-  const MessageBubble = ({ message }: { message: Message }) => (
-    <div className={cn(
-      'flex gap-3',
-      message.role === 'user' ? 'justify-end' : 'justify-start'
-    )}>
-      {message.role === 'assistant' && (
-        <Avatar className="w-8 h-8 flex-shrink-0">
-          <AvatarFallback className="bg-red-50 text-red-500">
-            <Bot className="w-4 h-4" />
-          </AvatarFallback>
-        </Avatar>
-      )}
-      
-      <div className={cn(
-        'max-w-[70%] rounded-2xl px-4 py-3',
-        message.role === 'user' 
-          ? 'bg-primary text-primary-foreground' 
-          : 'bg-muted'
-      )}>
-        <p className="text-sm whitespace-pre-wrap leading-relaxed">
-          {message.content}
-        </p>
-        <p className={cn(
-          'text-xs mt-2',
-          message.role === 'user' ? 'text-primary-foreground/60' : 'text-muted-foreground'
-        )}>
-          {message.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-        </p>
-      </div>
-      
-      {message.role === 'user' && (
-        <Avatar className="w-8 h-8 flex-shrink-0">
-          <AvatarFallback className="bg-secondary">
-            <User className="w-4 h-4" />
-          </AvatarFallback>
-        </Avatar>
-      )}
-    </div>
-  );
-  
-  // 流式输出气泡
-  const StreamingBubble = () => {
-    if (!streamingContent) return null;
-    
-    return (
-      <div className="flex gap-3 justify-start">
-        <Avatar className="w-8 h-8 flex-shrink-0">
-          <AvatarFallback className="bg-red-50 text-red-500">
-            <Bot className="w-4 h-4" />
-          </AvatarFallback>
-        </Avatar>
-        <div className="max-w-[70%] rounded-2xl px-4 py-3 bg-muted">
-          <p className="text-sm whitespace-pre-wrap leading-relaxed">
-            {streamingContent}
-            <span className="inline-block w-0.5 h-4 bg-red-500 ml-0.5 animate-pulse" />
-          </p>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col p-4 gap-4">
-      {/* 顶部工具栏 */}
-      <div className="flex items-center justify-between flex-shrink-0">
+    <div className="p-6 space-y-6">
+      {/* 顶部导航 */}
+      <div className="flex items-center gap-4">
+        <Link href="/teacher/lesson-prep">
+          <button className="p-2 rounded-lg hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        </Link>
         <div className="flex items-center gap-3">
-          <Link href="/teacher/lesson-prep">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-red-500" />
+          <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
+            <span className="text-2xl">📖</span>
           </div>
           <div>
-            <h1 className="text-lg font-bold">语文备课</h1>
-            <p className="text-xs text-muted-foreground">AI备课智能体</p>
+            <h1 className="text-2xl font-bold">语文备课中心</h1>
+            <p className="text-sm text-muted-foreground">诗意语文 · 专业赋能</p>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Select value={String(grade)} onValueChange={(v) => setGrade(parseInt(v))}>
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3, 4, 5, 6].map(g => (
-                <SelectItem key={g} value={String(g)}>{g}年级</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          {messages.length > 0 && (
-            <Button variant="ghost" size="icon" onClick={clearChat} title="清空对话">
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
         </div>
       </div>
-      
-      {/* 对话区域 */}
-      <Card className="flex-1 flex flex-col overflow-hidden">
-        {messages.length === 0 && !streamingContent ? (
-          <WelcomeContent />
-        ) : (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
-            {streamingContent && <StreamingBubble />}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-        
-        {/* 输入区域 */}
-        <div className="border-t p-4 flex-shrink-0">
-          <div className="flex gap-3 items-end">
-            <div className="flex-1 relative">
-              <Textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="说点什么..."
-                className="min-h-[52px] max-h-[120px] resize-none pr-12"
-                disabled={isLoading}
-              />
-              <Button
-                size="icon"
-                className="absolute right-2 bottom-2 h-8 w-8"
-                onClick={() => sendMessage(inputValue)}
-                disabled={!inputValue.trim() || isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
+
+      {/* 理念引导 */}
+      <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-100">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-4">
+            <div className="p-2 rounded-lg bg-white">
+              <Sparkles className="w-5 h-5 text-red-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-700">教学理念</h3>
+              <p className="text-sm text-red-600/80 mt-1 leading-relaxed">
+                基于王崧舟老师"诗意语文"教学理念，引导教师进行深度文本解读，
+                设计"点面相生、动静相生"的课堂，让语文教学回归语言本质。
+              </p>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            按 Enter 发送，Shift + Enter 换行
-          </p>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* 功能模块 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {MODULES.map((module) => {
+          const Icon = module.icon;
+          
+          return (
+            <Link
+              key={module.id}
+              href={`/teacher/lesson-prep/chinese/${module.id}`}
+              className="block"
+            >
+              <Card className={cn(
+                'h-full cursor-pointer transition-all hover:shadow-lg',
+                module.borderColor
+              )}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4">
+                      <div className={cn('p-3 rounded-xl', module.bgColor)}>
+                        <Icon className={cn('w-6 h-6', module.color)} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold">{module.title}</h3>
+                          {!module.available && (
+                            <Badge variant="outline" className="text-xs">开发中</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{module.subtitle}</p>
+                        <p className="text-sm mt-2 text-gray-600 leading-relaxed">
+                          {module.description}
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {module.features.map((feature, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {feature}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <ArrowRight className={cn('w-5 h-5 flex-shrink-0 mt-1', module.color)} />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* 快捷入口 */}
+      <Card>
+        <CardContent className="p-5">
+          <h3 className="font-semibold mb-4">快速开始</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Link href="/teacher/lesson-prep/chinese/chat">
+              <div className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer">
+                <FileText className="w-4 h-4 text-red-500 mb-2" />
+                <p className="text-sm font-medium">文本解读</p>
+                <p className="text-xs text-muted-foreground">深度分析课文</p>
+              </div>
+            </Link>
+            <Link href="/teacher/lesson-prep/chinese/character">
+              <div className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer">
+                <Target className="w-4 h-4 text-blue-500 mb-2" />
+                <p className="text-sm font-medium">生字备课</p>
+                <p className="text-xs text-muted-foreground">生成教学素材</p>
+              </div>
+            </Link>
+            <Link href="/teacher/lesson-prep/chinese/reading">
+              <div className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer">
+                <Mic2 className="w-4 h-4 text-green-500 mb-2" />
+                <p className="text-sm font-medium">朗读指导</p>
+                <p className="text-xs text-muted-foreground">范读与标注</p>
+              </div>
+            </Link>
+            <Link href="/teacher/lesson-prep/chinese/writing">
+              <div className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer">
+                <Users className="w-4 h-4 text-purple-500 mb-2" />
+                <p className="text-sm font-medium">作文备课</p>
+                <p className="text-xs text-muted-foreground">全流程设计</p>
+              </div>
+            </Link>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );

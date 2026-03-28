@@ -623,6 +623,34 @@ export {
   SUBJECT_CONFIGS,
 } from './lesson-prep';
 
+// ==================== 语文学科专项备课类型 ====================
+
+export type {
+  CharacterInfo,
+  SimilarCharGroup,
+  PolyphonicChar,
+  GridWriting,
+  DictationItem,
+  CharacterRequest,
+  CharacterResponse,
+  ReadingSpeed,
+  PauseMark,
+  StressMark,
+  ReadingAnnotation,
+  ReadingAudio,
+  ReadingGuidance,
+  ReadingRequest,
+  ReadingResponse,
+  WritingType,
+  WritingOutline,
+  GoodExpressions,
+  TieredTask,
+  EvaluationGuide,
+  WritingIssue,
+  WritingRequest,
+  WritingResponse,
+} from './chinese-prep';
+
 // ==================== 工作流类型 ====================
 
 /** 工作流配置 */
