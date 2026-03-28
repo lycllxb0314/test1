@@ -23,7 +23,7 @@ import {
   ArrowLeft,
   Send,
   User,
-  Bot,
+  Image as ImageIcon,
   Trash2,
   FileText,
   Target,
@@ -184,20 +184,26 @@ export default function ChatPage() {
   // 欢迎内容
   const WelcomeContent = () => (
     <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-6">
-        <Bot className="w-8 h-8 text-red-500" />
+      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center mb-4 shadow-lg overflow-hidden">
+        <img 
+          src="/xinxin-avatar.png" 
+          alt="心心" 
+          className="w-20 h-20 object-contain"
+        />
       </div>
-      <h2 className="text-2xl font-bold text-center mb-2">你好，我是王老师</h2>
-      <p className="text-muted-foreground text-center max-w-md mb-8">
-        一位有着三十年教学经验的语文老师，很高兴能和你一起探讨教学。
-        你在备什么课？有什么想聊的？
+      <h2 className="text-2xl font-bold text-center mb-2">你好，我是心心</h2>
+      <p className="text-muted-foreground text-center max-w-md mb-2">
+        一位来自"童心教育"的AI教学伙伴，很高兴能和你一起探讨教学。
+      </p>
+      <p className="text-sm text-emerald-600 text-center max-w-md mb-8">
+        💚 童心未泯，教育初心
       </p>
       
       <div className="grid grid-cols-2 gap-3 max-w-2xl w-full">
         {QUICK_STARTS.map((item, idx) => (
           <Card
             key={idx}
-            className="p-4 cursor-pointer hover:shadow-md hover:border-red-200 transition-all"
+            className="p-4 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all"
             onClick={() => handleQuickStart(item.text)}
           >
             <div className="flex items-start gap-3">
@@ -217,10 +223,12 @@ export default function ChatPage() {
       message.role === 'user' ? 'justify-end' : 'justify-start'
     )}>
       {message.role === 'assistant' && (
-        <Avatar className="w-8 h-8 flex-shrink-0">
-          <AvatarFallback className="bg-red-50 text-red-500">
-            <Bot className="w-4 h-4" />
-          </AvatarFallback>
+        <Avatar className="w-8 h-8 flex-shrink-0 overflow-hidden">
+          <img 
+            src="/xinxin-avatar.png" 
+            alt="心心" 
+            className="w-full h-full object-contain bg-gradient-to-br from-emerald-50 to-green-100"
+          />
         </Avatar>
       )}
       
@@ -257,15 +265,17 @@ export default function ChatPage() {
     
     return (
       <div className="flex gap-3 justify-start">
-        <Avatar className="w-8 h-8 flex-shrink-0">
-          <AvatarFallback className="bg-red-50 text-red-500">
-            <Bot className="w-4 h-4" />
-          </AvatarFallback>
+        <Avatar className="w-8 h-8 flex-shrink-0 overflow-hidden">
+          <img 
+            src="/xinxin-avatar.png" 
+            alt="心心" 
+            className="w-full h-full object-contain bg-gradient-to-br from-emerald-50 to-green-100"
+          />
         </Avatar>
         <div className="max-w-[70%] rounded-2xl px-4 py-3 bg-muted">
           <p className="text-sm whitespace-pre-wrap leading-relaxed">
             {streamingContent}
-            <span className="inline-block w-0.5 h-4 bg-red-500 ml-0.5 animate-pulse" />
+            <span className="inline-block w-0.5 h-4 bg-emerald-500 ml-0.5 animate-pulse" />
           </p>
         </div>
       </div>
@@ -282,12 +292,16 @@ export default function ChatPage() {
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
-          <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-            <MessageCircle className="w-5 h-5 text-red-500" />
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center overflow-hidden shadow-sm">
+            <img 
+              src="/xinxin-avatar.png" 
+              alt="心心" 
+              className="w-8 h-8 object-contain"
+            />
           </div>
           <div>
-            <h1 className="text-lg font-bold">备课智能体</h1>
-            <p className="text-xs text-muted-foreground">AI教学设计伙伴</p>
+            <h1 className="text-lg font-bold">心心</h1>
+            <p className="text-xs text-muted-foreground">备课智能体 · 童心教育</p>
           </div>
         </div>
         

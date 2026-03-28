@@ -33,13 +33,13 @@ import { cn } from '@/lib/utils';
 const MODULES = [
   {
     id: 'chat',
-    title: '备课智能体',
-    subtitle: 'AI教学设计伙伴',
+    title: '心心',
+    subtitle: '备课智能体 · 童心教育',
     icon: MessageCircle,
-    color: 'text-red-500',
-    bgColor: 'bg-red-50',
-    borderColor: 'hover:border-red-300',
-    description: '像老教师一样和你对话，深度探讨文本解读、教学设计、问题设计',
+    color: 'text-emerald-500',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'hover:border-emerald-300',
+    description: '我是心心，来自"童心教育"的AI教学伙伴，陪你一起探讨文本解读、教学设计',
     features: [
       '文本解读六法引导',
       '教学设计点面相生',
