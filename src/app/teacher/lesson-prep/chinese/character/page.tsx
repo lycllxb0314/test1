@@ -126,23 +126,84 @@ export default function CharacterPage() {
           </div>
         </div>
         
-        {/* 田字格展示 */}
-        <div className="flex items-center justify-center">
-          <div className="w-24 h-24 border-2 border-blue-300 relative bg-white grid grid-cols-2 grid-rows-2">
-            <div className="border-r border-b border-dashed border-blue-200" />
-            <div className="border-b border-dashed border-blue-200" />
-            <div className="border-r border-dashed border-blue-200" />
-            <div />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-5xl font-kai text-gray-800">{info.char}</span>
+        {/* 田字格范写 - 手写楷体风格 */}
+        {/* 田字格范写 - 专业手写楷体风格 */}
+        <div className="space-y-2">
+          <div className="text-sm text-muted-foreground">田字格范写（楷体）：</div>
+          <div className="flex items-center justify-center">
+            {/* 田字格容器 */}
+            <div 
+              className="w-32 h-32 relative bg-white shadow-lg rounded-sm overflow-hidden"
+              style={{
+                border: '3px solid #dc2626',
+                background: 'white'
+              }}
+            >
+              {/* 虚线十字格 */}
+              <div className="absolute inset-0 pointer-events-none">
+                {/* 横中线 - 虚线 */}
+                <div 
+                  className="absolute left-0 right-0 h-px"
+                  style={{ 
+                    top: '50%',
+                    background: 'repeating-linear-gradient(90deg, #ef4444 0, #ef4444 4px, transparent 4px, transparent 8px)'
+                  }}
+                />
+                {/* 竖中线 - 虚线 */}
+                <div 
+                  className="absolute top-0 bottom-0 w-px"
+                  style={{ 
+                    left: '50%',
+                    background: 'repeating-linear-gradient(180deg, #ef4444 0, #ef4444 4px, transparent 4px, transparent 8px)'
+                  }}
+                />
+                {/* 对角虚线 */}
+                <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.3 }}>
+                  <line x1="0" y1="0" x2="100%" y2="100%" stroke="#ef4444" strokeWidth="1" strokeDasharray="4,4" />
+                  <line x1="100%" y1="0" x2="0" y2="100%" stroke="#ef4444" strokeWidth="1" strokeDasharray="4,4" />
+                </svg>
+              </div>
+              
+              {/* 手写楷体字 */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span 
+                  className="select-none"
+                  style={{ 
+                    fontFamily: '"KaiTi", "楷体", "STKaiti", "华文楷体", "SimKai", "Noto Serif SC", serif',
+                    fontSize: '5rem',
+                    lineHeight: 1,
+                    color: '#1f2937',
+                    fontWeight: 400,
+                    letterSpacing: '-2px'
+                  }}
+                >
+                  {info.char}
+                </span>
+              </div>
             </div>
-            {/* 田字格对角线 */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none">
-              <line x1="0" y1="0" x2="100%" y2="100%" stroke="#93c5fd" strokeWidth="1" strokeDasharray="4" />
-              <line x1="100%" y1="0" x2="0" y2="100%" stroke="#93c5fd" strokeWidth="1" strokeDasharray="4" />
-            </svg>
           </div>
         </div>
+        
+        {/* 笔画书写指导 */}
+        {info.strokeGuide && info.strokeGuide.length > 0 && (
+          <div className="text-xs p-2 bg-amber-50 rounded border border-amber-200">
+            <div className="font-medium text-amber-700 mb-2">书写指导：</div>
+            <div className="grid grid-cols-2 gap-1">
+              {info.strokeGuide.map((stroke, idx) => (
+                <div key={idx} className="flex items-start gap-1 p-1 bg-white rounded">
+                  <span className="font-bold text-amber-600">{idx + 1}.</span>
+                  <div>
+                    <span className="font-medium">{stroke.name}</span>
+                    <div className="text-muted-foreground text-[10px]">{stroke.position}</div>
+                    {stroke.tip && (
+                      <div className="text-orange-600 text-[10px]">💡{stroke.tip}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* 下载按钮 */}
         <div className="flex gap-2">

@@ -22,6 +22,12 @@ export type CharacterInfo = {
   strokeOrder: string[];
   /** 笔顺 SVG 路径数据 */
   strokePaths: string[];
+  /** 笔画书写指导 */
+  strokeGuide: Array<{
+    name: string;
+    position: string;
+    tip: string;
+  }>;
   /** 组词 */
   words: string[];
 };
