@@ -40,7 +40,7 @@ export default function CharacterPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          characters: chars.split(/[，,\s]+/).filter(Boolean),
+          characters: chars.split(/[，,、\s]+/).filter(Boolean),
           grade,
           generateOptions: {
             strokeOrder: true,
@@ -76,7 +76,7 @@ export default function CharacterPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          characters: chars.split(/[，,\s]+/).filter(Boolean),
+          characters: chars.split(/[，,、\s]+/).filter(Boolean),
           grade,
           content: data,
         }),
@@ -142,7 +142,7 @@ export default function CharacterPage() {
                 <Textarea
                   value={chars}
                   onChange={(e) => setChars(e.target.value)}
-                  placeholder="请输入本课生字，用逗号或空格分隔，例如：舟、船、艇、舰"
+                  placeholder="请输入本课生字，用逗号、顿号或空格分隔，例如：舟、船、艇、舰"
                   className="min-h-[100px] text-lg border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
@@ -169,8 +169,8 @@ export default function CharacterPage() {
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      {chars.split(/[，,\s]+/).filter(Boolean).length > 1 
-                        ? `正在生成 ${chars.split(/[，,\s]+/).filter(Boolean).length} 个生字...` 
+                      {chars.split(/[，,、\s]+/).filter(Boolean).length > 1 
+                        ? `正在生成 ${chars.split(/[，,、\s]+/).filter(Boolean).length} 个生字...` 
                         : '生成中...'}
                     </>
                   ) : (
