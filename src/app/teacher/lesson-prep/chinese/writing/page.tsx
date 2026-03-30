@@ -56,19 +56,20 @@ import type {
 
 // ==================== 类型定义 ====================
 
+// 数据库原始字段格式（snake_case）
 type WritingTopic = {
   id: number;
   grade: number;
   semester: string;
-  unitNumber: number;
-  unitTheme: string;
-  topicNumber: number;
+  unit_number: number;
+  unit_theme: string;
+  topic_number: number;
   title: string;
-  writingType: string;
+  writing_type: string;
   requirements: string;
-  wordCountMin: number;
-  wordCountMax: number;
-  keyPoints: string[];
+  word_count_min: number;
+  word_count_max: number;
+  key_points: string[];
   tips: string;
 };
 
@@ -192,8 +193,8 @@ export default function WritingPage() {
           lessonInfo: {
             title: selectedTopic.title,
             grade: selectedTopic.grade,
-            writingType: selectedTopic.writingType,
-            unit: `第${selectedTopic.unitNumber}单元 ${selectedTopic.unitTheme}`,
+            writingType: selectedTopic.writing_type,
+            unit: `第${selectedTopic.unit_number}单元 ${selectedTopic.unit_theme}`,
           },
           writingContent: result,
         }),
@@ -219,8 +220,8 @@ export default function WritingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          unit: `第${selectedTopic.unitNumber}单元 ${selectedTopic.unitTheme}`,
-          writingType: selectedTopic.writingType as WritingType,
+          unit: `第${selectedTopic.unit_number}单元 ${selectedTopic.unit_theme}`,
+          writingType: selectedTopic.writing_type as WritingType,
           grade: selectedTopic.grade,
           topic: selectedTopic.title,
           generateOptions: options,
@@ -695,13 +696,13 @@ export default function WritingPage() {
                                       <div className="flex items-center gap-2 mt-1">
                                         <Badge 
                                           variant="outline" 
-                                          className={cn("text-xs", WRITING_TYPE_COLORS[topic.writingType] || '')}
+                                          className={cn("text-xs", WRITING_TYPE_COLORS[topic.writing_type] || '')}
                                         >
-                                          {topic.writingType}
+                                          {topic.writing_type}
                                         </Badge>
-                                        {topic.wordCountMin > 0 && (
+                                        {topic.word_count_min > 0 && (
                                           <span className="text-xs text-muted-foreground">
-                                            {topic.wordCountMin}-{topic.wordCountMax}字
+                                            {topic.word_count_min}-{topic.word_count_max}字
                                           </span>
                                         )}
                                       </div>
@@ -735,17 +736,17 @@ export default function WritingPage() {
                         {selectedTopic.title}
                         <Badge 
                           variant="outline" 
-                          className={WRITING_TYPE_COLORS[selectedTopic.writingType] || ''}
+                          className={WRITING_TYPE_COLORS[selectedTopic.writing_type] || ''}
                         >
-                          {selectedTopic.writingType}
+                          {selectedTopic.writing_type}
                         </Badge>
                       </CardTitle>
                       <CardDescription className="mt-1">
-                        第{selectedTopic.unitNumber}单元 · {selectedTopic.unitTheme} · {selectedTopic.grade}年级{selectedTopic.semester}
+                        第{selectedTopic.unit_number}单元 · {selectedTopic.unit_theme} · {selectedTopic.grade}年级{selectedTopic.semester}
                       </CardDescription>
                     </div>
                     <Badge variant="secondary" className="text-xs">
-                      {selectedTopic.wordCountMin}-{selectedTopic.wordCountMax}字
+                      {selectedTopic.word_count_min}-{selectedTopic.word_count_max}字
                     </Badge>
                   </div>
                 </CardHeader>
@@ -755,9 +756,9 @@ export default function WritingPage() {
                     <p className="text-sm">{selectedTopic.requirements}</p>
                   </div>
                   
-                  {selectedTopic.keyPoints.length > 0 && (
+                  {selectedTopic.key_points.length > 0 && (
                     <div className="flex flex-wrap gap-2">
-                      {selectedTopic.keyPoints.map((point, idx) => (
+                      {selectedTopic.key_points.map((point, idx) => (
                         <Badge key={idx} variant="outline" className="text-xs">{point}</Badge>
                       ))}
                     </div>
