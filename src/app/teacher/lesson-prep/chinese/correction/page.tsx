@@ -34,168 +34,203 @@ import type { EvaluationGuide, TieredTask, WritingIssue } from '@/types/chinese-
 // ==================== Markdown 渲染 ====================
 
 /**
- * 简单的 Markdown 渲染器
- * 支持标题、表格、粗体、列表等基本格式
+ * 美观的 Markdown 渲染器
  */
 function renderMarkdown(content: string): React.ReactNode {
-  // 处理代码块
-  if (content.includes('```')) {
-    const parts = content.split(/(```[\s\S]*?```)/g);
-    return (
-      <>
-        {parts.map((part, idx) => {
-          if (part.startsWith('```')) {
-            const code = part.replace(/```\w*\n?/g, '').replace(/```$/g, '');
-            return (
-              <pre key={idx} className="bg-gray-100 rounded p-2 my-2 text-xs overflow-x-auto">
-                {code}
-              </pre>
-            );
-          }
-          return <span key={idx}>{renderMarkdown(part)}</span>;
-        })}
-      </>
-    );
-  }
-
-  // 处理表格
-  if (content.includes('|') && content.includes('---')) {
-    const lines = content.split('\n');
-    const tableStart = lines.findIndex(l => l.includes('|') && l.includes('---'));
-    if (tableStart > 0) {
-      const headerLine = lines[tableStart - 1];
-      const bodyLines = lines.slice(tableStart + 1).filter(l => l.includes('|'));
-      
-      const parseRow = (line: string) => 
-        line.split('|').filter(c => c.trim()).map(c => c.trim());
-      
-      const headers = parseRow(headerLine);
-      const rows = bodyLines.map(parseRow);
-      
-      const beforeTable = lines.slice(0, tableStart - 1).join('\n');
-      const afterTable = lines.slice(tableStart + 1 + bodyLines.length).join('\n');
-      
-      return (
-        <>
-          {beforeTable && <span>{renderMarkdown(beforeTable)}</span>}
-          <div className="overflow-x-auto my-3">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-blue-50">
-                  {headers.map((h, i) => (
-                    <th key={i} className="border border-blue-200 px-3 py-2 text-left font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr key={i} className="border-b">
-                    {row.map((cell, j) => (
-                      <td key={j} className="border border-blue-100 px-3 py-2">
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {afterTable && <span>{renderMarkdown(afterTable)}</span>}
-        </>
-      );
-    }
-  }
-
-  // 处理标题
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
-  let currentText = '';
-  let listItems: string[] = [];
+  let i = 0;
   
-  const flushList = () => {
-    if (listItems.length > 0) {
-      elements.push(
-        <ul key={`list-${elements.length}`} className="list-disc list-inside my-2 space-y-1">
-          {listItems.map((item, i) => (
-            <li key={i} className="text-sm">{renderInline(item)}</li>
-          ))}
-        </ul>
-      );
-      listItems = [];
+  while (i < lines.length) {
+    const line = lines[i];
+    
+    // 跳过空行
+    if (!line.trim()) {
+      i++;
+      continue;
     }
-  };
-  
-  const flushText = () => {
-    flushList();
-    if (currentText.trim()) {
-      elements.push(
-        <p key={`text-${elements.length}`} className="text-sm my-1">
-          {renderInline(currentText)}
-        </p>
-      );
-      currentText = '';
-    }
-  };
-  
-  for (const line of lines) {
+    
     // H2 标题
     if (line.startsWith('## ')) {
-      flushText();
       elements.push(
-        <h2 key={elements.length} className="text-base font-bold mt-4 mb-2 pb-1 border-b-2 border-blue-200 text-blue-800">
-          {line.slice(3)}
-        </h2>
+        <div key={elements.length} className="flex items-center gap-2 mt-5 mb-3 first:mt-0">
+          <span className="text-lg">{getEmoji(line)}</span>
+          <h2 className="text-base font-bold text-gray-800">
+            {line.replace(/^##\s*/, '').replace(/[📝🎯✨⚠️💡🌟]/g, '').trim()}
+          </h2>
+        </div>
       );
+      i++;
+      continue;
     }
+    
     // H3 标题
-    else if (line.startsWith('### ')) {
-      flushText();
+    if (line.startsWith('### ')) {
       elements.push(
-        <h3 key={elements.length} className="text-sm font-bold mt-3 mb-1 text-gray-800">
+        <h3 key={elements.length} className="text-sm font-semibold text-gray-700 mt-3 mb-2 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
           {line.slice(4)}
         </h3>
       );
+      i++;
+      continue;
     }
-    // 列表项
-    else if (line.startsWith('- ') || line.startsWith('* ')) {
-      flushText();
-      listItems.push(line.slice(2));
-    }
-    // 引用
-    else if (line.startsWith('> ')) {
-      flushText();
-      elements.push(
-        <blockquote key={elements.length} className="border-l-4 border-blue-300 pl-3 py-1 my-2 bg-blue-50 rounded-r text-sm italic">
-          {renderInline(line.slice(2))}
-        </blockquote>
-      );
-    }
+    
     // 分隔线
-    else if (line.trim() === '---') {
-      flushText();
+    if (line.trim() === '---') {
       elements.push(
-        <hr key={elements.length} className="my-4 border-t border-gray-200" />
+        <div key={elements.length} className="my-4 border-t border-gray-100"></div>
       );
+      i++;
+      continue;
     }
-    // 普通文本
-    else {
-      if (listItems.length > 0 && !line.startsWith('- ') && !line.startsWith('* ')) {
-        flushList();
+    
+    // 表格
+    if (line.includes('|') && i + 1 < lines.length && lines[i + 1].includes('---')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].includes('|')) {
+        tableLines.push(lines[i]);
+        i++;
       }
-      currentText += (currentText ? '\n' : '') + line;
+      elements.push(renderTable(tableLines));
+      continue;
+    }
+    
+    // 列表
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      const listItems: string[] = [];
+      while (i < lines.length && (lines[i].startsWith('- ') || lines[i].startsWith('* '))) {
+        listItems.push(lines[i].slice(2));
+        i++;
+      }
+      elements.push(
+        <ul key={elements.length} className="space-y-1.5 my-2">
+          {listItems.map((item, idx) => (
+            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-2 flex-shrink-0"></span>
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+    
+    // 引用
+    if (line.startsWith('> ')) {
+      elements.push(
+        <div key={elements.length} className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 my-2 border-l-4 border-blue-400">
+          <p className="text-sm text-gray-700 italic">{renderInline(line.slice(2))}</p>
+        </div>
+      );
+      i++;
+      continue;
+    }
+    
+    // 总分行数显示
+    if (line.includes('总分：') || line.includes('**总分：')) {
+      elements.push(
+        <div key={elements.length} className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 my-3 border border-amber-200 shadow-sm">
+          <p className="text-lg font-bold text-amber-800">
+            {renderInline(line.replace(/\*\*/g, ''))}
+          </p>
+        </div>
+      );
+      i++;
+      continue;
+    }
+    
+    // 等级显示
+    if (line.includes('等级：') || line.includes('**等级：')) {
+      const level = line.includes('优秀') ? '优秀' : line.includes('良好') ? '良好' : line.includes('及格') ? '及格' : '待提高';
+      const colorClass = level === '优秀' ? 'from-green-50 to-emerald-50 border-green-200 text-green-800' 
+        : level === '良好' ? 'from-blue-50 to-indigo-50 border-blue-200 text-blue-800'
+        : level === '及格' ? 'from-yellow-50 to-amber-50 border-yellow-200 text-yellow-800'
+        : 'from-orange-50 to-red-50 border-orange-200 text-orange-800';
+      
+      elements.push(
+        <div key={elements.length} className={`bg-gradient-to-r ${colorClass} rounded-lg px-4 py-2 my-2 border inline-flex items-center gap-2`}>
+          <span className="font-medium">等级评定：</span>
+          <span className="font-bold text-lg">{level}</span>
+        </div>
+      );
+      i++;
+      continue;
+    }
+    
+    // 普通段落
+    const paragraphLines: string[] = [];
+    while (i < lines.length && lines[i].trim() && !lines[i].startsWith('#') && !lines[i].startsWith('-') && !lines[i].startsWith('*') && !lines[i].startsWith('>') && !lines[i].includes('|') && lines[i] !== '---') {
+      paragraphLines.push(lines[i]);
+      i++;
+    }
+    
+    if (paragraphLines.length > 0) {
+      elements.push(
+        <p key={elements.length} className="text-sm text-gray-700 leading-relaxed my-1.5">
+          {renderInline(paragraphLines.join(' '))}
+        </p>
+      );
     }
   }
   
-  flushText();
-  
-  return elements.length > 0 ? elements : <span className="text-sm">{renderInline(content)}</span>;
+  return <div className="space-y-1">{elements}</div>;
 }
 
-/**
- * 渲染行内元素（粗体、斜体等）
- */
+function getEmoji(line: string): string {
+  if (line.includes('📝')) return '📝';
+  if (line.includes('🎯')) return '🎯';
+  if (line.includes('✨')) return '✨';
+  if (line.includes('⚠️')) return '⚠️';
+  if (line.includes('💡')) return '💡';
+  if (line.includes('🌟')) return '🌟';
+  return '📌';
+}
+
+function renderTable(lines: string[]): React.ReactNode {
+  if (lines.length < 2) return null;
+  
+  const headerLine = lines[0];
+  const bodyLines = lines.slice(2); // 跳过分隔行
+  
+  const parseRow = (line: string) => 
+    line.split('|').filter(c => c.trim()).map(c => c.trim());
+  
+  const headers = parseRow(headerLine);
+  const rows = bodyLines.map(parseRow);
+  
+  return (
+    <div className="my-3 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
+            {headers.map((h, i) => (
+              <th key={i} className="px-4 py-2.5 text-left font-semibold text-gray-700 border-b border-gray-200">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+              {row.map((cell, j) => (
+                <td key={j} className="px-4 py-2 text-gray-700 border-b border-gray-100">
+                  {j === 1 || j === 2 ? (
+                    <span className="font-medium text-blue-600">{cell}</span>
+                  ) : (
+                    cell
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function renderInline(text: string): React.ReactNode {
   // 处理粗体
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
@@ -207,10 +242,6 @@ function renderInline(text: string): React.ReactNode {
           {part.slice(2, -2)}
         </strong>
       );
-    }
-    // 处理 emoji 和特殊标记
-    if (part.includes('✨') || part.includes('⚠️') || part.includes('💡') || part.includes('🌟') || part.includes('📝') || part.includes('🎯')) {
-      return <span key={idx}>{part}</span>;
     }
     return part;
   });
