@@ -559,13 +559,15 @@ export default function ResourceDetailPage() {
                     <CardDescription>五环节闭环：感悟 → 想象 → 求气 → 创调 → 反听</CardDescription>
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* 1. 感悟 */}
                       <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
                         <div className="flex items-center gap-2 mb-2">
+                          <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-bold">1</span>
                           <span className="font-medium text-blue-700">感悟</span>
                         </div>
                         <p className="text-sm">{readingContent.emotionalModel.comprehension?.emotionalTone || '暂无'}</p>
-                        {readingContent.emotionalModel.comprehension?.emotionalKeywords && (
+                        {readingContent.emotionalModel.comprehension?.emotionalKeywords && readingContent.emotionalModel.comprehension.emotionalKeywords.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             {readingContent.emotionalModel.comprehension.emotionalKeywords.map((kw, i) => (
                               <Badge key={i} variant="outline" className="text-xs">{kw}</Badge>
@@ -573,26 +575,62 @@ export default function ResourceDetailPage() {
                           </div>
                         )}
                       </div>
-                      <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium text-amber-700">求气</span>
-                        </div>
-                        <p className="text-sm">{readingContent.emotionalModel.breathControl?.breathType || '暂无'}</p>
-                      </div>
-                      <div className="p-4 bg-green-50/50 rounded-lg border border-green-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium text-green-700">创调</span>
-                        </div>
-                        <p className="text-sm">
-                          语速：{readingContent.emotionalModel.toneCreation?.speed || '标准'} | 
-                          语调：{readingContent.emotionalModel.toneCreation?.intonation || '自然'}
-                        </p>
-                      </div>
+                      
+                      {/* 2. 想象 */}
                       <div className="p-4 bg-purple-50/50 rounded-lg border border-purple-100">
                         <div className="flex items-center gap-2 mb-2">
+                          <span className="w-6 h-6 rounded-full bg-purple-500 text-white text-xs flex items-center justify-center font-bold">2</span>
                           <span className="font-medium text-purple-700">想象</span>
                         </div>
                         <p className="text-sm">{readingContent.emotionalModel.imagination?.guidanceScript || '暂无'}</p>
+                        {readingContent.emotionalModel.imagination?.coreScenes && readingContent.emotionalModel.imagination.coreScenes.length > 0 && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            核心画面：{readingContent.emotionalModel.imagination.coreScenes.join('；')}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 3. 求气 */}
+                      <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold">3</span>
+                          <span className="font-medium text-amber-700">求气</span>
+                        </div>
+                        <p className="text-sm">{readingContent.emotionalModel.breathControl?.breathType || '暂无'}</p>
+                        {readingContent.emotionalModel.breathControl?.breathPoints && readingContent.emotionalModel.breathControl.breathPoints.length > 0 && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            {readingContent.emotionalModel.breathControl.breathPoints.join('；')}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 4. 创调 */}
+                      <div className="p-4 bg-green-50/50 rounded-lg border border-green-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-6 h-6 rounded-full bg-green-500 text-white text-xs flex items-center justify-center font-bold">4</span>
+                          <span className="font-medium text-green-700">创调</span>
+                        </div>
+                        <div className="text-sm space-y-1">
+                          <div>语速：{readingContent.emotionalModel.toneCreation?.speed || '标准'}</div>
+                          <div>语调：{readingContent.emotionalModel.toneCreation?.intonation || '自然'}</div>
+                          {readingContent.emotionalModel.toneCreation?.flow && (
+                            <div>语流：{readingContent.emotionalModel.toneCreation.flow}</div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* 5. 反听 */}
+                      <div className="p-4 bg-rose-50/50 rounded-lg border border-rose-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-6 h-6 rounded-full bg-rose-500 text-white text-xs flex items-center justify-center font-bold">5</span>
+                          <span className="font-medium text-rose-700">反听</span>
+                        </div>
+                        <p className="text-sm">{readingContent.emotionalModel.selfMonitoring?.guidanceScript || '暂无'}</p>
+                        {readingContent.emotionalModel.selfMonitoring?.checkpoints && readingContent.emotionalModel.selfMonitoring.checkpoints.length > 0 && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            反听要点：{readingContent.emotionalModel.selfMonitoring.checkpoints.join('；')}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
