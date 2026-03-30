@@ -168,6 +168,35 @@ export default function ReadingPage() {
     });
   }, []);
   
+  // 内部保存函数（生成后自动调用）
+  const saveToResourceInternal = useCallback(async (planData: ReadingTeachingPlan) => {
+    if (!selectedLesson || !textContent.trim()) return;
+    
+    try {
+      const res = await fetch('/api/teaching-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lessonInfo: {
+            title: selectedLesson.title,
+            grade: selectedLesson.grade,
+            genre: selectedLesson.genre,
+            content: textContent.trim(),
+          },
+          readingContent: planData,
+        }),
+      });
+      
+      const json = await res.json();
+      if (json.success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (e) {
+      console.error('自动保存失败:', e);
+    }
+  }, [selectedLesson, textContent]);
+  
   // 生成朗读方案
   const handleGenerate = useCallback(async () => {
     if (!selectedLesson || !textContent.trim()) {
@@ -193,6 +222,8 @@ export default function ReadingPage() {
       if (data.success) {
         setPlan(data.data);
         setActiveTab('ontology');
+        // 自动保存到资源库
+        saveToResourceInternal(data.data);
       } else {
         console.error('生成失败:', data.error);
       }
@@ -201,9 +232,9 @@ export default function ReadingPage() {
     } finally {
       setGenerating(false);
     }
-  }, [selectedLesson, textContent, options]);
+  }, [selectedLesson, textContent, options, saveToResourceInternal]);
   
-  // 保存到资源库
+  // 保存到资源库（手动调用）
   const saveToResource = useCallback(async () => {
     if (!plan || !selectedLesson || !textContent.trim()) return;
     
@@ -901,6 +932,10 @@ export default function ReadingPage() {
                 </>
               )}
             </Button>
+            
+            <p className="text-xs text-muted-foreground text-center">
+              生成后将自动保存到资源库，可在「我的资源库」中查看历史记录
+            </p>
           </CardContent>
         </Card>
         
