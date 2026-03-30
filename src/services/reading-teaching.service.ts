@@ -148,7 +148,7 @@ export class ReadingTeachingService extends BaseService {
   }
 
   /**
-   * 生成完整朗读教学方案
+   * 生成完整朗读教学方案 - 并行生成策略
    */
   async generateReadingPlan(request: ReadingRequest): Promise<ServiceResult<ReadingTeachingPlan>> {
     const { text, title, grade, generateOptions } = request;
@@ -158,45 +158,41 @@ export class ReadingTeachingService extends BaseService {
     const genreFeatures = this.getGenreFeatures(genre);
     
     try {
-      // 构建 prompt
-      const prompt = this.buildReadingPrompt(text, title, grade, genre, generateOptions);
-      
-      // 调用 LLM
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
-      );
-      
-      // 解析响应
-      const parsedResult = this.parseReadingResponse(response.content, text, title, genre);
-      
-      // 生成范读音频
-      const audios: ReadingAudio[] = [];
+      // 并行生成各模块
+      const [ontologyResult, subjectResult, emotionalResult, strategiesResult, guidanceResult] = await Promise.all([
+        this.generateOntology(text, title, grade, genre),
+        this.generateSubjectCultivation(text, title, grade, genre),
+        this.generateEmotionalModel(text, title, grade, genre),
+        this.generateStrategies(text, title, grade, genre),
+        this.generateGuidance(text, title, grade, genre),
+      ]);
+
+      // 并行生成音频
+      let audios: ReadingAudio[] = [];
       if (generateOptions.audios) {
-        const audioResults = await this.generateAudios(text);
-        audios.push(...audioResults);
+        audios = await this.generateAudios(text);
       }
       
       const plan: ReadingTeachingPlan = {
         title,
         genre,
-        ontology: parsedResult.ontology,
-        subjectCultivation: parsedResult.subjectCultivation,
-        emotionalModel: parsedResult.emotionalModel,
+        ontology: ontologyResult.ontology,
+        subjectCultivation: subjectResult.subjectCultivation,
+        emotionalModel: emotionalResult.emotionalModel,
         strategies: {
-          demonstration: parsedResult.demonstration,
-          preparation: parsedResult.preparation,
+          demonstration: strategiesResult.demonstration,
+          preparation: strategiesResult.preparation,
           genreAwareness: {
             genre,
             features: genreFeatures,
-            commonMistakes: parsedResult.commonMistakes,
-            excellentExamples: parsedResult.excellentExamples,
+            commonMistakes: strategiesResult.commonMistakes,
+            excellentExamples: strategiesResult.excellentExamples,
           },
-          integration: parsedResult.integration,
+          integration: strategiesResult.integration,
         },
         audios,
-        annotation: parsedResult.annotation,
-        guidance: parsedResult.guidance,
+        annotation: strategiesResult.annotation,
+        guidance: guidanceResult.guidance,
       };
       
       return this.ok(plan);
@@ -204,6 +200,543 @@ export class ReadingTeachingService extends BaseService {
       console.error('[ReadingTeachingService] generateReadingPlan error:', error);
       return this.fail('生成朗读教学方案失败', 'GENERATION_FAILED');
     }
+  }
+
+  /**
+   * 生成本体论 - 并行模块1
+   */
+  private async generateOntology(
+    text: string,
+    title: string,
+    grade: number,
+    genre: ReadingToneType
+  ): Promise<{ ontology: ReadingTeachingPlan['ontology'] }> {
+    const prompt = `你是朗读教学专家。请为课文《${title}》设计朗读教学本体论。
+
+【课文原文】
+${text}
+
+【文体】${genre} | 【年级】${grade}年级
+
+【严格要求】
+1. 必须引用原文的具体句子来说明为什么值得朗读教学
+2. 教学目标必须具体、可操作，针对这篇课文的特点
+3. 价值取向要结合课文内容，不能空泛
+
+【输出JSON格式】
+{
+  "whyTeach": "引用原文1-2句话，说明这篇课文的朗读价值",
+  "teachingPurpose": ["目标1：具体技能", "目标2：具体理解", "目标3：具体情感"],
+  "valueOrientation": "通过朗读《${title}》，学生能获得的具体收获"
+}
+
+只输出JSON。`;
+
+    try {
+      const response = await this.llmClient.invoke(
+        [{ role: 'user', content: prompt }],
+        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+      );
+      
+      const data = this.extractJSON(response.content);
+      return {
+        ontology: {
+          whyTeach: (data.whyTeach as string) || `培养学生的${genre}朗读能力`,
+          teachingPurpose: Array.isArray(data.teachingPurpose) ? (data.teachingPurpose as string[]).join('；') : ((data.teachingPurpose as string) || '提升朗读能力'),
+          valueOrientation: (data.valueOrientation as string) || '培养审美情趣',
+        },
+      };
+    } catch (error) {
+      console.error('[ReadingTeachingService] generateOntology error:', error);
+      return {
+        ontology: {
+          whyTeach: `培养学生的${genre}朗读能力`,
+          teachingPurpose: '让学生在朗读中感受文本情感',
+          valueOrientation: '培养审美情趣',
+        },
+      };
+    }
+  }
+
+  /**
+   * 生成朗读主体培养 - 并行模块2
+   */
+  private async generateSubjectCultivation(
+    text: string,
+    title: string,
+    grade: number,
+    genre: ReadingToneType
+  ): Promise<{ subjectCultivation: ReadingTeachingPlan['subjectCultivation'] }> {
+    const prompt = `你是朗读教学专家。请为课文《${title}》设计朗读主体培养方案。
+
+【课文原文】
+${text}
+
+【文体】${genre} | 【年级】${grade}年级
+
+【核心要求】所有内容必须引用原文具体句子！
+
+【输出JSON格式】
+{
+  "willingness": {
+    "connectionPoint": "原文中哪句话最能引起学生共鸣？引用原文说明",
+    "emotionalHook": "设计3-5句导入语，必须引用原文内容，激发朗读欲望",
+    "motivationQuestions": ["问题1：针对原文某句话提问", "问题2：联系学生生活提问"]
+  },
+  "experience": {
+    "listeningFocus": [
+      {"原文片段": "引用原文", "听什么": "注意听的具体内容"},
+      {"原文片段": "引用原文", "听什么": "注意听的具体内容"}
+    ],
+    "imaginationGuide": {
+      "原文片段": "需要想象的原文",
+      "画面描述": "引导学生想象的具体画面",
+      "感官细节": ["视觉细节", "听觉细节"],
+      "引导话术": "完整的想象引导语"
+    },
+    "emotionExperience": {
+      "情感基调": "全文情感基调（一个词）",
+      "情感变化": [
+        {"原文": "引用原文", "情感": "情感类型", "原因": "为什么产生这种情感"}
+      ]
+    }
+  },
+  "skills": {
+    "stress": [
+      {"原文": "要重读的字词", "类型": "逻辑重音/情感重音", "原因": "为什么重读", "教学话术": "如何教学生读"}
+    ],
+    "pause": [
+      {"位置": "原文，用|标记停顿处", "时长": "短停顿1秒/中停顿2秒", "原因": "停顿原因"}
+    ],
+    "intonation": [
+      {"原文": "引用原文", "语调": "升调/降调/曲折调", "情感": "表达什么情感", "话术": "指导方法"}
+    ]
+  }
+}
+
+【重要】"原文"字段必须是课文原文，不能编造！
+只输出JSON。`;
+
+    try {
+      const response = await this.llmClient.invoke(
+        [{ role: 'user', content: prompt }],
+        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+      );
+      
+      const data = this.extractJSON(response.content);
+      const defaults = this.createDefaults(genre);
+      
+      return {
+        subjectCultivation: {
+          willingness: this.parseWillingness(data.willingness as Record<string, unknown>, defaults.willingness),
+          experience: this.parseExperience(data.experience as Record<string, unknown>, defaults.experience),
+          skills: this.parseSkills(data.skills as Record<string, unknown>, defaults.skills),
+        },
+      };
+    } catch (error) {
+      console.error('[ReadingTeachingService] generateSubjectCultivation error:', error);
+      const defaults = this.createDefaults(genre);
+      return {
+        subjectCultivation: {
+          willingness: defaults.willingness,
+          experience: defaults.experience,
+          skills: defaults.skills,
+        },
+      };
+    }
+  }
+
+  /**
+   * 生成情感朗读模型 - 并行模块3
+   */
+  private async generateEmotionalModel(
+    text: string,
+    title: string,
+    grade: number,
+    genre: ReadingToneType
+  ): Promise<{ emotionalModel: EmotionalReadingModel }> {
+    const prompt = `你是朗读教学专家。请为课文《${title}》设计情感朗读模型。
+
+【课文原文】
+${text}
+
+【文体】${genre} | 【年级】${grade}年级
+
+【核心要求】所有分析必须引用原文具体内容！
+
+【输出JSON格式】
+{
+  "comprehension": {
+    "情感基调": "全文情感基调（一个词）",
+    "关键情感词": ["从原文提取3-5个情感关键词"],
+    "感悟引导": "引导学生感悟情感的话术，引用原文"
+  },
+  "imagination": {
+    "核心画面": ["画面1：引用原文并描述", "画面2：引用原文并描述"],
+    "想象引导": "完整的想象引导话术"
+  },
+  "breathControl": {
+    "气息类型": "深气息/浅气息/连续气息",
+    "换气点": [
+      {"原文位置": "引用原文", "换气方式": "偷气/抢气/深吸气", "原因": "为什么"}
+    ]
+  },
+  "toneCreation": {
+    "整体语速": "快/中/慢",
+    "整体语调": "语调特点描述",
+    "声音色彩": "明亮/柔和/深沉"
+  }
+}
+
+只输出JSON。`;
+
+    try {
+      const response = await this.llmClient.invoke(
+        [{ role: 'user', content: prompt }],
+        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+      );
+      
+      const data = this.extractJSON(response.content);
+      const defaults = this.createDefaults(genre);
+      
+      const comprehension = (data.comprehension || {}) as Record<string, unknown>;
+      const imagination = (data.imagination || {}) as Record<string, unknown>;
+      const breathControl = (data.breathControl || {}) as Record<string, unknown>;
+      const toneCreation = (data.toneCreation || {}) as Record<string, unknown>;
+      
+      return {
+        emotionalModel: {
+          comprehension: {
+            emotionalTone: (comprehension.情感基调 as string) || '',
+            emotionalThread: '',
+            emotionalKeywords: (comprehension.关键情感词 as string[]) || [],
+            guidanceScript: (comprehension.感悟引导 as string) || '',
+          },
+          imagination: {
+            coreScenes: (imagination.核心画面 as string[]) || [],
+            guidanceScript: (imagination.想象引导 as string) || '',
+          },
+          breathControl: {
+            breathType: (breathControl.气息类型 as string) || '',
+            breathPoints: ((breathControl.换气点 as Array<{ 原文位置?: string; 换气方式?: string; 原因?: string }>) || []).map((p) => 
+              `${p.原文位置 || ''}（${p.换气方式 || ''}）`),
+            practiceMethod: '',
+            guidanceScript: '',
+          },
+          toneCreation: {
+            speed: (toneCreation.整体语速 as string) || '',
+            intonation: (toneCreation.整体语调 as string) || '',
+            flow: (toneCreation.声音色彩 as string) || '',
+            guidanceScript: '',
+          },
+          selfMonitoring: defaults.emotionalModel.selfMonitoring,
+        },
+      };
+    } catch (error) {
+      console.error('[ReadingTeachingService] generateEmotionalModel error:', error);
+      const defaults = this.createDefaults(genre);
+      return { emotionalModel: defaults.emotionalModel };
+    }
+  }
+
+  /**
+   * 生成教学策略 - 并行模块4
+   */
+  private async generateStrategies(
+    text: string,
+    title: string,
+    grade: number,
+    genre: ReadingToneType
+  ): Promise<{
+    demonstration: DemonstrationStrategy;
+    preparation: PreparationStrategy;
+    commonMistakes: string[];
+    excellentExamples: string[];
+    integration: IntegrationStrategy;
+    annotation: ReadingAnnotation;
+  }> {
+    const prompt = `你是朗读教学专家。请为课文《${title}》设计教学策略。
+
+【课文原文】
+${text}
+
+【文体】${genre} | 【年级】${grade}年级
+
+【核心要求】所有内容必须结合原文具体段落！
+
+【输出JSON格式】
+{
+  "teachingSteps": [
+    {"环节": "初读", "目标": "初读的具体目标", "方法": "具体方法", "话术": "教学话术"},
+    {"环节": "精读", "目标": "精读的具体目标", "方法": "具体方法", "话术": "教学话术"},
+    {"环节": "品读", "目标": "品读的具体目标", "方法": "具体方法", "话术": "教学话术"},
+    {"环节": "熟读", "目标": "熟读的具体目标", "方法": "具体方法", "话术": "教学话术"}
+  ],
+  "commonMistakes": ["学生朗读时可能出现的错误1", "错误2"],
+  "excellentExamples": ["优秀朗读的示范要求1", "示范要求2"],
+  "preparation": {
+    "情感弧线": "全文情感变化脉络",
+    "语速变化": [{"位置": "原文引用", "语速": "快/中/慢", "原因": "为什么"}],
+    "重音标注": [{"原文": "重读的字词", "类型": "逻辑/情感", "原因": "为什么"}],
+    "停顿设计": [{"位置": "原文，用|标记", "时长": "短/中/长", "原因": "为什么"}]
+  }
+}
+
+只输出JSON。`;
+
+    try {
+      const response = await this.llmClient.invoke(
+        [{ role: 'user', content: prompt }],
+        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+      );
+      
+      const data = this.extractJSON(response.content);
+      const defaults = this.createDefaults(genre);
+      
+      const teachingSteps = (data.teachingSteps || []) as Array<{ 目标?: string; 方法?: string; 话术?: string }>;
+      const preparation = (data.preparation || {}) as Record<string, unknown>;
+      
+      return {
+        demonstration: {
+          keyPoints: teachingSteps.map((s) => s.目标 || ''),
+          beforeScript: teachingSteps[0]?.话术 || '',
+          afterScript: '',
+          observationPoints: [],
+        },
+        preparation: {
+          emotionalArc: (preparation.情感弧线 as string) || '',
+          speedChanges: (preparation.语速变化 as Array<{ position: string; speed: string; reason: string }>) || [],
+          stressMarks: (preparation.重音标注 as Array<{ text: string; type: string; reason: string }>) || [],
+          pauseDesign: (preparation.停顿设计 as Array<{ position: string; duration: string; reason: string }>) || [],
+          noteTemplate: '',
+        },
+        commonMistakes: (data.commonMistakes as string[]) || [],
+        excellentExamples: (data.excellentExamples as string[]) || [],
+        integration: {
+          firstReading: { purpose: teachingSteps[0]?.目标 || '', method: teachingSteps[0]?.方法 || '', guidanceScript: teachingSteps[0]?.话术 || '' },
+          intensiveReading: { purpose: teachingSteps[1]?.目标 || '', method: teachingSteps[1]?.方法 || '', guidanceScript: teachingSteps[1]?.话术 || '' },
+          appreciativeReading: { purpose: teachingSteps[2]?.目标 || '', method: teachingSteps[2]?.方法 || '', guidanceScript: teachingSteps[2]?.话术 || '' },
+          fluentReading: { purpose: teachingSteps[3]?.目标 || '', method: teachingSteps[3]?.方法 || '', guidanceScript: teachingSteps[3]?.话术 || '' },
+        },
+        annotation: {
+          text: text,
+          pauses: [],
+          stresses: [],
+          emotionPoints: [],
+        },
+      };
+    } catch (error) {
+      console.error('[ReadingTeachingService] generateStrategies error:', error);
+      const defaults = this.createDefaults(genre);
+      return {
+        demonstration: defaults.demonstration,
+        preparation: defaults.preparation,
+        commonMistakes: [],
+        excellentExamples: [],
+        integration: defaults.integration,
+        annotation: { text, pauses: [], stresses: [], emotionPoints: [] },
+      };
+    }
+  }
+
+  /**
+   * 生成指导话术 - 并行模块5
+   */
+  private async generateGuidance(
+    text: string,
+    title: string,
+    grade: number,
+    genre: ReadingToneType
+  ): Promise<{ guidance: ReadingGuidance }> {
+    const prompt = `你是朗读教学专家。请为课文《${title}》设计课堂指导话术。
+
+【课文原文】
+${text}
+
+【文体】${genre} | 【年级】${grade}年级
+
+【核心要求】话术要口语化，可直接用于课堂！
+
+【输出JSON格式】
+{
+  "chorusGuide": {
+    "准备话术": "齐读前如何组织学生准备",
+    "起始信号": "开始齐读的口令",
+    "结束话术": "齐读结束后的点评"
+  },
+  "commonIssues": [
+    {
+      "误读表现": "学生可能怎么读错（结合原文）",
+      "原因": "为什么会读错",
+      "纠正方法": "如何纠正",
+      "示范话术": "教师示范的话术"
+    }
+  ],
+  "segmentGuides": [
+    {"段落": "原文引用", "指导": "朗读这段的具体指导", "要点": ["要点1", "要点2"]}
+  ]
+}
+
+只输出JSON。`;
+
+    try {
+      const response = await this.llmClient.invoke(
+        [{ role: 'user', content: prompt }],
+        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+      );
+      
+      const data = this.extractJSON(response.content);
+      
+      const segmentGuides = (data.segmentGuides || []) as Array<{ 段落?: string; 指导?: string; 要点?: string[] }>;
+      const chorusGuide = (data.chorusGuide || {}) as Record<string, unknown>;
+      const commonIssues = (data.commonIssues || []) as Array<{ 误读表现?: string; 原因?: string; 纠正方法?: string; 示范话术?: string }>;
+      
+      return {
+        guidance: {
+          overallGuide: '',
+          segmentGuides: segmentGuides.map((sg) => ({
+            segment: sg.段落 || '',
+            guidance: sg.指导 || '',
+            keyPoints: sg.要点 || [],
+          })),
+          chorusGuide: {
+            preparation: (chorusGuide.准备话术 as string) || '同学们，请做好朗读准备...',
+            startSignal: (chorusGuide.起始信号 as string) || '预备——起！',
+            duringReading: [],
+            ending: (chorusGuide.结束话术 as string) || '读得真好！',
+          },
+          commonIssues: commonIssues.map((issue) => ({
+            issue: issue.误读表现 || '',
+            cause: issue.原因 || '',
+            solution: issue.纠正方法 || '',
+            exampleCorrection: issue.示范话术 || '',
+          })),
+        },
+      };
+    } catch (error) {
+      console.error('[ReadingTeachingService] generateGuidance error:', error);
+      const defaults = this.createDefaults(genre);
+      return { guidance: defaults.guidance };
+    }
+  }
+
+  /**
+   * 从响应中提取 JSON
+   */
+  private extractJSON(content: string): Record<string, unknown> {
+    let jsonStr = content;
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
+    } else {
+      const firstBrace = content.indexOf('{');
+      const lastBrace = content.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonStr = content.slice(firstBrace, lastBrace + 1);
+      }
+    }
+    jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1').replace(/[\x00-\x1F\x7F]/g, '');
+    return JSON.parse(jsonStr);
+  }
+
+  /**
+   * 解析意愿模块
+   */
+  private parseWillingness(data: Record<string, unknown>, defaults: ReadingWillingness): ReadingWillingness {
+    if (!data) return defaults;
+    return {
+      selfConnection: (data.connectionPoint as string) || '',
+      emotionalTrigger: (data.emotionalHook as string) || '',
+      awakeningPhrases: [],
+      introductionScript: (data.emotionalHook as string) || '',
+    };
+  }
+
+  /**
+   * 解析体验模块
+   */
+  private parseExperience(data: Record<string, unknown>, defaults: ReadingExperience): ReadingExperience {
+    if (!data) return defaults;
+    
+    const listeningFocus = data.listeningFocus as Array<{ 原文片段?: string; 听什么?: string }> || [];
+    const imaginationGuide = data.imaginationGuide as Record<string, unknown> || {};
+    const emotionExperience = data.emotionExperience as Record<string, unknown> || {};
+    
+    return {
+      listeningGuide: {
+        focusPoints: listeningFocus.map((item) => `${item.原文片段 || ''}：${item.听什么 || ''}`),
+        guidance: '',
+        reflection: '',
+      },
+      imaginationRestore: {
+        scenes: [{
+          text: (imaginationGuide.原文片段 as string) || '',
+          scene: (imaginationGuide.画面描述 as string) || '',
+          sensoryDetails: (imaginationGuide.感官细节 as string[]) || [],
+          emotionalAtmosphere: '',
+        }],
+        guidanceScript: (imaginationGuide.引导话术 as string) || '',
+      },
+      situationRestore: {
+        background: '',
+        characters: [],
+        emotionalJourney: ((emotionExperience.情感变化 as Array<{ 原文?: string; 情感?: string }>) || []).map(e => 
+          `${e.原文 || ''}：${e.情感 || ''}`).join(' → '),
+      },
+    };
+  }
+
+  /**
+   * 解析技巧模块
+   */
+  private parseSkills(data: Record<string, unknown>, defaults: ReadingSkills): ReadingSkills {
+    if (!data) return defaults;
+    
+    const stressData = (data.stress as Array<{ 原文?: string; 类型?: string; 原因?: string; 教学话术?: string }>) || [];
+    const pauseData = (data.pause as Array<{ 位置?: string; 时长?: string; 原因?: string }>) || [];
+    const intonationData = (data.intonation as Array<{ 原文?: string; 语调?: string; 情感?: string; 话术?: string }>) || [];
+    
+    const convertStressType = (type: string): 'logic' | 'emotion' | 'grammar' => {
+      if (type?.includes('逻辑')) return 'logic';
+      if (type?.includes('情感')) return 'emotion';
+      return 'grammar';
+    };
+    
+    const convertPauseType = (duration: string): 'short' | 'medium' | 'long' => {
+      if (duration?.includes('长')) return 'long';
+      if (duration?.includes('中')) return 'medium';
+      return 'short';
+    };
+    
+    return {
+      stress: {
+        points: stressData.map(item => ({
+          text: item.原文 || '',
+          type: convertStressType(item.类型 || ''),
+          reason: item.原因 || '',
+          method: item.教学话术 || '',
+        })),
+        teachingScript: '',
+      },
+      rhythm: defaults.rhythm,
+      intonation: {
+        emotionalTones: intonationData.map(item => ({
+          emotion: item.情感 || '',
+          tone: item.语调 || '',
+          example: item.原文 || '',
+        })),
+        teachingScript: '',
+      },
+      pause: {
+        points: pauseData.map(item => ({
+          position: item.位置 || '',
+          type: convertPauseType(item.时长 || ''),
+          reason: item.原因 || '',
+          effect: '',
+        })),
+        teachingScript: '',
+      },
+    };
   }
 
   /**
