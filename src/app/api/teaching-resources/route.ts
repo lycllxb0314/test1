@@ -31,8 +31,9 @@ export async function GET(request: NextRequest) {
       sortOrder: searchParams.get('sortOrder') as ResourceQueryParams['sortOrder'] || 'desc',
     };
 
-    // TODO: 从认证获取教师ID，暂时使用模拟ID
-    const teacherId = 'teacher-001';
+    // 开发环境：不过滤 teacherId，显示所有资源
+    // 生产环境：TODO 从认证获取教师ID
+    const teacherId = process.env.NODE_ENV === 'production' ? 'teacher-001' : undefined;
 
     const result = await teachingResourceService.getResources(teacherId, params);
 

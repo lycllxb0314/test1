@@ -34,9 +34,15 @@ import {
   Edit,
   Save,
   X,
+  Calculator,
+  Lightbulb,
+  Network,
+  Route,
 } from 'lucide-react';
 import type { TeachingResource, CharacterResourceContent, ReadingResourceContent } from '@/types/teaching-resource';
 import type { ReadingTeachingPlan } from '@/types/chinese-prep';
+import type { MathPrepPlan } from '@/types/math-prep';
+import { cn } from '@/lib/utils';
 import { WritingResourceEditor, type WritingContent } from '@/components/resource-editors/WritingResourceEditor';
 
 // 分类名称映射
@@ -45,6 +51,7 @@ const CATEGORY_NAMES: Record<string, string> = {
   chinese_reading: '语文·朗读教学',
   chinese_writing: '语文·习作专项',
   chinese_chat: '语文·备课智能体',
+  math: '数学·概念教学',
   math_concept: '数学·概念教学',
   math_problem: '数学·问题设计',
   other: '其他',
@@ -56,6 +63,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   chinese_reading: 'from-green-500 to-teal-500',
   chinese_writing: 'from-purple-500 to-pink-500',
   chinese_chat: 'from-red-500 to-orange-500',
+  math: 'from-indigo-500 to-violet-500',
   math_concept: 'from-indigo-500 to-violet-500',
   math_problem: 'from-cyan-500 to-blue-500',
   other: 'from-gray-500 to-slate-500',
@@ -73,6 +81,9 @@ export default function ResourceDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
+  
+  // 数学资源 Tab 状态
+  const [mathActiveTab, setMathActiveTab] = useState<'essence' | 'process' | 'thought' | 'structure' | 'path'>('essence');
 
   useEffect(() => {
     loadResource();
@@ -1151,10 +1162,363 @@ export default function ResourceDetailPage() {
           );
         })()}
 
+        {/* 数学备课资源 */}
+        {resource.category === 'math' && (() => {
+          const mathContent = resource.content as unknown as MathPrepPlan;
+          
+          return (
+            <div className="space-y-6">
+              {/* Tab 切换 */}
+              <div className="flex items-center gap-2 border-b pb-2">
+                {[
+                  { key: 'essence', label: '本质挖掘', icon: Target, color: 'blue' },
+                  { key: 'process', label: '过程还原', icon: BookOpen, color: 'green' },
+                  { key: 'thought', label: '思想显影', icon: Lightbulb, color: 'purple' },
+                  { key: 'structure', label: '结构贯通', icon: Network, color: 'orange' },
+                  { key: 'path', label: '教学路径', icon: Route, color: 'rose' },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setMathActiveTab(tab.key as typeof mathActiveTab)}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2 text-sm rounded-t transition-colors',
+                      mathActiveTab === tab.key 
+                        ? `bg-${tab.color}-50 text-${tab.color}-700 border-b-2 border-${tab.color}-500` 
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              
+              {/* 内容展示 */}
+              <div className="space-y-4">
+                {mathActiveTab === 'essence' && mathContent.essence && (
+                  <Card className="border-none shadow-lg">
+                    <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Target className="w-5 h-5 text-blue-600" />
+                        本质挖掘
+                      </CardTitle>
+                      <CardDescription>知识的数学本质与核心概念</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      <div className="p-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-lg border border-blue-100">
+                        <div className="text-sm font-medium text-blue-700 mb-2 flex items-center gap-2">
+                          <FileText className="w-4 h-4" />
+                          核心定义
+                        </div>
+                        <p className="text-sm leading-relaxed">{mathContent.essence.conceptCore.definition}</p>
+                      </div>
+                      
+                      {mathContent.essence.conceptCore.essentialAttributes.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-cyan-50/50 to-blue-50/50 rounded-lg border border-cyan-100">
+                          <div className="text-sm font-medium text-cyan-700 mb-3">本质属性</div>
+                          <div className="flex flex-wrap gap-2">
+                            {mathContent.essence.conceptCore.essentialAttributes.map((attr, i) => (
+                              <Badge key={i} className="bg-cyan-100 text-cyan-700 hover:bg-cyan-100">{attr}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {mathContent.essence.connotationAnalysis.coreElements.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-lg border border-indigo-100">
+                          <div className="text-sm font-medium text-indigo-700 mb-3">核心要素</div>
+                          <div className="flex flex-wrap gap-2">
+                            {mathContent.essence.connotationAnalysis.coreElements.map((elem, i) => (
+                              <Badge key={i} variant="outline" className="bg-white border-indigo-200">{elem}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {mathContent.essence.connotationAnalysis.difficultPoints.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-amber-50/50 to-orange-50/50 rounded-lg border border-amber-100">
+                          <div className="text-sm font-medium text-amber-700 mb-3">理解难点</div>
+                          <div className="space-y-2">
+                            {mathContent.essence.connotationAnalysis.difficultPoints.map((point, i) => (
+                              <div key={i} className="flex items-start gap-2 text-sm">
+                                <CheckCircle2 className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                                <span>{point}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {mathActiveTab === 'process' && mathContent.process && (
+                  <Card className="border-none shadow-lg">
+                    <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <BookOpen className="w-5 h-5 text-green-600" />
+                        过程还原
+                      </CardTitle>
+                      <CardDescription>知识形成过程与认知路径</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      <div className="p-4 bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-lg border border-green-100">
+                        <div className="text-sm font-medium text-green-700 mb-2">知识起源</div>
+                        <p className="text-sm">{mathContent.process.knowledgeOrigin.historicalBackground}</p>
+                      </div>
+                      
+                      {mathContent.process.recreationDesign.thinkingProcess.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 rounded-lg border border-teal-100">
+                          <div className="text-sm font-medium text-teal-700 mb-3">思考过程</div>
+                          <div className="space-y-2">
+                            {mathContent.process.recreationDesign.thinkingProcess.map((step, i) => (
+                              <div key={i} className="flex gap-3">
+                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">
+                                  {i + 1}
+                                </div>
+                                <div className="flex-1 p-2 bg-white rounded border border-teal-100 text-sm">
+                                  {step}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {mathContent.process.recreationDesign.inquiryActivities.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-emerald-50/50 to-green-50/50 rounded-lg border border-emerald-100">
+                          <div className="text-sm font-medium text-emerald-700 mb-3">探究活动设计</div>
+                          <div className="flex flex-wrap gap-2">
+                            {mathContent.process.recreationDesign.inquiryActivities.map((activity, i) => (
+                              <Badge key={i} variant="outline" className="bg-white border-emerald-200 py-1.5">{activity}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {mathActiveTab === 'thought' && mathContent.thought && (
+                  <Card className="border-none shadow-lg">
+                    <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Lightbulb className="w-5 h-5 text-purple-600" />
+                        思想显影
+                      </CardTitle>
+                      <CardDescription>蕴含的数学思想方法</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      {mathContent.thought.implicitThoughts.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-lg border border-purple-100">
+                          <div className="text-sm font-medium text-purple-700 mb-3">隐含的数学思想</div>
+                          <div className="flex flex-wrap gap-2">
+                            {mathContent.thought.implicitThoughts.map((t, i) => (
+                              <Badge 
+                                key={i} 
+                                className={t.level === 'core' 
+                                  ? 'bg-purple-500 text-white hover:bg-purple-500' 
+                                  : 'bg-purple-100 text-purple-700 hover:bg-purple-100'
+                                }
+                              >
+                                {t.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {mathContent.thought.thoughtSystem.mainThread && (
+                        <div className="p-4 bg-gradient-to-r from-violet-50/50 to-purple-50/50 rounded-lg border border-violet-100">
+                          <div className="text-sm font-medium text-violet-700 mb-2">主线思想</div>
+                          <p className="text-sm">{mathContent.thought.thoughtSystem.mainThread}</p>
+                        </div>
+                      )}
+                      
+                      {mathContent.thought.infiltrationPoints.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-pink-50/50 to-rose-50/50 rounded-lg border border-pink-100">
+                          <div className="text-sm font-medium text-pink-700 mb-3">思想渗透节点</div>
+                          <div className="space-y-3">
+                            {mathContent.thought.infiltrationPoints.slice(0, 5).map((point, i) => (
+                              <div key={i} className="p-3 bg-white rounded-lg border border-pink-100">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="text-xs border-pink-300">{point.teachingPhase}</Badge>
+                                  <Badge className="text-xs bg-pink-100 text-pink-700">{point.thought}</Badge>
+                                </div>
+                                {point.script && (
+                                  <p className="text-xs text-pink-600 mt-1 italic">"{point.script}"</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {mathActiveTab === 'structure' && mathContent.structure && (
+                  <Card className="border-none shadow-lg">
+                    <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 border-b">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Network className="w-5 h-5 text-orange-600" />
+                        结构贯通
+                      </CardTitle>
+                      <CardDescription>知识结构网络与关联</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-lg border border-blue-100">
+                          <div className="text-sm font-medium text-blue-700 mb-2">前置知识</div>
+                          <p className="text-sm mb-1">{mathContent.structure.verticalConnection.priorLink.content || '无'}</p>
+                          {mathContent.structure.verticalConnection.priorLink.connectionPoint && (
+                            <p className="text-xs text-muted-foreground">
+                              衔接点：{mathContent.structure.verticalConnection.priorLink.connectionPoint}
+                            </p>
+                          )}
+                        </div>
+                        <div className="p-4 bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-lg border border-green-100">
+                          <div className="text-sm font-medium text-green-700 mb-2">后续延伸</div>
+                          <p className="text-sm mb-1">{mathContent.structure.verticalConnection.subsequentLink.content || '无'}</p>
+                          {mathContent.structure.verticalConnection.subsequentLink.extensionDirection && (
+                            <p className="text-xs text-muted-foreground">
+                              延伸方向：{mathContent.structure.verticalConnection.subsequentLink.extensionDirection}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {mathContent.structure.horizontalConnection.methodTransfer.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-orange-50/50 to-red-50/50 rounded-lg border border-orange-100">
+                          <div className="text-sm font-medium text-orange-700 mb-3">方法迁移</div>
+                          <div className="flex flex-wrap gap-2">
+                            {mathContent.structure.horizontalConnection.methodTransfer.map((method, i) => (
+                              <Badge key={i} variant="outline" className="bg-white border-orange-200">{method}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {mathContent.structure.unifiedFramework.superordinateConcept && (
+                        <div className="p-4 bg-muted/30 rounded-lg border">
+                          <div className="text-sm font-medium text-muted-foreground mb-2">上位概念</div>
+                          <p className="text-sm">{mathContent.structure.unifiedFramework.superordinateConcept}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {mathActiveTab === 'path' && mathContent.teachingPath && (
+                  <Card className="border-none shadow-lg">
+                    <CardHeader className="bg-gradient-to-r from-rose-50 to-pink-50 border-b">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Route className="w-5 h-5 text-rose-600" />
+                        教学路径
+                      </CardTitle>
+                      <CardDescription>基于四维分析的教学实施建议</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                      {mathContent.teachingPath.objectives.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-rose-50/50 to-pink-50/50 rounded-lg border border-rose-100">
+                          <div className="text-sm font-medium text-rose-700 mb-3 flex items-center gap-2">
+                            <Target className="w-4 h-4" />
+                            教学目标
+                          </div>
+                          <div className="space-y-2">
+                            {mathContent.teachingPath.objectives.map((obj, i) => (
+                              <div key={i} className="flex items-start gap-2 p-2 bg-white rounded border border-rose-100">
+                                <Badge 
+                                  className={cn(
+                                    "shrink-0",
+                                    obj.dimension === 'knowledge' && 'bg-blue-100 text-blue-700',
+                                    obj.dimension === 'ability' && 'bg-green-100 text-green-700',
+                                    obj.dimension === 'emotion' && 'bg-purple-100 text-purple-700',
+                                    obj.dimension === 'thinking' && 'bg-orange-100 text-orange-700'
+                                  )}
+                                >
+                                  {obj.dimension === 'knowledge' ? '知识' : 
+                                   obj.dimension === 'ability' ? '能力' : 
+                                   obj.dimension === 'emotion' ? '情感' : '思维'}
+                                </Badge>
+                                <div className="text-sm">
+                                  <span>{obj.content}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        {mathContent.teachingPath.keyDifficulty.keyPoints.length > 0 && (
+                          <div className="p-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-lg border border-blue-100">
+                            <div className="text-sm font-medium text-blue-700 mb-3">教学重点</div>
+                            <div className="space-y-2">
+                              {mathContent.teachingPath.keyDifficulty.keyPoints.map((point, i) => (
+                                <div key={i} className="text-sm p-2 bg-white rounded border border-blue-100">
+                                  <div className="font-medium">{point.content}</div>
+                                  {point.strategy && <div className="text-xs text-blue-600 mt-1">策略：{point.strategy}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {mathContent.teachingPath.keyDifficulty.difficulties.length > 0 && (
+                          <div className="p-4 bg-gradient-to-r from-orange-50/50 to-red-50/50 rounded-lg border border-orange-100">
+                            <div className="text-sm font-medium text-orange-700 mb-3">教学难点</div>
+                            <div className="space-y-2">
+                              {mathContent.teachingPath.keyDifficulty.difficulties.map((diff, i) => (
+                                <div key={i} className="text-sm p-2 bg-white rounded border border-orange-100">
+                                  <div className="font-medium">{diff.content}</div>
+                                  {diff.breakthrough && <div className="text-xs text-orange-600 mt-1">突破：{diff.breakthrough}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {mathContent.teachingPath.phases.length > 0 && (
+                        <div className="p-4 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 rounded-lg border border-teal-100">
+                          <div className="text-sm font-medium text-teal-700 mb-3 flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            教学环节
+                          </div>
+                          <div className="space-y-3">
+                            {mathContent.teachingPath.phases.map((phase, i) => (
+                              <div key={i} className="p-3 bg-white rounded-lg border border-teal-100">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">
+                                    {i + 1}
+                                  </div>
+                                  <Badge variant="default" className="text-xs bg-teal-600">{phase.name}</Badge>
+                                  <span className="text-xs text-muted-foreground">约{phase.duration}分钟</span>
+                                </div>
+                                {phase.activities.length > 0 && (
+                                  <p className="text-sm text-muted-foreground">{phase.activities.join('、')}</p>
+                                )}
+                                {phase.designIntent && (
+                                  <p className="text-xs text-teal-600 mt-1">设计意图：{phase.designIntent}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* 其他类型资源（暂时显示原始JSON） */}
         {resource.category !== 'chinese_character' && 
          resource.category !== 'chinese_reading' && 
-         resource.category !== 'chinese_writing' && (
+         resource.category !== 'chinese_writing' && 
+         resource.category !== 'math' && (
           <Card className="border-0 shadow-lg bg-white/90">
             <CardHeader>
               <CardTitle>资源内容</CardTitle>

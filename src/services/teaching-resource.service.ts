@@ -202,12 +202,12 @@ export class TeachingResourceService {
    * 查询资源列表
    */
   async getResources(
-    teacherId: string,
+    teacherId: string | undefined,
     params: ResourceQueryParams
   ): Promise<{ items: ResourceListItem[]; total: number }> {
     return teachingResourceRepository.findMany({
       ...params,
-      teacherId,
+      ...(teacherId && { teacherId }),
     });
   }
 
