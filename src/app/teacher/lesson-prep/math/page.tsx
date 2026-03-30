@@ -31,8 +31,8 @@ const domainColorMap: Record<string, string> = {
 export default function MathPrepPage() {
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [selectedSemester, setSelectedSemester] = useState<string>('');
-  const [selectedDomain, setSelectedDomain] = useState<string>('');
-  const [selectedUnit, setSelectedUnit] = useState<string>('');
+  const [selectedDomain, setSelectedDomain] = useState<string>('all');
+  const [selectedUnit, setSelectedUnit] = useState<string>('all');
   const [selectedContent, setSelectedContent] = useState<string>('');
   const [contents, setContents] = useState<MathTeachingContent[]>([]);
   const [isLoadingContents, setIsLoadingContents] = useState(false);
@@ -57,14 +57,14 @@ export default function MathPrepPage() {
 
   // 从已加载的内容中提取唯一值
   const uniqueDomains = [...new Set(contents.map(c => c.domain))];
-  const uniqueUnits = [...new Set(contents.filter(c => !selectedDomain || c.domain === selectedDomain).map(c => c.unitName))];
+  const uniqueUnits = [...new Set(contents.filter(c => selectedDomain === 'all' || !selectedDomain || c.domain === selectedDomain).map(c => c.unitName))];
 
   // 加载教学内容
   const loadContents = useCallback(async (grade: number, semester: string) => {
     setIsLoadingContents(true);
     setContents([]);
-    setSelectedDomain('');
-    setSelectedUnit('');
+    setSelectedDomain('all');
+    setSelectedUnit('all');
     setSelectedContent('');
     setResult(null);
     
@@ -72,7 +72,7 @@ export default function MathPrepPage() {
       const response = await fetch(`/api/math-prep/contents?grade=${grade}&semester=${encodeURIComponent(semester)}`);
       if (!response.ok) throw new Error('加载失败');
       const data = await response.json();
-      setContents(data.contents || []);
+      setContents(data.data || []);
     } catch (error) {
       console.error('加载教学内容失败:', error);
     } finally {
@@ -194,7 +194,7 @@ export default function MathPrepPage() {
                   <SelectValue placeholder="全部领域" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部领域</SelectItem>
+                  <SelectItem value="all">全部领域</SelectItem>
                   {uniqueDomains.map(domain => (
                     <SelectItem key={domain} value={domain}>{domain}</SelectItem>
                   ))}
@@ -210,7 +210,7 @@ export default function MathPrepPage() {
                   <SelectValue placeholder="全部单元" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部单元</SelectItem>
+                  <SelectItem value="all">全部单元</SelectItem>
                   {uniqueUnits.map(unit => (
                     <SelectItem key={unit} value={unit}>{unit}</SelectItem>
                   ))}
@@ -227,8 +227,8 @@ export default function MathPrepPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {contents
-                    .filter(c => !selectedDomain || c.domain === selectedDomain)
-                    .filter(c => !selectedUnit || c.unitName === selectedUnit)
+                    .filter(c => selectedDomain === 'all' || !selectedDomain || c.domain === selectedDomain)
+                    .filter(c => selectedUnit === 'all' || !selectedUnit || c.unitName === selectedUnit)
                     .map(content => (
                       <SelectItem key={content.id} value={content.id}>
                         {content.contentName}
