@@ -34,205 +34,123 @@ import type { EvaluationGuide, TieredTask, WritingIssue } from '@/types/chinese-
 // ==================== Markdown 渲染 ====================
 
 /**
- * 美观的 Markdown 渲染器
+ * 简洁安全的 Markdown 渲染器
  */
 function renderMarkdown(content: string): React.ReactNode {
-  const lines = content.split('\n');
-  const elements: React.ReactNode[] = [];
-  let i = 0;
-  
-  while (i < lines.length) {
-    const line = lines[i];
-    
-    // 跳过空行
-    if (!line.trim()) {
-      i++;
-      continue;
-    }
-    
-    // H2 标题
-    if (line.startsWith('## ')) {
-      elements.push(
-        <div key={elements.length} className="flex items-center gap-2 mt-5 mb-3 first:mt-0">
-          <span className="text-lg">{getEmoji(line)}</span>
-          <h2 className="text-base font-bold text-gray-800">
-            {line.replace(/^##\s*/, '').replace(/[📝🎯✨⚠️💡🌟]/g, '').trim()}
-          </h2>
-        </div>
-      );
-      i++;
-      continue;
-    }
-    
-    // H3 标题
-    if (line.startsWith('### ')) {
-      elements.push(
-        <h3 key={elements.length} className="text-sm font-semibold text-gray-700 mt-3 mb-2 flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-          {line.slice(4)}
-        </h3>
-      );
-      i++;
-      continue;
-    }
-    
-    // 分隔线
-    if (line.trim() === '---') {
-      elements.push(
-        <div key={elements.length} className="my-4 border-t border-gray-100"></div>
-      );
-      i++;
-      continue;
-    }
-    
-    // 表格
-    if (line.includes('|') && i + 1 < lines.length && lines[i + 1].includes('---')) {
-      const tableLines: string[] = [];
-      while (i < lines.length && lines[i].includes('|')) {
-        tableLines.push(lines[i]);
-        i++;
-      }
-      elements.push(renderTable(tableLines));
-      continue;
-    }
-    
-    // 列表
-    if (line.startsWith('- ') || line.startsWith('* ')) {
-      const listItems: string[] = [];
-      while (i < lines.length && (lines[i].startsWith('- ') || lines[i].startsWith('* '))) {
-        listItems.push(lines[i].slice(2));
-        i++;
-      }
-      elements.push(
-        <ul key={elements.length} className="space-y-1.5 my-2">
-          {listItems.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-2 flex-shrink-0"></span>
-              <span>{renderInline(item)}</span>
-            </li>
-          ))}
-        </ul>
-      );
-      continue;
-    }
-    
-    // 引用
-    if (line.startsWith('> ')) {
-      elements.push(
-        <div key={elements.length} className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 my-2 border-l-4 border-blue-400">
-          <p className="text-sm text-gray-700 italic">{renderInline(line.slice(2))}</p>
-        </div>
-      );
-      i++;
-      continue;
-    }
-    
-    // 总分行数显示
-    if (line.includes('总分：') || line.includes('**总分：')) {
-      elements.push(
-        <div key={elements.length} className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 my-3 border border-amber-200 shadow-sm">
-          <p className="text-lg font-bold text-amber-800">
-            {renderInline(line.replace(/\*\*/g, ''))}
-          </p>
-        </div>
-      );
-      i++;
-      continue;
-    }
-    
-    // 等级显示
-    if (line.includes('等级：') || line.includes('**等级：')) {
-      const level = line.includes('优秀') ? '优秀' : line.includes('良好') ? '良好' : line.includes('及格') ? '及格' : '待提高';
-      const colorClass = level === '优秀' ? 'from-green-50 to-emerald-50 border-green-200 text-green-800' 
-        : level === '良好' ? 'from-blue-50 to-indigo-50 border-blue-200 text-blue-800'
-        : level === '及格' ? 'from-yellow-50 to-amber-50 border-yellow-200 text-yellow-800'
-        : 'from-orange-50 to-red-50 border-orange-200 text-orange-800';
-      
-      elements.push(
-        <div key={elements.length} className={`bg-gradient-to-r ${colorClass} rounded-lg px-4 py-2 my-2 border inline-flex items-center gap-2`}>
-          <span className="font-medium">等级评定：</span>
-          <span className="font-bold text-lg">{level}</span>
-        </div>
-      );
-      i++;
-      continue;
-    }
-    
-    // 普通段落
-    const paragraphLines: string[] = [];
-    while (i < lines.length && lines[i].trim() && !lines[i].startsWith('#') && !lines[i].startsWith('-') && !lines[i].startsWith('*') && !lines[i].startsWith('>') && !lines[i].includes('|') && lines[i] !== '---') {
-      paragraphLines.push(lines[i]);
-      i++;
-    }
-    
-    if (paragraphLines.length > 0) {
-      elements.push(
-        <p key={elements.length} className="text-sm text-gray-700 leading-relaxed my-1.5">
-          {renderInline(paragraphLines.join(' '))}
-        </p>
-      );
-    }
-  }
-  
-  return <div className="space-y-1">{elements}</div>;
-}
-
-function getEmoji(line: string): string {
-  if (line.includes('📝')) return '📝';
-  if (line.includes('🎯')) return '🎯';
-  if (line.includes('✨')) return '✨';
-  if (line.includes('⚠️')) return '⚠️';
-  if (line.includes('💡')) return '💡';
-  if (line.includes('🌟')) return '🌟';
-  return '📌';
-}
-
-function renderTable(lines: string[]): React.ReactNode {
-  if (lines.length < 2) return null;
-  
-  const headerLine = lines[0];
-  const bodyLines = lines.slice(2); // 跳过分隔行
-  
-  const parseRow = (line: string) => 
-    line.split('|').filter(c => c.trim()).map(c => c.trim());
-  
-  const headers = parseRow(headerLine);
-  const rows = bodyLines.map(parseRow);
+  if (!content) return null;
   
   return (
-    <div className="my-3 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
-            {headers.map((h, i) => (
-              <th key={i} className="px-4 py-2.5 text-left font-semibold text-gray-700 border-b border-gray-200">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-              {row.map((cell, j) => (
-                <td key={j} className="px-4 py-2 text-gray-700 border-b border-gray-100">
-                  {j === 1 || j === 2 ? (
-                    <span className="font-medium text-blue-600">{cell}</span>
-                  ) : (
-                    cell
-                  )}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="prose prose-sm max-w-none">
+      {content.split('\n').map((line, idx) => {
+        // 空行
+        if (!line.trim()) {
+          return <div key={idx} className="h-2" />;
+        }
+        
+        // H2 标题
+        if (line.startsWith('## ')) {
+          const text = line.replace(/^##\s*/, '');
+          return (
+            <h2 key={idx} className="text-base font-bold text-gray-800 mt-5 mb-3 flex items-center gap-2">
+              {text}
+            </h2>
+          );
+        }
+        
+        // H3 标题
+        if (line.startsWith('### ')) {
+          return (
+            <h3 key={idx} className="text-sm font-semibold text-gray-700 mt-3 mb-2">
+              {line.slice(4)}
+            </h3>
+          );
+        }
+        
+        // 分隔线
+        if (line.trim() === '---') {
+          return <hr key={idx} className="my-4 border-gray-200" />;
+        }
+        
+        // 总分行
+        if (line.includes('总分：')) {
+          return (
+            <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 my-3 border border-amber-200">
+              <p className="text-lg font-bold text-amber-800">{line.replace(/\*\*/g, '')}</p>
+            </div>
+          );
+        }
+        
+        // 等级行
+        if (line.includes('等级：')) {
+          const level = line.includes('优秀') ? '优秀' : line.includes('良好') ? '良好' : line.includes('及格') ? '及格' : '待提高';
+          const colorMap: Record<string, string> = {
+            '优秀': 'from-green-50 to-emerald-50 border-green-200 text-green-800',
+            '良好': 'from-blue-50 to-indigo-50 border-blue-200 text-blue-800',
+            '及格': 'from-yellow-50 to-amber-50 border-yellow-200 text-yellow-800',
+            '待提高': 'from-orange-50 to-red-50 border-orange-200 text-orange-800',
+          };
+          const colorClass = colorMap[level] || colorMap['待提高'];
+          return (
+            <div key={idx} className={`bg-gradient-to-r ${colorClass} rounded-lg px-4 py-2 my-2 border inline-block`}>
+              <span className="font-medium">等级评定：</span>
+              <span className="font-bold text-lg ml-1">{level}</span>
+            </div>
+          );
+        }
+        
+        // 表格行
+        if (line.includes('|')) {
+          const cells = line.split('|').filter(c => c.trim());
+          if (cells.length > 1) {
+            // 表头或分隔行
+            if (line.includes('---')) {
+              return null; // 跳过分隔行
+            }
+            return (
+              <div key={idx} className="flex gap-4 py-1.5 px-2 text-sm even:bg-gray-50">
+                {cells.map((cell, i) => (
+                  <span key={i} className={i === 0 ? 'font-medium text-gray-700 flex-1' : 'text-gray-600 w-16 text-center'}>
+                    {cell.trim()}
+                  </span>
+                ))}
+              </div>
+            );
+          }
+        }
+        
+        // 列表项
+        if (line.startsWith('- ') || line.startsWith('* ')) {
+          return (
+            <div key={idx} className="flex items-start gap-2 text-sm text-gray-700 py-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-2 flex-shrink-0" />
+              <span>{renderInline(line.slice(2))}</span>
+            </div>
+          );
+        }
+        
+        // 引用
+        if (line.startsWith('> ')) {
+          return (
+            <blockquote key={idx} className="border-l-4 border-blue-400 pl-3 py-1 my-2 bg-blue-50 rounded-r text-sm text-gray-700 italic">
+              {renderInline(line.slice(2))}
+            </blockquote>
+          );
+        }
+        
+        // 普通文本
+        return (
+          <p key={idx} className="text-sm text-gray-700 leading-relaxed py-0.5">
+            {renderInline(line)}
+          </p>
+        );
+      })}
     </div>
   );
 }
 
 function renderInline(text: string): React.ReactNode {
-  // 处理粗体
+  if (!text) return text;
+  
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   
   return parts.map((part, idx) => {
