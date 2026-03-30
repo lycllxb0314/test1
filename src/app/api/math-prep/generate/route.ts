@@ -30,6 +30,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 开发环境：如果未传入 teacherId，使用默认开发用户
+    const finalTeacherId = teacherId || 'dev-user';
+    const finalTeacherName = teacherName || '开发测试用户';
+
     const prepRequest: MathPrepRequest = {
       contentId: contentId || '',
       grade: parseInt(grade, 10),
@@ -56,8 +60,8 @@ export async function POST(request: NextRequest) {
     const [savedResource] = await Promise.all([
       // 保存到个人资源库
       teachingResourceRepository.create({
-        teacherId: teacherId || 'system',
-        teacherName: teacherName,
+        teacherId: finalTeacherId,
+        teacherName: finalTeacherName,
         category: 'math',
         title: contentName,
         grade: parseInt(grade, 10),
@@ -87,8 +91,8 @@ export async function POST(request: NextRequest) {
           structure: plan.structure,
           teachingPath: plan.teachingPath,
         },
-        createdBy: teacherId,
-        createdByName: teacherName,
+        createdBy: finalTeacherId,
+        createdByName: finalTeacherName,
       }),
     ]);
 
