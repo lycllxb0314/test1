@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const { category, grade, topicKey, title, unit, content } = body;
+    const { category, grade, topicKey, title, unit, content, teacherId, teacherName } = body;
 
     if (!category || !grade || !topicKey || !title || !content) {
       return NextResponse.json(
@@ -79,10 +79,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // TODO: 从认证获取教师信息
-    const teacherId = 'teacher-001';
-    const teacherName = '张老师';
 
     const service = createSharedResourceService();
     const result = await service.createIfNotExists({
@@ -92,8 +88,8 @@ export async function POST(request: NextRequest) {
       title,
       unit,
       content,
-      createdBy: teacherId,
-      createdByName: teacherName,
+      createdBy: teacherId || undefined,
+      createdByName: teacherName || undefined,
     });
 
     if (result.success) {

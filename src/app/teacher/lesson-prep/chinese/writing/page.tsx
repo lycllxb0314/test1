@@ -57,6 +57,7 @@ import {
   SharedResourceDialog, 
   type SharedResourceData 
 } from '@/components/shared-resource/SharedResourceDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
 
@@ -97,6 +98,9 @@ const WRITING_TYPE_COLORS: Record<string, string> = {
 // ==================== 主组件 ====================
 
 export default function WritingPage() {
+  // 获取当前用户信息
+  const { user } = useAuth();
+  
   // 篇目选择状态
   const [grade, setGrade] = useState<number>(4);
   const [semester, setSemester] = useState<'上册' | '下册'>('上册');
@@ -349,6 +353,8 @@ export default function WritingPage() {
           title: selectedTopic.title,
           unit: `第${selectedTopic.unit_number}单元 ${selectedTopic.unit_theme}`,
           content: data,
+          teacherId: user?.id,
+          teacherName: user?.name,
         }),
       });
       
@@ -359,7 +365,7 @@ export default function WritingPage() {
     } finally {
       setGenerating(false);
     }
-  }, [selectedTopic, options, saveToResourceInternal]);
+  }, [selectedTopic, options, saveToResourceInternal, user]);
   
   // 年级或学期变化时重新加载篇目
   useEffect(() => {

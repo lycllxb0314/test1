@@ -55,6 +55,7 @@ import {
   SharedResourceDialog, 
   type SharedResourceData 
 } from '@/components/shared-resource/SharedResourceDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
 
@@ -93,6 +94,9 @@ const GENRE_COLORS: Record<string, string> = {
 // ==================== 主组件 ====================
 
 export default function ReadingPage() {
+  // 获取当前用户信息
+  const { user } = useAuth();
+  
   // 课文选择状态
   const [grade, setGrade] = useState<number>(4);
   const [semester, setSemester] = useState<'上册' | '下册'>('上册');
@@ -322,6 +326,8 @@ export default function ReadingPage() {
             topicKey: selectedLesson.title,
             title: selectedLesson.title,
             content: data.data,
+            teacherId: user?.id,
+            teacherName: user?.name,
           }),
         });
         
@@ -333,7 +339,7 @@ export default function ReadingPage() {
     } finally {
       setGenerating(false);
     }
-  }, [selectedLesson, textContent, options, saveToResourceInternal]);
+  }, [selectedLesson, textContent, options, saveToResourceInternal, user]);
   
   // 年级或学期变化时重新加载课文
   useEffect(() => {
