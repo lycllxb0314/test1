@@ -96,7 +96,7 @@ export default function ReadingPage() {
   const [selectedLesson, setSelectedLesson] = useState<TextbookLesson | null>(null);
   const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set([1]));
   const [loading, setLoading] = useState(false);
-  const [fetchingContent, setFetchingContent] = useState(false);
+  const [textContent, setTextContent] = useState<string>('');
   
   // 生成选项
   const [options, setOptions] = useState({
@@ -142,30 +142,10 @@ export default function ReadingPage() {
     }
   }, [grade, semester]);
   
-  // 选择课文并自动获取内容
-  const selectLesson = useCallback(async (lesson: TextbookLesson) => {
+  // 选择课文
+  const selectLesson = useCallback((lesson: TextbookLesson) => {
     setSelectedLesson(lesson);
-    
-    // 自动联网搜索获取完整内容
-    setFetchingContent(true);
-    try {
-      const response = await fetch(
-        `/api/textbook/search-content?title=${encodeURIComponent(lesson.title)}&grade=${lesson.grade}&semester=${encodeURIComponent(lesson.semester)}`
-      );
-      const data = await response.json();
-      
-      if (data.success && data.data?.content) {
-        // 更新selectedLesson的content
-        setSelectedLesson(prev => prev ? { ...prev, content: data.data.content } : null);
-      } else {
-        // 如果搜索失败，保持content为空
-        console.warn('获取课文内容失败:', data.error);
-      }
-    } catch (error) {
-      console.error('获取课文内容失败:', error);
-    } finally {
-      setFetchingContent(false);
-    }
+    setTextContent(''); // 清空之前的内容
   }, []);
   
   // 切换单元展开状态
@@ -183,7 +163,7 @@ export default function ReadingPage() {
   
   // 生成朗读方案
   const handleGenerate = useCallback(async () => {
-    if (!selectedLesson || !selectedLesson.content) {
+    if (!selectedLesson || !textContent.trim()) {
       return;
     }
     
@@ -193,7 +173,7 @@ export default function ReadingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: selectedLesson.content,
+          text: textContent.trim(),
           title: selectedLesson.title,
           grade: selectedLesson.grade,
           genre: selectedLesson.genre === '其他' ? undefined : selectedLesson.genre,
@@ -214,7 +194,7 @@ export default function ReadingPage() {
     } finally {
       setGenerating(false);
     }
-  }, [selectedLesson, options]);
+  }, [selectedLesson, textContent, options]);
   
   // 年级或学期变化时重新加载课文
   useEffect(() => {
@@ -764,25 +744,18 @@ export default function ReadingPage() {
                   </span>
                 </div>
                 
-                {/* 课文内容区域 */}
+                {/* 课文内容输入区域 */}
                 <div className="mt-3">
-                  <div className="text-xs text-muted-foreground mb-1">课文内容</div>
-                  {fetchingContent ? (
-                    <div className="h-[100px] bg-white rounded border flex items-center justify-center">
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      <span className="text-sm text-muted-foreground">正在获取课文内容...</span>
-                    </div>
-                  ) : selectedLesson.content ? (
-                    <ScrollArea className="h-[100px] bg-white rounded border p-2">
-                      <p className="text-sm whitespace-pre-wrap">
-                        {selectedLesson.content}
-                      </p>
-                    </ScrollArea>
-                  ) : (
-                    <div className="h-[100px] bg-white rounded border flex items-center justify-center text-muted-foreground text-sm">
-                      点击课文自动获取内容
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">课文内容</span>
+                    <span className="text-xs text-muted-foreground">{textContent.length} 字</span>
+                  </div>
+                  <textarea
+                    value={textContent}
+                    onChange={(e) => setTextContent(e.target.value)}
+                    placeholder="请输入课文内容..."
+                    className="w-full h-[120px] p-3 text-sm border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-200 focus:border-green-400 bg-white"
+                  />
                 </div>
               </div>
             )}
@@ -813,15 +786,10 @@ export default function ReadingPage() {
             
             <Button 
               onClick={handleGenerate} 
-              disabled={!selectedLesson || !selectedLesson.content || generating || fetchingContent}
+              disabled={!selectedLesson || !textContent.trim() || generating}
               className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
-              {fetchingContent ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  正在获取课文内容...
-                </>
-              ) : generating ? (
+              {generating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   生成朗读教学方案...
