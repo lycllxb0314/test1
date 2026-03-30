@@ -10,7 +10,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft, 
@@ -22,8 +22,16 @@ import {
   Eye,
   Clock,
   Loader2,
+  Mic2,
+  Volume2,
+  Music,
+  Heart,
+  Target,
+  Sparkles,
+  Play,
 } from 'lucide-react';
-import type { TeachingResource, CharacterResourceContent } from '@/types/teaching-resource';
+import type { TeachingResource, CharacterResourceContent, ReadingResourceContent } from '@/types/teaching-resource';
+import type { ReadingTeachingPlan } from '@/types/chinese-prep';
 
 // 分类名称映射
 const CATEGORY_NAMES: Record<string, string> = {
@@ -460,8 +468,282 @@ export default function ResourceDetailPage() {
           </div>
         )}
 
+        {/* 朗读教学资源 */}
+        {resource.category === 'chinese_reading' && (() => {
+          const readingContent = resource.content as unknown as ReadingTeachingPlan;
+          
+          return (
+            <div className="space-y-6">
+              {/* 本体论 */}
+              {readingContent.ontology && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Target className="w-5 h-5 text-green-600" />
+                      本体论推导
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 bg-green-50/50 rounded-lg border border-green-100">
+                        <div className="text-sm text-muted-foreground mb-1">为什么教朗读</div>
+                        <p className="text-sm">{readingContent.ontology.whyTeach}</p>
+                      </div>
+                      <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+                        <div className="text-sm text-muted-foreground mb-1">教学目的</div>
+                        <p className="text-sm">{readingContent.ontology.teachingPurpose}</p>
+                      </div>
+                      <div className="p-4 bg-purple-50/50 rounded-lg border border-purple-100">
+                        <div className="text-sm text-muted-foreground mb-1">价值取向</div>
+                        <p className="text-sm">{readingContent.ontology.valueOrientation}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 朗读主体培育 */}
+              {readingContent.subjectCultivation && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Heart className="w-5 h-5 text-blue-600" />
+                      朗读主体培育
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">朗读主体 = 朗读意愿 × 朗读体验 × 朗读技巧</p>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* 朗读意愿 */}
+                      <div className="p-4 bg-pink-50/50 rounded-lg border border-pink-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="w-4 h-4 text-pink-500" />
+                          <span className="font-medium text-pink-700">朗读意愿</span>
+                        </div>
+                        <p className="text-sm text-gray-600">{readingContent.subjectCultivation.willingness?.emotionalTrigger || readingContent.subjectCultivation.willingness?.introductionScript || '暂无'}</p>
+                      </div>
+                      
+                      {/* 朗读体验 */}
+                      <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <BookOpen className="w-4 h-4 text-amber-500" />
+                          <span className="font-medium text-amber-700">朗读体验</span>
+                        </div>
+                        <p className="text-sm text-gray-600">{readingContent.subjectCultivation.experience?.imaginationRestore?.guidanceScript || '暂无'}</p>
+                      </div>
+                      
+                      {/* 朗读技巧 */}
+                      <div className="p-4 bg-green-50/50 rounded-lg border border-green-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Mic2 className="w-4 h-4 text-green-500" />
+                          <span className="font-medium text-green-700">朗读技巧</span>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          重音：{readingContent.subjectCultivation.skills?.stress?.points?.length || 0} 处<br/>
+                          停顿：{readingContent.subjectCultivation.skills?.pause?.points?.length || 0} 处
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 情感朗读模型 */}
+              {readingContent.emotionalModel && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Music className="w-5 h-5 text-purple-600" />
+                      情感朗读模型
+                    </CardTitle>
+                    <CardDescription>五环节闭环：感悟 → 想象 → 求气 → 创调 → 反听</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-blue-700">感悟</span>
+                        </div>
+                        <p className="text-sm">{readingContent.emotionalModel.comprehension?.emotionalTone || '暂无'}</p>
+                        {readingContent.emotionalModel.comprehension?.emotionalKeywords && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {readingContent.emotionalModel.comprehension.emotionalKeywords.map((kw, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">{kw}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-amber-700">求气</span>
+                        </div>
+                        <p className="text-sm">{readingContent.emotionalModel.breathControl?.breathType || '暂无'}</p>
+                      </div>
+                      <div className="p-4 bg-green-50/50 rounded-lg border border-green-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-green-700">创调</span>
+                        </div>
+                        <p className="text-sm">
+                          语速：{readingContent.emotionalModel.toneCreation?.speed || '标准'} | 
+                          语调：{readingContent.emotionalModel.toneCreation?.intonation || '自然'}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-purple-50/50 rounded-lg border border-purple-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-purple-700">想象</span>
+                        </div>
+                        <p className="text-sm">{readingContent.emotionalModel.imagination?.guidanceScript || '暂无'}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 范读音频 */}
+              {readingContent.audios && readingContent.audios.length > 0 && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Volume2 className="w-5 h-5 text-green-600" />
+                      范读音频
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {readingContent.audios.map((audio, idx) => (
+                        <div key={idx} className="p-4 bg-green-50/50 rounded-lg border border-green-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline">
+                              {audio.speed === 'slow' ? '慢速' : audio.speed === 'standard' ? '标准' : '情感'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{Math.ceil(audio.duration / 1000)}s</span>
+                          </div>
+                          <audio 
+                            controls 
+                            className="w-full h-8"
+                            src={audio.audioUrl}
+                          >
+                            您的浏览器不支持音频播放
+                          </audio>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 课堂指导话术 */}
+              {readingContent.guidance && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Mic2 className="w-5 h-5 text-indigo-600" />
+                      课堂指导话术
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    {readingContent.guidance.chorusGuide && (
+                      <div className="p-4 bg-indigo-50/50 rounded-lg border border-indigo-100">
+                        <div className="text-sm font-medium text-indigo-700 mb-3">齐读组织话术</div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="p-2 bg-white rounded border">
+                            <div className="text-xs text-muted-foreground">准备话术</div>
+                            <p className="text-sm mt-1">{readingContent.guidance.chorusGuide.preparation}</p>
+                          </div>
+                          <div className="p-2 bg-white rounded border">
+                            <div className="text-xs text-muted-foreground">起始信号</div>
+                            <p className="text-sm mt-1">{readingContent.guidance.chorusGuide.startSignal}</p>
+                          </div>
+                          <div className="p-2 bg-white rounded border">
+                            <div className="text-xs text-muted-foreground">结束话术</div>
+                            <p className="text-sm mt-1">{readingContent.guidance.chorusGuide.ending}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {readingContent.guidance.commonIssues && readingContent.guidance.commonIssues.length > 0 && (
+                      <div className="p-4 bg-orange-50/50 rounded-lg border border-orange-100">
+                        <div className="text-sm font-medium text-orange-700 mb-3">常见问题与纠正</div>
+                        <div className="space-y-2">
+                          {readingContent.guidance.commonIssues.map((issue, idx) => (
+                            <div key={idx} className="p-3 bg-white rounded border">
+                              <div className="font-medium text-sm">{issue.issue}</div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                原因：{issue.cause} | 纠正：{issue.solution}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 教学策略 */}
+              {readingContent.strategies?.integration && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 border-b">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <BookOpen className="w-5 h-5 text-orange-600" />
+                      四环节教学策略
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[
+                        { key: 'firstReading', label: '初读', color: 'blue' },
+                        { key: 'intensiveReading', label: '精读', color: 'green' },
+                        { key: 'appreciativeReading', label: '品读', color: 'purple' },
+                        { key: 'fluentReading', label: '熟读', color: 'orange' },
+                      ].map(({ key, label, color }) => {
+                        const step = readingContent.strategies?.integration?.[key as keyof typeof readingContent.strategies.integration];
+                        if (!step) return null;
+                        return (
+                          <div key={key} className={`p-4 bg-${color}-50/50 rounded-lg border border-${color}-100`}>
+                            <div className={`font-medium text-${color}-700 mb-2`}>{label}</div>
+                            <div className="text-sm">
+                              <div className="text-muted-foreground">目标：{step.purpose || '暂无'}</div>
+                              <div className="text-muted-foreground mt-1">方法：{step.method || '暂无'}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* 习作教学资源 */}
+        {resource.category === 'chinese_writing' && (
+          <Card className="border-0 shadow-lg bg-white/90">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-purple-600" />
+                习作教学资源
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {typeof resource.content === 'object' && resource.content !== null && 'outline' in resource.content && (
+                  <div className="p-4 bg-purple-50/50 rounded-lg border border-purple-100">
+                    <div className="font-medium text-purple-700 mb-2">写作提纲</div>
+                    <pre className="text-sm whitespace-pre-wrap">{JSON.stringify((resource.content as Record<string, unknown>).outline, null, 2)}</pre>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* 其他类型资源（暂时显示原始JSON） */}
-        {resource.category !== 'chinese_character' && (
+        {resource.category !== 'chinese_character' && 
+         resource.category !== 'chinese_reading' && 
+         resource.category !== 'chinese_writing' && (
           <Card className="border-0 shadow-lg bg-white/90">
             <CardHeader>
               <CardTitle>资源内容</CardTitle>
