@@ -148,6 +148,42 @@ export class TeachingResourceService {
   }
 
   /**
+   * 保存习作教学资源
+   */
+  async saveWritingResource(
+    teacherId: string,
+    teacherName: string | undefined,
+    data: {
+      lessonInfo: {
+        title: string;
+        grade: number;
+        writingType: string;
+        unit: string;
+      };
+      writingContent: Record<string, unknown>;
+    }
+  ): Promise<TeachingResource> {
+    const { lessonInfo, writingContent } = data;
+
+    // 生成标题
+    const title = `习作教学资源：${lessonInfo.title}`;
+
+    // 生成描述
+    const description = `${lessonInfo.grade}年级《${lessonInfo.title}》习作教学素材，包含写作提纲、好词好句、分层任务、评改指导和常见问题预设。`;
+
+    return this.createResource(teacherId, teacherName, {
+      category: 'chinese_writing',
+      type: 'full_package',
+      subject: '语文',
+      grade: lessonInfo.grade,
+      title,
+      description,
+      content: writingContent,
+      lessonTitle: lessonInfo.title,
+    });
+  }
+
+  /**
    * 获取资源详情
    */
   async getResource(id: string): Promise<TeachingResource | null> {

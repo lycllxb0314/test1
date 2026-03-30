@@ -103,6 +103,25 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 判断是否为习作教学资源
+    if (body.lessonInfo && body.writingContent) {
+      // 习作教学资源保存
+      const resource = await teachingResourceService.saveWritingResource(
+        teacherId,
+        teacherName,
+        {
+          lessonInfo: body.lessonInfo,
+          writingContent: body.writingContent,
+        }
+      );
+
+      return NextResponse.json({
+        success: true,
+        data: resource,
+        message: '资源保存成功',
+      });
+    }
+
     // 通用资源创建
     const createRequest: CreateResourceRequest = {
       category: body.category,
