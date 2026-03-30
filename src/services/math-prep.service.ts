@@ -164,8 +164,12 @@ export class MathPrepService extends BaseService {
         [{ role: 'user', content: prompt }],
         { model: 'deepseek-v3-2-251201', temperature: 0.6 }
       );
-      return this.parseTeachingPath(this.extractJSON(response.content));
-    } catch {
+      console.log('[MathPrepService] TeachingPath response length:', response.content?.length);
+      console.log('[MathPrepService] TeachingPath response preview:', response.content?.substring(0, 500));
+      const parsed = this.parseTeachingPath(this.extractJSON(response.content));
+      return parsed;
+    } catch (error) {
+      console.error('[MathPrepService] generateTeachingPath error:', error);
       return this.getDefaultTeachingPath();
     }
   }
@@ -297,53 +301,61 @@ export class MathPrepService extends BaseService {
   }
 
   private buildTeachingPathPrompt(grade: number, domain: MathDomain, contentName: string): string {
-    return `你是小学数学教育专家。请为"${grade}年级《${contentName}》"设计教学路径。
+    return `你是小学数学教学设计专家。为"${grade}年级《${contentName}》"设计教学方案。
 
-【知识领域】${domain}
-【教学内容】${contentName}
+领域：${domain}
 
-【核心任务】基于四维分析（本质、过程、思想、结构），设计完整教学路径。
+【教学目标撰写要求】
+- 省略主语"学生"，直接以动词开头
+- 不同维度的目标使用不同句式，避免单调
+- 知识目标：理解...、掌握...、认识...、知道...
+- 能力目标：能够运用...、学会...的方法、提高...能力
+- 思维目标：经历...过程、体会...思想、培养...意识、发展...能力
+- 情感目标：感受...价值、体验...乐趣、养成...习惯
 
-【输出JSON格式】
-{
-  "objectives": [
-    {"dimension": "knowledge", "content": "知识目标", "behavior": "行为表现", "degree": "达成程度"},
-    {"dimension": "ability", "content": "能力目标", "behavior": "行为表现", "degree": "达成程度"},
-    {"dimension": "thinking", "content": "思维目标", "behavior": "行为表现", "degree": "达成程度"}
-  ],
-  "keyDifficulty": {
-    "keyPoints": [{"content": "重点", "reason": "原因", "strategy": "策略"}],
-    "difficulties": [{"content": "难点", "cause": "成因", "breakthrough": "突破策略"}]
-  },
-  "phases": [
-    {"name": "导入", "duration": 5, "purpose": "目的", "activities": ["活动"], "teacherActions": ["行为"], "keyQuestions": ["问题"], "designIntent": "意图"},
-    {"name": "探究", "duration": 15, "purpose": "目的", "activities": ["活动"], "teacherActions": ["行为"], "keyQuestions": ["问题"], "designIntent": "意图"},
-    {"name": "归纳", "duration": 10, "purpose": "目的", "activities": ["活动"], "teacherActions": ["行为"], "keyQuestions": ["问题"], "designIntent": "意图"},
-    {"name": "应用", "duration": 8, "purpose": "目的", "activities": ["活动"], "teacherActions": ["行为"], "keyQuestions": ["问题"], "designIntent": "意图"},
-    {"name": "总结", "duration": 2, "purpose": "目的", "activities": ["活动"], "teacherActions": ["行为"], "keyQuestions": ["问题"], "designIntent": "意图"}
-  ],
-  "keyQuestionDesign": [{"question": "问题", "purpose": "目的", "expectedResponse": "预期回答", "followUp": "追问"}],
-  "studentActivityDesign": [{"activity": "活动", "form": "individual", "materials": ["材料"], "guidance": "指导"}],
-  "evaluationSuggestions": [{"aspect": "维度", "method": "方法", "criteria": "标准"}]
-}
-只输出JSON。`;
+请严格按以下JSON格式输出（不要添加任何解释）：
+{"objectives":[{"dimension":"knowledge","content":"理解亿以内数的意义，掌握亿以内数的读写方法"},{"dimension":"ability","content":"能够运用分级读数的方法正确读写亿以内的数"},{"dimension":"thinking","content":"在探究过程中体会位值思想，发展数感"},{"dimension":"emotion","content":"感受大数在生活中的应用价值，体验数学与生活的联系"}],"keyDifficulty":{"keyPoints":[{"content":"教学重点","strategy":"突破策略"}],"difficulties":[{"content":"教学难点","breakthrough":"突破方法"}]},"phases":[{"name":"导入","duration":5,"activities":["活动1","活动2"],"designIntent":"设计意图"},{"name":"探究","duration":15,"activities":["活动1","活动2"],"designIntent":"设计意图"},{"name":"归纳","duration":10,"activities":["活动1"],"designIntent":"设计意图"},{"name":"应用","duration":8,"activities":["活动1"],"designIntent":"设计意图"},{"name":"总结","duration":2,"activities":["活动1"],"designIntent":"设计意图"}],"keyQuestionDesign":[{"question":"关键问题","purpose":"提问目的"}],"studentActivityDesign":[{"activity":"学生活动","form":"individual"}]}`;
   }
 
   // ==================== 解析方法 ====================
 
   private extractJSON(content: string): Record<string, unknown> {
     let jsonStr = content;
+    
+    // 尝试从代码块中提取
     const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (codeBlockMatch) {
       jsonStr = codeBlockMatch[1].trim();
     } else {
+      // 提取第一个 { 到最后一个 } 之间的内容
       const firstBrace = content.indexOf('{');
       const lastBrace = content.lastIndexOf('}');
       if (firstBrace !== -1 && lastBrace !== -1) {
         jsonStr = content.slice(firstBrace, lastBrace + 1);
       }
     }
-    return JSON.parse(jsonStr.replace(/,(\s*[}\]])/g, '$1'));
+    
+    // 强力JSON修复：先处理字符串值中的中文引号
+    // 把字符串值中的中文引号替换为英文单引号
+    jsonStr = jsonStr.replace(/"([^"]*)"/g, (match, p1) => {
+      // 在字符串值内部，将中文引号替换为单引号
+      const fixed = p1.replace(/[""]/g, "'").replace(/['']/g, "'");
+      return `"${fixed}"`;
+    });
+    
+    // 其他清理
+    jsonStr = jsonStr
+      .replace(/,(\s*[}\]])/g, '$1')    // 尾随逗号
+      .replace(/\n/g, ' ')              // 移除换行
+      .replace(/\r/g, '')               // 移除回车
+      .replace(/\s+/g, ' ');            // 压缩空白
+    
+    try {
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error('[MathPrepService] JSON parse failed:', e);
+      return {};
+    }
   }
 
   private parseEssenceAnalysis(data: Record<string, unknown>): EssenceAnalysis {

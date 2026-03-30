@@ -61,7 +61,7 @@ export class TeachingResourceRepository {
       teacher_id: data.teacherId,
       teacher_name: data.teacherName || null,
       category: data.category,
-      type: data.type,
+      type: data.type || 'other',
       subject: data.subject || null,
       grade: data.grade || null,
       title: data.title,

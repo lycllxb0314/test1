@@ -2,13 +2,14 @@
  * 数学备课中心页面
  * 
  * 基于"本质-过程-思想-结构"四维分析，生成专业教学方案
- * 参考习作专项排版风格
+ * 支持共享数据集和自动保存
  */
 
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,19 +34,16 @@ import {
   CheckCircle,
   ChevronRight,
   Check,
-  FileText,
   Users,
   Clock,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { SharedResourceDialog, type SharedResourceData } from '@/components/shared-resource/SharedResourceDialog';
 import type { 
   MathTeachingContent, 
-  EssenceAnalysis, 
-  ProcessRestoration, 
-  ThoughtRevelation, 
-  StructureConnection, 
-  TeachingPath,
-  MathPrepPlan
+  MathPrepPlan 
 } from '@/types/math-prep';
 
 // ==================== 领域标签颜色 ====================
@@ -60,10 +58,12 @@ const DOMAIN_COLORS: Record<string, string> = {
 // ==================== 主组件 ====================
 
 export default function MathPrepPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  
   // 选择状态
   const [grade, setGrade] = useState<number>(4);
   const [semester, setSemester] = useState<'上册' | '下册'>('上册');
-  const [contents, setContents] = useState<MathTeachingContent[]>([]);
   const [unitGroups, setUnitGroups] = useState<UnitGroup[]>([]);
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const [selectedContent, setSelectedContent] = useState<MathTeachingContent | null>(null);
@@ -72,7 +72,14 @@ export default function MathPrepPage() {
   // 结果状态
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<MathPrepPlan | null>(null);
+  const [resourceId, setResourceId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'essence' | 'process' | 'thought' | 'structure' | 'path'>('essence');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // 共享资源状态
+  const [showSharedDialog, setShowSharedDialog] = useState(false);
+  const [sharedResource, setSharedResource] = useState<SharedResourceData | null>(null);
+  const [usingShared, setUsingShared] = useState(false);
 
   // 单元分组类型
   type UnitGroup = {
@@ -85,10 +92,10 @@ export default function MathPrepPage() {
   // 加载教学内容
   const loadContents = useCallback(async () => {
     setLoading(true);
-    setContents([]);
     setUnitGroups([]);
     setSelectedContent(null);
     setResult(null);
+    setResourceId(null);
     
     try {
       const response = await fetch(`/api/math-prep/contents?grade=${grade}&semester=${encodeURIComponent(semester)}&grouped=true`);
@@ -124,11 +131,99 @@ export default function MathPrepPage() {
   const selectContent = useCallback((content: MathTeachingContent) => {
     setSelectedContent(content);
     setResult(null);
+    setResourceId(null);
     setActiveTab('essence');
   }, []);
 
-  // 生成备课方案
+  // 检查共享资源
+  const checkSharedResource = useCallback(async () => {
+    if (!selectedContent) return null;
+    
+    try {
+      const response = await fetch(
+        `/api/shared-resources?category=math&grade=${selectedContent.grade}&topicKey=${encodeURIComponent(selectedContent.contentKey)}`
+      );
+      const data = await response.json();
+      
+      if (data.success && data.exists && data.data) {
+        return data.data;
+      }
+      return null;
+    } catch (error) {
+      console.error('检查共享资源失败:', error);
+      return null;
+    }
+  }, [selectedContent]);
+
+  // 生成备课方案（入口）
   const handleGenerate = useCallback(async () => {
+    if (!selectedContent) return;
+    
+    // 先检查共享资源
+    const shared = await checkSharedResource();
+    
+    if (shared) {
+      setSharedResource({
+        id: shared.id,
+        title: shared.title,
+        useCount: shared.useCount,
+        createdByName: shared.createdByName,
+        createdAt: shared.createdAt,
+      });
+      setShowSharedDialog(true);
+    } else {
+      await generateNewPlan();
+    }
+  }, [selectedContent, checkSharedResource]);
+
+  // 使用共享资源
+  const handleUseShared = useCallback(async () => {
+    if (!sharedResource || !selectedContent) return;
+    
+    setUsingShared(true);
+    try {
+      const response = await fetch(
+        `/api/shared-resources?category=math&grade=${selectedContent.grade}&topicKey=${encodeURIComponent(selectedContent.contentKey)}`
+      );
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const sharedContent = data.data.content;
+        
+        // 更新使用次数
+        await fetch('/api/shared-resources', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: sharedResource.id }),
+        });
+        
+        // 跳转到资源详情页
+        if (resourceId) {
+          router.push(`/teacher/lesson-prep/my-resources/${resourceId}`);
+        } else {
+          // 直接显示内容
+          setResult(sharedContent as MathPrepPlan);
+          setActiveTab('essence');
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+        }
+      }
+    } catch (error) {
+      console.error('使用共享资源失败:', error);
+    } finally {
+      setUsingShared(false);
+      setShowSharedDialog(false);
+    }
+  }, [sharedResource, selectedContent, resourceId, router]);
+
+  // 重新生成
+  const handleGenerateNew = useCallback(async () => {
+    setShowSharedDialog(false);
+    await generateNewPlan();
+  }, []);
+
+  // 实际生成方案
+  const generateNewPlan = useCallback(async () => {
     if (!selectedContent) return;
     
     setGenerating(true);
@@ -146,19 +241,24 @@ export default function MathPrepPage() {
           unitName: selectedContent.unitName,
           contentName: selectedContent.contentName,
           contentKey: selectedContent.contentKey,
+          teacherId: user?.id,
+          teacherName: user?.name,
         }),
       });
       
       if (!response.ok) throw new Error('生成失败');
       const data = await response.json();
       setResult(data.data);
+      setResourceId(data.resourceId);
       setActiveTab('essence');
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error('生成备课方案失败:', error);
     } finally {
       setGenerating(false);
     }
-  }, [selectedContent]);
+  }, [selectedContent, user]);
 
   // 年级或学期变化时重新加载
   useEffect(() => {
@@ -188,6 +288,12 @@ export default function MathPrepPage() {
           </div>
           
           <div className="flex items-center gap-3">
+            {saveSuccess && (
+              <Badge variant="secondary" className="bg-green-100 text-green-700">
+                <Check className="w-3 h-3 mr-1" />
+                已保存
+              </Badge>
+            )}
             <Link href="/teacher/lesson-prep/my-resources">
               <Button variant="outline" size="sm">
                 <FolderOpen className="w-4 h-4 mr-2" />
@@ -254,10 +360,7 @@ export default function MathPrepPage() {
                           onOpenChange={() => toggleUnit(unit.unitName)}
                         >
                           <CollapsibleTrigger className="w-full">
-                            <div className={cn(
-                              "flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors",
-                              "w-full text-left"
-                            )}>
+                            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors w-full text-left">
                               <div className="flex items-center gap-2">
                                 <ChevronRight className={cn(
                                   "w-4 h-4 transition-transform",
@@ -266,10 +369,7 @@ export default function MathPrepPage() {
                                 <span className="font-medium text-sm">{unit.unitName}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Badge 
-                                  variant="outline" 
-                                  className={cn("text-xs", DOMAIN_COLORS[unit.domain] || '')}
-                                >
+                                <Badge variant="outline" className={cn("text-xs", DOMAIN_COLORS[unit.domain] || '')}>
                                   {unit.domain}
                                 </Badge>
                                 <Badge variant="secondary" className="text-xs">
@@ -331,10 +431,7 @@ export default function MathPrepPage() {
                     <div>
                       <CardTitle className="text-lg flex items-center gap-2">
                         {selectedContent.contentName}
-                        <Badge 
-                          variant="outline" 
-                          className={DOMAIN_COLORS[selectedContent.domain] || ''}
-                        >
+                        <Badge variant="outline" className={DOMAIN_COLORS[selectedContent.domain] || ''}>
                           {selectedContent.domain}
                         </Badge>
                       </CardTitle>
@@ -410,6 +507,9 @@ export default function MathPrepPage() {
                       </>
                     )}
                   </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    生成后将自动保存到资源库并共享
+                  </p>
                 </CardContent>
               </Card>
             )}
@@ -469,6 +569,16 @@ export default function MathPrepPage() {
           </div>
         </div>
       </div>
+      
+      {/* 共享资源弹窗 */}
+      <SharedResourceDialog
+        open={showSharedDialog}
+        onOpenChange={setShowSharedDialog}
+        resource={sharedResource}
+        onUseShared={handleUseShared}
+        onGenerateNew={handleGenerateNew}
+        isLoading={usingShared}
+      />
     </div>
   );
 }
@@ -476,7 +586,7 @@ export default function MathPrepPage() {
 // ==================== 子组件 ====================
 
 /** 本质挖掘卡片 */
-function EssenceCard({ essence }: { essence: EssenceAnalysis }) {
+function EssenceCard({ essence }: { essence: NonNullable<MathPrepPlan['essence']> }) {
   return (
     <Card className="border-none shadow-lg">
       <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
@@ -487,7 +597,6 @@ function EssenceCard({ essence }: { essence: EssenceAnalysis }) {
         <CardDescription>知识的数学本质与核心概念</CardDescription>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
-        {/* 核心定义 */}
         <div className="p-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-lg border border-blue-100">
           <div className="text-sm font-medium text-blue-700 mb-2 flex items-center gap-2">
             <FileText className="w-4 h-4" />
@@ -496,7 +605,6 @@ function EssenceCard({ essence }: { essence: EssenceAnalysis }) {
           <p className="text-sm leading-relaxed">{essence.conceptCore.definition}</p>
         </div>
         
-        {/* 本质属性 */}
         <div className="p-4 bg-gradient-to-r from-cyan-50/50 to-blue-50/50 rounded-lg border border-cyan-100">
           <div className="text-sm font-medium text-cyan-700 mb-3">本质属性</div>
           <div className="flex flex-wrap gap-2">
@@ -506,7 +614,6 @@ function EssenceCard({ essence }: { essence: EssenceAnalysis }) {
           </div>
         </div>
         
-        {/* 核心要素 */}
         <div className="p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-lg border border-indigo-100">
           <div className="text-sm font-medium text-indigo-700 mb-3">核心要素</div>
           <div className="flex flex-wrap gap-2">
@@ -516,7 +623,6 @@ function EssenceCard({ essence }: { essence: EssenceAnalysis }) {
           </div>
         </div>
         
-        {/* 理解难点 */}
         {essence.connotationAnalysis.difficultPoints.length > 0 && (
           <div className="p-4 bg-gradient-to-r from-amber-50/50 to-orange-50/50 rounded-lg border border-amber-100">
             <div className="text-sm font-medium text-amber-700 mb-3">理解难点</div>
@@ -530,45 +636,13 @@ function EssenceCard({ essence }: { essence: EssenceAnalysis }) {
             </div>
           </div>
         )}
-        
-        {/* 适用范围 */}
-        <div className="p-4 bg-muted/30 rounded-lg border">
-          <div className="text-sm font-medium text-muted-foreground mb-2">适用范围</div>
-          <p className="text-sm">{essence.extensionDefinition.scope}</p>
-        </div>
-        
-        {/* 正反例辨析 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 bg-green-50/50 rounded-lg border border-green-100">
-            <div className="text-xs font-medium text-green-700 mb-2">正例</div>
-            <div className="space-y-2">
-              {essence.examples.positiveExamples.slice(0, 2).map((ex, i) => (
-                <div key={i} className="text-xs">
-                  <span className="font-medium">{ex.content}</span>
-                  <p className="text-green-600 mt-0.5">{ex.explanation}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="p-3 bg-red-50/50 rounded-lg border border-red-100">
-            <div className="text-xs font-medium text-red-700 mb-2">反例</div>
-            <div className="space-y-2">
-              {essence.examples.negativeExamples.slice(0, 2).map((ex, i) => (
-                <div key={i} className="text-xs">
-                  <span className="font-medium">{ex.content}</span>
-                  <p className="text-red-600 mt-0.5">{ex.explanation}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );
 }
 
 /** 过程还原卡片 */
-function ProcessCard({ process }: { process: ProcessRestoration }) {
+function ProcessCard({ process }: { process: NonNullable<MathPrepPlan['process']> }) {
   return (
     <Card className="border-none shadow-lg">
       <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
@@ -579,55 +653,35 @@ function ProcessCard({ process }: { process: ProcessRestoration }) {
         <CardDescription>知识形成过程与认知路径</CardDescription>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
-        {/* 知识起源 */}
         <div className="p-4 bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-lg border border-green-100">
           <div className="text-sm font-medium text-green-700 mb-2">知识起源</div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-muted-foreground">历史背景：</span>
-              <span>{process.knowledgeOrigin.historicalBackground}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">产生原因：</span>
-              <span>{process.knowledgeOrigin.causeOfEmergence}</span>
-            </div>
-          </div>
+          <p className="text-sm">{process.knowledgeOrigin.historicalBackground}</p>
         </div>
         
-        {/* 思考过程 */}
-        <div className="p-4 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 rounded-lg border border-teal-100">
-          <div className="text-sm font-medium text-teal-700 mb-3">思考过程（再创造路径）</div>
-          <div className="space-y-2">
-            {process.recreationDesign.thinkingProcess.map((step, i) => (
-              <div key={i} className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">
-                  {i + 1}
+        {process.recreationDesign.thinkingProcess.length > 0 && (
+          <div className="p-4 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 rounded-lg border border-teal-100">
+            <div className="text-sm font-medium text-teal-700 mb-3">思考过程</div>
+            <div className="space-y-2">
+              {process.recreationDesign.thinkingProcess.map((step, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">
+                    {i + 1}
+                  </div>
+                  <div className="flex-1 p-2 bg-white rounded border border-teal-100 text-sm">
+                    {step}
+                  </div>
                 </div>
-                <div className="flex-1 p-2 bg-white rounded border border-teal-100 text-sm">
-                  {step}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         
-        {/* 探究活动 */}
-        <div className="p-4 bg-gradient-to-r from-emerald-50/50 to-green-50/50 rounded-lg border border-emerald-100">
-          <div className="text-sm font-medium text-emerald-700 mb-3">探究活动设计</div>
-          <div className="flex flex-wrap gap-2">
-            {process.recreationDesign.inquiryActivities.map((activity, i) => (
-              <Badge key={i} variant="outline" className="bg-white border-emerald-200 py-1.5">{activity}</Badge>
-            ))}
-          </div>
-        </div>
-        
-        {/* 引导策略 */}
-        {process.recreationDesign.guidanceStrategies.length > 0 && (
-          <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-200">
-            <div className="text-xs font-medium text-amber-700 mb-2">💡 引导策略</div>
+        {process.recreationDesign.inquiryActivities.length > 0 && (
+          <div className="p-4 bg-gradient-to-r from-emerald-50/50 to-green-50/50 rounded-lg border border-emerald-100">
+            <div className="text-sm font-medium text-emerald-700 mb-3">探究活动设计</div>
             <div className="flex flex-wrap gap-2">
-              {process.recreationDesign.guidanceStrategies.map((strategy, i) => (
-                <Badge key={i} variant="secondary" className="text-xs">{strategy}</Badge>
+              {process.recreationDesign.inquiryActivities.map((activity, i) => (
+                <Badge key={i} variant="outline" className="bg-white border-emerald-200 py-1.5">{activity}</Badge>
               ))}
             </div>
           </div>
@@ -638,7 +692,7 @@ function ProcessCard({ process }: { process: ProcessRestoration }) {
 }
 
 /** 思想显影卡片 */
-function ThoughtCard({ thought }: { thought: ThoughtRevelation }) {
+function ThoughtCard({ thought }: { thought: NonNullable<MathPrepPlan['thought']> }) {
   return (
     <Card className="border-none shadow-lg">
       <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
@@ -649,7 +703,6 @@ function ThoughtCard({ thought }: { thought: ThoughtRevelation }) {
         <CardDescription>蕴含的数学思想方法</CardDescription>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
-        {/* 数学思想 */}
         <div className="p-4 bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-lg border border-purple-100">
           <div className="text-sm font-medium text-purple-700 mb-3">隐含的数学思想</div>
           <div className="flex flex-wrap gap-2">
@@ -667,37 +720,38 @@ function ThoughtCard({ thought }: { thought: ThoughtRevelation }) {
           </div>
         </div>
         
-        {/* 主线思想 */}
-        <div className="p-4 bg-gradient-to-r from-violet-50/50 to-purple-50/50 rounded-lg border border-violet-100">
-          <div className="text-sm font-medium text-violet-700 mb-2">主线思想</div>
-          <p className="text-sm">{thought.thoughtSystem.mainThread}</p>
-        </div>
-        
-        {/* 渗透节点 */}
-        <div className="p-4 bg-gradient-to-r from-pink-50/50 to-rose-50/50 rounded-lg border border-pink-100">
-          <div className="text-sm font-medium text-pink-700 mb-3">思想渗透节点</div>
-          <div className="space-y-3">
-            {thought.infiltrationPoints.map((point, i) => (
-              <div key={i} className="p-3 bg-white rounded-lg border border-pink-100">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className="text-xs border-pink-300">{point.teachingPhase}</Badge>
-                  <Badge className="text-xs bg-pink-100 text-pink-700">{point.thought}</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">{point.method}</p>
-                {point.script && (
-                  <p className="text-xs text-pink-600 mt-1 italic">"{point.script}"</p>
-                )}
-              </div>
-            ))}
+        {thought.thoughtSystem.mainThread && (
+          <div className="p-4 bg-gradient-to-r from-violet-50/50 to-purple-50/50 rounded-lg border border-violet-100">
+            <div className="text-sm font-medium text-violet-700 mb-2">主线思想</div>
+            <p className="text-sm">{thought.thoughtSystem.mainThread}</p>
           </div>
-        </div>
+        )}
+        
+        {thought.infiltrationPoints.length > 0 && (
+          <div className="p-4 bg-gradient-to-r from-pink-50/50 to-rose-50/50 rounded-lg border border-pink-100">
+            <div className="text-sm font-medium text-pink-700 mb-3">思想渗透节点</div>
+            <div className="space-y-3">
+              {thought.infiltrationPoints.slice(0, 5).map((point, i) => (
+                <div key={i} className="p-3 bg-white rounded-lg border border-pink-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="text-xs border-pink-300">{point.teachingPhase}</Badge>
+                    <Badge className="text-xs bg-pink-100 text-pink-700">{point.thought}</Badge>
+                  </div>
+                  {point.script && (
+                    <p className="text-xs text-pink-600 mt-1 italic">"{point.script}"</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 /** 结构贯通卡片 */
-function StructureCard({ structure }: { structure: StructureConnection }) {
+function StructureCard({ structure }: { structure: NonNullable<MathPrepPlan['structure']> }) {
   return (
     <Card className="border-none shadow-lg">
       <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 border-b">
@@ -708,52 +762,27 @@ function StructureCard({ structure }: { structure: StructureConnection }) {
         <CardDescription>知识结构网络与关联</CardDescription>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
-        {/* 纵向连接 */}
         <div className="grid grid-cols-2 gap-3">
           <div className="p-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-lg border border-blue-100">
-            <div className="text-sm font-medium text-blue-700 mb-2 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs">前</span>
-              前置知识
-            </div>
-            <p className="text-sm mb-2">{structure.verticalConnection.priorLink.content}</p>
-            <div className="text-xs text-muted-foreground">
-              衔接点：{structure.verticalConnection.priorLink.connectionPoint}
-            </div>
+            <div className="text-sm font-medium text-blue-700 mb-2">前置知识</div>
+            <p className="text-sm mb-1">{structure.verticalConnection.priorLink.content || '无'}</p>
+            {structure.verticalConnection.priorLink.connectionPoint && (
+              <p className="text-xs text-muted-foreground">
+                衔接点：{structure.verticalConnection.priorLink.connectionPoint}
+              </p>
+            )}
           </div>
           <div className="p-4 bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-lg border border-green-100">
-            <div className="text-sm font-medium text-green-700 mb-2 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-xs">后</span>
-              后续延伸
-            </div>
-            <p className="text-sm mb-2">{structure.verticalConnection.subsequentLink.content}</p>
-            <div className="text-xs text-muted-foreground">
-              延伸方向：{structure.verticalConnection.subsequentLink.extensionDirection}
-            </div>
+            <div className="text-sm font-medium text-green-700 mb-2">后续延伸</div>
+            <p className="text-sm mb-1">{structure.verticalConnection.subsequentLink.content || '无'}</p>
+            {structure.verticalConnection.subsequentLink.extensionDirection && (
+              <p className="text-xs text-muted-foreground">
+                延伸方向：{structure.verticalConnection.subsequentLink.extensionDirection}
+              </p>
+            )}
           </div>
         </div>
         
-        {/* 发展脉络 */}
-        <div className="p-4 bg-gradient-to-r from-amber-50/50 to-yellow-50/50 rounded-lg border border-amber-100">
-          <div className="text-sm font-medium text-amber-700 mb-2">发展脉络</div>
-          <p className="text-sm">{structure.verticalConnection.developmentContext}</p>
-        </div>
-        
-        {/* 横向联系 */}
-        {structure.horizontalConnection.relatedKnowledge.length > 0 && (
-          <div className="p-4 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 rounded-lg border border-teal-100">
-            <div className="text-sm font-medium text-teal-700 mb-3">相关知识</div>
-            <div className="space-y-2">
-              {structure.horizontalConnection.relatedKnowledge.map((rel, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
-                  <Badge variant="outline">{rel.content}</Badge>
-                  <span className="text-xs text-muted-foreground">共同点：{rel.commonality}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {/* 方法迁移 */}
         {structure.horizontalConnection.methodTransfer.length > 0 && (
           <div className="p-4 bg-gradient-to-r from-orange-50/50 to-red-50/50 rounded-lg border border-orange-100">
             <div className="text-sm font-medium text-orange-700 mb-3">方法迁移</div>
@@ -765,18 +794,19 @@ function StructureCard({ structure }: { structure: StructureConnection }) {
           </div>
         )}
         
-        {/* 上位概念 */}
-        <div className="p-4 bg-muted/30 rounded-lg border">
-          <div className="text-sm font-medium text-muted-foreground mb-2">上位概念</div>
-          <p className="text-sm">{structure.unifiedFramework.superordinateConcept}</p>
-        </div>
+        {structure.unifiedFramework.superordinateConcept && (
+          <div className="p-4 bg-muted/30 rounded-lg border">
+            <div className="text-sm font-medium text-muted-foreground mb-2">上位概念</div>
+            <p className="text-sm">{structure.unifiedFramework.superordinateConcept}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 /** 教学路径卡片 */
-function TeachingPathCard({ teachingPath }: { teachingPath: TeachingPath }) {
+function TeachingPathCard({ teachingPath }: { teachingPath: NonNullable<MathPrepPlan['teachingPath']> }) {
   return (
     <Card className="border-none shadow-lg">
       <CardHeader className="bg-gradient-to-r from-rose-50 to-pink-50 border-b">
@@ -787,124 +817,88 @@ function TeachingPathCard({ teachingPath }: { teachingPath: TeachingPath }) {
         <CardDescription>基于四维分析的教学实施建议</CardDescription>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
-        {/* 教学目标 */}
-        <div className="p-4 bg-gradient-to-r from-rose-50/50 to-pink-50/50 rounded-lg border border-rose-100">
-          <div className="text-sm font-medium text-rose-700 mb-3 flex items-center gap-2">
-            <Target className="w-4 h-4" />
-            教学目标
-          </div>
-          <div className="space-y-2">
-            {teachingPath.objectives.map((obj, i) => (
-              <div key={i} className="flex items-start gap-2 p-2 bg-white rounded border border-rose-100">
-                <Badge 
-                  className={cn(
-                    "shrink-0",
-                    obj.dimension === 'knowledge' && 'bg-blue-100 text-blue-700',
-                    obj.dimension === 'ability' && 'bg-green-100 text-green-700',
-                    obj.dimension === 'emotion' && 'bg-purple-100 text-purple-700',
-                    obj.dimension === 'thinking' && 'bg-orange-100 text-orange-700'
-                  )}
-                >
-                  {obj.dimension === 'knowledge' ? '知识' : 
-                   obj.dimension === 'ability' ? '能力' : 
-                   obj.dimension === 'emotion' ? '情感' : '思维'}
-                </Badge>
-                <div className="text-sm">
-                  <span className="font-medium">{obj.content}</span>
-                  {obj.behavior && <span className="text-muted-foreground">：{obj.behavior}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* 重难点 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-lg border border-blue-100">
-            <div className="text-sm font-medium text-blue-700 mb-3">教学重点</div>
-            <div className="space-y-2">
-              {teachingPath.keyDifficulty.keyPoints.map((point, i) => (
-                <div key={i} className="text-sm p-2 bg-white rounded border border-blue-100">
-                  <div className="font-medium">{point.content}</div>
-                  <div className="text-xs text-blue-600 mt-1">策略：{point.strategy}</div>
-                </div>
-              ))}
+        {teachingPath.objectives.length > 0 && (
+          <div className="p-4 bg-gradient-to-r from-rose-50/50 to-pink-50/50 rounded-lg border border-rose-100">
+            <div className="text-sm font-medium text-rose-700 mb-3 flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              教学目标
             </div>
-          </div>
-          <div className="p-4 bg-gradient-to-r from-orange-50/50 to-red-50/50 rounded-lg border border-orange-100">
-            <div className="text-sm font-medium text-orange-700 mb-3">教学难点</div>
             <div className="space-y-2">
-              {teachingPath.keyDifficulty.difficulties.map((diff, i) => (
-                <div key={i} className="text-sm p-2 bg-white rounded border border-orange-100">
-                  <div className="font-medium">{diff.content}</div>
-                  <div className="text-xs text-orange-600 mt-1">突破：{diff.breakthrough}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        
-        {/* 教学环节 */}
-        <div className="p-4 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 rounded-lg border border-teal-100">
-          <div className="text-sm font-medium text-teal-700 mb-3 flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            教学环节
-          </div>
-          <div className="space-y-3">
-            {teachingPath.phases.map((phase, i) => (
-              <div key={i} className="p-3 bg-white rounded-lg border border-teal-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">
-                    {i + 1}
+              {teachingPath.objectives.map((obj, i) => (
+                <div key={i} className="flex items-start gap-2 p-2 bg-white rounded border border-rose-100">
+                  <Badge 
+                    className={cn(
+                      "shrink-0",
+                      obj.dimension === 'knowledge' && 'bg-blue-100 text-blue-700',
+                      obj.dimension === 'ability' && 'bg-green-100 text-green-700',
+                      obj.dimension === 'emotion' && 'bg-purple-100 text-purple-700',
+                      obj.dimension === 'thinking' && 'bg-orange-100 text-orange-700'
+                    )}
+                  >
+                    {obj.dimension === 'knowledge' ? '知识' : 
+                     obj.dimension === 'ability' ? '能力' : 
+                     obj.dimension === 'emotion' ? '情感' : '思维'}
+                  </Badge>
+                  <div className="text-sm">
+                    <span>{obj.content}</span>
                   </div>
-                  <Badge variant="default" className="text-xs bg-teal-600">{phase.name}</Badge>
-                  <span className="text-xs text-muted-foreground">约{phase.duration}分钟</span>
-                </div>
-                <p className="text-sm text-muted-foreground">{phase.activities.join('、')}</p>
-                {phase.designIntent && (
-                  <p className="text-xs text-teal-600 mt-1">设计意图：{phase.designIntent}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* 关键问题 */}
-        {teachingPath.keyQuestionDesign.length > 0 && (
-          <div className="p-4 bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-lg border border-purple-100">
-            <div className="text-sm font-medium text-purple-700 mb-3 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4" />
-              关键问题设计
-            </div>
-            <div className="space-y-2">
-              {teachingPath.keyQuestionDesign.slice(0, 4).map((q, i) => (
-                <div key={i} className="p-2 bg-white rounded border border-purple-100">
-                  <div className="text-sm font-medium">{q.question}</div>
-                  <div className="text-xs text-muted-foreground mt-1">目的：{q.purpose}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
         
-        {/* 学生活动 */}
-        {teachingPath.studentActivityDesign.length > 0 && (
-          <div className="p-4 bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-lg border border-green-100">
-            <div className="text-sm font-medium text-green-700 mb-3 flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              学生活动设计
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {teachingPath.studentActivityDesign.slice(0, 4).map((a, i) => (
-                <div key={i} className="p-2 bg-white rounded border border-green-100">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline" className="text-xs">
-                      {a.form === 'individual' ? '个人' : 
-                       a.form === 'pair' ? '同桌' : 
-                       a.form === 'group' ? '小组' : '全班'}
-                    </Badge>
+        <div className="grid grid-cols-2 gap-3">
+          {teachingPath.keyDifficulty.keyPoints.length > 0 && (
+            <div className="p-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-lg border border-blue-100">
+              <div className="text-sm font-medium text-blue-700 mb-3">教学重点</div>
+              <div className="space-y-2">
+                {teachingPath.keyDifficulty.keyPoints.map((point, i) => (
+                  <div key={i} className="text-sm p-2 bg-white rounded border border-blue-100">
+                    <div className="font-medium">{point.content}</div>
+                    {point.strategy && <div className="text-xs text-blue-600 mt-1">策略：{point.strategy}</div>}
                   </div>
-                  <div className="text-sm">{a.activity}</div>
+                ))}
+              </div>
+            </div>
+          )}
+          {teachingPath.keyDifficulty.difficulties.length > 0 && (
+            <div className="p-4 bg-gradient-to-r from-orange-50/50 to-red-50/50 rounded-lg border border-orange-100">
+              <div className="text-sm font-medium text-orange-700 mb-3">教学难点</div>
+              <div className="space-y-2">
+                {teachingPath.keyDifficulty.difficulties.map((diff, i) => (
+                  <div key={i} className="text-sm p-2 bg-white rounded border border-orange-100">
+                    <div className="font-medium">{diff.content}</div>
+                    {diff.breakthrough && <div className="text-xs text-orange-600 mt-1">突破：{diff.breakthrough}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {teachingPath.phases.length > 0 && (
+          <div className="p-4 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 rounded-lg border border-teal-100">
+            <div className="text-sm font-medium text-teal-700 mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              教学环节
+            </div>
+            <div className="space-y-3">
+              {teachingPath.phases.map((phase, i) => (
+                <div key={i} className="p-3 bg-white rounded-lg border border-teal-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">
+                      {i + 1}
+                    </div>
+                    <Badge variant="default" className="text-xs bg-teal-600">{phase.name}</Badge>
+                    <span className="text-xs text-muted-foreground">约{phase.duration}分钟</span>
+                  </div>
+                  {phase.activities.length > 0 && (
+                    <p className="text-sm text-muted-foreground">{phase.activities.join('、')}</p>
+                  )}
+                  {phase.designIntent && (
+                    <p className="text-xs text-teal-600 mt-1">设计意图：{phase.designIntent}</p>
+                  )}
                 </div>
               ))}
             </div>

@@ -29,6 +29,7 @@ export const CATEGORY_NAMES: Record<ResourceCategory, string> = {
   chinese_reading: '语文·朗读教学',
   chinese_writing: '语文·习作专项',
   chinese_chat: '语文·备课智能体',
+  math: '数学·备课中心',
   math_concept: '数学·概念教学',
   math_problem: '数学·问题设计',
   other: '其他',

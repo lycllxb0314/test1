@@ -7,7 +7,7 @@
 /**
  * 共享资源类型
  */
-export type SharedResourceCategory = 'reading' | 'writing';
+export type SharedResourceCategory = 'reading' | 'writing' | 'math';
 
 /**
  * 共享资源实体

@@ -14,6 +14,7 @@ export type ResourceCategory =
   | 'chinese_reading'     // 语文学科-朗读教学
   | 'chinese_writing'     // 语文学科-习作专项
   | 'chinese_chat'        // 语文学科-备课智能体
+  | 'math'                // 数学学科-备课中心
   | 'math_concept'        // 数学学科-概念教学
   | 'math_problem'        // 数学学科-问题设计
   | 'other';              // 其他
@@ -355,7 +356,7 @@ export interface ReadingResourceContent {
 /** 创建资源请求 */
 export interface CreateResourceRequest {
   category: ResourceCategory;
-  type: ResourceType;
+  type?: ResourceType;
   subject?: string;
   grade?: number;
   title: string;
@@ -364,6 +365,8 @@ export interface CreateResourceRequest {
   tags?: string[];
   lessonTitle?: string;
   sourceId?: string;
+  unit?: string;          // 单元名称
+  isShared?: boolean;     // 是否共享
 }
 
 /** 更新资源请求 */
