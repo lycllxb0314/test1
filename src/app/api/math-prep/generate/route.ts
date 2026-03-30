@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       // 保存到个人资源库
       teachingResourceRepository.create({
         teacherId: teacherId || 'system',
+        teacherName: teacherName,
         category: 'math',
         title: contentName,
         grade: parseInt(grade, 10),
