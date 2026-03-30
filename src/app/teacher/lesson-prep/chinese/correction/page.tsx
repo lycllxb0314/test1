@@ -7,7 +7,7 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -63,9 +63,48 @@ type WritingContent = {
   commonIssues?: WritingIssue[];
 };
 
-// ==================== 主组件 ====================
+// ==================== 加载状态组件 ====================
 
-export default function WritingCorrectionPage() {
+function LoadingState() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+        <p className="text-muted-foreground">加载中...</p>
+      </div>
+    </div>
+  );
+}
+
+// ==================== 缺少数据提示组件 ====================
+
+function MissingDataPrompt() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center">
+      <Card className="max-w-md">
+        <CardContent className="p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold mb-2">缺少备课方案</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            请先在习作专项生成备课方案，或从资源库选择已有方案
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Link href="/teacher/lesson-prep/chinese/writing">
+              <Button variant="outline">去习作专项</Button>
+            </Link>
+            <Link href="/teacher/lesson-prep/my-resources">
+              <Button>我的资源库</Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ==================== 主内容组件 ====================
+
+function CorrectionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -89,8 +128,8 @@ export default function WritingCorrectionPage() {
   useEffect(() => {
     if (lessonInfoStr && contentStr) {
       try {
-        setLessonInfo(JSON.parse(decodeURIComponent(lessonInfoStr)));
-        setWritingContent(JSON.parse(decodeURIComponent(contentStr)));
+        setLessonInfo(JSON.parse(lessonInfoStr));
+        setWritingContent(JSON.parse(contentStr));
       } catch (e) {
         console.error('解析备课方案数据失败:', e);
       }
@@ -326,28 +365,12 @@ export default function WritingCorrectionPage() {
   };
   
   // 如果没有备课方案数据
+  if (!lessonInfoStr || !contentStr) {
+    return <MissingDataPrompt />;
+  }
+  
   if (!lessonInfo || !writingContent) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">缺少备课方案</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              请先在习作专项生成备课方案，或从资源库选择已有方案
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Link href="/teacher/lesson-prep/chinese/writing">
-                <Button variant="outline">去习作专项</Button>
-              </Link>
-              <Link href="/teacher/lesson-prep/my-resources">
-                <Button>我的资源库</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
@@ -532,5 +555,15 @@ export default function WritingCorrectionPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ==================== 页面入口（带 Suspense） ====================
+
+export default function WritingCorrectionPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <CorrectionContent />
+    </Suspense>
   );
 }
