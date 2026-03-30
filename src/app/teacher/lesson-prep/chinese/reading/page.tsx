@@ -13,7 +13,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -26,6 +25,11 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
   ArrowLeft,
   Mic2,
   Loader2,
@@ -37,43 +41,37 @@ import {
   Eye,
   Lightbulb,
   Music,
-  Repeat,
-  FileText,
-  Target,
-  Users,
-  Settings,
   Sparkles,
   ChevronRight,
-  Search,
-  RefreshCw,
+  ChevronDown,
   Check,
+  Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
   ReadingTeachingPlan,
-  ReadingToneType,
-  ReadingWillingness,
-  ReadingExperience,
-  ReadingSkills,
-  EmotionalReadingModel,
-  DemonstrationStrategy,
-  PreparationStrategy,
-  IntegrationStrategy,
-  ReadingAudio,
-  ReadingGuidance,
 } from '@/types/chinese-prep';
 
 // ==================== 类型定义 ====================
 
 type TextbookLesson = {
-  id: string;
-  title: string;
+  id: number;
   grade: number;
   semester: '上册' | '下册';
-  content: string;
+  unitNumber: number;
+  unitTheme: string | null;
+  lessonNumber: number;
+  title: string;
   genre: '古诗' | '散文' | '童话' | '小说' | '说明文' | '议论文' | '其他';
-  author?: string;
-  unit?: string;
+  author: string | null;
+  content: string | null;
+  isRequired: boolean;
+};
+
+type UnitGroup = {
+  unitNumber: number;
+  unitTheme: string;
+  lessons: TextbookLesson[];
 };
 
 // ==================== 文体标签颜色 ====================
@@ -94,9 +92,10 @@ export default function ReadingPage() {
   // 课文选择状态
   const [grade, setGrade] = useState<number>(4);
   const [semester, setSemester] = useState<'上册' | '下册'>('上册');
-  const [lessons, setLessons] = useState<TextbookLesson[]>([]);
+  const [unitGroups, setUnitGroups] = useState<UnitGroup[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<TextbookLesson | null>(null);
-  const [searching, setSearching] = useState(false);
+  const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set([1]));
+  const [loading, setLoading] = useState(false);
   
   // 生成选项
   const [options, setOptions] = useState({
@@ -109,7 +108,7 @@ export default function ReadingPage() {
   });
   
   // 结果状态
-  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [plan, setPlan] = useState<ReadingTeachingPlan | null>(null);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -120,8 +119,8 @@ export default function ReadingPage() {
   
   // 加载课文列表
   const loadLessons = useCallback(async () => {
-    setSearching(true);
-    setLessons([]);
+    setLoading(true);
+    setUnitGroups([]);
     setSelectedLesson(null);
     
     try {
@@ -129,52 +128,44 @@ export default function ReadingPage() {
       const data = await response.json();
       
       if (data.success && data.data) {
-        setLessons(data.data);
+        setUnitGroups(data.data);
+        // 默认展开第一个单元
+        if (data.data.length > 0) {
+          setExpandedUnits(new Set([data.data[0].unitNumber]));
+        }
       }
     } catch (error) {
       console.error('加载课文列表失败:', error);
     } finally {
-      setSearching(false);
+      setLoading(false);
     }
   }, [grade, semester]);
   
   // 选择课文
-  const selectLesson = useCallback(async (lesson: TextbookLesson) => {
-    // 如果课文内容为空，尝试获取内容
-    if (!lesson.content || lesson.content.includes('获取中')) {
-      setSearching(true);
-      try {
-        const response = await fetch(
-          `/api/textbook/lessons?grade=${grade}&semester=${encodeURIComponent(semester)}&title=${encodeURIComponent(lesson.title)}`
-        );
-        const data = await response.json();
-        
-        if (data.success && data.data) {
-          setSelectedLesson({
-            ...lesson,
-            content: data.data.content || lesson.content,
-          });
-        } else {
-          setSelectedLesson(lesson);
-        }
-      } catch (error) {
-        console.error('获取课文内容失败:', error);
-        setSelectedLesson(lesson);
-      } finally {
-        setSearching(false);
+  const selectLesson = useCallback((lesson: TextbookLesson) => {
+    setSelectedLesson(lesson);
+  }, []);
+  
+  // 切换单元展开状态
+  const toggleUnit = useCallback((unitNumber: number) => {
+    setExpandedUnits(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(unitNumber)) {
+        newSet.delete(unitNumber);
+      } else {
+        newSet.add(unitNumber);
       }
-    } else {
-      setSelectedLesson(lesson);
-    }
-  }, [grade, semester]);
+      return newSet;
+    });
+  }, []);
   
   // 生成朗读方案
   const handleGenerate = useCallback(async () => {
-    if (!selectedLesson || !selectedLesson.content || selectedLesson.content.includes('获取中')) {
+    if (!selectedLesson || !selectedLesson.content) {
       return;
     }
     
-    setLoading(true);
+    setGenerating(true);
     try {
       const response = await fetch('/api/chinese-prep/reading', {
         method: 'POST',
@@ -199,7 +190,7 @@ export default function ReadingPage() {
     } catch (error) {
       console.error('生成失败:', error);
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   }, [selectedLesson, options]);
   
@@ -615,7 +606,7 @@ export default function ReadingPage() {
               <BookOpen className="w-5 h-5 text-blue-600" />
               选择课文
             </CardTitle>
-            <CardDescription>选择年级和学期，从课文列表中选择要备课的课文</CardDescription>
+            <CardDescription>选择年级和学期，从单元中选择要备课的课文</CardDescription>
           </CardHeader>
           <CardContent className="p-5 space-y-4">
             {/* 年级和学期选择 */}
@@ -646,56 +637,87 @@ export default function ReadingPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={loadLessons}
-                disabled={searching}
-              >
-                <RefreshCw className={cn('w-4 h-4', searching && 'animate-spin')} />
-              </Button>
             </div>
             
-            {/* 课文列表 */}
+            {/* 课文列表 - 按单元分组 */}
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">
-                课文列表 {lessons.length > 0 && `(${lessons.length}篇)`}
+                {grade}年级{semester} {unitGroups.length > 0 && `共 ${unitGroups.length} 个单元`}
               </div>
               
-              {searching ? (
+              {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  <span className="ml-2 text-muted-foreground">正在搜索课文...</span>
+                  <span className="ml-2 text-muted-foreground">正在加载课文...</span>
                 </div>
-              ) : lessons.length === 0 ? (
+              ) : unitGroups.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <Search className="w-8 h-8 mb-2" />
+                  <BookOpen className="w-8 h-8 mb-2" />
                   <p>暂无课文数据</p>
-                  <p className="text-xs mt-1">请尝试切换年级或学期</p>
                 </div>
               ) : (
-                <ScrollArea className="h-[200px] border rounded-lg">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-2">
-                    {lessons.map((lesson) => (
-                      <button
-                        key={lesson.id}
-                        onClick={() => selectLesson(lesson)}
-                        className={cn(
-                          'p-3 rounded-lg border text-left transition-all hover:border-green-300 hover:bg-green-50/50',
-                          selectedLesson?.id === lesson.id && 'border-green-500 bg-green-50 ring-2 ring-green-200'
-                        )}
+                <ScrollArea className="h-[400px] border rounded-lg">
+                  <div className="p-2 space-y-2">
+                    {unitGroups.map((unit) => (
+                      <Collapsible
+                        key={unit.unitNumber}
+                        open={expandedUnits.has(unit.unitNumber)}
+                        onOpenChange={() => toggleUnit(unit.unitNumber)}
                       >
-                        <div className="flex items-start justify-between">
-                          <span className="font-medium text-sm">{lesson.title}</span>
-                          {selectedLesson?.id === lesson.id && (
-                            <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                          )}
-                        </div>
-                        <Badge variant="outline" className={cn('text-xs mt-1', GENRE_COLORS[lesson.genre])}>
-                          {lesson.genre}
-                        </Badge>
-                      </button>
+                        <CollapsibleTrigger asChild>
+                          <button className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg hover:from-slate-100 hover:to-gray-100 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <Badge variant="outline" className="bg-white">
+                                第{unit.unitNumber}单元
+                              </Badge>
+                              <span className="font-medium text-sm">{unit.unitTheme}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({unit.lessons.length}篇)
+                              </span>
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                'w-4 h-4 text-muted-foreground transition-transform',
+                                expandedUnits.has(unit.unitNumber) && 'rotate-180'
+                              )}
+                            />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-2">
+                            {unit.lessons.map((lesson) => (
+                              <button
+                                key={lesson.id}
+                                onClick={() => selectLesson(lesson)}
+                                className={cn(
+                                  'p-3 rounded-lg border text-left transition-all hover:border-green-300 hover:bg-green-50/50',
+                                  selectedLesson?.id === lesson.id && 'border-green-500 bg-green-50 ring-2 ring-green-200'
+                                )}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-muted-foreground">{lesson.lessonNumber}.</span>
+                                      <span className="font-medium text-sm truncate">{lesson.title}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <Badge variant="outline" className={cn('text-xs', GENRE_COLORS[lesson.genre])}>
+                                        {lesson.genre}
+                                      </Badge>
+                                      {lesson.isRequired && (
+                                        <Badge variant="secondary" className="text-xs">精读</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {selectedLesson?.id === lesson.id && (
+                                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     ))}
                   </div>
                 </ScrollArea>
@@ -711,20 +733,25 @@ export default function ReadingPage() {
                     <Badge variant="outline" className={GENRE_COLORS[selectedLesson.genre]}>
                       {selectedLesson.genre}
                     </Badge>
+                    {selectedLesson.author && (
+                      <span className="text-xs text-muted-foreground">— {selectedLesson.author}</span>
+                    )}
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {selectedLesson.grade}年级{selectedLesson.semester}
+                    第{selectedLesson.unitNumber}单元 · {selectedLesson.isRequired ? '精读' : '略读'}
                   </span>
                 </div>
                 
-                <div className="mt-3">
-                  <div className="text-xs text-muted-foreground mb-1">课文内容</div>
-                  <ScrollArea className="h-[100px] bg-white rounded border p-2">
-                    <p className="text-sm whitespace-pre-wrap">
-                      {selectedLesson.content || '（内容获取中...）'}
-                    </p>
-                  </ScrollArea>
-                </div>
+                {selectedLesson.content && (
+                  <div className="mt-3">
+                    <div className="text-xs text-muted-foreground mb-1">课文内容</div>
+                    <ScrollArea className="h-[100px] bg-white rounded border p-2">
+                      <p className="text-sm whitespace-pre-wrap">
+                        {selectedLesson.content}
+                      </p>
+                    </ScrollArea>
+                  </div>
+                )}
               </div>
             )}
             
@@ -754,10 +781,10 @@ export default function ReadingPage() {
             
             <Button 
               onClick={handleGenerate} 
-              disabled={!selectedLesson || loading}
+              disabled={!selectedLesson || !selectedLesson.content || generating}
               className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
-              {loading ? (
+              {generating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   生成朗读教学方案...
