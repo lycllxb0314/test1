@@ -31,6 +31,191 @@ import {
 import { cn } from '@/lib/utils';
 import type { EvaluationGuide, TieredTask, WritingIssue } from '@/types/chinese-prep';
 
+// ==================== Markdown 渲染 ====================
+
+/**
+ * 简单的 Markdown 渲染器
+ * 支持标题、表格、粗体、列表等基本格式
+ */
+function renderMarkdown(content: string): React.ReactNode {
+  // 处理代码块
+  if (content.includes('```')) {
+    const parts = content.split(/(```[\s\S]*?```)/g);
+    return (
+      <>
+        {parts.map((part, idx) => {
+          if (part.startsWith('```')) {
+            const code = part.replace(/```\w*\n?/g, '').replace(/```$/g, '');
+            return (
+              <pre key={idx} className="bg-gray-100 rounded p-2 my-2 text-xs overflow-x-auto">
+                {code}
+              </pre>
+            );
+          }
+          return <span key={idx}>{renderMarkdown(part)}</span>;
+        })}
+      </>
+    );
+  }
+
+  // 处理表格
+  if (content.includes('|') && content.includes('---')) {
+    const lines = content.split('\n');
+    const tableStart = lines.findIndex(l => l.includes('|') && l.includes('---'));
+    if (tableStart > 0) {
+      const headerLine = lines[tableStart - 1];
+      const bodyLines = lines.slice(tableStart + 1).filter(l => l.includes('|'));
+      
+      const parseRow = (line: string) => 
+        line.split('|').filter(c => c.trim()).map(c => c.trim());
+      
+      const headers = parseRow(headerLine);
+      const rows = bodyLines.map(parseRow);
+      
+      const beforeTable = lines.slice(0, tableStart - 1).join('\n');
+      const afterTable = lines.slice(tableStart + 1 + bodyLines.length).join('\n');
+      
+      return (
+        <>
+          {beforeTable && <span>{renderMarkdown(beforeTable)}</span>}
+          <div className="overflow-x-auto my-3">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-blue-50">
+                  {headers.map((h, i) => (
+                    <th key={i} className="border border-blue-200 px-3 py-2 text-left font-medium">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr key={i} className="border-b">
+                    {row.map((cell, j) => (
+                      <td key={j} className="border border-blue-100 px-3 py-2">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {afterTable && <span>{renderMarkdown(afterTable)}</span>}
+        </>
+      );
+    }
+  }
+
+  // 处理标题
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentText = '';
+  let listItems: string[] = [];
+  
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={`list-${elements.length}`} className="list-disc list-inside my-2 space-y-1">
+          {listItems.map((item, i) => (
+            <li key={i} className="text-sm">{renderInline(item)}</li>
+          ))}
+        </ul>
+      );
+      listItems = [];
+    }
+  };
+  
+  const flushText = () => {
+    flushList();
+    if (currentText.trim()) {
+      elements.push(
+        <p key={`text-${elements.length}`} className="text-sm my-1">
+          {renderInline(currentText)}
+        </p>
+      );
+      currentText = '';
+    }
+  };
+  
+  for (const line of lines) {
+    // H2 标题
+    if (line.startsWith('## ')) {
+      flushText();
+      elements.push(
+        <h2 key={elements.length} className="text-base font-bold mt-4 mb-2 pb-1 border-b-2 border-blue-200 text-blue-800">
+          {line.slice(3)}
+        </h2>
+      );
+    }
+    // H3 标题
+    else if (line.startsWith('### ')) {
+      flushText();
+      elements.push(
+        <h3 key={elements.length} className="text-sm font-bold mt-3 mb-1 text-gray-800">
+          {line.slice(4)}
+        </h3>
+      );
+    }
+    // 列表项
+    else if (line.startsWith('- ') || line.startsWith('* ')) {
+      flushText();
+      listItems.push(line.slice(2));
+    }
+    // 引用
+    else if (line.startsWith('> ')) {
+      flushText();
+      elements.push(
+        <blockquote key={elements.length} className="border-l-4 border-blue-300 pl-3 py-1 my-2 bg-blue-50 rounded-r text-sm italic">
+          {renderInline(line.slice(2))}
+        </blockquote>
+      );
+    }
+    // 分隔线
+    else if (line.trim() === '---') {
+      flushText();
+      elements.push(
+        <hr key={elements.length} className="my-4 border-t border-gray-200" />
+      );
+    }
+    // 普通文本
+    else {
+      if (listItems.length > 0 && !line.startsWith('- ') && !line.startsWith('* ')) {
+        flushList();
+      }
+      currentText += (currentText ? '\n' : '') + line;
+    }
+  }
+  
+  flushText();
+  
+  return elements.length > 0 ? elements : <span className="text-sm">{renderInline(content)}</span>;
+}
+
+/**
+ * 渲染行内元素（粗体、斜体等）
+ */
+function renderInline(text: string): React.ReactNode {
+  // 处理粗体
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={idx} className="font-semibold text-gray-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    // 处理 emoji 和特殊标记
+    if (part.includes('✨') || part.includes('⚠️') || part.includes('💡') || part.includes('🌟') || part.includes('📝') || part.includes('🎯')) {
+      return <span key={idx}>{part}</span>;
+    }
+    return part;
+  });
+}
+
 // ==================== 类型定义 ====================
 
 type Message = {
@@ -473,8 +658,11 @@ function CorrectionContent() {
                           )}
                           
                           {/* 文本内容 */}
-                          <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                            {msg.content}
+                          <div className="leading-relaxed">
+                            {msg.role === 'user' 
+                              ? <span className="text-sm whitespace-pre-wrap">{msg.content}</span>
+                              : renderMarkdown(msg.content)
+                            }
                           </div>
                         </div>
                       </div>
