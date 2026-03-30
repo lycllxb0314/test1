@@ -84,6 +84,25 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 判断是否为朗读教学资源
+    if (body.lessonInfo && body.readingContent) {
+      // 朗读教学资源保存
+      const resource = await teachingResourceService.saveReadingResource(
+        teacherId,
+        teacherName,
+        {
+          lessonInfo: body.lessonInfo,
+          content: body.readingContent,
+        }
+      );
+
+      return NextResponse.json({
+        success: true,
+        data: resource,
+        message: '资源保存成功',
+      });
+    }
+
     // 通用资源创建
     const createRequest: CreateResourceRequest = {
       category: body.category,

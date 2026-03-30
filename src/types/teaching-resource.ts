@@ -189,6 +189,167 @@ export interface CharacterResourceContent {
   };
 }
 
+// ==================== 朗读教学资源内容 ====================
+
+/** 朗读教学资源内容结构 */
+export interface ReadingResourceContent {
+  /** 课文信息 */
+  lessonInfo: {
+    title: string;
+    grade: number;
+    genre: string;
+    content: string;
+  };
+  
+  /** 本体论推导 */
+  ontology: {
+    whyTeach: string;
+    teachingPurpose: string;
+    valueOrientation: string;
+  };
+  
+  /** 朗读主体培育 */
+  subjectCultivation: {
+    willingness: {
+      selfConnection: string;
+      emotionalTrigger: string;
+      awakeningPhrases: string[];
+      introductionScript: string;
+    };
+    experience: {
+      listeningGuide: {
+        focusPoints: string[];
+        guidance: string;
+      };
+      imaginationGuide: {
+        visualization: string[];
+        sensoryDetails: string[];
+      };
+      expressionGuide: {
+        oralExpression: string;
+        bodyLanguage: string;
+      };
+    };
+    skills: {
+      stress: {
+        principle: string;
+        points: Array<{
+          text: string;
+          stressType: string;
+          reason: string;
+        }>;
+      };
+      pause: {
+        principle: string;
+        points: Array<{
+          position: string;
+          pauseType: string;
+          duration: string;
+          reason: string;
+        }>;
+      };
+      intonation: {
+        principle: string;
+        patterns: Array<{
+          text: string;
+          intonation: string;
+          emotion: string;
+        }>;
+      };
+    };
+  };
+  
+  /** 情感朗读模型 */
+  emotionalModel: {
+    comprehension: {
+      emotionalTone: string;
+      emotionalChange: string;
+      keyEmotions: string[];
+    };
+    imagination: {
+      mentalImages: string[];
+      sensoryExperience: string[];
+    };
+    breathControl: {
+      breathType: string;
+      breathPoints: Array<{
+        position: string;
+        breathAction: string;
+      }>;
+    };
+    toneCreation: {
+      speed: string;
+      volume: string;
+      intonation: string;
+    };
+    selfListening: {
+      evaluationPoints: string[];
+      improvementTips: string[];
+    };
+  };
+  
+  /** 教学策略 */
+  strategies: {
+    genreAwareness: {
+      genre: string;
+      features: {
+        rhythm: string;
+        speed: string;
+        intonation: string;
+        pause: string;
+      };
+      teachingTips: string[];
+    };
+    gradientTraining: Array<{
+      stage: string;
+      objective: string;
+      method: string;
+      duration: string;
+    }>;
+    evaluationRubric: Array<{
+      dimension: string;
+      level1: string;
+      level2: string;
+      level3: string;
+    }>;
+  };
+  
+  /** 范读音频 */
+  audios: Array<{
+    speed: string;
+    audioUrl: string;
+    duration: number;
+    description: string;
+  }>;
+  
+  /** 课堂指导 */
+  guidance: {
+    chorusGuide: {
+      preparation: string;
+      startSignal: string;
+      endSignal: string;
+      tips: string[];
+    };
+    individualGuide: {
+      selectionStrategy: string;
+      feedbackTemplate: string[];
+    };
+    partnerGuide: {
+      pairingMethod: string;
+      taskDescription: string;
+      evaluationCriteria: string[];
+    };
+  };
+  
+  /** 生成参数 */
+  generateParams?: {
+    title: string;
+    grade: number;
+    genre: string;
+    generateOptions: Record<string, boolean>;
+  };
+}
+
 // ==================== DTO 类型 ====================
 
 /** 创建资源请求 */

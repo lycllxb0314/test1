@@ -46,6 +46,8 @@ import {
   ChevronDown,
   Check,
   Target,
+  FolderOpen,
+  Save,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
@@ -114,6 +116,10 @@ export default function ReadingPage() {
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeTab, setActiveTab] = useState('ontology');
+  
+  // 保存状态
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
   // 音频 ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -195,6 +201,40 @@ export default function ReadingPage() {
       setGenerating(false);
     }
   }, [selectedLesson, textContent, options]);
+  
+  // 保存到资源库
+  const saveToResource = useCallback(async () => {
+    if (!plan || !selectedLesson || !textContent.trim()) return;
+    
+    setSaving(true);
+    try {
+      const res = await fetch('/api/teaching-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lessonInfo: {
+            title: selectedLesson.title,
+            grade: selectedLesson.grade,
+            genre: selectedLesson.genre,
+            content: textContent.trim(),
+          },
+          readingContent: plan,
+        }),
+      });
+      
+      const json = await res.json();
+      if (json.success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        console.error('保存失败:', json.error);
+      }
+    } catch (e) {
+      console.error('保存失败:', e);
+    } finally {
+      setSaving(false);
+    }
+  }, [plan, selectedLesson, textContent]);
   
   // 年级或学期变化时重新加载课文
   useEffect(() => {
@@ -584,20 +624,57 @@ export default function ReadingPage() {
       
       <div className="p-6 space-y-6 max-w-7xl mx-auto">
         {/* 顶部导航 */}
-        <div className="flex items-center gap-4">
-          <Link href="/teacher/lesson-prep/chinese">
-            <button className="p-2 rounded-lg hover:bg-muted transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          </Link>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/teacher/lesson-prep/chinese">
+              <button className="p-2 rounded-lg hover:bg-muted transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-100 to-emerald-200 flex items-center justify-center shadow-sm">
+                <Mic2 className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">朗读教学</h1>
+                <p className="text-sm text-muted-foreground">基于王崧舟老师朗读教学思想</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* 右侧操作按钮 */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-100 to-emerald-200 flex items-center justify-center shadow-sm">
-              <Mic2 className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">朗读教学</h1>
-              <p className="text-sm text-muted-foreground">基于王崧舟老师朗读教学思想</p>
-            </div>
+            <Link href="/teacher/lesson-prep/my-resources">
+              <Button variant="outline" size="sm">
+                <FolderOpen className="w-4 h-4 mr-2" />
+                我的资源库
+              </Button>
+            </Link>
+            {plan && (
+              <Button
+                size="sm"
+                onClick={saveToResource}
+                disabled={saving}
+                className={saveSuccess ? 'bg-green-600 hover:bg-green-600' : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    保存中...
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    已保存
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    保存到资源库
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
         

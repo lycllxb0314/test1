@@ -18,6 +18,7 @@ import type {
   ResourceCategory,
   ResourceType,
   CharacterResourceContent,
+  ReadingResourceContent,
 } from '@/types/teaching-resource';
 
 // ==================== 常量定义 ====================
@@ -112,6 +113,37 @@ export class TeachingResourceService {
       description,
       content: content as unknown as Record<string, unknown>,
       lessonTitle: characters.join('、'),
+    });
+  }
+
+  /**
+   * 保存朗读教学资源
+   */
+  async saveReadingResource(
+    teacherId: string,
+    teacherName: string | undefined,
+    data: {
+      lessonInfo: ReadingResourceContent['lessonInfo'];
+      content: ReadingResourceContent;
+    }
+  ): Promise<TeachingResource> {
+    const { lessonInfo, content } = data;
+
+    // 生成标题
+    const title = `朗读教学资源：${lessonInfo.title}`;
+
+    // 生成描述
+    const description = `${lessonInfo.grade}年级《${lessonInfo.title}》朗读教学素材，包含本体论推导、朗读主体培育、情感朗读模型、教学策略和范读音频。`;
+
+    return this.createResource(teacherId, teacherName, {
+      category: 'chinese_reading',
+      type: 'full_package',
+      subject: '语文',
+      grade: lessonInfo.grade,
+      title,
+      description,
+      content: content as unknown as Record<string, unknown>,
+      lessonTitle: lessonInfo.title,
     });
   }
 
