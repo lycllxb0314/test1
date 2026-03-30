@@ -150,3 +150,11 @@ export {
   LessonPrepService,
   lessonPrepService,
 } from './lesson-prep.service';
+
+// ============================================
+// 数学备课服务
+// ============================================
+export {
+  MathPrepService,
+  mathPrepService,
+} from './math-prep.service';

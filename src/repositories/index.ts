@@ -181,3 +181,11 @@ export {
   LessonPrepRepository,
   lessonPrepRepository,
 } from './lesson-prep.repository';
+
+// ============================================
+// 数学教学内容管理
+// ============================================
+export {
+  MathTeachingContentRepository,
+  mathTeachingContentRepository,
+} from './math-teaching-content.repository';
