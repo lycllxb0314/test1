@@ -197,31 +197,282 @@ export type CharacterResponse = {
 };
 
 // ==================== 朗读教学 ====================
+// 基于王崧舟老师朗读教学思想设计
 
-/** 朗读速度类型 */
-export type ReadingSpeed = 'slow' | 'standard' | 'expressive';
+/**
+ * 本体论推导：为什么教朗读
+ * - 破解"阴盛阳衰"的阅读教学（默读强、朗读弱）
+ * - 朗读是语感培养的根本途径
+ * - 让文字有"呼吸"和"温度"
+ */
 
-/** 停顿标注 */
-export type PauseMark = {
-  position: number; // 字符位置
-  type: 'short' | 'medium' | 'long'; // 停顿类型
-  reason: string; // 停顿原因
+/** 文体朗读基调类型 */
+export type ReadingToneType = 
+  | '古诗'    // 韵律感强，节奏鲜明
+  | '散文'    // 舒缓自然，情真意切
+  | '童话'    // 生动活泼，富有童趣
+  | '小说'    // 人物鲜明，情节跌宕
+  | '说明文'  // 清晰准确，条理分明
+  | '议论文'; // 逻辑严密，铿锵有力
+
+/** 文体朗读特征 */
+export type ReadingToneFeatures = {
+  type: ReadingToneType;
+  /** 节奏特征 */
+  rhythm: string;
+  /** 语调特征 */
+  intonation: string;
+  /** 停顿特征 */
+  pause: string;
+  /** 重音特征 */
+  stress: string;
+  /** 典型示例 */
+  example: string;
 };
 
-/** 重音标注 */
-export type StressMark = {
-  start: number;
-  end: number;
-  text: string;
-  type: 'logic' | 'emotion' | 'grammar'; // 逻辑重音、情感重音、语法重音
-  reason: string;
+/**
+ * 朗读主体三要素（王崧舟公式）
+ * 朗读主体 = 朗读意愿 × 朗读体验 × 朗读技巧
+ */
+
+/** 朗读意愿 - 从"要我读"到"我要读" */
+export type ReadingWillingness = {
+  /** 文本与自我的连接点 */
+  selfConnection: string;
+  /** 情感共鸣的触发点 */
+  emotionalTrigger: string;
+  /** 表达欲望的唤醒话术 */
+  awakeningPhrases: string[];
+  /** 导入语设计 */
+  introductionScript: string;
 };
 
-/** 朗读标注 */
+/** 朗读体验 - 从文字到画面 */
+export type ReadingExperience = {
+  /** 倾听指导：如何听范读 */
+  listeningGuide: {
+    focusPoints: string[];     // 听什么
+    guidance: string;          // 怎么听
+    reflection: string;        // 听后思考
+  };
+  /** 想象还原：把文字变成画面 */
+  imaginationRestore: {
+    scenes: Array<{
+      text: string;           // 原文片段
+      scene: string;          // 画面描述
+      sensoryDetails: string[]; // 感官细节（视觉、听觉、嗅觉等）
+      emotionalAtmosphere: string; // 情感氛围
+    }>;
+    guidanceScript: string;    // 想象引导语
+  };
+  /** 情境还原：重建文本的情感世界 */
+  situationRestore: {
+    background: string;        // 情境背景
+    characters: string[];      // 人物/角色
+    emotionalJourney: string;  // 情感走向
+  };
+};
+
+/** 朗读技巧 - 在真实语境中习得 */
+export type ReadingSkills = {
+  /** 重音技巧 */
+  stress: {
+    points: Array<{
+      text: string;
+      type: 'logic' | 'emotion' | 'grammar';
+      reason: string;
+      method: string;          // 强调方法
+    }>;
+    teachingScript: string;    // 教学话术
+  };
+  /** 节奏技巧 */
+  rhythm: {
+    overall: string;           // 整体节奏
+    variations: Array<{
+      segment: string;
+      rhythm: string;
+      reason: string;
+    }>;
+    teachingScript: string;
+  };
+  /** 语调技巧 */
+  intonation: {
+    emotionalTones: Array<{
+      emotion: string;
+      tone: string;
+      example: string;
+    }>;
+    teachingScript: string;
+  };
+  /** 停顿技巧 */
+  pause: {
+    points: Array<{
+      position: string;        // 停顿位置（原文片段）
+      type: 'short' | 'medium' | 'long';
+      reason: string;          // 停顿原因
+      effect: string;          // 停顿效果
+    }>;
+    teachingScript: string;
+  };
+};
+
+/**
+ * 情感朗读模型（吴洁敏研究，王崧舟总结）
+ * 五个闭环环节：感悟→想象→求气→创调→反听
+ */
+
+/** 情感朗读模型 */
+export type EmotionalReadingModel = {
+  /** 感悟：理解文本情感 */
+  comprehension: {
+    /** 情感基调 */
+    emotionalTone: string;
+    /** 情感线索 */
+    emotionalThread: string;
+    /** 关键情感词 */
+    emotionalKeywords: string[];
+    /** 感悟引导语 */
+    guidanceScript: string;
+  };
+  /** 想象：还原画面与情境 */
+  imagination: {
+    /** 核心画面 */
+    coreScenes: string[];
+    /** 想象引导语 */
+    guidanceScript: string;
+  };
+  /** 求气：通过再造想象唤起情感，获得肺气流 */
+  breathControl: {
+    /** 气息类型 */
+    breathType: string;
+    /** 气息要点 */
+    breathPoints: string[];
+    /** 练习方法 */
+    practiceMethod: string;
+    /** 指导语 */
+    guidanceScript: string;
+  };
+  /** 创调：语调、语速、语流 */
+  toneCreation: {
+    /** 语速建议 */
+    speed: string;
+    /** 语调走向 */
+    intonation: string;
+    /** 语流特征 */
+    flow: string;
+    /** 具体指导 */
+    guidanceScript: string;
+  };
+  /** 反听：监听反思，及时调整 */
+  selfMonitoring: {
+    /** 反听要点 */
+    checkpoints: string[];
+    /** 自评标准 */
+    selfEvalCriteria: string[];
+    /** 改进建议 */
+    improvementTips: string[];
+    /** 反听指导语 */
+    guidanceScript: string;
+  };
+};
+
+/**
+ * 四大教学策略
+ */
+
+/** 示范策略：教师范读 */
+export type DemonstrationStrategy = {
+  /** 范读要点 */
+  keyPoints: string[];
+  /** 示范前引导语 */
+  beforeScript: string;
+  /** 示范后讨论语 */
+  afterScript: string;
+  /** 学生观察要点 */
+  observationPoints: string[];
+};
+
+/** 备课策略：朗读笔记 */
+export type PreparationStrategy = {
+  /** 情感走向预设 */
+  emotionalArc: string;
+  /** 语速变化预设 */
+  speedChanges: Array<{
+    position: string;
+    speed: string;
+    reason: string;
+  }>;
+  /** 重音标记预设 */
+  stressMarks: Array<{
+    text: string;
+    type: string;
+    reason: string;
+  }>;
+  /** 停顿设计 */
+  pauseDesign: Array<{
+    position: string;
+    duration: string;
+    reason: string;
+  }>;
+  /** 朗读笔记模板 */
+  noteTemplate: string;
+};
+
+/** 文体意识策略 */
+export type GenreAwarenessStrategy = {
+  /** 文体类型 */
+  genre: ReadingToneType;
+  /** 该文体朗读特征 */
+  features: ReadingToneFeatures;
+  /** 典型误读警示 */
+  commonMistakes: string[];
+  /** 优秀范读特点 */
+  excellentExamples: string[];
+};
+
+/** 融合策略：朗读融入阅读教学全过程 */
+export type IntegrationStrategy = {
+  /** 初读环节设计 */
+  firstReading: {
+    purpose: string;
+    method: string;
+    guidanceScript: string;
+  };
+  /** 精读环节设计 */
+  intensiveReading: {
+    purpose: string;
+    method: string;
+    guidanceScript: string;
+  };
+  /** 品读环节设计 */
+  appreciativeReading: {
+    purpose: string;
+    method: string;
+    guidanceScript: string;
+  };
+  /** 熟读环节设计 */
+  fluentReading: {
+    purpose: string;
+    method: string;
+    guidanceScript: string;
+  };
+};
+
+/** 朗读标注（保留原功能，作为技巧教学的一部分） */
 export type ReadingAnnotation = {
   text: string;
-  pauses: PauseMark[];
-  stresses: StressMark[];
+  pauses: Array<{
+    position: number;
+    type: 'short' | 'medium' | 'long';
+    reason: string;
+  }>;
+  stresses: Array<{
+    start: number;
+    end: number;
+    text: string;
+    type: 'logic' | 'emotion' | 'grammar';
+    reason: string;
+  }>;
   emotionPoints: Array<{
     position: number;
     emotion: string;
@@ -229,15 +480,15 @@ export type ReadingAnnotation = {
   }>;
 };
 
-/** 范读音频 */
+/** 范读音频（保留原功能） */
 export type ReadingAudio = {
-  speed: ReadingSpeed;
+  speed: 'slow' | 'standard' | 'expressive';
   audioUrl: string;
   duration: number;
   annotation: ReadingAnnotation;
 };
 
-/** 朗读指导话术 */
+/** 朗读指导话术（保留并增强） */
 export type ReadingGuidance = {
   /** 整体指导 */
   overallGuide: string;
@@ -249,10 +500,10 @@ export type ReadingGuidance = {
   }>;
   /** 齐读组织话术 */
   chorusGuide: {
-    preparation: string; // 准备话术
-    startSignal: string; // 起始信号
-    duringReading: string[]; // 过程中提示
-    ending: string; // 结束话术
+    preparation: string;
+    startSignal: string;
+    duringReading: string[];
+    ending: string;
   };
   /** 常见问题及应对 */
   commonIssues: Array<{
@@ -263,25 +514,87 @@ export type ReadingGuidance = {
   }>;
 };
 
+/** 朗读教学完整方案 */
+export type ReadingTeachingPlan = {
+  /** 课文标题 */
+  title: string;
+  /** 文体类型 */
+  genre: ReadingToneType;
+  
+  /** 本体论推导：为什么教这篇课文朗读 */
+  ontology: {
+    whyTeach: string;        // 为什么教朗读
+    teachingPurpose: string; // 教学目的
+    valueOrientation: string; // 价值取向
+  };
+  
+  /** 朗读主体培育 */
+  subjectCultivation: {
+    willingness: ReadingWillingness;   // 朗读意愿
+    experience: ReadingExperience;      // 朗读体验
+    skills: ReadingSkills;              // 朗读技巧
+  };
+  
+  /** 情感朗读模型 */
+  emotionalModel: EmotionalReadingModel;
+  
+  /** 四大教学策略 */
+  strategies: {
+    demonstration: DemonstrationStrategy;    // 示范策略
+    preparation: PreparationStrategy;        // 备课策略
+    genreAwareness: GenreAwarenessStrategy;  // 文体意识
+    integration: IntegrationStrategy;        // 融合策略
+  };
+  
+  /** 范读音频 */
+  audios: ReadingAudio[];
+  
+  /** 朗读标注 */
+  annotation: ReadingAnnotation;
+  
+  /** 课堂指导话术 */
+  guidance: ReadingGuidance;
+};
+
 /** 朗读教学请求 */
 export type ReadingRequest = {
-  text: string; // 课文内容
-  title: string; // 课文标题
+  text: string;
+  title: string;
   grade: number;
+  genre?: ReadingToneType;  // 可选，不填则自动判断
   generateOptions: {
-    slowReading: boolean;
-    standardReading: boolean;
-    expressiveReading: boolean;
-    annotation: boolean;
-    guidance: boolean;
+    willingness: boolean;    // 生成朗读意愿
+    experience: boolean;     // 生成朗读体验
+    skills: boolean;         // 生成朗读技巧
+    emotionalModel: boolean; // 生成情感朗读模型
+    strategies: boolean;     // 生成四大策略
+    audios: boolean;         // 生成范读音频
   };
 };
 
 /** 朗读教学响应 */
 export type ReadingResponse = {
   title: string;
+  genre: ReadingToneType;
+  ontology: {
+    whyTeach: string;
+    teachingPurpose: string;
+    valueOrientation: string;
+  };
+  subjectCultivation: {
+    willingness: ReadingWillingness;
+    experience: ReadingExperience;
+    skills: ReadingSkills;
+  };
+  emotionalModel: EmotionalReadingModel;
+  strategies: {
+    demonstration: DemonstrationStrategy;
+    preparation: PreparationStrategy;
+    genreAwareness: GenreAwarenessStrategy;
+    integration: IntegrationStrategy;
+  };
   audios: ReadingAudio[];
-  fullAnnotation: ReadingAnnotation;
+  annotation: ReadingAnnotation;
   guidance: ReadingGuidance;
 };
 

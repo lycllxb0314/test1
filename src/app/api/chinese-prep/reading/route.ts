@@ -3,21 +3,15 @@
  * 
  * POST /api/chinese-prep/reading
  * 
- * 生成范读音频、朗读标注、课堂指导话术
+ * 基于王崧舟老师朗读教学思想设计
+ * 核心理念：朗读主体 = 朗读意愿 × 朗读体验 × 朗读技巧
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, TTSClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
-import type {
-  ReadingSpeed,
-  ReadingAnnotation,
-  ReadingAudio,
-  ReadingGuidance,
-  ReadingRequest,
-} from '@/types/chinese-prep';
-
-/** TTS 发音人 */
-const SPEAKER = 'zh_female_xueayi_saturn_bigtts';
+import { HeaderUtils } from 'coze-coding-dev-sdk';
+import { createReadingTeachingService } from '@/services/reading-teaching.service';
+import type { ReadingRequest, ReadingToneType } from '@/types/chinese-prep';
+import { success, error, ErrorCode } from '@/lib/api';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,173 +20,92 @@ export async function POST(request: NextRequest) {
 
     if (!text || text.trim().length === 0) {
       return NextResponse.json(
-        { success: false, error: '请提供课文内容' },
+        error('请提供课文内容', ErrorCode.BAD_REQUEST),
         { status: 400 }
       );
     }
 
+    if (!title || title.trim().length === 0) {
+      return NextResponse.json(
+        error('请提供课文标题', ErrorCode.BAD_REQUEST),
+        { status: 400 }
+      );
+    }
+
+    // 提取请求头
     const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-    const config = new Config();
-    const llmClient = new LLMClient(config, customHeaders);
-    const ttsClient = new TTSClient(config, customHeaders);
-
-    // 1. 生成朗读指导方案
-    const prompt = buildReadingPrompt(text, title, grade);
-    const response = await llmClient.invoke(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.5 }
-    );
-
-    const { annotation, guidance } = parseReadingResponse(response.content, text);
-
-    // 2. 生成范读音频
-    const audios: ReadingAudio[] = [];
-
-    if (generateOptions.slowReading) {
-      const audio = await generateAudio(ttsClient, text, -20);
-      if (audio) audios.push({ speed: 'slow', ...audio, annotation });
-    }
-
-    if (generateOptions.standardReading) {
-      const audio = await generateAudio(ttsClient, text, 0);
-      if (audio) audios.push({ speed: 'standard', ...audio, annotation });
-    }
-
-    if (generateOptions.expressiveReading) {
-      const audio = await generateAudio(ttsClient, text, 10);
-      if (audio) audios.push({ speed: 'expressive', ...audio, annotation });
-    }
-
-    return NextResponse.json({
+    
+    // 创建服务实例
+    const readingService = createReadingTeachingService(customHeaders);
+    
+    // 判断文体（如果未提供）
+    const genre = body.genre || readingService.detectGenre(text, title);
+    
+    // 生成朗读教学方案
+    const result = await readingService.generateReadingPlan({
+      text,
       title,
-      audios,
-      fullAnnotation: annotation,
-      guidance,
+      grade: grade || 4,
+      genre: genre as ReadingToneType,
+      generateOptions: generateOptions || {
+        willingness: true,
+        experience: true,
+        skills: true,
+        emotionalModel: true,
+        strategies: true,
+        audios: true,
+      },
     });
-  } catch (error) {
-    console.error('[Reading API Error]:', error);
+
+    if (!result.success) {
+      return NextResponse.json(
+        error(result.error || '生成失败', ErrorCode.INTERNAL_ERROR),
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(success(result.data));
+  } catch (err) {
+    console.error('[Reading API Error]:', err);
     return NextResponse.json(
-      { title: '', audios: [], fullAnnotation: { text: '', pauses: [], stresses: [], emotionPoints: [] }, guidance: { overallGuide: '', segmentGuides: [], chorusGuide: { preparation: '', startSignal: '', duringReading: [], ending: '' }, commonIssues: [] } },
+      error('朗读教学方案生成失败', ErrorCode.INTERNAL_ERROR),
       { status: 500 }
     );
   }
 }
 
-/** 构建 prompt */
-function buildReadingPrompt(text: string, title: string, grade: number): string {
-  return `作为朗读教学专家，请为以下课文设计朗读教学方案。
-
-课文标题：${title}
-年级：${grade}年级
-课文内容：
-${text}
-
-请严格按以下JSON格式输出：
-
-{
-  "annotation": {
-    "text": "${title}",
-    "pauses": [
-      {"position": 5, "type": "short", "reason": "自然换气"}
-    ],
-    "stresses": [
-      {"start": 0, "end": 2, "text": "关键词", "type": "logic", "reason": "强调重点"}
-    ],
-    "emotionPoints": [
-      {"position": 10, "emotion": "深情", "intensity": "medium"}
-    ]
-  },
-  "guidance": {
-    "overallGuide": "整体朗读基调说明...",
-    "segmentGuides": [
-      {
-        "segment": "第一段",
-        "guidance": "具体朗读建议",
-        "keyPoints": ["要点1", "要点2"]
-      }
-    ],
-    "chorusGuide": {
-      "preparation": "同学们，请做好朗读准备...",
-      "startSignal": "预备——起！",
-      "duringReading": ["注意节奏", "声音洪亮"],
-      "ending": "读得真好！"
-    },
-    "commonIssues": [
-      {
-        "issue": "拖音",
-        "cause": "习惯性拉长尾音",
-        "solution": "示范正常语速",
-        "exampleCorrection": "听老师怎么读..."
-      }
-    ]
-  }
-}
-
-只输出JSON，不要有其他内容。`;
-}
-
-/** 解析响应 */
-function parseReadingResponse(
-  content: string,
-  originalText: string
-): { annotation: ReadingAnnotation; guidance: ReadingGuidance } {
-  // 默认值
-  const defaultAnnotation: ReadingAnnotation = {
-    text: originalText,
-    pauses: [],
-    stresses: [],
-    emotionPoints: [],
-  };
-  
-  const defaultGuidance: ReadingGuidance = {
-    overallGuide: '',
-    segmentGuides: [],
-    chorusGuide: {
-      preparation: '',
-      startSignal: '',
-      duringReading: [],
-      ending: '',
-    },
-    commonIssues: [],
-  };
-
+/**
+ * 获取文体朗读特征
+ */
+export async function GET(request: NextRequest) {
   try {
-    // 提取 JSON
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return { annotation: defaultAnnotation, guidance: defaultGuidance };
-
-    const data = JSON.parse(jsonMatch[0]);
-
-    return {
-      annotation: data.annotation || defaultAnnotation,
-      guidance: data.guidance || defaultGuidance,
+    const { searchParams } = new URL(request.url);
+    const genre = searchParams.get('genre') as ReadingToneType | null;
+    
+    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
+    const readingService = createReadingTeachingService(customHeaders);
+    
+    if (genre) {
+      const features = readingService.getGenreFeatures(genre);
+      return NextResponse.json(success(features));
+    }
+    
+    // 返回所有文体特征
+    const allFeatures = {
+      '古诗': readingService.getGenreFeatures('古诗'),
+      '散文': readingService.getGenreFeatures('散文'),
+      '童话': readingService.getGenreFeatures('童话'),
+      '小说': readingService.getGenreFeatures('小说'),
+      '说明文': readingService.getGenreFeatures('说明文'),
+      '议论文': readingService.getGenreFeatures('议论文'),
     };
-  } catch (e) {
-    console.error('[Reading Parse Error]:', e);
-    return { annotation: defaultAnnotation, guidance: defaultGuidance };
-  }
-}
-
-/** 生成音频 */
-async function generateAudio(
-  ttsClient: TTSClient,
-  text: string,
-  speechRate: number
-): Promise<{ audioUrl: string; duration: number } | null> {
-  try {
-    const response = await ttsClient.synthesize({
-      uid: 'reading',
-      text,
-      speaker: SPEAKER,
-      speechRate,
-    });
-
-    return {
-      audioUrl: response.audioUri,
-      duration: response.audioSize,
-    };
-  } catch (error) {
-    console.error('[TTS Error]:', error);
-    return null;
+    
+    return NextResponse.json(success(allFeatures));
+  } catch (err) {
+    console.error('[Reading API GET Error]:', err);
+    return NextResponse.json(
+      error('获取文体特征失败', ErrorCode.INTERNAL_ERROR),
+      { status: 500 }
+    );
   }
 }
