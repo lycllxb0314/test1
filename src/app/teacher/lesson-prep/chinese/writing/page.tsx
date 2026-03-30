@@ -1,18 +1,18 @@
 /**
  * 习作专项工具页面
  * 
- * 全流程备课：情境创设、提纲、素材、分层任务、评改指导、常见问题
- * UI风格与生字专项、朗读教学保持一致
+ * 全流程备课：提纲、好词好句、分层任务、评改指导、常见问题
+ * 支持内置篇目选择
  */
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -22,6 +22,11 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
   ArrowLeft,
   PenTool,
   Loader2,
@@ -30,9 +35,9 @@ import {
   CheckCircle,
   AlertCircle,
   ChevronRight,
-  Save,
-  FolderOpen,
+  ChevronDown,
   Check,
+  FolderOpen,
   FileText,
   Sparkles,
   Target,
@@ -49,25 +54,53 @@ import type {
   WritingIssue,
 } from '@/types/chinese-prep';
 
-// ==================== 配置 ====================
+// ==================== 类型定义 ====================
 
-const WRITING_TYPES: { value: WritingType; label: string }[] = [
-  { value: '写人', label: '写人' },
-  { value: '写事', label: '写事' },
-  { value: '写景', label: '写景' },
-  { value: '状物', label: '状物' },
-  { value: '想象', label: '想象' },
-  { value: '应用文', label: '应用文' },
-];
+type WritingTopic = {
+  id: number;
+  grade: number;
+  semester: string;
+  unitNumber: number;
+  unitTheme: string;
+  topicNumber: number;
+  title: string;
+  writingType: string;
+  requirements: string;
+  wordCountMin: number;
+  wordCountMax: number;
+  keyPoints: string[];
+  tips: string;
+};
+
+type UnitGroup = {
+  unitNumber: number;
+  unitTheme: string;
+  topics: WritingTopic[];
+};
+
+// ==================== 习作类型标签颜色 ====================
+
+const WRITING_TYPE_COLORS: Record<string, string> = {
+  '写人': 'bg-rose-100 text-rose-700 border-rose-200',
+  '写事': 'bg-blue-100 text-blue-700 border-blue-200',
+  '写景': 'bg-green-100 text-green-700 border-green-200',
+  '状物': 'bg-amber-100 text-amber-700 border-amber-200',
+  '想象': 'bg-purple-100 text-purple-700 border-purple-200',
+  '应用文': 'bg-gray-100 text-gray-700 border-gray-200',
+};
 
 // ==================== 主组件 ====================
 
 export default function WritingPage() {
-  // 输入状态
-  const [unit, setUnit] = useState('');
-  const [topic, setTopic] = useState('');
-  const [writingType, setWritingType] = useState<WritingType>('写事');
+  // 篇目选择状态
   const [grade, setGrade] = useState<number>(4);
+  const [semester, setSemester] = useState<'上册' | '下册'>('上册');
+  const [unitGroups, setUnitGroups] = useState<UnitGroup[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState<WritingTopic | null>(null);
+  const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set([1]));
+  const [loading, setLoading] = useState(false);
+  
+  // 生成选项
   const [options, setOptions] = useState({
     outline: true,
     expressions: true,
@@ -77,62 +110,79 @@ export default function WritingPage() {
   });
   
   // 结果状态
-  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [outline, setOutline] = useState<WritingOutline | null>(null);
   const [expressions, setExpressions] = useState<GoodExpressions | null>(null);
   const [tieredTasks, setTieredTasks] = useState<TieredTask[]>([]);
   const [evaluationGuide, setEvaluationGuide] = useState<EvaluationGuide | null>(null);
   const [commonIssues, setCommonIssues] = useState<WritingIssue[]>([]);
   const [activeTab, setActiveTab] = useState<'outline' | 'expressions' | 'tasks' | 'evaluation' | 'issues'>('outline');
+  
+  // 保存状态
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   
-  // 生成备课方案
-  const handleGenerate = async () => {
-    if (!unit.trim()) return;
-    
+  // 加载篇目列表
+  const loadTopics = useCallback(async () => {
     setLoading(true);
+    setUnitGroups([]);
+    setSelectedTopic(null);
+    setOutline(null);
+    setExpressions(null);
+    setTieredTasks([]);
+    setEvaluationGuide(null);
+    setCommonIssues([]);
+    
     try {
-      const response = await fetch('/api/chinese-prep/writing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          unit,
-          writingType,
-          grade,
-          topic,
-          generateOptions: options,
-        }),
-      });
-      
+      const response = await fetch(`/api/writing-topics?grade=${grade}&semester=${encodeURIComponent(semester)}`);
       const data = await response.json();
       
-      if (data.outline) setOutline(data.outline);
-      if (data.expressions) setExpressions(data.expressions);
-      if (data.tieredTasks) setTieredTasks(data.tieredTasks);
-      if (data.evaluationGuide) setEvaluationGuide(data.evaluationGuide);
-      if (data.commonIssues) setCommonIssues(data.commonIssues);
-      
-      // 自动保存到资源库
-      if (data.outline || data.expressions || data.tieredTasks) {
-        saveToResourceInternal(data);
+      if (data.success && data.data) {
+        setUnitGroups(data.data);
+        if (data.data.length > 0) {
+          setExpandedUnits(new Set([data.data[0].unitNumber]));
+        }
       }
     } catch (error) {
-      console.error('生成失败:', error);
+      console.error('加载篇目列表失败:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [grade, semester]);
+  
+  // 选择篇目
+  const selectTopic = useCallback((topic: WritingTopic) => {
+    setSelectedTopic(topic);
+    // 清空之前的结果
+    setOutline(null);
+    setExpressions(null);
+    setTieredTasks([]);
+    setEvaluationGuide(null);
+    setCommonIssues([]);
+  }, []);
+  
+  // 切换单元展开状态
+  const toggleUnit = useCallback((unitNumber: number) => {
+    setExpandedUnits(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(unitNumber)) {
+        newSet.delete(unitNumber);
+      } else {
+        newSet.add(unitNumber);
+      }
+      return newSet;
+    });
+  }, []);
   
   // 内部保存函数（生成后自动调用）
-  const saveToResourceInternal = async (result: {
+  const saveToResourceInternal = useCallback(async (result: {
     outline?: WritingOutline;
     expressions?: GoodExpressions;
     tieredTasks?: TieredTask[];
     evaluationGuide?: EvaluationGuide;
     commonIssues?: WritingIssue[];
   }) => {
-    if (!unit.trim()) return;
+    if (!selectedTopic) return;
     
     try {
       const res = await fetch('/api/teaching-resources', {
@@ -140,10 +190,10 @@ export default function WritingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lessonInfo: {
-            title: topic || `习作：${unit}`,
-            grade,
-            writingType,
-            unit,
+            title: selectedTopic.title,
+            grade: selectedTopic.grade,
+            writingType: selectedTopic.writingType,
+            unit: `第${selectedTopic.unitNumber}单元 ${selectedTopic.unitTheme}`,
           },
           writingContent: result,
         }),
@@ -157,7 +207,49 @@ export default function WritingPage() {
     } catch (e) {
       console.error('自动保存失败:', e);
     }
-  };
+  }, [selectedTopic]);
+  
+  // 生成备课方案
+  const handleGenerate = useCallback(async () => {
+    if (!selectedTopic) return;
+    
+    setGenerating(true);
+    try {
+      const response = await fetch('/api/chinese-prep/writing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          unit: `第${selectedTopic.unitNumber}单元 ${selectedTopic.unitTheme}`,
+          writingType: selectedTopic.writingType as WritingType,
+          grade: selectedTopic.grade,
+          topic: selectedTopic.title,
+          generateOptions: options,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.outline) setOutline(data.outline);
+      if (data.expressions) setExpressions(data.expressions);
+      if (data.tieredTasks) setTieredTasks(data.tieredTasks);
+      if (data.evaluationGuide) setEvaluationGuide(data.evaluationGuide);
+      if (data.commonIssues) setCommonIssues(data.commonIssues);
+      
+      setActiveTab('outline');
+      
+      // 自动保存到资源库
+      saveToResourceInternal(data);
+    } catch (error) {
+      console.error('生成失败:', error);
+    } finally {
+      setGenerating(false);
+    }
+  }, [selectedTopic, options, saveToResourceInternal]);
+  
+  // 年级或学期变化时重新加载篇目
+  useEffect(() => {
+    loadTopics();
+  }, [loadTopics]);
   
   // 渲染写作提纲
   const renderOutline = () => {
@@ -475,9 +567,9 @@ export default function WritingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto">
         {/* 顶部导航 */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Link href="/teacher/lesson-prep/chinese">
               <button className="p-2 rounded-lg hover:bg-muted transition-colors">
@@ -511,141 +603,268 @@ export default function WritingPage() {
           </div>
         </div>
         
-        {/* 输入区域 */}
-        <Card className="border-none shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-purple-600" />
-              设置习作信息
-            </CardTitle>
-            <CardDescription>选择年级和习作类型，输入单元主题</CardDescription>
-          </CardHeader>
-          <CardContent className="p-5 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">单元主题</label>
-                <Input
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  placeholder="如：第五单元"
-                  className="border-purple-200 focus:border-purple-400"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">习作类型</label>
-                <Select value={writingType} onValueChange={(v) => setWritingType(v as WritingType)}>
-                  <SelectTrigger className="border-purple-200">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {WRITING_TYPES.map(t => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">年级</label>
-                <Select value={String(grade)} onValueChange={(v) => setGrade(parseInt(v))}>
-                  <SelectTrigger className="border-purple-200">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[1, 2, 3, 4, 5, 6].map(g => (
-                      <SelectItem key={g} value={String(g)}>{g}年级</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">具体题目（可选）</label>
-                <Input
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="如：我的心爱之物"
-                  className="border-purple-200 focus:border-purple-400"
-                />
-              </div>
-            </div>
-            
-            {/* 生成选项 */}
-            <div className="flex flex-wrap gap-4 pt-2 border-t">
-              {[
-                { key: 'outline', label: '写作提纲' },
-                { key: 'expressions', label: '好词好句' },
-                { key: 'tieredTasks', label: '分层任务' },
-                { key: 'evaluationGuide', label: '评改指导' },
-                { key: 'issues', label: '常见问题' },
-              ].map(opt => (
-                <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
-                  <Checkbox
-                    checked={options[opt.key as keyof typeof options]}
-                    onCheckedChange={(checked) => 
-                      setOptions(prev => ({ ...prev, [opt.key]: checked }))
-                    }
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </div>
-            
-            <Button 
-              onClick={handleGenerate} 
-              disabled={!unit.trim() || loading}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  生成习作备课方案...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  生成备课方案
-                </>
-              )}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              生成后将自动保存到资源库
-            </p>
-          </CardContent>
-        </Card>
-        
-        {/* Tab 切换 */}
-        {(outline || expressions || tieredTasks.length > 0 || evaluationGuide || commonIssues.length > 0) && (
-          <div className="flex gap-2 border-b pb-2">
-            {[
-              { key: 'outline', label: '写作提纲', show: outline, icon: ListOrdered },
-              { key: 'expressions', label: '好词好句', show: expressions, icon: Sparkles },
-              { key: 'tasks', label: '分层任务', show: tieredTasks.length > 0, icon: Users },
-              { key: 'evaluation', label: '评改指导', show: evaluationGuide, icon: Target },
-              { key: 'issues', label: '常见问题', show: commonIssues.length > 0, icon: AlertCircle },
-            ].filter(t => t.show).map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 text-sm rounded-t transition-colors',
-                  activeTab === tab.key 
-                    ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-500' 
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
+        {/* 主内容区：左侧篇目选择 + 右侧生成区域 */}
+        <div className="grid grid-cols-12 gap-6">
+          {/* 左侧：篇目选择 */}
+          <div className="col-span-4">
+            <Card className="border-none shadow-lg sticky top-6">
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-purple-600" />
+                  选择习作篇目
+                </CardTitle>
+                <CardDescription>选择年级和学期，点击篇目生成</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {/* 年级学期选择 */}
+                <div className="p-4 border-b bg-muted/30">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={String(grade)} onValueChange={(v) => setGrade(parseInt(v))}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6].map(g => (
+                          <SelectItem key={g} value={String(g)}>{g}年级</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={semester} onValueChange={(v) => setSemester(v as '上册' | '下册')}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="上册">上册</SelectItem>
+                        <SelectItem value="下册">下册</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {/* 篇目列表 */}
+                <ScrollArea className="h-[500px]">
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : unitGroups.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      暂无篇目数据
+                    </div>
+                  ) : (
+                    <div className="p-2">
+                      {unitGroups.map((unit) => (
+                        <Collapsible
+                          key={unit.unitNumber}
+                          open={expandedUnits.has(unit.unitNumber)}
+                          onOpenChange={() => toggleUnit(unit.unitNumber)}
+                        >
+                          <CollapsibleTrigger className="w-full">
+                            <div className={cn(
+                              "flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors",
+                              "w-full text-left"
+                            )}>
+                              <div className="flex items-center gap-2">
+                                <ChevronRight className={cn(
+                                  "w-4 h-4 transition-transform",
+                                  expandedUnits.has(unit.unitNumber) && "rotate-90"
+                                )} />
+                                <span className="font-medium text-sm">第{unit.unitNumber}单元</span>
+                                <span className="text-xs text-muted-foreground">{unit.unitTheme}</span>
+                              </div>
+                              <Badge variant="secondary" className="text-xs">
+                                {unit.topics.length}
+                              </Badge>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="pl-6 pr-2 pb-2 space-y-1">
+                              {unit.topics.map((topic) => (
+                                <button
+                                  key={topic.id}
+                                  onClick={() => selectTopic(topic)}
+                                  className={cn(
+                                    "w-full text-left p-3 rounded-lg transition-all",
+                                    "hover:bg-purple-50 hover:shadow-sm",
+                                    selectedTopic?.id === topic.id && "bg-purple-100 border border-purple-300 shadow-sm"
+                                  )}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-sm truncate">{topic.title}</div>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <Badge 
+                                          variant="outline" 
+                                          className={cn("text-xs", WRITING_TYPE_COLORS[topic.writingType] || '')}
+                                        >
+                                          {topic.writingType}
+                                        </Badge>
+                                        {topic.wordCountMin > 0 && (
+                                          <span className="text-xs text-muted-foreground">
+                                            {topic.wordCountMin}-{topic.wordCountMax}字
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {selectedTopic?.id === topic.id && (
+                                      <Check className="w-4 h-4 text-purple-600 flex-shrink-0 mt-1" />
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </div>
-        )}
-        
-        {/* 结果展示 */}
-        <div className="space-y-4">
-          {activeTab === 'outline' && renderOutline()}
-          {activeTab === 'expressions' && renderExpressions()}
-          {activeTab === 'tasks' && renderTieredTasks()}
-          {activeTab === 'evaluation' && renderEvaluationGuide()}
-          {activeTab === 'issues' && renderCommonIssues()}
+          
+          {/* 右侧：选中的篇目信息和生成区域 */}
+          <div className="col-span-8 space-y-4">
+            {/* 选中的篇目信息 */}
+            {selectedTopic && (
+              <Card className="border-none shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b pb-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {selectedTopic.title}
+                        <Badge 
+                          variant="outline" 
+                          className={WRITING_TYPE_COLORS[selectedTopic.writingType] || ''}
+                        >
+                          {selectedTopic.writingType}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        第{selectedTopic.unitNumber}单元 · {selectedTopic.unitTheme} · {selectedTopic.grade}年级{selectedTopic.semester}
+                      </CardDescription>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedTopic.wordCountMin}-{selectedTopic.wordCountMax}字
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3">
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <div className="text-xs font-medium text-muted-foreground mb-1">习作要求</div>
+                    <p className="text-sm">{selectedTopic.requirements}</p>
+                  </div>
+                  
+                  {selectedTopic.keyPoints.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTopic.keyPoints.map((point, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">{point}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {selectedTopic.tips && (
+                    <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-700">
+                      💡 {selectedTopic.tips}
+                    </div>
+                  )}
+                  
+                  {/* 生成选项 */}
+                  <div className="flex flex-wrap gap-4 pt-3 border-t">
+                    {[
+                      { key: 'outline', label: '写作提纲' },
+                      { key: 'expressions', label: '好词好句' },
+                      { key: 'tieredTasks', label: '分层任务' },
+                      { key: 'evaluationGuide', label: '评改指导' },
+                      { key: 'issues', label: '常见问题' },
+                    ].map(opt => (
+                      <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <Checkbox
+                          checked={options[opt.key as keyof typeof options]}
+                          onCheckedChange={(checked) => 
+                            setOptions(prev => ({ ...prev, [opt.key]: checked }))
+                          }
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  <Button 
+                    onClick={handleGenerate} 
+                    disabled={generating}
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+                  >
+                    {generating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        生成习作备课方案...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        生成备课方案
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    生成后将自动保存到资源库
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* 未选择篇目提示 */}
+            {!selectedTopic && (
+              <Card className="border-none shadow-lg">
+                <CardContent className="p-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                    <PenTool className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">选择习作篇目</h3>
+                  <p className="text-sm text-muted-foreground">
+                    请从左侧选择一个习作篇目，开始生成备课方案
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Tab 切换 */}
+            {(outline || expressions || tieredTasks.length > 0 || evaluationGuide || commonIssues.length > 0) && (
+              <div className="flex gap-2 border-b pb-2">
+                {[
+                  { key: 'outline', label: '写作提纲', show: outline, icon: ListOrdered },
+                  { key: 'expressions', label: '好词好句', show: expressions, icon: Sparkles },
+                  { key: 'tasks', label: '分层任务', show: tieredTasks.length > 0, icon: Users },
+                  { key: 'evaluation', label: '评改指导', show: evaluationGuide, icon: Target },
+                  { key: 'issues', label: '常见问题', show: commonIssues.length > 0, icon: AlertCircle },
+                ].filter(t => t.show).map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2 text-sm rounded-t transition-colors',
+                      activeTab === tab.key 
+                        ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-500' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            {/* 结果展示 */}
+            <div className="space-y-4">
+              {activeTab === 'outline' && renderOutline()}
+              {activeTab === 'expressions' && renderExpressions()}
+              {activeTab === 'tasks' && renderTieredTasks()}
+              {activeTab === 'evaluation' && renderEvaluationGuide()}
+              {activeTab === 'issues' && renderCommonIssues()}
+            </div>
+          </div>
         </div>
       </div>
     </div>
