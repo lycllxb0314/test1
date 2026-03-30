@@ -1218,7 +1218,7 @@ export default function ResourceDetailPage() {
                           <div className="text-sm font-medium text-cyan-700 mb-3">本质属性</div>
                           <div className="flex flex-wrap gap-2">
                             {mathContent.essence.conceptCore.essentialAttributes.map((attr, i) => (
-                              <Badge key={i} className="bg-cyan-100 text-cyan-700 hover:bg-cyan-100">{attr}</Badge>
+                              <Badge key={i} className="bg-cyan-100 text-cyan-700 hover:bg-cyan-100 break-words whitespace-normal max-w-full">{attr}</Badge>
                             ))}
                           </div>
                         </div>
@@ -1229,7 +1229,7 @@ export default function ResourceDetailPage() {
                           <div className="text-sm font-medium text-indigo-700 mb-3">核心要素</div>
                           <div className="flex flex-wrap gap-2">
                             {mathContent.essence.connotationAnalysis.coreElements.map((elem, i) => (
-                              <Badge key={i} variant="outline" className="bg-white border-indigo-200">{elem}</Badge>
+                              <Badge key={i} variant="outline" className="bg-white border-indigo-200 break-words whitespace-normal max-w-full">{elem}</Badge>
                             ))}
                           </div>
                         </div>
@@ -1290,7 +1290,7 @@ export default function ResourceDetailPage() {
                           <div className="text-sm font-medium text-emerald-700 mb-3">探究活动设计</div>
                           <div className="flex flex-wrap gap-2">
                             {mathContent.process.recreationDesign.inquiryActivities.map((activity, i) => (
-                              <Badge key={i} variant="outline" className="bg-white border-emerald-200 py-1.5">{activity}</Badge>
+                              <Badge key={i} variant="outline" className="bg-white border-emerald-200 py-1.5 break-words whitespace-normal max-w-full">{activity}</Badge>
                             ))}
                           </div>
                         </div>
@@ -1316,10 +1316,11 @@ export default function ResourceDetailPage() {
                             {mathContent.thought.implicitThoughts.map((t, i) => (
                               <Badge 
                                 key={i} 
-                                className={t.level === 'core' 
-                                  ? 'bg-purple-500 text-white hover:bg-purple-500' 
-                                  : 'bg-purple-100 text-purple-700 hover:bg-purple-100'
-                                }
+                                className={`break-words whitespace-normal max-w-full ${
+                                  t.level === 'core' 
+                                    ? 'bg-purple-500 text-white hover:bg-purple-500' 
+                                    : 'bg-purple-100 text-purple-700 hover:bg-purple-100'
+                                }`}
                               >
                                 {t.name}
                               </Badge>
@@ -1393,7 +1394,7 @@ export default function ResourceDetailPage() {
                           <div className="text-sm font-medium text-orange-700 mb-3">方法迁移</div>
                           <div className="flex flex-wrap gap-2">
                             {mathContent.structure.horizontalConnection.methodTransfer.map((method, i) => (
-                              <Badge key={i} variant="outline" className="bg-white border-orange-200">{method}</Badge>
+                              <Badge key={i} variant="outline" className="bg-white border-orange-200 break-words whitespace-normal max-w-full">{method}</Badge>
                             ))}
                           </div>
                         </div>
