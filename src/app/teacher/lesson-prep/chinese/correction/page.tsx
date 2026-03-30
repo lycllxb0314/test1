@@ -151,7 +151,7 @@ function CorrectionContent() {
       const welcomeMsg: Message = {
         id: `welcome-${Date.now()}`,
         role: 'assistant',
-        content: `你好！我是心心的作文批改助手。\n\n我已加载《${lessonInfo.title}》的评改标准，可以帮你批改学生的习作。\n\n**批改标准包括：**\n- 教师评价量表（多个维度）\n- 学生自查清单\n- 常见问题预警\n\n请上传学生习作图片，我将进行客观批改。`,
+        content: `你好呀！我是心心的作文批改助手 💚\n\n我已经加载了《${lessonInfo.title}》的评改标准，可以帮你客观地批改学生习作。\n\n**批改标准包括：**\n- 📊 教师评价量表（内容、结构、语言、标点等维度）\n- ✅ 学生自查清单\n- ⚠️ 常见问题预警\n\n请上传学生习作图片，我来帮你批改～`,
         timestamp: Date.now(),
       };
       setMessages([welcomeMsg]);
@@ -275,7 +275,7 @@ function CorrectionContent() {
         const continueMsg: Message = {
           id: `continue-${Date.now()}`,
           role: 'assistant',
-          content: '✅ 批改完成！\n\n是否继续批改下一份习作？如果是，请上传新的习作图片。',
+          content: '✅ 批改完成啦！\n\n还需要继续批改下一份习作吗？如果需要，请上传新的习作图片～ 💚',
           timestamp: Date.now(),
         };
         setMessages(prev => [...prev, continueMsg]);
@@ -390,8 +390,12 @@ function CorrectionContent() {
               </button>
             </Link>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center shadow-sm">
-                <MessageCircle className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center shadow-sm overflow-hidden">
+                <img 
+                  src="/xinxin-avatar.png" 
+                  alt="心心" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
                 <h1 className="text-xl font-bold">作文批改助手</h1>
@@ -431,15 +435,19 @@ function CorrectionContent() {
                       >
                         {/* 头像 */}
                         <div className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                          "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden",
                           msg.role === 'user' 
                             ? "bg-blue-100" 
-                            : "bg-gradient-to-br from-blue-100 to-indigo-200"
+                            : "bg-gradient-to-br from-emerald-50 to-green-100"
                         )}>
                           {msg.role === 'user' ? (
                             <span className="text-sm">👤</span>
                           ) : (
-                            <MessageCircle className="w-4 h-4 text-blue-600" />
+                            <img 
+                              src="/xinxin-avatar.png" 
+                              alt="心心" 
+                              className="w-full h-full object-contain"
+                            />
                           )}
                         </div>
                         
