@@ -830,30 +830,52 @@ export default function WritingPage() {
               </Card>
             )}
             
-            {/* Tab 切换 */}
+            {/* Tab 切换和批改入口 */}
             {(outline || expressions || tieredTasks.length > 0 || evaluationGuide || commonIssues.length > 0) && (
-              <div className="flex gap-2 border-b pb-2">
-                {[
-                  { key: 'outline', label: '写作提纲', show: outline, icon: ListOrdered },
-                  { key: 'expressions', label: '好词好句', show: expressions, icon: Sparkles },
-                  { key: 'tasks', label: '分层任务', show: tieredTasks.length > 0, icon: Users },
-                  { key: 'evaluation', label: '评改指导', show: evaluationGuide, icon: Target },
-                  { key: 'issues', label: '常见问题', show: commonIssues.length > 0, icon: AlertCircle },
-                ].filter(t => t.show).map(tab => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                    className={cn(
-                      'flex items-center gap-2 px-4 py-2 text-sm rounded-t transition-colors',
-                      activeTab === tab.key 
-                        ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-500' 
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
+              <div className="flex items-center justify-between gap-2 border-b pb-2">
+                <div className="flex gap-2">
+                  {[
+                    { key: 'outline', label: '写作提纲', show: outline, icon: ListOrdered },
+                    { key: 'expressions', label: '好词好句', show: expressions, icon: Sparkles },
+                    { key: 'tasks', label: '分层任务', show: tieredTasks.length > 0, icon: Users },
+                    { key: 'evaluation', label: '评改指导', show: evaluationGuide, icon: Target },
+                    { key: 'issues', label: '常见问题', show: commonIssues.length > 0, icon: AlertCircle },
+                  ].filter(t => t.show).map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-2 text-sm rounded-t transition-colors',
+                        activeTab === tab.key 
+                          ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-500' 
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* 批改入口 - 有评改标准时显示 */}
+                {evaluationGuide && selectedTopic && (
+                  <Link
+                    href={`/teacher/lesson-prep/chinese/correction?lessonInfo=${encodeURIComponent(JSON.stringify({
+                      title: selectedTopic.title,
+                      grade: selectedTopic.grade,
+                      writingType: selectedTopic.writing_type,
+                      unit: `第${selectedTopic.unit_number}单元 ${selectedTopic.unit_theme}`,
+                    }))}&content=${encodeURIComponent(JSON.stringify({
+                      evaluationGuide,
+                      commonIssues,
+                    }))}`}
                   >
-                    <tab.icon className="w-4 h-4" />
-                    {tab.label}
-                  </button>
-                ))}
+                    <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      批改学生习作
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
             

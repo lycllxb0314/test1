@@ -29,6 +29,7 @@ import {
   Target,
   Sparkles,
   Play,
+  MessageCircle,
 } from 'lucide-react';
 import type { TeachingResource, CharacterResourceContent, ReadingResourceContent } from '@/types/teaching-resource';
 import type { ReadingTeachingPlan } from '@/types/chinese-prep';
@@ -757,26 +758,223 @@ export default function ResourceDetailPage() {
         })()}
 
         {/* 习作教学资源 */}
-        {resource.category === 'chinese_writing' && (
-          <Card className="border-0 shadow-lg bg-white/90">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-purple-600" />
-                习作教学资源
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                {typeof resource.content === 'object' && resource.content !== null && 'outline' in resource.content && (
-                  <div className="p-4 bg-purple-50/50 rounded-lg border border-purple-100">
-                    <div className="font-medium text-purple-700 mb-2">写作提纲</div>
-                    <pre className="text-sm whitespace-pre-wrap">{JSON.stringify((resource.content as Record<string, unknown>).outline, null, 2)}</pre>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {resource.category === 'chinese_writing' && (() => {
+          const writingContent = resource.content as unknown as {
+            outline?: {
+              structure: Array<{
+                section: string;
+                content: string;
+                keyPoints: string[];
+                wordCount: string;
+              }>;
+              transitionPhrases: string[];
+            };
+            expressions?: {
+              words: Array<{ word: string; meaning: string }>;
+              sentences: Array<{ sentence: string; technique: string; imitation?: string }>;
+            };
+            evaluationGuide?: {
+              teacherRubric: Array<{
+                dimension: string;
+                excellent: string;
+                good: string;
+                improving: string;
+              }>;
+              selfCheck: Array<{
+                aspect: string;
+                questions: string[];
+              }>;
+            };
+            commonIssues?: Array<{
+              issue: string;
+              manifestation: string;
+              correctionGuide: string;
+            }>;
+          };
+          
+          const lessonInfo = {
+            title: resource.title,
+            grade: resource.grade || 4,
+            writingType: '习作',
+            unit: resource.description || resource.lessonTitle || '',
+          };
+          
+          const hasEvaluationGuide = writingContent?.evaluationGuide && writingContent.evaluationGuide.teacherRubric.length > 0;
+          
+          return (
+            <div className="space-y-6">
+              {/* 批改入口 */}
+              {hasEvaluationGuide && (
+                <Card className="border-none shadow-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold mb-1">批改学生习作</h3>
+                        <p className="text-sm text-white/80">
+                          基于本方案的评改标准，对学生习作进行客观批改
+                        </p>
+                      </div>
+                      <Link
+                        href={`/teacher/lesson-prep/chinese/correction?lessonInfo=${encodeURIComponent(JSON.stringify(lessonInfo))}&content=${encodeURIComponent(JSON.stringify({
+                          evaluationGuide: writingContent.evaluationGuide,
+                          commonIssues: writingContent.commonIssues,
+                        }))}`}
+                      >
+                        <Button className="bg-white text-indigo-600 hover:bg-white/90">
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          开始批改
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* 写作提纲 */}
+              {writingContent?.outline && writingContent.outline.structure.length > 0 && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-purple-600" />
+                      写作提纲
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    {writingContent.outline.structure.map((section, idx) => (
+                      <div key={idx} className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-sm font-bold text-purple-700">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 p-4 bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-lg border border-purple-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline" className="bg-white">{section.section}</Badge>
+                            <span className="text-xs text-muted-foreground">{section.wordCount}</span>
+                          </div>
+                          <p className="text-sm mb-2">{section.content}</p>
+                          {section.keyPoints.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {section.keyPoints.map((point, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs">{point}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {writingContent.outline.transitionPhrases.length > 0 && (
+                      <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+                        <div className="text-sm font-medium text-blue-700 mb-2">过渡语句</div>
+                        <div className="flex flex-wrap gap-2">
+                          {writingContent.outline.transitionPhrases.map((phrase, idx) => (
+                            <Badge key={idx} variant="outline" className="bg-white">{phrase}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* 好词好句 */}
+              {writingContent?.expressions && writingContent.expressions.words.length > 0 && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-blue-600" />
+                      好词好句素材库
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    {writingContent.expressions.words.length > 0 && (
+                      <div className="p-4 bg-gradient-to-r from-amber-50/50 to-yellow-50/50 rounded-lg border border-amber-100">
+                        <div className="text-sm font-medium text-amber-700 mb-3">描写词语</div>
+                        <div className="flex flex-wrap gap-2">
+                          {writingContent.expressions.words.slice(0, 20).map((item, idx) => (
+                            <Badge key={idx} variant="outline" className="py-1.5 px-3 bg-white">{item.word}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {writingContent.expressions.sentences.length > 0 && (
+                      <div className="p-4 bg-gradient-to-r from-green-50/50 to-emerald-50/50 rounded-lg border border-green-100">
+                        <div className="text-sm font-medium text-green-700 mb-3">精彩句式</div>
+                        <div className="space-y-3">
+                          {writingContent.expressions.sentences.slice(0, 5).map((item, idx) => (
+                            <div key={idx} className="p-3 bg-white rounded-lg border border-green-100">
+                              <p className="text-sm mb-2">{item.sentence}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Badge variant="secondary" className="text-xs">{item.technique}</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* 评改标准 */}
+              {writingContent?.evaluationGuide && writingContent.evaluationGuide.teacherRubric.length > 0 && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 border-b">
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="w-5 h-5 text-orange-600" />
+                      评改标准
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left p-2 font-medium">维度</th>
+                            <th className="text-left p-2 font-medium text-green-600">优秀</th>
+                            <th className="text-left p-2 font-medium text-blue-600">良好</th>
+                            <th className="text-left p-2 font-medium text-orange-600">待提高</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {writingContent.evaluationGuide.teacherRubric.map((item, idx) => (
+                            <tr key={idx} className="border-b">
+                              <td className="p-2 font-medium">{item.dimension}</td>
+                              <td className="p-2 text-green-700">{item.excellent}</td>
+                              <td className="p-2 text-blue-700">{item.good}</td>
+                              <td className="p-2 text-orange-700">{item.improving}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* 常见问题 */}
+              {writingContent?.commonIssues && writingContent.commonIssues.length > 0 && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b">
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-red-600" />
+                      常见问题预警
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-3">
+                    {writingContent.commonIssues.map((issue, idx) => (
+                      <div key={idx} className="p-4 bg-gradient-to-r from-orange-50/50 to-red-50/50 rounded-lg border border-orange-100">
+                        <div className="font-medium text-sm text-orange-700 mb-1">{issue.issue}</div>
+                        <div className="text-xs text-muted-foreground mb-1">表现：{issue.manifestation}</div>
+                        <div className="text-xs text-blue-600">指导策略：{issue.correctionGuide}</div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          );
+        })()}
 
         {/* 其他类型资源（暂时显示原始JSON） */}
         {resource.category !== 'chinese_character' && 
