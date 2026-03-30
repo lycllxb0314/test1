@@ -814,17 +814,21 @@ export default function ResourceDetailPage() {
                           基于本方案的评改标准，对学生习作进行客观批改
                         </p>
                       </div>
-                      <Link
-                        href={`/teacher/lesson-prep/chinese/correction?lessonInfo=${encodeURIComponent(JSON.stringify(lessonInfo))}&content=${encodeURIComponent(JSON.stringify({
-                          evaluationGuide: writingContent.evaluationGuide,
-                          commonIssues: writingContent.commonIssues,
-                        }))}`}
+                      <button
+                        onClick={() => {
+                          // 使用 sessionStorage 存储数据，避免 URL 过长
+                          sessionStorage.setItem('correction_lessonInfo', JSON.stringify(lessonInfo));
+                          sessionStorage.setItem('correction_content', JSON.stringify({
+                            evaluationGuide: writingContent.evaluationGuide,
+                            commonIssues: writingContent.commonIssues,
+                          }));
+                          window.location.href = '/teacher/lesson-prep/chinese/correction';
+                        }}
+                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-indigo-600 hover:bg-white/90 h-9 px-4 py-2"
                       >
-                        <Button className="bg-white text-indigo-600 hover:bg-white/90">
-                          <MessageCircle className="w-4 h-4 mr-2" />
-                          开始批改
-                        </Button>
-                      </Link>
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        开始批改
+                      </button>
                     </div>
                   </CardContent>
                 </Card>

@@ -859,22 +859,26 @@ export default function WritingPage() {
                 
                 {/* 批改入口 - 有评改标准时显示 */}
                 {evaluationGuide && selectedTopic && (
-                  <Link
-                    href={`/teacher/lesson-prep/chinese/correction?lessonInfo=${encodeURIComponent(JSON.stringify({
-                      title: selectedTopic.title,
-                      grade: selectedTopic.grade,
-                      writingType: selectedTopic.writing_type,
-                      unit: `第${selectedTopic.unit_number}单元 ${selectedTopic.unit_theme}`,
-                    }))}&content=${encodeURIComponent(JSON.stringify({
-                      evaluationGuide,
-                      commonIssues,
-                    }))}`}
+                  <button
+                    onClick={() => {
+                      // 使用 sessionStorage 存储数据，避免 URL 过长
+                      sessionStorage.setItem('correction_lessonInfo', JSON.stringify({
+                        title: selectedTopic.title,
+                        grade: selectedTopic.grade,
+                        writingType: selectedTopic.writing_type,
+                        unit: `第${selectedTopic.unit_number}单元 ${selectedTopic.unit_theme}`,
+                      }));
+                      sessionStorage.setItem('correction_content', JSON.stringify({
+                        evaluationGuide,
+                        commonIssues,
+                      }));
+                      window.location.href = '/teacher/lesson-prep/chinese/correction';
+                    }}
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white h-9 px-4 py-2"
                   >
-                    <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      批改学生习作
-                    </Button>
-                  </Link>
+                    <MessageCircle className="w-4 h-4" />
+                    批改学生习作
+                  </button>
                 )}
               </div>
             )}

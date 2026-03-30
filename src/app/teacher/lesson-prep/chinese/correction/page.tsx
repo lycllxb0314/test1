@@ -106,11 +106,6 @@ function MissingDataPrompt() {
 
 function CorrectionContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  // 从 URL 参数获取备课方案数据
-  const lessonInfoStr = searchParams.get('lessonInfo');
-  const contentStr = searchParams.get('content');
   
   const [lessonInfo, setLessonInfo] = useState<LessonInfo | null>(null);
   const [writingContent, setWritingContent] = useState<WritingContent | null>(null);
@@ -120,21 +115,30 @@ function CorrectionContent() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isCorrecting, setIsCorrecting] = useState(false);
   const [showStandards, setShowStandards] = useState(true);
+  const [loading, setLoading] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // 初始化数据
+  // 从 sessionStorage 初始化数据
   useEffect(() => {
-    if (lessonInfoStr && contentStr) {
-      try {
+    try {
+      const lessonInfoStr = sessionStorage.getItem('correction_lessonInfo');
+      const contentStr = sessionStorage.getItem('correction_content');
+      
+      if (lessonInfoStr && contentStr) {
         setLessonInfo(JSON.parse(lessonInfoStr));
         setWritingContent(JSON.parse(contentStr));
-      } catch (e) {
-        console.error('解析备课方案数据失败:', e);
+        // 读取后清除，避免残留
+        sessionStorage.removeItem('correction_lessonInfo');
+        sessionStorage.removeItem('correction_content');
       }
+    } catch (e) {
+      console.error('解析备课方案数据失败:', e);
+    } finally {
+      setLoading(false);
     }
-  }, [lessonInfoStr, contentStr]);
+  }, []);
   
   // 滚动到底部
   useEffect(() => {
@@ -364,13 +368,14 @@ function CorrectionContent() {
     );
   };
   
-  // 如果没有备课方案数据
-  if (!lessonInfoStr || !contentStr) {
-    return <MissingDataPrompt />;
+  // 加载中
+  if (loading) {
+    return <LoadingState />;
   }
   
+  // 如果没有备课方案数据
   if (!lessonInfo || !writingContent) {
-    return <LoadingState />;
+    return <MissingDataPrompt />;
   }
 
   return (
