@@ -30,6 +30,7 @@ import {
   Sparkles,
   Play,
   MessageCircle,
+  Users,
 } from 'lucide-react';
 import type { TeachingResource, CharacterResourceContent, ReadingResourceContent } from '@/types/teaching-resource';
 import type { ReadingTeachingPlan } from '@/types/chinese-prep';
@@ -773,6 +774,14 @@ export default function ResourceDetailPage() {
               words: Array<{ word: string; meaning: string }>;
               sentences: Array<{ sentence: string; technique: string; imitation?: string }>;
             };
+            tieredTasks?: Array<{
+              level: string;
+              levelName: string;
+              task: string;
+              requirements: string[];
+              scaffold: string;
+              evaluationCriteria: string[];
+            }>;
             evaluationGuide?: {
               teacherRubric: Array<{
                 dimension: string;
@@ -916,6 +925,49 @@ export default function ResourceDetailPage() {
                         </div>
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* 分层任务 */}
+              {writingContent?.tieredTasks && writingContent.tieredTasks.length > 0 && (
+                <Card className="border-none shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50 border-b">
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5 text-cyan-600" />
+                      分层任务
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    {writingContent.tieredTasks.map((task, idx) => (
+                      <div key={idx} className={`p-4 rounded-lg border ${
+                        task.level === 'basic' ? 'bg-gradient-to-r from-green-50/50 to-emerald-50/50 border-green-100' :
+                        task.level === 'intermediate' ? 'bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border-blue-100' :
+                        'bg-gradient-to-r from-purple-50/50 to-pink-50/50 border-purple-100'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className={`${
+                            task.level === 'basic' ? 'bg-green-100 text-green-700' :
+                            task.level === 'intermediate' ? 'bg-blue-100 text-blue-700' :
+                            'bg-purple-100 text-purple-700'
+                          }`}>
+                            {task.levelName}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-medium mb-2">{task.task}</p>
+                        {task.requirements.length > 0 && (
+                          <div className="text-xs text-muted-foreground mb-2">
+                            <span className="font-medium">要求：</span>
+                            {task.requirements.join('；')}
+                          </div>
+                        )}
+                        {task.scaffold && (
+                          <div className="text-xs text-blue-600 mt-2 whitespace-pre-line">
+                            {task.scaffold}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
               )}
