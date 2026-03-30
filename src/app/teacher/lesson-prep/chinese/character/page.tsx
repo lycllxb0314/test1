@@ -57,6 +57,8 @@ export default function CharacterPage() {
       
       if (json.characters && json.characters.length > 0) {
         setData(json);
+        // 自动保存到资源库
+        saveToResourceInternal(json);
       } else {
         setErr('生成失败，请重试');
       }
@@ -64,6 +66,31 @@ export default function CharacterPage() {
       setErr(e instanceof Error ? e.message : '请求失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 内部保存函数（生成后自动调用）
+  const saveToResourceInternal = async (result: typeof data) => {
+    if (!result || !chars.trim()) return;
+    
+    try {
+      const res = await fetch('/api/teaching-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characters: chars.split(/[，,、\s]+/).filter(Boolean),
+          grade,
+          content: result,
+        }),
+      });
+      
+      const json = await res.json();
+      if (json.success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (e) {
+      console.error('自动保存失败:', e);
     }
   };
 
@@ -177,6 +204,9 @@ export default function CharacterPage() {
                     '生成教学素材'
                   )}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  生成后将自动保存到资源库
+                </p>
               </div>
             </div>
             {err && (

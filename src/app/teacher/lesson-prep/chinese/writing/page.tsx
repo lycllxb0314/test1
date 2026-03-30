@@ -30,6 +30,9 @@ import {
   CheckCircle,
   AlertCircle,
   ChevronRight,
+  Save,
+  FolderOpen,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
@@ -77,6 +80,8 @@ export default function WritingPage() {
   const [commonIssues, setCommonIssues] = useState<WritingIssue[]>([]);
   const [sampleFramework, setSampleFramework] = useState('');
   const [activeTab, setActiveTab] = useState<'outline' | 'expressions' | 'tasks' | 'evaluation' | 'issues'>('outline');
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
   // 生成备课方案
   const handleGenerate = async () => {
@@ -104,10 +109,51 @@ export default function WritingPage() {
       if (data.evaluationGuide) setEvaluationGuide(data.evaluationGuide);
       if (data.commonIssues) setCommonIssues(data.commonIssues);
       if (data.sampleFramework) setSampleFramework(data.sampleFramework);
+      
+      // 自动保存到资源库
+      if (data.outline || data.expressions || data.tieredTasks) {
+        saveToResourceInternal(data);
+      }
     } catch (error) {
       console.error('生成失败:', error);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // 内部保存函数（生成后自动调用）
+  const saveToResourceInternal = async (result: {
+    outline?: WritingOutline;
+    expressions?: GoodExpressions;
+    tieredTasks?: TieredTask[];
+    evaluationGuide?: EvaluationGuide;
+    commonIssues?: WritingIssue[];
+    sampleFramework?: string;
+  }) => {
+    if (!unit.trim()) return;
+    
+    try {
+      const res = await fetch('/api/teaching-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lessonInfo: {
+            title: topic || `习作：${unit}`,
+            grade,
+            writingType,
+            unit,
+          },
+          writingContent: result,
+        }),
+      });
+      
+      const json = await res.json();
+      if (json.success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (e) {
+      console.error('自动保存失败:', e);
     }
   };
   
@@ -349,20 +395,37 @@ export default function WritingPage() {
   return (
     <div className="p-6 space-y-6">
       {/* 顶部导航 */}
-      <div className="flex items-center gap-4">
-        <Link href="/teacher/lesson-prep/chinese">
-          <button className="p-2 rounded-lg hover:bg-muted transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-        </Link>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/teacher/lesson-prep/chinese">
+            <button className="p-2 rounded-lg hover:bg-muted transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          </Link>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center">
+              <PenTool className="w-6 h-6 text-purple-500" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">习作专项</h1>
+              <p className="text-sm text-muted-foreground">全流程备课系统</p>
+            </div>
+          </div>
+        </div>
+        
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center">
-            <PenTool className="w-6 h-6 text-purple-500" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">习作专项</h1>
-            <p className="text-sm text-muted-foreground">全流程备课系统</p>
-          </div>
+          <Link href="/teacher/lesson-prep/my-resources">
+            <Button variant="outline" size="sm">
+              <FolderOpen className="w-4 h-4 mr-2" />
+              我的资源库
+            </Button>
+          </Link>
+          {saveSuccess && (
+            <Badge variant="secondary" className="bg-green-100 text-green-700">
+              <Check className="w-3 h-3 mr-1" />
+              已保存
+            </Badge>
+          )}
         </div>
       </div>
       
@@ -452,6 +515,9 @@ export default function WritingPage() {
               </>
             )}
           </Button>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            生成后将自动保存到资源库
+          </p>
         </CardContent>
       </Card>
       
