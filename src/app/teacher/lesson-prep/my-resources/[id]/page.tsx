@@ -12,7 +12,7 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   ArrowLeft, 
   BookOpen, 
   Brain, 
@@ -31,9 +31,13 @@ import {
   Play,
   MessageCircle,
   Users,
+  Edit,
+  Save,
+  X,
 } from 'lucide-react';
 import type { TeachingResource, CharacterResourceContent, ReadingResourceContent } from '@/types/teaching-resource';
 import type { ReadingTeachingPlan } from '@/types/chinese-prep';
+import { WritingResourceEditor, type WritingContent } from '@/components/resource-editors/WritingResourceEditor';
 
 // 分类名称映射
 const CATEGORY_NAMES: Record<string, string> = {
@@ -64,6 +68,11 @@ export default function ResourceDetailPage() {
   const [resource, setResource] = useState<TeachingResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  
+  // 编辑状态
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState<Record<string, unknown>>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadResource();
@@ -77,6 +86,7 @@ export default function ResourceDetailPage() {
       
       if (data.success && data.data) {
         setResource(data.data);
+        setEditedContent(data.data.content as Record<string, unknown>);
       } else {
         setErr(data.error || '资源不存在');
       }
@@ -84,6 +94,49 @@ export default function ResourceDetailPage() {
       setErr('加载资源失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 进入编辑模式
+  const handleEdit = () => {
+    if (resource) {
+      setEditedContent(JSON.parse(JSON.stringify(resource.content as Record<string, unknown>)));
+      setIsEditing(true);
+    }
+  };
+
+  // 取消编辑
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    if (resource) {
+      setEditedContent(JSON.parse(JSON.stringify(resource.content as Record<string, unknown>)));
+    }
+  };
+
+  // 保存编辑
+  const handleSave = async () => {
+    if (!resource) return;
+    
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/teaching-resources/${resourceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editedContent }),
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setResource(data.data);
+        setIsEditing(false);
+      } else {
+        alert(data.error || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存失败:', error);
+      alert('保存失败');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -133,8 +186,8 @@ export default function ResourceDetailPage() {
 
   const colorClass = CATEGORY_COLORS[resource.category] || CATEGORY_COLORS.other;
 
-  // 解析内容
-  const content = resource.content as unknown as CharacterResourceContent;
+  // 解析内容（编辑模式使用 editedContent，否则使用原始内容）
+  const content = (isEditing ? editedContent : resource.content) as unknown as CharacterResourceContent;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
@@ -166,16 +219,70 @@ export default function ResourceDetailPage() {
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-red-500 hover:text-red-600 hover:bg-red-50"
-            onClick={handleDelete}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            删除资源
-          </Button>
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  取消
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-green-500 hover:bg-green-600"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      保存中...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      保存修改
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEdit}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  编辑内容
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  删除
+                </Button>
+              </>
+            )}
+          </div>
         </div>
+        
+        {/* 编辑模式提示 */}
+        {isEditing && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2">
+            <Edit className="w-4 h-4 text-amber-600" />
+            <span className="text-sm text-amber-700">
+              编辑模式：修改内容后点击"保存修改"按钮保存更改
+            </span>
+          </div>
+        )}
 
         {/* 生字专项内容 */}
         {resource.category === 'chinese_character' && content.characters && (
@@ -760,7 +867,8 @@ export default function ResourceDetailPage() {
 
         {/* 习作教学资源 */}
         {resource.category === 'chinese_writing' && (() => {
-          const writingContent = resource.content as unknown as {
+          // 编辑模式使用 editedContent，否则使用原始内容
+          const writingContent = (isEditing ? editedContent : resource.content) as unknown as {
             outline?: {
               structure: Array<{
                 section: string;
@@ -801,6 +909,17 @@ export default function ResourceDetailPage() {
             }>;
           };
           
+          // 编辑模式：使用编辑器
+          if (isEditing) {
+            return (
+              <WritingResourceEditor
+                content={writingContent as WritingContent}
+                onChange={(newContent) => setEditedContent(newContent as Record<string, unknown>)}
+              />
+            );
+          }
+          
+          // 非编辑模式：展示界面
           const lessonInfo = {
             title: resource.title,
             grade: resource.grade || 4,

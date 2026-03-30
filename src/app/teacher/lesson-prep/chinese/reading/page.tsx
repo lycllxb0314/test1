@@ -265,8 +265,6 @@ export default function ReadingPage() {
       
       if (data.success && data.data) {
         const sharedContent = data.data.content as ReadingTeachingPlan;
-        setPlan(sharedContent);
-        setActiveTab('ontology');
         
         // 更新使用次数
         await fetch('/api/shared-resources', {
@@ -276,7 +274,30 @@ export default function ReadingPage() {
         });
         
         // 保存到个人资源库
-        saveToResourceInternal(sharedContent);
+        const saveRes = await fetch('/api/teaching-resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lessonInfo: {
+              title: selectedLesson.title,
+              grade: selectedLesson.grade,
+              genre: selectedLesson.genre,
+              content: textContent.trim(),
+            },
+            readingContent: sharedContent,
+          }),
+        });
+        
+        const saveData = await saveRes.json();
+        
+        // 跳转到资源详情页
+        if (saveData.success && saveData.data?.id) {
+          window.location.href = `/teacher/lesson-prep/my-resources/${saveData.data.id}`;
+        } else {
+          // 保存失败，仍然显示内容
+          setPlan(sharedContent);
+          setActiveTab('ontology');
+        }
       }
     } catch (error) {
       console.error('使用共享资源失败:', error);
@@ -284,7 +305,7 @@ export default function ReadingPage() {
       setUsingShared(false);
       setShowSharedDialog(false);
     }
-  }, [sharedResource, selectedLesson, saveToResourceInternal]);
+  }, [sharedResource, selectedLesson, textContent]);
   
   // 重新生成方案
   const handleGenerateNew = useCallback(async () => {

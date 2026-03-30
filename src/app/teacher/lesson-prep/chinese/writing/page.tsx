@@ -281,15 +281,6 @@ export default function WritingPage() {
       if (data.success && data.data) {
         const sharedContent = data.data.content;
         
-        // 设置结果
-        if (sharedContent.outline) setOutline(sharedContent.outline as WritingOutline);
-        if (sharedContent.expressions) setExpressions(sharedContent.expressions as GoodExpressions);
-        if (sharedContent.tieredTasks) setTieredTasks(sharedContent.tieredTasks as TieredTask[]);
-        if (sharedContent.evaluationGuide) setEvaluationGuide(sharedContent.evaluationGuide as EvaluationGuide);
-        if (sharedContent.commonIssues) setCommonIssues(sharedContent.commonIssues as WritingIssue[]);
-        
-        setActiveTab('outline');
-        
         // 更新使用次数
         await fetch('/api/shared-resources', {
           method: 'PATCH',
@@ -298,7 +289,34 @@ export default function WritingPage() {
         });
         
         // 保存到个人资源库
-        saveToResourceInternal(sharedContent);
+        const saveRes = await fetch('/api/teaching-resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lessonInfo: {
+              title: selectedTopic.title,
+              grade: selectedTopic.grade,
+              writingType: selectedTopic.writing_type,
+              unit: `第${selectedTopic.unit_number}单元 ${selectedTopic.unit_theme}`,
+            },
+            writingContent: sharedContent,
+          }),
+        });
+        
+        const saveData = await saveRes.json();
+        
+        // 跳转到资源详情页
+        if (saveData.success && saveData.data?.id) {
+          window.location.href = `/teacher/lesson-prep/my-resources/${saveData.data.id}`;
+        } else {
+          // 保存失败，仍然显示内容
+          if (sharedContent.outline) setOutline(sharedContent.outline as WritingOutline);
+          if (sharedContent.expressions) setExpressions(sharedContent.expressions as GoodExpressions);
+          if (sharedContent.tieredTasks) setTieredTasks(sharedContent.tieredTasks as TieredTask[]);
+          if (sharedContent.evaluationGuide) setEvaluationGuide(sharedContent.evaluationGuide as EvaluationGuide);
+          if (sharedContent.commonIssues) setCommonIssues(sharedContent.commonIssues as WritingIssue[]);
+          setActiveTab('outline');
+        }
       }
     } catch (error) {
       console.error('使用共享资源失败:', error);
@@ -306,7 +324,7 @@ export default function WritingPage() {
       setUsingShared(false);
       setShowSharedDialog(false);
     }
-  }, [sharedResource, selectedTopic, saveToResourceInternal]);
+  }, [sharedResource, selectedTopic]);
   
   // 重新生成方案
   const handleGenerateNew = useCallback(async () => {
