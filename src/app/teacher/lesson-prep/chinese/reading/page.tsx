@@ -48,6 +48,7 @@ import {
   Target,
   FolderOpen,
   Save,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
@@ -561,11 +562,12 @@ export default function ReadingPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <Button
                       size="icon"
                       variant="outline"
                       onClick={() => handlePlayAudio(audio.audioUrl)}
+                      title="播放"
                     >
                       {currentAudio === audio.audioUrl && isPlaying ? (
                         <Pause className="w-4 h-4" />
@@ -573,7 +575,28 @@ export default function ReadingPage() {
                         <Play className="w-4 h-4" />
                       )}
                     </Button>
-                    <span className="text-sm text-muted-foreground">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(audio.audioUrl);
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `${selectedLesson?.title || '朗读'}_${getSpeedLabel(audio.speed)}.mp3`;
+                          link.click();
+                          window.URL.revokeObjectURL(url);
+                        } catch (error) {
+                          console.error('下载失败:', error);
+                        }
+                      }}
+                      title="下载音频"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground ml-1">
                       {Math.ceil(audio.duration / 1000)}s
                     </span>
                   </div>
@@ -893,14 +916,14 @@ export default function ReadingPage() {
               <TabsTrigger value="guidance" className="text-xs md:text-sm">指导话术</TabsTrigger>
             </TabsList>
             
-            <ScrollArea className="h-[calc(100vh-520px)]">
+            <div className="space-y-4">
               <TabsContent value="ontology" className="mt-0">{renderOntology()}</TabsContent>
               <TabsContent value="subject" className="mt-0">{renderSubjectCultivation()}</TabsContent>
               <TabsContent value="emotional" className="mt-0">{renderEmotionalModel()}</TabsContent>
               <TabsContent value="strategies" className="mt-0">{renderStrategies()}</TabsContent>
               <TabsContent value="audios" className="mt-0">{renderAudios()}</TabsContent>
               <TabsContent value="guidance" className="mt-0">{renderGuidance()}</TabsContent>
-            </ScrollArea>
+            </div>
           </Tabs>
         )}
       </div>

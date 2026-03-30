@@ -164,7 +164,7 @@ export class ReadingTeachingService extends BaseService {
       // 调用 LLM
       const response = await this.llmClient.invoke(
         [{ role: 'user', content: prompt }],
-        { model: 'doubao-seed-2-0-pro-260215', temperature: 0.6 }
+        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
       );
       
       // 解析响应
@@ -216,246 +216,132 @@ export class ReadingTeachingService extends BaseService {
     genre: ReadingToneType,
     options: ReadingRequest['generateOptions']
   ): string {
-    const sections: string[] = [];
-    
-    sections.push(`你是王崧舟老师风格的朗读教学专家，请为以下课文设计朗读教学方案。
+    return `你是王崧舟老师风格的朗读教学专家。请为以下课文设计朗读教学方案。
 
 【课文信息】
-- 标题：${title}
-- 年级：${grade}年级
-- 文体：${genre}
-- 内容：
+标题：${title}
+年级：${grade}年级
+文体：${genre}
+
+【课文原文】
 ${text}
 
-【核心教学理念】
-1. 朗读目的：为了人，而非为了读。通过声音让学生成为更好的"朗读者"，在倾诉与感受中塑造言语人格。
-2. 朗读主体 = 朗读意愿 × 朗读体验 × 朗读技巧，三者缺一不可。
-3. 情感朗读模型：感悟→想象→求气→创调→反听（五个闭环环节）。
-4. 四大教学策略：示范、备课、文体意识、融合。
+【核心要求】
+1. 所有分析必须引用原文的具体句子或词语，禁止泛泛而谈
+2. 每个教学话术都要可直接用于课堂，具有可操作性
+3. 朗读技巧标注要精确到具体字词位置
+4. 结合${grade}年级学生的认知水平设计
 
-请按以下 JSON 格式输出完整的朗读教学方案：`);
+【输出格式】
+请严格按照以下JSON格式输出（只输出JSON，不要其他内容）：
 
-    sections.push(`
 {
   "ontology": {
-    "whyTeach": "为什么教这篇课文朗读（结合文体特点和学生学情）",
-    "teachingPurpose": "朗读教学的具体目的",
-    "valueOrientation": "价值取向（如何通过朗读落实立德树人）"
+    "whyTeach": "必须引用原文1-2句，说明为什么这篇课文值得朗读教学",
+    "teachingPurpose": "具体的、可测量的朗读教学目标（不要超过3条）",
+    "valueOrientation": "通过朗读这篇课文，学生在情感态度价值观方面的具体收获"
   },
   
-  "subjectCultivation": {
-    "willingness": {
-      "selfConnection": "文本与学生的连接点",
-      "emotionalTrigger": "情感共鸣的触发点",
-      "awakeningPhrases": ["唤醒表达欲望的话术1", "话术2"],
-      "introductionScript": "完整的导入语设计"
+  "willingness": {
+    "connectionPoint": "原文中哪句话或哪个场景最能引起学生的共鸣？引用原文说明",
+    "emotionalHook": "设计一个3-5句的导入语，直接引用原文，激发学生朗读欲望",
+    "motivationQuestions": ["问题1：引用原文的具体内容提问", "问题2：针对学生生活经验提问"]
+  },
+  
+  "experience": {
+    "listeningFocus": [
+      {"原文片段": "引用原文", "听什么": "具体要学生注意听的内容"},
+      {"原文片段": "引用原文", "听什么": "具体要学生注意听的内容"}
+    ],
+    "imaginationGuide": {
+      "原文片段": "引用需要想象的原文",
+      "画面描述": "引导学生想象的具体画面",
+      "感官细节": ["视觉：...", "听觉：..."],
+      "引导话术": "完整的想象引导语（2-3句话）"
     },
-    "experience": {
-      "listeningGuide": {
-        "focusPoints": ["听什么要点1", "要点2"],
-        "guidance": "怎么听的具体指导",
-        "reflection": "听后思考的问题"
-      },
-      "imaginationRestore": {
-        "scenes": [
-          {
-            "text": "原文片段",
-            "scene": "画面描述",
-            "sensoryDetails": ["视觉细节", "听觉细节"],
-            "emotionalAtmosphere": "情感氛围"
-          }
-        ],
-        "guidanceScript": "想象引导语"
-      },
-      "situationRestore": {
-        "background": "情境背景",
-        "characters": ["人物/角色1", "角色2"],
-        "emotionalJourney": "情感走向"
-      }
-    },
-    "skills": {
-      "stress": {
-        "points": [
-          {
-            "text": "重读的文字",
-            "type": "logic或emotion或grammar",
-            "reason": "重读原因",
-            "method": "强调方法"
-          }
-        ],
-        "teachingScript": "重音教学话术"
-      },
-      "rhythm": {
-        "overall": "整体节奏",
-        "variations": [
-          {
-            "segment": "片段",
-            "rhythm": "节奏特点",
-            "reason": "原因"
-          }
-        ],
-        "teachingScript": "节奏教学话术"
-      },
-      "intonation": {
-        "emotionalTones": [
-          {
-            "emotion": "情感类型",
-            "tone": "语调特点",
-            "example": "示例"
-          }
-        ],
-        "teachingScript": "语调教学话术"
-      },
-      "pause": {
-        "points": [
-          {
-            "position": "停顿位置",
-            "type": "short或medium或long",
-            "reason": "停顿原因",
-            "effect": "停顿效果"
-          }
-        ],
-        "teachingScript": "停顿教学话术"
-      }
+    "emotionExperience": {
+      "情感基调": "用一个词概括全文情感",
+      "情感变化": [
+        {"原文": "引用原文", "情感": "情感类型", "变化原因": "为什么变化"}
+      ]
     }
+  },
+  
+  "skills": {
+    "stress": [
+      {"原文": "引用要重读的字词", "重读类型": "逻辑重音/情感重音/语法重音", "重读原因": "结合上下文说明", "教学话术": "教学生如何重读这句话"}
+    ],
+    "pause": [
+      {"位置": "引用原文并在停顿处用|标记", "停顿时长": "短停顿(1秒)/中停顿(2秒)/长停顿(3秒)", "停顿原因": "为什么这里要停顿"}
+    ],
+    "intonation": [
+      {"原文": "引用原文", "语调": "升调/降调/平调/曲折调", "情感": "表达什么情感", "教学话术": "如何指导学生读出这个语调"}
+    ],
+    "speed": [
+      {"原文范围": "引用原文范围", "语速": "快/中/慢", "原因": "结合内容说明语速变化原因"}
+    ]
   },
   
   "emotionalModel": {
     "comprehension": {
-      "emotionalTone": "情感基调",
-      "emotionalThread": "情感线索",
-      "emotionalKeywords": ["情感关键词1", "关键词2"],
-      "guidanceScript": "感悟引导语"
+      "情感基调": "全文情感基调",
+      "关键情感词": ["从原文中提取3-5个情感关键词"],
+      "感悟引导": "设计引导学生感悟情感的话术（引用原文）"
     },
     "imagination": {
-      "coreScenes": ["核心画面1", "画面2"],
-      "guidanceScript": "想象引导语"
+      "核心画面": ["画面1：引用原文并描述", "画面2：引用原文并描述"],
+      "想象引导": "完整的想象引导话术"
     },
     "breathControl": {
-      "breathType": "气息类型",
-      "breathPoints": ["气息要点1", "要点2"],
-      "practiceMethod": "练习方法",
-      "guidanceScript": "求气指导语"
+      "气息类型": "深气息/浅气息/连续气息",
+      "换气点": [
+        {"原文位置": "引用原文", "换气方式": "偷气/抢气/深吸气", "原因": "为什么这样换气"}
+      ]
     },
     "toneCreation": {
-      "speed": "语速建议",
-      "intonation": "语调走向",
-      "flow": "语流特征",
-      "guidanceScript": "创调指导语"
-    },
-    "selfMonitoring": {
-      "checkpoints": ["反听要点1", "要点2"],
-      "selfEvalCriteria": ["自评标准1", "标准2"],
-      "improvementTips": ["改进建议1", "建议2"],
-      "guidanceScript": "反听指导语"
+      "整体语速": "快/中/慢",
+      "整体语调": "特点描述",
+      "声音色彩": "明亮/柔和/深沉等"
     }
   },
   
-  "demonstration": {
-    "keyPoints": ["范读要点1", "要点2"],
-    "beforeScript": "范读前引导语",
-    "afterScript": "范读后讨论语",
-    "observationPoints": ["学生观察要点1", "要点2"]
-  },
-  
-  "preparation": {
-    "emotionalArc": "情感走向预设",
-    "speedChanges": [
-      {
-        "position": "位置",
-        "speed": "语速",
-        "reason": "原因"
-      }
-    ],
-    "stressMarks": [
-      {
-        "text": "文字",
-        "type": "类型",
-        "reason": "原因"
-      }
-    ],
-    "pauseDesign": [
-      {
-        "position": "位置",
-        "duration": "时长",
-        "reason": "原因"
-      }
-    ],
-    "noteTemplate": "朗读笔记模板"
-  },
-  
-  "commonMistakes": ["该文体常见误读1", "误读2"],
-  "excellentExamples": ["优秀范读特点1", "特点2"],
-  
-  "integration": {
-    "firstReading": {
-      "purpose": "初读目的",
-      "method": "初读方法",
-      "guidanceScript": "初读引导语"
+  "strategies": {
+    "genreFeatures": {
+      "文体": "该课文的文体类型",
+      "朗读特点": "该文体朗读的具体特点",
+      "注意事项": ["注意点1", "注意点2"]
     },
-    "intensiveReading": {
-      "purpose": "精读目的",
-      "method": "精读方法",
-      "guidanceScript": "精读引导语"
-    },
-    "appreciativeReading": {
-      "purpose": "品读目的",
-      "method": "品读方法",
-      "guidanceScript": "品读引导语"
-    },
-    "fluentReading": {
-      "purpose": "熟读目的",
-      "method": "熟读方法",
-      "guidanceScript": "熟读引导语"
-    }
-  },
-  
-  "annotation": {
-    "text": "${title}",
-    "pauses": [
-      {"position": 5, "type": "short", "reason": "自然换气"}
-    ],
-    "stresses": [
-      {"start": 0, "end": 2, "text": "关键词", "type": "logic", "reason": "强调重点"}
-    ],
-    "emotionPoints": [
-      {"position": 10, "emotion": "深情", "intensity": "medium"}
+    "teachingSteps": [
+      {"环节": "初读", "目标": "具体目标", "方法": "具体方法", "话术": "教学话术"},
+      {"环节": "精读", "目标": "具体目标", "方法": "具体方法", "话术": "教学话术"},
+      {"环节": "品读", "目标": "具体目标", "方法": "具体方法", "话术": "教学话术"},
+      {"环节": "熟读", "目标": "具体目标", "方法": "具体方法", "话术": "教学话术"}
     ]
   },
   
   "guidance": {
-    "overallGuide": "整体朗读基调说明",
-    "segmentGuides": [
-      {
-        "segment": "第一段",
-        "guidance": "朗读建议",
-        "keyPoints": ["要点1", "要点2"]
-      }
-    ],
     "chorusGuide": {
-      "preparation": "齐读准备话术",
-      "startSignal": "起始信号",
-      "duringReading": ["过程中提示1", "提示2"],
-      "ending": "结束话术"
+      "准备话术": "齐读前的准备指导",
+      "开始信号": "开始齐读的口令",
+      "结束话术": "齐读结束后的点评"
     },
-    "commonIssues": [
-      {
-        "issue": "问题",
-        "cause": "原因",
-        "solution": "解决方案",
-        "exampleCorrection": "示范纠正话术"
-      }
+    "commonMistakes": [
+      {"误读表现": "学生可能怎么读错", "原因": "为什么会读错", "纠正方法": "如何纠正", "示范话术": "教师示范的话术"}
     ]
   }
 }
 
-只输出 JSON，不要有其他内容。`);
+【重要提示】
+1. 禁止输出空话、套话，每个字段都要有具体内容
+2. "原文"、"引用原文"字段必须来自课文原文，不能编造
+3. 教学话术要口语化、可直接用于课堂
+4. 技巧标注要覆盖课文的主要段落，不能只标注开头
 
-    return sections.join('\n\n');
+只输出JSON，不要有任何其他文字。`;
   }
 
   /**
-   * 解析 LLM 响应
+   * 解析 LLM 响应 - 适配新格式
    */
   private parseReadingResponse(
     content: string,
@@ -474,65 +360,293 @@ ${text}
     annotation: ReadingAnnotation;
     guidance: ReadingGuidance;
   } {
-    // 默认值
-    const defaultOntology = {
-      whyTeach: `培养学生的${genre}朗读能力，提升语感素养`,
-      teachingPurpose: '让学生在朗读中感受文本情感，提升语言表达能力',
-      valueOrientation: '通过朗读落实立德树人，培养学生的审美情趣和人文素养',
+    // 默认值定义
+    const defaults = {
+      ontology: {
+        whyTeach: `培养学生的${genre}朗读能力，提升语感素养`,
+        teachingPurpose: '让学生在朗读中感受文本情感，提升语言表达能力',
+        valueOrientation: '通过朗读落实立德树人，培养学生的审美情趣和人文素养',
+      },
+      willingness: {
+        selfConnection: '',
+        emotionalTrigger: '',
+        awakeningPhrases: [] as string[],
+        introductionScript: '',
+      },
+      experience: {
+        listeningGuide: {
+          focusPoints: [] as string[],
+          guidance: '',
+          reflection: '',
+        },
+        imaginationRestore: {
+          scenes: [] as Array<{ text: string; scene: string; sensoryDetails: string[]; emotionalAtmosphere: string }>,
+          guidanceScript: '',
+        },
+        situationRestore: {
+          background: '',
+          characters: [] as string[],
+          emotionalJourney: '',
+        },
+      },
+      skills: {
+        stress: { points: [] as Array<{ text: string; type: 'logic' | 'emotion' | 'grammar'; reason: string; method: string }>, teachingScript: '' },
+        rhythm: { overall: '', variations: [] as Array<{ segment: string; rhythm: string; reason: string }>, teachingScript: '' },
+        intonation: { emotionalTones: [] as Array<{ emotion: string; tone: string; example: string }>, teachingScript: '' },
+        pause: { points: [] as Array<{ position: string; type: 'short' | 'medium' | 'long'; reason: string; effect: string }>, teachingScript: '' },
+      },
+      emotionalModel: {
+        comprehension: {
+          emotionalTone: '',
+          emotionalThread: '',
+          emotionalKeywords: [] as string[],
+          guidanceScript: '',
+        },
+        imagination: {
+          coreScenes: [] as string[],
+          guidanceScript: '',
+        },
+        breathControl: {
+          breathType: '',
+          breathPoints: [] as string[],
+          practiceMethod: '',
+          guidanceScript: '',
+        },
+        toneCreation: {
+          speed: '',
+          intonation: '',
+          flow: '',
+          guidanceScript: '',
+        },
+        selfMonitoring: {
+          checkpoints: [] as string[],
+          selfEvalCriteria: [] as string[],
+          improvementTips: [] as string[],
+          guidanceScript: '',
+        },
+      },
+      demonstration: {
+        keyPoints: [] as string[],
+        beforeScript: '',
+        afterScript: '',
+        observationPoints: [] as string[],
+      },
+      preparation: {
+        emotionalArc: '',
+        speedChanges: [] as Array<{ position: string; speed: string; reason: string }>,
+        stressMarks: [] as Array<{ text: string; type: string; reason: string }>,
+        pauseDesign: [] as Array<{ position: string; duration: string; reason: string }>,
+        noteTemplate: '',
+      },
+      integration: {
+        firstReading: { purpose: '', method: '', guidanceScript: '' },
+        intensiveReading: { purpose: '', method: '', guidanceScript: '' },
+        appreciativeReading: { purpose: '', method: '', guidanceScript: '' },
+        fluentReading: { purpose: '', method: '', guidanceScript: '' },
+      },
+      annotation: {
+        text: originalText,
+        pauses: [] as Array<{ position: number; type: 'short' | 'medium' | 'long'; reason: string }>,
+        stresses: [] as Array<{ start: number; end: number; text: string; type: 'logic' | 'emotion' | 'grammar'; reason: string }>,
+        emotionPoints: [] as Array<{ position: number; emotion: string; intensity: 'light' | 'medium' | 'strong' }>,
+      },
+      guidance: {
+        overallGuide: '',
+        segmentGuides: [] as Array<{ segment: string; guidance: string; keyPoints: string[] }>,
+        chorusGuide: {
+          preparation: '同学们，请做好朗读准备...',
+          startSignal: '预备——起！',
+          duringReading: [] as string[],
+          ending: '读得真好！',
+        },
+        commonIssues: [] as Array<{ issue: string; cause: string; solution: string; exampleCorrection: string }>,
+      },
+      commonMistakes: [] as string[],
+      excellentExamples: [] as string[],
     };
+
+    try {
+      // 提取 JSON
+      let jsonStr = content;
+      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1].trim();
+      } else {
+        const firstBrace = content.indexOf('{');
+        const lastBrace = content.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          jsonStr = content.slice(firstBrace, lastBrace + 1);
+        }
+      }
+      
+      // 清理 JSON
+      jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1').replace(/[\x00-\x1F\x7F]/g, '');
+      
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.error('[ReadingTeachingService] JSON parse error:', parseError);
+        return this.buildDefaultResult(defaults, genre);
+      }
+
+      // 解析新格式并映射到原有类型
+      const parsed = this.mapNewFormatToOld(data, defaults, originalText, genre);
+      return parsed;
+    } catch (error) {
+      console.error('[ReadingTeachingService] parseReadingResponse error:', error);
+      return this.buildDefaultResult(defaults, genre);
+    }
+  }
+
+  /**
+   * 将新格式映射到原有类型
+   */
+  private mapNewFormatToOld(
+    data: Record<string, unknown>,
+    defaults: ReturnType<typeof this.createDefaults>,
+    originalText: string,
+    genre: ReadingToneType
+  ): ReturnType<typeof this.parseReadingResponse> {
+    const d = this.createDefaults(genre);
     
-    const defaultWillingness: ReadingWillingness = {
-      selfConnection: '文本内容与学生的生活经验相联系',
-      emotionalTrigger: '文中的情感点能引起学生共鸣',
-      awakeningPhrases: ['让我们一起来感受这篇课文', '请同学们用心去读'],
-      introductionScript: '同学们，今天我们来学习这篇课文，请大家用心感受...',
+    // 解析本体论
+    const ontologyData = data.ontology as Record<string, unknown> | undefined;
+    const ontology = {
+      whyTeach: ontologyData?.whyTeach as string || d.ontology.whyTeach,
+      teachingPurpose: ontologyData?.teachingPurpose as string || d.ontology.teachingPurpose,
+      valueOrientation: ontologyData?.valueOrientation as string || d.ontology.valueOrientation,
     };
+
+    // 解析朗读意愿
+    const willingnessData = data.willingness as Record<string, unknown> | undefined;
+    const willingness = {
+      selfConnection: willingnessData?.connectionPoint as string || '',
+      emotionalTrigger: willingnessData?.emotionalHook as string || '',
+      awakeningPhrases: (willingnessData?.motivationQuestions as string[]) || [],
+      introductionScript: willingnessData?.emotionalHook as string || '',
+    };
+
+    // 解析朗读体验
+    const experienceData = data.experience as Record<string, unknown> | undefined;
+    const listeningFocus = experienceData?.listeningFocus as Array<Record<string, string>> | undefined;
+    const imaginationGuide = experienceData?.imaginationGuide as Record<string, unknown> | undefined;
+    const emotionExperience = experienceData?.emotionExperience as Record<string, unknown> | undefined;
     
-    const defaultExperience: ReadingExperience = {
+    const experience = {
       listeningGuide: {
-        focusPoints: ['注意语速', '感受情感'],
-        guidance: '请同学们闭上眼睛，用心聆听',
-        reflection: '你听到了什么？感受到了什么？',
+        focusPoints: listeningFocus?.map(item => item['听什么'] || item['原文片段'] || '') || [],
+        guidance: listeningFocus?.map(item => `听"${item['原文片段']}"时注意${item['听什么']}`).join('；') || '',
+        reflection: '',
       },
       imaginationRestore: {
-        scenes: [],
-        guidanceScript: '请同学们想象画面...',
+        scenes: imaginationGuide ? [{
+          text: imaginationGuide['原文片段'] as string || '',
+          scene: imaginationGuide['画面描述'] as string || '',
+          sensoryDetails: (imaginationGuide['感官细节'] as string[]) || [],
+          emotionalAtmosphere: '',
+        }] : [],
+        guidanceScript: imaginationGuide?.['引导话术'] as string || '',
       },
       situationRestore: {
         background: '',
         characters: [],
-        emotionalJourney: '',
+        emotionalJourney: (emotionExperience?.['情感变化'] as Array<Record<string, string>>)?.map(
+          item => `${item['原文']}：${item['情感']}`
+        ).join(' → ') || '',
       },
     };
+
+    // 解析朗读技巧
+    const skillsData = data.skills as Record<string, unknown> | undefined;
+    const stressData = skillsData?.stress as Array<Record<string, string>> | undefined;
+    const pauseData = skillsData?.pause as Array<Record<string, string>> | undefined;
+    const intonationData = skillsData?.intonation as Array<Record<string, string>> | undefined;
+    const speedData = skillsData?.speed as Array<Record<string, string>> | undefined;
     
-    const defaultSkills: ReadingSkills = {
-      stress: { points: [], teachingScript: '' },
-      rhythm: { overall: '', variations: [], teachingScript: '' },
-      intonation: { emotionalTones: [], teachingScript: '' },
-      pause: { points: [], teachingScript: '' },
+    // 辅助函数：转换重音类型
+    const convertStressType = (typeStr: string): 'logic' | 'emotion' | 'grammar' => {
+      if (typeStr.includes('逻辑')) return 'logic';
+      if (typeStr.includes('情感')) return 'emotion';
+      if (typeStr.includes('语法')) return 'grammar';
+      return 'logic';
     };
     
-    const defaultEmotionalModel: EmotionalReadingModel = {
+    // 辅助函数：转换停顿类型
+    const convertPauseType = (typeStr: string): 'short' | 'medium' | 'long' => {
+      if (typeStr.includes('短')) return 'short';
+      if (typeStr.includes('长')) return 'long';
+      return 'medium';
+    };
+    
+    const skills = {
+      stress: {
+        points: stressData?.map(item => ({
+          text: item['原文'] || '',
+          type: convertStressType(item['重读类型'] || ''),
+          reason: item['重读原因'] || '',
+          method: item['教学话术'] || '',
+        })) || [],
+        teachingScript: stressData?.[0]?.['教学话术'] || '',
+      },
+      rhythm: {
+        overall: speedData?.map(item => `${item['原文范围']}：${item['语速']}`).join('；') || '',
+        variations: speedData?.map(item => ({
+          segment: item['原文范围'] || '',
+          rhythm: item['语速'] || '',
+          reason: item['原因'] || '',
+        })) || [],
+        teachingScript: '',
+      },
+      intonation: {
+        emotionalTones: intonationData?.map(item => ({
+          emotion: item['情感'] || '',
+          tone: item['语调'] || '',
+          example: item['原文'] || '',
+        })) || [],
+        teachingScript: intonationData?.[0]?.['教学话术'] || '',
+      },
+      pause: {
+        points: pauseData?.map(item => ({
+          position: item['位置'] || '',
+          type: convertPauseType(item['停顿时长'] || ''),
+          reason: item['停顿原因'] || '',
+          effect: '',
+        })) || [],
+        teachingScript: '',
+      },
+    };
+
+    // 解析情感模型
+    const emotionalData = data.emotionalModel as Record<string, unknown> | undefined;
+    const comprehensionData = emotionalData?.comprehension as Record<string, unknown> | undefined;
+    const imaginationData = emotionalData?.imagination as Record<string, unknown> | undefined;
+    const breathData = emotionalData?.breathControl as Record<string, unknown> | undefined;
+    const toneData = emotionalData?.toneCreation as Record<string, unknown> | undefined;
+    
+    const emotionalModel = {
       comprehension: {
-        emotionalTone: '',
+        emotionalTone: comprehensionData?.['情感基调'] as string || '',
         emotionalThread: '',
-        emotionalKeywords: [],
-        guidanceScript: '',
+        emotionalKeywords: (comprehensionData?.['关键情感词'] as string[]) || [],
+        guidanceScript: comprehensionData?.['感悟引导'] as string || '',
       },
       imagination: {
-        coreScenes: [],
-        guidanceScript: '',
+        coreScenes: (imaginationData?.['核心画面'] as string[]) || [],
+        guidanceScript: imaginationData?.['想象引导'] as string || '',
       },
       breathControl: {
-        breathType: '',
-        breathPoints: [],
+        breathType: breathData?.['气息类型'] as string || '',
+        breathPoints: (breathData?.['换气点'] as Array<Record<string, string>>)?.map(
+          item => `${item['原文位置']}：${item['换气方式']}`
+        ) || [],
         practiceMethod: '',
         guidanceScript: '',
       },
       toneCreation: {
-        speed: '',
-        intonation: '',
-        flow: '',
+        speed: toneData?.['整体语速'] as string || '',
+        intonation: toneData?.['整体语调'] as string || '',
+        flow: toneData?.['声音色彩'] as string || '',
         guidanceScript: '',
       },
       selfMonitoring: {
@@ -542,144 +656,247 @@ ${text}
         guidanceScript: '',
       },
     };
+
+    // 解析教学策略
+    const strategiesData = data.strategies as Record<string, unknown> | undefined;
+    const genreFeatures = strategiesData?.genreFeatures as Record<string, unknown> | undefined;
+    const teachingSteps = strategiesData?.teachingSteps as Array<Record<string, string>> | undefined;
     
-    const defaultDemonstration: DemonstrationStrategy = {
+    const integration = {
+      firstReading: teachingSteps?.find(s => s['环节'] === '初读') ? {
+        purpose: teachingSteps.find(s => s['环节'] === '初读')?.['目标'] || '',
+        method: teachingSteps.find(s => s['环节'] === '初读')?.['方法'] || '',
+        guidanceScript: teachingSteps.find(s => s['环节'] === '初读')?.['话术'] || '',
+      } : d.integration.firstReading,
+      intensiveReading: teachingSteps?.find(s => s['环节'] === '精读') ? {
+        purpose: teachingSteps.find(s => s['环节'] === '精读')?.['目标'] || '',
+        method: teachingSteps.find(s => s['环节'] === '精读')?.['方法'] || '',
+        guidanceScript: teachingSteps.find(s => s['环节'] === '精读')?.['话术'] || '',
+      } : d.integration.intensiveReading,
+      appreciativeReading: teachingSteps?.find(s => s['环节'] === '品读') ? {
+        purpose: teachingSteps.find(s => s['环节'] === '品读')?.['目标'] || '',
+        method: teachingSteps.find(s => s['环节'] === '品读')?.['方法'] || '',
+        guidanceScript: teachingSteps.find(s => s['环节'] === '品读')?.['话术'] || '',
+      } : d.integration.appreciativeReading,
+      fluentReading: teachingSteps?.find(s => s['环节'] === '熟读') ? {
+        purpose: teachingSteps.find(s => s['环节'] === '熟读')?.['目标'] || '',
+        method: teachingSteps.find(s => s['环节'] === '熟读')?.['方法'] || '',
+        guidanceScript: teachingSteps.find(s => s['环节'] === '熟读')?.['话术'] || '',
+      } : d.integration.fluentReading,
+    };
+
+    const commonMistakes = (genreFeatures?.['注意事项'] as string[]) || [];
+    const excellentExamples: string[] = [];
+
+    // 解析课堂指导
+    const guidanceData = data.guidance as Record<string, unknown> | undefined;
+    const chorusGuideData = guidanceData?.chorusGuide as Record<string, string> | undefined;
+    const commonMistakesData = guidanceData?.commonMistakes as Array<Record<string, string>> | undefined;
+    
+    const guidance = {
+      overallGuide: '',
+      segmentGuides: [],
+      chorusGuide: {
+        preparation: chorusGuideData?.['准备话术'] || d.guidance.chorusGuide.preparation,
+        startSignal: chorusGuideData?.['开始信号'] || d.guidance.chorusGuide.startSignal,
+        duringReading: [],
+        ending: chorusGuideData?.['结束话术'] || d.guidance.chorusGuide.ending,
+      },
+      commonIssues: commonMistakesData?.map(item => ({
+        issue: item['误读表现'] || '',
+        cause: item['原因'] || '',
+        solution: item['纠正方法'] || '',
+        exampleCorrection: item['示范话术'] || '',
+      })) || [],
+    };
+
+    // 示范策略
+    const demonstration = {
       keyPoints: [],
       beforeScript: '',
       afterScript: '',
       observationPoints: [],
     };
-    
-    const defaultPreparation: PreparationStrategy = {
+
+    // 备课策略
+    const preparation = {
       emotionalArc: '',
-      speedChanges: [],
-      stressMarks: [],
-      pauseDesign: [],
+      speedChanges: skills.rhythm.variations.map(v => ({
+        position: v.segment,
+        speed: v.rhythm,
+        reason: v.reason,
+      })),
+      stressMarks: skills.stress.points.map(p => ({
+        text: p.text,
+        type: p.type,
+        reason: p.reason,
+      })),
+      pauseDesign: skills.pause.points.map(p => ({
+        position: p.position,
+        duration: p.type === 'short' ? '1秒' : p.type === 'long' ? '3秒' : '2秒',
+        reason: p.reason,
+      })),
       noteTemplate: '',
     };
-    
-    const defaultIntegration: IntegrationStrategy = {
-      firstReading: { purpose: '', method: '', guidanceScript: '' },
-      intensiveReading: { purpose: '', method: '', guidanceScript: '' },
-      appreciativeReading: { purpose: '', method: '', guidanceScript: '' },
-      fluentReading: { purpose: '', method: '', guidanceScript: '' },
-    };
-    
-    const defaultAnnotation: ReadingAnnotation = {
+
+    // 朗读标注
+    const annotation = {
       text: originalText,
       pauses: [],
       stresses: [],
       emotionPoints: [],
     };
-    
-    const defaultGuidance: ReadingGuidance = {
-      overallGuide: '',
-      segmentGuides: [],
-      chorusGuide: {
-        preparation: '同学们，请做好朗读准备...',
-        startSignal: '预备——起！',
-        duringReading: [],
-        ending: '读得真好！',
+
+    return {
+      ontology,
+      subjectCultivation: {
+        willingness,
+        experience,
+        skills,
       },
-      commonIssues: [],
+      emotionalModel,
+      demonstration,
+      preparation,
+      commonMistakes,
+      excellentExamples,
+      integration,
+      annotation,
+      guidance,
     };
+  }
 
-    try {
-      // 提取 JSON - 使用更健壮的方法
-      let jsonStr = content;
-      
-      // 尝试找到代码块中的 JSON
-      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (codeBlockMatch) {
-        jsonStr = codeBlockMatch[1].trim();
-      } else {
-        // 找到第一个 { 和最后一个 }
-        const firstBrace = content.indexOf('{');
-        const lastBrace = content.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          jsonStr = content.slice(firstBrace, lastBrace + 1);
-        }
-      }
-      
-      // 清理 JSON 字符串中的常见问题
-      // 1. 移除末尾逗号（在 } 或 ] 之前的逗号）
-      jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
-      // 2. 移除控制字符
-      jsonStr = jsonStr.replace(/[\x00-\x1F\x7F]/g, '');
-      // 3. 修复常见的引号问题 - 将中文引号转为英文引号（在JSON值中）
-      // jsonStr = jsonStr.replace(/[""]/g, '"');
-      
-      let data: Record<string, unknown>;
-      try {
-        data = JSON.parse(jsonStr);
-      } catch (parseError) {
-        // 提取错误位置
-        const errorMatch = String(parseError).match(/position (\d+)/);
-        const errorPos = errorMatch ? parseInt(errorMatch[1]) : -1;
-        console.error('[ReadingTeachingService] JSON parse error:', parseError);
-        if (errorPos > 0 && errorPos < jsonStr.length) {
-          const context = jsonStr.slice(Math.max(0, errorPos - 50), Math.min(jsonStr.length, errorPos + 50));
-          console.error('[ReadingTeachingService] Error context:', context);
-          console.error('[ReadingTeachingService] Character at error pos:', JSON.stringify(jsonStr[errorPos]));
-        }
-        // 返回默认值
-        return {
-          ontology: defaultOntology,
-          subjectCultivation: {
-            willingness: defaultWillingness,
-            experience: defaultExperience,
-            skills: defaultSkills,
-          },
-          emotionalModel: defaultEmotionalModel,
-          demonstration: defaultDemonstration,
-          preparation: defaultPreparation,
-          commonMistakes: [],
-          excellentExamples: [],
-          integration: defaultIntegration,
-          annotation: defaultAnnotation,
-          guidance: defaultGuidance,
-        };
-      }
+  /**
+   * 创建默认值
+   */
+  private createDefaults(genre: ReadingToneType) {
+    return {
+      ontology: {
+        whyTeach: `培养学生的${genre}朗读能力，提升语感素养`,
+        teachingPurpose: '让学生在朗读中感受文本情感，提升语言表达能力',
+        valueOrientation: '通过朗读落实立德树人，培养学生的审美情趣和人文素养',
+      },
+      willingness: {
+        selfConnection: '',
+        emotionalTrigger: '',
+        awakeningPhrases: [] as string[],
+        introductionScript: '',
+      },
+      experience: {
+        listeningGuide: {
+          focusPoints: [] as string[],
+          guidance: '',
+          reflection: '',
+        },
+        imaginationRestore: {
+          scenes: [] as Array<{ text: string; scene: string; sensoryDetails: string[]; emotionalAtmosphere: string }>,
+          guidanceScript: '',
+        },
+        situationRestore: {
+          background: '',
+          characters: [] as string[],
+          emotionalJourney: '',
+        },
+      },
+      skills: {
+        stress: { points: [] as Array<{ text: string; type: 'logic' | 'emotion' | 'grammar'; reason: string; method: string }>, teachingScript: '' },
+        rhythm: { overall: '', variations: [] as Array<{ segment: string; rhythm: string; reason: string }>, teachingScript: '' },
+        intonation: { emotionalTones: [] as Array<{ emotion: string; tone: string; example: string }>, teachingScript: '' },
+        pause: { points: [] as Array<{ position: string; type: 'short' | 'medium' | 'long'; reason: string; effect: string }>, teachingScript: '' },
+      },
+      emotionalModel: {
+        comprehension: {
+          emotionalTone: '',
+          emotionalThread: '',
+          emotionalKeywords: [] as string[],
+          guidanceScript: '',
+        },
+        imagination: {
+          coreScenes: [] as string[],
+          guidanceScript: '',
+        },
+        breathControl: {
+          breathType: '',
+          breathPoints: [] as string[],
+          practiceMethod: '',
+          guidanceScript: '',
+        },
+        toneCreation: {
+          speed: '',
+          intonation: '',
+          flow: '',
+          guidanceScript: '',
+        },
+        selfMonitoring: {
+          checkpoints: [] as string[],
+          selfEvalCriteria: [] as string[],
+          improvementTips: [] as string[],
+          guidanceScript: '',
+        },
+      },
+      demonstration: {
+        keyPoints: [] as string[],
+        beforeScript: '',
+        afterScript: '',
+        observationPoints: [] as string[],
+      },
+      preparation: {
+        emotionalArc: '',
+        speedChanges: [] as Array<{ position: string; speed: string; reason: string }>,
+        stressMarks: [] as Array<{ text: string; type: string; reason: string }>,
+        pauseDesign: [] as Array<{ position: string; duration: string; reason: string }>,
+        noteTemplate: '',
+      },
+      integration: {
+        firstReading: { purpose: '', method: '', guidanceScript: '' },
+        intensiveReading: { purpose: '', method: '', guidanceScript: '' },
+        appreciativeReading: { purpose: '', method: '', guidanceScript: '' },
+        fluentReading: { purpose: '', method: '', guidanceScript: '' },
+      },
+      annotation: {
+        text: '',
+        pauses: [] as Array<{ position: number; type: 'short' | 'medium' | 'long'; reason: string }>,
+        stresses: [] as Array<{ start: number; end: number; text: string; type: 'logic' | 'emotion' | 'grammar'; reason: string }>,
+        emotionPoints: [] as Array<{ position: number; emotion: string; intensity: 'light' | 'medium' | 'strong' }>,
+      },
+      guidance: {
+        overallGuide: '',
+        segmentGuides: [] as Array<{ segment: string; guidance: string; keyPoints: string[] }>,
+        chorusGuide: {
+          preparation: '同学们，请做好朗读准备...',
+          startSignal: '预备——起！',
+          duringReading: [] as string[],
+          ending: '读得真好！',
+        },
+        commonIssues: [] as Array<{ issue: string; cause: string; solution: string; exampleCorrection: string }>,
+      },
+      commonMistakes: [] as string[],
+      excellentExamples: [] as string[],
+    };
+  }
 
-      return {
-        ontology: {
-          whyTeach: (data.ontology as Record<string, unknown>)?.whyTeach as string || defaultOntology.whyTeach,
-          teachingPurpose: (data.ontology as Record<string, unknown>)?.teachingPurpose as string || defaultOntology.teachingPurpose,
-          valueOrientation: (data.ontology as Record<string, unknown>)?.valueOrientation as string || defaultOntology.valueOrientation,
-        },
-        subjectCultivation: {
-          willingness: (data.subjectCultivation as Record<string, unknown>)?.willingness as ReadingWillingness || defaultWillingness,
-          experience: (data.subjectCultivation as Record<string, unknown>)?.experience as ReadingExperience || defaultExperience,
-          skills: (data.subjectCultivation as Record<string, unknown>)?.skills as ReadingSkills || defaultSkills,
-        },
-        emotionalModel: data.emotionalModel as EmotionalReadingModel || defaultEmotionalModel,
-        demonstration: data.demonstration as DemonstrationStrategy || defaultDemonstration,
-        preparation: data.preparation as PreparationStrategy || defaultPreparation,
-        commonMistakes: (data.commonMistakes as string[]) || [],
-        excellentExamples: (data.excellentExamples as string[]) || [],
-        integration: data.integration as IntegrationStrategy || defaultIntegration,
-        annotation: data.annotation as ReadingAnnotation || defaultAnnotation,
-        guidance: data.guidance as ReadingGuidance || defaultGuidance,
-      };
-    } catch (error) {
-      console.error('[ReadingTeachingService] parseReadingResponse error:', error);
-      return {
-        ontology: defaultOntology,
-        subjectCultivation: {
-          willingness: defaultWillingness,
-          experience: defaultExperience,
-          skills: defaultSkills,
-        },
-        emotionalModel: defaultEmotionalModel,
-        demonstration: defaultDemonstration,
-        preparation: defaultPreparation,
-        commonMistakes: [],
-        excellentExamples: [],
-        integration: defaultIntegration,
-        annotation: defaultAnnotation,
-        guidance: defaultGuidance,
-      };
-    }
+  /**
+   * 构建默认结果
+   */
+  private buildDefaultResult(
+    defaults: ReturnType<typeof this.createDefaults>,
+    genre: ReadingToneType
+  ): ReturnType<typeof this.parseReadingResponse> {
+    return {
+      ontology: defaults.ontology,
+      subjectCultivation: {
+        willingness: defaults.willingness,
+        experience: defaults.experience,
+        skills: defaults.skills,
+      },
+      emotionalModel: defaults.emotionalModel,
+      demonstration: defaults.demonstration,
+      preparation: defaults.preparation,
+      commonMistakes: defaults.commonMistakes,
+      excellentExamples: defaults.excellentExamples,
+      integration: defaults.integration,
+      annotation: defaults.annotation,
+      guidance: defaults.guidance,
+    };
   }
 
   /**
