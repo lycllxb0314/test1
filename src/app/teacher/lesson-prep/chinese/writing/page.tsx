@@ -53,6 +53,10 @@ import type {
   EvaluationGuide,
   WritingIssue,
 } from '@/types/chinese-prep';
+import { 
+  SharedResourceDialog, 
+  type SharedResourceData 
+} from '@/components/shared-resource/SharedResourceDialog';
 
 // ==================== 类型定义 ====================
 
@@ -122,6 +126,11 @@ export default function WritingPage() {
   // 保存状态
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // 共享资源状态
+  const [showSharedDialog, setShowSharedDialog] = useState(false);
+  const [sharedResource, setSharedResource] = useState<SharedResourceData | null>(null);
+  const [usingShared, setUsingShared] = useState(false);
   
   // 加载篇目列表
   const loadTopics = useCallback(async () => {
@@ -210,8 +219,99 @@ export default function WritingPage() {
     }
   }, [selectedTopic]);
   
-  // 生成备课方案
+  // 检查共享资源
+  const checkSharedResource = useCallback(async () => {
+    if (!selectedTopic) return null;
+    
+    try {
+      const response = await fetch(
+        `/api/shared-resources?category=writing&grade=${selectedTopic.grade}&topicKey=${encodeURIComponent(selectedTopic.title)}`
+      );
+      const data = await response.json();
+      
+      if (data.success && data.exists && data.data) {
+        return data.data;
+      }
+      return null;
+    } catch (error) {
+      console.error('检查共享资源失败:', error);
+      return null;
+    }
+  }, [selectedTopic]);
+  
+  // 生成备课方案（入口）
   const handleGenerate = useCallback(async () => {
+    if (!selectedTopic) return;
+    
+    // 先检查共享资源
+    const shared = await checkSharedResource();
+    
+    if (shared) {
+      // 有共享资源，显示弹窗
+      setSharedResource({
+        id: shared.id,
+        title: shared.title,
+        useCount: shared.useCount,
+        createdByName: shared.createdByName,
+        createdAt: shared.createdAt,
+      });
+      setShowSharedDialog(true);
+    } else {
+      // 没有共享资源，直接生成
+      await generateNewPlan();
+    }
+  }, [selectedTopic, checkSharedResource]);
+  
+  // 使用共享资源
+  const handleUseShared = useCallback(async () => {
+    if (!sharedResource || !selectedTopic) return;
+    
+    setUsingShared(true);
+    try {
+      // 获取共享资源完整内容
+      const response = await fetch(
+        `/api/shared-resources?category=writing&grade=${selectedTopic.grade}&topicKey=${encodeURIComponent(selectedTopic.title)}`
+      );
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const sharedContent = data.data.content;
+        
+        // 设置结果
+        if (sharedContent.outline) setOutline(sharedContent.outline as WritingOutline);
+        if (sharedContent.expressions) setExpressions(sharedContent.expressions as GoodExpressions);
+        if (sharedContent.tieredTasks) setTieredTasks(sharedContent.tieredTasks as TieredTask[]);
+        if (sharedContent.evaluationGuide) setEvaluationGuide(sharedContent.evaluationGuide as EvaluationGuide);
+        if (sharedContent.commonIssues) setCommonIssues(sharedContent.commonIssues as WritingIssue[]);
+        
+        setActiveTab('outline');
+        
+        // 更新使用次数
+        await fetch('/api/shared-resources', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: sharedResource.id }),
+        });
+        
+        // 保存到个人资源库
+        saveToResourceInternal(sharedContent);
+      }
+    } catch (error) {
+      console.error('使用共享资源失败:', error);
+    } finally {
+      setUsingShared(false);
+      setShowSharedDialog(false);
+    }
+  }, [sharedResource, selectedTopic, saveToResourceInternal]);
+  
+  // 重新生成方案
+  const handleGenerateNew = useCallback(async () => {
+    setShowSharedDialog(false);
+    await generateNewPlan();
+  }, []);
+  
+  // 实际生成方案（调用 LLM）
+  const generateNewPlan = useCallback(async () => {
     if (!selectedTopic) return;
     
     setGenerating(true);
@@ -237,6 +337,20 @@ export default function WritingPage() {
       if (data.commonIssues) setCommonIssues(data.commonIssues);
       
       setActiveTab('outline');
+      
+      // 保存到共享资源库
+      await fetch('/api/shared-resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: 'writing',
+          grade: selectedTopic.grade,
+          topicKey: selectedTopic.title,
+          title: selectedTopic.title,
+          unit: `第${selectedTopic.unit_number}单元 ${selectedTopic.unit_theme}`,
+          content: data,
+        }),
+      });
       
       // 自动保存到资源库
       saveToResourceInternal(data);
@@ -894,6 +1008,16 @@ export default function WritingPage() {
           </div>
         </div>
       </div>
+      
+      {/* 共享资源弹窗 */}
+      <SharedResourceDialog
+        open={showSharedDialog}
+        onOpenChange={setShowSharedDialog}
+        resource={sharedResource}
+        onUseShared={handleUseShared}
+        onGenerateNew={handleGenerateNew}
+        isLoading={usingShared}
+      />
     </div>
   );
 }

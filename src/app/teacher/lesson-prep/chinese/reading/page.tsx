@@ -51,6 +51,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReadingTeachingPlan } from '@/types/chinese-prep';
+import { 
+  SharedResourceDialog, 
+  type SharedResourceData 
+} from '@/components/shared-resource/SharedResourceDialog';
 
 // ==================== 类型定义 ====================
 
@@ -117,6 +121,11 @@ export default function ReadingPage() {
   
   // 保存状态
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // 共享资源状态
+  const [showSharedDialog, setShowSharedDialog] = useState(false);
+  const [sharedResource, setSharedResource] = useState<SharedResourceData | null>(null);
+  const [usingShared, setUsingShared] = useState(false);
   
   // 音频 ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -195,8 +204,92 @@ export default function ReadingPage() {
     }
   }, [selectedLesson, textContent]);
   
-  // 生成朗读方案
+  // 检查共享资源
+  const checkSharedResource = useCallback(async () => {
+    if (!selectedLesson) return null;
+    
+    try {
+      const response = await fetch(
+        `/api/shared-resources?category=reading&grade=${selectedLesson.grade}&topicKey=${encodeURIComponent(selectedLesson.title)}`
+      );
+      const data = await response.json();
+      
+      if (data.success && data.exists && data.data) {
+        return data.data;
+      }
+      return null;
+    } catch (error) {
+      console.error('检查共享资源失败:', error);
+      return null;
+    }
+  }, [selectedLesson]);
+  
+  // 生成朗读方案（入口）
   const handleGenerate = useCallback(async () => {
+    if (!selectedLesson || !textContent.trim()) return;
+    
+    // 先检查共享资源
+    const shared = await checkSharedResource();
+    
+    if (shared) {
+      // 有共享资源，显示弹窗
+      setSharedResource({
+        id: shared.id,
+        title: shared.title,
+        useCount: shared.useCount,
+        createdByName: shared.createdByName,
+        createdAt: shared.createdAt,
+      });
+      setShowSharedDialog(true);
+    } else {
+      // 没有共享资源，直接生成
+      await generateNewPlan();
+    }
+  }, [selectedLesson, textContent, checkSharedResource]);
+  
+  // 使用共享资源
+  const handleUseShared = useCallback(async () => {
+    if (!sharedResource || !selectedLesson) return;
+    
+    setUsingShared(true);
+    try {
+      // 获取共享资源完整内容
+      const response = await fetch(
+        `/api/shared-resources?category=reading&grade=${selectedLesson.grade}&topicKey=${encodeURIComponent(selectedLesson.title)}`
+      );
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const sharedContent = data.data.content as ReadingTeachingPlan;
+        setPlan(sharedContent);
+        setActiveTab('ontology');
+        
+        // 更新使用次数
+        await fetch('/api/shared-resources', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: sharedResource.id }),
+        });
+        
+        // 保存到个人资源库
+        saveToResourceInternal(sharedContent);
+      }
+    } catch (error) {
+      console.error('使用共享资源失败:', error);
+    } finally {
+      setUsingShared(false);
+      setShowSharedDialog(false);
+    }
+  }, [sharedResource, selectedLesson, saveToResourceInternal]);
+  
+  // 重新生成方案
+  const handleGenerateNew = useCallback(async () => {
+    setShowSharedDialog(false);
+    await generateNewPlan();
+  }, []);
+  
+  // 实际生成方案（调用 LLM）
+  const generateNewPlan = useCallback(async () => {
     if (!selectedLesson || !textContent.trim()) return;
     
     setGenerating(true);
@@ -218,6 +311,21 @@ export default function ReadingPage() {
       if (data.success) {
         setPlan(data.data);
         setActiveTab('ontology');
+        
+        // 保存到共享资源库
+        await fetch('/api/shared-resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: 'reading',
+            grade: selectedLesson.grade,
+            topicKey: selectedLesson.title,
+            title: selectedLesson.title,
+            content: data.data,
+          }),
+        });
+        
+        // 保存到个人资源库
         saveToResourceInternal(data.data);
       }
     } catch (error) {
@@ -925,6 +1033,16 @@ export default function ReadingPage() {
           </div>
         </div>
       </div>
+      
+      {/* 共享资源弹窗 */}
+      <SharedResourceDialog
+        open={showSharedDialog}
+        onOpenChange={setShowSharedDialog}
+        resource={sharedResource}
+        onUseShared={handleUseShared}
+        onGenerateNew={handleGenerateNew}
+        isLoading={usingShared}
+      />
     </div>
   );
 }
