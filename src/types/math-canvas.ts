@@ -163,15 +163,17 @@ export type CubePosition = {
 /** 组合图形 */
 export type CompositeShape = BaseShapeProps & {
   type: CompositeShapeType;
-  points: Point[];          // 起始位置
-  gridSize: number;         // 网格大小（如 3x3）
-  cellSize: number;         // 单元格大小
-  cells: boolean[][];       // 激活的单元格（用于计算面积）
-  showGrid: boolean;
-  showCount: boolean;       // 显示计数
-  // 新增：3D 积木块数据（用于搭积木功能）
-  cubes?: CubePosition[];   // 积木块位置列表
-  cubeSize?: number;        // 小正方体大小
+  points: Point[];          // 绘制的区域（起点和终点）
+  rows: number;             // 行数（用于正方形网格）
+  cols: number;             // 列数（用于正方形网格）
+  // 以下为兼容旧数据保留
+  gridSize?: number;        // 网格大小（旧版兼容）
+  cellSize?: number;        // 单元格大小（旧版兼容）
+  cells?: boolean[][];      // 激活的单元格（旧版兼容）
+  showGrid?: boolean;       // 是否显示网格线
+  showCount?: boolean;      // 显示计数（旧版兼容）
+  cubes?: CubePosition[];   // 积木块位置列表（旧版兼容）
+  cubeSize?: number;        // 小正方体大小（旧版兼容）
 };
 
 /** 数轴 */

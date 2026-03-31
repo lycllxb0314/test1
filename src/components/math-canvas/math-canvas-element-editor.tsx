@@ -529,16 +529,43 @@ function GridEditor({
   element: CompositeShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const { gridSize, cellSize, cubes, cubeSize } = element;
-  const isCubeGrid = element.type === 'cubeGrid';
+  if (element.type === 'squareGrid') {
+    // 正方形网格编辑器：设置行列数
+    const rows = element.rows || 3;
+    const cols = element.cols || 3;
 
-  const updateGrid = (newGridSize: number, newCellSize: number) => {
-    onUpdate({ ...element, gridSize: newGridSize, cellSize: newCellSize });
-  };
-
-  const clearCubes = () => {
-    onUpdate({ ...element, cubes: [] });
-  };
+    return (
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <Label className="text-xs">行数: {rows}</Label>
+          <Slider
+            value={[rows]}
+            min={1}
+            max={10}
+            step={1}
+            onValueChange={(v) => onUpdate({ ...element, rows: v[0] })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs">列数: {cols}</Label>
+          <Slider
+            value={[cols]}
+            min={1}
+            max={10}
+            step={1}
+            onValueChange={(v) => onUpdate({ ...element, cols: v[0] })}
+          />
+        </div>
+        <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+          网格规格: {rows} 行 × {cols} 列
+        </div>
+      </div>
+    );
+  }
+  
+  // cubeGrid 保留旧逻辑（如果需要）
+  const gridSize = element.gridSize || 5;
+  const cellSize = element.cellSize || 40;
 
   return (
     <div className="space-y-3">
@@ -549,36 +576,19 @@ function GridEditor({
           min={2}
           max={10}
           step={1}
-          onValueChange={(v) => updateGrid(v[0], cellSize)}
+          onValueChange={(v) => onUpdate({ ...element, gridSize: v[0], cellSize })}
         />
       </div>
       <div className="space-y-2">
-        <Label className="text-xs">{isCubeGrid ? '正方体大小' : '单元格大小'}: {isCubeGrid ? (cubeSize || cellSize) : cellSize}px</Label>
+        <Label className="text-xs">单元格大小: {cellSize}px</Label>
         <Slider
-          value={[isCubeGrid ? (cubeSize || cellSize) : cellSize]}
+          value={[cellSize]}
           min={20}
           max={60}
           step={5}
-          onValueChange={(v) => onUpdate({ ...element, [isCubeGrid ? 'cubeSize' : 'cellSize']: v[0], cellSize: v[0] })}
+          onValueChange={(v) => onUpdate({ ...element, cellSize: v[0] })}
         />
       </div>
-      
-      {isCubeGrid && (
-        <>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <Label className="text-xs">小正方体数量: {(cubes || []).length}</Label>
-            <Button variant="outline" size="sm" onClick={clearCubes}>
-              清空
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground p-2 bg-muted rounded space-y-1">
-            <p>🧱 搭积木操作：</p>
-            <p>• 点击网格位置：向上堆叠正方体</p>
-            <p>• Shift + 点击：删除最上层正方体</p>
-          </div>
-        </>
-      )}
     </div>
   );
 }
