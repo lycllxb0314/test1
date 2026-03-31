@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Separator } from '@/components/ui/separator';
 import type {
   CanvasElement,
   PlaneShape,
@@ -13,8 +14,21 @@ import type {
   NumberLineShape,
   SegmentDiagramShape,
   ChartShape,
+  PlaneShapeType,
 } from '@/types/math-canvas';
-import { Trash2, Copy } from 'lucide-react';
+import { Trash2, Copy, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
+
+/** 平面图形类型列表 */
+const PLANE_SHAPE_TYPES: PlaneShapeType[] = [
+  'triangle', 'rightTriangle', 'isoscelesTriangle', 'equilateralTriangle',
+  'rectangle', 'square', 'parallelogram', 'trapezoid', 'rhombus',
+  'polygon', 'circle', 'sector', 'annulus', 'arc'
+];
+
+/** 判断是否为平面图形 */
+function isPlaneShape(element: CanvasElement): element is PlaneShape {
+  return PLANE_SHAPE_TYPES.includes(element.type as PlaneShapeType);
+}
 
 /** 元素编辑器 Props */
 export type ElementEditorProps = {
@@ -43,9 +57,19 @@ export function ElementEditor({
   const renderEditor = () => {
     switch (element.type) {
       case 'sector':
-        return <SectorEditor element={element as PlaneShape} onUpdate={onUpdate} />;
+        return (
+          <>
+            <SectorEditor element={element as PlaneShape} onUpdate={onUpdate} />
+            <TransformEditor element={element as PlaneShape} onUpdate={onUpdate} />
+          </>
+        );
       case 'polygon':
-        return <PolygonEditor element={element as PlaneShape} onUpdate={onUpdate} />;
+        return (
+          <>
+            <PolygonEditor element={element as PlaneShape} onUpdate={onUpdate} />
+            <TransformEditor element={element as PlaneShape} onUpdate={onUpdate} />
+          </>
+        );
       case 'numberLine':
         return <NumberLineEditor element={element as NumberLineShape} onUpdate={onUpdate} />;
       case 'segmentDiagram':
@@ -62,6 +86,10 @@ export function ElementEditor({
       case 'sphere':
         return <SolidEditor element={element as SolidShape} onUpdate={onUpdate} />;
       default:
+        // 对于其他平面图形，显示变换控制
+        if (isPlaneShape(element)) {
+          return <TransformEditor element={element} onUpdate={onUpdate} />;
+        }
         return (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">此图形暂无可编辑参数</p>
@@ -101,8 +129,6 @@ export function ElementEditor({
     </div>
   );
 }
-
-import { Separator } from '@/components/ui/separator';
 
 /** 扇形编辑器 */
 function SectorEditor({
@@ -507,22 +533,7 @@ function GridEditor({
   const isCubeGrid = element.type === 'cubeGrid';
 
   const updateGrid = (newGridSize: number, newCellSize: number) => {
-    // 重新生成单元格数组
-    const newCells = Array(newGridSize)
-      .fill(null)
-      .map((_, rowIndex) =>
-        Array(newGridSize)
-          .fill(null)
-          .map((_, colIndex) => {
-            // 保留原有单元格状态
-            if (element.cells && element.cells[rowIndex] && element.cells[rowIndex][colIndex] !== undefined) {
-              return element.cells[rowIndex][colIndex];
-            }
-            return false;
-          })
-      );
-    
-    onUpdate({ ...element, gridSize: newGridSize, cellSize: newCellSize, cells: newCells });
+    onUpdate({ ...element, gridSize: newGridSize, cellSize: newCellSize });
   };
 
   const clearCubes = () => {
@@ -532,7 +543,7 @@ function GridEditor({
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        <Label className="text-xs">网格大小: {gridSize} × {gridSize}</Label>
+        <Label className="text-xs">网格规格: {gridSize} × {gridSize}</Label>
         <Slider
           value={[gridSize]}
           min={2}
@@ -554,6 +565,7 @@ function GridEditor({
       
       {isCubeGrid && (
         <>
+          <Separator />
           <div className="flex items-center justify-between">
             <Label className="text-xs">小正方体数量: {(cubes || []).length}</Label>
             <Button variant="outline" size="sm" onClick={clearCubes}>
@@ -567,12 +579,6 @@ function GridEditor({
           </div>
         </>
       )}
-      
-      {!isCubeGrid && (
-        <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-          💡 使用"选择"工具点击单元格可切换激活状态
-        </div>
-      )}
     </div>
   );
 }
@@ -585,16 +591,68 @@ function SolidEditor({
   element: SolidShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
+  const isCylinderOrCone = element.type === 'cylinder' || element.type === 'cone';
+  
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Label className="text-xs">显示展开图</Label>
-        <input
-          type="checkbox"
-          checked={element.showNet}
-          onChange={(e) => onUpdate({ ...element, showNet: e.target.checked })}
-        />
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">宽度</Label>
+            <Input
+              type="number"
+              value={element.width}
+              onChange={(e) => onUpdate({ ...element, width: Number(e.target.value) })}
+              className="h-8"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">高度</Label>
+            <Input
+              type="number"
+              value={element.height}
+              onChange={(e) => onUpdate({ ...element, height: Number(e.target.value) })}
+              className="h-8"
+            />
+          </div>
+        </div>
+        {(element.type === 'cuboid' || element.type === 'prism') && (
+          <div>
+            <Label className="text-xs">深度</Label>
+            <Input
+              type="number"
+              value={element.depth}
+              onChange={(e) => onUpdate({ ...element, depth: Number(e.target.value) })}
+              className="h-8"
+            />
+          </div>
+        )}
       </div>
+      
+      <Separator />
+      
+      {isCylinderOrCone && (
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示侧面展开图</Label>
+          <input
+            type="checkbox"
+            checked={element.showSideNet || false}
+            onChange={(e) => onUpdate({ ...element, showSideNet: e.target.checked })}
+          />
+        </div>
+      )}
+      
+      {!isCylinderOrCone && (
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示展开图</Label>
+          <input
+            type="checkbox"
+            checked={element.showNet}
+            onChange={(e) => onUpdate({ ...element, showNet: e.target.checked })}
+          />
+        </div>
+      )}
+      
       <div className="flex items-center justify-between">
         <Label className="text-xs">显示尺寸标注</Label>
         <input
@@ -610,6 +668,94 @@ function SolidEditor({
           checked={element.showHiddenLines}
           onChange={(e) => onUpdate({ ...element, showHiddenLines: e.target.checked })}
         />
+      </div>
+    </div>
+  );
+}
+
+/** 变换编辑器（旋转、对称） */
+function TransformEditor({
+  element,
+  onUpdate,
+}: {
+  element: PlaneShape;
+  onUpdate: (el: CanvasElement) => void;
+}) {
+  const rotation = element.rotation || 0;
+  const flipX = element.flipX || false;
+  const flipY = element.flipY || false;
+
+  const handleRotate = (angle: number) => {
+    onUpdate({ ...element, rotation: (rotation + angle) % 360 });
+  };
+
+  const handleFlipX = () => {
+    onUpdate({ ...element, flipX: !flipX });
+  };
+
+  const handleFlipY = () => {
+    onUpdate({ ...element, flipY: !flipY });
+  };
+
+  return (
+    <div className="space-y-3">
+      <Separator />
+      <Label className="text-xs font-medium">变换</Label>
+      
+      {/* 旋转控制 */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">旋转角度: {rotation}°</Label>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => handleRotate(-90)}
+              title="逆时针旋转90°"
+            >
+              -90°
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => handleRotate(90)}
+              title="顺时针旋转90°"
+            >
+              +90°
+            </Button>
+          </div>
+        </div>
+        <Slider
+          value={[rotation]}
+          min={0}
+          max={360}
+          step={15}
+          onValueChange={(v) => onUpdate({ ...element, rotation: v[0] })}
+        />
+      </div>
+      
+      {/* 对称控制 */}
+      <div className="flex gap-2">
+        <Button
+          variant={flipX ? 'default' : 'outline'}
+          size="sm"
+          className="flex-1"
+          onClick={handleFlipX}
+        >
+          <FlipHorizontal className="h-4 w-4 mr-1" />
+          水平翻转
+        </Button>
+        <Button
+          variant={flipY ? 'default' : 'outline'}
+          size="sm"
+          className="flex-1"
+          onClick={handleFlipY}
+        >
+          <FlipVertical className="h-4 w-4 mr-1" />
+          垂直翻转
+        </Button>
       </div>
     </div>
   );

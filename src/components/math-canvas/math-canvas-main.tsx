@@ -11,6 +11,7 @@ import type {
   GridBackground,
   ToolType,
   Color,
+  FillMode,
 } from '@/types/math-canvas';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,7 +29,7 @@ import { Download, Upload, HelpCircle, BookOpen } from 'lucide-react';
 
 /** 默认网格 */
 const DEFAULT_GRID: GridBackground = {
-  enabled: true,
+  enabled: false,  // 默认关闭
   type: 'square',
   size: 20,
   color: '#e5e7eb',
@@ -56,6 +57,10 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
     activeStrokeWidth: 2,
   });
 
+  // 填充状态
+  const [fillMode, setFillMode] = useState<FillMode>('none');
+  const [fillColor, setFillColor] = useState<Color>('#3b82f6');
+
   // 历史记录
   const [history, setHistory] = useState<CanvasState[]>([state]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -65,6 +70,9 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
   // 画布尺寸
   const [canvasWidth] = useState(900);
   const [canvasHeight] = useState(600);
+
+  // 画布引用
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // 文件输入引用
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,7 +135,37 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
     }
   }, [updateState]);
 
-  // 导出
+  // 导出为图片
+  const handleExportImage = useCallback((transparentBg: boolean) => {
+    // 获取画布元素
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    // 创建临时画布用于导出
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const ctx = tempCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // 如果不是透明背景，先填充白色背景
+    if (!transparentBg) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    }
+
+    // 复制原画布内容
+    ctx.drawImage(canvas, 0, 0);
+
+    // 导出为PNG
+    const dataUrl = tempCanvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `math-canvas-${Date.now()}.png`;
+    link.click();
+  }, []);
+
+  // 导出为JSON
   const handleExport = useCallback(() => {
     const dataUrl = `data:text/json;charset=utf-8,${encodeURIComponent(
       JSON.stringify(state, null, 2)
@@ -380,9 +418,13 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
                 onColorChange={handleColorChange}
                 onStrokeWidthChange={handleStrokeWidthChange}
                 onClear={handleClear}
-                onExport={handleExport}
+                onExport={handleExportImage}
                 onUndo={handleUndo}
                 onRedo={handleRedo}
+                fillMode={fillMode}
+                fillColor={fillColor}
+                onFillModeChange={setFillMode}
+                onFillColorChange={setFillColor}
               />
             </TabsContent>
             <TabsContent value="element" className="flex-1 overflow-y-auto mt-0">

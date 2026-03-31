@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import type {
   Color,
   LineStyle,
@@ -35,16 +42,21 @@ export type PropertyPanelProps = {
   zoom: number;
   activeColor: Color;
   activeStrokeWidth: number;
+  // 填充属性
+  fillMode: FillMode;
+  fillColor: Color;
   
   // 回调
   onGridChange: (grid: GridBackground) => void;
   onZoomChange: (zoom: number) => void;
   onColorChange: (color: Color) => void;
   onStrokeWidthChange: (width: number) => void;
+  onFillModeChange: (mode: FillMode) => void;
+  onFillColorChange: (color: Color) => void;
   
   // 操作
   onClear: () => void;
-  onExport: () => void;
+  onExport: (transparentBg: boolean) => void;
   onUndo: () => void;
   onRedo: () => void;
 };
@@ -55,15 +67,27 @@ export function PropertyPanel({
   zoom,
   activeColor,
   activeStrokeWidth,
+  fillMode,
+  fillColor,
   onGridChange,
   onZoomChange,
   onColorChange,
   onStrokeWidthChange,
+  onFillModeChange,
+  onFillColorChange,
   onClear,
   onExport,
   onUndo,
   onRedo,
 }: PropertyPanelProps) {
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [transparentBg, setTransparentBg] = useState(true);
+
+  const handleExport = () => {
+    onExport(transparentBg);
+    setShowExportDialog(false);
+  };
+
   return (
     <div className="h-full w-full p-4 space-y-6 overflow-y-auto">
       {/* 操作按钮 */}
@@ -79,10 +103,47 @@ export function PropertyPanel({
           <Button variant="outline" size="sm" onClick={onClear}>
             清空
           </Button>
-          <Button variant="default" size="sm" onClick={onExport}>
-            导出
-          </Button>
+          <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+            <DialogTrigger asChild>
+              <Button variant="default" size="sm">
+                导出
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[300px]">
+              <DialogHeader>
+                <DialogTitle>导出图片</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">透明背景</Label>
+                  <Switch
+                    checked={transparentBg}
+                    onCheckedChange={setTransparentBg}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {transparentBg 
+                    ? '导出为透明背景PNG，适合叠加到其他素材上' 
+                    : '导出为白色背景PNG'}
+                </p>
+                <Button className="w-full" onClick={handleExport}>
+                  确认导出
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
+      </div>
+
+      <Separator />
+
+      {/* 画布网格开关 */}
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">显示网格</Label>
+        <Switch
+          checked={grid.enabled}
+          onCheckedChange={(enabled) => onGridChange({ ...grid, enabled })}
+        />
       </div>
 
       <Separator />
@@ -160,78 +221,82 @@ export function PropertyPanel({
 
       <Separator />
 
-      {/* 网格设置 */}
+      {/* 填充设置 */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">显示网格</Label>
-          <Switch
-            checked={grid.enabled}
-            onCheckedChange={(enabled) => onGridChange({ ...grid, enabled })}
-          />
-        </div>
-
-        {grid.enabled && (
-          <>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">网格类型</Label>
-              <Select
-                value={grid.type}
-                onValueChange={(type) =>
-                  onGridChange({ ...grid, type: type as 'square' | 'dot' | 'isometric' })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="square">方格</SelectItem>
-                  <SelectItem value="dot">点阵</SelectItem>
-                  <SelectItem value="isometric">等距</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">
-                网格大小: {grid.size}px
-              </Label>
-              <Slider
-                value={[grid.size]}
-                min={10}
-                max={50}
-                step={5}
-                onValueChange={(value) => onGridChange({ ...grid, size: value[0] })}
+        <Label className="text-sm font-medium">填充</Label>
+        <Select
+          value={fillMode}
+          onValueChange={(mode) => onFillModeChange(mode as FillMode)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">无填充</SelectItem>
+            <SelectItem value="solid">纯色填充</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        {fillMode !== 'none' && (
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">填充颜色</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="color"
+                value={fillColor}
+                onChange={(e) => onFillColorChange(e.target.value)}
+                className="h-8 w-12 p-0 cursor-pointer"
+              />
+              <Input
+                type="text"
+                value={fillColor}
+                onChange={(e) => onFillColorChange(e.target.value)}
+                className="h-8 flex-1"
+                placeholder="#000000"
               />
             </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">网格颜色</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="color"
-                  value={grid.color}
-                  onChange={(e) => onGridChange({ ...grid, color: e.target.value })}
-                  className="h-8 w-12 p-0 cursor-pointer"
-                />
-                <Input
-                  type="text"
-                  value={grid.color}
-                  onChange={(e) => onGridChange({ ...grid, color: e.target.value })}
-                  className="h-8 flex-1"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">显示坐标轴</Label>
-              <Switch
-                checked={grid.showAxis}
-                onCheckedChange={(showAxis) => onGridChange({ ...grid, showAxis })}
-              />
-            </div>
-          </>
+          </div>
         )}
       </div>
+
+      <Separator />
+
+      {/* 网格设置（仅在开启时显示详细选项） */}
+      {grid.enabled && (
+        <>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">网格类型</Label>
+            <Select
+              value={grid.type}
+              onValueChange={(type) =>
+                onGridChange({ ...grid, type: type as 'square' | 'dot' | 'isometric' })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="square">方格</SelectItem>
+                <SelectItem value="dot">点阵</SelectItem>
+                <SelectItem value="isometric">等距</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">
+              网格大小: {grid.size}px
+            </Label>
+            <Slider
+              value={[grid.size]}
+              min={10}
+              max={50}
+              step={5}
+              onValueChange={(value) => onGridChange({ ...grid, size: value[0] })}
+            />
+          </div>
+        </>
+      )}
 
       <Separator />
 

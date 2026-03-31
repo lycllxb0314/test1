@@ -27,7 +27,7 @@ export type MathCanvasProps = {
 
 /** 默认网格配置 */
 const DEFAULT_GRID: GridBackground = {
-  enabled: true,
+  enabled: false,  // 默认关闭
   type: 'square',
   size: 20,
   color: '#e5e7eb',
@@ -261,7 +261,28 @@ export function MathCanvas({
     ctx.lineWidth = shape.strokeWidth;
     ctx.globalAlpha = shape.opacity;
 
-    const { type, points, radius = 0, startAngle = 0, endAngle = Math.PI * 2, sides = 3 } = shape;
+    const { type, points, radius = 0, startAngle = 0, endAngle = Math.PI * 2, sides = 3, rotation = 0, flipX = false, flipY = false } = shape;
+
+    // 计算图形中心点
+    let centerX = 0, centerY = 0;
+    if (points.length > 0) {
+      const xs = points.map(p => p.x);
+      const ys = points.map(p => p.y);
+      centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+      centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+      if (type === 'circle' || type === 'sector' || type === 'arc' || type === 'polygon') {
+        centerX = points[0].x;
+        centerY = points[0].y;
+      }
+    }
+
+    // 应用变换：先平移到中心，然后旋转和翻转，再平移回去
+    if (rotation !== 0 || flipX || flipY) {
+      ctx.translate(centerX, centerY);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      ctx.translate(-centerX, -centerY);
+    }
 
     ctx.beginPath();
 
@@ -407,7 +428,7 @@ export function MathCanvas({
     ctx.lineWidth = shape.strokeWidth;
     ctx.globalAlpha = shape.opacity;
 
-    const { type, position, width, height, depth, showHiddenLines } = shape;
+    const { type, position, width, height, depth, showHiddenLines, showSideNet } = shape;
     const offset = 15; // 透视偏移
 
     switch (type) {
@@ -475,8 +496,6 @@ export function MathCanvas({
 
       case 'cylinder':
         // 绘制圆柱（不填充）
-        const cy = position.y + height / 2;
-        
         // 底面椭圆
         ctx.beginPath();
         ctx.ellipse(position.x + width / 2, position.y + height, width / 2, height * 0.15, 0, 0, Math.PI * 2);
@@ -494,12 +513,36 @@ export function MathCanvas({
         ctx.beginPath();
         ctx.ellipse(position.x + width / 2, position.y, width / 2, height * 0.15, 0, 0, Math.PI * 2);
         ctx.stroke();
+        
+        // 侧面展开图
+        if (showSideNet) {
+          const netX = position.x + width + 30;
+          const netY = position.y;
+          const circumference = Math.PI * width; // 底面周长
+          
+          // 绘制展开的矩形侧面
+          ctx.beginPath();
+          ctx.rect(netX, netY, circumference, height);
+          ctx.stroke();
+          
+          // 添加标注
+          ctx.font = '12px sans-serif';
+          ctx.fillStyle = '#666';
+          ctx.fillText(`底面周长 = ${circumference.toFixed(1)}`, netX, netY + height + 20);
+          ctx.fillText(`高 = ${height}`, netX + circumference + 10, netY + height / 2);
+          
+          // 绘制展开的圆形底面
+          ctx.beginPath();
+          ctx.arc(netX + circumference / 2, netY + height + 60, width / 2, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillText('底面', netX + circumference / 2 - 15, netY + height + 60 + 5);
+        }
         break;
 
       case 'cone':
         // 绘制圆锥（不填充）
-        ctx.beginPath();
         // 底面椭圆
+        ctx.beginPath();
         ctx.ellipse(position.x + width / 2, position.y + height, width / 2, height * 0.15, 0, 0, Math.PI * 2);
         ctx.stroke();
         
@@ -510,6 +553,32 @@ export function MathCanvas({
         ctx.moveTo(position.x + width / 2, position.y);
         ctx.lineTo(position.x + width, position.y + height);
         ctx.stroke();
+        
+        // 侧面展开图
+        if (showSideNet) {
+          const netX = position.x + width + 30;
+          const netY = position.y;
+          const slantHeight = Math.sqrt((width / 2) * (width / 2) + height * height); // 母线长
+          const arcAngle = Math.PI * width / slantHeight; // 扇形弧度
+          
+          // 绘制展开的扇形侧面
+          ctx.beginPath();
+          ctx.moveTo(netX, netY + slantHeight);
+          ctx.arc(netX, netY + slantHeight, slantHeight, -Math.PI / 2 - arcAngle / 2, -Math.PI / 2 + arcAngle / 2);
+          ctx.closePath();
+          ctx.stroke();
+          
+          // 添加标注
+          ctx.font = '12px sans-serif';
+          ctx.fillStyle = '#666';
+          ctx.fillText(`母线 = ${slantHeight.toFixed(1)}`, netX + slantHeight + 10, netY + slantHeight / 2);
+          
+          // 绘制展开的圆形底面
+          ctx.beginPath();
+          ctx.arc(netX, netY + slantHeight + 60, width / 2, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillText('底面', netX - 15, netY + slantHeight + 60 + 5);
+        }
         break;
 
       case 'sphere':
@@ -535,103 +604,84 @@ export function MathCanvas({
   // 绘制组合图形
   const drawCompositeShape = useCallback((ctx: CanvasRenderingContext2D, shape: CompositeShape) => {
     ctx.save();
-    const { gridSize, cellSize, cells, showGrid, showCount, cubes, cubeSize } = shape;
+    const { gridSize, cellSize, cells, showGrid, cubes, cubeSize } = shape;
     const baseX = shape.points[0]?.x || 0;
     const baseY = shape.points[0]?.y || 0;
     const size = cubeSize || cellSize || 40;
 
     // 如果是正方体组合（搭积木功能），绘制3D积木块
-    if (shape.type === 'cubeGrid' && cubes && cubes.length > 0) {
+    if (shape.type === 'cubeGrid') {
       // 绘制底板网格
-      if (showGrid) {
-        ctx.strokeStyle = '#ccc';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= gridSize; i++) {
-          ctx.beginPath();
-          ctx.moveTo(baseX + i * size, baseY);
-          ctx.lineTo(baseX + i * size, baseY + gridSize * size);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(baseX, baseY + i * size);
-          ctx.lineTo(baseX + gridSize * size, baseY + i * size);
-          ctx.stroke();
-        }
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= gridSize; i++) {
+        ctx.beginPath();
+        ctx.moveTo(baseX + i * size, baseY);
+        ctx.lineTo(baseX + i * size, baseY + gridSize * size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(baseX, baseY + i * size);
+        ctx.lineTo(baseX + gridSize * size, baseY + i * size);
+        ctx.stroke();
       }
 
-      // 按照层级排序绘制积木块（从下到上）
-      const sortedCubes = [...cubes].sort((a, b) => a.z - b.z);
-      
-      // 等轴测投影参数
-      const offsetX = size * 0.4;  // X方向偏移（用于3D效果）
-      const offsetY = size * 0.3;  // Y方向偏移（用于3D效果）
+      // 如果有积木块，绘制它们
+      if (cubes && cubes.length > 0) {
+        // 按照层级排序绘制积木块（从下到上）
+        const sortedCubes = [...cubes].sort((a, b) => a.z - b.z);
+        
+        // 等轴测投影参数
+        const offsetX = size * 0.4;  // X方向偏移（用于3D效果）
+        const offsetY = size * 0.3;  // Y方向偏移（用于3D效果）
 
-      sortedCubes.forEach((cube) => {
-        // 计算积木块的屏幕位置（等轴测投影）
-        const screenX = baseX + cube.x * size + (cube.z * offsetX);
-        const screenY = baseY + cube.y * size - (cube.z * offsetY);
+        sortedCubes.forEach((cube) => {
+          // 计算积木块的屏幕位置（等轴测投影）
+          const screenX = baseX + cube.x * size + (cube.z * offsetX);
+          const screenY = baseY + cube.y * size - (cube.z * offsetY);
 
-        // 绘制小正方体的三个可见面
-        ctx.strokeStyle = shape.strokeColor;
-        ctx.lineWidth = shape.strokeWidth;
+          // 绘制小正方体的三个可见面
+          ctx.strokeStyle = shape.strokeColor;
+          ctx.lineWidth = shape.strokeWidth;
 
-        // 前面（正方形）
-        ctx.beginPath();
-        ctx.rect(screenX, screenY, size, size);
-        ctx.stroke();
+          // 前面（正方形）
+          ctx.beginPath();
+          ctx.rect(screenX, screenY, size, size);
+          ctx.stroke();
 
-        // 顶面
-        ctx.beginPath();
-        ctx.moveTo(screenX, screenY);
-        ctx.lineTo(screenX + offsetX, screenY - offsetY);
-        ctx.lineTo(screenX + size + offsetX, screenY - offsetY);
-        ctx.lineTo(screenX + size, screenY);
-        ctx.closePath();
-        ctx.stroke();
+          // 顶面
+          ctx.beginPath();
+          ctx.moveTo(screenX, screenY);
+          ctx.lineTo(screenX + offsetX, screenY - offsetY);
+          ctx.lineTo(screenX + size + offsetX, screenY - offsetY);
+          ctx.lineTo(screenX + size, screenY);
+          ctx.closePath();
+          ctx.stroke();
 
-        // 右面
-        ctx.beginPath();
-        ctx.moveTo(screenX + size, screenY);
-        ctx.lineTo(screenX + size + offsetX, screenY - offsetY);
-        ctx.lineTo(screenX + size + offsetX, screenY + size - offsetY);
-        ctx.lineTo(screenX + size, screenY + size);
-        ctx.closePath();
-        ctx.stroke();
-      });
-
-      // 显示计数
-      if (showCount) {
-        ctx.fillStyle = '#333';
-        ctx.font = '14px sans-serif';
-        ctx.fillText(`体积 = ${cubes.length} 个小正方体`, baseX, baseY + gridSize * size + 30);
+          // 右面
+          ctx.beginPath();
+          ctx.moveTo(screenX + size, screenY);
+          ctx.lineTo(screenX + size + offsetX, screenY - offsetY);
+          ctx.lineTo(screenX + size + offsetX, screenY + size - offsetY);
+          ctx.lineTo(screenX + size, screenY + size);
+          ctx.closePath();
+          ctx.stroke();
+        });
       }
     } else {
-      // 原有的正方形网格绘制逻辑
-      let count = 0;
-      cells.forEach((row, rowIndex) => {
-        row.forEach((cell, colIndex) => {
-          const cellX = baseX + colIndex * cellSize;
-          const cellY = baseY + rowIndex * cellSize;
-
-          if (showGrid) {
-            ctx.strokeStyle = '#ccc';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(cellX, cellY, cellSize, cellSize);
-          }
-
-          if (cell) {
-            // 不填充，只描边
-            ctx.strokeStyle = shape.strokeColor;
-            ctx.lineWidth = 2;
-            ctx.strokeRect(cellX, cellY, cellSize, cellSize);
-            count++;
-          }
-        });
-      });
-
-      if (showCount) {
-        ctx.fillStyle = '#333';
-        ctx.font = '14px sans-serif';
-        ctx.fillText(`面积 = ${count} 个单位`, baseX, baseY + gridSize * cellSize + 20);
+      // 正方形网格：只绘制网格线，不显示面积
+      ctx.strokeStyle = shape.strokeColor;
+      ctx.lineWidth = shape.strokeWidth;
+      
+      // 绘制网格
+      for (let i = 0; i <= gridSize; i++) {
+        ctx.beginPath();
+        ctx.moveTo(baseX + i * cellSize, baseY);
+        ctx.lineTo(baseX + i * cellSize, baseY + gridSize * cellSize);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(baseX, baseY + i * cellSize);
+        ctx.lineTo(baseX + gridSize * cellSize, baseY + i * cellSize);
+        ctx.stroke();
       }
     }
 

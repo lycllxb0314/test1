@@ -129,6 +129,10 @@ export type PlaneShape = BaseShapeProps & {
   startAngle?: number;      // 起始角（扇形、弧）
   endAngle?: number;        // 终止角
   sides?: number;           // 边数（多边形）
+  // 变换属性
+  rotation?: number;        // 旋转角度（度）
+  flipX?: boolean;          // 水平翻转
+  flipY?: boolean;          // 垂直翻转
 };
 
 /** 立体图形 */
@@ -141,6 +145,7 @@ export type SolidShape = BaseShapeProps & {
   showNet: boolean;         // 显示展开图
   showDimensions: boolean;  // 显示尺寸标注
   showHiddenLines: boolean; // 显示隐藏线
+  showSideNet?: boolean;    // 显示侧面展开图（圆柱、圆锥）
   rotation: {
     x: number;
     y: number;
