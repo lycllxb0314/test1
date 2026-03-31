@@ -186,9 +186,9 @@ export class AchievementService extends BaseService {
     }
   }
 
-  async getCategories(): Promise<ServiceResult<string[]>> {
+  async getCategories(includeInactive: boolean = false): Promise<ServiceResult<any[]>> {
     try {
-      const data = await achievementRepository.findCategories();
+      const data = await achievementRepository.findAllCategories(includeInactive);
       return this.ok(data);
     } catch (error) {
       console.error('[AchievementService] getCategories error:', error);

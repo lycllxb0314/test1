@@ -116,6 +116,8 @@ export interface AnnouncementRecord {
   author_name?: string;
   department?: string;
   cover_image?: string;
+  media_level?: string;
+  summary?: string;
   is_published?: boolean;
   published_at?: string;
   status: string;
@@ -140,7 +142,8 @@ export class AnnouncementRepository extends BaseRepository<AnnouncementRecord> {
       .from(this.tableName)
       .select('*')
       .eq('status', 'published')
-      .order('published_at', { ascending: false });
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
 
     if (params.category) {
       query = query.eq('category', params.category);
