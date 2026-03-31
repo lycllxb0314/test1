@@ -114,6 +114,8 @@ import { TextbookService, createTextbookService } from '@/services/textbook.serv
 // P0 新增 Service
 import { ParentService, parentService } from '@/services/parent.service';
 import { ExpenseService, expenseService } from '@/services/expense.service';
+import { LeaveRequestService, leaveRequestService } from '@/services/leave-request.service';
+import { RoomBookingService, roomBookingService } from '@/services/room-booking.service';
 
 /**
  * 初始化 DI 容器
@@ -214,6 +216,8 @@ export function initializeDI(): void {
   // P0 新增 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.ParentService, () => parentService);
   container.registerSingleton(SERVICE_IDENTIFIERS.ExpenseService, () => expenseService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.LeaveRequestService, () => leaveRequestService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.RoomBookingService, () => roomBookingService);
 }
 
 // 导出

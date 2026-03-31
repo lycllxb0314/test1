@@ -200,6 +200,8 @@ export const SERVICE_IDENTIFIERS = {
   // P0 新增 Services
   ParentService: Symbol.for('ParentService'),
   ExpenseService: Symbol.for('ExpenseService'),
+  LeaveRequestService: Symbol.for('LeaveRequestService'),
+  RoomBookingService: Symbol.for('RoomBookingService'),
 } as const;
 
 /**

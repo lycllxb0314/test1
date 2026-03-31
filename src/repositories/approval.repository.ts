@@ -566,6 +566,312 @@ export class ApprovalRepository {
     return true;
   }
 
+  // ==================== 审批操作 ====================
+
+  /**
+   * 获取审批实例详情
+   */
+  async findInstanceById(instanceId: string): Promise<ApprovalInstanceSimple | null> {
+    const { data, error } = await this.client
+      .from('approval_instances')
+      .select('*')
+      .eq('id', instanceId)
+      .single();
+
+    if (error) {
+      console.error('[ApprovalRepository] findInstanceById error:', error.message);
+      return null;
+    }
+
+    return this.mapInstance(data as ApprovalInstanceRow);
+  }
+
+  /**
+   * 获取当前审批节点记录
+   */
+  async findCurrentNodeRecord(
+    instanceId: string,
+    nodeOrder: number
+  ): Promise<ApprovalNodeRecordSimple | null> {
+    const { data, error } = await this.client
+      .from('approval_node_records')
+      .select('*')
+      .eq('instance_id', instanceId)
+      .eq('node_order', nodeOrder)
+      .eq('status', 'pending')
+      .single();
+
+    if (error) {
+      console.error('[ApprovalRepository] findCurrentNodeRecord error:', error.message);
+      return null;
+    }
+
+    return this.mapNodeRecord(data as ApprovalNodeRecordRow);
+  }
+
+  /**
+   * 更新审批节点记录
+   */
+  async updateNodeRecord(
+    nodeRecordId: string,
+    updates: Partial<ApprovalNodeRecordSimple>
+  ): Promise<boolean> {
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.approvedBy !== undefined) updateData.approved_by = updates.approvedBy;
+    if (updates.finalApproverId !== undefined) updateData.final_approver_id = updates.finalApproverId;
+    if (updates.finalApproverName !== undefined) updateData.final_approver_name = updates.finalApproverName;
+    if (updates.action !== undefined) updateData.action = updates.action;
+    if (updates.comment !== undefined) updateData.comment = updates.comment;
+    if (updates.finishedAt !== undefined) updateData.finished_at = updates.finishedAt;
+
+    const { error } = await this.client
+      .from('approval_node_records')
+      .update(updateData)
+      .eq('id', nodeRecordId);
+
+    if (error) {
+      console.error('[ApprovalRepository] updateNodeRecord error:', error.message);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 更新审批实例状态
+   */
+  async updateInstanceStatus(
+    instanceId: string,
+    updates: {
+      status?: string;
+      currentNodeOrder?: number;
+      finishAt?: string;
+    }
+  ): Promise<boolean> {
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.currentNodeOrder !== undefined) updateData.current_node_order = updates.currentNodeOrder;
+    if (updates.finishAt !== undefined) updateData.finish_at = updates.finishAt;
+
+    const { error } = await this.client
+      .from('approval_instances')
+      .update(updateData)
+      .eq('id', instanceId);
+
+    if (error) {
+      console.error('[ApprovalRepository] updateInstanceStatus error:', error.message);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 获取下一个审批节点
+   */
+  async findNextNodeRecord(
+    instanceId: string,
+    currentOrder: number
+  ): Promise<ApprovalNodeRecordSimple | null> {
+    const { data, error } = await this.client
+      .from('approval_node_records')
+      .select('*')
+      .eq('instance_id', instanceId)
+      .gt('node_order', currentOrder)
+      .order('node_order', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error('[ApprovalRepository] findNextNodeRecord error:', error.message);
+      return null;
+    }
+
+    return this.mapNodeRecord(data as ApprovalNodeRecordRow);
+  }
+
+  /**
+   * 更新请假申请状态
+   */
+  async updateLeaveRequestStatus(
+    leaveId: string,
+    updates: {
+      status?: string;
+      approvedAt?: string;
+      rejectedAt?: string;
+      rejectReason?: string;
+      currentStep?: number;
+      adjustmentStatus?: string;
+      returnedAt?: string;
+      returnReason?: string;
+      cancelledAt?: string;
+    }
+  ): Promise<boolean> {
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.approvedAt !== undefined) updateData.approved_at = updates.approvedAt;
+    if (updates.rejectedAt !== undefined) updateData.rejected_at = updates.rejectedAt;
+    if (updates.rejectReason !== undefined) updateData.reject_reason = updates.rejectReason;
+    if (updates.currentStep !== undefined) updateData.current_step = updates.currentStep;
+    if (updates.adjustmentStatus !== undefined) updateData.adjustment_status = updates.adjustmentStatus;
+    if (updates.returnedAt !== undefined) updateData.returned_at = updates.returnedAt;
+    if (updates.returnReason !== undefined) updateData.return_reason = updates.returnReason;
+    if (updates.cancelledAt !== undefined) updateData.cancelled_at = updates.cancelledAt;
+
+    const { error } = await this.client
+      .from('leave_requests')
+      .update(updateData)
+      .eq('id', leaveId);
+
+    if (error) {
+      console.error('[ApprovalRepository] updateLeaveRequestStatus error:', error.message);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 更新教室预约状态
+   */
+  async updateRoomBookingStatus(
+    bookingId: string,
+    updates: {
+      status?: string;
+      rejectReason?: string;
+    }
+  ): Promise<boolean> {
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.rejectReason !== undefined) updateData.reject_reason = updates.rejectReason;
+
+    const { error } = await this.client
+      .from('room_bookings')
+      .update(updateData)
+      .eq('id', bookingId);
+
+    if (error) {
+      console.error('[ApprovalRepository] updateRoomBookingStatus error:', error.message);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 更新公告状态
+   */
+  async updateAnnouncementStatus(
+    announcementId: string,
+    updates: {
+      status?: string;
+      publishStatus?: string;
+      publishedAt?: string;
+    }
+  ): Promise<boolean> {
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.publishStatus !== undefined) updateData.publish_status = updates.publishStatus;
+    if (updates.publishedAt !== undefined) updateData.published_at = updates.publishedAt;
+
+    const { error } = await this.client
+      .from('announcements')
+      .update(updateData)
+      .eq('id', announcementId);
+
+    if (error) {
+      console.error('[ApprovalRepository] updateAnnouncementStatus error:', error.message);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 创建调课记录
+   */
+  async createCourseAdjustments(records: Array<{
+    leaveRequestId: string;
+    applicantId: string;
+    applicantName: string;
+    adjustType: string;
+    originalSlot: Record<string, unknown>;
+    status: string;
+    effectiveWeek: string;
+    classId?: string;
+    className?: string;
+    grade?: number;
+    weekDay?: number;
+    periodIndex?: number;
+    subject?: string;
+    reason?: string;
+    reasonType?: string;
+  }>): Promise<string[]> {
+    const insertRecords = records.map(r => ({
+      id: crypto.randomUUID(),
+      leave_request_id: r.leaveRequestId,
+      applicant_id: r.applicantId,
+      applicant_name: r.applicantName,
+      adjust_type: r.adjustType,
+      original_slot: r.originalSlot,
+      status: r.status,
+      effective_week: r.effectiveWeek,
+      class_id: r.classId,
+      class_name: r.className,
+      grade: r.grade,
+      week_day: r.weekDay,
+      period_index: r.periodIndex,
+      subject: r.subject,
+      reason: r.reason,
+      reason_type: r.reasonType,
+    }));
+
+    const { data, error } = await this.client
+      .from('course_adjustments')
+      .insert(insertRecords)
+      .select('id');
+
+    if (error) {
+      console.error('[ApprovalRepository] createCourseAdjustments error:', error.message);
+      return [];
+    }
+
+    return (data || []).map((r: { id: string }) => r.id);
+  }
+
+  /**
+   * 检查是否已有调课记录
+   */
+  async hasCourseAdjustments(leaveRequestId: string): Promise<boolean> {
+    const { count, error } = await this.client
+      .from('course_adjustments')
+      .select('id', { count: 'exact', head: true })
+      .eq('leave_request_id', leaveRequestId);
+
+    if (error) {
+      console.error('[ApprovalRepository] hasCourseAdjustments error:', error.message);
+      return false;
+    }
+
+    return (count || 0) > 0;
+  }
+
   // ==================== 流程查询 ====================
 
   /**

@@ -5,108 +5,41 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { success, error, ErrorCode } from '@/lib/api';
-
-// 类型定义
-type ApproverSelection = {
-  employeeId: string;
-  name: string;
-  signType: string;
-};
-
-type ApprovalRecord = {
-  employeeId: string;
-  userName: string;
-  action: string;
-  time: string;
-};
-
-type LeaveRequestRow = {
-  id: string;
-  applicant_id: string;
-  applicant_name: string;
-  applicant_type: string;
-  applicant_grade: number | null;
-  type: string;
-  start_date: string;
-  end_date: string;
-  start_time: string | null;
-  end_time: string | null;
-  duration: number;
-  duration_unit: string;
-  reason: string;
-  attachments: string[];
-  need_adjustment: boolean;
-  affected_slots: Record<string, unknown>[];
-  approver_selection: ApproverSelection[];
-  status: string;
-  current_step: number;
-  approved_by_list: ApprovalRecord[];
-  reject_reason: string | null;
-  created_at: string;
-  updated_at: string;
-  submitted_at: string;
-};
+import { getService } from '@/lib/di';
+import { SERVICE_IDENTIFIERS } from '@/lib/di/container';
+import type { LeaveRequestService } from '@/services/leave-request.service';
+import type { LeaveRequestRow } from '@/repositories/leave.repository';
 
 /**
  * GET - 获取待审批请假列表
  */
 export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || 'pending';
-    
-    // 构建查询
-    let query = client
-      .from('leave_requests')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
+    const status = (searchParams.get('status') || 'pending') as 'pending' | 'approved' | 'my';
 
-    if (status === 'pending') {
-      // 待审批：状态为pending，且当前用户在审批人列表中
-      query = query.eq('status', 'pending');
-    } else if (status === 'approved') {
-      // 已审批：状态为approved或rejected
-      query = query.in('status', ['approved', 'rejected']);
-    } else if (status === 'my') {
-      // 我发起的
-      query = query.eq('applicant_id', user.employeeId);
-    }
+    // 通过 DI 获取 Service
+    const leaveRequestService = getService<LeaveRequestService>(SERVICE_IDENTIFIERS.LeaveRequestService);
 
-    const { data, error: dbError, count } = await query;
+    const result = await leaveRequestService.getPendingList({
+      employeeId: user.employeeId || '',
+      status,
+    });
 
-    if (dbError) {
-      console.error('获取请假列表失败:', dbError);
-      return NextResponse.json(error('获取请假列表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-
-    // 筛选出当前用户需要审批的申请
-    let filteredData = data || [];
-    if (status === 'pending') {
-      filteredData = filteredData.filter(item => {
-        const approverSelection = (item as LeaveRequestRow).approver_selection || [];
-        return approverSelection.some((a) => a.employeeId === user.employeeId);
-      });
-    } else if (status === 'approved') {
-      // 筛选已处理的（当前用户已审批的）
-      filteredData = filteredData.filter(item => {
-        const approvedByList = (item as LeaveRequestRow).approved_by_list || [];
-        return approvedByList.some((a) => a.employeeId === user.employeeId);
-      });
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '获取请假列表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
 
     // 转换数据格式
-    const leaveRequests = filteredData.map(mapLeaveRequest);
+    const leaveRequests = (result.data || []).map(mapLeaveRequest);
 
     return NextResponse.json({
       success: true,
       data: leaveRequests,
-      total: filteredData.length,
+      total: leaveRequests.length,
     });
-
   } catch (err) {
     console.error('获取请假列表失败:', err);
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });

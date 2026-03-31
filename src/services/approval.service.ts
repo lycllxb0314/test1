@@ -635,6 +635,502 @@ export class ApprovalService extends BaseService {
 
     return [];
   }
+
+  // ==================== 审批操作服务 ====================
+
+  /**
+   * 执行审批操作
+   */
+  async executeAction(params: {
+    instanceId: string;
+    action: 'approve' | 'reject' | 'return' | 'withdraw';
+    comment?: string;
+    userId: string;
+    userName: string;
+  }): Promise<ServiceResult<{ message: string }>> {
+    const { instanceId, action, comment, userId, userName } = params;
+
+    // 1. 获取审批实例
+    const instance = await this.repository.findInstanceById(instanceId);
+    if (!instance) {
+      return this.fail('审批实例不存在', 'NOT_FOUND');
+    }
+
+    // 撤回操作特殊处理
+    if (action === 'withdraw') {
+      if (instance.applicantId !== userId) {
+        return this.fail('只有申请人可以撤回', 'FORBIDDEN');
+      }
+      return this.handleWithdraw(instance);
+    }
+
+    // 2. 获取当前审批节点记录
+    const currentNodeOrder = instance.currentNodeOrder || 1;
+    const currentNodeRecord = await this.repository.findCurrentNodeRecord(instanceId, currentNodeOrder);
+
+    if (!currentNodeRecord) {
+      return this.fail('未找到待审批的节点');
+    }
+
+    // 3. 检查权限
+    const approverIds = currentNodeRecord.approverIds || [];
+    const approvedBy = currentNodeRecord.approvedBy || [];
+    const approvedUserIds = approvedBy.map(a => a.userId);
+
+    // 教室预约审批特殊处理：approverIds 为空时，任何部门成员都可以审批
+    const isRoomBooking = instance.businessType === 'room_booking';
+    const canApprove = approverIds.length === 0
+      ? isRoomBooking
+      : approverIds.includes(userId);
+
+    if (!canApprove) {
+      return this.fail('您没有权限审批此申请', 'FORBIDDEN');
+    }
+
+    if (approvedUserIds.includes(userId)) {
+      return this.fail('您已经审批过了');
+    }
+
+    const now = new Date().toISOString();
+    const newApproval = {
+      userId,
+      userName,
+      action,
+      comment,
+      time: now,
+    };
+
+    // 4. 根据操作类型处理
+    switch (action) {
+      case 'approve':
+        return this.handleApprove(instance, currentNodeRecord, newApproval, now);
+      case 'reject':
+        return this.handleReject(instance, currentNodeRecord, newApproval, now);
+      case 'return':
+        return this.handleReturn(instance, currentNodeRecord, newApproval, now);
+      default:
+        return this.fail('无效的操作类型');
+    }
+  }
+
+  /**
+   * 处理审批通过
+   */
+  private async handleApprove(
+    instance: ApprovalInstanceSimple,
+    nodeRecord: { id: string; nodeType?: string; approverIds?: string[]; approvedBy?: Array<{ userId?: string; userName?: string; action?: string; comment?: string; time?: string }> },
+    approval: { userId: string; userName: string; action: string; comment?: string; time: string },
+    now: string
+  ): Promise<ServiceResult<{ message: string }>> {
+    const newApprovedBy = [...(nodeRecord.approvedBy || []), approval];
+
+    // 或签：任一人通过即可
+    if (nodeRecord.nodeType === 'or_sign') {
+      await this.repository.updateNodeRecord(nodeRecord.id, {
+        status: 'approved',
+        approvedBy: newApprovedBy,
+        finalApproverId: approval.userId,
+        finalApproverName: approval.userName,
+        action: 'approved',
+        comment: approval.comment,
+        finishedAt: now,
+      });
+
+      return this.moveToNextNode(instance, now);
+    }
+
+    // 会签：所有人都要通过
+    if (nodeRecord.nodeType === 'countersign') {
+      const allApproverIds = nodeRecord.approverIds || [];
+      const approvedUserIds = newApprovedBy.map(a => a.userId);
+      const allApproved = allApproverIds.every(id => approvedUserIds.includes(id));
+
+      if (allApproved) {
+        await this.repository.updateNodeRecord(nodeRecord.id, {
+          status: 'approved',
+          approvedBy: newApprovedBy,
+          action: 'approved',
+          finishedAt: now,
+        });
+
+        return this.moveToNextNode(instance, now);
+      } else {
+        // 还有人未审批
+        await this.repository.updateNodeRecord(nodeRecord.id, {
+          approvedBy: newApprovedBy,
+        });
+
+        return this.ok({ message: '审批已记录，等待其他审批人审批' });
+      }
+    }
+
+    // 单人审批
+    await this.repository.updateNodeRecord(nodeRecord.id, {
+      status: 'approved',
+      approvedBy: newApprovedBy,
+      action: 'approved',
+      comment: approval.comment,
+      finishedAt: now,
+    });
+
+    return this.moveToNextNode(instance, now);
+  }
+
+  /**
+   * 进入下一个节点或完成审批
+   */
+  private async moveToNextNode(
+    instance: ApprovalInstanceSimple,
+    now: string
+  ): Promise<ServiceResult<{ message: string }>> {
+    const currentNodeOrder = instance.currentNodeOrder || 1;
+    const nextNode = await this.repository.findNextNodeRecord(instance.id, currentNodeOrder);
+
+    if (nextNode) {
+      // 还有下一个节点
+      await this.repository.updateInstanceStatus(instance.id, {
+        currentNodeOrder: nextNode.nodeOrder,
+      });
+
+      // 发送通知给下一节点的审批人
+      if (nextNode.approverIds && nextNode.approverIds.length > 0) {
+        await this.repository.createMessages(
+          nextNode.approverIds.map(approverId => ({
+            title: `【审批待办】${instance.title}`,
+            content: `${instance.applicantName}提交的审批申请需要您审批`,
+            type: 'approval',
+            priority: 'high',
+            recipientId: approverId,
+            metadata: { instance_id: instance.id },
+          }))
+        );
+      }
+
+      return this.ok({ message: '审批通过，已进入下一审批环节' });
+    } else {
+      // 没有下一个节点，审批完成
+      return this.completeApproval(instance, now);
+    }
+  }
+
+  /**
+   * 完成审批
+   */
+  private async completeApproval(
+    instance: ApprovalInstanceSimple,
+    now: string
+  ): Promise<ServiceResult<{ message: string }>> {
+    // 更新审批实例状态
+    await this.repository.updateInstanceStatus(instance.id, {
+      status: 'approved',
+      finishAt: now,
+    });
+
+    // 根据业务类型更新对应表
+    if (instance.businessType === 'leave_request' && instance.businessId) {
+      await this.handleLeaveRequestApproval(instance, now);
+    } else if (instance.businessType === 'room_booking' && instance.businessId) {
+      await this.handleRoomBookingApproval(instance, now);
+    } else if (instance.businessId) {
+      // 默认处理公告类型
+      await this.repository.updateAnnouncementStatus(instance.businessId, {
+        status: 'published',
+        publishStatus: 'published',
+        publishedAt: now,
+      });
+    }
+
+    // 发送通知给申请人
+    await this.repository.createMessages([{
+      title: `【审批通过】${instance.title}`,
+      content: '您的审批申请已通过。',
+      type: 'approval',
+      priority: 'high',
+      recipientId: instance.applicantId,
+      metadata: { instance_id: instance.id },
+    }]);
+
+    return this.ok({ message: '审批通过' });
+  }
+
+  /**
+   * 处理请假审批通过后的逻辑
+   */
+  private async handleLeaveRequestApproval(
+    instance: ApprovalInstanceSimple,
+    now: string
+  ): Promise<void> {
+    if (!instance.businessId) return;
+
+    const metadata = instance.metadata as {
+      needAdjustment?: boolean;
+      need_adjustment?: boolean;
+      affectedSlots?: Array<{
+        teacherId?: string;
+        teacherName?: string;
+        employeeId?: string;
+        classId?: string;
+        className?: string;
+        grade?: number;
+        weekDay?: number;
+        periodIndex?: number;
+        subject?: string;
+        weekStartDate?: string;
+      }>;
+      affected_slots?: Array<{
+        teacherId?: string;
+        teacherName?: string;
+        employeeId?: string;
+        classId?: string;
+        className?: string;
+        grade?: number;
+        weekDay?: number;
+        periodIndex?: number;
+        subject?: string;
+        weekStartDate?: string;
+      }>;
+    } | undefined;
+
+    const needAdjustment = metadata?.needAdjustment || metadata?.need_adjustment;
+    const affectedSlots = metadata?.affectedSlots || metadata?.affected_slots || [];
+
+    // 更新请假申请状态
+    const updateData: { status: string; approvedAt: string; currentStep: number; adjustmentStatus?: string } = {
+      status: 'approved',
+      approvedAt: now,
+      currentStep: 2,
+    };
+
+    if (needAdjustment && affectedSlots.length > 0) {
+      updateData.adjustmentStatus = 'pending';
+    }
+
+    await this.repository.updateLeaveRequestStatus(instance.businessId, updateData);
+
+    // 如果需要调课，创建调课记录
+    if (needAdjustment && affectedSlots.length > 0) {
+      await this.createCourseAdjustmentsForLeave(instance, affectedSlots, now);
+    }
+  }
+
+  /**
+   * 创建调课记录并通知年段长
+   */
+  private async createCourseAdjustmentsForLeave(
+    instance: ApprovalInstanceSimple,
+    affectedSlots: Array<{
+      teacherId?: string;
+      teacherName?: string;
+      employeeId?: string;
+      classId?: string;
+      className?: string;
+      grade?: number;
+      weekDay?: number;
+      periodIndex?: number;
+      subject?: string;
+      weekStartDate?: string;
+    }>,
+    now: string
+  ): Promise<void> {
+    if (!instance.businessId) return;
+
+    // 检查是否已有调课记录
+    const hasExisting = await this.repository.hasCourseAdjustments(instance.businessId);
+    if (hasExisting) return;
+
+    // 创建调课记录
+    const adjustmentRecords = affectedSlots.map(slot => ({
+      leaveRequestId: instance.businessId!,
+      applicantId: instance.applicantId,
+      applicantName: instance.applicantName,
+      adjustType: 'substitute',
+      originalSlot: {
+        teacherId: slot.teacherId,
+        teacherName: slot.teacherName || instance.applicantName,
+        employeeId: slot.employeeId || instance.applicantId,
+      },
+      status: 'pending',
+      effectiveWeek: slot.weekStartDate || '',
+      classId: slot.classId,
+      className: slot.className,
+      grade: slot.grade,
+      weekDay: slot.weekDay,
+      periodIndex: slot.periodIndex,
+      subject: slot.subject,
+    }));
+
+    await this.repository.createCourseAdjustments(adjustmentRecords);
+
+    // TODO: 通知年段长
+  }
+
+  /**
+   * 处理教室预约审批通过
+   */
+  private async handleRoomBookingApproval(
+    instance: ApprovalInstanceSimple,
+    now: string
+  ): Promise<void> {
+    if (!instance.businessId) return;
+
+    await this.repository.updateRoomBookingStatus(instance.businessId, {
+      status: 'approved',
+    });
+
+    // 发送通知
+    const metadata = instance.metadata as {
+      room_name?: string;
+      booking_date?: string;
+      start_time?: string;
+      end_time?: string;
+      purpose?: string;
+    } | undefined;
+
+    await this.repository.createMessages([{
+      title: `【审批通过】${instance.title}`,
+      content: `您的教室预约申请已通过。\n\n预约详情：\n- 教室：${metadata?.room_name || '未知'}\n- 时间：${metadata?.booking_date || ''} ${metadata?.start_time || ''}-${metadata?.end_time || ''}\n- 用途：${metadata?.purpose || '未知'}`,
+      type: 'approval',
+      priority: 'high',
+      recipientId: instance.applicantId,
+      metadata: { instance_id: instance.id, booking_id: instance.businessId },
+    }]);
+  }
+
+  /**
+   * 处理驳回
+   */
+  private async handleReject(
+    instance: ApprovalInstanceSimple,
+    nodeRecord: { id: string; approvedBy?: Array<{ userId?: string; userName?: string; action?: string; comment?: string; time?: string }> },
+    approval: { userId: string; userName: string; action: string; comment?: string; time: string },
+    now: string
+  ): Promise<ServiceResult<{ message: string }>> {
+    // 更新节点记录
+    await this.repository.updateNodeRecord(nodeRecord.id, {
+      status: 'rejected',
+      approvedBy: [...(nodeRecord.approvedBy || []), approval],
+      finalApproverId: approval.userId,
+      finalApproverName: approval.userName,
+      action: 'rejected',
+      comment: approval.comment,
+      finishedAt: now,
+    });
+
+    // 更新审批实例状态
+    await this.repository.updateInstanceStatus(instance.id, {
+      status: 'rejected',
+      finishAt: now,
+    });
+
+    // 根据业务类型更新对应表
+    if (instance.businessType === 'leave_request' && instance.businessId) {
+      await this.repository.updateLeaveRequestStatus(instance.businessId, {
+        status: 'rejected',
+        rejectedAt: now,
+        rejectReason: approval.comment,
+      });
+    } else if (instance.businessType === 'room_booking' && instance.businessId) {
+      await this.repository.updateRoomBookingStatus(instance.businessId, {
+        status: 'rejected',
+        rejectReason: approval.comment,
+      });
+    } else if (instance.businessId) {
+      await this.repository.updateAnnouncementStatus(instance.businessId, {
+        status: 'rejected',
+      });
+    }
+
+    // 发送通知
+    await this.repository.createMessages([{
+      title: `【审批驳回】${instance.title}`,
+      content: `您的审批申请已被驳回。原因：${approval.comment || '无'}`,
+      type: 'approval',
+      priority: 'high',
+      recipientId: instance.applicantId,
+      metadata: { instance_id: instance.id, booking_id: instance.businessId },
+    }]);
+
+    return this.ok({ message: '已驳回' });
+  }
+
+  /**
+   * 处理退回
+   */
+  private async handleReturn(
+    instance: ApprovalInstanceSimple,
+    nodeRecord: { id: string; approvedBy?: Array<{ userId?: string; userName?: string; action?: string; comment?: string; time?: string }> },
+    approval: { userId: string; userName: string; action: string; comment?: string; time: string },
+    now: string
+  ): Promise<ServiceResult<{ message: string }>> {
+    // 更新节点记录
+    await this.repository.updateNodeRecord(nodeRecord.id, {
+      status: 'rejected',
+      approvedBy: [...(nodeRecord.approvedBy || []), approval],
+      action: 'returned',
+      comment: approval.comment,
+      finishedAt: now,
+    });
+
+    // 更新审批实例状态
+    await this.repository.updateInstanceStatus(instance.id, {
+      status: 'returned',
+      finishAt: now,
+    });
+
+    // 根据业务类型更新对应表
+    if (instance.businessType === 'leave_request' && instance.businessId) {
+      await this.repository.updateLeaveRequestStatus(instance.businessId, {
+        status: 'returned',
+        returnedAt: now,
+        returnReason: approval.comment,
+      });
+    } else if (instance.businessId) {
+      await this.repository.updateAnnouncementStatus(instance.businessId, {
+        status: 'draft',
+      });
+    }
+
+    // 发送通知
+    await this.repository.createMessages([{
+      title: `【审批退回】${instance.title}`,
+      content: `您的审批申请已被退回。原因：${approval.comment || '无'}，请修改后重新提交。`,
+      type: 'approval',
+      priority: 'high',
+      recipientId: instance.applicantId,
+      metadata: { instance_id: instance.id },
+    }]);
+
+    return this.ok({ message: '已退回' });
+  }
+
+  /**
+   * 处理撤回
+   */
+  private async handleWithdraw(
+    instance: ApprovalInstanceSimple
+  ): Promise<ServiceResult<{ message: string }>> {
+    const now = new Date().toISOString();
+
+    // 更新审批实例状态
+    await this.repository.updateInstanceStatus(instance.id, {
+      status: 'withdrawn',
+      finishAt: now,
+    });
+
+    // 根据业务类型更新对应表
+    if (instance.businessType === 'leave_request' && instance.businessId) {
+      await this.repository.updateLeaveRequestStatus(instance.businessId, {
+        status: 'cancelled',
+        cancelledAt: now,
+      });
+    } else if (instance.businessId) {
+      await this.repository.updateAnnouncementStatus(instance.businessId, {
+        status: 'draft',
+      });
+    }
+
+    return this.ok({ message: '已撤回' });
+  }
 }
 
 // 导出单例

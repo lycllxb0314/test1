@@ -8,56 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { success, error, ErrorCode } from '@/lib/api';
-
-// 类型定义
-type ApproverSelection = {
-  employeeId: string;
-  name: string;
-  signType: string;
-};
-
-type ApprovalRecord = {
-  employeeId: string;
-  userName: string;
-  action: string;
-  time: string;
-};
-
-type AffectedSlot = {
-  classId: string;
-  className: string;
-  grade: number;
-  weekDay: number;
-  periodIndex: number;
-  subject: string;
-  teacherId: string;
-  teacherName: string;
-  employeeId: string;
-  weekStartDate?: string;
-};
-
-type LeaveRequestRow = {
-  id: string;
-  applicant_id: string;
-  applicant_name: string;
-  applicant_grade: number | null;
-  type: string;
-  start_date: string;
-  end_date: string;
-  reason: string;
-  need_adjustment: boolean;
-  affected_slots: AffectedSlot[];
-  approver_selection: ApproverSelection[];
-  status: string;
-  approved_by_list: ApprovalRecord[] | null;
-};
-
-type CourseAdjustmentRow = {
-  id: string;
-};
+import { getService } from '@/lib/di';
+import { SERVICE_IDENTIFIERS } from '@/lib/di/container';
+import type { LeaveRequestService } from '@/services/leave-request.service';
 
 /**
  * POST - 审批请假申请
@@ -67,344 +22,40 @@ export const POST = protectedRoute(async (
   context: ExtendedRouteContext
 ) => {
   try {
-    const client = getSupabaseClient();
     const params = await context.params;
     if (!params?.id) {
       return NextResponse.json(error('缺少请假申请ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
-    const leaveRequestId = params.id;
+
     const { user } = context;
     const body = await request.json();
     const { action, rejectReason } = body;
 
-    // 验证操作类型
-    if (!['approve', 'reject'].includes(action)) {
-      return NextResponse.json(error('无效的操作类型', ErrorCode.VALIDATION_ERROR), { status: 400 });
-    }
+    // 通过 DI 获取 Service
+    const leaveRequestService = getService<LeaveRequestService>(SERVICE_IDENTIFIERS.LeaveRequestService);
 
-    // 获取请假申请
-    const { data: leaveRequest, error: fetchError } = await client
-      .from('leave_requests')
-      .select('*')
-      .eq('id', leaveRequestId)
-      .single();
-
-    if (fetchError || !leaveRequest) {
-      return NextResponse.json(error('请假申请不存在', ErrorCode.NOT_FOUND), { status: 404 });
-    }
-
-    // 检查状态
-    if (leaveRequest.status !== 'pending') {
-      return NextResponse.json(error('该请假申请已处理', ErrorCode.VALIDATION_ERROR), { status: 400 });
-    }
-
-    // 检查当前用户是否为审批人
-    const approverSelection = (leaveRequest as LeaveRequestRow).approver_selection || [];
-    const isApprover = approverSelection.some((a) => a.employeeId === user.employeeId);
-    
-    if (!isApprover) {
-      return NextResponse.json(error('您不是该请假申请的审批人', ErrorCode.FORBIDDEN), { status: 403 });
-    }
-
-    const now = new Date().toISOString();
-    
-    // 获取申请人UUID（用于发送消息）
-    const { data: applicantUser } = await client
-      .from('users')
-      .select('id')
-      .eq('employee_id', leaveRequest.applicant_id)
-      .single();
-    
-    // 当前用户UUID
-    const approverUUID = user.id;
-
-    if (action === 'reject') {
-      // 驳回
-      const { error: updateError } = await client
-        .from('leave_requests')
-        .update({
-          status: 'rejected',
-          reject_reason: rejectReason || '审批驳回',
-          approved_by: user.employeeId,
-          approved_at: now,
-          updated_at: now,
-        })
-        .eq('id', leaveRequestId);
-
-      if (updateError) {
-        console.error('驳回失败:', updateError);
-        return NextResponse.json(error('驳回失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-      }
-
-      // 通知申请人
-      if (applicantUser) {
-        await client.from('messages').insert({
-          title: `【已驳回】请假申请`,
-          content: `您的${leaveRequest.type}申请已被${user.name}驳回。${rejectReason ? `原因：${rejectReason}` : ''}`,
-          type: 'leave_rejected',
-          priority: 'high',
-          sender_id: approverUUID,
-          sender_name: user.name,
-          recipient_id: applicantUser.id,
-          recipient_type: 'individual',
-          metadata: { leaveRequestId, action: 'rejected' },
-          created_at: now,
-        });
-      }
-
-      return NextResponse.json(success({ status: 'rejected' }, 'database'));
-    }
-
-    // 审批通过
-    // 检查签批方式
-    const signType = approverSelection[0]?.signType || 'countersign';
-    const allApprovers = approverSelection.map((a) => a.employeeId);
-    
-    // 获取已审批记录
-    let approvedByList: ApprovalRecord[] = (leaveRequest as LeaveRequestRow).approved_by_list || [];
-    if (!Array.isArray(approvedByList)) {
-      approvedByList = [];
-    }
-
-    // 添加当前审批记录
-    approvedByList.push({
-      employeeId: user.employeeId || '',
-      userName: user.name,
-      action: 'approved',
-      time: now,
+    const result = await leaveRequestService.approve({
+      leaveRequestId: params.id as string,
+      action,
+      rejectReason,
+      user: {
+        id: user.id,
+        employeeId: user.employeeId || '',
+        name: user.name,
+        role: user.role,
+      },
     });
 
-    // 判断是否所有审批人都已同意（会签）或任一审批人同意（或签）
-    const approvedEmployeeIds = approvedByList.map((a) => a.employeeId);
-    let isFullyApproved = false;
-
-    if (signType === 'parallel') {
-      // 或签：任一审批人同意即可
-      isFullyApproved = true;
-    } else {
-      // 会签：所有审批人都需同意
-      isFullyApproved = allApprovers.every((id: string) => approvedEmployeeIds.includes(id));
+    if (!result.success) {
+      const statusCode = result.code === 'NOT_FOUND' ? 404 :
+                         result.code === 'FORBIDDEN' ? 403 :
+                         result.code === 'VALIDATION_ERROR' ? 400 : 500;
+      return NextResponse.json(error(result.error || '操作失败', result.code as ErrorCode || ErrorCode.INTERNAL_ERROR), { status: statusCode });
     }
 
-    if (!isFullyApproved) {
-      // 还需要其他审批人审批，只记录当前审批
-      const { error: updateError } = await client
-        .from('leave_requests')
-        .update({
-          approved_by_list: approvedByList,
-          updated_at: now,
-        })
-        .eq('id', leaveRequestId);
-
-      if (updateError) {
-        console.error('更新审批记录失败:', updateError);
-        return NextResponse.json(error('更新审批记录失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-      }
-
-      // 通知申请人当前进度
-      if (applicantUser) {
-        await client.from('messages').insert({
-          title: `【审批中】请假申请进度更新`,
-          content: `${user.name}已同意您的${leaveRequest.type}申请，等待其他审批人审批。`,
-          type: 'leave_approval',
-          priority: 'normal',
-          sender_id: approverUUID,
-          sender_name: user.name,
-          recipient_id: applicantUser.id,
-          recipient_type: 'individual',
-          metadata: { leaveRequestId, action: 'approving' },
-          created_at: now,
-        });
-      }
-
-      return NextResponse.json(success({ 
-        status: 'pending', 
-        approvedBy: approvedByList,
-        message: '审批已记录，等待其他审批人审批' 
-      }, 'database'));
-    }
-
-    // 所有审批人都已同意，更新状态为已批准
-    const { error: updateError } = await client
-      .from('leave_requests')
-      .update({
-        status: 'approved',
-        approved_by: user.employeeId,
-        approved_at: now,
-        approved_by_list: approvedByList,
-        current_step: 2, // 进入调课阶段
-        updated_at: now,
-      })
-      .eq('id', leaveRequestId);
-
-    if (updateError) {
-      console.error('审批失败:', updateError);
-      return NextResponse.json(error('审批失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-
-    // === 审批通过后，触发后续流程 ===
-    
-    // 1. 通知申请人审批通过
-    if (applicantUser) {
-      await client.from('messages').insert({
-        title: `【已通过】请假申请`,
-        content: `您的${leaveRequest.type}申请（${leaveRequest.start_date}至${leaveRequest.end_date}）已审批通过。`,
-        type: 'leave_approved',
-        priority: 'high',
-        sender_id: approverUUID,
-        sender_name: user.name,
-        recipient_id: applicantUser.id,
-        recipient_type: 'individual',
-        metadata: { leaveRequestId, action: 'approved' },
-        created_at: now,
-      });
-    }
-
-    // 2. 如果需要调课，创建调课任务并通知年段长
-    if ((leaveRequest as LeaveRequestRow).need_adjustment && (leaveRequest as LeaveRequestRow).affected_slots?.length > 0) {
-      const affectedSlots = (leaveRequest as LeaveRequestRow).affected_slots;
-      
-      // 获取申请人年级
-      const applicantGrade = leaveRequest.applicant_grade;
-      
-      // 查找对应年级的年段长（兼任角色）
-      let gradeLeaderUUID = null;
-      let gradeLeaderName = null;
-      
-      if (applicantGrade) {
-        // 从 users 表查找 additional_roles 包含 'grade_leader' 且 managed_grades 包含该年级的用户
-        const { data: gradeLeaders } = await client
-          .from('users')
-          .select('id, employee_id, name')
-          .contains('additional_roles', ['grade_leader'])
-          .contains('managed_grades', [applicantGrade]);
-        
-        if (gradeLeaders && gradeLeaders.length > 0) {
-          gradeLeaderUUID = gradeLeaders[0].id;
-          gradeLeaderName = gradeLeaders[0].name;
-        }
-      }
-
-      // 如果没找到年级对应的年段长，查找所有年段长
-      if (!gradeLeaderUUID) {
-        const { data: allGradeLeaders } = await client
-          .from('users')
-          .select('id, employee_id, name')
-          .contains('additional_roles', ['grade_leader']);
-        
-        if (allGradeLeaders && allGradeLeaders.length > 0) {
-          gradeLeaderUUID = allGradeLeaders[0].id;
-          gradeLeaderName = allGradeLeaders[0].name;
-        }
-      }
-
-      // 如果还是没有年段长，通知教务处
-      if (!gradeLeaderUUID) {
-        const { data: academicStaff } = await client
-          .from('users')
-          .select('id, employee_id, name')
-          .eq('role', 'academic_vice_principal')
-          .limit(1);
-        
-        if (academicStaff && academicStaff.length > 0) {
-          gradeLeaderUUID = academicStaff[0].id;
-          gradeLeaderName = academicStaff[0].name;
-        }
-      }
-
-      // 创建调课记录
-      const adjustmentRecords = affectedSlots.map((slot) => ({
-        leave_request_id: leaveRequestId,
-        applicant_id: leaveRequest.applicant_id,
-        applicant_name: leaveRequest.applicant_name,
-        adjust_type: 'substitute',
-        status: 'pending',
-        effective_week: slot.weekStartDate || getWeekMonday(new Date(leaveRequest.start_date)),
-        class_id: slot.classId,
-        class_name: slot.className,
-        grade: slot.grade,
-        week_day: slot.weekDay,
-        period_index: slot.periodIndex,
-        subject: slot.subject,
-        original_slot: {
-          teacherId: slot.teacherId,
-          teacherName: slot.teacherName,
-          employeeId: slot.employeeId,
-        },
-        reason: leaveRequest.reason,
-        reason_type: mapLeaveTypeToReasonType(leaveRequest.type),
-      }));
-
-      const { data: insertedAdjustments, error: adjustError } = await client
-        .from('course_adjustments')
-        .insert(adjustmentRecords)
-        .select();
-
-      if (adjustError) {
-        console.error('创建调课记录失败:', adjustError);
-      } else if (gradeLeaderUUID) {
-        // 更新请假申请的调课状态
-        await client
-          .from('leave_requests')
-          .update({
-            adjustment_status: 'pending',
-            updated_at: now,
-          })
-          .eq('id', leaveRequestId);
-
-        // 发送消息通知年段长
-        await client.from('messages').insert({
-          title: `【调课任务】${leaveRequest.applicant_name}请假调课`,
-          content: `${leaveRequest.applicant_name}的${leaveRequest.type}申请已审批通过，需安排${affectedSlots.length}节课的代课教师。请及时处理。`,
-          type: 'course_adjustment',
-          priority: 'high',
-          sender_id: null, // 系统消息
-          sender_name: '系统通知',
-          recipient_id: gradeLeaderUUID,
-          recipient_type: 'individual',
-          metadata: {
-            leaveRequestId,
-            adjustmentIds: (insertedAdjustments as CourseAdjustmentRow[])?.map((a) => a.id),
-            affectedSlotsCount: affectedSlots.length,
-          },
-          created_at: now,
-        });
-      }
-    }
-
-    return NextResponse.json(success({ 
-      status: 'approved',
-      message: '审批通过' 
-    }, 'database'));
-
+    return NextResponse.json(success(result.data, 'database'));
   } catch (err) {
     console.error('审批失败:', err);
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });
-
-/**
- * 将中文请假类型映射为数据库约束允许的英文值
- */
-function mapLeaveTypeToReasonType(leaveType: string): string {
-  const typeMap: Record<string, string> = {
-    '病假': 'leave',
-    '事假': 'personal',
-    '公假': 'training',
-    '婚假': 'personal',
-    '产假': 'leave',
-    '丧假': 'personal',
-  };
-  return typeMap[leaveType] || 'other';
-}
-
-/**
- * 辅助函数：获取周一日期
- */
-function getWeekMonday(date: Date): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  return d.toISOString().split('T')[0];
-}
