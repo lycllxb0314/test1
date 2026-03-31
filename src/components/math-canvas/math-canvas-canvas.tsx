@@ -259,7 +259,6 @@ export function MathCanvas({
     ctx.save();
     ctx.strokeStyle = shape.strokeColor;
     ctx.lineWidth = shape.strokeWidth;
-    ctx.fillStyle = shape.fillColor;
     ctx.globalAlpha = shape.opacity;
 
     const { type, points, radius = 0, startAngle = 0, endAngle = Math.PI * 2, sides = 3 } = shape;
@@ -396,9 +395,7 @@ export function MathCanvas({
         break;
     }
 
-    if (shape.fillMode !== 'none' && shape.type !== 'line' && shape.type !== 'ray') {
-      ctx.fill();
-    }
+    // 平面图形不填充，只描边
     ctx.stroke();
     ctx.restore();
   }, []);
@@ -538,37 +535,104 @@ export function MathCanvas({
   // 绘制组合图形
   const drawCompositeShape = useCallback((ctx: CanvasRenderingContext2D, shape: CompositeShape) => {
     ctx.save();
-    const { gridSize, cellSize, cells, showGrid, showCount } = shape;
+    const { gridSize, cellSize, cells, showGrid, showCount, cubes, cubeSize } = shape;
+    const baseX = shape.points[0]?.x || 0;
+    const baseY = shape.points[0]?.y || 0;
+    const size = cubeSize || cellSize || 40;
 
-    let count = 0;
-    cells.forEach((row, rowIndex) => {
-      row.forEach((cell, colIndex) => {
-        const x = shape.points[0]?.x || 0;
-        const y = shape.points[0]?.y || 0;
-        const cellX = x + colIndex * cellSize;
-        const cellY = y + rowIndex * cellSize;
-
-        if (showGrid) {
-          ctx.strokeStyle = '#ccc';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+    // 如果是正方体组合（搭积木功能），绘制3D积木块
+    if (shape.type === 'cubeGrid' && cubes && cubes.length > 0) {
+      // 绘制底板网格
+      if (showGrid) {
+        ctx.strokeStyle = '#ccc';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= gridSize; i++) {
+          ctx.beginPath();
+          ctx.moveTo(baseX + i * size, baseY);
+          ctx.lineTo(baseX + i * size, baseY + gridSize * size);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(baseX, baseY + i * size);
+          ctx.lineTo(baseX + gridSize * size, baseY + i * size);
+          ctx.stroke();
         }
+      }
 
-        if (cell) {
-          ctx.fillStyle = shape.fillColor;
-          ctx.fillRect(cellX, cellY, cellSize, cellSize);
-          ctx.strokeStyle = shape.strokeColor;
-          ctx.lineWidth = 2;
-          ctx.strokeRect(cellX, cellY, cellSize, cellSize);
-          count++;
-        }
+      // 按照层级排序绘制积木块（从下到上）
+      const sortedCubes = [...cubes].sort((a, b) => a.z - b.z);
+      
+      // 等轴测投影参数
+      const offsetX = size * 0.4;  // X方向偏移（用于3D效果）
+      const offsetY = size * 0.3;  // Y方向偏移（用于3D效果）
+
+      sortedCubes.forEach((cube) => {
+        // 计算积木块的屏幕位置（等轴测投影）
+        const screenX = baseX + cube.x * size + (cube.z * offsetX);
+        const screenY = baseY + cube.y * size - (cube.z * offsetY);
+
+        // 绘制小正方体的三个可见面
+        ctx.strokeStyle = shape.strokeColor;
+        ctx.lineWidth = shape.strokeWidth;
+
+        // 前面（正方形）
+        ctx.beginPath();
+        ctx.rect(screenX, screenY, size, size);
+        ctx.stroke();
+
+        // 顶面
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(screenX + offsetX, screenY - offsetY);
+        ctx.lineTo(screenX + size + offsetX, screenY - offsetY);
+        ctx.lineTo(screenX + size, screenY);
+        ctx.closePath();
+        ctx.stroke();
+
+        // 右面
+        ctx.beginPath();
+        ctx.moveTo(screenX + size, screenY);
+        ctx.lineTo(screenX + size + offsetX, screenY - offsetY);
+        ctx.lineTo(screenX + size + offsetX, screenY + size - offsetY);
+        ctx.lineTo(screenX + size, screenY + size);
+        ctx.closePath();
+        ctx.stroke();
       });
-    });
 
-    if (showCount) {
-      ctx.fillStyle = '#333';
-      ctx.font = '14px sans-serif';
-      ctx.fillText(`面积 = ${count} 个单位`, shape.points[0]?.x || 0, (shape.points[0]?.y || 0) + gridSize * cellSize + 20);
+      // 显示计数
+      if (showCount) {
+        ctx.fillStyle = '#333';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`体积 = ${cubes.length} 个小正方体`, baseX, baseY + gridSize * size + 30);
+      }
+    } else {
+      // 原有的正方形网格绘制逻辑
+      let count = 0;
+      cells.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+          const cellX = baseX + colIndex * cellSize;
+          const cellY = baseY + rowIndex * cellSize;
+
+          if (showGrid) {
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+          }
+
+          if (cell) {
+            // 不填充，只描边
+            ctx.strokeStyle = shape.strokeColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+            count++;
+          }
+        });
+      });
+
+      if (showCount) {
+        ctx.fillStyle = '#333';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`面积 = ${count} 个单位`, baseX, baseY + gridSize * cellSize + 20);
+      }
     }
 
     ctx.restore();
@@ -1192,8 +1256,8 @@ export function MathCanvas({
       for (let i = state.elements.length - 1; i >= 0; i--) {
         const element = state.elements[i];
         if (isPointInElement(point, element)) {
-          // 检查是否点击了组合图形的单元格
-          if (element.type === 'squareGrid' || element.type === 'cubeGrid') {
+          // 检查是否点击了正方形网格的单元格
+          if (element.type === 'squareGrid') {
             const gridElement = element as CompositeShape;
             const startX = gridElement.points[0]?.x || 0;
             const startY = gridElement.points[0]?.y || 0;
@@ -1215,6 +1279,51 @@ export function MathCanvas({
               // 更新元素
               const updatedElements = state.elements.map((el) =>
                 el.id === element.id ? { ...el, cells: newCells } : el
+              );
+              onChange?.({ ...state, elements: updatedElements });
+              return;
+            }
+          }
+          
+          // 检查是否点击了正方体组合（搭积木功能）
+          if (element.type === 'cubeGrid') {
+            const gridElement = element as CompositeShape;
+            const startX = gridElement.points[0]?.x || 0;
+            const startY = gridElement.points[0]?.y || 0;
+            const cubeSize = gridElement.cubeSize || gridElement.cellSize || 40;
+            
+            // 计算点击的网格位置
+            const cellX = Math.floor((point.x - startX) / cubeSize);
+            const cellY = Math.floor((point.y - startY) / cubeSize);
+            
+            if (cellX >= 0 && cellX < gridElement.gridSize && 
+                cellY >= 0 && cellY < gridElement.gridSize) {
+              // 获取当前的积木块列表
+              const cubes = gridElement.cubes || [];
+              
+              // 查找该位置的积木块
+              const cubesAtPosition = cubes.filter(c => c.x === cellX && c.y === cellY);
+              const maxZ = cubesAtPosition.length > 0 ? Math.max(...cubesAtPosition.map(c => c.z)) : -1;
+              
+              // 检查是否点击了已有积木块的顶部（需要删除）
+              // 或者点击空白位置（需要添加）
+              let newCubes: Array<{ x: number; y: number; z: number }>;
+              
+              if (e.shiftKey) {
+                // Shift + 点击：删除该位置最高层的积木块
+                if (maxZ >= 0) {
+                  newCubes = cubes.filter(c => !(c.x === cellX && c.y === cellY && c.z === maxZ));
+                } else {
+                  newCubes = cubes;
+                }
+              } else {
+                // 普通点击：在最高层上方添加新积木块
+                newCubes = [...cubes, { x: cellX, y: cellY, z: maxZ + 1 }];
+              }
+              
+              // 更新元素
+              const updatedElements = state.elements.map((el) =>
+                el.id === element.id ? { ...el, cubes: newCubes } : el
               );
               onChange?.({ ...state, elements: updatedElements });
               return;
@@ -1682,21 +1791,24 @@ export function MathCanvas({
         visible: true,
       };
     } else if (tool === 'cubeGrid') {
-      const size = 3;
+      const size = 5;
       newElement = {
         id,
         type: 'cubeGrid',
         gridSize: size,
         cellSize: 40,
-        cells: Array(size).fill(null).map(() => Array(size).fill(true)),
+        cells: Array(size).fill(null).map(() => Array(size).fill(false)),
         showGrid: true,
         showCount: true,
+        // 搭积木功能：初始为空，用户点击添加积木块
+        cubes: [],
+        cubeSize: 40,
         points: [startPoint],
         strokeColor: state.activeColor,
         strokeWidth: state.activeStrokeWidth,
         strokeStyle: 'solid',
-        fillColor: `${state.activeColor}30`,
-        fillMode: 'solid',
+        fillColor: 'transparent',
+        fillMode: 'none',
         opacity: 1,
         locked: false,
         visible: true,

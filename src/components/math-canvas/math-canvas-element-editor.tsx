@@ -190,7 +190,7 @@ function NumberLineEditor({
   element: NumberLineShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const { start, end, step } = element;
+  const { start, end, step, showLabels, showTicks } = element;
 
   const updateNumberLine = (field: 'start' | 'end' | 'step', value: number) => {
     const newStart = field === 'start' ? value : start;
@@ -237,6 +237,25 @@ function NumberLineEditor({
           />
         </div>
       </div>
+      <Separator />
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示数值标签</Label>
+          <input
+            type="checkbox"
+            checked={showLabels}
+            onChange={(e) => onUpdate({ ...element, showLabels: e.target.checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示刻度线</Label>
+          <input
+            type="checkbox"
+            checked={showTicks}
+            onChange={(e) => onUpdate({ ...element, showTicks: e.target.checked })}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -249,7 +268,7 @@ function SegmentDiagramEditor({
   element: SegmentDiagramShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const { segments } = element;
+  const { segments, showLabels, showValues, showBraces } = element;
 
   const updateSegment = (index: number, field: string, value: string | number) => {
     const newSegments = [...segments];
@@ -327,6 +346,33 @@ function SegmentDiagramEditor({
           </div>
         </div>
       ))}
+      <Separator />
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示标签</Label>
+          <input
+            type="checkbox"
+            checked={showLabels}
+            onChange={(e) => onUpdate({ ...element, showLabels: e.target.checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示数值</Label>
+          <input
+            type="checkbox"
+            checked={showValues}
+            onChange={(e) => onUpdate({ ...element, showValues: e.target.checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示大括号</Label>
+          <input
+            type="checkbox"
+            checked={showBraces}
+            onChange={(e) => onUpdate({ ...element, showBraces: e.target.checked })}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -339,7 +385,7 @@ function ChartEditor({
   element: ChartShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const { title, data } = element;
+  const { title, data, showValues, showLegend, showAxis } = element;
 
   const updateDataItem = (index: number, field: string, value: string | number) => {
     const newData = [...data];
@@ -418,6 +464,33 @@ function ChartEditor({
           </div>
         </div>
       ))}
+      <Separator />
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示数值</Label>
+          <input
+            type="checkbox"
+            checked={showValues}
+            onChange={(e) => onUpdate({ ...element, showValues: e.target.checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示图例</Label>
+          <input
+            type="checkbox"
+            checked={showLegend}
+            onChange={(e) => onUpdate({ ...element, showLegend: e.target.checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">显示坐标轴</Label>
+          <input
+            type="checkbox"
+            checked={showAxis}
+            onChange={(e) => onUpdate({ ...element, showAxis: e.target.checked })}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -430,7 +503,8 @@ function GridEditor({
   element: CompositeShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const { gridSize, cellSize } = element;
+  const { gridSize, cellSize, cubes, cubeSize } = element;
+  const isCubeGrid = element.type === 'cubeGrid';
 
   const updateGrid = (newGridSize: number, newCellSize: number) => {
     // 重新生成单元格数组
@@ -444,11 +518,15 @@ function GridEditor({
             if (element.cells && element.cells[rowIndex] && element.cells[rowIndex][colIndex] !== undefined) {
               return element.cells[rowIndex][colIndex];
             }
-            return true;
+            return false;
           })
       );
     
     onUpdate({ ...element, gridSize: newGridSize, cellSize: newCellSize, cells: newCells });
+  };
+
+  const clearCubes = () => {
+    onUpdate({ ...element, cubes: [] });
   };
 
   return (
@@ -464,18 +542,37 @@ function GridEditor({
         />
       </div>
       <div className="space-y-2">
-        <Label className="text-xs">单元格大小: {cellSize}px</Label>
+        <Label className="text-xs">{isCubeGrid ? '正方体大小' : '单元格大小'}: {isCubeGrid ? (cubeSize || cellSize) : cellSize}px</Label>
         <Slider
-          value={[cellSize]}
+          value={[isCubeGrid ? (cubeSize || cellSize) : cellSize]}
           min={20}
           max={60}
           step={5}
-          onValueChange={(v) => updateGrid(gridSize, v[0])}
+          onValueChange={(v) => onUpdate({ ...element, [isCubeGrid ? 'cubeSize' : 'cellSize']: v[0], cellSize: v[0] })}
         />
       </div>
-      <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-        💡 使用"选择"工具点击单元格可切换激活状态
-      </div>
+      
+      {isCubeGrid && (
+        <>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">小正方体数量: {(cubes || []).length}</Label>
+            <Button variant="outline" size="sm" onClick={clearCubes}>
+              清空
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground p-2 bg-muted rounded space-y-1">
+            <p>🧱 搭积木操作：</p>
+            <p>• 点击网格位置：向上堆叠正方体</p>
+            <p>• Shift + 点击：删除最上层正方体</p>
+          </div>
+        </>
+      )}
+      
+      {!isCubeGrid && (
+        <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+          💡 使用"选择"工具点击单元格可切换激活状态
+        </div>
+      )}
     </div>
   );
 }

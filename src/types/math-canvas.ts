@@ -148,15 +148,25 @@ export type SolidShape = BaseShapeProps & {
   };
 };
 
+/** 3D 积木块位置 */
+export type CubePosition = {
+  x: number;  // 列位置
+  y: number;  // 行位置（2D视图中的垂直方向）
+  z: number;  // 层数（高度）
+};
+
 /** 组合图形 */
 export type CompositeShape = BaseShapeProps & {
   type: CompositeShapeType;
   points: Point[];          // 起始位置
   gridSize: number;         // 网格大小（如 3x3）
   cellSize: number;         // 单元格大小
-  cells: boolean[][];       // 激活的单元格（用于计算面积/体积）
+  cells: boolean[][];       // 激活的单元格（用于计算面积）
   showGrid: boolean;
   showCount: boolean;       // 显示计数
+  // 新增：3D 积木块数据（用于搭积木功能）
+  cubes?: CubePosition[];   // 积木块位置列表
+  cubeSize?: number;        // 小正方体大小
 };
 
 /** 数轴 */
