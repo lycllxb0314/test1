@@ -926,9 +926,10 @@ export class ApprovalRepository {
   }
 
   /**
-   * 获取群组成员
+   * 获取群组成员（返回用户 UUID）
    */
   async getGroupMembers(groupType: string): Promise<string[]> {
+    // group_members.user_id 存的是工号，需要关联 users 表获取 UUID
     const { data, error } = await this.client
       .from('group_members')
       .select('user_id')
@@ -939,7 +940,21 @@ export class ApprovalRepository {
       return [];
     }
 
-    return (data || []).map(m => m.user_id).filter(Boolean);
+    const employeeIds = (data || []).map(m => m.user_id).filter(Boolean);
+    if (!employeeIds.length) return [];
+
+    // 通过 employee_id 查询用户 UUID
+    const { data: users, error: userError } = await this.client
+      .from('users')
+      .select('id')
+      .in('employee_id', employeeIds);
+
+    if (userError) {
+      console.error('[ApprovalRepository] getGroupMembers user query error:', userError.message);
+      return [];
+    }
+
+    return (users || []).map(u => u.id).filter(Boolean);
   }
 
   // ==================== 工具方法 ====================

@@ -586,14 +586,21 @@ export class ApprovalService extends BaseService {
     content: string,
     department?: string
   ): Promise<void> {
+    console.log('[sendNotifications] Starting with:', { authorId, title, department });
+    
     const { data: users } = await this.client
       .from('users')
       .select('id')
       .neq('id', authorId);
 
-    if (!users?.length) return;
+    if (!users?.length) {
+      console.log('[sendNotifications] No users found');
+      return;
+    }
 
-    await this.repository.createMessages(
+    console.log('[sendNotifications] Sending to', users.length, 'users');
+    
+    const result = await this.repository.createMessages(
       users.map(u => ({
         title: `【新公告】${title}`,
         content: content.substring(0, 200),
@@ -604,6 +611,8 @@ export class ApprovalService extends BaseService {
         recipientId: u.id,
       }))
     );
+    
+    console.log('[sendNotifications] Result:', result);
   }
 
   /**
