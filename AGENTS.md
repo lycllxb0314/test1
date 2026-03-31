@@ -636,15 +636,17 @@ const safeHtml = DOMPurify.sanitize(userInput);
   - 修复学生列表 parents 字段未正确解析问题：在 `student.repository.ts` 中添加 parents 字段映射和类型转换
   - 修复班级管理家长信息未加载问题：确保 API 返回 parents 数组数据
   - **修复教师管理界面任教班级信息缺失问题**：
-    - 根本原因：班级表 `head_teacher_id`/`sub_teacher_id` 使用旧格式（t008），与用户表 UUID 不匹配
-    - 解决方案：更新班级表，将 `head_teacher_id` 和 `sub_teacher_id` 替换为用户表的真实 UUID（通过姓名匹配）
-    - API 层改进：在 `teachers/route.ts` 中添加班级信息关联查询，返回 `isHeadTeacher`、`headTeacherClassId`、`headTeacherClassName`、`subTeacherClasses` 字段
-    - classes API 改进：添加 `subjectTeachers` 字段返回
+    - 根本原因：班级表 `head_teacher_id`/`sub_teacher_id` 与用户表 ID 格式不匹配
+    - 解决方案：使用工号（employee_id）作为关联键
+      - 更新班级表 `head_teacher_id` 和 `sub_teacher_id` 为对应用户的工号（ly0008 格式）
+      - API 层使用工号匹配教师和班级关系
+    - 优点：工号是业务层唯一标识，支持班主任、科任教师、技能课教师等所有角色
+    - API 层改进：`teachers/route.ts` 使用 `employee_id` 查找班级信息
   - 关键修改文件：
     - `src/repositories/student.repository.ts` - findWithClass 方法添加 parents 字段
-    - `src/app/api/teachers/route.ts` - 添加班级信息关联查询
+    - `src/app/api/teachers/route.ts` - 使用工号关联班级信息
     - `src/app/api/classes/route.ts` - 添加 subjectTeachers 字段返回
-    - 数据库：更新 classes 表的 head_teacher_id 和 sub_teacher_id 为用户表真实 UUID
+    - 数据库：更新 classes 表的 head_teacher_id 和 sub_teacher_id 为用户工号
 - 2026-03-31: 实现教研活动资源库与备课中心资源库双向联动
   - 新增 `/api/teaching-resources/copy-from-research` 接口，支持从教研活动复制资源到备课中心
   - 新增 `/api/teaching-resources/upload` 接口，支持上传教案、课件、视频等文件资源

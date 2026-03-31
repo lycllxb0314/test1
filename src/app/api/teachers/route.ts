@@ -111,14 +111,18 @@ export const GET = withAuth(async (request: NextRequest) => {
     const formattedData = (result.data || []).map(t => {
       const item = t as unknown as Record<string, unknown>;
       const subjects = item.subjects as string[] | undefined;
-      const teacherId = item.id as string;
-      const classInfo = teacherClassMap.get(teacherId) || {
+      const employeeId = (item.employee_id || item.employeeId) as string;
+      // 使用工号查找班级信息
+      const classInfo = employeeId ? teacherClassMap.get(employeeId) || {
+        isHeadTeacher: false,
+        subTeacherClasses: [],
+      } : {
         isHeadTeacher: false,
         subTeacherClasses: [],
       };
       
       return {
-        id: teacherId,
+        id: item.id,
         name: item.name,
         gender: item.gender,
         subject: item.primary_subject || subjects?.[0] || '语文',
@@ -128,7 +132,7 @@ export const GET = withAuth(async (request: NextRequest) => {
         email: item.email || '',
         status: item.status || 'active',
         avatar: item.avatar,
-        employeeId: item.employee_id || item.employeeId,
+        employeeId: employeeId,
         primaryRole: item.role,
         additionalRoles: item.administrative_roles || item.additionalRoles || [],
         primarySubject: item.primary_subject,
