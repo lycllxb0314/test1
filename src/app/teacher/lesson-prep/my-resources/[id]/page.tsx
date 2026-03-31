@@ -1558,7 +1558,11 @@ export default function ResourceDetailPage() {
         {resource.category !== 'chinese_character' && 
          resource.category !== 'chinese_reading' && 
          resource.category !== 'chinese_writing' && 
-         resource.category !== 'math' && (
+         resource.category !== 'math' &&
+         resource.category !== 'lesson_plan' &&
+         resource.category !== 'courseware' &&
+         resource.category !== 'video' &&
+         resource.category !== 'other' && (
           <Card className="border-0 shadow-lg bg-white/90">
             <CardHeader>
               <CardTitle>资源内容</CardTitle>
