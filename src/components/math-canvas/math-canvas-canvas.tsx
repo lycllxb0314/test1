@@ -72,6 +72,64 @@ export function MathCanvas({
     };
   }, [state.pan, state.zoom]);
 
+  // 获取元素边界框
+  const getElementBounds = useCallback((element: CanvasElement): { x: number; y: number; width: number; height: number } | null => {
+    if ('points' in element && Array.isArray(element.points) && element.points.length > 0) {
+      const points = element.points as Point[];
+      const xs = points.map((p) => p.x);
+      const ys = points.map((p) => p.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      
+      // 如果是圆或扇形，考虑半径
+      if ('radius' in element && typeof element.radius === 'number') {
+        const r = element.radius;
+        return {
+          x: points[0].x - r,
+          y: points[0].y - r,
+          width: r * 2,
+          height: r * 2,
+        };
+      }
+      
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      };
+    }
+    
+    if ('position' in element) {
+      const pos = element.position as Point;
+      const w = (element as SolidShape).width || 100;
+      const h = (element as SolidShape).height || 100;
+      return {
+        x: pos.x,
+        y: pos.y,
+        width: w,
+        height: h,
+      };
+    }
+    
+    return null;
+  }, []);
+
+  // 检测点击是否在元素内
+  const isPointInElement = useCallback((point: Point, element: CanvasElement): boolean => {
+    const bounds = getElementBounds(element);
+    if (!bounds) return false;
+    
+    return (
+      point.x >= bounds.x &&
+      point.x <= bounds.x + bounds.width &&
+      point.y >= bounds.y &&
+      point.y <= bounds.y + bounds.height
+    );
+  }, [getElementBounds]);
+
   // 绘制网格
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D) => {
     if (!state.grid.enabled) return;
@@ -781,6 +839,26 @@ export function MathCanvas({
       } else if ('points' in element) {
         drawPlaneShape(ctx, element as PlaneShape);
       }
+
+      // 绘制选中高亮
+      if (state.selection.includes(element.id)) {
+        ctx.save();
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 3]);
+        
+        // 获取边界框
+        const bounds = getElementBounds(element);
+        if (bounds) {
+          ctx.strokeRect(
+            bounds.x - 5,
+            bounds.y - 5,
+            bounds.width + 10,
+            bounds.height + 10
+          );
+        }
+        ctx.restore();
+      }
     });
 
     ctx.restore();
@@ -800,7 +878,17 @@ export function MathCanvas({
         ctx.moveTo(startPoint.x, startPoint.y);
         ctx.lineTo(currentPoint.x, currentPoint.y);
         ctx.stroke();
-      } else if (['rectangle', 'square', 'parallelogram', 'trapezoid'].includes(tool)) {
+      } else if (tool === 'square') {
+        // 正方形保持宽高比 1:1
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        const size = Math.max(w, h); // 取较大值，也可以取较小值
+        ctx.beginPath();
+        ctx.rect(x, y, size, size);
+        ctx.stroke();
+      } else if (['rectangle', 'parallelogram', 'trapezoid'].includes(tool)) {
         const x = Math.min(startPoint.x, currentPoint.x);
         const y = Math.min(startPoint.y, currentPoint.y);
         const w = Math.abs(currentPoint.x - startPoint.x);
@@ -808,7 +896,7 @@ export function MathCanvas({
         ctx.beginPath();
         ctx.rect(x, y, w, h);
         ctx.stroke();
-      } else if (tool === 'triangle' || tool === 'rightTriangle') {
+      } else if (tool === 'triangle') {
         const minX = Math.min(startPoint.x, currentPoint.x);
         const minY = Math.min(startPoint.y, currentPoint.y);
         const maxX = Math.max(startPoint.x, currentPoint.x);
@@ -821,7 +909,20 @@ export function MathCanvas({
         ctx.lineTo(maxX, maxY);
         ctx.closePath();
         ctx.stroke();
+      } else if (tool === 'rightTriangle') {
+        // 直角三角形：直角在左下
+        const minX = Math.min(startPoint.x, currentPoint.x);
+        const minY = Math.min(startPoint.y, currentPoint.y);
+        const maxX = Math.max(startPoint.x, currentPoint.x);
+        const maxY = Math.max(startPoint.y, currentPoint.y);
+        ctx.beginPath();
+        ctx.moveTo(minX, maxY); // 左下角（直角）
+        ctx.lineTo(minX, minY); // 左上角
+        ctx.lineTo(maxX, maxY); // 右下角
+        ctx.closePath();
+        ctx.stroke();
       } else if (tool === 'circle') {
+        // 圆：从中心绘制
         const radius = Math.sqrt(
           Math.pow(currentPoint.x - startPoint.x, 2) + Math.pow(currentPoint.y - startPoint.y, 2)
         );
@@ -873,14 +974,32 @@ export function MathCanvas({
   // 鼠标事件处理
   const handleMouseDown = (e: React.MouseEvent) => {
     const point = getMousePos(e);
+
+    if (state.activeTool === 'select') {
+      // 选择模式：检测点击的元素
+      // 从后往前遍历，优先选择最上层的元素
+      let clickedElement: CanvasElement | null = null;
+      for (let i = state.elements.length - 1; i >= 0; i--) {
+        if (isPointInElement(point, state.elements[i])) {
+          clickedElement = state.elements[i];
+          break;
+        }
+      }
+
+      if (clickedElement) {
+        // 如果点击了元素，选中它
+        onElementSelect?.([clickedElement.id]);
+      } else {
+        // 如果点击空白处，取消选择
+        onElementSelect?.([]);
+      }
+      return;
+    }
+
+    // 非选择模式：开始绘制
     setStartPoint(point);
     setCurrentPoint(point);
     setIsDrawing(true);
-
-    if (state.activeTool === 'select') {
-      // 检查是否点击了某个元素
-      // TODO: 实现元素选择逻辑
-    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -916,11 +1035,57 @@ export function MathCanvas({
         locked: false,
         visible: true,
       };
-    } else if (['rectangle', 'square', 'parallelogram', 'trapezoid'].includes(tool)) {
+    } else if (tool === 'square') {
+      // 正方形：保持宽高相等
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const w = Math.abs(endPoint.x - startPoint.x);
+      const h = Math.abs(endPoint.y - startPoint.y);
+      const size = Math.max(w, h);
       newElement = {
         id,
-        type: tool as 'rectangle' | 'square' | 'parallelogram' | 'trapezoid',
+        type: 'square',
+        points: [
+          { x: minX, y: minY },
+          { x: minX + size, y: minY + size },
+        ],
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: `${state.activeColor}20`,
+        fillMode: 'solid',
+        opacity: 1,
+        locked: false,
+        visible: true,
+      };
+    } else if (['rectangle', 'parallelogram', 'trapezoid'].includes(tool)) {
+      newElement = {
+        id,
+        type: tool as 'rectangle' | 'parallelogram' | 'trapezoid',
         points: [startPoint, endPoint],
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: `${state.activeColor}20`,
+        fillMode: 'solid',
+        opacity: 1,
+        locked: false,
+        visible: true,
+      };
+    } else if (tool === 'rightTriangle') {
+      // 直角三角形：直角在左下
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const maxX = Math.max(startPoint.x, endPoint.x);
+      const maxY = Math.max(startPoint.y, endPoint.y);
+      newElement = {
+        id,
+        type: 'rightTriangle',
+        points: [
+          { x: minX, y: maxY }, // 左下（直角）
+          { x: minX, y: minY }, // 左上
+          { x: maxX, y: maxY }, // 右下
+        ],
         strokeColor: state.activeColor,
         strokeWidth: state.activeStrokeWidth,
         strokeStyle: 'solid',

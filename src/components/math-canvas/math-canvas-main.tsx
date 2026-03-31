@@ -4,6 +4,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import { MathCanvas } from './math-canvas-canvas';
 import { ToolBar } from './math-canvas-toolbar';
 import { PropertyPanel } from './math-canvas-property-panel';
+import { ElementEditor } from './math-canvas-element-editor';
 import type {
   CanvasState,
   CanvasElement,
@@ -167,6 +168,57 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
     setState((prev) => ({ ...prev, selection: elementIds }));
   }, []);
 
+  // 获取当前选中的元素
+  const selectedElement = state.selection.length === 1
+    ? state.elements.find((el) => el.id === state.selection[0]) || null
+    : null;
+
+  // 更新元素
+  const handleElementUpdate = useCallback((updatedElement: CanvasElement) => {
+    setState((prev) => ({
+      ...prev,
+      elements: prev.elements.map((el) =>
+        el.id === updatedElement.id ? updatedElement : el
+      ),
+    }));
+  }, []);
+
+  // 删除元素
+  const handleElementDelete = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      elements: prev.elements.filter((el) => el.id !== id),
+      selection: prev.selection.filter((sid) => sid !== id),
+    }));
+  }, []);
+
+  // 复制元素
+  const handleElementDuplicate = useCallback((element: CanvasElement) => {
+    const newElement = {
+      ...element,
+      id: `element-${Date.now()}`,
+    };
+    // 如果元素有 points，稍微偏移
+    if ('points' in newElement && Array.isArray(newElement.points)) {
+      newElement.points = newElement.points.map((p: { x: number; y: number }) => ({
+        x: p.x + 20,
+        y: p.y + 20,
+      }));
+    }
+    // 如果元素有 position，稍微偏移
+    if ('position' in newElement) {
+      newElement.position = {
+        x: (newElement.position as { x: number; y: number }).x + 20,
+        y: (newElement.position as { x: number; y: number }).y + 20,
+      };
+    }
+    setState((prev) => ({
+      ...prev,
+      elements: [...prev.elements, newElement],
+      selection: [newElement.id],
+    }));
+  }, []);
+
   // 教学场景快捷模板
   const templates = [
     { name: '正方形面积', tool: 'squareGrid' as ToolType, desc: '用小正方形研究面积' },
@@ -304,21 +356,39 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
         </div>
 
         {/* 右侧属性面板 */}
-        <div className="w-64 border-l bg-card overflow-y-auto">
-          <PropertyPanel
-            grid={state.grid}
-            zoom={state.zoom}
-            activeColor={state.activeColor}
-            activeStrokeWidth={state.activeStrokeWidth}
-            onGridChange={handleGridChange}
-            onZoomChange={handleZoomChange}
-            onColorChange={handleColorChange}
-            onStrokeWidthChange={handleStrokeWidthChange}
-            onClear={handleClear}
-            onExport={handleExport}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-          />
+        <div className="w-64 border-l bg-card overflow-hidden flex flex-col">
+          <Tabs defaultValue="properties" className="flex-1 flex flex-col">
+            <TabsList className="mx-2 mt-2">
+              <TabsTrigger value="properties" className="text-xs">属性</TabsTrigger>
+              <TabsTrigger value="element" className="text-xs">
+                编辑 {selectedElement ? '(1)' : ''}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="properties" className="flex-1 overflow-y-auto mt-0">
+              <PropertyPanel
+                grid={state.grid}
+                zoom={state.zoom}
+                activeColor={state.activeColor}
+                activeStrokeWidth={state.activeStrokeWidth}
+                onGridChange={handleGridChange}
+                onZoomChange={handleZoomChange}
+                onColorChange={handleColorChange}
+                onStrokeWidthChange={handleStrokeWidthChange}
+                onClear={handleClear}
+                onExport={handleExport}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+              />
+            </TabsContent>
+            <TabsContent value="element" className="flex-1 overflow-y-auto mt-0">
+              <ElementEditor
+                element={selectedElement}
+                onUpdate={handleElementUpdate}
+                onDelete={handleElementDelete}
+                onDuplicate={handleElementDuplicate}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 

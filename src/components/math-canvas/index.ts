@@ -17,5 +17,8 @@ export type { ToolBarProps } from './math-canvas-toolbar';
 export { PropertyPanel } from './math-canvas-property-panel';
 export type { PropertyPanelProps } from './math-canvas-property-panel';
 
+export { ElementEditor } from './math-canvas-element-editor';
+export type { ElementEditorProps } from './math-canvas-element-editor';
+
 export { MathCanvasMain } from './math-canvas-main';
 export type { MathCanvasMainProps } from './math-canvas-main';
