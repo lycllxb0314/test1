@@ -79,10 +79,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    // TODO: 从认证获取教师ID
-    const teacherId = 'teacher-001';
+    // 开发环境：使用默认教师ID，不过滤权限
+    // 生产环境：TODO 从认证获取教师ID
+    const teacherId = process.env.NODE_ENV === 'production' ? 'teacher-001' : 'dev-teacher';
+    const isDev = process.env.NODE_ENV !== 'production';
 
-    await teachingResourceService.deleteResource(id, teacherId);
+    await teachingResourceService.deleteResource(id, teacherId, isDev);
 
     return NextResponse.json({
       success: true,

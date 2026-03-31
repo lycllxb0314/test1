@@ -241,14 +241,16 @@ export class TeachingResourceService {
   /**
    * 删除资源
    */
-  async deleteResource(id: string, teacherId: string): Promise<void> {
-    // 验证资源归属
-    const existing = await teachingResourceRepository.findById(id);
-    if (!existing) {
-      throw new Error('资源不存在');
-    }
-    if (existing.teacherId !== teacherId) {
-      throw new Error('无权删除此资源');
+  async deleteResource(id: string, teacherId: string, skipPermissionCheck = false): Promise<void> {
+    // 验证资源归属（开发环境可跳过）
+    if (!skipPermissionCheck) {
+      const existing = await teachingResourceRepository.findById(id);
+      if (!existing) {
+        throw new Error('资源不存在');
+      }
+      if (existing.teacherId !== teacherId) {
+        throw new Error('无权删除此资源');
+      }
     }
 
     await teachingResourceRepository.delete(id);
