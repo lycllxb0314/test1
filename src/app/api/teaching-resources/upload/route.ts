@@ -7,9 +7,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { S3Storage } from 'coze-coding-dev-sdk';
 import { teachingResourceRepository } from '@/repositories/teaching-resource.repository';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
 import type { ResourceCategory, ResourceType } from '@/types/teaching-resource';
+
+// 初始化对象存储
+const storage = new S3Storage({
+  endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
+  accessKey: '',
+  secretKey: '',
+  bucketName: process.env.COZE_BUCKET_NAME,
+  region: 'cn-beijing',
+});
 
 /** 文件类型到资源分类的映射 */
 const FILE_TYPE_MAP: Record<string, { category: ResourceCategory; type: ResourceType }> = {
@@ -49,7 +58,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 开发环境：使用默认教师ID
-    // 生产环境：TODO 从认证获取教师ID
     const teacherId = process.env.NODE_ENV === 'production' ? 'teacher-001' : 'dev-teacher';
     const teacherName = '开发教师';
 
@@ -57,29 +65,27 @@ export async function POST(request: NextRequest) {
     const mimeType = file.type;
     const typeInfo = FILE_TYPE_MAP[mimeType] || { category: 'other' as ResourceCategory, type: 'document_file' as ResourceType };
 
-    // 上传文件到 Supabase Storage
-    const client = getSupabaseClient();
-    const fileKey = `teaching-resources/${teacherId}/${Date.now()}-${file.name}`;
-    
-    const { data: uploadData, error: uploadError } = await client.storage
-      .from('files')
-      .upload(fileKey, file, {
-        contentType: mimeType,
-        upsert: false,
-      });
+    // 读取文件内容
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    if (uploadError) {
-      console.error('[Upload Error]:', uploadError);
-      return NextResponse.json(
-        { success: false, error: '文件上传失败' },
-        { status: 500 }
-      );
-    }
+    // 生成文件名：teaching-resources/teacherId/时间戳_原文件名
+    const timestamp = Date.now();
+    const originalName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const fileName = `teaching-resources/${teacherId}/${timestamp}_${originalName}`;
 
-    // 获取文件公开 URL
-    const { data: urlData } = client.storage
-      .from('files')
-      .getPublicUrl(fileKey);
+    // 上传到对象存储
+    const fileKey = await storage.uploadFile({
+      fileContent: buffer,
+      fileName: fileName,
+      contentType: mimeType,
+    });
+
+    // 生成签名URL（有效期30天）
+    const fileUrl = await storage.generatePresignedUrl({
+      key: fileKey,
+      expireTime: 30 * 24 * 60 * 60,
+    });
 
     // 创建资源记录
     const teachingResource = await teachingResourceRepository.create({
@@ -90,8 +96,8 @@ export async function POST(request: NextRequest) {
       title: title || file.name,
       description: description || undefined,
       content: {},
-      fileUrl: urlData.publicUrl,
-      fileKey: fileKey,
+      fileUrl,
+      fileKey,
       fileName: file.name,
       fileSize: file.size,
       sourceType: 'upload',
