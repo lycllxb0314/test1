@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 尝试通过 API 验证当前会话（JWT token 在 cookie 中会自动发送）
       try {
         const response = await fetch('/api/auth/current', {
-          credentials: 'include',
+          credentials: 'include', // 关键：确保 Cookie 被发送
           headers: savedToken ? { 'Authorization': `Bearer ${savedToken}` } : {},
         });
         const result = await response.json();
@@ -152,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 关键：确保 Cookie 被保存和发送
         body: JSON.stringify({ username, password }),
       });
       

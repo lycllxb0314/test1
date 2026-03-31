@@ -88,7 +88,7 @@ export type ResearchInvitationParams = {
   inviterName: string;
 };
 
-// 数据库消息行类型
+// 数据库消息行类型（与 MessageRepository.MessageRow 保持一致）
 type MessageRow = {
   id: string;
   title: string;
@@ -98,9 +98,16 @@ type MessageRow = {
   priority?: string;
   sender_id?: string;
   sender_name?: string;
-  target_users?: string[];
-  target_roles?: string[];
-  target_groups?: string[];
+  /** 目标用户ID数组 */
+  user_ids?: string[];
+  /** 目标角色数组 */
+  roles?: string[];
+  /** 目标班级ID数组 */
+  class_ids?: string[];
+  /** 目标年级数组 */
+  grades?: string[];
+  /** 接收者ID（单条消息） */
+  recipient_id?: string;
   related_id?: string;
   related_type?: string;
   action_url?: string;
@@ -215,8 +222,8 @@ export class MessageService extends BaseService {
         priority: params.priority || 'normal',
         sender_id: params.senderId,
         sender_name: params.senderName,
-        target_users: params.recipientIds,
-        target_roles: params.recipientRoles,
+        user_ids: params.recipientIds,  // 使用正确的列名
+        roles: params.recipientRoles,     // 使用正确的列名
         related_id: params.relatedId,
         related_type: params.relatedType,
         action_url: params.actionUrl,
@@ -430,7 +437,7 @@ export class MessageService extends BaseService {
       status: 'unread', // TODO: 从 message_reads 表获取实际状态
       senderId: row.sender_id,
       senderName: row.sender_name,
-      recipientId: row.target_users?.[0],
+      recipientId: row.recipient_id || row.user_ids?.[0],  // 使用正确的列名
       relatedId: row.related_id,
       relatedType: row.related_type,
       actionUrl: row.action_url,

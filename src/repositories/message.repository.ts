@@ -7,6 +7,12 @@ import type { MessageEvent, MessagePriority } from '@/types/messages';
 
 /**
  * 消息类型定义（数据库行）
+ * 
+ * 列名映射（数据库实际列名）：
+ * - user_ids: 目标用户ID数组
+ * - class_ids: 目标班级ID数组
+ * - roles: 目标角色数组
+ * - grades: 目标年级数组
  */
 export type MessageRow = {
   id: string;
@@ -17,9 +23,19 @@ export type MessageRow = {
   priority?: string;
   sender_id?: string;
   sender_name?: string;
-  target_users?: string[];
-  target_roles?: string[];
-  target_groups?: string[];
+  sender_avatar?: string;
+  /** 目标用户ID数组 */
+  user_ids?: string[];
+  /** 目标角色数组 */
+  roles?: string[];
+  /** 目标班级ID数组 */
+  class_ids?: string[];
+  /** 目标年级数组 */
+  grades?: string[];
+  /** 接收者ID（单条消息） */
+  recipient_id?: string;
+  /** 接收者类型 */
+  recipient_type?: string;
   related_id?: string;
   related_type?: string;
   action_url?: string;
@@ -29,6 +45,8 @@ export type MessageRow = {
   sent_at?: string;
   created_at?: string;
   updated_at?: string;
+  is_read?: boolean;
+  is_archived?: boolean;
 };
 
 /**
@@ -59,6 +77,10 @@ export class MessageRepository extends BaseRepository<MessageRow> {
   
   /**
    * 查询用户收到的消息
+   * 
+   * 查询条件（在数据库层面过滤）：
+   * 1. recipient_id 等于当前用户ID（个人消息）
+   * 2. 或者 user_ids 包含用户ID
    */
   async findReceived(
     userId: string,
@@ -68,10 +90,12 @@ export class MessageRepository extends BaseRepository<MessageRow> {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     
+    // 使用 Supabase 的 or 条件在数据库层面过滤
+    // recipient_id.eq.{userId} OR user_ids.cs.["{userId}"]
     let query = this.client
       .from(this.tableName)
       .select('*', { count: 'exact' })
-      .or(`target_users.cs.["${userId}"],target_groups.cs.["${userId}"]`);
+      .or(`recipient_id.eq.${userId},user_ids.cs.{${userId}}`);
     
     if (type) {
       query = query.eq('type', type);
@@ -117,13 +141,15 @@ export class MessageRepository extends BaseRepository<MessageRow> {
   
   /**
    * 查询未读消息
+   * 
+   * 查询条件：用户收到的消息中未标记为已读的
    */
   async findUnread(userId: string): Promise<MessageRow[]> {
-    // 获取用户收到的消息ID
+    // 使用数据库层面的过滤获取用户的消息
     const { data: messages, error: msgError } = await this.client
       .from(this.tableName)
       .select('id')
-      .or(`target_users.cs.["${userId}"],target_groups.cs.["${userId}"]`);
+      .or(`recipient_id.eq.${userId},user_ids.cs.{${userId}}`);
     
     if (msgError || !messages?.length) {
       return [];
@@ -247,7 +273,7 @@ export class MessageRepository extends BaseRepository<MessageRow> {
       title,
       content,
       type: 'system',
-      target_users: targetUsers,
+      user_ids: targetUsers,  // 使用正确的列名
       sender_id: 'system',
       sender_name: '系统通知',
       status: 'sent',

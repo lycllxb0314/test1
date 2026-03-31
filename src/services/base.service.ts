@@ -91,7 +91,7 @@ export abstract class BaseService {
         title,
         content,
         type: options?.type || 'notification',
-        target_users: targetUsers,
+        user_ids: targetUsers,  // 使用正确的列名
         sender_id: options?.senderId || 'system',
         sender_name: options?.senderName || '系统通知',
         status: 'sent',
