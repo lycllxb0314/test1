@@ -165,13 +165,14 @@ export default function ParentsPage() {
   const loadParents = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-        search: searchTerm,
-        classId: classFilter,
-        hasAccount: accountFilter,
-      });
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('pageSize', pageSize.toString());
+      if (searchTerm) params.append('search', searchTerm);
+      if (classFilter && classFilter !== 'all') params.append('classId', classFilter);
+      if (accountFilter === 'true' || accountFilter === 'false') {
+        params.append('hasAccount', accountFilter);
+      }
       
       const response = await fetch(`/api/parents?${params}`);
       const result = await response.json();

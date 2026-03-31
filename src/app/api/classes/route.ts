@@ -47,31 +47,31 @@ export const GET = withAuth(async (request: NextRequest) => {
       return fail(result.error || '获取班级列表失败');
     }
     
-    // 转换数据格式
+    // 转换数据格式（数据库返回蛇形格式，转换为驼峰格式）
     const formattedData = result.data?.map(c => {
       const item = c as unknown as Record<string, unknown>;
       return {
         id: item.id as string,
         name: item.name as string,
         grade: item.grade as number,
-        gradeName: item.gradeName as string || GRADE_NAMES[item.grade as number] || '',
-        classNumber: item.classNumber,
-        headTeacherId: item.headTeacherId as string,
-        headTeacherName: item.headTeacherName as string,
-        subTeacherId: item.subTeacherId,
-        subTeacherName: item.subTeacherName,
-        studentCount: (item.studentCount as number) || 0,
-        maleStudentCount: item.maleStudentCount || 0,
-        femaleStudentCount: item.femaleStudentCount || 0,
-        classroomId: item.classroomId,
-        classroomName: item.classroomName,
+        gradeName: GRADE_NAMES[item.grade as number] || '',
+        classNumber: item.class_number,
+        headTeacherId: item.head_teacher_id as string,
+        headTeacherName: item.head_teacher_name as string,
+        subTeacherId: item.sub_teacher_id,
+        subTeacherName: item.sub_teacher_name,
+        studentCount: (item.student_count as number) || 0,
+        maleStudentCount: item.male_student_count || 0,
+        femaleStudentCount: item.female_student_count || 0,
+        classroomId: item.classroom_id,
+        classroomName: item.classroom_name,
         building: item.building,
         floor: item.floor,
         status: item.status || 'active',
         motto: item.motto,
         features: item.features,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
       };
     }) || [];
     

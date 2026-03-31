@@ -120,7 +120,7 @@ export class ParentRepository extends BaseRepository<ParentRecord> implements IP
       .select('*', { count: 'exact' });
     
     // 应用筛选条件
-    if (params.studentId) {
+    if (params.studentId && params.studentId !== 'all') {
       query = query.eq('student_id', params.studentId);
     }
     if (params.phone) {
@@ -129,13 +129,13 @@ export class ParentRepository extends BaseRepository<ParentRecord> implements IP
     if (params.name) {
       query = query.ilike('name', `%${params.name}%`);
     }
-    if (params.status) {
+    if (params.status && params.status !== 'all') {
       query = query.eq('status', params.status);
     }
-    if (params.classId) {
+    if (params.classId && params.classId !== 'all') {
       query = query.eq('class_id', params.classId);
     }
-    if (params.grade) {
+    if (params.grade !== undefined && params.grade !== null) {
       query = query.eq('grade', params.grade);
     }
     if (params.hasAccount !== undefined) {

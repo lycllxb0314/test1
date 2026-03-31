@@ -757,18 +757,28 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
     invalidateCache,
     teachers: globalTeachers,
     students: globalStudents,
+    fetchTeachers,
+    fetchStudents,
   } = useGlobalData()
   
   const [filters, setFilters] = useState<ClassFilters>(initialFilters || {})
   const [page, setPage] = useState(1)
   const [pageSize, setPageSizeState] = useState<number>(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE)
 
-  // 触发加载
+  // 触发加载 - 同时加载班级、教师、学生数据
   useEffect(() => {
     if (!globalClasses.loaded && !globalClasses.loading) {
       fetchClasses()
     }
-  }, [globalClasses.loaded, globalClasses.loading, fetchClasses])
+    if (!globalTeachers.loaded && !globalTeachers.loading) {
+      fetchTeachers()
+    }
+    if (!globalStudents.loaded && !globalStudents.loading) {
+      fetchStudents()
+    }
+  }, [globalClasses.loaded, globalClasses.loading, fetchClasses, 
+      globalTeachers.loaded, globalTeachers.loading, fetchTeachers,
+      globalStudents.loaded, globalStudents.loading, fetchStudents])
 
   // ========== 核心聚合逻辑 ==========
   // 将全局的 classes、teachers、students 聚合成 ClassContainer
@@ -1186,8 +1196,8 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
     // 数据
     allClasses: allClassesWithAggregation,
     classes,
-    loading: globalClasses.loading || (globalClasses.loaded && globalTeachers.data.length === 0),
-    error: globalClasses.error,
+    loading: globalClasses.loading || globalTeachers.loading || globalStudents.loading,
+    error: globalClasses.error || globalTeachers.error || globalStudents.error,
     statistics,
     pagination,
     
