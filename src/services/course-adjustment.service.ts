@@ -126,24 +126,37 @@ export class CourseAdjustmentService extends BaseService {
             })
             .eq('id', adjustment.leave_request_id);
 
-          // 发送通知
-          await client.from('messages').insert({
-            title: '【流程结束】请假调课已完成',
-            content: '您的请假调课流程已全部完成，相关数据已同步到教务系统。',
-            event: 'leave_approval',
-            priority: 'normal',
-            sender_id: 'system',
-            sender_name: '系统通知',
-            sender_role: 'system',
-            recipient_id: adjustment.applicant_id,
-            metadata: { leaveRequestId: adjustment.leave_request_id },
-          });
+          // 发送通知 - 需要先查询申请人的 UUID
+          const { data: applicantUser } = await client
+            .from('users')
+            .select('id')
+            .eq('employee_id', adjustment.applicant_id)
+            .single();
+          
+          if (applicantUser) {
+            await client.from('messages').insert({
+              title: '【流程结束】请假调课已完成',
+              content: '您的请假调课流程已全部完成，相关数据已同步到教务系统。',
+              type: 'leave_approval',
+              priority: 'normal',
+              sender_id: 'system',
+              sender_name: '系统通知',
+              sender_role: 'system',
+              recipient_id: applicantUser.id,
+              metadata: { leaveRequestId: adjustment.leave_request_id },
+            });
+          }
         }
       }
 
       // 更新教师工作量
       if (params.action === 'substitute' && params.substituteEmployeeId) {
         await this.updateTeacherWorkload(params.substituteEmployeeId, params.substituteName || '');
+      }
+
+      // 更新课表（教师课表和班级课表）
+      if (params.action === 'substitute' || params.action === 'cancel') {
+        await this.updateScheduleSlot(adjustment, params.action, params.substituteEmployeeId, params.substituteName);
       }
 
       // 发送通知
@@ -370,6 +383,103 @@ export class CourseAdjustmentService extends BaseService {
   }
 
   /**
+   * 更新课表（教师课表和班级课表）
+   * 
+   * 当安排代课时：
+   * - 将原教师的课次标记为"调出"状态
+   * - 创建或更新代课教师的课次记录
+   * 
+   * 当取消课程时：
+   * - 将对应课次标记为"取消"状态
+   */
+  private async updateScheduleSlot(
+    adjustment: CourseAdjustmentRecord,
+    action: 'substitute' | 'cancel',
+    substituteEmployeeId?: string,
+    substituteName?: string
+  ): Promise<void> {
+    const client = getSupabaseClient();
+    
+    try {
+      // 查找对应的课表记录
+      const { data: slots, error: findError } = await client
+        .from('schedule_slots')
+        .select('*')
+        .eq('employee_id', adjustment.applicant_id)
+        .eq('week_day', adjustment.week_day || 0)
+        .eq('period_index', adjustment.period_index || 0)
+        .eq('class_id', adjustment.class_id || '')
+        .eq('status', 'active');
+
+      if (findError) {
+        console.error('[updateScheduleSlot] Find slots error:', findError.message);
+        return;
+      }
+
+      if (!slots || slots.length === 0) {
+        console.log('[updateScheduleSlot] No matching slots found for adjustment');
+        return;
+      }
+
+      const slot = slots[0];
+      const now = new Date().toISOString();
+
+      if (action === 'substitute' && substituteEmployeeId && substituteName) {
+        // 1. 将原教师的课次标记为"调出"
+        const { error: updateError } = await client
+          .from('schedule_slots')
+          .update({
+            status: 'transferred',
+            updated_at: now,
+          })
+          .eq('id', slot.id);
+
+        if (updateError) {
+          console.error('[updateScheduleSlot] Update original slot error:', updateError.message);
+        }
+
+        // 2. 为代课教师创建新的课次记录
+        const { error: insertError } = await client
+          .from('schedule_slots')
+          .insert({
+            class_id: slot.class_id,
+            class_name: slot.class_name,
+            grade: slot.grade,
+            week_day: slot.week_day,
+            period_index: slot.period_index,
+            period_name: slot.period_name,
+            subject: slot.subject,
+            teacher_id: substituteEmployeeId,
+            teacher_name: substituteName,
+            employee_id: substituteEmployeeId,
+            status: 'substitute',
+            created_at: now,
+            updated_at: now,
+          });
+
+        if (insertError) {
+          console.error('[updateScheduleSlot] Insert substitute slot error:', insertError.message);
+        }
+      } else if (action === 'cancel') {
+        // 将课次标记为"取消"
+        const { error: cancelError } = await client
+          .from('schedule_slots')
+          .update({
+            status: 'cancelled',
+            updated_at: now,
+          })
+          .eq('id', slot.id);
+
+        if (cancelError) {
+          console.error('[updateScheduleSlot] Cancel slot error:', cancelError.message);
+        }
+      }
+    } catch (error) {
+      console.error('[updateScheduleSlot] Error:', error);
+    }
+  }
+
+  /**
    * 发送通知
    */
   private async sendNotifications(
@@ -384,38 +494,62 @@ export class CourseAdjustmentService extends BaseService {
       1: '一', 2: '二', 3: '三', 4: '四', 5: '五',
     };
 
+    // 查询代课教师的 UUID
+    const { data: substituteUser } = await client
+      .from('users')
+      .select('id')
+      .eq('employee_id', substituteEmployeeId)
+      .single();
+
+    // 查询请假教师的 UUID
+    const { data: applicantUser } = await client
+      .from('users')
+      .select('id')
+      .eq('employee_id', adjustment.applicant_id)
+      .single();
+
     // 通知代课教师
-    await client.from('messages').insert({
-      title: '代课通知',
-      content: `${adjustment.applicant_name}请假，您被安排于${adjustment.effective_week_number || ''}周${weekDayLabels[adjustment.week_day || 1] || ''}第${(adjustment.period_index || 0) + 1}节代课${adjustment.subject}，班级：${adjustment.class_name}。`,
-      event: 'course_adjustment',
-      priority: 'high',
-      sender_id: userId,
-      sender_name: userName,
-      recipient_id: substituteEmployeeId,
-      metadata: {
-        adjustmentId: adjustment.id,
-        classId: adjustment.class_id,
-        weekDay: adjustment.week_day,
-        periodIndex: adjustment.period_index,
-      },
-    });
+    if (substituteUser) {
+      const { error: insertError } = await client.from('messages').insert({
+        title: '代课通知',
+        content: `${adjustment.applicant_name}请假，您被安排于${adjustment.effective_week_number || ''}周${weekDayLabels[adjustment.week_day || 1] || ''}第${(adjustment.period_index || 0) + 1}节代课${adjustment.subject}，班级：${adjustment.class_name}。`,
+        type: 'course_adjustment',
+        priority: 'high',
+        sender_id: userId,
+        sender_name: userName,
+        recipient_id: substituteUser.id,
+        metadata: {
+          adjustmentId: adjustment.id,
+          classId: adjustment.class_id,
+          weekDay: adjustment.week_day,
+          periodIndex: adjustment.period_index,
+        },
+      });
+      if (insertError) {
+        console.error('[sendNotifications] Failed to insert message for substitute:', insertError.message);
+      }
+    }
 
     // 通知请假教师
-    await client.from('messages').insert({
-      title: '调课安排完成',
-      content: `您${adjustment.effective_week_number || ''}周${weekDayLabels[adjustment.week_day || 1] || ''}第${(adjustment.period_index || 0) + 1}节的${adjustment.subject}课已安排${substituteName}代课。`,
-      event: 'course_adjustment',
-      priority: 'normal',
-      sender_id: userId,
-      sender_name: userName,
-      recipient_id: adjustment.applicant_id,
-      metadata: {
-        adjustmentId: adjustment.id,
-        substituteEmployeeId,
-        substituteName,
-      },
-    });
+    if (applicantUser) {
+      const { error: insertError } = await client.from('messages').insert({
+        title: '调课安排完成',
+        content: `您${adjustment.effective_week_number || ''}周${weekDayLabels[adjustment.week_day || 1] || ''}第${(adjustment.period_index || 0) + 1}节的${adjustment.subject}课已安排${substituteName}代课。`,
+        type: 'course_adjustment',
+        priority: 'normal',
+        sender_id: userId,
+        sender_name: userName,
+        recipient_id: applicantUser.id,
+        metadata: {
+          adjustmentId: adjustment.id,
+          substituteEmployeeId,
+          substituteName,
+        },
+      });
+      if (insertError) {
+        console.error('[sendNotifications] Failed to insert message for applicant:', insertError.message);
+      }
+    }
   }
 
   /**

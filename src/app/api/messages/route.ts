@@ -244,13 +244,12 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       });
     }
 
-    // 计算统计数据
-    const statsSource = department ? filteredMessages : messages;
+    // 计算统计数据 - 使用数据库总数
     const statistics: MessageStatistics = {
-      total: statsSource.length,
-      unread: statsSource.filter(m => m.status === 'unread').length,
-      read: statsSource.filter(m => m.status === 'read').length,
-      archived: statsSource.filter(m => m.status === 'archived').length,
+      total: result.pagination?.total || 0,
+      unread: messages.filter(m => m.status === 'unread').length,
+      read: messages.filter(m => m.status === 'read').length,
+      archived: messages.filter(m => m.status === 'archived').length,
       byEvent: {} as Record<MessageEvent, number>,
       byPriority: {} as Record<MessagePriority, number>,
     };
