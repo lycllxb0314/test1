@@ -333,6 +333,8 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
         className: (s.className as string) || (s.class_name as string) || '',
         status: (s.status as string) || '在校',
         parents: (s.parents as Parent[]) || [],
+        headTeacherId: (s.headTeacherId as string) || (s.head_teacher_id as string) || '',
+        headTeacherName: (s.headTeacherName as string) || (s.head_teacher_name as string) || '',
       }))
       
       // 计算还需要多少次请求
@@ -355,6 +357,8 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
             className: (s.className as string) || (s.class_name as string) || '',
             status: (s.status as string) || '在校',
             parents: (s.parents as Parent[]) || [],
+            headTeacherId: (s.headTeacherId as string) || (s.head_teacher_id as string) || '',
+            headTeacherName: (s.headTeacherName as string) || (s.head_teacher_name as string) || '',
           }))
           allData = [...allData, ...pageData]
         }
