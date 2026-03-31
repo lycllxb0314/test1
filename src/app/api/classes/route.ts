@@ -60,6 +60,7 @@ export const GET = withAuth(async (request: NextRequest) => {
         headTeacherName: item.head_teacher_name as string,
         subTeacherId: item.sub_teacher_id,
         subTeacherName: item.sub_teacher_name,
+        subjectTeachers: item.subject_teachers,
         studentCount: (item.student_count as number) || 0,
         maleStudentCount: item.male_student_count || 0,
         femaleStudentCount: item.female_student_count || 0,

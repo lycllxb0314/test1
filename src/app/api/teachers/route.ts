@@ -13,6 +13,7 @@ import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
 import { withAuth } from '@/lib/auth/middleware';
 import { paginated, fail, serverError } from '@/lib/api';
 import type { TeacherService } from '@/services/teacher.service';
+import type { ClassService } from '@/services/class.service';
 
 /**
  * GET: 获取教师列表
@@ -28,6 +29,7 @@ export const GET = withAuth(async (request: NextRequest) => {
 
   try {
     const teacherService = getService<TeacherService>(SERVICE_IDENTIFIERS.TeacherService);
+    const classService = getService<ClassService>(SERVICE_IDENTIFIERS.ClassService);
     
     const result = await teacherService.listTeachers({
       page,
@@ -42,12 +44,81 @@ export const GET = withAuth(async (request: NextRequest) => {
       return fail(result.error || '获取教师列表失败');
     }
     
+    // 获取所有班级用于关联教师班级信息
+    const classesResult = await classService.listClasses({ pageSize: 1000 });
+    const allClasses = classesResult.data || [];
+    
+    // 构建教师-班级映射
+    const teacherClassMap = new Map<string, {
+      isHeadTeacher: boolean;
+      headTeacherClassId?: string;
+      headTeacherClassName?: string;
+      subTeacherClasses: Array<{ classId: string; className: string }>;
+    }>();
+    
+    // 遍历班级，构建教师班级关系
+    for (const cls of allClasses) {
+      const classItem = cls as unknown as Record<string, unknown>;
+      const classId = classItem.id as string;
+      const className = classItem.name as string;
+      
+      // 班主任
+      if (classItem.head_teacher_id) {
+        const existing = teacherClassMap.get(classItem.head_teacher_id as string) || {
+          isHeadTeacher: false,
+          subTeacherClasses: [],
+        };
+        teacherClassMap.set(classItem.head_teacher_id as string, {
+          ...existing,
+          isHeadTeacher: true,
+          headTeacherClassId: classId,
+          headTeacherClassName: className,
+        });
+      }
+      
+      // 科任教师（从 subject_teachers JSONB 字段）
+      if (classItem.subject_teachers && Array.isArray(classItem.subject_teachers)) {
+        for (const st of classItem.subject_teachers as Array<{ teacherId?: string; teacher_id?: string }>) {
+          const teacherId = st.teacherId || st.teacher_id;
+          if (teacherId) {
+            const existing = teacherClassMap.get(teacherId) || {
+              isHeadTeacher: false,
+              subTeacherClasses: [],
+            };
+            // 避免重复添加
+            if (!existing.subTeacherClasses.find(c => c.classId === classId)) {
+              existing.subTeacherClasses.push({ classId, className });
+            }
+            teacherClassMap.set(teacherId, existing);
+          }
+        }
+      }
+      
+      // 科任教师（旧字段 sub_teacher_id）
+      if (classItem.sub_teacher_id) {
+        const existing = teacherClassMap.get(classItem.sub_teacher_id as string) || {
+          isHeadTeacher: false,
+          subTeacherClasses: [],
+        };
+        if (!existing.subTeacherClasses.find(c => c.classId === classId)) {
+          existing.subTeacherClasses.push({ classId, className });
+        }
+        teacherClassMap.set(classItem.sub_teacher_id as string, existing);
+      }
+    }
+    
     // 格式化数据
     const formattedData = (result.data || []).map(t => {
       const item = t as unknown as Record<string, unknown>;
       const subjects = item.subjects as string[] | undefined;
+      const teacherId = item.id as string;
+      const classInfo = teacherClassMap.get(teacherId) || {
+        isHeadTeacher: false,
+        subTeacherClasses: [],
+      };
+      
       return {
-        id: item.id,
+        id: teacherId,
         name: item.name,
         gender: item.gender,
         subject: item.primary_subject || subjects?.[0] || '语文',
@@ -63,6 +134,11 @@ export const GET = withAuth(async (request: NextRequest) => {
         primarySubject: item.primary_subject,
         subjects: item.subjects || [],
         weeklyHours: item.weekly_hours || 0,
+        // 班级信息
+        isHeadTeacher: classInfo.isHeadTeacher,
+        headTeacherClassId: classInfo.headTeacherClassId,
+        headTeacherClassName: classInfo.headTeacherClassName,
+        subTeacherClasses: classInfo.subTeacherClasses,
         createdAt: item.created_at || item.createdAt,
         updatedAt: item.updated_at || item.updatedAt,
       };

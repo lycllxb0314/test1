@@ -88,7 +88,7 @@ export class StudentRepository extends BaseRepository<Student> {
       return { data: [], total: 0, page, pageSize, totalPages: 0 };
     }
     
-    const students = (data || []).map((s: StudentRow) => ({
+    const students = (data || []).map((s: StudentRow & { parents?: unknown }) => ({
       id: s.id,
       studentNo: s.student_no,
       name: s.name,
@@ -99,6 +99,7 @@ export class StudentRepository extends BaseRepository<Student> {
       grade: s.grade,
       status: s.status as Student['status'],
       avatar: s.avatar,
+      parents: Array.isArray(s.parents) ? s.parents as Parent[] : [],
       headTeacherId: s.classes?.head_teacher_id,
       headTeacherName: s.classes?.head_teacher_name,
       createdAt: s.created_at,
