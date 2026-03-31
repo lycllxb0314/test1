@@ -77,6 +77,36 @@ import {
   announcementRepository, AnnouncementRepository,
   achievementRepository, AchievementRepository,
 } from '@/repositories/portal.repository';
+// P3 新增 Repository
+import {
+  accessDeviceRepository, AccessDeviceRepository,
+  accessRecordRepository, AccessRecordRepository,
+  accessStatisticsRepository,
+} from '@/repositories/access.repository';
+import {
+  safetyDrillRepository, SafetyDrillRepository,
+  safetyInspectionRepository, SafetyInspectionRepository,
+} from '@/repositories/safety.repository';
+import {
+  assetRepository, AssetRepository,
+  repairRequestRepository, RepairRequestRepository,
+} from '@/repositories/asset.repository';
+import {
+  roomRepository as facilityRoomRepository, RoomRepository as FacilityRoomRepository,
+  spaceReservationRepository, SpaceReservationRepository,
+} from '@/repositories/facility.repository';
+import {
+  messageRepository as communicationMessageRepository,
+  groupRepository, GroupRepository,
+  communicationRepository, CommunicationRepository,
+} from '@/repositories/communication.repository';
+import {
+  afterSchoolServiceRepository, AfterSchoolServiceRepository,
+  teacherAttendanceRepository, TeacherAttendanceRepository,
+  workloadRepository, WorkloadRepository,
+  schoolStatsRepository, SchoolStatsRepository,
+  studentHonorRepository, StudentHonorRepository,
+} from '@/repositories/misc.repository';
 
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
@@ -136,6 +166,36 @@ import {
   announcementService, AnnouncementService,
   achievementService, AchievementService,
 } from '@/services/portal.service';
+// P3 新增 Service
+import {
+  accessDeviceService, AccessDeviceService,
+  accessRecordService, AccessRecordService,
+  accessStatisticsService, AccessStatisticsService,
+} from '@/services/access.service';
+import {
+  safetyDrillService, SafetyDrillService,
+  safetyInspectionService, SafetyInspectionService,
+} from '@/services/safety.service';
+import {
+  assetService, AssetService,
+  repairRequestService, RepairRequestService,
+} from '@/services/asset.service';
+import {
+  roomService, RoomService,
+  spaceReservationService as spaceReservationSvc, SpaceReservationService,
+} from '@/services/facility.service';
+import {
+  messageService, MessageService,
+  groupService, GroupService,
+  communicationService, CommunicationService,
+} from '@/services/communication.service';
+import {
+  afterSchoolServiceService, AfterSchoolServiceService,
+  teacherAttendanceService, TeacherAttendanceService,
+  workloadService, WorkloadService,
+  schoolStatsService, SchoolStatsService,
+  studentHonorService, StudentHonorService,
+} from '@/services/misc.service';
 
 /**
  * 初始化 DI 容器
@@ -182,7 +242,6 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.SharedResourceRepository, () => sharedResourceRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.TeachingResourceRepository, () => teachingResourceRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.LessonPrepRepository, () => lessonPrepRepository);
-  // DutyTeacherRepository 和 WeeklyEvaluationRepository 使用单例对象
   container.registerSingleton(SERVICE_IDENTIFIERS.DutyTeacherRepository, () => dutyTeacherRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.WeeklyEvaluationRepository, () => weeklyEvaluationRepository);
   // P0 新增 Repositories
@@ -200,6 +259,22 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.SchoolHonorRepository, () => schoolHonorRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AnnouncementRepository, () => announcementRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AchievementRepository, () => achievementRepository);
+  // P3 新增 Repositories
+  container.registerSingleton(SERVICE_IDENTIFIERS.AccessDeviceRepository, () => accessDeviceRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AccessRecordRepository, () => accessRecordRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SafetyDrillRepository, () => safetyDrillRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionRepository, () => safetyInspectionRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AssetRepository, () => assetRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.RepairRequestRepository, () => repairRequestRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.FacilityRoomRepository, () => facilityRoomRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SpaceReservationRepository, () => spaceReservationRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.GroupRepository, () => groupRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CommunicationRepository, () => communicationRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AfterSchoolServiceRepository, () => afterSchoolServiceRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeacherAttendanceRepository, () => teacherAttendanceRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.WorkloadRepository, () => workloadRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SchoolStatsRepository, () => schoolStatsRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.StudentHonorRepository, () => studentHonorRepository);
 
   // ========================================
   // 注册 Services（单例）
@@ -233,7 +308,7 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.ClassSOPService, () => classSopService);
   container.registerSingleton(SERVICE_IDENTIFIERS.ClassRoutineService, () => classRoutineService);
   container.registerSingleton(SERVICE_IDENTIFIERS.ConversationService, () => conversationService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.MessageService, () => messageRepository); // MessageService 使用 MessageRepository
+  container.registerSingleton(SERVICE_IDENTIFIERS.MessageService, () => messageService);
   container.registerSingleton(SERVICE_IDENTIFIERS.SharedResourceService, () => createSharedResourceService());
   container.registerSingleton(SERVICE_IDENTIFIERS.TeachingResourceService, () => teachingResourceService);
   container.registerSingleton(SERVICE_IDENTIFIERS.LessonPrepService, () => lessonPrepService);
@@ -254,6 +329,23 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.SchoolHonorService, () => schoolHonorService);
   container.registerSingleton(SERVICE_IDENTIFIERS.AnnouncementService, () => announcementService);
   container.registerSingleton(SERVICE_IDENTIFIERS.AchievementService, () => achievementService);
+  // P3 新增 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.AccessDeviceService, () => accessDeviceService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AccessRecordService, () => accessRecordService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AccessStatisticsService, () => accessStatisticsService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SafetyDrillService, () => safetyDrillService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionService, () => safetyInspectionService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AssetService, () => assetService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.RepairRequestService, () => repairRequestService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.RoomService, () => roomService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SpaceReservationService, () => spaceReservationSvc);
+  container.registerSingleton(SERVICE_IDENTIFIERS.GroupService, () => groupService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CommunicationService, () => communicationService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AfterSchoolServiceService, () => afterSchoolServiceService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeacherAttendanceService, () => teacherAttendanceService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.WorkloadService, () => workloadService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SchoolStatsService, () => schoolStatsService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.StudentHonorService, () => studentHonorService);
 }
 
 // 导出

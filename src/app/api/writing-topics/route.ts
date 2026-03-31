@@ -1,107 +1,66 @@
 /**
- * 习作篇目 API
+ * 作文题目 API
  * 
- * GET /api/writing-topics?grade=X&semester=上册/下册
+ * GET: 获取作文题目列表
+ * POST: 创建作文题目
  * 
- * 获取指定年级学期的习作篇目列表
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { teachingResourceRepository } from '@/repositories/teaching-resource.repository';
+import { success, error, ErrorCode } from '@/lib/api';
 
-// 数据库原始类型（snake_case）
-type WritingTopicRow = {
-  id: number;
-  grade: number;
-  semester: string;
-  unit_number: number;
-  unit_theme: string;
-  topic_number: number;
-  title: string;
-  writing_type: string;
-  requirements: string;
-  word_count_min: number;
-  word_count_max: number;
-  key_points: string[];
-  tips: string;
-  created_at: string;
-};
-
-// 单元分组类型
-type UnitGroup = {
-  unitNumber: number;
-  unitTheme: string;
-  topics: WritingTopicRow[];
-};
-
+/**
+ * GET - 获取作文题目列表
+ */
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const grade = searchParams.get('grade');
-    const semester = searchParams.get('semester');
+  const { searchParams } = new URL(request.url);
+  const teacherId = searchParams.get('teacherId');
+  const category = searchParams.get('category') || 'chinese_writing';
 
-    if (!grade || !semester) {
-      return NextResponse.json(
-        { success: false, error: '请提供年级和学期参数' },
-        { status: 400 }
-      );
-    }
-
-    const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
-      .from('writing_topics')
-      .select('*')
-      .eq('grade', parseInt(grade))
-      .eq('semester', semester)
-      .order('unit_number', { ascending: true })
-      .order('topic_number', { ascending: true });
-
-    if (error) {
-      console.error('[Writing Topics API Error]:', error);
-      return NextResponse.json(
-        { success: false, error: '获取习作篇目失败' },
-        { status: 500 }
-      );
-    }
-
-    if (!data || data.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: [],
-      });
-    }
-
-    // 按单元分组（使用 snake_case 字段名）
-    const unitMap = new Map<number, WritingTopicRow[]>();
-
-    (data as WritingTopicRow[]).forEach((topic) => {
-      const unitNum = topic.unit_number;
-      if (!unitMap.has(unitNum)) {
-        unitMap.set(unitNum, []);
-      }
-      unitMap.get(unitNum)!.push(topic);
-    });
-
-    // 转换为数组
-    const unitGroups: UnitGroup[] = [];
-    unitMap.forEach((topics, unitNumber) => {
-      unitGroups.push({
-        unitNumber,
-        unitTheme: topics[0]?.unit_theme || '',
-        topics,
-      });
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: unitGroups,
-    });
-  } catch (error) {
-    console.error('[Writing Topics API Error]:', error);
+  if (!teacherId) {
     return NextResponse.json(
-      { success: false, error: '获取习作篇目失败' },
+      error('缺少教师ID', ErrorCode.VALIDATION_ERROR),
+      { status: 400 }
+    );
+  }
+
+  const result = await teachingResourceRepository.findMany({
+    teacherId,
+    category: category as any,
+  });
+
+  // 返回资源列表
+  return NextResponse.json(success(result.items));
+}
+
+/**
+ * POST - 创建作文题目
+ */
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+
+  const resource = await teachingResourceRepository.create({
+    teacherId: body.teacherId,
+    teacherName: body.teacherName,
+    category: 'chinese_writing',
+    type: 'writing_task',
+    subject: '语文',
+    grade: body.grade,
+    title: body.title,
+    description: body.description,
+    content: body.content,
+    lessonTitle: body.lessonTitle,
+  });
+
+  if (!resource) {
+    return NextResponse.json(
+      error('创建作文题目失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
+
+  return NextResponse.json(success(resource));
 }

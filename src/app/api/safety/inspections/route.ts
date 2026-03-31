@@ -1,92 +1,87 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+/**
+ * 安全检查 API
+ * 
+ * GET: 获取安全检查列表
+ * POST: 创建安全检查
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ */
 
-// 类型定义
-interface SafetyInspectionRow {
-  id: string;
-  type: string;
-  location: string;
-  inspector: string;
-  inspection_date: string;
-  issues: Array<{ description: string; severity: string }> | null;
-  status: string;
-  resolved_at: string | null;
-  notes: string | null;
-  created_at: string;
-}
+import { NextRequest, NextResponse } from 'next/server';
+import { safetyInspectionService } from '@/services/safety.service';
+import { success, error, ErrorCode } from '@/lib/api';
 
 /**
- * GET - 获取安全检查记录列表
+ * GET - 获取安全检查列表
  */
 export async function GET(request: NextRequest) {
-  try {
-    const client = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const status = searchParams.get('status');
-    const location = searchParams.get('location');
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status') || undefined;
+  const area = searchParams.get('area') || undefined;
+  const type = searchParams.get('type') || undefined;
+  const resolved = searchParams.get('resolved') === 'true' ? true : undefined;
+  const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
+  const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 20;
 
-    let query = client
-      .from('safety_inspections')
-      .select('*')
-      .order('inspection_date', { ascending: false });
+  const result = await safetyInspectionService.getList({ status, area, type, resolved, page, pageSize });
 
-    if (type) query = query.eq('type', type);
-    if (status) query = query.eq('status', status);
-    if (location) query = query.ilike('location', `%${location}%`);
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-
-    return NextResponse.json({
-      success: true,
-      data: (data || []).map((i: SafetyInspectionRow) => ({
-        id: i.id,
-        type: i.type,
-        location: i.location,
-        inspector: i.inspector,
-        inspectionDate: i.inspection_date,
-        issues: i.issues || [],
-        status: i.status,
-        resolvedAt: i.resolved_at,
-        notes: i.notes,
-        createdAt: i.created_at,
-      })),
-    });
-  } catch (error) {
-    console.error('Failed to fetch safety inspections:', error);
-    return NextResponse.json({ success: false, error: '获取安全检查记录失败' }, { status: 500 });
+  if (!result.success || !result.data) {
+    return NextResponse.json(
+      error(result.error || '获取安全检查列表失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
   }
+
+  const formattedData = result.data.data.map((inspection: any) => ({
+    id: inspection.id,
+    inspector: inspection.inspector,
+    inspectionDate: inspection.inspection_date,
+    area: inspection.area,
+    type: inspection.type,
+    status: inspection.status,
+    issues: inspection.issues,
+    resolved: inspection.resolved,
+    resolvedAt: inspection.resolved_at,
+    resolvedBy: inspection.resolved_by,
+    notes: inspection.notes,
+    createdAt: inspection.created_at,
+  }));
+
+  return NextResponse.json(success({
+    data: formattedData,
+    pagination: {
+      total: result.data.total,
+      page: result.data.page,
+      pageSize: result.data.pageSize,
+      totalPages: result.data.totalPages,
+    },
+  }));
 }
 
 /**
- * POST - 创建安全检查记录
+ * POST - 创建安全检查
  */
 export async function POST(request: NextRequest) {
-  try {
-    const client = getSupabaseClient();
-    const body = await request.json();
+  const body = await request.json();
 
-    const { data, error } = await client
-      .from('safety_inspections')
-      .insert({
-        type: body.type,
-        location: body.location,
-        inspector: body.inspector,
-        inspection_date: body.inspectionDate,
-        issues: body.issues || [],
-        status: 'pending',
-        notes: body.notes,
-      })
-      .select()
-      .single();
+  const result = await safetyInspectionService.create({
+    inspector: body.inspector,
+    inspection_date: body.inspectionDate || body.date,
+    area: body.area,
+    type: body.type,
+    status: body.status || 'pending',
+    issues: body.issues || [],
+    resolved: false,
+    notes: body.notes,
+  });
 
-    if (error) throw error;
-
-    return NextResponse.json({ success: true, data });
-  } catch (error) {
-    console.error('Failed to create safety inspection:', error);
-    return NextResponse.json({ success: false, error: '创建安全检查记录失败' }, { status: 500 });
+  if (!result.success) {
+    return NextResponse.json(
+      error(result.error || '创建安全检查失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
   }
+
+  return NextResponse.json(success(result.data));
 }

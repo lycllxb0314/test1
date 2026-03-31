@@ -1,131 +1,85 @@
+/**
+ * 门禁记录 API
+ * 
+ * GET: 获取门禁记录列表
+ * POST: 创建门禁记录
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { accessRecordService } from '@/services/access.service';
+import { success, error, ErrorCode } from '@/lib/api';
 
-// 类型定义
-interface AccessDeviceNested {
-  id: string;
-  name: string;
-  location: string | null;
-}
+/**
+ * GET - 获取门禁记录列表
+ */
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const deviceId = searchParams.get('deviceId') || undefined;
+  const personType = searchParams.get('personType') || undefined;
+  const direction = searchParams.get('direction') || undefined;
+  const startDate = searchParams.get('startDate') || undefined;
+  const endDate = searchParams.get('endDate') || undefined;
 
-interface AccessRecordRow {
-  id: string;
-  person_id: string;
-  person_name: string;
-  person_type: string;
-  person_organization: string | null;
-  device_id: string;
-  direction: string;
-  status: string;
-  temperature: number | null;
-  occurred_at: string;
-  access_devices: AccessDeviceNested | AccessDeviceNested[] | null;
+  const result = await accessRecordService.getList({
+    deviceId,
+    personType,
+    direction,
+    startDate,
+    endDate,
+  });
+
+  if (!result.success || !result.data) {
+    return NextResponse.json(
+      error(result.error || '获取门禁记录失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
+  }
+
+  // 处理分页结果或数组
+  const records = Array.isArray(result.data) ? result.data : (result.data as any).data || [];
+  
+  const formattedData = records.map((record: any) => ({
+    id: record.id,
+    deviceId: record.device_id,
+    personId: record.person_id,
+    personName: record.person_name,
+    personType: record.person_type,
+    direction: record.direction,
+    occurredAt: record.occurred_at,
+    temperature: record.temperature,
+    imageUrl: record.image_url,
+    createdAt: record.created_at,
+  }));
+
+  return NextResponse.json(success(formattedData));
 }
 
 /**
- * GET - 获取通行记录
- * 查询参数：
- * - deviceId: 设备ID
- * - personType: 人员类型
- * - direction: 进出方向
- * - date: 日期
- * - startDate: 开始日期
- * - endDate: 结束日期
+ * POST - 创建门禁记录
  */
-export async function GET(request: NextRequest) {
-  try {
-    const client = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
-    const deviceId = searchParams.get('deviceId');
-    const personType = searchParams.get('personType');
-    const direction = searchParams.get('direction');
-    const date = searchParams.get('date');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const limit = parseInt(searchParams.get('limit') || '100');
+export async function POST(request: NextRequest) {
+  const body = await request.json();
 
-    let query = client
-      .from('access_records')
-      .select(`
-        id,
-        person_id,
-        person_name,
-        person_type,
-        person_organization,
-        device_id,
-        direction,
-        status,
-        temperature,
-        occurred_at,
-        access_devices (
-          id,
-          name,
-          location
-        )
-      `)
-      .order('occurred_at', { ascending: false })
-      .limit(limit);
+  const result = await accessRecordService.create({
+    device_id: body.deviceId,
+    person_id: body.personId,
+    person_name: body.personName,
+    person_type: body.personType,
+    direction: body.direction,
+    occurred_at: body.occurredAt || new Date().toISOString(),
+    image_url: body.imageUrl,
+    temperature: body.temperature,
+  });
 
-    if (deviceId) {
-      query = query.eq('device_id', deviceId);
-    }
-
-    if (personType) {
-      query = query.eq('person_type', personType);
-    }
-
-    if (direction) {
-      query = query.eq('direction', direction);
-    }
-
-    if (date) {
-      query = query.gte('occurred_at', `${date}T00:00:00`)
-                   .lt('occurred_at', `${date}T23:59:59`);
-    }
-
-    if (startDate) {
-      query = query.gte('occurred_at', startDate);
-    }
-
-    if (endDate) {
-      query = query.lte('occurred_at', endDate);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    const formattedData = (data || []).map((record: AccessRecordRow) => {
-      const device = Array.isArray(record.access_devices) 
-        ? record.access_devices[0] 
-        : record.access_devices;
-      return {
-        id: record.id,
-        personId: record.person_id,
-        personName: record.person_name,
-        personType: record.person_type,
-        organization: record.person_organization,
-        deviceId: record.device_id,
-        deviceName: device?.name || '',
-        deviceLocation: device?.location || '',
-        direction: record.direction,
-        status: record.status,
-        temperature: record.temperature,
-        occurredAt: record.occurred_at,
-      };
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
-    });
-  } catch (error) {
-    console.error('Failed to fetch access records:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取通行记录失败',
-    }, { status: 500 });
+  if (!result.success) {
+    return NextResponse.json(
+      error(result.error || '创建门禁记录失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
   }
+
+  return NextResponse.json(success(result.data));
 }

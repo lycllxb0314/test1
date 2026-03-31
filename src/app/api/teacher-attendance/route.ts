@@ -1,109 +1,87 @@
 /**
  * 教师考勤 API
  * 
- * GET: 获取教师考勤
- * POST: 记录考勤
+ * GET: 获取教师考勤记录
+ * POST: 创建教师考勤记录（签到/签退）
  * 
  * ⚠️ 架构原则：
- * - 使用统一认证中间件
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
-import { NextRequest } from 'next/server';
-import { withAuth } from '@/lib/auth/middleware';
-import { ok, fail, serverError } from '@/lib/api';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { NextRequest, NextResponse } from 'next/server';
+import { teacherAttendanceService } from '@/services/misc.service';
+import { success, error, ErrorCode } from '@/lib/api';
 
 /**
- * GET: 获取教师考勤
+ * GET - 获取教师考勤记录
  */
-export const GET = withAuth(async (request: NextRequest) => {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const date = searchParams.get('date');
-  const teacherId = searchParams.get('teacherId');
-  const month = searchParams.get('month');
+  const date = searchParams.get('date') || undefined;
+  const teacherId = searchParams.get('teacherId') || undefined;
+  const startDate = searchParams.get('startDate') || undefined;
+  const endDate = searchParams.get('endDate') || undefined;
 
-  try {
-    const client = getSupabaseClient();
-    
-    let query = client
-      .from('teacher_attendance')
-      .select('*')
-      .order('date', { ascending: false });
-    
-    if (date) {
-      query = query.eq('date', date);
-    }
-    if (teacherId) {
-      query = query.eq('teacher_id', teacherId);
-    }
-    if (month) {
-      query = query.gte('date', `${month}-01`).lte('date', `${month}-31`);
-    }
-    
-    const { data, error } = await query;
-    
-    if (error) {
-      return fail(error.message);
-    }
-    
-    const formattedData = (data || []).map(r => ({
-      id: r.id,
-      teacherId: r.teacher_id,
-      teacherName: r.teacher_name,
-      date: r.date,
-      checkInTime: r.check_in_time,
-      checkOutTime: r.check_out_time,
-      status: r.status,
-      remarks: r.remarks,
-      createdAt: r.created_at,
-    }));
-    
-    return ok(formattedData);
-  } catch (error) {
-    console.error('获取教师考勤失败:', error);
-    return serverError('服务器错误');
+  let result;
+  if (date) {
+    result = await teacherAttendanceService.getByDate(date);
+  } else if (teacherId) {
+    result = await teacherAttendanceService.getByTeacher(teacherId, startDate, endDate);
+  } else {
+    return NextResponse.json(
+      error('需要提供日期或教师ID', ErrorCode.VALIDATION_ERROR),
+      { status: 400 }
+    );
   }
-});
+
+  if (!result.success || !result.data) {
+    return NextResponse.json(
+      error(result.error || '获取教师考勤记录失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
+  }
+
+  const formattedData = result.data.map((record: any) => ({
+    id: record.id,
+    teacherId: record.teacher_id,
+    teacherName: record.teacher_name,
+    date: record.date,
+    checkInTime: record.check_in_time,
+    checkOutTime: record.check_out_time,
+    status: record.status,
+    location: record.location,
+    notes: record.notes,
+    createdAt: record.created_at,
+  }));
+
+  return NextResponse.json(success(formattedData));
+}
 
 /**
- * POST: 记录考勤
+ * POST - 签到/签退
  */
-export const POST = withAuth(async (request: NextRequest) => {
-  try {
-    const client = getSupabaseClient();
-    const body = await request.json();
-    
-    if (!body.teacherId || !body.date) {
-      return fail('缺少必要参数');
-    }
-    
-    const { data, error } = await client
-      .from('teacher_attendance')
-      .upsert({
-        id: body.id || `ta-${Date.now()}`,
-        teacher_id: body.teacherId,
-        teacher_name: body.teacherName,
-        date: body.date,
-        check_in_time: body.checkInTime,
-        check_out_time: body.checkOutTime,
-        status: body.status || 'present',
-        remarks: body.remarks,
-      })
-      .select()
-      .single();
-    
-    if (error) {
-      return fail(error.message);
-    }
-    
-    return ok({
-      id: data.id,
-      teacherId: data.teacher_id,
-      date: data.date,
-      status: data.status,
-    });
-  } catch (error) {
-    console.error('记录考勤失败:', error);
-    return serverError('服务器错误');
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const { action, teacherId, teacherName, location } = body;
+
+  let result;
+  if (action === 'checkIn') {
+    result = await teacherAttendanceService.checkIn(teacherId, teacherName, location);
+  } else if (action === 'checkOut') {
+    result = await teacherAttendanceService.checkOut(teacherId);
+  } else {
+    return NextResponse.json(
+      error('无效的操作类型', ErrorCode.VALIDATION_ERROR),
+      { status: 400 }
+    );
   }
-});
+
+  if (!result.success) {
+    return NextResponse.json(
+      error(result.error || '操作失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(success(result.data));
+}

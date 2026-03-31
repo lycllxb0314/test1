@@ -1,188 +1,96 @@
 /**
- * 单条消息 API
+ * 消息详情 API
  * 
  * GET: 获取消息详情
- * PUT: 更新消息状态（标记已读、归档等）
+ * PUT: 更新消息
  * DELETE: 删除消息
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
-import { NextRequest } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { ok, fail, serverError, notFound } from '@/lib/api';
+import { NextRequest, NextResponse } from 'next/server';
+import { messageService } from '@/services/communication.service';
+import { success, error, ErrorCode } from '@/lib/api';
 
-// GET: 获取消息详情
-const handleGetMessage = async (
-  request: NextRequest,
-  context: ExtendedRouteContext
-) => {
-  try {
-    const params = await context.params;
-    const id = params?.id;
-    
-    if (!id) {
-      return fail('缺少消息ID');
-    }
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
 
-    const client = getSupabaseClient();
+/**
+ * GET - 获取消息详情
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+  const result = await messageService.getById(id);
 
-    const { data: message, error: msgError } = await client
-      .from('messages')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (msgError || !message) {
-      return notFound('消息不存在');
-    }
-
-    const { data: readStatus } = await client
-      .from('message_reads')
-      .select('*')
-      .eq('message_id', id)
-      .eq('user_id', context.user.id)
-      .single();
-
-    const result = {
-      ...message,
-      status: readStatus ? 'read' : 'unread',
-      readAt: readStatus?.read_at,
-      isPinned: readStatus?.is_pinned || false,
-    };
-
-    return ok(result);
-  } catch (err) {
-    console.error('Get message API error:', err);
-    return serverError('服务器错误');
+  if (!result.success || !result.data) {
+    return NextResponse.json(
+      error(result.error || '获取消息详情失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
   }
-};
 
-// PUT: 更新消息状态
-const handleUpdateMessage = async (
-  request: NextRequest,
-  context: ExtendedRouteContext
-) => {
-  try {
-    const params = await context.params;
-    const id = params?.id;
-    
-    if (!id) {
-      return fail('缺少消息ID');
-    }
+  const message = result.data;
+  return NextResponse.json(success({
+    id: message.id,
+    senderId: message.sender_id,
+    senderName: message.sender_name,
+    receiverId: message.receiver_id,
+    receiverType: message.receiver_type,
+    subject: message.subject,
+    content: message.content,
+    type: message.type,
+    priority: message.priority,
+    status: message.status,
+    sentAt: message.sent_at,
+    readAt: message.read_at,
+    createdAt: message.created_at,
+  }));
+}
 
-    const body = await request.json();
-    const { action } = body;
+/**
+ * PUT - 更新消息（标记已读等）
+ */
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+  const body = await request.json();
 
-    const client = getSupabaseClient();
-
-    const { data: message, error: msgError } = await client
-      .from('messages')
-      .select('id')
-      .eq('id', id)
-      .single();
-
-    if (msgError || !message) {
-      return notFound('消息不存在');
-    }
-
-    const userId = context.user.id;
-
-    switch (action) {
-      case 'read':
-        const { error: readError } = await client
-          .from('message_reads')
-          .upsert({
-            message_id: id,
-            user_id: userId,
-            read_at: new Date().toISOString(),
-            status: 'read',
-          }, { onConflict: 'message_id,user_id' });
-        
-        if (readError) {
-          console.error('Failed to mark as read:', readError);
-          return fail('标记已读失败');
-        }
-        break;
-
-      case 'unread':
-        await client
-          .from('message_reads')
-          .upsert({
-            message_id: id,
-            user_id: userId,
-            status: 'unread',
-          }, { onConflict: 'message_id,user_id' });
-        break;
-
-      case 'archive':
-        await client
-          .from('message_reads')
-          .upsert({
-            message_id: id,
-            user_id: userId,
-            status: 'archived',
-          }, { onConflict: 'message_id,user_id' });
-        break;
-
-      case 'pin':
-        await client
-          .from('message_reads')
-          .upsert({
-            message_id: id,
-            user_id: userId,
-            is_pinned: true,
-          }, { onConflict: 'message_id,user_id' });
-        break;
-
-      case 'unpin':
-        await client
-          .from('message_reads')
-          .update({ is_pinned: false })
-          .eq('message_id', id)
-          .eq('user_id', userId);
-        break;
-
-      default:
-        return fail('无效的操作');
-    }
-
-    return ok({ message: '操作成功' });
-  } catch (err) {
-    console.error('Update message API error:', err);
-    return serverError('服务器错误');
+  let result;
+  if (body.action === 'markRead') {
+    result = await messageService.markAsRead(id);
+  } else if (body.action === 'send') {
+    result = await messageService.send(id);
+  } else {
+    return NextResponse.json(
+      error('无效的操作', ErrorCode.VALIDATION_ERROR),
+      { status: 400 }
+    );
   }
-};
 
-// DELETE: 删除消息（从用户视角删除）
-const handleDeleteMessage = async (
-  request: NextRequest,
-  context: ExtendedRouteContext
-) => {
-  try {
-    const params = await context.params;
-    const id = params?.id;
-    
-    if (!id) {
-      return fail('缺少消息ID');
-    }
-
-    const client = getSupabaseClient();
-
-    await client
-      .from('message_reads')
-      .upsert({
-        message_id: id,
-        user_id: context.user.id,
-        deleted_at: new Date().toISOString(),
-      }, { onConflict: 'message_id,user_id' });
-
-    return ok({ message: '消息已删除' });
-  } catch (err) {
-    console.error('Delete message API error:', err);
-    return serverError('服务器错误');
+  if (!result.success) {
+    return NextResponse.json(
+      error(result.error || '更新消息失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
   }
-};
 
-export const GET = protectedRoute(handleGetMessage);
-export const PUT = protectedRoute(handleUpdateMessage);
-export const DELETE = protectedRoute(handleDeleteMessage);
+  return NextResponse.json(success(result.data));
+}
+
+/**
+ * DELETE - 删除消息
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+  const result = await messageService.delete(id);
+
+  if (!result.success) {
+    return NextResponse.json(
+      error(result.error || '删除消息失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(success({ deleted: true }));
+}

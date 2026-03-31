@@ -167,6 +167,22 @@ export const SERVICE_IDENTIFIERS = {
   SchoolHonorRepository: Symbol.for('SchoolHonorRepository'),
   AnnouncementRepository: Symbol.for('AnnouncementRepository'),
   AchievementRepository: Symbol.for('AchievementRepository'),
+  // P3 新增 Repositories
+  AccessDeviceRepository: Symbol.for('AccessDeviceRepository'),
+  AccessRecordRepository: Symbol.for('AccessRecordRepository'),
+  SafetyDrillRepository: Symbol.for('SafetyDrillRepository'),
+  SafetyInspectionRepository: Symbol.for('SafetyInspectionRepository'),
+  AssetRepository: Symbol.for('AssetRepository'),
+  RepairRequestRepository: Symbol.for('RepairRequestRepository'),
+  FacilityRoomRepository: Symbol.for('FacilityRoomRepository'),
+  SpaceReservationRepository: Symbol.for('SpaceReservationRepository'),
+  GroupRepository: Symbol.for('GroupRepository'),
+  CommunicationRepository: Symbol.for('CommunicationRepository'),
+  AfterSchoolServiceRepository: Symbol.for('AfterSchoolServiceRepository'),
+  TeacherAttendanceRepository: Symbol.for('TeacherAttendanceRepository'),
+  WorkloadRepository: Symbol.for('WorkloadRepository'),
+  SchoolStatsRepository: Symbol.for('SchoolStatsRepository'),
+  StudentHonorRepository: Symbol.for('StudentHonorRepository'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -218,6 +234,23 @@ export const SERVICE_IDENTIFIERS = {
   SchoolHonorService: Symbol.for('SchoolHonorService'),
   AnnouncementService: Symbol.for('AnnouncementService'),
   AchievementService: Symbol.for('AchievementService'),
+  // P3 新增 Services
+  AccessDeviceService: Symbol.for('AccessDeviceService'),
+  AccessRecordService: Symbol.for('AccessRecordService'),
+  AccessStatisticsService: Symbol.for('AccessStatisticsService'),
+  SafetyDrillService: Symbol.for('SafetyDrillService'),
+  SafetyInspectionService: Symbol.for('SafetyInspectionService'),
+  AssetService: Symbol.for('AssetService'),
+  RepairRequestService: Symbol.for('RepairRequestService'),
+  RoomService: Symbol.for('RoomService'),
+  SpaceReservationService: Symbol.for('SpaceReservationService'),
+  GroupService: Symbol.for('GroupService'),
+  CommunicationService: Symbol.for('CommunicationService'),
+  AfterSchoolServiceService: Symbol.for('AfterSchoolServiceService'),
+  TeacherAttendanceService: Symbol.for('TeacherAttendanceService'),
+  WorkloadService: Symbol.for('WorkloadService'),
+  SchoolStatsService: Symbol.for('SchoolStatsService'),
+  StudentHonorService: Symbol.for('StudentHonorService'),
 } as const;
 
 /**
