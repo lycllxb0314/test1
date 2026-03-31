@@ -73,44 +73,75 @@ export function MathCanvas({
     if (element.type !== 'cube') return position;
     
     const cubeSize = (element as SolidShape).width || 50;
-    const snapThreshold = 10; // 吸附阈值
+    const snapThreshold = 15; // 吸附阈值
+    
+    // 当前正方体的边界
+    const currentLeft = position.x;
+    const currentRight = position.x + cubeSize;
+    const currentTop = position.y;
+    const currentBottom = position.y + cubeSize;
+    const currentCenterX = position.x + cubeSize / 2;
+    const currentCenterY = position.y + cubeSize / 2;
     
     // 查找其他正方体元素
     const otherCubes = state.elements.filter(
       (el) => el.type === 'cube' && el.id !== element.id
     ) as SolidShape[];
     
-    let bestSnap: Point | null = null;
-    let minDistance = snapThreshold;
+    let bestSnapX: number | null = null;
+    let bestSnapY: number | null = null;
+    let minDistX = snapThreshold;
+    let minDistY = snapThreshold;
     
     for (const otherCube of otherCubes) {
       const otherPos = otherCube.position;
       const otherSize = otherCube.width;
       
-      // 检查八个方向的吸附位置
-      const snapPositions = [
-        { x: otherPos.x - cubeSize, y: otherPos.y }, // 左
-        { x: otherPos.x + otherSize, y: otherPos.y }, // 右
-        { x: otherPos.x, y: otherPos.y - cubeSize }, // 上
-        { x: otherPos.x, y: otherPos.y + otherSize }, // 下
-        { x: otherPos.x - cubeSize, y: otherPos.y - cubeSize }, // 左上
-        { x: otherPos.x + otherSize, y: otherPos.y - cubeSize }, // 右上
-        { x: otherPos.x - cubeSize, y: otherPos.y + otherSize }, // 左下
-        { x: otherPos.x + otherSize, y: otherPos.y + otherSize }, // 右下
+      // 其他正方体的边界
+      const otherLeft = otherPos.x;
+      const otherRight = otherPos.x + otherSize;
+      const otherTop = otherPos.y;
+      const otherBottom = otherPos.y + otherSize;
+      const otherCenterX = otherPos.x + otherSize / 2;
+      const otherCenterY = otherPos.y + otherSize / 2;
+      
+      // X轴吸附检查
+      const xSnapOptions = [
+        { target: otherLeft - cubeSize, dist: Math.abs(currentLeft - (otherLeft - cubeSize)) }, // 左对左（当前在左边）
+        { target: otherRight, dist: Math.abs(currentLeft - otherRight) }, // 左对右（当前在右边）
+        { target: otherLeft, dist: Math.abs(currentRight - otherLeft), useRight: true }, // 右对左
+        { target: otherRight - cubeSize, dist: Math.abs(currentRight - otherRight), useRight: true }, // 右对右
+        { target: otherCenterX - cubeSize / 2, dist: Math.abs(currentCenterX - otherCenterX) }, // 中心对齐
       ];
       
-      for (const snapPos of snapPositions) {
-        const distance = Math.sqrt(
-          Math.pow(position.x - snapPos.x, 2) + Math.pow(position.y - snapPos.y, 2)
-        );
-        if (distance < minDistance) {
-          minDistance = distance;
-          bestSnap = snapPos;
+      for (const opt of xSnapOptions) {
+        if (opt.dist < minDistX) {
+          minDistX = opt.dist;
+          bestSnapX = opt.target;
+        }
+      }
+      
+      // Y轴吸附检查
+      const ySnapOptions = [
+        { target: otherTop - cubeSize, dist: Math.abs(currentTop - (otherTop - cubeSize)) }, // 上对上（当前在上边）
+        { target: otherBottom, dist: Math.abs(currentTop - otherBottom) }, // 上对下（当前在下边）
+        { target: otherTop, dist: Math.abs(currentBottom - otherTop), useBottom: true }, // 下对上
+        { target: otherBottom - cubeSize, dist: Math.abs(currentBottom - otherBottom), useBottom: true }, // 下对下
+        { target: otherCenterY - cubeSize / 2, dist: Math.abs(currentCenterY - otherCenterY) }, // 中心对齐
+      ];
+      
+      for (const opt of ySnapOptions) {
+        if (opt.dist < minDistY) {
+          minDistY = opt.dist;
+          bestSnapY = opt.target;
         }
       }
     }
     
-    return bestSnap || position;
+    return {
+      x: bestSnapX !== null ? bestSnapX : position.x,
+      y: bestSnapY !== null ? bestSnapY : position.y,
+    };
   }, [state.elements]);
 
   // 获取鼠标在画布上的位置
@@ -1357,33 +1388,33 @@ export function MathCanvas({
       }
       
       if (tool === 'squareGrid') {
-        // 正方形网格预览：显示网格线让用户直观看到圈选范围
+        // 正方形网格预览：锁定1:1比例，确保是正方形
         const x = Math.min(startPoint.x, currentPoint.x);
         const y = Math.min(startPoint.y, currentPoint.y);
         const w = Math.abs(currentPoint.x - startPoint.x);
         const h = Math.abs(currentPoint.y - startPoint.y);
+        const size = Math.max(w, h, 50); // 保持正方形，最小50px
         const rows = 3;
         const cols = 3;
-        const cellW = w / cols;
-        const cellH = h / rows;
+        const cellSize = size / cols;
         
         // 绘制外边框
         ctx.beginPath();
-        ctx.rect(x, y, w, h);
+        ctx.rect(x, y, size, size);
         ctx.stroke();
         
         // 绘制内部网格线
         ctx.lineWidth = 1;
         for (let i = 1; i < rows; i++) {
           ctx.beginPath();
-          ctx.moveTo(x, y + i * cellH);
-          ctx.lineTo(x + w, y + i * cellH);
+          ctx.moveTo(x, y + i * cellSize);
+          ctx.lineTo(x + size, y + i * cellSize);
           ctx.stroke();
         }
         for (let j = 1; j < cols; j++) {
           ctx.beginPath();
-          ctx.moveTo(x + j * cellW, y);
-          ctx.lineTo(x + j * cellW, y + h);
+          ctx.moveTo(x + j * cellSize, y);
+          ctx.lineTo(x + j * cellSize, y + size);
           ctx.stroke();
         }
         
@@ -1391,7 +1422,7 @@ export function MathCanvas({
         ctx.fillStyle = state.activeColor;
         ctx.font = '12px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`${cols} × ${rows}`, x + w / 2, y - 8);
+        ctx.fillText(`${cols} × ${rows}`, x + size / 2, y - 8);
       } else if (['numberLine', 'segmentDiagram', 'barChart', 'lineChart', 'pieChart', 'cubeGrid'].includes(tool)) {
         // 这些工具只需要点击位置
         ctx.fillStyle = `${state.activeColor}20`;
