@@ -167,18 +167,18 @@ export function ToolBar({ activeTool, onToolChange, groups }: ToolBarProps) {
               <div className="text-xs font-medium text-muted-foreground mb-1 px-1">
                 {group.name}
               </div>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-2 gap-1">
                 {group.tools.map((tool) => (
                   <Tooltip key={tool}>
                     <TooltipTrigger asChild>
                       <Button
                         variant={activeTool === tool ? 'default' : 'ghost'}
                         size="sm"
-                        className="h-8 w-full justify-start"
+                        className="h-8 w-full justify-start px-2"
                         onClick={() => onToolChange(tool)}
                       >
                         {TOOL_ICONS[tool]}
-                        <span className="ml-1 text-xs truncate">{TOOL_NAMES[tool]}</span>
+                        <span className="ml-1.5 text-xs truncate">{TOOL_NAMES[tool]}</span>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="right">

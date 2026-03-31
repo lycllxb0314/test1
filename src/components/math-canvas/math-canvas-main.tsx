@@ -282,7 +282,7 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
       {/* 主体区域 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧工具栏 */}
-        <div className="w-48 border-r bg-card overflow-y-auto">
+        <div className="w-56 border-r bg-card overflow-y-auto">
           <ToolBar
             activeTool={state.activeTool}
             onToolChange={handleToolChange}
