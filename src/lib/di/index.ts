@@ -48,6 +48,17 @@ import {
   CollectionResponseRepository, collectionResponseRepository,
 } from '@/repositories/information-collection.repository';
 
+// 导入新增 Repository 实现
+import { SeatingPlanRepository, seatingPlanRepository } from '@/repositories/seating-plan.repository';
+import { classSopRepository } from '@/repositories/class-sop.repository';
+import { ClassRoutineRepository, classRoutineRepository } from '@/repositories/class-routine.repository';
+import { conversationRepository } from '@/repositories/conversation.repository';
+import { sharedResourceRepository } from '@/repositories/shared-resource.repository';
+import { TeachingResourceRepository, teachingResourceRepository } from '@/repositories/teaching-resource.repository';
+import { LessonPrepRepository, lessonPrepRepository } from '@/repositories/lesson-prep.repository';
+import { dutyTeacherRepository } from '@/repositories/duty-teacher.repository';
+import { weeklyEvaluationRepository } from '@/repositories/weekly-evaluation.repository';
+
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
 import { StudentService, studentService } from '@/services/student.service';
@@ -79,6 +90,19 @@ import {
   CollectionResponseService, collectionResponseService,
 } from '@/services/information-collection.service';
 
+// 导入新增 Service 实现
+import { SeatingPlanService, seatingPlanService } from '@/services/seating-plan.service';
+import { classSopService } from '@/services/class-sop.service';
+import { ClassRoutineService, classRoutineService } from '@/services/class-routine.service';
+import { conversationService } from '@/services/conversation.service';
+import { SharedResourceService, createSharedResourceService } from '@/services/shared-resource.service';
+import { TeachingResourceService, teachingResourceService } from '@/services/teaching-resource.service';
+import { LessonPrepService, lessonPrepService } from '@/services/lesson-prep.service';
+import { MathPrepService, mathPrepService } from '@/services/math-prep.service';
+import { ReadingTeachingService, createReadingTeachingService } from '@/services/reading-teaching.service';
+import { WritingTeachingService, createWritingTeachingService } from '@/services/writing-teaching.service';
+import { TextbookService, createTextbookService } from '@/services/textbook.service';
+
 /**
  * 初始化 DI 容器
  * 注册所有服务到容器中
@@ -93,6 +117,7 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.ClassRepository, () => classRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AttendanceRepository, () => attendanceRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleRepository, () => scheduleRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ActualScheduleRepository, () => actualScheduleRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.GradeRepository, () => gradeRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.ApprovalRepository, () => approvalRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.MessageRepository, () => messageRepository);
@@ -114,6 +139,18 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.HabitStarRepository, () => habitStarRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.InformationCollectionRepository, () => informationCollectionRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.CollectionResponseRepository, () => collectionResponseRepository);
+
+  // 注册新增 Repositories
+  container.registerSingleton(SERVICE_IDENTIFIERS.SeatingPlanRepository, () => seatingPlanRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ClassSOPRepository, () => classSopRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ClassRoutineRepository, () => classRoutineRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ConversationRepository, () => conversationRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SharedResourceRepository, () => sharedResourceRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeachingResourceRepository, () => teachingResourceRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.LessonPrepRepository, () => lessonPrepRepository);
+  // DutyTeacherRepository 和 WeeklyEvaluationRepository 使用单例对象
+  container.registerSingleton(SERVICE_IDENTIFIERS.DutyTeacherRepository, () => dutyTeacherRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.WeeklyEvaluationRepository, () => weeklyEvaluationRepository);
 
   // ========================================
   // 注册 Services（单例）
@@ -141,6 +178,20 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.HabitStarService, () => habitStarService);
   container.registerSingleton(SERVICE_IDENTIFIERS.InformationCollectionService, () => informationCollectionService);
   container.registerSingleton(SERVICE_IDENTIFIERS.CollectionResponseService, () => collectionResponseService);
+
+  // 注册新增 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.SeatingPlanService, () => seatingPlanService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ClassSOPService, () => classSopService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ClassRoutineService, () => classRoutineService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ConversationService, () => conversationService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.MessageService, () => messageRepository); // MessageService 使用 MessageRepository
+  container.registerSingleton(SERVICE_IDENTIFIERS.SharedResourceService, () => createSharedResourceService());
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeachingResourceService, () => teachingResourceService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.LessonPrepService, () => lessonPrepService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.MathPrepService, () => mathPrepService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ReadingTeachingService, () => createReadingTeachingService());
+  container.registerSingleton(SERVICE_IDENTIFIERS.WritingTeachingService, () => createWritingTeachingService());
+  container.registerSingleton(SERVICE_IDENTIFIERS.TextbookService, () => createTextbookService());
 }
 
 // 导出

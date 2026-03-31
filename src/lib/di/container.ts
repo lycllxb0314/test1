@@ -119,6 +119,7 @@ export const SERVICE_IDENTIFIERS = {
   ClassRepository: Symbol.for('ClassRepository'),
   AttendanceRepository: Symbol.for('AttendanceRepository'),
   ScheduleRepository: Symbol.for('ScheduleRepository'),
+  ActualScheduleRepository: Symbol.for('ActualScheduleRepository'),
   GradeRepository: Symbol.for('GradeRepository'),
   ApprovalRepository: Symbol.for('ApprovalRepository'),
   MessageRepository: Symbol.for('MessageRepository'),
@@ -140,6 +141,17 @@ export const SERVICE_IDENTIFIERS = {
   HabitStarRepository: Symbol.for('HabitStarRepository'),
   InformationCollectionRepository: Symbol.for('InformationCollectionRepository'),
   CollectionResponseRepository: Symbol.for('CollectionResponseRepository'),
+  // 新增 Repositories
+  SeatingPlanRepository: Symbol.for('SeatingPlanRepository'),
+  ClassSOPRepository: Symbol.for('ClassSOPRepository'),
+  ClassRoutineRepository: Symbol.for('ClassRoutineRepository'),
+  ConversationRepository: Symbol.for('ConversationRepository'),
+  SharedResourceRepository: Symbol.for('SharedResourceRepository'),
+  TeachingResourceRepository: Symbol.for('TeachingResourceRepository'),
+  LessonPrepRepository: Symbol.for('LessonPrepRepository'),
+  MathTeachingContentRepository: Symbol.for('MathTeachingContentRepository'),
+  DutyTeacherRepository: Symbol.for('DutyTeacherRepository'),
+  WeeklyEvaluationRepository: Symbol.for('WeeklyEvaluationRepository'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -165,6 +177,19 @@ export const SERVICE_IDENTIFIERS = {
   HabitStarService: Symbol.for('HabitStarService'),
   InformationCollectionService: Symbol.for('InformationCollectionService'),
   CollectionResponseService: Symbol.for('CollectionResponseService'),
+  // 新增 Services
+  SeatingPlanService: Symbol.for('SeatingPlanService'),
+  ClassSOPService: Symbol.for('ClassSOPService'),
+  ClassRoutineService: Symbol.for('ClassRoutineService'),
+  ConversationService: Symbol.for('ConversationService'),
+  MessageService: Symbol.for('MessageService'),
+  SharedResourceService: Symbol.for('SharedResourceService'),
+  TeachingResourceService: Symbol.for('TeachingResourceService'),
+  LessonPrepService: Symbol.for('LessonPrepService'),
+  MathPrepService: Symbol.for('MathPrepService'),
+  ReadingTeachingService: Symbol.for('ReadingTeachingService'),
+  WritingTeachingService: Symbol.for('WritingTeachingService'),
+  TextbookService: Symbol.for('TextbookService'),
 } as const;
 
 /**

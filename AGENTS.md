@@ -62,11 +62,39 @@
 
 ### 依赖注入 (DI)
 
-项目实现了轻量级依赖注入容器 (`src/lib/di/container.ts`)：
+项目实现了轻量级依赖注入容器 (`src/lib/di/container.ts`)，**已覆盖全部 Service 和 Repository 层**：
+
+**已注册的服务标识符 (SERVICE_IDENTIFIERS)：**
+
+**Repositories (20个)：**
+- UserRepository, TeacherRepository, StudentRepository, ClassRepository
+- AttendanceRepository, ScheduleRepository, ActualScheduleRepository, GradeRepository
+- ApprovalRepository, MessageRepository, LeaveRepository, CourseRepository
+- ExamRepository, ExamScoreRepository, HomeworkRepository, HomeworkSubmissionRepository
+- ResearchActivityRepository, ResearchStageRepository, ResearchAchievementRepository, ResearchResourceRepository
+- MoralActivityRepository, MoralActivitySubmissionRepository
+- HabitGoalRepository, StudentHabitGoalRepository, HabitRecordRepository, HabitStarRepository
+- InformationCollectionRepository, CollectionResponseRepository
+- **新增**: SeatingPlanRepository, ClassSOPRepository, ClassRoutineRepository
+- **新增**: ConversationRepository, SharedResourceRepository, TeachingResourceRepository
+- **新增**: LessonPrepRepository, DutyTeacherRepository, WeeklyEvaluationRepository
+
+**Services (24个)：**
+- UserService, StudentService, TeacherService, ClassService
+- AttendanceService, ApprovalService, CourseService
+- ExamService, ExamScoreService, HomeworkService, HomeworkSubmissionService
+- ResearchActivityService, ResearchStageService, ResearchAchievementService, ResearchResourceService
+- MoralActivityService, MoralActivitySubmissionService
+- HabitGoalService, StudentHabitGoalService, HabitRecordService, HabitStarService
+- InformationCollectionService, CollectionResponseService
+- **新增**: SeatingPlanService, ClassSOPService, ClassRoutineService
+- **新增**: ConversationService, MessageService, SharedResourceService, TeachingResourceService
+- **新增**: LessonPrepService, MathPrepService, ReadingTeachingService, WritingTeachingService
+- **新增**: TextbookService
 
 ```typescript
 // 注册服务
-container.registerSingleton(SERVICE_IDENTIFIERS.UserRepository, () => new UserRepository());
+container.registerSingleton(SERVICE_IDENTIFIERS.UserRepository, () => userRepository);
 
 // 获取服务
 const userRepo = getService<UserRepository>(SERVICE_IDENTIFIERS.UserRepository);
@@ -76,6 +104,7 @@ const userRepo = getService<UserRepository>(SERVICE_IDENTIFIERS.UserRepository);
 - 解耦各层依赖
 - 支持单例/瞬态模式
 - 循环依赖检测
+- **完整覆盖**: 所有 Service 和 Repository 都通过 DI 容器管理
 
 ### 目录结构
 
@@ -102,13 +131,31 @@ src/
 │   ├── schedule/             # 课表相关组件
 │   └── ...
 ├── hooks/                    # 自定义 Hooks (25个)
-├── services/                 # Service 层 (19个)
+├── services/                 # Service 层 (26个)
 │   ├── base.service.ts       # 基础 Service 类
 │   ├── user.service.ts       # 用户服务
+│   ├── class-sop.service.ts  # 班级SOP智能台账服务
+│   ├── class-routine.service.ts # 班级常规评比服务
+│   ├── seating-plan.service.ts # 座位表服务
+│   ├── conversation.service.ts # 对话存储服务
+│   ├── teaching-resource.service.ts # 教学资源库服务
+│   ├── shared-resource.service.ts # 共享教学资源服务
+│   ├── lesson-prep.service.ts # 备课中心服务
+│   ├── math-prep.service.ts  # 数学备课服务
+│   ├── reading-teaching.service.ts # 朗读教学服务
+│   ├── writing-teaching.service.ts # 习作教学服务
+│   ├── textbook.service.ts   # 课文数据服务
 │   └── ...
-├── repositories/             # Repository 层 (19个)
+├── repositories/             # Repository 层 (28个)
 │   ├── base.repository.ts    # 基础 Repository 类
 │   ├── user.repository.ts    # 用户仓库
+│   ├── class-sop.repository.ts # 班级SOP仓库
+│   ├── class-routine.repository.ts # 班级常规仓库
+│   ├── seating-plan.repository.ts # 座位表仓库
+│   ├── conversation.repository.ts # 对话仓库
+│   ├── teaching-resource.repository.ts # 教学资源仓库
+│   ├── shared-resource.repository.ts # 共享资源仓库
+│   ├── lesson-prep.repository.ts # 备课文档仓库
 │   └── ...
 ├── lib/                      # 工具库
 │   ├── api.ts                # API 工具（响应格式化、错误处理）
