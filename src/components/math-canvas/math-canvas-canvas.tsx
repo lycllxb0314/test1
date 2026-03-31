@@ -196,20 +196,26 @@ export function MathCanvas({
       case 'square':
         if (points.length >= 2) {
           const [p1, p2] = points;
-          ctx.rect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+          const x = Math.min(p1.x, p2.x);
+          const y = Math.min(p1.y, p2.y);
+          const w = Math.abs(p2.x - p1.x);
+          const h = Math.abs(p2.y - p1.y);
+          ctx.rect(x, y, w, h);
         }
         break;
 
       case 'parallelogram':
         if (points.length >= 2) {
           const [p1, p2] = points;
-          const width = p2.x - p1.x;
-          const height = p2.y - p1.y;
+          const x = Math.min(p1.x, p2.x);
+          const y = Math.min(p1.y, p2.y);
+          const width = Math.abs(p2.x - p1.x);
+          const height = Math.abs(p2.y - p1.y);
           const skew = width * 0.3;
-          ctx.moveTo(p1.x + skew, p1.y);
-          ctx.lineTo(p2.x + skew, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.lineTo(p1.x, p2.y);
+          ctx.moveTo(x + skew, y);
+          ctx.lineTo(x + width + skew, y);
+          ctx.lineTo(x + width, y + height);
+          ctx.lineTo(x, y + height);
           ctx.closePath();
         }
         break;
@@ -217,14 +223,16 @@ export function MathCanvas({
       case 'trapezoid':
         if (points.length >= 2) {
           const [p1, p2] = points;
-          const width = p2.x - p1.x;
-          const height = p2.y - p1.y;
+          const x = Math.min(p1.x, p2.x);
+          const y = Math.min(p1.y, p2.y);
+          const width = Math.abs(p2.x - p1.x);
+          const height = Math.abs(p2.y - p1.y);
           const topWidth = width * 0.6;
           const offset = (width - topWidth) / 2;
-          ctx.moveTo(p1.x + offset, p1.y);
-          ctx.lineTo(p1.x + width - offset, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.lineTo(p1.x, p2.y);
+          ctx.moveTo(x + offset, y);
+          ctx.lineTo(x + width - offset, y);
+          ctx.lineTo(x + width, y + height);
+          ctx.lineTo(x, y + height);
           ctx.closePath();
         }
         break;
@@ -757,20 +765,21 @@ export function MathCanvas({
 
     // 绘制所有元素
     state.elements.forEach((element) => {
-      if (!('visible' in element) || element.visible) {
-        if ('sides' in element || 'radius' in element || element.type === 'line' || element.type === 'segment') {
-          drawPlaneShape(ctx, element as PlaneShape);
-        } else if ('width' in element && 'depth' in element) {
-          drawSolidShape(ctx, element as SolidShape);
-        } else if ('gridSize' in element) {
-          drawCompositeShape(ctx, element as CompositeShape);
-        } else if ('lineType' in element) {
-          drawNumberLine(ctx, element as NumberLineShape);
-        } else if ('chartType' in element) {
-          drawChart(ctx, element as ChartShape);
-        } else if ('diagramType' in element) {
-          drawSegmentDiagram(ctx, element as SegmentDiagramShape);
-        }
+      if ('visible' in element && !element.visible) return;
+
+      // 根据元素特有的属性判断类型，顺序很重要
+      if ('chartType' in element) {
+        drawChart(ctx, element as ChartShape);
+      } else if ('diagramType' in element) {
+        drawSegmentDiagram(ctx, element as SegmentDiagramShape);
+      } else if ('lineType' in element) {
+        drawNumberLine(ctx, element as NumberLineShape);
+      } else if ('gridSize' in element && 'cells' in element) {
+        drawCompositeShape(ctx, element as CompositeShape);
+      } else if ('position' in element && 'depth' in element) {
+        drawSolidShape(ctx, element as SolidShape);
+      } else if ('points' in element) {
+        drawPlaneShape(ctx, element as PlaneShape);
       }
     });
 
@@ -792,16 +801,24 @@ export function MathCanvas({
         ctx.lineTo(currentPoint.x, currentPoint.y);
         ctx.stroke();
       } else if (['rectangle', 'square', 'parallelogram', 'trapezoid'].includes(tool)) {
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
         ctx.beginPath();
-        ctx.rect(startPoint.x, startPoint.y, currentPoint.x - startPoint.x, currentPoint.y - startPoint.y);
+        ctx.rect(x, y, w, h);
         ctx.stroke();
       } else if (tool === 'triangle' || tool === 'rightTriangle') {
-        const width = currentPoint.x - startPoint.x;
-        const height = currentPoint.y - startPoint.y;
+        const minX = Math.min(startPoint.x, currentPoint.x);
+        const minY = Math.min(startPoint.y, currentPoint.y);
+        const maxX = Math.max(startPoint.x, currentPoint.x);
+        const maxY = Math.max(startPoint.y, currentPoint.y);
+        const width = maxX - minX;
+        const height = maxY - minY;
         ctx.beginPath();
-        ctx.moveTo(startPoint.x + width / 2, startPoint.y);
-        ctx.lineTo(startPoint.x, currentPoint.y);
-        ctx.lineTo(currentPoint.x, currentPoint.y);
+        ctx.moveTo(minX + width / 2, minY);
+        ctx.lineTo(minX, maxY);
+        ctx.lineTo(maxX, maxY);
         ctx.closePath();
         ctx.stroke();
       } else if (tool === 'circle') {
@@ -820,18 +837,12 @@ export function MathCanvas({
         ctx.arc(startPoint.x, startPoint.y, radius, 0, Math.PI / 2);
         ctx.closePath();
         ctx.stroke();
-      } else if (tool === 'cube' || tool === 'cuboid') {
-        ctx.strokeRect(startPoint.x, startPoint.y, currentPoint.x - startPoint.x, currentPoint.y - startPoint.y);
-      } else if (['cylinder', 'cone', 'sphere'].includes(tool)) {
-        ctx.beginPath();
-        ctx.ellipse(
-          (startPoint.x + currentPoint.x) / 2,
-          (startPoint.y + currentPoint.y) / 2,
-          Math.abs(currentPoint.x - startPoint.x) / 2,
-          Math.abs(currentPoint.y - startPoint.y) / 2,
-          0, 0, Math.PI * 2
-        );
-        ctx.stroke();
+      } else if (tool === 'cube' || tool === 'cuboid' || tool === 'cylinder' || tool === 'cone' || tool === 'sphere') {
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        ctx.strokeRect(x, y, w, h);
       } else if (['numberLine', 'segmentDiagram', 'barChart', 'lineChart', 'pieChart', 'squareGrid', 'cubeGrid'].includes(tool)) {
         // 这些工具只需要点击位置
         ctx.fillStyle = `${state.activeColor}20`;
@@ -937,16 +948,59 @@ export function MathCanvas({
         locked: false,
         visible: true,
       };
+    } else if (tool === 'sector') {
+      const radius = Math.sqrt(
+        Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)
+      );
+      newElement = {
+        id,
+        type: 'sector',
+        points: [startPoint],
+        radius,
+        startAngle: 0,
+        endAngle: Math.PI / 2,
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: `${state.activeColor}30`,
+        fillMode: 'solid',
+        opacity: 1,
+        locked: false,
+        visible: true,
+      };
+    } else if (tool === 'polygon') {
+      const radius = Math.sqrt(
+        Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)
+      );
+      newElement = {
+        id,
+        type: 'polygon',
+        points: [startPoint],
+        radius,
+        sides: 6,
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: `${state.activeColor}20`,
+        fillMode: 'solid',
+        opacity: 1,
+        locked: false,
+        visible: true,
+      };
     } else if (tool === 'triangle') {
-      const width = endPoint.x - startPoint.x;
-      const height = endPoint.y - startPoint.y;
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const maxX = Math.max(startPoint.x, endPoint.x);
+      const maxY = Math.max(startPoint.y, endPoint.y);
+      const width = maxX - minX;
+      const height = maxY - minY;
       newElement = {
         id,
         type: 'triangle',
         points: [
-          { x: startPoint.x + width / 2, y: startPoint.y },
-          { x: startPoint.x, y: endPoint.y },
-          { x: endPoint.x, y: endPoint.y },
+          { x: minX + width / 2, y: minY },
+          { x: minX, y: maxY },
+          { x: maxX, y: maxY },
         ],
         strokeColor: state.activeColor,
         strokeWidth: state.activeStrokeWidth,
@@ -958,13 +1012,18 @@ export function MathCanvas({
         visible: true,
       };
     } else if (tool === 'cube') {
+      // 确保 position 在左上角
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const w = Math.abs(endPoint.x - startPoint.x);
+      const h = Math.abs(endPoint.y - startPoint.y);
       newElement = {
         id,
         type: 'cube',
-        position: startPoint,
-        width: Math.abs(endPoint.x - startPoint.x),
-        height: Math.abs(endPoint.y - startPoint.y),
-        depth: Math.abs(endPoint.x - startPoint.x) * 0.3,
+        position: { x: minX, y: minY },
+        width: w,
+        height: h,
+        depth: w * 0.3,
         strokeColor: state.activeColor,
         strokeWidth: state.activeStrokeWidth,
         strokeStyle: 'solid',
@@ -979,13 +1038,92 @@ export function MathCanvas({
         rotation: { x: 0, y: 0, z: 0 },
       };
     } else if (tool === 'cuboid') {
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const w = Math.abs(endPoint.x - startPoint.x);
+      const h = Math.abs(endPoint.y - startPoint.y);
       newElement = {
         id,
         type: 'cuboid',
-        position: startPoint,
-        width: Math.abs(endPoint.x - startPoint.x),
-        height: Math.abs(endPoint.y - startPoint.y),
-        depth: Math.abs(endPoint.x - startPoint.x) * 0.5,
+        position: { x: minX, y: minY },
+        width: w,
+        height: h,
+        depth: w * 0.5,
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: `${state.activeColor}30`,
+        fillMode: 'solid',
+        opacity: 1,
+        locked: false,
+        visible: true,
+        showNet: false,
+        showDimensions: true,
+        showHiddenLines: true,
+        rotation: { x: 0, y: 0, z: 0 },
+      };
+    } else if (tool === 'cylinder') {
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const w = Math.abs(endPoint.x - startPoint.x);
+      const h = Math.abs(endPoint.y - startPoint.y);
+      newElement = {
+        id,
+        type: 'cylinder',
+        position: { x: minX, y: minY },
+        width: w,
+        height: h,
+        depth: w * 0.5,
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: `${state.activeColor}30`,
+        fillMode: 'solid',
+        opacity: 1,
+        locked: false,
+        visible: true,
+        showNet: false,
+        showDimensions: true,
+        showHiddenLines: true,
+        rotation: { x: 0, y: 0, z: 0 },
+      };
+    } else if (tool === 'cone') {
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const w = Math.abs(endPoint.x - startPoint.x);
+      const h = Math.abs(endPoint.y - startPoint.y);
+      newElement = {
+        id,
+        type: 'cone',
+        position: { x: minX, y: minY },
+        width: w,
+        height: h,
+        depth: w * 0.5,
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: `${state.activeColor}30`,
+        fillMode: 'solid',
+        opacity: 1,
+        locked: false,
+        visible: true,
+        showNet: false,
+        showDimensions: true,
+        showHiddenLines: true,
+        rotation: { x: 0, y: 0, z: 0 },
+      };
+    } else if (tool === 'sphere') {
+      const minX = Math.min(startPoint.x, endPoint.x);
+      const minY = Math.min(startPoint.y, endPoint.y);
+      const w = Math.abs(endPoint.x - startPoint.x);
+      const h = Math.abs(endPoint.y - startPoint.y);
+      newElement = {
+        id,
+        type: 'sphere',
+        position: { x: minX, y: minY },
+        width: w,
+        height: h,
+        depth: w * 0.5,
         strokeColor: state.activeColor,
         strokeWidth: state.activeStrokeWidth,
         strokeStyle: 'solid',
