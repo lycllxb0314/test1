@@ -49,6 +49,15 @@ export class ApiClient {
   }
 
   /**
+   * 获取默认请求配置（包含 credentials 以发送 Cookie）
+   */
+  private getDefaultRequestConfig(): RequestInit {
+    return {
+      credentials: 'include', // 关键：确保 Cookie 随请求发送
+    };
+  }
+
+  /**
    * 添加请求拦截器
    */
   interceptRequest(interceptor: RequestInterceptor): () => void {
@@ -159,6 +168,7 @@ export class ApiClient {
       const timeoutId = setTimeout(() => controller.abort(), config.timeout || this.timeout);
 
       const response = await fetch(url, {
+        ...this.getDefaultRequestConfig(),
         ...config,
         signal: controller.signal,
       });
