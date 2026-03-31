@@ -31,12 +31,22 @@ export class CarouselService extends BaseService {
     }
   }
 
+  /** 管理端：获取所有轮播图 */
+  async getListForAdmin(includeInactive: boolean = false, limit: number = 50): Promise<ServiceResult<CarouselItemRecord[]>> {
+    try {
+      const data = await carouselRepository.findAllForAdmin(includeInactive, limit);
+      return this.ok(data);
+    } catch (error) {
+      console.error('[CarouselService] getListForAdmin error:', error);
+      return this.fail('获取轮播图数据失败');
+    }
+  }
+
   async create(data: Partial<CarouselItemRecord>): Promise<ServiceResult<CarouselItemRecord>> {
     try {
       const record = await carouselRepository.create({
         ...data,
-        id: data.id || `carousel-${Date.now()}`,
-        is_active: true,
+        is_active: data.is_active ?? true,
         sort_order: data.sort_order || 0,
       });
       if (!record) {
@@ -138,7 +148,6 @@ export class AnnouncementService extends BaseService {
         id: data.id || `announcement-${Date.now()}`,
         status: data.status || 'draft',
         view_count: 0,
-        sort_order: data.sort_order || 0,
       });
       if (!record) {
         return this.fail('创建公告失败');

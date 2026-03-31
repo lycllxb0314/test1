@@ -23,7 +23,6 @@ export interface Announcement {
   expireDate?: string;
   status: string;
   viewCount?: number;
-  sortOrder: number;
   createdAt: string;
 }
 
@@ -55,14 +54,13 @@ export async function GET(request: NextRequest) {
       title: item.title,
       content: item.content,
       category: item.category,
-      priority: item.priority,
-      publisherId: item.publisher_id,
-      publisherName: item.publisher_name,
-      publishDate: item.publish_date,
-      expireDate: item.expire_date,
+      priority: item.type,
+      publisherId: item.author_id,
+      publisherName: item.author_name,
+      publishDate: item.published_at,
+      expireDate: undefined,
       status: item.status,
       viewCount: item.view_count,
-      sortOrder: item.sort_order,
       createdAt: item.created_at,
     }));
 

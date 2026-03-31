@@ -47,12 +47,12 @@ export async function GET(request: NextRequest) {
     const achievements: Achievement[] = (result.data || []).map(item => ({
       id: item.id,
       title: item.title,
-      category: item.category,
+      category: item.category_id || '',
       description: item.description,
       image: item.image,
-      achievementDate: item.achievement_date,
-      participants: item.participants,
-      awards: item.awards,
+      achievementDate: item.date,
+      participants: item.highlights,
+      awards: undefined,
       sortOrder: item.sort_order,
     }));
 
