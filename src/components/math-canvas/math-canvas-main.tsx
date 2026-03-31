@@ -13,8 +13,6 @@ import type {
   Color,
   FillMode,
 } from '@/types/math-canvas';
-import { Button } from '@/components/ui/button';
-import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Download, Upload, HelpCircle, BookOpen } from 'lucide-react';
@@ -310,13 +309,23 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
 
         {/* 右侧属性面板 */}
         <div className="w-64 border-l bg-card flex flex-col">
-          <div className="shrink-0 p-2">
-            <TabsList className="w-full">
-              <TabsTrigger value="properties" className="text-xs flex-1" onClick={() => setActiveTab('properties')}>属性</TabsTrigger>
-              <TabsTrigger value="element" className="text-xs flex-1" onClick={() => setActiveTab('element')}>
-                编辑 {selectedElement ? '(1)' : ''}
-              </TabsTrigger>
-            </TabsList>
+          <div className="shrink-0 p-2 flex gap-1">
+            <Button 
+              variant={activeTab === 'properties' ? 'default' : 'outline'} 
+              size="sm" 
+              className="text-xs flex-1"
+              onClick={() => setActiveTab('properties')}
+            >
+              属性
+            </Button>
+            <Button 
+              variant={activeTab === 'element' ? 'default' : 'outline'} 
+              size="sm" 
+              className="text-xs flex-1"
+              onClick={() => setActiveTab('element')}
+            >
+              编辑 {selectedElement ? '(1)' : ''}
+            </Button>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             {activeTab === 'properties' && (
