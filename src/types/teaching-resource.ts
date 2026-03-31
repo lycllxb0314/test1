@@ -17,7 +17,17 @@ export type ResourceCategory =
   | 'math'                // 数学学科-备课中心
   | 'math_concept'        // 数学学科-概念教学
   | 'math_problem'        // 数学学科-问题设计
+  // 教师上传资源
+  | 'lesson_plan'         // 教案
+  | 'courseware'          // 课件
+  | 'video'               // 视频
   | 'other';              // 其他
+
+/** 资源来源类型 */
+export type ResourceSourceType = 
+  | 'upload'              // 教师上传
+  | 'generated'           // 系统生成
+  | 'research_import';    // 从教研活动导入
 
 /** 资源子类型 */
 export type ResourceType = 
@@ -39,6 +49,11 @@ export type ResourceType =
   | 'text_analysis'       // 文本解读
   | 'lesson_design'       // 教学设计
   | 'question_design'     // 问题设计
+  // 教师上传
+  | 'lesson_plan_file'    // 教案文件
+  | 'courseware_file'     // 课件文件
+  | 'video_file'          // 视频文件
+  | 'document_file'       // 其他文档
   // 通用
   | 'full_package'        // 完整资源包
   | 'other';
@@ -82,6 +97,16 @@ export interface TeachingResource {
   
   // 内容数据（JSON格式存储具体内容）
   content: Record<string, unknown>;  // 资源内容
+  
+  // 文件信息（上传资源时使用）
+  fileUrl?: string;               // 文件URL
+  fileKey?: string;               // 文件存储Key
+  fileName?: string;              // 原始文件名
+  fileSize?: number;              // 文件大小（字节）
+  
+  // 来源信息
+  sourceType?: ResourceSourceType;  // 资源来源
+  sourceActivityId?: string;        // 来源教研活动ID
   
   // 标签
   tags?: string[];                // 标签ID列表
@@ -367,6 +392,14 @@ export interface CreateResourceRequest {
   sourceId?: string;
   unit?: string;          // 单元名称
   isShared?: boolean;     // 是否共享
+  // 文件信息（上传资源时使用）
+  fileUrl?: string;
+  fileKey?: string;
+  fileName?: string;
+  fileSize?: number;
+  // 来源信息
+  sourceType?: ResourceSourceType;
+  sourceActivityId?: string;
 }
 
 /** 更新资源请求 */
@@ -405,6 +438,14 @@ export interface ResourceListItem {
   status: ResourceStatus;
   viewCount: number;
   useCount: number;
+  // 文件信息
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  // 来源信息
+  sourceType?: ResourceSourceType;
+  sourceActivityId?: string;
+  // 时间戳
   createdAt: string;
   updatedAt: string;
 }

@@ -39,6 +39,14 @@ interface ResourceRow {
   status: string;
   lesson_title: string | null;
   source_id: string | null;
+  // 文件字段
+  file_url: string | null;
+  file_key: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  // 来源字段
+  source_type: string | null;
+  source_activity_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +81,14 @@ export class TeachingResourceRepository {
       status: 'draft',
       lesson_title: data.lessonTitle || null,
       source_id: data.sourceId || null,
+      // 文件字段
+      file_url: data.fileUrl || null,
+      file_key: data.fileKey || null,
+      file_name: data.fileName || null,
+      file_size: data.fileSize || null,
+      // 来源字段
+      source_type: data.sourceType || null,
+      source_activity_id: data.sourceActivityId || null,
     };
 
     const { data: result, error } = await client
@@ -116,7 +132,7 @@ export class TeachingResourceRepository {
     
     let query = client
       .from(this.tableName)
-      .select('id, category, type, title, description, grade, status, view_count, use_count, created_at, updated_at', { count: 'exact' });
+      .select('id, category, type, title, description, grade, status, view_count, use_count, created_at, updated_at, file_url, file_name, file_size, source_type, source_activity_id', { count: 'exact' });
 
     // 应用筛选条件
     if (params.teacherId) {
@@ -294,7 +310,7 @@ export class TeachingResourceRepository {
     // 使用最多的资源
     const { data: mostUsedData } = await client
       .from(this.tableName)
-      .select('id, category, type, title, description, grade, status, view_count, use_count, created_at, updated_at')
+      .select('id, category, type, title, description, grade, status, view_count, use_count, created_at, updated_at, file_url, file_name, file_size, source_type, source_activity_id')
       .eq('teacher_id', teacherId)
       .order('use_count', { ascending: false })
       .limit(5);
@@ -325,6 +341,12 @@ export class TeachingResourceRepository {
       title: row.title,
       description: row.description || undefined,
       content: row.content,
+      fileUrl: row.file_url || undefined,
+      fileKey: row.file_key || undefined,
+      fileName: row.file_name || undefined,
+      fileSize: row.file_size || undefined,
+      sourceType: row.source_type as TeachingResource['sourceType'] || undefined,
+      sourceActivityId: row.source_activity_id || undefined,
       tags: row.tags || undefined,
       viewCount: row.view_count,
       useCount: row.use_count,
@@ -339,7 +361,7 @@ export class TeachingResourceRepository {
   /**
    * 映射到列表项
    */
-  private mapToListItem(row: Pick<ResourceRow, 'id' | 'category' | 'type' | 'title' | 'description' | 'grade' | 'status' | 'view_count' | 'use_count' | 'created_at' | 'updated_at'>): ResourceListItem {
+  private mapToListItem(row: Pick<ResourceRow, 'id' | 'category' | 'type' | 'title' | 'description' | 'grade' | 'status' | 'view_count' | 'use_count' | 'file_url' | 'file_name' | 'file_size' | 'source_type' | 'source_activity_id' | 'created_at' | 'updated_at'>): ResourceListItem {
     return {
       id: row.id,
       category: row.category,
@@ -350,6 +372,11 @@ export class TeachingResourceRepository {
       status: row.status as ResourceListItem['status'],
       viewCount: row.view_count,
       useCount: row.use_count,
+      fileUrl: row.file_url || undefined,
+      fileName: row.file_name || undefined,
+      fileSize: row.file_size || undefined,
+      sourceType: row.source_type as ResourceListItem['sourceType'] || undefined,
+      sourceActivityId: row.source_activity_id || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

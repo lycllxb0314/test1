@@ -1,17 +1,21 @@
 /**
  * 我的教学资源库
  * 
- * 教师个人教学资源管理页面
+ * 教师个人教学资源管理页面，支持上传和管理局部教学资源
  */
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { 
   ArrowLeft, 
   FolderOpen, 
@@ -26,6 +30,14 @@ import {
   PenTool,
   MessageCircle,
   Calculator,
+  Upload,
+  X,
+  File,
+  Video,
+  Presentation,
+  FileSpreadsheet,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
 import type { ResourceListItem, ResourceStatistics, ResourceCategory } from '@/types/teaching-resource';
 
@@ -38,6 +50,9 @@ const CATEGORY_NAMES: Record<ResourceCategory, string> = {
   math: '数学·备课中心',
   math_concept: '数学·概念教学',
   math_problem: '数学·问题设计',
+  lesson_plan: '教案',
+  courseware: '课件',
+  video: '视频',
   other: '其他',
 };
 
@@ -50,6 +65,9 @@ const CATEGORY_ICONS: Record<ResourceCategory, React.ElementType> = {
   math: Calculator,
   math_concept: Calculator,
   math_problem: Calculator,
+  lesson_plan: FileText,
+  courseware: Presentation,
+  video: Video,
   other: FolderOpen,
 };
 
@@ -62,7 +80,69 @@ const CATEGORY_COLORS: Record<ResourceCategory, string> = {
   math: 'bg-indigo-500',
   math_concept: 'bg-indigo-500',
   math_problem: 'bg-cyan-500',
+  lesson_plan: 'bg-amber-500',
+  courseware: 'bg-orange-500',
+  video: 'bg-rose-500',
   other: 'bg-gray-500',
+};
+
+// 文件类型配置
+const FILE_TYPE_CONFIG: Record<ResourceCategory, { accept: string; label: string; hint: string }> = {
+  lesson_plan: {
+    accept: '.pdf,.doc,.docx',
+    label: '教案文件',
+    hint: '支持 PDF、Word 文档',
+  },
+  courseware: {
+    accept: '.ppt,.pptx',
+    label: '课件文件',
+    hint: '支持 PowerPoint 演示文稿',
+  },
+  video: {
+    accept: '.mp4,.mov,.avi,.webm',
+    label: '视频文件',
+    hint: '支持 MP4、MOV、AVI、WebM',
+  },
+  chinese_character: {
+    accept: '*',
+    label: '生字资源',
+    hint: '支持所有文件类型',
+  },
+  chinese_reading: {
+    accept: '.mp3,.wav,.m4a',
+    label: '朗读资源',
+    hint: '支持音频和文档文件',
+  },
+  chinese_writing: {
+    accept: '*',
+    label: '写作资源',
+    hint: '支持所有文件类型',
+  },
+  chinese_chat: {
+    accept: '*',
+    label: '备课资源',
+    hint: '支持所有文件类型',
+  },
+  math: {
+    accept: '*',
+    label: '数学资源',
+    hint: '支持所有文件类型',
+  },
+  math_concept: {
+    accept: '*',
+    label: '概念教学资源',
+    hint: '支持所有文件类型',
+  },
+  math_problem: {
+    accept: '*',
+    label: '问题设计资源',
+    hint: '支持所有文件类型',
+  },
+  other: {
+    accept: '*',
+    label: '任意文件',
+    hint: '支持所有文件类型',
+  },
 };
 
 export default function MyResourcesPage() {
@@ -71,6 +151,19 @@ export default function MyResourcesPage() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
+  
+  // 上传相关状态
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    description: '',
+    category: 'lesson_plan' as ResourceCategory,
+    subject: '',
+    grade: '',
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadData();
@@ -117,6 +210,79 @@ export default function MyResourcesPage() {
     }
   };
 
+  // 选择文件
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      // 自动填充文件名作为标题
+      if (!uploadForm.title) {
+        const fileName = file.name.replace(/\.[^/.]+$/, ''); // 移除扩展名
+        setUploadForm(prev => ({ ...prev, title: fileName }));
+      }
+    }
+  };
+
+  // 上传文件
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      alert('请选择文件');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('title', uploadForm.title);
+      formData.append('description', uploadForm.description);
+      formData.append('category', uploadForm.category);
+      if (uploadForm.subject) formData.append('subject', uploadForm.subject);
+      if (uploadForm.grade) formData.append('grade', uploadForm.grade);
+
+      const res = await fetch('/api/teaching-resources/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setUploadDialogOpen(false);
+        setSelectedFile(null);
+        setUploadForm({
+          title: '',
+          description: '',
+          category: 'lesson_plan',
+          subject: '',
+          grade: '',
+        });
+        loadData();
+      } else {
+        alert(data.message || '上传失败');
+      }
+    } catch (error) {
+      console.error('上传失败:', error);
+      alert('上传失败，请稍后重试');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 重置上传表单
+  const resetUploadForm = () => {
+    setSelectedFile(null);
+    setUploadForm({
+      title: '',
+      description: '',
+      category: 'lesson_plan',
+      subject: '',
+      grade: '',
+    });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -136,6 +302,13 @@ export default function MyResourcesPage() {
               <p className="text-sm text-gray-500 mt-1">保存和管理您的教学素材，随时调用</p>
             </div>
           </div>
+          <Button
+            onClick={() => setUploadDialogOpen(true)}
+            className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            上传资源
+          </Button>
         </div>
 
         {/* 统计卡片 */}
@@ -291,6 +464,173 @@ export default function MyResourcesPage() {
           </div>
         )}
       </div>
+
+      {/* 上传对话框 */}
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => {
+        setUploadDialogOpen(open);
+        if (!open) resetUploadForm();
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5 text-indigo-600" />
+              上传教学资源
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* 文件选择 */}
+            <div className="space-y-2">
+              <Label>选择文件</Label>
+              <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors">
+                {selectedFile ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <File className="w-8 h-8 text-indigo-600" />
+                    <div className="text-left">
+                      <p className="font-medium text-gray-800">{selectedFile.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500 mb-2">点击或拖拽文件到此处上传</p>
+                    <p className="text-xs text-gray-400">
+                      支持教案、课件、视频等常见格式
+                    </p>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={FILE_TYPE_CONFIG[uploadForm.category]?.accept || '*'}
+                  onChange={handleFileSelect}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  style={{ position: 'relative' }}
+                />
+              </div>
+            </div>
+
+            {/* 资源分类 */}
+            <div className="space-y-2">
+              <Label>资源分类</Label>
+              <Select
+                value={uploadForm.category}
+                onValueChange={(value) => setUploadForm(prev => ({ ...prev, category: value as ResourceCategory }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lesson_plan">教案</SelectItem>
+                  <SelectItem value="courseware">课件</SelectItem>
+                  <SelectItem value="video">视频</SelectItem>
+                  <SelectItem value="other">其他</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                {FILE_TYPE_CONFIG[uploadForm.category]?.hint}
+              </p>
+            </div>
+
+            {/* 标题 */}
+            <div className="space-y-2">
+              <Label>资源标题</Label>
+              <Input
+                value={uploadForm.title}
+                onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="输入资源标题"
+              />
+            </div>
+
+            {/* 描述 */}
+            <div className="space-y-2">
+              <Label>资源描述（可选）</Label>
+              <Textarea
+                value={uploadForm.description}
+                onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="简要描述资源内容"
+                rows={3}
+              />
+            </div>
+
+            {/* 学科和年级 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>学科（可选）</Label>
+                <Select
+                  value={uploadForm.subject}
+                  onValueChange={(value) => setUploadForm(prev => ({ ...prev, subject: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择学科" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="chinese">语文</SelectItem>
+                    <SelectItem value="math">数学</SelectItem>
+                    <SelectItem value="english">英语</SelectItem>
+                    <SelectItem value="other">其他</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>年级（可选）</Label>
+                <Select
+                  value={uploadForm.grade}
+                  onValueChange={(value) => setUploadForm(prev => ({ ...prev, grade: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择年级" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6].map(g => (
+                      <SelectItem key={g} value={String(g)}>{g}年级</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setUploadDialogOpen(false);
+              resetUploadForm();
+            }}>
+              取消
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={!selectedFile || uploading}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600"
+            >
+              {uploading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                  上传中...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  确认上传
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

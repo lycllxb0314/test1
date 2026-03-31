@@ -461,6 +461,8 @@ function ResourceItem({
   readonly?: boolean;
   onDownload: (resource: Resource) => void;
 }) {
+  const [copying, setCopying] = useState(false);
+  
   const typeColor = RESOURCE_TYPE_COLORS[resource.resourceType] || RESOURCE_TYPE_COLORS.other;
   const typeLabel = RESOURCE_TYPE_LABELS[resource.resourceType] || '其他资源';
   
@@ -477,6 +479,35 @@ function ResourceItem({
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+  
+  // 复制到备课中心
+  const handleCopyToLessonPrep = async () => {
+    setCopying(true);
+    try {
+      const res = await fetch('/api/teaching-resources/copy-from-research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          researchResourceId: resource.id,
+          category: resource.resourceType === 'lesson_design' ? 'lesson_plan' :
+                    resource.resourceType === 'courseware' ? 'courseware' : 'other',
+          activityId: resource.sourceType === 'activity' ? resource.id : undefined,
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        toast.success('已添加到备课中心资源库');
+      } else {
+        toast.error(data.message || '添加失败');
+      }
+    } catch (err) {
+      console.error('复制失败:', err);
+      toast.error('添加失败，请稍后重试');
+    } finally {
+      setCopying(false);
+    }
   };
   
   return (
@@ -509,6 +540,20 @@ function ResourceItem({
         )}>
           {resource.sourceType === 'theme' ? '主题库' : '活动库'}
         </Badge>
+        {/* 添加到备课中心按钮 */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCopyToLessonPrep}
+          disabled={copying}
+          className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+        >
+          {copying ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <BookOpen className="h-4 w-4" />
+          )}
+        </Button>
         <Button
           variant="ghost"
           size="sm"

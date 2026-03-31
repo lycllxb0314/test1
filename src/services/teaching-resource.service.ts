@@ -32,6 +32,9 @@ export const CATEGORY_NAMES: Record<ResourceCategory, string> = {
   math: '数学·备课中心',
   math_concept: '数学·概念教学',
   math_problem: '数学·问题设计',
+  lesson_plan: '教案',
+  courseware: '课件',
+  video: '视频',
   other: '其他',
 };
 
@@ -52,6 +55,10 @@ export const TYPE_NAMES: Record<ResourceType, string> = {
   lesson_design: '教学设计',
   question_design: '问题设计',
   full_package: '完整资源包',
+  lesson_plan_file: '教案文件',
+  courseware_file: '课件文件',
+  video_file: '视频文件',
+  document_file: '文档文件',
   other: '其他',
 };
 

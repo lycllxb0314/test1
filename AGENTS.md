@@ -585,5 +585,12 @@ const safeHtml = DOMPurify.sanitize(userInput);
 
 ## 更新日志
 
+- 2026-03-31: 实现教研活动资源库与备课中心资源库双向联动
+  - 新增 `/api/teaching-resources/copy-from-research` 接口，支持从教研活动复制资源到备课中心
+  - 新增 `/api/teaching-resources/upload` 接口，支持上传教案、课件、视频等文件资源
+  - 扩展 `ResourceCategory` 类型，新增 `lesson_plan`、`courseware`、`video` 分类
+  - 扩展 `ResourceSourceType` 类型，支持 `upload`、`generated`、`research_import` 三种来源
+  - 备课中心资源库页面新增上传功能，支持文件选择、分类设置、学科年级标注
+  - 教研活动资源库页面新增"添加到备课中心"按钮，一键复制资源
 - 2026-03-27: 完成 `any` 类型清理，类型检查通过
 - 2026-03-27: 创建 AGENTS.md 项目规范文件
