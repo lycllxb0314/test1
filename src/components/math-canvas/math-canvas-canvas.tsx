@@ -74,6 +74,60 @@ export function MathCanvas({
 
   // 获取元素边界框
   const getElementBounds = useCallback((element: CanvasElement): { x: number; y: number; width: number; height: number } | null => {
+    // 组合图形
+    if ('gridSize' in element && 'cells' in element) {
+      const gridElement = element as CompositeShape;
+      const startX = gridElement.points[0]?.x || 0;
+      const startY = gridElement.points[0]?.y || 0;
+      const size = gridElement.gridSize * gridElement.cellSize;
+      return {
+        x: startX,
+        y: startY,
+        width: size,
+        height: size,
+      };
+    }
+    
+    // 数轴
+    if ('lineType' in element) {
+      const nlElement = element as NumberLineShape;
+      const startX = nlElement.points[0]?.x || 50;
+      const y = nlElement.points[0]?.y || 100;
+      return {
+        x: startX,
+        y: y - 20,
+        width: 600,
+        height: 40,
+      };
+    }
+    
+    // 统计图
+    if ('chartType' in element) {
+      const chartElement = element as ChartShape;
+      const startX = chartElement.points[0]?.x || 50;
+      const startY = chartElement.points[0]?.y || 50;
+      return {
+        x: startX,
+        y: startY,
+        width: 400,
+        height: 300,
+      };
+    }
+    
+    // 线段图
+    if ('diagramType' in element) {
+      const segElement = element as SegmentDiagramShape;
+      const startX = segElement.points[0]?.x || 50;
+      const startY = segElement.points[0]?.y || 100;
+      const segmentCount = segElement.segments?.length || 1;
+      return {
+        x: startX,
+        y: startY - 10,
+        width: 400,
+        height: segmentCount * 40 + 20,
+      };
+    }
+    
     if ('points' in element && Array.isArray(element.points) && element.points.length > 0) {
       const points = element.points as Point[];
       const xs = points.map((p) => p.x);
@@ -91,6 +145,17 @@ export function MathCanvas({
           y: points[0].y - r,
           width: r * 2,
           height: r * 2,
+        };
+      }
+      
+      // 正方形：强制宽高相等
+      if (element.type === 'square') {
+        const size = Math.max(maxX - minX, maxY - minY);
+        return {
+          x: minX,
+          y: minY,
+          width: size,
+          height: size,
         };
       }
       
@@ -343,7 +408,6 @@ export function MathCanvas({
     ctx.save();
     ctx.strokeStyle = shape.strokeColor;
     ctx.lineWidth = shape.strokeWidth;
-    ctx.fillStyle = shape.fillColor;
     ctx.globalAlpha = shape.opacity;
 
     const { type, position, width, height, depth, showHiddenLines } = shape;
@@ -351,11 +415,10 @@ export function MathCanvas({
 
     switch (type) {
       case 'cube':
-        // 绘制正方体的三个可见面
-        ctx.beginPath();
+        // 绘制正方体的三个可见面（不填充）
         // 前面
+        ctx.beginPath();
         ctx.rect(position.x, position.y, width, height);
-        ctx.fill();
         ctx.stroke();
         
         // 顶面
@@ -365,7 +428,6 @@ export function MathCanvas({
         ctx.lineTo(position.x + width + offset, position.y - offset);
         ctx.lineTo(position.x + width, position.y);
         ctx.closePath();
-        ctx.fill();
         ctx.stroke();
         
         // 右面
@@ -375,7 +437,6 @@ export function MathCanvas({
         ctx.lineTo(position.x + width + offset, position.y + height - offset);
         ctx.lineTo(position.x + width, position.y + height);
         ctx.closePath();
-        ctx.fill();
         ctx.stroke();
 
         // 隐藏线
@@ -392,11 +453,10 @@ export function MathCanvas({
         break;
 
       case 'cuboid':
-        // 类似正方体，但宽高深不同
+        // 类似正方体，但宽高深不同（不填充）
         const offsetDepth = depth * 0.3;
         ctx.beginPath();
         ctx.rect(position.x, position.y, width, height);
-        ctx.fill();
         ctx.stroke();
         
         ctx.beginPath();
@@ -405,7 +465,6 @@ export function MathCanvas({
         ctx.lineTo(position.x + width + offsetDepth, position.y - offsetDepth);
         ctx.lineTo(position.x + width, position.y);
         ctx.closePath();
-        ctx.fill();
         ctx.stroke();
         
         ctx.beginPath();
@@ -414,18 +473,16 @@ export function MathCanvas({
         ctx.lineTo(position.x + width + offsetDepth, position.y + height - offsetDepth);
         ctx.lineTo(position.x + width, position.y + height);
         ctx.closePath();
-        ctx.fill();
         ctx.stroke();
         break;
 
       case 'cylinder':
-        // 绘制圆柱
+        // 绘制圆柱（不填充）
         const cy = position.y + height / 2;
         
         // 底面椭圆
         ctx.beginPath();
         ctx.ellipse(position.x + width / 2, position.y + height, width / 2, height * 0.15, 0, 0, Math.PI * 2);
-        ctx.fill();
         ctx.stroke();
         
         // 侧面
@@ -439,16 +496,14 @@ export function MathCanvas({
         // 顶面椭圆
         ctx.beginPath();
         ctx.ellipse(position.x + width / 2, position.y, width / 2, height * 0.15, 0, 0, Math.PI * 2);
-        ctx.fill();
         ctx.stroke();
         break;
 
       case 'cone':
-        // 绘制圆锥
+        // 绘制圆锥（不填充）
         ctx.beginPath();
         // 底面椭圆
         ctx.ellipse(position.x + width / 2, position.y + height, width / 2, height * 0.15, 0, 0, Math.PI * 2);
-        ctx.fill();
         ctx.stroke();
         
         // 侧面
@@ -461,10 +516,9 @@ export function MathCanvas({
         break;
 
       case 'sphere':
-        // 绘制球
+        // 绘制球（不填充）
         ctx.beginPath();
         ctx.arc(position.x + width / 2, position.y + height / 2, width / 2, 0, Math.PI * 2);
-        ctx.fill();
         ctx.stroke();
         
         // 经纬线
@@ -1359,18 +1413,19 @@ export function MathCanvas({
         visible: true,
       };
     } else if (tool === 'cube') {
-      // 确保 position 在左上角
+      // 正方体：保持宽高相等
       const minX = Math.min(startPoint.x, endPoint.x);
       const minY = Math.min(startPoint.y, endPoint.y);
       const w = Math.abs(endPoint.x - startPoint.x);
       const h = Math.abs(endPoint.y - startPoint.y);
+      const size = Math.max(w, h); // 正方体边长相等
       newElement = {
         id,
         type: 'cube',
         position: { x: minX, y: minY },
-        width: w,
-        height: h,
-        depth: w * 0.3,
+        width: size,
+        height: size,
+        depth: size * 0.3,
         strokeColor: state.activeColor,
         strokeWidth: state.activeStrokeWidth,
         strokeStyle: 'solid',
