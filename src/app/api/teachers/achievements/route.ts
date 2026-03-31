@@ -1,14 +1,12 @@
 /**
  * 教师成果 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
- * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { teacherService } from '@/services/teacher.service';
 import { success, error, ErrorCode } from '@/lib/api';
-import type { TeacherAchievement } from '@/types';
 
 /**
  * GET - 获取教师成果列表
@@ -17,42 +15,19 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const teacherId = searchParams.get('teacherId');
-    const type = searchParams.get('type');
-    const level = searchParams.get('level');
+    const type = searchParams.get('type') || undefined;
+    const level = searchParams.get('level') || undefined;
 
-    const client = getSupabaseClient();
+    const result = await teacherService.getAchievements(teacherId || undefined, type, level);
     
-    let query = client
-      .from('teacher_achievements')
-      .select('*')
-      .order('date', { ascending: false });
-
-    if (teacherId) query = query.eq('teacher_id', teacherId);
-    if (type) query = query.eq('type', type);
-    if (level) query = query.eq('level', level);
-
-    const { data, error: dbError } = await query;
-
-    if (dbError) {
+    if (!result.success) {
       return NextResponse.json(
-        error('数据库查询失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        error(result.error || '获取教师成果失败', ErrorCode.INTERNAL_ERROR),
         { status: 500 }
       );
     }
 
-    const formattedData: TeacherAchievement[] = (data || []).map((achievement: Record<string, unknown>) => ({
-      id: achievement.id as string,
-      teacherId: achievement.teacher_id as string,
-      type: achievement.type as '公开课' | '教学比赛' | '论文发表' | '课题研究' | '指导学生获奖',
-      title: achievement.title as string,
-      level: achievement.level as string,
-      result: achievement.result as string,
-      date: achievement.date as string,
-      description: achievement.description as string,
-      attachments: (achievement.attachments as string[]) || [],
-    }));
-
-    return NextResponse.json(success(formattedData, 'database'));
+    return NextResponse.json(success(result.data, 'database'));
   } catch (err) {
     console.error('Failed to fetch teacher achievements:', err);
     return NextResponse.json(
@@ -67,43 +42,17 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
-    const { teacherId, type, title, level, result, date, description, attachments } = body;
+    const result = await teacherService.createAchievement(body);
 
-    const { data, error: dbError } = await client
-      .from('teacher_achievements')
-      .insert({
-        teacher_id: teacherId,
-        type,
-        title,
-        level,
-        result,
-        date,
-        description,
-        attachments: attachments || [],
-      })
-      .select()
-      .single();
-
-    if (dbError) {
+    if (!result.success) {
       return NextResponse.json(
-        error('添加成果失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        error(result.error || '添加成果失败', ErrorCode.INTERNAL_ERROR),
         { status: 500 }
       );
     }
 
-    return NextResponse.json(success({
-      id: data.id,
-      teacherId: data.teacher_id,
-      type: data.type,
-      title: data.title,
-      level: data.level,
-      result: data.result,
-      date: data.date,
-      description: data.description,
-      attachments: data.attachments || [],
-    }, 'database'));
+    return NextResponse.json(success(result.data, 'database'));
   } catch (err) {
     console.error('Failed to create teacher achievement:', err);
     return NextResponse.json(
@@ -118,33 +67,19 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
-    const { id, type, title, level, result, date, description, attachments } = body;
+    const { id, ...params } = body;
+    
+    const result = await teacherService.updateAchievement(id, params);
 
-    const { data, error: dbError } = await client
-      .from('teacher_achievements')
-      .update({
-        type,
-        title,
-        level,
-        result,
-        date,
-        description,
-        attachments: attachments || [],
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (dbError) {
+    if (!result.success) {
       return NextResponse.json(
-        error('更新成果失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        error(result.error || '更新成果失败', ErrorCode.INTERNAL_ERROR),
         { status: 500 }
       );
     }
 
-    return NextResponse.json(success(data, 'database'));
+    return NextResponse.json(success(result.data, 'database'));
   } catch (err) {
     console.error('Failed to update teacher achievement:', err);
     return NextResponse.json(
@@ -159,7 +94,6 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -170,14 +104,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { error: dbError } = await client
-      .from('teacher_achievements')
-      .delete()
-      .eq('id', id);
+    const result = await teacherService.deleteAchievement(id);
 
-    if (dbError) {
+    if (!result.success) {
       return NextResponse.json(
-        error('删除成果失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        error(result.error || '删除成果失败', ErrorCode.INTERNAL_ERROR),
         { status: 500 }
       );
     }

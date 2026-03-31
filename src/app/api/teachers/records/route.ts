@@ -1,12 +1,11 @@
 /**
  * 教师成长记录 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
- * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { teacherService } from '@/services/teacher.service';
 import { success, error, ErrorCode } from '@/lib/api';
 
 /**
@@ -17,36 +16,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const teacherId = searchParams.get('teacherId');
 
-    const client = getSupabaseClient();
+    const result = await teacherService.getRecords(teacherId || undefined);
     
-    let query = client
-      .from('teacher_records')
-      .select('*')
-      .order('date', { ascending: false });
-
-    if (teacherId) query = query.eq('teacher_id', teacherId);
-
-    const { data, error: dbError } = await query;
-
-    if (dbError) {
+    if (!result.success) {
       return NextResponse.json(
-        error('数据库查询失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        error(result.error || '获取教师成长记录失败', ErrorCode.INTERNAL_ERROR),
         { status: 500 }
       );
     }
 
-    const formattedData = (data || []).map((record: Record<string, unknown>) => ({
-      id: record.id,
-      teacherId: record.teacher_id,
-      type: record.type,
-      title: record.title,
-      description: record.description,
-      date: record.date,
-      attachments: record.attachments || [],
-      createdAt: record.created_at,
-    }));
-
-    return NextResponse.json(success(formattedData, 'database'));
+    return NextResponse.json(success(result.data, 'database'));
   } catch (err) {
     console.error('Failed to fetch teacher records:', err);
     return NextResponse.json(
@@ -61,40 +40,17 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
-    const { teacherId, type, title, description, date, attachments } = body;
+    const result = await teacherService.createRecord(body);
 
-    const { data, error: dbError } = await client
-      .from('teacher_records')
-      .insert({
-        teacher_id: teacherId,
-        type,
-        title,
-        description,
-        date,
-        attachments: attachments || [],
-      })
-      .select()
-      .single();
-
-    if (dbError) {
+    if (!result.success) {
       return NextResponse.json(
-        error('添加记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        error(result.error || '添加记录失败', ErrorCode.INTERNAL_ERROR),
         { status: 500 }
       );
     }
 
-    return NextResponse.json(success({
-      id: data.id,
-      teacherId: data.teacher_id,
-      type: data.type,
-      title: data.title,
-      description: data.description,
-      date: data.date,
-      attachments: data.attachments || [],
-      createdAt: data.created_at,
-    }, 'database'));
+    return NextResponse.json(success(result.data, 'database'));
   } catch (err) {
     console.error('Failed to create teacher record:', err);
     return NextResponse.json(
@@ -109,31 +65,19 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
-    const { id, type, title, description, date, attachments } = body;
+    const { id, ...params } = body;
+    
+    const result = await teacherService.updateRecord(id, params);
 
-    const { data, error: dbError } = await client
-      .from('teacher_records')
-      .update({
-        type,
-        title,
-        description,
-        date,
-        attachments: attachments || [],
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (dbError) {
+    if (!result.success) {
       return NextResponse.json(
-        error('更新记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        error(result.error || '更新记录失败', ErrorCode.INTERNAL_ERROR),
         { status: 500 }
       );
     }
 
-    return NextResponse.json(success(data, 'database'));
+    return NextResponse.json(success(result.data, 'database'));
   } catch (err) {
     console.error('Failed to update teacher record:', err);
     return NextResponse.json(
@@ -148,7 +92,6 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -159,11 +102,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { error: dbError } = await client.from('teacher_records').delete().eq('id', id);
+    const result = await teacherService.deleteRecord(id);
 
-    if (dbError) {
+    if (!result.success) {
       return NextResponse.json(
-        error('删除记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
+        error(result.error || '删除记录失败', ErrorCode.INTERNAL_ERROR),
         { status: 500 }
       );
     }

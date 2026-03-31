@@ -6,7 +6,7 @@
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
 import { userRepository, UserRepository, UserFilters } from '@/repositories';
-import type { User, UserRole, AdministrativeRole } from '@/types';
+import type { User, UserRole, AdministrativeRole, GroupType } from '@/types';
 import bcrypt from 'bcryptjs';
 
 /**
@@ -33,6 +33,44 @@ export interface UpdateUserParams {
   email?: string;
   department?: string;
   administrativeRoles?: AdministrativeRole[];
+}
+
+/**
+ * 审批人信息
+ */
+export interface ApproverInfo {
+  employeeId: string;
+  name: string;
+  role: string;
+  roleName: string;
+  department?: string;
+  position?: string;
+}
+
+/**
+ * 用户账号信息（不含敏感信息）
+ */
+export interface UserAccountInfo {
+  id: string;
+  employeeId: string | null;
+  name: string;
+  role: string;
+  additional_roles: AdministrativeRole[] | null;
+  department: string | null;
+  position: string | null;
+  phone: string | null;
+  status: string | null;
+}
+
+/**
+ * 用户群组成员身份
+ */
+export interface UserGroupMembership {
+  groupId: string;
+  groupType: GroupType;
+  groupName: string;
+  isAdmin: boolean;
+  joinType: 'auto' | 'manual';
 }
 
 /**
@@ -106,7 +144,7 @@ export class UserService extends BaseService {
       password: hashedPassword,
       name: params.name,
       role: params.role,
-      employee_id: params.employeeId,
+      employeeId: params.employeeId,
       phone: params.phone,
       email: params.email,
       department: params.department,
@@ -323,11 +361,237 @@ export class UserService extends BaseService {
     
     const result = await this.repository.findPaginatedWithFilters({
       filters,
-      search: { fields: ['name', 'employee_id', 'username'], value: keyword },
+      search: { fields: ['name', 'employeeId', 'username'], value: keyword },
       pagination: { page: 1, pageSize: 50 },
     });
     
     return this.ok(result.data);
+  }
+
+  /**
+   * 获取用户账号列表（仅管理员）
+   */
+  async getAccountList(): Promise<ServiceResult<{
+    users: UserAccountInfo[];
+    groupedUsers: Record<string, UserAccountInfo[]>;
+    roleNames: Record<string, string>;
+    defaultPassword: string;
+    note: string;
+  }>> {
+    const users = await this.repository.getAccountList();
+    
+    // 按角色分组
+    const groupedUsers: Record<string, UserAccountInfo[]> = {};
+    for (const user of users) {
+      const role = user.role;
+      if (!groupedUsers[role]) {
+        groupedUsers[role] = [];
+      }
+      groupedUsers[role].push(user);
+    }
+    
+    // 角色名称映射
+    const roleNames: Record<string, string> = {
+      principal: '校长',
+      secretary: '书记',
+      academic_vice_principal: '教学副校长',
+      moral_vice_principal: '德育副校长',
+      general_vice_principal: '总务副校长',
+      head_teacher: '班主任',
+      subject_teacher: '科任教师',
+      skill_teacher: '技能课教师',
+      parent: '家长',
+    };
+    
+    return this.ok({
+      users,
+      groupedUsers,
+      roleNames,
+      defaultPassword: 'lysf2024',
+      note: '所有用户默认密码为 lysf2024，请在首次登录后修改密码',
+    });
+  }
+
+  /**
+   * 获取审批人列表
+   */
+  async getApprovers(): Promise<ServiceResult<ApproverInfo[]>> {
+    const leaders = await this.repository.findLeaders();
+    
+    const roleNames: Record<string, string> = {
+      principal: '校长',
+      secretary: '书记',
+      academic_vice_principal: '教学副校长',
+      moral_vice_principal: '德育副校长',
+      general_vice_principal: '总务副校长',
+    };
+    
+    const approvers: ApproverInfo[] = leaders.map(user => ({
+      employeeId: user.employeeId || '',
+      name: user.name,
+      role: user.role,
+      roleName: roleNames[user.role] || user.role,
+      department: user.department || undefined,
+      position: (user as any).position || undefined,
+    }));
+    
+    return this.ok(approvers);
+  }
+
+  /**
+   * 修改密码（支持管理员修改他人密码）
+   */
+  async changePasswordWithAuth(params: {
+    userId: string;
+    employeeId?: string;
+    oldPassword?: string;
+    newPassword: string;
+    targetUserId?: string;
+    targetEmployeeId?: string;
+    userRoles: string[];
+    additionalRoles: AdministrativeRole[];
+  }): Promise<ServiceResult<{ message: string }>> {
+    const {
+      userId,
+      employeeId,
+      oldPassword,
+      newPassword,
+      targetUserId,
+      targetEmployeeId,
+      userRoles,
+      additionalRoles,
+    } = params;
+
+    const isModifyOthers = targetUserId || targetEmployeeId;
+    
+    if (isModifyOthers) {
+      // 管理员修改他人密码
+      const hasAdminPermission = this.hasAdminPermission(userRoles, additionalRoles);
+      if (!hasAdminPermission) {
+        return this.fail('您没有权限修改他人密码', 'FORBIDDEN');
+      }
+
+      // 查找目标用户
+      let targetUser: User | null = null;
+      if (targetEmployeeId) {
+        targetUser = await this.repository.findByEmployeeId(targetEmployeeId);
+      } else if (targetUserId) {
+        targetUser = await this.repository.findById(targetUserId);
+      }
+
+      if (!targetUser) {
+        return this.fail('目标用户不存在', 'NOT_FOUND');
+      }
+
+      // 年段长权限检查
+      const isGradeLeader = additionalRoles.includes('grade_leader');
+      const isOnlyGradeLeader = !this.hasPrimaryAdminRole(userRoles) && 
+                                 !additionalRoles.includes('academic_director') &&
+                                 isGradeLeader;
+      
+      if (isOnlyGradeLeader) {
+        const leaderRoles = ['principal', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal', 'secretary'];
+        if (leaderRoles.includes(targetUser.role)) {
+          return this.fail('您没有权限修改该用户的密码', 'FORBIDDEN');
+        }
+      }
+
+      // 更新密码
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+      await this.repository.updatePassword(targetUser.id, newPasswordHash);
+
+      // 同步更新 teachers 表
+      if (targetUser.employeeId) {
+        await this.repository.syncPasswordToTeachers(targetUser.employeeId, newPassword);
+      }
+
+      return this.ok({ message: `已成功修改 ${targetUser.name} 的密码` });
+    } else {
+      // 用户修改自己的密码
+      if (!oldPassword) {
+        return this.fail('请输入旧密码', 'VALIDATION_ERROR');
+      }
+
+      if (oldPassword === newPassword) {
+        return this.fail('新密码不能与旧密码相同', 'VALIDATION_ERROR');
+      }
+
+      // 查询当前用户
+      const dbUser = employeeId 
+        ? await this.repository.findByEmployeeId(employeeId)
+        : await this.repository.findById(userId);
+
+      if (!dbUser) {
+        return this.fail('用户不存在', 'NOT_FOUND');
+      }
+
+      // 验证旧密码
+      const passwordHash = (dbUser as any).password_hash || (dbUser as any).password;
+      if (!passwordHash) {
+        return this.fail('账号异常，请联系管理员', 'INTERNAL_ERROR');
+      }
+
+      const isValidPassword = await bcrypt.compare(oldPassword, passwordHash);
+      if (!isValidPassword) {
+        return this.fail('旧密码错误', 'VALIDATION_ERROR');
+      }
+
+      // 更新密码
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+      await this.repository.updatePassword(dbUser.id, newPasswordHash);
+
+      // 同步更新 teachers 表
+      if (dbUser.role !== 'parent' && dbUser.employeeId) {
+        await this.repository.syncPasswordToTeachers(dbUser.employeeId, newPassword);
+      }
+
+      return this.ok({ message: '密码修改成功' });
+    }
+  }
+
+  /**
+   * 获取用户群组
+   */
+  async getUserGroups(userId: string): Promise<ServiceResult<UserGroupMembership[]>> {
+    const groups = await this.repository.getUserGroups(userId);
+    return this.ok(groups);
+  }
+
+  /**
+   * 更新用户群组
+   */
+  async updateUserGroups(
+    targetUserId: string,
+    groups: GroupType[],
+    operatorEmployeeId: string
+  ): Promise<ServiceResult> {
+    // 检查操作者是否为校长室成员
+    const isPrincipalOffice = await this.repository.isPrincipalOfficeMember(operatorEmployeeId);
+    if (!isPrincipalOffice) {
+      return this.fail('无权限修改用户群组', 'FORBIDDEN');
+    }
+
+    await this.repository.updateUserGroups(targetUserId, groups);
+    return this.ok();
+  }
+
+  /**
+   * 检查是否有管理员权限
+   */
+  private hasAdminPermission(roles: string[], additionalRoles: AdministrativeRole[]): boolean {
+    const primaryRoles = ['principal', 'academic_vice_principal'];
+    const adminAdditionalRoles: AdministrativeRole[] = ['academic_director', 'grade_leader'];
+    
+    return roles.some(r => primaryRoles.includes(r)) || 
+           additionalRoles.some(r => adminAdditionalRoles.includes(r));
+  }
+
+  /**
+   * 检查是否有主要管理员角色
+   */
+  private hasPrimaryAdminRole(roles: string[]): boolean {
+    const primaryRoles = ['principal', 'academic_vice_principal'];
+    return roles.some(r => primaryRoles.includes(r));
   }
 }
 
