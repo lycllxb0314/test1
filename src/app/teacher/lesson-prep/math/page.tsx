@@ -63,6 +63,23 @@ const MODULES = [
     ],
     available: true,
   },
+  {
+    id: 'canvas',
+    title: '数学画板',
+    subtitle: '全领域画图工具',
+    icon: Lightbulb,
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-50',
+    borderColor: 'hover:border-orange-300',
+    description: '支持小学数学全领域画图需求：图形与几何、数与代数、统计与概率',
+    features: [
+      '平面/立体图形',
+      '组合图形与展开图',
+      '数轴与线段图',
+      '统计图表',
+    ],
+    available: true,
+  },
 ];
 
 // ==================== 主组件 ====================
