@@ -1,18 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import type {
   CanvasElement,
   PlaneShape,
@@ -110,6 +102,8 @@ export function ElementEditor({
   );
 }
 
+import { Separator } from '@/components/ui/separator';
+
 /** 扇形编辑器 */
 function SectorEditor({
   element,
@@ -118,40 +112,31 @@ function SectorEditor({
   element: PlaneShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const [startAngle, setStartAngle] = useState(element.startAngle || 0);
-  const [endAngle, setEndAngle] = useState(element.endAngle || Math.PI / 2);
+  const startAngleDeg = Math.round(((element.startAngle || 0) * 180) / Math.PI);
+  const endAngleDeg = Math.round(((element.endAngle || Math.PI / 2) * 180) / Math.PI);
 
-  const angleToDeg = (rad: number) => Math.round((rad * 180) / Math.PI);
-  const degToAngle = (deg: number) => (deg * Math.PI) / 180;
-
-  useEffect(() => {
-    onUpdate({
-      ...element,
-      startAngle: degToAngle(startAngle),
-      endAngle: degToAngle(endAngle),
-    });
-  }, [startAngle, endAngle]);
+  const degToRad = (deg: number) => (deg * Math.PI) / 180;
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label className="text-xs">起始角度: {startAngle}°</Label>
+        <Label className="text-xs">起始角度: {startAngleDeg}°</Label>
         <Slider
-          value={[startAngle]}
+          value={[startAngleDeg]}
           min={0}
           max={360}
           step={15}
-          onValueChange={(v) => setStartAngle(v[0])}
+          onValueChange={(v) => onUpdate({ ...element, startAngle: degToRad(v[0]) })}
         />
       </div>
       <div className="space-y-2">
-        <Label className="text-xs">终止角度: {endAngle}°</Label>
+        <Label className="text-xs">终止角度: {endAngleDeg}°</Label>
         <Slider
-          value={[endAngle]}
+          value={[endAngleDeg]}
           min={0}
           max={360}
           step={15}
-          onValueChange={(v) => setEndAngle(v[0])}
+          onValueChange={(v) => onUpdate({ ...element, endAngle: degToRad(v[0]) })}
         />
       </div>
     </div>
@@ -166,11 +151,7 @@ function PolygonEditor({
   element: PlaneShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const [sides, setSides] = useState(element.sides || 6);
-
-  useEffect(() => {
-    onUpdate({ ...element, sides });
-  }, [sides]);
+  const sides = element.sides || 6;
 
   return (
     <div className="space-y-3">
@@ -181,7 +162,7 @@ function PolygonEditor({
           min={3}
           max={12}
           step={1}
-          onValueChange={(v) => setSides(v[0])}
+          onValueChange={(v) => onUpdate({ ...element, sides: v[0] })}
         />
       </div>
       <div className="flex gap-1 flex-wrap">
@@ -191,7 +172,7 @@ function PolygonEditor({
             variant={sides === n ? 'default' : 'outline'}
             size="sm"
             className="h-7 w-7 p-0"
-            onClick={() => setSides(n)}
+            onClick={() => onUpdate({ ...element, sides: n })}
           >
             {n}
           </Button>
@@ -209,17 +190,20 @@ function NumberLineEditor({
   element: NumberLineShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const [start, setStart] = useState(element.start);
-  const [end, setEnd] = useState(element.end);
-  const [step, setStep] = useState(element.step);
+  const { start, end, step } = element;
 
-  useEffect(() => {
+  const updateNumberLine = (field: 'start' | 'end' | 'step', value: number) => {
+    const newStart = field === 'start' ? value : start;
+    const newEnd = field === 'end' ? value : end;
+    const newStep = field === 'step' ? value : step;
+    
     const marks = [];
-    for (let i = start; i <= end; i += step) {
+    for (let i = newStart; i <= newEnd; i += newStep) {
       marks.push({ value: i, label: String(i), highlight: false });
     }
-    onUpdate({ ...element, start, end, step, marks });
-  }, [start, end, step]);
+    
+    onUpdate({ ...element, start: newStart, end: newEnd, step: newStep, marks });
+  };
 
   return (
     <div className="space-y-3">
@@ -229,7 +213,7 @@ function NumberLineEditor({
           <Input
             type="number"
             value={start}
-            onChange={(e) => setStart(Number(e.target.value))}
+            onChange={(e) => updateNumberLine('start', Number(e.target.value))}
             className="h-8"
           />
         </div>
@@ -238,7 +222,7 @@ function NumberLineEditor({
           <Input
             type="number"
             value={end}
-            onChange={(e) => setEnd(Number(e.target.value))}
+            onChange={(e) => updateNumberLine('end', Number(e.target.value))}
             className="h-8"
           />
         </div>
@@ -247,7 +231,7 @@ function NumberLineEditor({
           <Input
             type="number"
             value={step}
-            onChange={(e) => setStep(Number(e.target.value))}
+            onChange={(e) => updateNumberLine('step', Number(e.target.value))}
             className="h-8"
             min={1}
           />
@@ -265,27 +249,35 @@ function SegmentDiagramEditor({
   element: SegmentDiagramShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const [segments, setSegments] = useState(element.segments);
-
-  useEffect(() => {
-    onUpdate({ ...element, segments });
-  }, [segments]);
+  const { segments } = element;
 
   const updateSegment = (index: number, field: string, value: string | number) => {
     const newSegments = [...segments];
     newSegments[index] = { ...newSegments[index], [field]: value };
-    setSegments(newSegments);
+    onUpdate({ ...element, segments: newSegments });
   };
 
   const addSegment = () => {
-    setSegments([
-      ...segments,
-      { label: `${segments.length + 1}`, length: 50, color: '#3b82f6', value: 50 },
-    ]);
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+    onUpdate({
+      ...element,
+      segments: [
+        ...segments,
+        {
+          label: `${segments.length + 1}`,
+          length: 50,
+          color: colors[segments.length % colors.length],
+          value: 50,
+        },
+      ],
+    });
   };
 
   const removeSegment = (index: number) => {
-    setSegments(segments.filter((_, i) => i !== index));
+    onUpdate({
+      ...element,
+      segments: segments.filter((_, i) => i !== index),
+    });
   };
 
   return (
@@ -347,33 +339,34 @@ function ChartEditor({
   element: ChartShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const [title, setTitle] = useState(element.title);
-  const [data, setData] = useState(element.data);
-
-  useEffect(() => {
-    onUpdate({ ...element, title, data });
-  }, [title, data]);
+  const { title, data } = element;
 
   const updateDataItem = (index: number, field: string, value: string | number) => {
     const newData = [...data];
     newData[index] = { ...newData[index], [field]: value };
-    setData(newData);
+    onUpdate({ ...element, data: newData });
   };
 
   const addDataItem = () => {
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-    setData([
-      ...data,
-      {
-        label: `项目${data.length + 1}`,
-        value: 10,
-        color: colors[data.length % colors.length],
-      },
-    ]);
+    onUpdate({
+      ...element,
+      data: [
+        ...data,
+        {
+          label: `项目${data.length + 1}`,
+          value: 10,
+          color: colors[data.length % colors.length],
+        },
+      ],
+    });
   };
 
   const removeDataItem = (index: number) => {
-    setData(data.filter((_, i) => i !== index));
+    onUpdate({
+      ...element,
+      data: data.filter((_, i) => i !== index),
+    });
   };
 
   return (
@@ -382,7 +375,7 @@ function ChartEditor({
         <Label className="text-xs">标题</Label>
         <Input
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => onUpdate({ ...element, title: e.target.value })}
           className="h-8"
         />
       </div>
@@ -437,15 +430,26 @@ function GridEditor({
   element: CompositeShape;
   onUpdate: (el: CanvasElement) => void;
 }) {
-  const [gridSize, setGridSize] = useState(element.gridSize);
-  const [cellSize, setCellSize] = useState(element.cellSize);
+  const { gridSize, cellSize } = element;
 
-  useEffect(() => {
-    const newCells = Array(gridSize)
+  const updateGrid = (newGridSize: number, newCellSize: number) => {
+    // 重新生成单元格数组
+    const newCells = Array(newGridSize)
       .fill(null)
-      .map(() => Array(gridSize).fill(true));
-    onUpdate({ ...element, gridSize, cellSize, cells: newCells });
-  }, [gridSize, cellSize]);
+      .map((_, rowIndex) =>
+        Array(newGridSize)
+          .fill(null)
+          .map((_, colIndex) => {
+            // 保留原有单元格状态
+            if (element.cells && element.cells[rowIndex] && element.cells[rowIndex][colIndex] !== undefined) {
+              return element.cells[rowIndex][colIndex];
+            }
+            return true;
+          })
+      );
+    
+    onUpdate({ ...element, gridSize: newGridSize, cellSize: newCellSize, cells: newCells });
+  };
 
   return (
     <div className="space-y-3">
@@ -456,7 +460,7 @@ function GridEditor({
           min={2}
           max={10}
           step={1}
-          onValueChange={(v) => setGridSize(v[0])}
+          onValueChange={(v) => updateGrid(v[0], cellSize)}
         />
       </div>
       <div className="space-y-2">
@@ -466,8 +470,11 @@ function GridEditor({
           min={20}
           max={60}
           step={5}
-          onValueChange={(v) => setCellSize(v[0])}
+          onValueChange={(v) => updateGrid(gridSize, v[0])}
         />
+      </div>
+      <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+        💡 使用"选择"工具点击单元格可切换激活状态
       </div>
     </div>
   );

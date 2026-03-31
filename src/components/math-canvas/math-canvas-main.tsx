@@ -60,6 +60,7 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
   const [history, setHistory] = useState<CanvasState[]>([state]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('properties');
 
   // 画布尺寸
   const [canvasWidth] = useState(900);
@@ -166,6 +167,10 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
   // 元素选择回调
   const handleElementSelect = useCallback((elementIds: string[]) => {
     setState((prev) => ({ ...prev, selection: elementIds }));
+    // 如果选中了元素，自动切换到编辑标签
+    if (elementIds.length === 1) {
+      setActiveTab('element');
+    }
   }, []);
 
   // 获取当前选中的元素
@@ -357,7 +362,7 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
 
         {/* 右侧属性面板 */}
         <div className="w-64 border-l bg-card overflow-hidden flex flex-col">
-          <Tabs defaultValue="properties" className="flex-1 flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="mx-2 mt-2">
               <TabsTrigger value="properties" className="text-xs">属性</TabsTrigger>
               <TabsTrigger value="element" className="text-xs">

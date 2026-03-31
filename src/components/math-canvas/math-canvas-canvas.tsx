@@ -884,17 +884,46 @@ export function MathCanvas({
         const y = Math.min(startPoint.y, currentPoint.y);
         const w = Math.abs(currentPoint.x - startPoint.x);
         const h = Math.abs(currentPoint.y - startPoint.y);
-        const size = Math.max(w, h); // 取较大值，也可以取较小值
+        const size = Math.max(w, h);
         ctx.beginPath();
         ctx.rect(x, y, size, size);
         ctx.stroke();
-      } else if (['rectangle', 'parallelogram', 'trapezoid'].includes(tool)) {
+      } else if (tool === 'rectangle') {
         const x = Math.min(startPoint.x, currentPoint.x);
         const y = Math.min(startPoint.y, currentPoint.y);
         const w = Math.abs(currentPoint.x - startPoint.x);
         const h = Math.abs(currentPoint.y - startPoint.y);
         ctx.beginPath();
         ctx.rect(x, y, w, h);
+        ctx.stroke();
+      } else if (tool === 'parallelogram') {
+        // 平行四边形预览
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        const skew = w * 0.25;
+        ctx.beginPath();
+        ctx.moveTo(x + skew, y);
+        ctx.lineTo(x + w + skew, y);
+        ctx.lineTo(x + w, y + h);
+        ctx.lineTo(x, y + h);
+        ctx.closePath();
+        ctx.stroke();
+      } else if (tool === 'trapezoid') {
+        // 梯形预览
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        const topWidth = w * 0.5;
+        const offset = (w - topWidth) / 2;
+        ctx.beginPath();
+        ctx.moveTo(x + offset, y);
+        ctx.lineTo(x + w - offset, y);
+        ctx.lineTo(x + w, y + h);
+        ctx.lineTo(x, y + h);
+        ctx.closePath();
         ctx.stroke();
       } else if (tool === 'triangle') {
         const minX = Math.min(startPoint.x, currentPoint.x);
@@ -938,12 +967,140 @@ export function MathCanvas({
         ctx.arc(startPoint.x, startPoint.y, radius, 0, Math.PI / 2);
         ctx.closePath();
         ctx.stroke();
-      } else if (tool === 'cube' || tool === 'cuboid' || tool === 'cylinder' || tool === 'cone' || tool === 'sphere') {
+      } else if (tool === 'cube') {
+        // 正方体预览 - 绘制立体效果
         const x = Math.min(startPoint.x, currentPoint.x);
         const y = Math.min(startPoint.y, currentPoint.y);
         const w = Math.abs(currentPoint.x - startPoint.x);
         const h = Math.abs(currentPoint.y - startPoint.y);
-        ctx.strokeRect(x, y, w, h);
+        const size = Math.max(w, h);
+        const offset = size * 0.15;
+        
+        // 前面
+        ctx.beginPath();
+        ctx.rect(x, y, size, size);
+        ctx.stroke();
+        
+        // 顶面
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + offset, y - offset);
+        ctx.lineTo(x + size + offset, y - offset);
+        ctx.lineTo(x + size, y);
+        ctx.closePath();
+        ctx.stroke();
+        
+        // 右面
+        ctx.beginPath();
+        ctx.moveTo(x + size, y);
+        ctx.lineTo(x + size + offset, y - offset);
+        ctx.lineTo(x + size + offset, y + size - offset);
+        ctx.lineTo(x + size, y + size);
+        ctx.closePath();
+        ctx.stroke();
+      } else if (tool === 'cuboid') {
+        // 长方体预览
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        const offset = w * 0.15;
+        
+        // 前面
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.stroke();
+        
+        // 顶面
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + offset, y - offset);
+        ctx.lineTo(x + w + offset, y - offset);
+        ctx.lineTo(x + w, y);
+        ctx.closePath();
+        ctx.stroke();
+        
+        // 右面
+        ctx.beginPath();
+        ctx.moveTo(x + w, y);
+        ctx.lineTo(x + w + offset, y - offset);
+        ctx.lineTo(x + w + offset, y + h - offset);
+        ctx.lineTo(x + w, y + h);
+        ctx.closePath();
+        ctx.stroke();
+      } else if (tool === 'cylinder') {
+        // 圆柱预览
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        const rx = w / 2;
+        const ry = h * 0.12;
+        const cx = x + w / 2;
+        
+        // 侧面
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + h);
+        ctx.moveTo(x + w, y);
+        ctx.lineTo(x + w, y + h);
+        ctx.stroke();
+        
+        // 底面椭圆
+        ctx.beginPath();
+        ctx.ellipse(cx, y + h, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 顶面椭圆
+        ctx.beginPath();
+        ctx.ellipse(cx, y, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (tool === 'cone') {
+        // 圆锥预览
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        const rx = w / 2;
+        const ry = h * 0.12;
+        const cx = x + w / 2;
+        
+        // 侧面线
+        ctx.beginPath();
+        ctx.moveTo(cx, y);
+        ctx.lineTo(x, y + h);
+        ctx.moveTo(cx, y);
+        ctx.lineTo(x + w, y + h);
+        ctx.stroke();
+        
+        // 底面椭圆
+        ctx.beginPath();
+        ctx.ellipse(cx, y + h, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (tool === 'sphere') {
+        // 球预览
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        const r = Math.min(w, h) / 2;
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        
+        // 主圆
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 经线
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, r * 0.3, r, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 纬线
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, r, r * 0.3, 0, 0, Math.PI * 2);
+        ctx.stroke();
       } else if (['numberLine', 'segmentDiagram', 'barChart', 'lineChart', 'pieChart', 'squareGrid', 'cubeGrid'].includes(tool)) {
         // 这些工具只需要点击位置
         ctx.fillStyle = `${state.activeColor}20`;
@@ -978,21 +1135,46 @@ export function MathCanvas({
     if (state.activeTool === 'select') {
       // 选择模式：检测点击的元素
       // 从后往前遍历，优先选择最上层的元素
-      let clickedElement: CanvasElement | null = null;
       for (let i = state.elements.length - 1; i >= 0; i--) {
-        if (isPointInElement(point, state.elements[i])) {
-          clickedElement = state.elements[i];
-          break;
+        const element = state.elements[i];
+        if (isPointInElement(point, element)) {
+          // 检查是否点击了组合图形的单元格
+          if (element.type === 'squareGrid' || element.type === 'cubeGrid') {
+            const gridElement = element as CompositeShape;
+            const startX = gridElement.points[0]?.x || 0;
+            const startY = gridElement.points[0]?.y || 0;
+            const cellX = Math.floor((point.x - startX) / gridElement.cellSize);
+            const cellY = Math.floor((point.y - startY) / gridElement.cellSize);
+            
+            if (cellX >= 0 && cellX < gridElement.gridSize && 
+                cellY >= 0 && cellY < gridElement.gridSize) {
+              // 切换单元格状态
+              const newCells = gridElement.cells.map((row, ri) =>
+                row.map((cell, ci) => {
+                  if (ri === cellY && ci === cellX) {
+                    return !cell;
+                  }
+                  return cell;
+                })
+              );
+              
+              // 更新元素
+              const updatedElements = state.elements.map((el) =>
+                el.id === element.id ? { ...el, cells: newCells } : el
+              );
+              onChange?.({ ...state, elements: updatedElements });
+              return;
+            }
+          }
+          
+          // 普通元素：选中它
+          onElementSelect?.([element.id]);
+          return;
         }
       }
-
-      if (clickedElement) {
-        // 如果点击了元素，选中它
-        onElementSelect?.([clickedElement.id]);
-      } else {
-        // 如果点击空白处，取消选择
-        onElementSelect?.([]);
-      }
+      
+      // 点击空白处，取消选择
+      onElementSelect?.([]);
       return;
     }
 
