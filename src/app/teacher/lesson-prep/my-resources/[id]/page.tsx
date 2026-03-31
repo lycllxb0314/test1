@@ -38,6 +38,11 @@ import {
   Lightbulb,
   Network,
   Route,
+  Download,
+  ExternalLink,
+  FileVideo,
+  Presentation,
+  FileSpreadsheet,
 } from 'lucide-react';
 import type { TeachingResource, CharacterResourceContent, ReadingResourceContent } from '@/types/teaching-resource';
 import type { ReadingTeachingPlan } from '@/types/chinese-prep';
@@ -54,6 +59,9 @@ const CATEGORY_NAMES: Record<string, string> = {
   math: '数学·概念教学',
   math_concept: '数学·概念教学',
   math_problem: '数学·问题设计',
+  lesson_plan: '教案',
+  courseware: '课件',
+  video: '视频',
   other: '其他',
 };
 
@@ -66,7 +74,33 @@ const CATEGORY_COLORS: Record<string, string> = {
   math: 'from-indigo-500 to-violet-500',
   math_concept: 'from-indigo-500 to-violet-500',
   math_problem: 'from-cyan-500 to-blue-500',
+  lesson_plan: 'from-amber-500 to-orange-500',
+  courseware: 'from-orange-500 to-red-500',
+  video: 'from-rose-500 to-pink-500',
   other: 'from-gray-500 to-slate-500',
+};
+
+// 文件类型判断
+const getFileType = (fileName?: string, fileUrl?: string): 'pdf' | 'word' | 'ppt' | 'excel' | 'video' | 'image' | 'other' => {
+  const name = fileName?.toLowerCase() || fileUrl?.toLowerCase() || '';
+  if (name.endsWith('.pdf')) return 'pdf';
+  if (name.endsWith('.doc') || name.endsWith('.docx')) return 'word';
+  if (name.endsWith('.ppt') || name.endsWith('.pptx')) return 'ppt';
+  if (name.endsWith('.xls') || name.endsWith('.xlsx')) return 'excel';
+  if (name.match(/\.(mp4|mov|avi|webm|mkv)$/)) return 'video';
+  if (name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) return 'image';
+  return 'other';
+};
+
+// 获取 Office Online Viewer URL
+const getOfficeViewerUrl = (fileUrl: string): string => {
+  // 使用微软 Office Online Viewer
+  return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
+};
+
+// 获取 Google Docs Viewer URL（备用）
+const getGoogleViewerUrl = (fileUrl: string): string => {
+  return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
 };
 
 export default function ResourceDetailPage() {
@@ -293,6 +327,11 @@ export default function ResourceDetailPage() {
               编辑模式：修改内容后点击"保存修改"按钮保存更改
             </span>
           </div>
+        )}
+
+        {/* 文件类型资源预览 */}
+        {['lesson_plan', 'courseware', 'video', 'other'].includes(resource.category) && resource.fileUrl && (
+          <FilePreview resource={resource} />
         )}
 
         {/* 生字专项内容 */}
@@ -1532,6 +1571,224 @@ export default function ResourceDetailPage() {
           </Card>
         )}
       </div>
+    </div>
+  );
+}
+
+// ==================== 文件预览组件 ====================
+
+function FilePreview({ resource }: { resource: TeachingResource }) {
+  const [viewerType, setViewerType] = useState<'office' | 'google' | 'native'>('office');
+  const [loading, setLoading] = useState(true);
+  
+  const fileType = getFileType(resource.fileName, resource.fileUrl);
+  
+  // 格式化文件大小
+  const formatSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  // 获取文件图标
+  const FileIcon = () => {
+    switch (fileType) {
+      case 'pdf': return <FileText className="w-8 h-8 text-red-500" />;
+      case 'word': return <FileText className="w-8 h-8 text-blue-500" />;
+      case 'ppt': return <Presentation className="w-8 h-8 text-orange-500" />;
+      case 'excel': return <FileSpreadsheet className="w-8 h-8 text-green-500" />;
+      case 'video': return <FileVideo className="w-8 h-8 text-purple-500" />;
+      case 'image': return <FileText className="w-8 h-8 text-pink-500" />;
+      default: return <FileText className="w-8 h-8 text-gray-500" />;
+    }
+  };
+
+  // 下载文件
+  const handleDownload = async () => {
+    if (!resource.fileUrl) return;
+    
+    try {
+      const response = await fetch(resource.fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = resource.fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (error) {
+      console.error('下载失败:', error);
+      // 如果跨域，直接打开链接
+      window.open(resource.fileUrl, '_blank');
+    }
+  };
+
+  // 在新窗口打开
+  const handleOpenInNew = () => {
+    if (!resource.fileUrl) return;
+    window.open(resource.fileUrl, '_blank');
+  };
+
+  if (!resource.fileUrl) {
+    return (
+      <Card className="border-0 shadow-lg bg-white/90">
+        <CardContent className="p-12 text-center">
+          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">文件链接已失效或不存在</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 文件信息卡片 */}
+      <Card className="border-0 shadow-lg bg-white/90">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gray-100 rounded-lg">
+                <FileIcon />
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900">{resource.fileName || '未知文件'}</h3>
+                <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                  {resource.fileSize && <span>{formatSize(resource.fileSize)}</span>}
+                  <span>·</span>
+                  <span className="uppercase">{fileType}</span>
+                  {resource.sourceType === 'upload' && (
+                    <>
+                      <span>·</span>
+                      <Badge variant="outline" className="text-xs">上传</Badge>
+                    </>
+                  )}
+                  {resource.sourceType === 'research_import' && (
+                    <>
+                      <span>·</span>
+                      <Badge variant="outline" className="text-xs">教研导入</Badge>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download className="w-4 h-4 mr-2" />
+                下载
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleOpenInNew}>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                新窗口打开
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 文件预览区域 */}
+      <Card className="border-0 shadow-lg bg-white/90 overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50 border-b">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              文件预览
+            </CardTitle>
+            {fileType !== 'video' && fileType !== 'image' && fileType !== 'pdf' && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={viewerType === 'office' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setViewerType('office'); setLoading(true); }}
+                  className="text-xs"
+                >
+                  Office 预览
+                </Button>
+                <Button
+                  variant={viewerType === 'google' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setViewerType('google'); setLoading(true); }}
+                  className="text-xs"
+                >
+                  Google 预览
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {/* 加载状态 */}
+          {loading && fileType !== 'video' && fileType !== 'image' && (
+            <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                <span className="text-sm text-gray-500">正在加载预览...</span>
+              </div>
+            </div>
+          )}
+          
+          {/* PDF 预览 */}
+          {fileType === 'pdf' && (
+            <div className="relative w-full" style={{ height: '80vh' }}>
+              <iframe
+                src={resource.fileUrl}
+                className="w-full h-full border-0"
+                title="PDF预览"
+                onLoad={() => setLoading(false)}
+              />
+            </div>
+          )}
+
+          {/* 图片预览 */}
+          {fileType === 'image' && (
+            <div className="p-4 flex items-center justify-center bg-gray-50" style={{ minHeight: '60vh' }}>
+              <img
+                src={resource.fileUrl}
+                alt={resource.fileName || '图片'}
+                className="max-w-full max-h-[80vh] object-contain"
+                onLoad={() => setLoading(false)}
+              />
+            </div>
+          )}
+
+          {/* 视频预览 */}
+          {fileType === 'video' && (
+            <div className="p-4 bg-black flex items-center justify-center" style={{ minHeight: '60vh' }}>
+              <video
+                src={resource.fileUrl}
+                controls
+                className="max-w-full max-h-[80vh]"
+              >
+                您的浏览器不支持视频播放
+              </video>
+            </div>
+          )}
+
+          {/* Office 文档预览 */}
+          {(fileType === 'word' || fileType === 'ppt' || fileType === 'excel' || fileType === 'other') && (
+            <div className="relative w-full" style={{ height: '80vh' }}>
+              <iframe
+                src={viewerType === 'office' 
+                  ? getOfficeViewerUrl(resource.fileUrl)
+                  : getGoogleViewerUrl(resource.fileUrl)
+                }
+                className="w-full h-full border-0"
+                title="文档预览"
+                onLoad={() => setLoading(false)}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 预览提示 */}
+      {fileType !== 'video' && fileType !== 'image' && fileType !== 'pdf' && (
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700">
+          <strong>提示：</strong>如果预览加载失败，请尝试切换预览方式或下载到本地查看。
+        </div>
+      )}
     </div>
   );
 }
