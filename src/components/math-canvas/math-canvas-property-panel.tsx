@@ -207,20 +207,6 @@ export function PropertyPanel({
 
       <Separator />
 
-      {/* 线条宽度 */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">线条宽度: {activeStrokeWidth}px</Label>
-        <Slider
-          value={[activeStrokeWidth]}
-          min={1}
-          max={10}
-          step={1}
-          onValueChange={(value) => onStrokeWidthChange(value[0])}
-        />
-      </div>
-
-      <Separator />
-
       {/* 填充设置 */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">填充</Label>
@@ -257,6 +243,20 @@ export function PropertyPanel({
             </div>
           </div>
         )}
+      </div>
+
+      <Separator />
+
+      {/* 线条宽度 */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">线条宽度: {activeStrokeWidth}px</Label>
+        <Slider
+          value={[activeStrokeWidth]}
+          min={1}
+          max={10}
+          step={1}
+          onValueChange={(value) => onStrokeWidthChange(value[0])}
+        />
       </div>
 
       <Separator />
