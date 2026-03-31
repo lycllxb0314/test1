@@ -1,35 +1,16 @@
+/**
+ * 访客管理 API
+ * 
+ * GET: 获取访客列表
+ * POST: 创建访客预约
+ * PUT: 更新访客状态（审批/签到/签退）
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-// 类型定义
-interface VisitorRow {
-  id: string;
-  name: string;
-  phone: string | null;
-  id_card: string | null;
-  purpose: string;
-  host_id: string;
-  host_name: string;
-  host_department: string | null;
-  expected_arrival_time: string;
-  actual_arrival_time: string | null;
-  actual_leave_time: string | null;
-  status: string;
-  temperature: number | null;
-  remark: string | null;
-  created_at: string;
-}
-
-interface VisitorUpdateData {
-  status?: string;
-  approver_id?: string;
-  approver_name?: string;
-  approved_at?: string;
-  actual_arrival_time?: string;
-  actual_leave_time?: string;
-  temperature?: number;
-  remark?: string;
-}
+import { visitorService } from '@/services/visitor.service';
 
 /**
  * GET - 获取访客列表
@@ -40,52 +21,26 @@ interface VisitorUpdateData {
  */
 export async function GET(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    let query = client
-      .from('visitors')
-      .select(`
-        id,
-        name,
-        phone,
-        id_card,
-        purpose,
-        host_id,
-        host_name,
-        host_department,
-        expected_arrival_time,
-        actual_arrival_time,
-        actual_leave_time,
-        status,
-        temperature,
-        remark,
-        created_at
-      `)
-      .order('created_at', { ascending: false });
+    const result = await visitorService.getList({
+      status: status || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    });
 
-    if (status) {
-      query = query.eq('status', status);
+    if (!result.success) {
+      return NextResponse.json({
+        success: false,
+        error: result.error || '获取访客列表失败',
+      }, { status: 500 });
     }
 
-    if (startDate) {
-      query = query.gte('expected_arrival_time', startDate);
-    }
-
-    if (endDate) {
-      query = query.lte('expected_arrival_time', endDate);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    const formattedData = (data || []).map((visitor: VisitorRow) => ({
+    // 格式化数据
+    const formattedData = (result.data || []).map(visitor => ({
       id: visitor.id,
       name: visitor.name,
       phone: visitor.phone,
@@ -121,7 +76,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
 
     const {
@@ -136,30 +90,28 @@ export async function POST(request: NextRequest) {
       remark,
     } = body;
 
-    const { data, error } = await client
-      .from('visitors')
-      .insert({
-        name,
-        phone,
-        id_card: idCard,
-        purpose,
-        host_id: hostId,
-        host_name: hostName,
-        host_department: hostDepartment,
-        expected_arrival_time: expectedArrivalTime,
-        status: 'pending',
-        remark,
-      })
-      .select()
-      .single();
+    const result = await visitorService.create({
+      name,
+      phone,
+      id_card: idCard,
+      purpose,
+      host_id: hostId,
+      host_name: hostName,
+      host_department: hostDepartment,
+      expected_arrival_time: expectedArrivalTime,
+      remark,
+    });
 
-    if (error) {
-      throw error;
+    if (!result.success) {
+      return NextResponse.json({
+        success: false,
+        error: result.error || '创建访客预约失败',
+      }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      data,
+      data: result.data,
     });
   } catch (error) {
     console.error('Failed to create visitor:', error);
@@ -175,53 +127,42 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
 
     const { id, action, temperature, remark, approverId, approverName } = body;
 
-    const updateData: VisitorUpdateData = {};
+    let result;
 
     switch (action) {
       case 'approve':
-        updateData.status = 'approved';
-        updateData.approver_id = approverId;
-        updateData.approver_name = approverName;
-        updateData.approved_at = new Date().toISOString();
+        result = await visitorService.approve(id, approverId, approverName);
         break;
       case 'reject':
-        updateData.status = 'rejected';
-        updateData.approver_id = approverId;
-        updateData.approver_name = approverName;
-        updateData.approved_at = new Date().toISOString();
+        result = await visitorService.reject(id, approverId, approverName, remark);
         break;
       case 'checkin':
-        updateData.status = 'visiting';
-        updateData.actual_arrival_time = new Date().toISOString();
-        if (temperature) updateData.temperature = temperature;
+        result = await visitorService.checkin(id, temperature);
         break;
       case 'checkout':
-        updateData.status = 'left';
-        updateData.actual_leave_time = new Date().toISOString();
+        result = await visitorService.checkout(id);
         break;
+      default:
+        return NextResponse.json({
+          success: false,
+          error: '未知操作',
+        }, { status: 400 });
     }
 
-    if (remark) updateData.remark = remark;
-
-    const { data, error } = await client
-      .from('visitors')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
+    if (!result.success) {
+      return NextResponse.json({
+        success: false,
+        error: result.error || '更新访客状态失败',
+      }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      data,
+      data: result.data,
     });
   } catch (error) {
     console.error('Failed to update visitor:', error);

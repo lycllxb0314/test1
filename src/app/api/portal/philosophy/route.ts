@@ -2,10 +2,13 @@
  * 童心教育 API
  * 
  * 获取童心教育六大路径数据
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { childHeartPathService } from '@/services/portal.service';
 
 /** 童心教育路径 */
 export interface ChildHeartPath {
@@ -20,32 +23,22 @@ export interface ChildHeartPath {
 
 /**
  * 获取童心教育路径数据
- * 
- * Query params:
- * - limit: 返回数量（默认 10）
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    const { data, error } = await supabase
-      .from('child_heart_paths')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .limit(limit);
+    const result = await childHeartPathService.getList(limit);
 
-    if (error) {
-      console.error('Failed to fetch child heart paths:', error);
+    if (!result.success) {
       return NextResponse.json({
         success: false,
-        error: '获取童心教育数据失败',
+        error: result.error || '获取童心教育数据失败',
       }, { status: 500 });
     }
 
-    const paths: ChildHeartPath[] = (data || []).map(item => ({
+    const paths: ChildHeartPath[] = (result.data || []).map(item => ({
       id: item.id,
       icon: item.icon,
       title: item.title,
@@ -59,7 +52,6 @@ export async function GET(request: NextRequest) {
       success: true,
       data: paths,
     });
-
   } catch (error) {
     console.error('Philosophy API error:', error);
     return NextResponse.json({

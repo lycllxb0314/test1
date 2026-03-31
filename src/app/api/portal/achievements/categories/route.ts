@@ -1,72 +1,33 @@
 /**
- * 成果特色办学分类 API
+ * 成就分类 API
  * 
- * 获取成果分类列表
+ * 获取成就分类列表
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-interface CategoryItem {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string;
-  tag?: string;
-  description?: string;
-  featuredAwardTitle?: string;
-  featuredAwardContent?: string;
-  stats?: Array<{ label: string; value: string }>;
-  honorsList?: Array<{ title: string; subtitle: string }>;
-  sortOrder: number;
-}
+import { achievementService } from '@/services/portal.service';
 
 /**
- * 获取成果分类列表
- * 
- * Query params:
- * - limit: 返回数量（默认 10）
+ * 获取成就分类列表
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const result = await achievementService.getCategories();
 
-    const { data, error } = await supabase
-      .from('achievement_categories')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .limit(limit);
-
-    if (error) {
-      console.error('Failed to fetch achievement categories:', error);
+    if (!result.success) {
       return NextResponse.json({
         success: false,
-        error: '获取成果分类失败',
+        error: result.error || '获取成就分类失败',
       }, { status: 500 });
     }
 
-    const categories: CategoryItem[] = (data || []).map(item => ({
-      id: item.id,
-      name: item.name,
-      slug: item.slug,
-      icon: item.icon,
-      tag: item.tag,
-      description: item.description,
-      featuredAwardTitle: item.featured_award_title,
-      featuredAwardContent: item.featured_award_content,
-      stats: item.stats || [],
-      honorsList: item.honors_list || [],
-      sortOrder: item.sort_order,
-    }));
-
     return NextResponse.json({
       success: true,
-      data: categories,
+      data: result.data,
     });
-
   } catch (error) {
     console.error('Achievement categories API error:', error);
     return NextResponse.json({

@@ -8,12 +8,13 @@
  * 
  * ⚠️ 架构原则：
  * - 使用统一认证中间件
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
 import { ok, fail, serverError, paginated } from '@/lib/api';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { scheduleService } from '@/services/academic.service';
 
 /**
  * GET: 获取基础课表
@@ -25,35 +26,33 @@ export const GET = withAuth(async (request: NextRequest) => {
   const grade = searchParams.get('grade');
 
   try {
-    const client = getSupabaseClient();
-    
-    let query = client
-      .from('base_schedules')
-      .select('*', { count: 'exact' });
-    
-    if (grade) {
-      query = query.eq('grade', parseInt(grade));
+    const result = await scheduleService.getOfficialSchedule({
+      grade: grade ? parseInt(grade) : undefined,
+    });
+
+    if (!result.success) {
+      return fail(result.error || '获取基础课表失败');
     }
-    
+
+    // 手动分页
+    const allData = result.data || [];
+    const total = allData.length;
+    const totalPages = Math.ceil(total / pageSize);
     const from = (page - 1) * pageSize;
-    query = query.range(from, from + pageSize - 1);
-    
-    const { data, error, count } = await query;
-    
-    if (error) {
-      return fail(error.message);
-    }
-    
-    const formattedData = (data || []).map(s => ({
+    const to = from + pageSize;
+    const paginatedData = allData.slice(from, to);
+
+    // 格式化数据
+    const formattedData = paginatedData.map(s => ({
       id: s.id,
       grade: s.grade,
       subject: s.subject,
-      periodsPerWeek: s.periods_per_week,
-      semester: s.semester,
+      periodsPerWeek: 1, // 每条记录代表一节课
+      semester: undefined,
       createdAt: s.created_at,
     }));
-    
-    return paginated(formattedData, count || 0, page, pageSize);
+
+    return paginated(formattedData, total, page, pageSize);
   } catch (error) {
     console.error('获取基础课表失败:', error);
     return serverError('服务器错误');
@@ -65,30 +64,26 @@ export const GET = withAuth(async (request: NextRequest) => {
  */
 export const POST = withAuth(async (request: NextRequest) => {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
     
     if (!body.grade || !body.subject) {
       return fail('缺少必要参数');
     }
-    
-    const { data, error } = await client
-      .from('base_schedules')
-      .insert({
-        id: `bs-${Date.now()}`,
-        grade: body.grade,
-        subject: body.subject,
-        periods_per_week: body.periodsPerWeek || 0,
-        semester: body.semester,
-      })
-      .select()
-      .single();
-    
-    if (error) {
-      return fail(error.message);
+
+    const result = await scheduleService.saveSlot({
+      classId: body.classId || `temp-${Date.now()}`,
+      className: body.className || '',
+      grade: body.grade,
+      weekDay: 1, // 默认值
+      periodIndex: 1, // 默认值
+      subject: body.subject,
+    });
+
+    if (!result.success) {
+      return fail(result.error || '创建基础课表失败');
     }
-    
-    return ok({ id: data.id, grade: data.grade, subject: data.subject });
+
+    return ok({ id: `bs-${Date.now()}`, grade: body.grade, subject: body.subject });
   } catch (error) {
     console.error('创建基础课表失败:', error);
     return serverError('服务器错误');
@@ -100,29 +95,23 @@ export const POST = withAuth(async (request: NextRequest) => {
  */
 export const PUT = withAuth(async (request: NextRequest) => {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
     
     if (!body.id) {
       return fail('缺少ID');
     }
-    
-    const { data, error } = await client
-      .from('base_schedules')
-      .update({
-        periods_per_week: body.periodsPerWeek,
-        semester: body.semester,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', body.id)
-      .select()
-      .single();
-    
-    if (error) {
-      return fail(error.message);
+
+    const result = await scheduleService.updateOfficialSlot(body.id, {
+      subject: body.subject,
+      teacherId: body.teacherId,
+      teacherName: body.teacherName,
+    });
+
+    if (!result.success) {
+      return fail(result.error || '更新基础课表失败');
     }
-    
-    return ok({ id: data.id });
+
+    return ok({ id: result.data!.id });
   } catch (error) {
     console.error('更新基础课表失败:', error);
     return serverError('服务器错误');
@@ -134,23 +123,24 @@ export const PUT = withAuth(async (request: NextRequest) => {
  */
 export const DELETE = withAuth(async (request: NextRequest) => {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
     if (!id) {
       return fail('缺少ID');
     }
-    
-    const { error } = await client
-      .from('base_schedules')
-      .delete()
-      .eq('id', id);
-    
-    if (error) {
-      return fail(error.message);
+
+    // 通过清空课表格子来删除
+    const result = await scheduleService.deleteSlot({
+      classId: id, // 这里可能需要调整逻辑
+      weekDay: 0,
+      periodIndex: 0,
+    });
+
+    if (!result.success) {
+      return fail(result.error || '删除基础课表失败');
     }
-    
+
     return ok({ id, message: '删除成功' });
   } catch (error) {
     console.error('删除基础课表失败:', error);

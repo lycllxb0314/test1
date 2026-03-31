@@ -2,10 +2,13 @@
  * 办学荣誉 API
  * 
  * 获取学校办学荣誉数据
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { schoolHonorService } from '@/services/portal.service';
 
 /** 办学荣誉 */
 export interface SchoolHonor {
@@ -19,32 +22,22 @@ export interface SchoolHonor {
 
 /**
  * 获取办学荣誉数据
- * 
- * Query params:
- * - limit: 返回数量（默认 10）
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    const { data, error } = await supabase
-      .from('school_honors')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .limit(limit);
+    const result = await schoolHonorService.getList(limit);
 
-    if (error) {
-      console.error('Failed to fetch school honors:', error);
+    if (!result.success) {
       return NextResponse.json({
         success: false,
-        error: '获取办学荣誉数据失败',
+        error: result.error || '获取办学荣誉数据失败',
       }, { status: 500 });
     }
 
-    const honors: SchoolHonor[] = (data || []).map(item => ({
+    const honors: SchoolHonor[] = (result.data || []).map(item => ({
       id: item.id,
       title: item.title,
       year: item.year,
@@ -57,7 +50,6 @@ export async function GET(request: NextRequest) {
       success: true,
       data: honors,
     });
-
   } catch (error) {
     console.error('Honors API error:', error);
     return NextResponse.json({

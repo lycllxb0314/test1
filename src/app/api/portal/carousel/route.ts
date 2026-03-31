@@ -2,10 +2,13 @@
  * 轮播图 API
  * 
  * 获取学校主页门户的轮播图数据
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { carouselService } from '@/services/portal.service';
 
 /** 轮播项类型 */
 export type CarouselType = 'image' | 'video' | 'bilibili';
@@ -26,34 +29,24 @@ export interface CarouselItem {
 
 /**
  * 获取轮播图数据
- * 
- * Query params:
- * - limit: 返回数量（默认 10）
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    const { data, error } = await supabase
-      .from('carousel_items')
-      .select('*')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .limit(limit);
+    const result = await carouselService.getList(limit);
 
-    if (error) {
-      console.error('Failed to fetch carousel items:', error);
+    if (!result.success) {
       return NextResponse.json({
         success: false,
-        error: '获取轮播图数据失败',
+        error: result.error || '获取轮播图数据失败',
       }, { status: 500 });
     }
 
-    const items: CarouselItem[] = (data || []).map(item => ({
+    const items: CarouselItem[] = (result.data || []).map(item => ({
       id: item.id,
-      type: item.type,
+      type: item.type as CarouselType,
       image: item.image,
       videoUrl: item.video_url,
       bilibiliUrl: item.bilibili_url,
@@ -68,7 +61,6 @@ export async function GET(request: NextRequest) {
       success: true,
       data: items,
     });
-
   } catch (error) {
     console.error('Carousel API error:', error);
     return NextResponse.json({

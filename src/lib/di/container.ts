@@ -159,6 +159,14 @@ export const SERVICE_IDENTIFIERS = {
   RoomBookingRepository: Symbol.for('RoomBookingRepository'),
   ScheduleSlotRepository: Symbol.for('ScheduleSlotRepository'),
   ScheduleDraftRepository: Symbol.for('ScheduleDraftRepository'),
+  // P2 新增 Repositories
+  ScheduleChangeRepository: Symbol.for('ScheduleChangeRepository'),
+  VisitorRepository: Symbol.for('VisitorRepository'),
+  CourseAdjustmentRepository: Symbol.for('CourseAdjustmentRepository'),
+  CarouselRepository: Symbol.for('CarouselRepository'),
+  SchoolHonorRepository: Symbol.for('SchoolHonorRepository'),
+  AnnouncementRepository: Symbol.for('AnnouncementRepository'),
+  AchievementRepository: Symbol.for('AchievementRepository'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -202,6 +210,14 @@ export const SERVICE_IDENTIFIERS = {
   ExpenseService: Symbol.for('ExpenseService'),
   LeaveRequestService: Symbol.for('LeaveRequestService'),
   RoomBookingService: Symbol.for('RoomBookingService'),
+  // P2 新增 Services
+  ScheduleChangeService: Symbol.for('ScheduleChangeService'),
+  VisitorService: Symbol.for('VisitorService'),
+  CourseAdjustmentService: Symbol.for('CourseAdjustmentService'),
+  CarouselService: Symbol.for('CarouselService'),
+  SchoolHonorService: Symbol.for('SchoolHonorService'),
+  AnnouncementService: Symbol.for('AnnouncementService'),
+  AchievementService: Symbol.for('AchievementService'),
 } as const;
 
 /**

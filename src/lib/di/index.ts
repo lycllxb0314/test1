@@ -67,6 +67,16 @@ import {
   scheduleSlotRepository, ScheduleSlotRepository,
   scheduleDraftRepository, ScheduleDraftRepository,
 } from '@/repositories/academic.repository';
+// P2 新增 Repository
+import { scheduleChangeRepository, ScheduleChangeRepository } from '@/repositories/schedule-change.repository';
+import { visitorRepository, VisitorRepository } from '@/repositories/visitor.repository';
+import { courseAdjustmentRepository, CourseAdjustmentRepository } from '@/repositories/course-adjustment.repository';
+import {
+  carouselRepository, CarouselRepository,
+  schoolHonorRepository, SchoolHonorRepository,
+  announcementRepository, AnnouncementRepository,
+  achievementRepository, AchievementRepository,
+} from '@/repositories/portal.repository';
 
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
@@ -116,6 +126,16 @@ import { ParentService, parentService } from '@/services/parent.service';
 import { ExpenseService, expenseService } from '@/services/expense.service';
 import { LeaveRequestService, leaveRequestService } from '@/services/leave-request.service';
 import { RoomBookingService, roomBookingService } from '@/services/room-booking.service';
+// P2 新增 Service
+import { scheduleChangeService, ScheduleChangeService } from '@/services/schedule-change.service';
+import { visitorService, VisitorService } from '@/services/visitor.service';
+import { courseAdjustmentService, CourseAdjustmentService } from '@/services/course-adjustment.service';
+import {
+  carouselService, CarouselService,
+  schoolHonorService, SchoolHonorService,
+  announcementService, AnnouncementService,
+  achievementService, AchievementService,
+} from '@/services/portal.service';
 
 /**
  * 初始化 DI 容器
@@ -172,6 +192,14 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.RoomBookingRepository, () => roomBookingRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleSlotRepository, () => scheduleSlotRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleDraftRepository, () => scheduleDraftRepository);
+  // P2 新增 Repositories
+  container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleChangeRepository, () => scheduleChangeRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.VisitorRepository, () => visitorRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CourseAdjustmentRepository, () => courseAdjustmentRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CarouselRepository, () => carouselRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SchoolHonorRepository, () => schoolHonorRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AnnouncementRepository, () => announcementRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AchievementRepository, () => achievementRepository);
 
   // ========================================
   // 注册 Services（单例）
@@ -218,6 +246,14 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.ExpenseService, () => expenseService);
   container.registerSingleton(SERVICE_IDENTIFIERS.LeaveRequestService, () => leaveRequestService);
   container.registerSingleton(SERVICE_IDENTIFIERS.RoomBookingService, () => roomBookingService);
+  // P2 新增 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleChangeService, () => scheduleChangeService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.VisitorService, () => visitorService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CourseAdjustmentService, () => courseAdjustmentService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CarouselService, () => carouselService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.SchoolHonorService, () => schoolHonorService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AnnouncementService, () => announcementService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AchievementService, () => achievementService);
 }
 
 // 导出

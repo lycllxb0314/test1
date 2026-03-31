@@ -1,81 +1,52 @@
 /**
- * 成果项目详情 API
+ * 成就详情 API
  * 
- * 获取单个成果项目的详细信息
+ * 获取单个成就详情
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-
-interface AchievementDetail {
-  id: string;
-  categoryId: string;
-  title: string;
-  image: string;
-  date?: string;
-  summary?: string;
-  highlights?: string[];
-  sortOrder: number;
-  category?: {
-    id: string;
-    name: string;
-    slug: string;
-    icon: string;
-    tag?: string;
-  };
-}
+import { achievementService } from '@/services/portal.service';
 
 /**
- * 获取单个成果项目详情
+ * 获取成就详情
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = getSupabaseClient();
     const { id } = await params;
 
-    const { data, error } = await supabase
-      .from('achievements')
-      .select(`
-        *,
-        category:achievement_categories(id, name, slug, icon, tag)
-      `)
-      .eq('id', id)
-      .eq('is_active', true)
-      .single();
+    const result = await achievementService.getById(id);
 
-    if (error || !data) {
+    if (!result.success) {
       return NextResponse.json({
         success: false,
-        error: '项目不存在',
+        error: result.error || '获取成就详情失败',
       }, { status: 404 });
     }
 
-    const item: AchievementDetail = {
-      id: data.id,
-      categoryId: data.category_id,
-      title: data.title,
-      image: data.image,
-      date: data.date,
-      summary: data.summary,
-      highlights: data.highlights || [],
-      sortOrder: data.sort_order,
-      category: data.category ? {
-        id: data.category.id,
-        name: data.category.name,
-        slug: data.category.slug,
-        icon: data.category.icon,
-        tag: data.category.tag,
-      } : undefined,
+    const item = result.data!;
+    const achievement = {
+      id: item.id,
+      title: item.title,
+      category: item.category,
+      description: item.description,
+      image: item.image,
+      achievementDate: item.achievement_date,
+      participants: item.participants,
+      awards: item.awards,
+      sortOrder: item.sort_order,
+      createdAt: item.created_at,
     };
 
     return NextResponse.json({
       success: true,
-      data: item,
+      data: achievement,
     });
-
   } catch (error) {
     console.error('Achievement detail API error:', error);
     return NextResponse.json({

@@ -8,11 +8,15 @@
  * - department: 部门通知（如校长室通知、系统公告），显示在所有部门工作台
  * - business: 业务通知（如调课、活动），根据相关部门显示
  * - personal: 个人通知（如请假审批、任务分配），不在部门工作台显示
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { messageService } from '@/services/message.service';
+import { messageRepository } from '@/repositories/message.repository';
 import type { 
   UserMessage, 
   SendMessageRequest, 
@@ -45,14 +49,14 @@ function mapTypeToEvent(dbType: string): MessageEvent {
     message: 'personal_message',
     reminder: 'task_reminder',
     // 群组通知类型
-    group_notice_principal: 'system_announcement', // 校长室通知映射为系统公告
+    group_notice_principal: 'system_announcement',
     group_notice: 'group_notice',
     group_notice_academic: 'group_notice',
     group_notice_moral: 'group_notice',
     group_notice_general: 'group_notice',
     // 部门广播通知
-    department_notice: 'system_announcement', // 部门广播通知映射为系统公告（显示在部门通知）
-    internal_notice: 'personal_message', // 内部通知默认为个人消息
+    department_notice: 'system_announcement',
+    internal_notice: 'personal_message',
   };
   
   return typeMap[dbType] || 'personal_message';
@@ -72,17 +76,14 @@ function getMessageScope(event: MessageEvent, metadata?: Record<string, unknown>
   
   // 业务通知：根据相关部门显示
   const businessEvents: MessageEvent[] = [
-    // 教务
     'schedule_change',
     'exam_notice',
     'grade_publish',
     'homework_assign',
-    // 德育
     'activity_notice',
     'honor_notice',
     'moral_evaluation',
     'habit_record',
-    // 总务
     'repair_notice',
     'asset_notice',
     'safety_alert',
@@ -103,7 +104,7 @@ function getMessageScope(event: MessageEvent, metadata?: Record<string, unknown>
   
   // 群组通知：根据 target_department 判断作用域
   if (event === 'group_notice' && metadata?.target_department) {
-    return 'business'; // 群组通知作为业务通知处理
+    return 'business';
   }
   
   return 'personal';
@@ -128,7 +129,7 @@ function getRelevantDepartments(event: MessageEvent, metadata?: Record<string, u
     return [targetDept];
   }
   
-  return []; // 部门通知和个人通知返回空
+  return [];
 }
 
 // GET: 获取消息列表
@@ -140,13 +141,9 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
   const statusFilter = searchParams.get('status') || undefined;
   const searchFilter = searchParams.get('search') || undefined;
   const unreadOnly = searchParams.get('unreadOnly') === 'true';
-  
-  // 部门工作台参数：用于过滤部门消息
-  // - 未传入：显示所有消息（个人中心）
-  // - 传入 'academic'/'moral'/'general'：显示部门通知 + 该部门相关的业务通知
   const department = searchParams.get('department') || undefined;
 
-  // 如果用户未登录，返回空列表而不是错误
+  // 如果用户未登录，返回空列表
   if (!user) {
     return NextResponse.json({
       success: true,
@@ -169,170 +166,37 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
   }
 
   const userId = user.id;
-  const userRole = user.role;
 
   try {
-    const client = getSupabaseClient();
+    // 使用 MessageService 查询消息
+    const result = await messageService.queryUserMessages({
+      userId,
+      event: eventFilter as MessageEvent | undefined,
+      status: statusFilter as MessageStatus | undefined,
+      page,
+      pageSize,
+      unreadOnly,
+    });
 
-    // 获取用户的完整角色信息（包括兼任角色）
-    const { data: userData } = await client
-      .from('users')
-      .select('role, additional_roles, class_id')
-      .eq('id', userId)
-      .single();
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error || '获取消息失败' }, { status: 500 });
+    }
+
+    // 获取用户阅读状态
+    const readStatuses = await messageRepository.findUnread(userId);
     
-    // 用户所有角色（主角色 + 兼任角色）
-    const userAllRoles: string[] = [userRole];
-    if (userData?.additional_roles && Array.isArray(userData.additional_roles)) {
-      userAllRoles.push(...(userData.additional_roles as string[]));
-    }
-
-    // 获取用户所属班级
-    let userClassIds: string[] = [];
-    let userGrades: number[] = [];
-    
-    if (['head_teacher', 'subject_teacher', 'skill_teacher'].includes(userRole)) {
-      if (userData?.class_id) {
-        userClassIds.push(userData.class_id);
-      }
-      
-      if (userClassIds.length > 0) {
-        const { data: classData } = await client
-          .from('classes')
-          .select('grade')
-          .in('id', userClassIds);
-        userGrades = (classData || []).map((c: { grade: number }) => c.grade);
-      }
-    } else if (userRole === 'parent') {
-      // 家长通过 account_id 关联
-      const { data: parentData } = await client
-        .from('parents')
-        .select('student_id, class_id')
-        .eq('account_id', userId);
-      
-      if (parentData && parentData.length > 0) {
-        parentData.forEach((p: { student_id: string; class_id: string }) => {
-          if (p.class_id) userClassIds.push(p.class_id);
-        });
-        
-        if (userClassIds.length > 0) {
-          const { data: classData } = await client
-            .from('classes')
-            .select('grade')
-            .in('id', userClassIds);
-          userGrades = (classData || []).map((c: { grade: number }) => c.grade);
-        }
-      }
-    }
-
-    // 直接按用户ID查询消息（最常见的情况：recipient_id = userId）
-    // 这样可以避免分页后再筛选的问题
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    // 查询发给当前用户的消息 - 只选择数据库中存在的字段
-    // 如果是部门工作台，还需要查询部门广播消息
-    let query = client
-      .from('messages')
-      .select('id, title, content, type, priority, sender_id, sender_name, sender_avatar, recipient_id, is_read, is_archived, metadata, created_at, updated_at, read_at, archived_at, recipient_type, roles, class_ids, grades, user_ids, sender_role, sent_at, expires_at', { count: 'exact' });
-
-    if (department) {
-      // 部门工作台：查询发给当前用户的个人消息 + 部门广播消息
-      // 注意：部门广播消息不看 recipient_id，只看 target_department
-      const deptMapping: Record<string, string> = {
-        'academic': 'academic',
-        'moral': 'moral',
-        'general': 'general',
-      };
-      const targetDept = deptMapping[department] || department;
-      
-      // 查询条件：
-      // 1. 个人消息：recipient_id = userId AND recipient_type != 'department'
-      // 2. 部门广播：recipient_type = 'department' AND target_department = targetDept
-      query = query.or(`and(recipient_id.eq.${userId},recipient_type.neq.department),and(recipient_type.eq.department,metadata->>target_department.eq.${targetDept})`);
-    } else {
-      // 个人消息中心：只查询发给当前用户的消息（排除部门广播）
-      query = query.eq('recipient_id', userId).neq('recipient_type', 'department');
-    }
-
-    const { data: messages, error: msgError, count } = await query
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (msgError) {
-      console.error('Failed to fetch messages:', msgError);
-      return NextResponse.json({ success: false, error: '获取消息失败' }, { status: 500 });
-    }
-
-    // 获取用户阅读状态（包括归档和删除状态）
-    const { data: readStatuses } = await client
-      .from('message_reads')
-      .select('*')
-      .eq('user_id', userId);
-
-    const readMap = new Map(
-      (readStatuses || []).map((r: { message_id: string; read_at: string; is_pinned: boolean; status?: string; deleted_at?: string }) => [
-        r.message_id, 
-        { readAt: r.read_at, isPinned: r.is_pinned, status: r.status, deletedAt: r.deleted_at }
-      ])
-    );
-
-    // 处理消息 - 映射数据库字段到前端格式
-    const userMessages = (messages || [])
-      .map((msg: Record<string, unknown>) => {
-        const readInfo = readMap.get(msg.id as string);
-        // 数据库中 is_read 字段表示阅读状态，message_reads 表中的状态优先
-        const dbIsRead = msg.is_read as boolean;
-        const status: MessageStatus = (readInfo?.status as MessageStatus) || (readInfo?.readAt || dbIsRead ? 'read' : 'unread');
-        
-        // 将数据库的 type 字段映射为 event 字段
-        // 数据库 type 可能的值: notification, task, approval, schedule 等
-        // 需要映射到 MessageEvent 类型
-        const dbType = (msg.type || 'personal_message') as string;
-        const eventType = mapTypeToEvent(dbType);
-        
-        // 调试日志：群组通知
-        if (dbType.startsWith('group_notice')) {
-          console.log(`[Messages API] Processing group notice: id=${msg.id}, dbType=${dbType}, eventType=${eventType}, metadata=`, msg.metadata);
-        }
-        
-        return {
-          id: msg.id as string,
-          title: msg.title as string,
-          content: msg.content as string,
-          event: eventType,
-          priority: (msg.priority || 'normal') as MessagePriority,
-          senderId: msg.sender_id as string,
-          senderName: msg.sender_name as string,
-          senderRole: msg.sender_role as string,
-          recipients: {
-            type: (msg.recipient_type || 'individual') as 'all' | 'role' | 'class' | 'grade' | 'individual' | 'department',
-            roles: msg.roles as string[] | undefined,
-            classIds: msg.class_ids as string[] | undefined,
-            grades: msg.grades as number[] | undefined,
-            userIds: msg.user_ids as string[] | undefined,
-          },
-          metadata: msg.metadata as Record<string, unknown> | undefined,
-          createdAt: msg.created_at as string,
-          sentAt: msg.sent_at as string | undefined,
-          expiresAt: msg.expires_at as string | undefined,
-          status,
-          readAt: readInfo?.readAt,
-          isPinned: readInfo?.isPinned || false,
-          // 内部使用，用于后续过滤
-          _deletedAt: readInfo?.deletedAt,
-          _isArchived: readInfo?.status === 'archived',
-        };
-      }) as Array<UserMessage & { _deletedAt?: string; _isArchived?: boolean }>;
+    // 格式化消息
+    let messages: (UserMessage & { _deletedAt?: string; _isArchived?: boolean })[] = (result.data || []).map(msg => ({
+      ...msg,
+      _isArchived: msg.status === 'archived',
+    }));
     
     // 过滤掉已删除的消息
-    const activeMessages = userMessages.filter((msg) => !msg._deletedAt);
+    const activeMessages = messages.filter(msg => !msg._deletedAt);
 
-    // 如果没有指定状态筛选，默认不显示已归档的消息
-    // 除非用户明确选择查看已归档消息
+    // 默认不显示已归档的消息
     let displayMessages = activeMessages;
     if (statusFilter !== 'archived') {
-      // 默认隐藏已归档消息
       displayMessages = displayMessages.filter(m => !m._isArchived);
     }
 
@@ -365,35 +229,23 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       const targetDept = deptMapping[department] || department;
       
       filteredMessages = filteredMessages.filter(m => {
-        // 部门广播消息：只显示在目标部门的工作台
+        // 部门广播消息
         if (m.recipients?.type === 'department') {
           const msgTargetDept = m.metadata?.target_department as string;
-          console.log(`[Messages API] Department broadcast: id=${m.id}, targetDept=${msgTargetDept}, currentDept=${targetDept}`);
           return msgTargetDept === targetDept;
         }
         
         const scope = getMessageScope(m.event, m.metadata);
         const relevantDepts = getRelevantDepartments(m.event, m.metadata);
         
-        // 调试日志
-        if (m.event === 'group_notice') {
-          console.log(`[Messages API] Group notice filtering: id=${m.id}, event=${m.event}, scope=${scope}, targetDept=${m.metadata?.target_department}, relevantDepts=${JSON.stringify(relevantDepts)}, currentDept=${department}`);
-        }
-        
-        // 部门通知：显示在所有部门工作台
         if (scope === 'department') return true;
-        
-        // 业务通知：只显示在相关部门的工作台
         if (scope === 'business') return relevantDepts.includes(department);
-        
-        // 个人通知：不显示在部门工作台
         return false;
       });
     }
 
     // 计算统计数据
-    // 注意：部门工作台的统计只统计部门相关的消息，不包含个人消息
-    const statsSource = department ? filteredMessages : userMessages;
+    const statsSource = department ? filteredMessages : messages;
     const statistics: MessageStatistics = {
       total: statsSource.length,
       unread: statsSource.filter(m => m.status === 'unread').length,
@@ -403,11 +255,10 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       byPriority: {} as Record<MessagePriority, number>,
     };
 
-    // 部门工作台需要基于过滤后的消息进行分页
-    const finalTotal = department ? filteredMessages.length : (count || 0);
+    // 分页处理
+    const finalTotal = department ? filteredMessages.length : (result.pagination?.total || 0);
     const totalPages = Math.max(1, Math.ceil(finalTotal / pageSize));
     
-    // 部门工作台需要在内存中进行分页
     let paginatedMessages = filteredMessages;
     if (department) {
       const start = (page - 1) * pageSize;
@@ -442,44 +293,24 @@ const handleSendMessage = async (request: NextRequest, { user }: ExtendedRouteCo
       return NextResponse.json({ success: false, error: '缺少必填字段' }, { status: 400 });
     }
 
-    const client = getSupabaseClient();
+    const result = await messageService.sendMessage({
+      title,
+      content,
+      event,
+      priority,
+      recipientIds: recipients.userIds,
+      recipientRoles: recipients.roles,
+      metadata,
+      senderId: user.id,
+    });
 
-    const { data: senderData } = await client
-      .from('users')
-      .select('name, role')
-      .eq('id', user.id)
-      .single();
-
-    const { data: message, error: insertError } = await client
-      .from('messages')
-      .insert({
-        title,
-        content,
-        event,
-        priority,
-        sender_id: user.id,
-        sender_name: senderData?.name || '系统',
-        sender_role: senderData?.role,
-        recipient_type: recipients.type,
-        roles: recipients.roles,
-        class_ids: recipients.classIds,
-        grades: recipients.grades,
-        user_ids: recipients.userIds,
-        metadata,
-        sent_at: scheduledAt || new Date().toISOString(),
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('Failed to create message:', insertError);
-      return NextResponse.json({ success: false, error: '发送消息失败' }, { status: 500 });
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error || '发送消息失败' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      data: message,
+      data: result.data,
       message: '消息发送成功',
     });
   } catch (err) {
