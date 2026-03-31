@@ -31,6 +31,8 @@ import {
   FileText,
   ChevronRight,
   AlertCircle,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ApprovalInstance } from '@/types/approval';
@@ -40,6 +42,9 @@ import {
   canUserApprove,
   canUserWithdraw,
 } from '@/hooks/useApprovals';
+import { useFilePreview } from '@/hooks/useFilePreview';
+import { FilePreviewDialog } from '@/components/ui/file-preview-dialog';
+import { formatFileSize } from '@/lib/file-preview';
 
 // ==================== 类型定义 ====================
 
@@ -98,6 +103,9 @@ export function ApprovalActionDialog({
   const [action, setAction] = useState<'approve' | 'reject' | 'return' | null>(null);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // 文件预览
+  const filePreview = useFilePreview();
 
   if (!instance) return null;
 
@@ -191,6 +199,7 @@ export function ApprovalActionDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -284,7 +293,14 @@ export function ApprovalActionDialog({
                         {leaveInfo.attachments.map((attachment: Attachment, index: number) => (
                           <div 
                             key={index} 
-                            className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                            onClick={() => filePreview.open({
+                              id: attachment.id || `attachment-${index}`,
+                              title: attachment.name,
+                              fileName: attachment.name,
+                              fileUrl: attachment.url,
+                              fileSize: attachment.size,
+                            })}
                           >
                             {attachment.type?.startsWith('image/') ? (
                               <div className="flex items-center gap-2 flex-1">
@@ -298,17 +314,13 @@ export function ApprovalActionDialog({
                                     {attachment.name}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    {attachment.size ? `${Math.round(attachment.size / 1024)} KB` : ''}
+                                    {attachment.size ? formatFileSize(attachment.size) : ''}
                                   </p>
                                 </div>
-                                <a 
-                                  href={attachment.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 text-sm"
-                                >
-                                  查看
-                                </a>
+                                <Button variant="ghost" size="sm" className="text-blue-600">
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  预览
+                                </Button>
                               </div>
                             ) : (
                               <div className="flex items-center gap-2 flex-1">
@@ -320,17 +332,13 @@ export function ApprovalActionDialog({
                                     {attachment.name}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    {attachment.size ? `${Math.round(attachment.size / 1024)} KB` : ''}
+                                    {attachment.size ? formatFileSize(attachment.size) : ''}
                                   </p>
                                 </div>
-                                <a 
-                                  href={attachment.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 text-sm"
-                                >
-                                  下载
-                                </a>
+                                <Button variant="ghost" size="sm" className="text-blue-600">
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  预览
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -645,6 +653,18 @@ export function ApprovalActionDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    
+    {/* 文件预览弹窗 - 独立于审批弹窗 */}
+    <FilePreviewDialog
+      open={filePreview.state.isOpen}
+      onOpenChange={(open) => {
+        if (!open) filePreview.close();
+      }}
+      resource={filePreview.state.resource}
+      viewerType={filePreview.state.viewerType}
+      onViewerTypeChange={filePreview.setViewerType}
+    />
+  </>
   );
 }
 
