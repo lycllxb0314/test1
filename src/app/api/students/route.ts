@@ -51,7 +51,7 @@ export const GET = withAuth(async (request: NextRequest) => {
       const item = s as unknown as Record<string, unknown>;
       return {
         id: item.id as string,
-        studentNo: (item.studentNumber as string) || '',
+        studentNo: item.studentNo || '',
         name: item.name as string,
         gender: item.gender,
         birthDate: item.birthDate,

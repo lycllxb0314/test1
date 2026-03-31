@@ -82,6 +82,7 @@ export const PUT = withAuthAndParams(async (request: NextRequest, { params }) =>
     if (body.title !== undefined) updateData.title = body.title;
     if (body.phone !== undefined) updateData.phone = body.phone;
     if (body.email !== undefined) updateData.email = body.email;
+    if (body.primaryRole !== undefined) updateData.role = body.primaryRole;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.employeeId !== undefined) updateData.employee_id = body.employeeId;
     if (body.primarySubject !== undefined) updateData.primary_subject = body.primarySubject;
@@ -164,6 +165,7 @@ export const PATCH = withAuthAndParams(async (request: NextRequest, { params }) 
     if (body.graduationDate !== undefined) updateData.graduation_date = body.graduationDate;
     if (body.titleDate !== undefined) updateData.title_date = body.titleDate;
     if (body.teachableSubjects !== undefined) updateData.teachable_subjects = body.teachableSubjects;
+    if (body.primaryRole !== undefined) updateData.role = body.primaryRole;
     if (body.teachableGrades !== undefined) updateData.teachable_grades = body.teachableGrades;
     
     const result = await teacherService.updateTeacher(id as string, updateData);

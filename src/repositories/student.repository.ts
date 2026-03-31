@@ -67,7 +67,7 @@ export class StudentRepository extends BaseRepository<Student> {
     
     let query = this.client
       .from(this.tableName)
-      .select('*, classes(name)', { count: 'exact' });
+      .select('*, classes(name, head_teacher_id, head_teacher_name)', { count: 'exact' });
     
     if (filters.classId) {
       query = query.eq('class_id', filters.classId);
@@ -99,6 +99,8 @@ export class StudentRepository extends BaseRepository<Student> {
       grade: s.grade,
       status: s.status as Student['status'],
       avatar: s.avatar,
+      headTeacherId: s.classes?.head_teacher_id,
+      headTeacherName: s.classes?.head_teacher_name,
       createdAt: s.created_at,
       updatedAt: s.updated_at,
     }));

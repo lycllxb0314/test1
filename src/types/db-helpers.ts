@@ -22,7 +22,11 @@ export type StudentRow = {
   avatar?: string;
   created_at?: string;
   updated_at?: string;
-  classes?: { name: string } | null;
+  classes?: { 
+    name: string;
+    head_teacher_id?: string;
+    head_teacher_name?: string;
+  } | null;
 };
 
 /** 教师数据库行 */

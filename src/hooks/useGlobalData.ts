@@ -778,20 +778,25 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
       return [] as ClassContainer[]
     }
 
+    // 教师和学生数据可选，即使未加载也继续聚合（使用空数组）
     // 构建教师映射
     const teachersMap: Record<string, TeacherInfo> = {}
-    globalTeachers.data.forEach(t => {
-      teachersMap[t.id] = t
-    })
+    if (globalTeachers.loaded) {
+      globalTeachers.data.forEach(t => {
+        teachersMap[t.id] = t
+      })
+    }
 
     // 构建学生映射（按班级分组）
     const studentsByClass: Record<string, StudentInfo[]> = {}
-    globalStudents.data.forEach(s => {
-      if (!studentsByClass[s.classId]) {
+    if (globalStudents.loaded) {
+      globalStudents.data.forEach(s => {
+        if (!studentsByClass[s.classId]) {
         studentsByClass[s.classId] = []
-      }
-      studentsByClass[s.classId].push(s)
-    })
+        }
+        studentsByClass[s.classId].push(s)
+      })
+    }
 
     // 聚合班级数据
     return globalClasses.data.map((cls): ClassContainer => {
