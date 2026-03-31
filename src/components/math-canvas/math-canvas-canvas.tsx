@@ -68,6 +68,7 @@ export function MathCanvas({
   const [dragElement, setDragElement] = useState<CanvasElement | null>(null);
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [snapPreview, setSnapPreview] = useState<Point | null>(null);
+  const [tempPoints, setTempPoints] = useState<Point[]>([]); // 用于角绘制的临时点
 
   // 计算吸附位置（正方体吸附到其他正方体）
   const calculateSnapPosition = useCallback((element: CanvasElement, position: Point): Point => {
@@ -251,6 +252,36 @@ export function MathCanvas({
     
     if ('position' in element) {
       const pos = element.position as Point;
+      // 展开图特殊处理
+      if ('type' in element && ['cubeNet', 'cuboidNet', 'cylinderNet', 'coneNet'].includes(element.type)) {
+        const netElement = element as NetShape;
+        switch (netElement.type) {
+          case 'cubeNet': {
+            const size = netElement.width || 50;
+            return { x: pos.x, y: pos.y, width: size * 3, height: size * 3 };
+          }
+          case 'cuboidNet': {
+            const w = netElement.width || 60;
+            const h = netElement.height || 40;
+            const d = netElement.depth || 30;
+            return { x: pos.x, y: pos.y, width: w + d * 2, height: h + d * 2 };
+          }
+          case 'cylinderNet': {
+            const radius = netElement.radius || 30;
+            const height = netElement.cylinderHeight || 60;
+            const circumference = Math.PI * radius * 2;
+            return { x: pos.x, y: pos.y - radius - 10, width: circumference, height: height + radius * 2 + 20 };
+          }
+          case 'coneNet': {
+            const radius = netElement.radius || 30;
+            const height = netElement.cylinderHeight || 60;
+            const slantHeight = Math.sqrt(radius * radius + height * height);
+            return { x: pos.x - slantHeight, y: pos.y - slantHeight, width: slantHeight * 2, height: slantHeight + radius + 20 };
+          }
+          default:
+            return { x: pos.x, y: pos.y, width: 100, height: 100 };
+        }
+      }
       const w = (element as SolidShape).width || 100;
       const h = (element as SolidShape).height || 100;
       return {
@@ -398,11 +429,42 @@ export function MathCanvas({
       case 'angle':
         if (points.length >= 3) {
           const [p1, vertex, p2] = points;
+          // 计算两条射线的方向并延长
+          const len1 = Math.sqrt(Math.pow(p1.x - vertex.x, 2) + Math.pow(p1.y - vertex.y, 2));
+          const len2 = Math.sqrt(Math.pow(p2.x - vertex.x, 2) + Math.pow(p2.y - vertex.y, 2));
+          const extendLen = 500; // 延长长度
+          
+          // 绘制第一条射线（从顶点到p1方向延长）
+          ctx.beginPath();
+          ctx.moveTo(vertex.x, vertex.y);
+          ctx.lineTo(
+            vertex.x + (p1.x - vertex.x) / len1 * extendLen,
+            vertex.y + (p1.y - vertex.y) / len1 * extendLen
+          );
+          ctx.stroke();
+          
+          // 绘制第二条射线（从顶点到p2方向延长）
+          ctx.beginPath();
+          ctx.moveTo(vertex.x, vertex.y);
+          ctx.lineTo(
+            vertex.x + (p2.x - vertex.x) / len2 * extendLen,
+            vertex.y + (p2.y - vertex.y) / len2 * extendLen
+          );
+          ctx.stroke();
+          
+          // 绘制角度弧
           const angle1 = Math.atan2(p1.y - vertex.y, p1.x - vertex.x);
           const angle2 = Math.atan2(p2.y - vertex.y, p2.x - vertex.x);
-          const arcRadius = 20;
-          ctx.moveTo(vertex.x, vertex.y);
+          const arcRadius = 30;
+          ctx.beginPath();
           ctx.arc(vertex.x, vertex.y, arcRadius, angle1, angle2);
+          ctx.stroke();
+          
+          // 绘制顶点
+          ctx.beginPath();
+          ctx.arc(vertex.x, vertex.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = shape.strokeColor;
+          ctx.fill();
         }
         break;
 
@@ -1561,11 +1623,42 @@ export function MathCanvas({
       }
       ctx.restore();
     }
+    
+    // 绘制角工具的临时点
+    if (state.activeTool === 'angle' && tempPoints.length > 0) {
+      ctx.save();
+      ctx.translate(state.pan.x, state.pan.y);
+      ctx.scale(state.zoom, state.zoom);
+      
+      ctx.strokeStyle = state.activeColor;
+      ctx.lineWidth = state.activeStrokeWidth;
+      ctx.setLineDash([5, 3]);
+      
+      // 绘制已有的临时点
+      tempPoints.forEach((p, i) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = i === 0 ? '#3b82f6' : i === 1 ? '#22c55e' : '#ef4444';
+        ctx.fill();
+        ctx.stroke();
+      });
+      
+      // 绘制连线
+      if (tempPoints.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(tempPoints[0].x, tempPoints[0].y);
+        ctx.lineTo(tempPoints[1].x, tempPoints[1].y);
+        ctx.stroke();
+      }
+      
+      ctx.restore();
+    }
   }, [
     state,
     isDrawing,
     startPoint,
     currentPoint,
+    tempPoints,
     drawGrid,
     drawPlaneShape,
     drawSolidShape,
@@ -1593,8 +1686,8 @@ export function MathCanvas({
           // 选中元素
           onElementSelect?.([element.id]);
           
-          // 如果是可拖动的元素（如正方体），开始拖动
-          if (element.type === 'cube') {
+          // 如果是可拖动的元素（如正方体、展开图），开始拖动
+          if (element.type === 'cube' || ['cubeNet', 'cuboidNet', 'cylinderNet', 'coneNet'].includes(element.type)) {
             const bounds = getElementBounds(element);
             if (bounds) {
               setIsDragging(true);
@@ -1615,6 +1708,36 @@ export function MathCanvas({
     }
 
     // 非选择模式：开始绘制
+    // 角工具需要三次点击
+    if (state.activeTool === 'angle') {
+      const newPoints = [...tempPoints, point];
+      if (newPoints.length === 3) {
+        // 三个点收集完成，创建角元素
+        const id = `element-${Date.now()}`;
+        const newElement: PlaneShape = {
+          id,
+          type: 'angle',
+          points: newPoints,
+          strokeColor: state.activeColor,
+          strokeWidth: state.activeStrokeWidth,
+          strokeStyle: 'solid',
+          fillColor: 'transparent',
+          fillMode: 'none',
+          opacity: 1,
+          locked: false,
+          visible: true,
+        };
+        const updatedElements = [...state.elements, newElement];
+        onChange?.({ ...state, elements: updatedElements });
+        onElementAdd?.(newElement);
+        setTempPoints([]);
+      } else {
+        // 继续收集点
+        setTempPoints(newPoints);
+      }
+      return;
+    }
+    
     setStartPoint(point);
     setCurrentPoint(point);
     setIsDrawing(true);
@@ -1635,7 +1758,7 @@ export function MathCanvas({
       setSnapPreview(snappedPosition);
       
       // 更新元素位置
-      if (dragElement.type === 'cube') {
+      if (dragElement.type === 'cube' || ['cubeNet', 'cuboidNet', 'cylinderNet', 'coneNet'].includes(dragElement.type)) {
         const updatedElement = {
           ...dragElement,
           position: snappedPosition,

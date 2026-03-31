@@ -12,7 +12,7 @@
 
 import React, { useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, Upload, HelpCircle, BookOpen } from 'lucide-react';
+import { ArrowLeft, Upload, HelpCircle, BookOpen } from 'lucide-react';
 import { MathCanvasMain } from '@/components/math-canvas';
 import { Button } from '@/components/ui/button';
 import {
@@ -74,10 +74,6 @@ export default function MathCanvasPage() {
           <Button variant="outline" size="sm" onClick={handleImportClick}>
             <Upload className="h-4 w-4 mr-1" />
             导入
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-1" />
-            导出
           </Button>
           <Dialog open={showHelp} onOpenChange={setShowHelp}>
             <DialogTrigger asChild>
