@@ -127,3 +127,57 @@ export const DELETE = withAuthAndParams(async (request: NextRequest, { params })
     return serverError('服务器错误');
   }
 });
+
+/**
+ * PATCH: 部分更新教师信息
+ */
+export const PATCH = withAuthAndParams(async (request: NextRequest, { params }) => {
+  const { id } = params;
+  
+  try {
+    const teacherService = getService<TeacherService>(SERVICE_IDENTIFIERS.TeacherService);
+    const body = await request.json();
+    
+    // 驼峰转下划线映射
+    const updateData: Record<string, unknown> = {};
+    
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.gender !== undefined) updateData.gender = body.gender;
+    if (body.department !== undefined) updateData.department = body.department;
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.phone !== undefined) updateData.phone = body.phone;
+    if (body.email !== undefined) updateData.email = body.email;
+    if (body.status !== undefined) updateData.status = body.status;
+    if (body.employeeId !== undefined) updateData.employee_id = body.employeeId;
+    if (body.primarySubject !== undefined) updateData.primary_subject = body.primarySubject;
+    if (body.subjects !== undefined) updateData.subjects = body.subjects;
+    if (body.birthDate !== undefined) updateData.birth_date = body.birthDate;
+    if (body.ethnicity !== undefined) updateData.ethnicity = body.ethnicity;
+    if (body.politicalStatus !== undefined) updateData.political_status = body.politicalStatus;
+    if (body.nativePlace !== undefined) updateData.native_place = body.nativePlace;
+    if (body.emergencyContact !== undefined) updateData.emergency_contact = body.emergencyContact;
+    if (body.emergencyPhone !== undefined) updateData.emergency_phone = body.emergencyPhone;
+    if (body.address !== undefined) updateData.address = body.address;
+    if (body.education !== undefined) updateData.education = body.education;
+    if (body.school !== undefined) updateData.school = body.school;
+    if (body.major !== undefined) updateData.major = body.major;
+    if (body.graduationDate !== undefined) updateData.graduation_date = body.graduationDate;
+    if (body.titleDate !== undefined) updateData.title_date = body.titleDate;
+    if (body.teachableSubjects !== undefined) updateData.teachable_subjects = body.teachableSubjects;
+    if (body.teachableGrades !== undefined) updateData.teachable_grades = body.teachableGrades;
+    
+    const result = await teacherService.updateTeacher(id as string, updateData);
+    
+    if (!result.success) {
+      if (result.code === 'NOT_FOUND') {
+        return notFound('教师不存在');
+      }
+      return fail(result.error || '更新失败');
+    }
+    
+    return ok(result.data);
+  } catch (error) {
+    console.error('更新教师失败:', error);
+    return serverError('服务器错误');
+  }
+});

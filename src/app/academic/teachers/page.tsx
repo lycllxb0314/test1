@@ -134,9 +134,9 @@ export default function TeachersPage() {
   const router = useRouter();
   
   // 使用全局数据 hook（避免重复请求）
+  // 注意：使用 allTeachers 获取全部数据，由页面自行分页
   const {
-    teachers: teacherList,
-    allTeachers,
+    allTeachers: teacherList,
     loading,
     statistics,
     fetchTeachers,

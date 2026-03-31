@@ -891,7 +891,7 @@ export class TeacherService extends BaseService {
     let query = client
       .from('teacher_records')
       .select('*')
-      .order('date', { ascending: false });
+      .order('start_date', { ascending: false });
 
     if (teacherId) query = query.eq('teacher_id', teacherId);
 
@@ -904,10 +904,15 @@ export class TeacherService extends BaseService {
     const formattedData = (data || []).map(record => ({
       id: record.id,
       teacherId: record.teacher_id,
+      teacherName: record.teacher_name,
       type: record.type,
       title: record.title,
       description: record.description,
-      date: record.date,
+      startDate: record.start_date,
+      endDate: record.end_date,
+      hours: record.hours,
+      location: record.location,
+      result: record.result,
       attachments: record.attachments || [],
       createdAt: record.created_at,
     }));
@@ -924,10 +929,15 @@ export class TeacherService extends BaseService {
       .from('teacher_records')
       .insert({
         teacher_id: params.teacherId,
+        teacher_name: params.teacherName,
         type: params.type,
         title: params.title,
         description: params.description,
-        date: params.date,
+        start_date: params.startDate,
+        end_date: params.endDate,
+        hours: params.hours,
+        location: params.location,
+        result: params.result,
         attachments: params.attachments || [],
       })
       .select()
@@ -941,10 +951,15 @@ export class TeacherService extends BaseService {
     return this.ok({
       id: data.id,
       teacherId: data.teacher_id,
+      teacherName: data.teacher_name,
       type: data.type,
       title: data.title,
       description: data.description,
-      date: data.date,
+      startDate: data.start_date,
+      endDate: data.end_date,
+      hours: data.hours,
+      location: data.location,
+      result: data.result,
       attachments: data.attachments || [],
       createdAt: data.created_at,
     });
