@@ -74,7 +74,7 @@ import {
   Users,
   Calendar,
   BarChart3,
-  PieChart,
+  PieChart as PieChartIcon,
   Crown,
   Target,
   Loader2,
@@ -90,12 +90,13 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  PieChart as RechartsPie,
+  PieChart,
   Pie,
   Cell,
   LineChart,
   Line,
-} from 'recharts';
+  CHART_COLORS,
+} from '@/components/charts/DynamicCharts';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
@@ -554,7 +555,7 @@ export default function StudentHonorsPage() {
               <CardContent>
                 {statistics ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <RechartsPie>
+                    <PieChart>
                       <Pie
                         data={categoryChartData.filter(d => d.value > 0)}
                         cx="50%"
@@ -563,7 +564,7 @@ export default function StudentHonorsPage() {
                         outerRadius={100}
                         paddingAngle={2}
                         dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${name} ${((percent as number) * 100).toFixed(0)}%`}
                         labelLine={false}
                       >
                         {categoryChartData.map((entry, index) => (
@@ -574,7 +575,7 @@ export default function StudentHonorsPage() {
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
                       />
                       <Legend />
-                    </RechartsPie>
+                    </PieChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[300px] flex items-center justify-center text-gray-400">

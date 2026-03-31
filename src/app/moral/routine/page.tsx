@@ -78,7 +78,8 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
-} from 'recharts';
+  CHART_COLORS,
+} from '@/components/charts/DynamicCharts';
 
 // ==================== 类型定义 ====================
 

@@ -85,10 +85,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart as RechartsPie,
+  PieChart,
   Pie,
   Cell,
-} from 'recharts';
+  CHART_COLORS,
+} from '@/components/charts/DynamicCharts';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
@@ -588,7 +589,7 @@ export default function TeacherHonorsPage() {
               <CardContent>
                 {statistics && categoryChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={250}>
-                    <RechartsPie>
+                    <PieChart>
                       <Pie
                         data={categoryChartData}
                         cx="50%"
@@ -597,7 +598,7 @@ export default function TeacherHonorsPage() {
                         outerRadius={80}
                         paddingAngle={2}
                         dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${name} ${((percent as number) * 100).toFixed(0)}%`}
                         labelLine={false}
                       >
                         {categoryChartData.map((entry, index) => (
@@ -607,7 +608,7 @@ export default function TeacherHonorsPage() {
                       <Tooltip 
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
                       />
-                    </RechartsPie>
+                    </PieChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-gray-400">

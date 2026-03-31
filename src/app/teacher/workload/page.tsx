@@ -21,7 +21,7 @@ import {
   LineChart,
   Line,
   Legend,
-} from 'recharts';
+} from '@/components/charts/DynamicCharts';
 import { 
   TrendingUp, 
   Calendar, 
@@ -355,7 +355,7 @@ export default function WorkloadPage() {
                           innerRadius={60}
                           outerRadius={80}
                           paddingAngle={2}
-                          label={({ subject, percentage }) => `${subject} ${percentage}%`}
+                          label={({ subject, percentage }) => `${subject} ${percentage as number}%`}
                         >
                           {displayStats.subjectDistribution.map((entry, index) => (
                             <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />

@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   // outputFileTracingRoot: path.resolve(__dirname, '../../'),
   /* config options here */
   allowedDevOrigins: ['*.dev.coze.site'],
+  
+  // 图片优化配置
   images: {
     remotePatterns: [
       {
@@ -13,12 +15,86 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    // 开启图片优化
+    formats: ['image/webp'],
+    // 图片缓存时间
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
+  
   // 增加 API 请求体大小限制
   experimental: {
     serverActions: {
       bodySizeLimit: '500mb',
     },
+  },
+  
+  // 优化配置
+  reactStrictMode: true,
+  
+  // 编译优化
+  compiler: {
+    // 移除 console.log (仅生产环境)
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  
+  // 模块导入优化
+  modularizeImports: {
+    // 优化 lucide-react 导入
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+      skipDefaultConversion: true,
+    },
+  },
+  
+  // 生产环境头部配置
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+      {
+        // 静态资源缓存
+        source: '/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // 图片资源缓存
+        source: '/:path(.*\\.(?:png|jpg|jpeg|webp|svg|gif|ico))',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400',
+          },
+        ],
+      },
+    ];
+  },
+  
+  // 重定向配置
+  async redirects() {
+    return [
+      // 可以在这里添加重定向规则
+    ];
   },
 };
 
