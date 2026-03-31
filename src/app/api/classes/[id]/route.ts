@@ -1,114 +1,91 @@
 /**
  * 单个班级 API
  * 
- * GET - 获取班级详情
- * PATCH - 更新班级信息（包括科任）
- * 
- * ⚠️ 架构原则：
- * - 通过 Service 层访问数据，禁止直接操作数据库
- * - 使用统一认证中间件
+ * 架构：API Route → Service → Repository
  */
 
-import { NextRequest } from 'next/server';
-import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
-import { withAuthAndParams } from '@/lib/auth/middleware';
-import { ok, fail, serverError, notFound } from '@/lib/api';
-import type { ClassService } from '@/services/class.service';
+import { NextRequest, NextResponse } from 'next/server';
+import { classService } from '@/services/class.service';
+import { error, ErrorCode } from '@/lib/api';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
- * GET - 获取单个班级详情
+ * GET - 获取班级详情
  */
-export const GET = withAuthAndParams(async (
-  request: NextRequest,
-  { params }
-) => {
-  const { id } = params;
-  
+export const GET = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const classService = getService<ClassService>(SERVICE_IDENTIFIERS.ClassService);
+    const params = await context.params;
+    const id = params?.id;
     
-    const result = await classService.getClass(id as string);
+    if (!id) {
+      return NextResponse.json(error('缺少班级ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
+    
+    const result = await classService.getClass(id);
     
     if (!result.success || !result.data) {
-      return notFound('班级不存在');
+      return NextResponse.json(error('班级不存在', ErrorCode.NOT_FOUND), { status: 404 });
     }
     
     const data = result.data as unknown as Record<string, unknown>;
     
-    // 转换为驼峰格式
-    const formattedData = {
-      id: data.id,
-      name: data.name,
-      grade: data.grade,
-      gradeName: data.gradeName,
-      classNumber: data.classNumber,
-      headTeacherId: data.headTeacherId,
-      headTeacherName: data.headTeacherName,
-      subTeacherId: data.subTeacherId,
-      subTeacherName: data.subTeacherName,
-      classroomId: data.classroomId,
-      classroomName: data.classroomName,
-      building: data.building,
-      studentCount: data.studentCount,
-      status: data.status,
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
-    };
-    
-    return ok(formattedData);
+    return NextResponse.json({ success: true, data });
   } catch (err) {
-    console.error('Failed to fetch class:', err);
-    return serverError('获取班级失败');
+    console.error('获取班级详情失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });
 
 /**
- * PATCH - 更新班级信息
+ * PUT - 更新班级信息
  */
-export const PATCH = withAuthAndParams(async (
-  request: NextRequest,
-  { params }
-) => {
-  const { id } = params;
-  
+export const PUT = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const classService = getService<ClassService>(SERVICE_IDENTIFIERS.ClassService);
+    const params = await context.params;
+    const id = params?.id;
+    
+    if (!id) {
+      return NextResponse.json(error('缺少班级ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
+    
     const body = await request.json();
-    
-    // 构建更新参数
-    const updateParams: Record<string, unknown> = {};
-    
-    // 科任（副班主任）
-    if (body.subTeacherId !== undefined) {
-      updateParams.subTeacherId = body.subTeacherId || null;
-      updateParams.subTeacherName = body.subTeacherName || null;
-    }
-    
-    // 班主任
-    if (body.headTeacherId !== undefined) {
-      updateParams.headTeacherId = body.headTeacherId;
-      updateParams.headTeacherName = body.headTeacherName;
-    }
-    
-    // 调用 Service 层更新
-    const result = await classService.updateClass(id as string, updateParams);
+    const result = await classService.updateClass(id, body);
     
     if (!result.success) {
-      if (result.code === 'NOT_FOUND') {
-        return notFound('班级不存在');
-      }
-      return fail(result.error || '更新失败');
+      const statusCode = result.code === 'NOT_FOUND' ? 404 : 500;
+      return NextResponse.json(error(result.error || '更新失败', result.code as ErrorCode), { status: statusCode });
     }
     
-    const updatedData = result.data as unknown as Record<string, unknown>;
-    
-    return ok({
-      id: updatedData?.id,
-      subTeacherId: updatedData?.subTeacherId,
-      subTeacherName: updatedData?.subTeacherName,
-    });
+    return NextResponse.json({ success: true, data: result.data });
   } catch (err) {
-    console.error('Failed to update class:', err);
-    return serverError('更新班级失败');
+    console.error('更新班级API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});
+
+/**
+ * DELETE - 删除班级
+ */
+export const DELETE = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
+  try {
+    const params = await context.params;
+    const id = params?.id;
+    
+    if (!id) {
+      return NextResponse.json(error('缺少班级ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
+    
+    const result = await classService.deleteClass(id);
+    
+    if (!result.success) {
+      const statusCode = result.code === 'NOT_FOUND' ? 404 : 
+                        result.code === 'HAS_STUDENTS' ? 400 : 500;
+      return NextResponse.json(error(result.error || '删除失败', result.code as ErrorCode), { status: statusCode });
+    }
+    
+    return NextResponse.json({ success: true, message: '删除成功' });
+  } catch (err) {
+    console.error('删除班级API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });

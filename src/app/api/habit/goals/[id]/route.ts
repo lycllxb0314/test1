@@ -1,135 +1,91 @@
 /**
  * 单个习惯目标 API
  * 
- * GET /api/habit/goals/[id] - 获取目标详情
- * PUT /api/habit/goals/[id] - 更新目标
- * DELETE /api/habit/goals/[id] - 删除目标
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { habitGoalTemplateService } from '@/services/habit.ext.service';
+import { error, ErrorCode } from '@/lib/api';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * GET - 获取单个目标详情
+ */
+export const GET = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
-    const { id } = await params;
+    const params = await context.params;
+    const id = params?.id;
     
-    const { data, error } = await client
-      .from('habit_goals')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (!id) {
+      return NextResponse.json(error('缺少目标ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
-    if (!data) {
-      return NextResponse.json({ success: false, error: '目标不存在' }, { status: 404 });
+    const result = await habitGoalTemplateService.getList({});
+    
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '获取目标失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: data.id,
-        category: data.category,
-        code: data.code,
-        title: data.title,
-        description: data.description,
-        gradeRange: data.grade_range,
-        difficulty: data.difficulty,
-        isActive: data.is_active,
-        sortOrder: data.sort_order,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      },
-    });
-  } catch (error) {
-    console.error('Failed to fetch habit goal:', error);
-    return NextResponse.json({ success: false, error: '获取目标详情失败' }, { status: 500 });
+    const goal = result.data?.data?.find(g => g.id === id);
+    if (!goal) {
+      return NextResponse.json(error('目标不存在', ErrorCode.NOT_FOUND), { status: 404 });
+    }
+    
+    return NextResponse.json({ success: true, data: goal });
+  } catch (err) {
+    console.error('获取习惯目标详情失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * PUT - 更新目标
+ */
+export const PUT = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
-    const { id } = await params;
+    const params = await context.params;
+    const id = params?.id;
+    
+    if (!id) {
+      return NextResponse.json(error('缺少目标ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
+    
     const body = await request.json();
+    const result = await habitGoalTemplateService.update(id, body);
     
-    const updateData: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-    
-    if (body.category !== undefined) updateData.category = body.category;
-    if (body.code !== undefined) updateData.code = body.code;
-    if (body.title !== undefined) updateData.title = body.title;
-    if (body.description !== undefined) updateData.description = body.description;
-    if (body.gradeRange !== undefined) updateData.grade_range = body.gradeRange;
-    if (body.difficulty !== undefined) updateData.difficulty = body.difficulty;
-    if (body.isActive !== undefined) updateData.is_active = body.isActive;
-    if (body.sortOrder !== undefined) updateData.sort_order = body.sortOrder;
-    
-    const { data, error } = await client
-      .from('habit_goals')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '更新目标失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: data.id,
-        category: data.category,
-        code: data.code,
-        title: data.title,
-        description: data.description,
-        gradeRange: data.grade_range,
-        difficulty: data.difficulty,
-        isActive: data.is_active,
-        sortOrder: data.sort_order,
-      },
-      message: '更新成功',
-    });
-  } catch (error) {
-    console.error('Failed to update habit goal:', error);
-    return NextResponse.json({ success: false, error: '更新目标失败' }, { status: 500 });
+    return NextResponse.json({ success: true, data: result.data });
+  } catch (err) {
+    console.error('更新习惯目标API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/**
+ * DELETE - 删除目标
+ */
+export const DELETE = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
-    const { id } = await params;
+    const params = await context.params;
+    const id = params?.id;
     
-    const { error } = await client
-      .from('habit_goals')
-      .delete()
-      .eq('id', id);
-    
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (!id) {
+      return NextResponse.json(error('缺少目标ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
-    return NextResponse.json({
-      success: true,
-      message: '删除成功',
-    });
-  } catch (error) {
-    console.error('Failed to delete habit goal:', error);
-    return NextResponse.json({ success: false, error: '删除目标失败' }, { status: 500 });
+    const result = await habitGoalTemplateService.delete(id);
+    
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '删除目标失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    }
+    
+    return NextResponse.json({ success: true, message: '删除成功' });
+  } catch (err) {
+    console.error('删除习惯目标API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});

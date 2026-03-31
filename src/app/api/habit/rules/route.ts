@@ -1,129 +1,68 @@
 /**
  * 习惯规则配置 API
  * 
- * GET /api/habit/rules - 获取规则配置
- * POST /api/habit/rules - 创建/更新规则配置
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { habitRuleService } from '@/services/habit.ext.service';
+import { error, ErrorCode } from '@/lib/api';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
-export async function GET(request: NextRequest) {
+/**
+ * GET - 获取规则配置
+ */
+export const GET = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     
-    const academicYear = searchParams.get('academicYear');
-    const semester = searchParams.get('semester');
-    
-    let query = client
-      .from('habit_system_rules')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (academicYear) {
-      query = query.eq('academic_year', academicYear);
-    }
-    if (semester) {
-      query = query.eq('semester', semester);
-    }
-    
-    const { data, error } = await query;
-    
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
-    
-    const formattedData = (data || []).map(r => ({
-      id: r.id,
-      academicYear: r.academic_year,
-      semester: r.semester,
-      startDate: r.start_date,
-      endDate: r.end_date,
-      monthlyDeadline: r.monthly_deadline,
-      checkFrequency: r.check_frequency,
-      makeUpDays: r.make_up_days,
-      passThreshold: r.pass_threshold,
-      starQuotaPerClass: r.star_quota_per_class,
-      isActive: r.is_active,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    }));
-    
-    return NextResponse.json({
-      success: true,
-      data: formattedData,
+    const result = await habitRuleService.getList({
+      academicYear: searchParams.get('academicYear') || undefined,
+      semester: searchParams.get('semester') || undefined,
     });
-  } catch (error) {
-    console.error('Failed to fetch habit rules:', error);
-    return NextResponse.json({ success: false, error: '获取规则配置失败' }, { status: 500 });
+    
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '获取规则配置失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    }
+    
+    return NextResponse.json({ success: true, data: result.data });
+  } catch (err) {
+    console.error('习惯规则API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+/**
+ * POST - 创建/更新规则配置
+ */
+export const POST = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
     
-    const {
-      academicYear,
-      semester,
-      startDate,
-      endDate,
-      monthlyDeadline,
-      checkFrequency,
-      makeUpDays,
-      passThreshold,
-      starQuotaPerClass,
-    } = body;
+    const result = await habitRuleService.upsert({
+      academicYear: body.academicYear,
+      semester: body.semester,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      monthlyDeadline: body.monthlyDeadline,
+      checkFrequency: body.checkFrequency,
+      makeUpDays: body.makeUpDays,
+      passThreshold: body.passThreshold,
+      starQuotaPerClass: body.starQuotaPerClass,
+    });
     
-    if (!academicYear || !semester || !startDate || !endDate) {
-      return NextResponse.json({ success: false, error: '学年、学期、开始日期、结束日期为必填项' }, { status: 400 });
-    }
-    
-    // Upsert（存在则更新，不存在则创建）
-    const { data, error } = await client
-      .from('habit_system_rules')
-      .upsert({
-        academic_year: academicYear,
-        semester,
-        start_date: startDate,
-        end_date: endDate,
-        monthly_deadline: monthlyDeadline || 25,
-        check_frequency: checkFrequency || 'daily',
-        make_up_days: makeUpDays || 3,
-        pass_threshold: passThreshold || 80,
-        star_quota_per_class: starQuotaPerClass || 5,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'academic_year,semester'
-      })
-      .select()
-      .single();
-    
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (!result.success) {
+      const statusCode = result.code === 'VALIDATION_ERROR' ? 400 : 500;
+      return NextResponse.json(error(result.error || '保存规则配置失败', result.code as ErrorCode), { status: statusCode });
     }
     
     return NextResponse.json({
       success: true,
-      data: {
-        id: data.id,
-        academicYear: data.academic_year,
-        semester: data.semester,
-        startDate: data.start_date,
-        endDate: data.end_date,
-        monthlyDeadline: data.monthly_deadline,
-        checkFrequency: data.check_frequency,
-        makeUpDays: data.make_up_days,
-        passThreshold: data.pass_threshold,
-        starQuotaPerClass: data.star_quota_per_class,
-      },
+      data: result.data,
       message: '规则配置保存成功',
     });
-  } catch (error) {
-    console.error('Failed to save habit rules:', error);
-    return NextResponse.json({ success: false, error: '保存规则配置失败' }, { status: 500 });
+  } catch (err) {
+    console.error('保存习惯规则API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});

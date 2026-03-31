@@ -1,102 +1,53 @@
 /**
- * 费用报销财务处理API路由
+ * 经费处理 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
- * v3.0: 移除Mock依赖，数据库失败时返回错误响应
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, ErrorCode } from '@/lib/api';
+import { expenseService } from '@/services/expense.service';
+import { error, ErrorCode } from '@/lib/api';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
- * POST - 财务处理报销申请
+ * POST - 处理经费（完成/取消）
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const { id } = await params;
+    const params = await context.params;
+    const id = params?.id;
+    const user = context.user;
+    
+    if (!id) {
+      return NextResponse.json(error('缺少经费ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
+    
+    if (!user) {
+      return NextResponse.json(error('未登录', ErrorCode.UNAUTHORIZED), { status: 401 });
+    }
+    
     const body = await request.json();
-    const { action, paymentNo, processorId, processorName } = body;
-    const client = getSupabaseClient();
+    const { action, note } = body;
     
-    // 获取报销申请
-    const { data: expense, error: fetchError } = await client
-      .from('expense_reimbursements')
-      .select('*')
-      .eq('id', id)
-      .single();
+    if (!action || !['complete', 'cancel'].includes(action)) {
+      return NextResponse.json(error('无效的操作类型', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
     
-    if (fetchError || !expense) {
-      return NextResponse.json(
-        error('报销申请不存在', ErrorCode.NOT_FOUND),
-        { status: 404 }
-      );
+    const result = await expenseService.process(id, action, user.id, user.name, note);
+    
+    if (!result.success) {
+      const statusCode = result.code === 'NOT_FOUND' ? 404 : 
+                        result.code === 'INVALID_STATUS' ? 400 : 500;
+      return NextResponse.json(error(result.error || '处理失败', result.code as ErrorCode), { status: statusCode });
     }
-
-    let updateData: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (action === 'process') {
-      // 开始处理
-      if (expense.status !== 'approved') {
-        return NextResponse.json(
-          error('该报销申请不在已批准状态', ErrorCode.VALIDATION_ERROR),
-          { status: 400 }
-        );
-      }
-      updateData = {
-        ...updateData,
-        status: 'processing',
-        finance_handler_id: processorId,
-        finance_handler_name: processorName,
-      };
-    } else if (action === 'complete') {
-      // 完成处理
-      if (expense.status !== 'processing') {
-        return NextResponse.json(
-          error('该报销申请不在处理中状态', ErrorCode.VALIDATION_ERROR),
-          { status: 400 }
-        );
-      }
-      updateData = {
-        ...updateData,
-        status: 'completed',
-        payment_no: paymentNo,
-        payment_date: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-      };
-    } else {
-      return NextResponse.json(
-        error('无效的操作', ErrorCode.VALIDATION_ERROR),
-        { status: 400 }
-      );
-    }
-
-    // 更新报销申请
-    const { data, error: dbError } = await client
-      .from('expense_reimbursements')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (dbError) {
-      return NextResponse.json(
-        error('处理失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(success(data, 'database'));
+    
+    return NextResponse.json({
+      success: true,
+      data: result.data,
+      message: action === 'complete' ? '处理完成' : '已取消',
+    });
   } catch (err) {
-    console.error('Process expense error:', err);
-    return NextResponse.json(
-      error('处理失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    console.error('处理经费API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
