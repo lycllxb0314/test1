@@ -82,11 +82,19 @@ export const PUT = withAuthAndParams(async (request: NextRequest, { params }) =>
     if (body.title !== undefined) updateData.title = body.title;
     if (body.phone !== undefined) updateData.phone = body.phone;
     if (body.email !== undefined) updateData.email = body.email;
+    // 角色字段映射：支持 primaryRole 和 role 两种格式
     if (body.primaryRole !== undefined) updateData.role = body.primaryRole;
+    if (body.role !== undefined) updateData.role = body.role;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.employeeId !== undefined) updateData.employee_id = body.employeeId;
     if (body.primarySubject !== undefined) updateData.primary_subject = body.primarySubject;
+    if (body.primary_subject !== undefined) updateData.primary_subject = body.primary_subject;
     if (body.subjects !== undefined) updateData.subjects = body.subjects;
+    if (body.secondary_subjects !== undefined) updateData.secondary_subjects = body.secondary_subjects;
+    if (body.additional_roles !== undefined) updateData.additional_roles = body.additional_roles;
+    if (body.total_weekly_hours !== undefined) updateData.weekly_hours = body.total_weekly_hours;
+    if (body.teachable_grades !== undefined) updateData.teachable_grades = body.teachable_grades;
+    if (body.is_head_teacher !== undefined) updateData.is_head_teacher = body.is_head_teacher;
     
     const result = await teacherService.updateTeacher(id as string, updateData);
     

@@ -904,7 +904,7 @@ export function useGlobalClasses(initialFilters?: ClassFilters) {
         updatedAt: cls.updatedAt,
       }
     })
-  }, [globalClasses, globalTeachers.data, globalStudents.data])
+  }, [globalClasses, globalTeachers.loaded, globalTeachers.data, globalStudents.loaded, globalStudents.data])
 
   // ========== 筛选逻辑 ==========
   const filteredClasses = useMemo(() => {
