@@ -291,12 +291,19 @@ function DocumentViewer({
             <div className="mt-4 flex flex-col items-center gap-2">
               <p className="text-sm text-amber-600">加载时间较长，建议：</p>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={switchViewer}>
-                  {fileType === 'pdf' ? '在新窗口打开' : `切换到 ${viewerType === 'office' ? 'Google' : 'Office'} 查看器`}
-                </Button>
+                {fileType === 'pdf' ? (
+                  <Button variant="outline" size="sm" onClick={() => window.open(fileUrl, '_blank')}>
+                    <ExternalLink className="w-4 h-4 mr-1" />
+                    新窗口打开
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={switchViewer}>
+                    切换到 {viewerType === 'office' ? 'Google' : 'Office'} 查看器
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => window.open(fileUrl, '_blank')}>
-                  <ExternalLink className="w-4 h-4 mr-1" />
-                  直接下载
+                  <Download className="w-4 h-4 mr-1" />
+                  下载文件
                 </Button>
               </div>
             </div>
@@ -443,6 +450,8 @@ export function FilePreviewDialog({
   const FileIcon = FILE_TYPE_ICONS[fileType];
   const iconColor = FILE_TYPE_COLORS[fileType];
   const showViewerSwitch = needsViewerSwitch(fileType);
+  // 只有 PDF/图片/视频可以新窗口预览，Office 文档新窗口也是下载
+  const canOpenInNew = fileType === 'pdf' || fileType === 'image' || fileType === 'video';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -459,10 +468,12 @@ export function FilePreviewDialog({
                 <Download className="w-4 h-4 mr-1" />
                 下载
               </Button>
-              <Button variant="outline" size="sm" onClick={handleOpenInNew}>
-                <ExternalLink className="w-4 h-4 mr-1" />
-                新窗口
-              </Button>
+              {canOpenInNew && (
+                <Button variant="outline" size="sm" onClick={handleOpenInNew}>
+                  <ExternalLink className="w-4 h-4 mr-1" />
+                  新窗口
+                </Button>
+              )}
               {showViewerSwitch && (
                 <div className="flex items-center gap-1">
                   <Button
