@@ -215,11 +215,9 @@ export default function MyResourcesPage() {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      // 自动填充文件名作为标题
-      if (!uploadForm.title) {
-        const fileName = file.name.replace(/\.[^/.]+$/, ''); // 移除扩展名
-        setUploadForm(prev => ({ ...prev, title: fileName }));
-      }
+      // 自动填充文件名作为标题（移除扩展名）
+      const fileName = file.name.replace(/\.[^/.]+$/, '');
+      setUploadForm(prev => ({ ...prev, title: fileName }));
     }
   };
 
