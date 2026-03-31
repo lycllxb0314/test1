@@ -26,7 +26,7 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
     const employeeId = searchParams.get('employeeId');
     
     const client = getSupabaseClient();
-    let query = client.from('leave_requests_v2').select('*').order('created_at', { ascending: false });
+    let query = client.from('leave_requests').select('*').order('created_at', { ascending: false });
     
     if (status === 'pending' && employeeId) {
       // 获取待审批列表
@@ -57,10 +57,9 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     const client = getSupabaseClient();
     
     const { data, error: dbError } = await client
-      .from('leave_requests_v2')
+      .from('leave_requests')
       .insert({
-        id: `leave-${Date.now()}`,
-        applicant_id: user.id,
+        applicant_id: user.employeeId || user.id,
         applicant_name: body.applicantName || user.name,
         type: body.type,
         start_date: body.startDate,
@@ -77,7 +76,8 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
       .single();
 
     if (dbError || !data) {
-      return fail('提交请假申请失败');
+      console.error('[Leave Request] Insert error:', dbError);
+      return fail(`提交请假申请失败: ${dbError?.message || '未知错误'}`);
     }
 
     return ok({
