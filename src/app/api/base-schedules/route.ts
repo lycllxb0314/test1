@@ -1,225 +1,159 @@
 /**
- * 基准课表 API
+ * 基础课表 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
- * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ * GET: 获取基础课表
+ * POST: 创建基础课表
+ * PUT: 更新基础课表
+ * DELETE: 删除基础课表
+ * 
+ * ⚠️ 架构原则：
+ * - 使用统一认证中间件
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { withAuth } from '@/lib/auth/middleware';
+import { ok, fail, serverError, paginated } from '@/lib/api';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  success, 
-  error, 
-  parseQueryParams, 
-  ErrorCode 
-} from '@/lib/api';
 
 /**
- * GET - 获取基准课表
- * 
- * 查询参数：
- * - classId: 班级ID
- * - teacherId: 教师ID
- * - semester: 学期
+ * GET: 获取基础课表
  */
-export async function GET(request: NextRequest) {
-  const params = parseQueryParams(request);
-  
+export const GET = withAuth(async (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get('page') || '1');
+  const pageSize = parseInt(searchParams.get('pageSize') || '20');
+  const grade = searchParams.get('grade');
+
   try {
     const client = getSupabaseClient();
     
-    // 构建查询
     let query = client
       .from('base_schedules')
-      .select('*');
+      .select('*', { count: 'exact' });
     
-    // 应用筛选
-    if (params.classId) {
-      query = query.eq('class_id', params.classId);
-    }
-    if (params.teacherId) {
-      query = query.eq('teacher_id', params.teacherId);
-    }
-    if (params.semester) {
-      query = query.eq('semester', params.semester);
+    if (grade) {
+      query = query.eq('grade', parseInt(grade));
     }
     
-    query = query.order('day_of_week', { ascending: true }).order('period_index', { ascending: true });
+    const from = (page - 1) * pageSize;
+    query = query.range(from, from + pageSize - 1);
     
-    const { data, error: dbError } = await query;
+    const { data, error, count } = await query;
     
-    if (dbError) {
-      return NextResponse.json(
-        error('数据库查询失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+    if (error) {
+      return fail(error.message);
     }
     
-    return NextResponse.json(success(data || [], 'database'));
-  } catch (err) {
-    console.error('Failed to fetch base schedules:', err);
-    return NextResponse.json(
-      error('获取基准课表失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    const formattedData = (data || []).map(s => ({
+      id: s.id,
+      grade: s.grade,
+      subject: s.subject,
+      periodsPerWeek: s.periods_per_week,
+      semester: s.semester,
+      createdAt: s.created_at,
+    }));
+    
+    return paginated(formattedData, count || 0, page, pageSize);
+  } catch (error) {
+    console.error('获取基础课表失败:', error);
+    return serverError('服务器错误');
   }
-}
+});
 
 /**
- * POST - 创建基准课表
+ * POST: 创建基础课表
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest) => {
   try {
-    const body = await request.json();
     const client = getSupabaseClient();
+    const body = await request.json();
     
-    // 批量插入
-    const slots = Array.isArray(body) ? body : [body];
+    if (!body.grade || !body.subject) {
+      return fail('缺少必要参数');
+    }
     
-    const { data, error: dbError } = await client
+    const { data, error } = await client
       .from('base_schedules')
-      .insert(slots.map(slot => ({
-        ...slot,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })))
-      .select();
+      .insert({
+        id: `bs-${Date.now()}`,
+        grade: body.grade,
+        subject: body.subject,
+        periods_per_week: body.periodsPerWeek || 0,
+        semester: body.semester,
+      })
+      .select()
+      .single();
     
-    if (dbError) {
-      return NextResponse.json(
-        error('创建课表失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+    if (error) {
+      return fail(error.message);
     }
     
-    return NextResponse.json({
-      success: true,
-      data,
-      message: '课表保存成功',
-      source: 'database',
-    });
-  } catch (err) {
-    console.error('Failed to create base schedule:', err);
-    return NextResponse.json(
-      error('创建课表失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return ok({ id: data.id, grade: data.grade, subject: data.subject });
+  } catch (error) {
+    console.error('创建基础课表失败:', error);
+    return serverError('服务器错误');
   }
-}
+});
 
 /**
- * PUT - 批量更新基准课表
+ * PUT: 更新基础课表
  */
-export async function PUT(request: NextRequest) {
+export const PUT = withAuth(async (request: NextRequest) => {
   try {
-    const body = await request.json();
     const client = getSupabaseClient();
+    const body = await request.json();
     
-    // 更新操作
-    if (body.action === 'update') {
-      const { data, error: dbError } = await client
-        .from('base_schedules')
-        .update({
-          ...body.data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', body.id)
-        .select()
-        .single();
-      
-      if (dbError) {
-        return NextResponse.json(
-          error('更新课表失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-          { status: 500 }
-        );
-      }
-      
-      return NextResponse.json(success(data, 'database'));
+    if (!body.id) {
+      return fail('缺少ID');
     }
     
-    // 批量更新
-    if (Array.isArray(body.slots)) {
-      const updatePromises = body.slots.map((slot: { id: string }) =>
-        client
-          .from('base_schedules')
-          .update({
-            ...slot,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', slot.id)
-      );
-      
-      await Promise.all(updatePromises);
-      
-      return NextResponse.json({
-        success: true,
-        message: '课表批量更新成功',
-        source: 'database',
-      });
+    const { data, error } = await client
+      .from('base_schedules')
+      .update({
+        periods_per_week: body.periodsPerWeek,
+        semester: body.semester,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', body.id)
+      .select()
+      .single();
+    
+    if (error) {
+      return fail(error.message);
     }
     
-    return NextResponse.json(
-      error('无效的请求参数', ErrorCode.BAD_REQUEST),
-      { status: 400 }
-    );
-  } catch (err) {
-    console.error('Failed to update base schedule:', err);
-    return NextResponse.json(
-      error('更新课表失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return ok({ id: data.id });
+  } catch (error) {
+    console.error('更新基础课表失败:', error);
+    return serverError('服务器错误');
   }
-}
+});
 
 /**
- * DELETE - 删除基准课表
+ * DELETE: 删除基础课表
  */
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuth(async (request: NextRequest) => {
   try {
+    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const classId = searchParams.get('classId');
     
-    const client = getSupabaseClient();
-    
-    if (id) {
-      // 删除单条
-      const { error: dbError } = await client
-        .from('base_schedules')
-        .delete()
-        .eq('id', id);
-      
-      if (dbError) {
-        return NextResponse.json(
-          error('删除课表失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-          { status: 500 }
-        );
-      }
-    } else if (classId) {
-      // 删除班级所有课表
-      const { error: dbError } = await client
-        .from('base_schedules')
-        .delete()
-        .eq('class_id', classId);
-      
-      if (dbError) {
-        return NextResponse.json(
-          error('删除课表失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-          { status: 500 }
-        );
-      }
+    if (!id) {
+      return fail('缺少ID');
     }
     
-    return NextResponse.json({
-      success: true,
-      message: '课表删除成功',
-      source: 'database',
-    });
-  } catch (err) {
-    console.error('Failed to delete base schedule:', err);
-    return NextResponse.json(
-      error('删除课表失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    const { error } = await client
+      .from('base_schedules')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      return fail(error.message);
+    }
+    
+    return ok({ id, message: '删除成功' });
+  } catch (error) {
+    console.error('删除基础课表失败:', error);
+    return serverError('服务器错误');
   }
-}
+});

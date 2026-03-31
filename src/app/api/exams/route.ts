@@ -3,201 +3,85 @@
  * 
  * GET: 获取考试列表
  * POST: 创建新考试
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用统一认证中间件
  */
 
 import { NextRequest } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import { withAuth } from '@/lib/auth/middleware';
 import { ok, fail, serverError, paginated } from '@/lib/api';
-import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import type { ExamService } from '@/services/exam.service';
 
-// ==================== 类型定义 ====================
-
-interface ExamSubject {
-  name: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  duration: number; // 分钟
-}
-
-interface ExamRoom {
-  roomId: string;
-  roomName: string;
-  capacity: number;
-  invigilatorId?: string;
-  invigilatorName?: string;
-}
-
-interface Exam {
-  id: string;
-  name: string;
-  type: string;
-  semester: string;
-  description?: string;
-  grades: number[];
-  subjects: ExamSubject[];
-  examRooms: ExamRoom[];
-  startDate: string;
-  endDate: string;
-  status: 'planning' | 'published' | 'in_progress' | 'completed' | 'cancelled';
-  totalStudents: number;
-  submittedCount: number;
-  createdBy?: string;
-  createdByName?: string;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt?: string;
-}
-
-interface ExamRow {
-  id: string;
-  name: string;
-  type: string;
-  semester: string | null;
-  description: string | null;
-  grades: number[] | null;
-  grade: number | null;
-  subjects: ExamSubject[] | null;
-  exam_rooms: ExamRoom[] | null;
-  start_date: string;
-  end_date: string;
-  status: 'planning' | 'published' | 'in_progress' | 'completed' | 'cancelled';
-  total_students: number | null;
-  submitted_count: number | null;
-  created_by: string | null;
-  created_by_name: string | null;
-  created_at: string;
-  updated_at: string;
-  published_at: string | null;
-}
-
-// 考试类型选项
-const EXAM_TYPES = [
-  { value: '期中考试', label: '期中考试' },
-  { value: '期末考试', label: '期末考试' },
-  { value: '单元测试', label: '单元测试' },
-  { value: '月考', label: '月考' },
-  { value: '模拟考试', label: '模拟考试' },
-  { value: '竞赛', label: '竞赛' },
-  { value: '技能测试', label: '技能测试' },
-];
-
-// 考试状态选项
-const EXAM_STATUS = [
-  { value: 'planning', label: '计划中', color: 'bg-gray-100 text-gray-700' },
-  { value: 'published', label: '已发布', color: 'bg-blue-100 text-blue-700' },
-  { value: 'in_progress', label: '进行中', color: 'bg-orange-100 text-orange-700' },
-  { value: 'completed', label: '已完成', color: 'bg-green-100 text-green-700' },
-  { value: 'cancelled', label: '已取消', color: 'bg-red-100 text-red-700' },
-];
-
-// ==================== GET: 获取考试列表 ====================
-
-export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+/**
+ * GET: 获取考试列表
+ */
+export const GET = withAuth(async (request: NextRequest) => {
   try {
-    const client = getSupabaseClient();
+    const examService = getService<ExamService>(SERVICE_IDENTIFIERS.ExamService);
     const { searchParams } = new URL(request.url);
     
     // 分页参数
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '20');
-    const offset = (page - 1) * pageSize;
     
     // 筛选参数
-    const status = searchParams.get('status');
-    const type = searchParams.get('type');
-    const semester = searchParams.get('semester');
-    const grade = searchParams.get('grade');
-    const keyword = searchParams.get('keyword');
+    const status = searchParams.get('status') || undefined;
+    const semester = searchParams.get('semester') || undefined;
+    const keyword = searchParams.get('keyword') || undefined;
     
-    // 构建查询
-    let query = client
-      .from('exams')
-      .select('*', { count: 'exact' });
+    // 调用 Service 层
+    const result = await examService.getPaginated({
+      filters: {
+        status,
+        semester,
+        keyword,
+      },
+    });
     
-    // 应用筛选
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (type) {
-      query = query.eq('type', type);
-    }
-    if (semester) {
-      query = query.eq('semester', semester);
-    }
-    if (keyword) {
-      query = query.ilike('name', `%${keyword}%`);
+    if (!result.success) {
+      return fail(result.error || '获取考试列表失败');
     }
     
-    // 排序和分页
-    query = query.order('created_at', { ascending: false });
-    query = query.range(offset, offset + pageSize - 1);
-    
-    const { data, error: dbError, count } = await query;
-    
-    if (dbError) {
-      return fail('获取考试列表失败');
-    }
-    
-    // 转换数据格式
-    const exams = (data || []).map(mapExamFromDb);
-    
-    return paginated(exams, count || 0, page, pageSize);
+    return paginated(result.data || [], result.data?.length || 0, page, pageSize);
   } catch (err) {
     console.error('获取考试列表失败:', err);
     return serverError('服务器错误');
   }
 });
 
-// ==================== POST: 创建考试 ====================
-
-export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+/**
+ * POST: 创建考试
+ */
+export const POST = withAuth(async (request: NextRequest) => {
   try {
-    const client = getSupabaseClient();
+    const examService = getService<ExamService>(SERVICE_IDENTIFIERS.ExamService);
     const body = await request.json();
     
     // 验证必填字段
-    if (!body.name || !body.type || !body.startDate) {
+    if (!body.name || !body.startDate) {
       return fail('缺少必填字段');
     }
     
-    // 生成考试ID
-    const examId = `exam${Date.now().toString(36)}`;
-    
-    // 构建考试数据
-    const examData = {
-      id: examId,
+    // 调用 Service 层
+    const result = await examService.create({
       name: body.name,
-      type: body.type,
+      type: body.type || 'midterm',
       semester: body.semester || getCurrentSemester(),
-      description: body.description || null,
-      grades: body.grades || [],
-      subjects: body.subjects || [],
-      exam_rooms: body.examRooms || [],
-      start_date: body.startDate,
-      end_date: body.endDate || body.startDate,
-      status: body.status || 'planning',
-      total_students: body.totalStudents || 0,
-      submitted_count: 0,
-      created_by: user.employeeId || user.id,
-      created_by_name: user.name,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      published_at: body.status === 'published' ? new Date().toISOString() : null,
-    };
+      description: body.description,
+      grade: body.grades?.[0],
+      startTime: body.startDate,
+      endTime: body.endDate || body.startDate,
+      status: body.status || 'draft',
+    });
     
-    const { data, error: dbError } = await client
-      .from('exams')
-      .insert(examData)
-      .select()
-      .single();
-    
-    if (dbError) {
-      console.error('创建考试失败:', dbError);
-      return fail('创建考试失败');
+    if (!result.success) {
+      return fail(result.error || '创建考试失败');
     }
     
-    return ok(mapExamFromDb(data));
+    return ok(result.data);
   } catch (err) {
     console.error('创建考试失败:', err);
     return serverError('服务器错误');
@@ -205,29 +89,6 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
 });
 
 // ==================== 辅助函数 ====================
-
-function mapExamFromDb(dbExam: ExamRow): Exam {
-  return {
-    id: dbExam.id,
-    name: dbExam.name,
-    type: dbExam.type,
-    semester: dbExam.semester || '',
-    description: dbExam.description || undefined,
-    grades: dbExam.grades || (dbExam.grade ? [dbExam.grade] : []),
-    subjects: dbExam.subjects || [],
-    examRooms: dbExam.exam_rooms || [],
-    startDate: dbExam.start_date,
-    endDate: dbExam.end_date,
-    status: dbExam.status,
-    totalStudents: dbExam.total_students || 0,
-    submittedCount: dbExam.submitted_count || 0,
-    createdBy: dbExam.created_by || undefined,
-    createdByName: dbExam.created_by_name || undefined,
-    createdAt: dbExam.created_at,
-    updatedAt: dbExam.updated_at,
-    publishedAt: dbExam.published_at || undefined,
-  };
-}
 
 function getCurrentSemester(): string {
   const now = new Date();

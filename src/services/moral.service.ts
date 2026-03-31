@@ -191,6 +191,31 @@ export class MoralActivitySubmissionService extends BaseService {
   }
 
   /**
+   * 获取提交列表
+   */
+  async getList(options: { activityId?: string; studentId?: string } = {}): Promise<ServiceResult<MoralActivitySubmission[]>> {
+    if (options.activityId) {
+      return this.getByActivity(options.activityId);
+    }
+    if (options.studentId) {
+      return this.getByStudent(options.studentId);
+    }
+    const submissions = await this.moralActivitySubmissionRepository.findAll();
+    return this.ok(submissions);
+  }
+
+  /**
+   * 根据ID获取提交
+   */
+  async getById(id: string): Promise<ServiceResult<MoralActivitySubmission>> {
+    const submission = await this.moralActivitySubmissionRepository.findById(id);
+    if (!submission) {
+      return this.fail('提交记录不存在', 'NOT_FOUND');
+    }
+    return this.ok(submission);
+  }
+
+  /**
    * 根据活动ID获取提交
    */
   async getByActivity(activityId: string): Promise<ServiceResult<MoralActivitySubmission[]>> {
@@ -204,6 +229,33 @@ export class MoralActivitySubmissionService extends BaseService {
   async getByStudent(studentId: string): Promise<ServiceResult<MoralActivitySubmission[]>> {
     const submissions = await this.moralActivitySubmissionRepository.findByStudent(studentId);
     return this.ok(submissions);
+  }
+
+  /**
+   * 创建提交
+   */
+  async create(data: Partial<MoralActivitySubmission>): Promise<ServiceResult<MoralActivitySubmission>> {
+    const submission = await this.moralActivitySubmissionRepository.create(data);
+    if (!submission) {
+      return this.fail('创建提交记录失败', 'CREATE_ERROR');
+    }
+    return this.ok(submission);
+  }
+
+  /**
+   * 更新提交
+   */
+  async update(id: string, data: Partial<MoralActivitySubmission>): Promise<ServiceResult<MoralActivitySubmission>> {
+    const existing = await this.moralActivitySubmissionRepository.findById(id);
+    if (!existing) {
+      return this.fail('提交记录不存在', 'NOT_FOUND');
+    }
+
+    const submission = await this.moralActivitySubmissionRepository.update(id, data);
+    if (!submission) {
+      return this.fail('更新提交记录失败', 'UPDATE_ERROR');
+    }
+    return this.ok(submission);
   }
 
   /**

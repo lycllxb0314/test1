@@ -24,10 +24,14 @@ export interface MoralActivity {
   title: string;
   type: MoralActivityType;
   description?: string;
+  content?: string;
   organizerId: string;
   organizerName: string;
   targetGrades?: number[];
   targetClasses?: string[];
+  targetRoles?: string[];
+  requireSubmission?: boolean;
+  submissionDeadline?: string;
   startTime: string;
   endTime: string;
   location?: string;
@@ -35,7 +39,6 @@ export interface MoralActivity {
   participantCount?: number;
   attachments?: string[];
   images?: string[];
-  content?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,8 +50,9 @@ export type SubmissionReviewStatus = 'pending' | 'approved' | 'rejected';
 export interface MoralActivitySubmission {
   id: string;
   activityId: string;
-  classId: string;
-  className: string;
+  classId?: string;
+  className?: string;
+  studentId?: string;
   submitterId: string;
   submitterName: string;
   content?: string;
@@ -56,10 +60,14 @@ export interface MoralActivitySubmission {
   attachments?: string[];
   status: SubmissionReviewStatus;
   reviewComments?: string;
+  reviewComment?: string;
   score?: number;
   submittedAt: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  reviewerId?: string;
+  reviewerName?: string;
+  activityTitle?: string;
 }
 
 /** 德育活动查询参数 */

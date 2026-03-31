@@ -3,22 +3,37 @@
  * 提供统一的认证和权限控制功能
  */
 
-// 从 auth-middleware 导出认证相关功能
+// 从增强版中间件导出
 export {
   // 类型
   type AuthResult,
+  type ApiHandler,
+  type AuthOptions,
   
-  // 函数
+  // 核心函数
+  authenticateRequest,
+  clearUserCache,
+  getCachedUser,
+  setCachedUser,
+  
+  // 装饰器
+  withAuth,
+  withRole,
+  withAdmin,
+  withTeacher,
+  withHeadTeacher,
+  withOptionalAuth,
+  withAuthAndParams,
+} from './middleware';
+
+// 从 auth-middleware 导出兼容功能
+export {
   extractUserId,
   extractUserIdLegacy,
   validateSession,
   validateSessionLegacy,
-  authenticateRequest,
-  createAuthErrorResponse,
   checkModuleAccess,
   checkPermission,
-  withAuth,
-  withRole,
   withModuleAccess,
   withPermission,
 } from './auth-middleware';

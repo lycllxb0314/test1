@@ -1,243 +1,109 @@
 /**
  * 教研活动详情 API
  * 
- * 功能：
- * - GET: 获取教研活动详情
- * - PUT: 更新教研活动
- * - DELETE: 删除教研活动
+ * GET: 获取活动详情
+ * PUT: 更新活动
+ * DELETE: 删除活动
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用统一认证中间件
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { getUserFromSession } from '@/lib/auth/session';
-import { error, ErrorCode } from '@/lib/api';
-import { 
-  ACTIVITY_TYPE_LABELS, 
-  ACTIVITY_STATUS_LABELS,
-  type ActivityStatus 
-} from '@/types/research';
-
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
+import { NextRequest } from 'next/server';
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import { withAuthAndParams } from '@/lib/auth/middleware';
+import { ok, fail, notFound, serverError } from '@/lib/api';
+import type { ResearchActivityService } from '@/services/research.service';
 
 /**
- * GET - 获取教研活动详情
+ * GET: 获取活动详情
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export const GET = withAuthAndParams(async (request: NextRequest, { params }) => {
+  const { id } = params;
+  
   try {
-    const { id } = await params;
-    const supabase = getSupabaseClient();
+    const researchService = getService<ResearchActivityService>(SERVICE_IDENTIFIERS.ResearchActivityService);
     
-    // 获取活动基本信息
-    const { data: activity, error: fetchError } = await supabase
-      .from('research_activities')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const result = await researchService.getDetail(id as string);
     
-    if (fetchError || !activity) {
-      return NextResponse.json(error('教研活动不存在', ErrorCode.NOT_FOUND), { status: 404 });
+    if (!result.success) {
+      if (result.code === 'NOT_FOUND') {
+        return notFound('活动不存在');
+      }
+      return fail(result.error || '获取活动详情失败');
     }
     
-    // 获取参与记录
-    const { data: participations } = await supabase
-      .from('research_participations')
-      .select('*')
-      .eq('activity_id', id)
-      .order('created_at', { ascending: true });
+    const item = result.data as unknown as Record<string, unknown>;
     
-    // 获取关联的主题信息
-    let themeInfo = null;
-    if (activity.theme_id) {
-      const { data: theme } = await supabase
-        .from('research_themes')
-        .select('id, title, type, subject')
-        .eq('id', activity.theme_id)
-        .single();
-      themeInfo = theme;
-    }
-    
-    // 获取关联的阶段信息
-    let stageInfo = null;
-    if (activity.stage_id) {
-      const { data: stage } = await supabase
-        .from('research_stages')
-        .select('id, name, status')
-        .eq('id', activity.stage_id)
-        .single();
-      stageInfo = stage;
-    }
-    
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...activity,
-        typeLabel: ACTIVITY_TYPE_LABELS[activity.type as keyof typeof ACTIVITY_TYPE_LABELS] || activity.type,
-        statusLabel: ACTIVITY_STATUS_LABELS[activity.status as ActivityStatus] || activity.status,
-        participations: participations || [],
-        theme: themeInfo,
-        stage: stageInfo,
-      },
+    return ok({
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      status: item.status,
+      organizerId: item.organizerId,
+      organizerName: item.organizerName,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      description: item.description,
+      participants: item.participants || [],
+      stages: item.stages || [],
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
     });
-  } catch (err) {
-    console.error('获取教研活动详情失败:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  } catch (error) {
+    console.error('获取教研活动详情失败:', error);
+    return serverError('服务器错误');
   }
-}
+});
 
 /**
- * PUT - 更新教研活动
+ * PUT: 更新活动
  */
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export const PUT = withAuthAndParams(async (request: NextRequest, { params }) => {
+  const { id } = params;
+  
   try {
-    const { id } = await params;
-    const supabase = getSupabaseClient();
-    const user = await getUserFromSession(request);
-    
-    if (!user) {
-      return NextResponse.json(error('未登录', ErrorCode.UNAUTHORIZED), { status: 401 });
-    }
-    
+    const researchService = getService<ResearchActivityService>(SERVICE_IDENTIFIERS.ResearchActivityService);
     const body = await request.json();
     
-    // 检查活动是否存在
-    const { data: existingActivity, error: fetchError } = await supabase
-      .from('research_activities')
-      .select('id, status, theme_id')
-      .eq('id', id)
-      .single();
+    const result = await researchService.update(id as string, body);
     
-    if (fetchError || !existingActivity) {
-      return NextResponse.json(error('教研活动不存在', ErrorCode.NOT_FOUND), { status: 404 });
-    }
-    
-    // 构建更新数据
-    const updateData: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-    
-    if (body.title !== undefined) updateData.title = body.title;
-    if (body.type !== undefined) updateData.type = body.type;
-    if (body.description !== undefined) updateData.description = body.description;
-    if (body.location !== undefined) updateData.location = body.location;
-    if (body.scheduledAt !== undefined) updateData.scheduled_at = body.scheduledAt;
-    if (body.duration !== undefined) updateData.duration = body.duration;
-    if (body.hostId !== undefined) updateData.host_id = body.hostId;
-    if (body.hostName !== undefined) updateData.host_name = body.hostName;
-    if (body.participantIds !== undefined) updateData.participant_ids = body.participantIds;
-    if (body.status !== undefined) updateData.status = body.status;
-    if (body.meetingMinutes !== undefined) updateData.meeting_minutes = body.meetingMinutes;
-    if (body.attachments !== undefined) updateData.attachments = body.attachments;
-    
-    const { data, error: updateError } = await supabase
-      .from('research_activities')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (updateError) {
-      console.error('更新教研活动失败:', updateError);
-      return NextResponse.json(error('更新教研活动失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-    
-    // 如果状态变更为完成，更新统计
-    if (body.status === 'completed' && existingActivity.status !== 'completed') {
-      const { data: currentStats } = await supabase
-        .from('research_statistics')
-        .select('completed_activities')
-        .eq('theme_id', existingActivity.theme_id)
-        .single();
-      
-      if (currentStats) {
-        await supabase
-          .from('research_statistics')
-          .update({
-            completed_activities: (currentStats.completed_activities || 0) + 1,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('theme_id', existingActivity.theme_id);
+    if (!result.success) {
+      if (result.code === 'NOT_FOUND') {
+        return notFound('活动不存在');
       }
+      return fail(result.error || '更新活动失败');
     }
     
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...data,
-        typeLabel: ACTIVITY_TYPE_LABELS[data.type as keyof typeof ACTIVITY_TYPE_LABELS] || data.type,
-        statusLabel: ACTIVITY_STATUS_LABELS[data.status as ActivityStatus] || data.status,
-      },
-    });
-  } catch (err) {
-    console.error('更新教研活动API错误:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return ok(result.data);
+  } catch (error) {
+    console.error('更新教研活动失败:', error);
+    return serverError('服务器错误');
   }
-}
+});
 
 /**
- * DELETE - 删除教研活动
+ * DELETE: 删除活动
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export const DELETE = withAuthAndParams(async (request: NextRequest, { params }) => {
+  const { id } = params;
+  
   try {
-    const { id } = await params;
-    const supabase = getSupabaseClient();
-    const user = await getUserFromSession(request);
+    const researchService = getService<ResearchActivityService>(SERVICE_IDENTIFIERS.ResearchActivityService);
     
-    if (!user) {
-      return NextResponse.json(error('未登录', ErrorCode.UNAUTHORIZED), { status: 401 });
-    }
+    const result = await researchService.delete(id as string);
     
-    // 检查活动是否存在
-    const { data: activity, error: fetchError } = await supabase
-      .from('research_activities')
-      .select('id, theme_id')
-      .eq('id', id)
-      .single();
-    
-    if (fetchError || !activity) {
-      return NextResponse.json(error('教研活动不存在', ErrorCode.NOT_FOUND), { status: 404 });
-    }
-    
-    // 删除参与记录
-    await supabase
-      .from('research_participations')
-      .delete()
-      .eq('activity_id', id);
-    
-    // 删除活动
-    const { error: deleteError } = await supabase
-      .from('research_activities')
-      .delete()
-      .eq('id', id);
-    
-    if (deleteError) {
-      console.error('删除教研活动失败:', deleteError);
-      return NextResponse.json(error('删除教研活动失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-    
-    // 更新统计
-    if (activity.theme_id) {
-      const { data: currentStats } = await supabase
-        .from('research_statistics')
-        .select('total_activities')
-        .eq('theme_id', activity.theme_id)
-        .single();
-      
-      if (currentStats) {
-        await supabase
-          .from('research_statistics')
-          .update({
-            total_activities: Math.max(0, (currentStats.total_activities || 1) - 1),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('theme_id', activity.theme_id);
+    if (!result.success) {
+      if (result.code === 'NOT_FOUND') {
+        return notFound('活动不存在');
       }
+      return fail(result.error || '删除活动失败');
     }
     
-    return NextResponse.json({ success: true, message: '删除成功' });
-  } catch (err) {
-    console.error('删除教研活动API错误:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    return ok({ id: id as string, message: '删除成功' });
+  } catch (error) {
+    console.error('删除教研活动失败:', error);
+    return serverError('服务器错误');
   }
-}
+});

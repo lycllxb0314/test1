@@ -1,187 +1,107 @@
 /**
- * 调课管理 API
+ * 调课申请 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
- * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ * GET: 获取调课列表
+ * POST: 创建调课申请
  * 
- * 功能：
- * 1. 获取调课记录列表
- * 2. 从请假记录创建调课记录（内部调用）
- * 3. 年段长安排代课/调换
- * 4. 调课完成后同步到各系统
+ * ⚠️ 架构原则：
+ * - 使用统一认证中间件
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { withAuth } from '@/lib/auth/middleware';
+import { ok, fail, serverError } from '@/lib/api';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, parseQueryParams, ErrorCode } from '@/lib/api';
 
 /**
- * GET - 获取调课记录
- * 
- * 查询参数：
- * - action: 操作类型（pending/history）
- * - status: 状态筛选
- * - grade: 年级筛选
- * - teacherId: 教师ID筛选
+ * GET: 获取调课列表
  */
-export async function GET(request: NextRequest) {
-  const params = parseQueryParams(request);
-  
+export const GET = withAuth(async (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status');
+  const applicantId = searchParams.get('applicantId');
+
   try {
     const client = getSupabaseClient();
     
-    // 构建数据库查询
     let query = client
       .from('schedule_changes')
-      .select('*', { count: 'exact' })
+      .select('*')
       .order('created_at', { ascending: false });
     
-    // 应用筛选
-    if (params.status) {
-      query = query.eq('status', params.status);
+    if (status) {
+      query = query.eq('status', status);
     }
-    if (params.grade) {
-      query = query.eq('applicant_grade', params.grade);
-    }
-    if (params.teacherId) {
-      query = query.eq('applicant_id', params.teacherId);
+    if (applicantId) {
+      query = query.eq('applicant_id', applicantId);
     }
     
-    const { data, error: dbError, count } = await query;
+    const { data, error } = await query;
     
-    if (dbError) {
-      return NextResponse.json(
-        error('数据库查询失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+    if (error) {
+      return fail(error.message);
     }
     
-    // 处理特殊操作
-    if (params.action === 'pending') {
-      const pendingRecords = (data || []).filter(r => r.status === 'pending');
-      return NextResponse.json(success(pendingRecords, 'database'));
-    }
+    const formattedData = (data || []).map(c => ({
+      id: c.id,
+      applicantId: c.applicant_id,
+      applicantName: c.applicant_name,
+      originalScheduleId: c.original_schedule_id,
+      newScheduleId: c.new_schedule_id,
+      changeType: c.change_type,
+      reason: c.reason,
+      status: c.status,
+      approverId: c.approver_id,
+      approverName: c.approver_name,
+      approvedAt: c.approved_at,
+      createdAt: c.created_at,
+    }));
     
-    return NextResponse.json({
-      ...success(data || [], 'database'),
-      pagination: { total: count || 0, page: params.page || 1, pageSize: params.pageSize || 20, totalPages: Math.ceil((count || 0) / (params.pageSize || 20)) },
-    });
-  } catch (err) {
-    console.error('Failed to fetch schedule changes:', err);
-    return NextResponse.json(
-      error('获取调课记录失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return ok(formattedData);
+  } catch (error) {
+    console.error('获取调课列表失败:', error);
+    return serverError('服务器错误');
   }
-}
+});
 
 /**
- * POST - 创建调课记录
+ * POST: 创建调课申请
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest) => {
   try {
-    const body = await request.json();
     const client = getSupabaseClient();
+    const body = await request.json();
     
-    const { data, error: dbError } = await client
+    if (!body.applicantId || !body.changeType) {
+      return fail('缺少必要参数');
+    }
+    
+    const { data, error } = await client
       .from('schedule_changes')
       .insert({
-        leave_request_id: body.leaveRequestId,
+        id: `sc-${Date.now()}`,
         applicant_id: body.applicantId,
         applicant_name: body.applicantName,
-        applicant_subject: body.applicantSubject,
-        applicant_grade: body.applicantGrade,
-        leave_type: body.leaveType,
-        leave_start_date: body.leaveStartDate,
-        leave_end_date: body.leaveEndDate,
-        leave_reason: body.leaveReason,
-        original_class_id: body.originalClassId,
-        original_class_name: body.originalClassName,
-        original_subject: body.originalSubject,
-        original_week_day: body.originalWeekDay,
-        original_period_index: body.originalPeriodIndex,
-        original_period_name: body.originalPeriodName,
+        original_schedule_id: body.originalScheduleId,
+        new_schedule_id: body.newScheduleId,
+        change_type: body.changeType,
+        reason: body.reason,
         status: 'pending',
-        created_at: new Date().toISOString(),
       })
       .select()
       .single();
     
-    if (dbError) {
-      return NextResponse.json(
-        error('创建调课记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+    if (error) {
+      return fail(error.message);
     }
     
-    return NextResponse.json(success(data, 'database'));
-  } catch (err) {
-    console.error('Failed to create schedule change:', err);
-    return NextResponse.json(
-      error('创建调课记录失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    return ok({
+      id: data.id,
+      applicantId: data.applicant_id,
+      status: data.status,
+    });
+  } catch (error) {
+    console.error('创建调课申请失败:', error);
+    return serverError('服务器错误');
   }
-}
-
-/**
- * PUT - 更新调课记录（安排代课/调换）
- */
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { id, action, ...updates } = body;
-    const client = getSupabaseClient();
-    
-    const updateData: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-    
-    if (action === 'substitute') {
-      updateData.status = 'completed';
-      updateData.adjust_type = 'substitute';
-      updateData.substitute_teacher_id = updates.substituteTeacherId;
-      updateData.substitute_teacher_name = updates.substituteTeacherName;
-      updateData.handler_id = updates.handlerId;
-      updateData.handler_name = updates.handlerName;
-      updateData.handled_at = new Date().toISOString();
-      updateData.remark = updates.remark;
-    } else if (action === 'swap') {
-      updateData.status = 'processing';
-      updateData.adjust_type = 'swap';
-      updateData.swap_with_slot = updates.swapWithSlot;
-    } else if (action === 'cancel') {
-      updateData.status = 'cancelled';
-      updateData.remark = updates.remark;
-    }
-    
-    const { data, error: dbError } = await client
-      .from('schedule_changes')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (dbError) {
-      return NextResponse.json(
-        error('更新调课记录失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
-    }
-    
-    if (!data) {
-      return NextResponse.json(
-        error('调课记录不存在', ErrorCode.NOT_FOUND),
-        { status: 404 }
-      );
-    }
-    
-    return NextResponse.json(success(data, 'database'));
-  } catch (err) {
-    console.error('Failed to update schedule change:', err);
-    return NextResponse.json(
-      error('更新调课记录失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
-  }
-}
+});

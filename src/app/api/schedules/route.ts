@@ -1,159 +1,114 @@
 /**
- * 课表管理 API
+ * 课程表 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
- * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ * GET: 获取课程表
+ * POST: 创建课程
+ * 
+ * ⚠️ 架构原则：
+ * - 使用统一认证中间件
+ * - 禁止在 API 层直接操作数据库（应通过 Service 层）
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { withAuth } from '@/lib/auth/middleware';
+import { ok, fail, serverError } from '@/lib/api';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, parseQueryParams, ErrorCode } from '@/lib/api';
-import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
- * GET - 获取课表
- * 
- * 查询参数：
- * - classId: 班级ID
- * - teacherId: 教师ID
- * - semesterId: 学期ID
+ * GET: 获取课程表
  */
-const handleGetSchedules = async (request: NextRequest, { user }: ExtendedRouteContext) => {
-  const params = parseQueryParams(request);
-  
+export const GET = withAuth(async (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const classId = searchParams.get('classId');
+  const teacherId = searchParams.get('teacherId');
+  const semester = searchParams.get('semester');
+
   try {
     const client = getSupabaseClient();
     
     let query = client
-      .from('schedule_slots')
+      .from('schedules')
       .select('*')
-      .order('week_day')
-      .order('period_index');
-
-    if (params.classId) query = query.eq('class_id', params.classId);
-    if (params.teacherId) query = query.eq('teacher_id', params.teacherId);
-    if (params.semesterId) query = query.eq('semester_id', params.semesterId);
-
-    const { data, error: dbError } = await query;
-
-    if (dbError) {
-      return NextResponse.json(
-        error('数据库查询失败', ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+      .order('day_of_week')
+      .order('period');
+    
+    if (classId) {
+      query = query.eq('class_id', classId);
     }
-
-    const formattedData = (data || []).map((slot: Record<string, unknown>) => ({
-      id: slot.id,
-      classId: slot.class_id,
-      className: slot.class_name,
-      grade: slot.grade,
-      teacherId: slot.teacher_id,
-      teacherName: slot.teacher_name,
-      courseId: slot.course_id,
-      courseName: slot.course_name,
-      subject: slot.subject,
-      weekDay: slot.week_day,
-      periodIndex: slot.period_index,
-      periodName: slot.period_name,
-      startTime: slot.start_time,
-      endTime: slot.end_time,
-      classroomId: slot.classroom_id,
-      classroomName: slot.classroom_name,
-      status: slot.status,
-      semesterId: slot.semester_id,
+    if (teacherId) {
+      query = query.eq('teacher_id', teacherId);
+    }
+    if (semester) {
+      query = query.eq('semester', semester);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      return fail(error.message);
+    }
+    
+    const formattedData = (data || []).map(s => ({
+      id: s.id,
+      classId: s.class_id,
+      className: s.class_name,
+      teacherId: s.teacher_id,
+      teacherName: s.teacher_name,
+      subject: s.subject,
+      dayOfWeek: s.day_of_week,
+      period: s.period,
+      semester: s.semester,
+      classroom: s.classroom,
     }));
-
-    return NextResponse.json(success(formattedData));
-  } catch (err) {
-    console.error('Failed to fetch schedules:', err);
-    return NextResponse.json(
-      error('获取课表失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    
+    return ok(formattedData);
+  } catch (error) {
+    console.error('获取课程表失败:', error);
+    return serverError('服务器错误');
   }
-};
+});
 
 /**
- * POST - 创建课表项
+ * POST: 创建课程
  */
-const handleCreateSchedule = async (request: NextRequest, { user }: ExtendedRouteContext) => {
+export const POST = withAuth(async (request: NextRequest) => {
   try {
     const client = getSupabaseClient();
     const body = await request.json();
-
-    const { 
-      classId, className, grade, 
-      teacherId, teacherName, 
-      courseId, courseName, subject,
-      weekDay, periodIndex, periodName,
-      startTime, endTime,
-      classroomId, classroomName,
-      semesterId 
-    } = body;
-
-    if (!classId || !teacherId || !weekDay || !periodIndex) {
-      return NextResponse.json(
-        error('缺少必要参数', ErrorCode.VALIDATION_ERROR),
-        { status: 400 }
-      );
+    
+    if (!body.classId || !body.subject || !body.teacherId) {
+      return fail('缺少必要参数');
     }
-
-    const { data, error: dbError } = await client
-      .from('schedule_slots')
+    
+    const { data, error } = await client
+      .from('schedules')
       .insert({
-        class_id: classId,
-        class_name: className,
-        grade,
-        teacher_id: teacherId,
-        teacher_name: teacherName,
-        course_id: courseId,
-        course_name: courseName,
-        subject,
-        week_day: weekDay,
-        period_index: periodIndex,
-        period_name: periodName,
-        start_time: startTime,
-        end_time: endTime,
-        classroom_id: classroomId,
-        classroom_name: classroomName,
-        semester_id: semesterId,
-        status: 'normal',
+        id: `sch-${Date.now()}`,
+        class_id: body.classId,
+        class_name: body.className,
+        teacher_id: body.teacherId,
+        teacher_name: body.teacherName,
+        subject: body.subject,
+        day_of_week: body.dayOfWeek,
+        period: body.period,
+        semester: body.semester,
+        classroom: body.classroom,
       })
       .select()
       .single();
-
-    if (dbError) {
-      return NextResponse.json(
-        error('创建课表项失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+    
+    if (error) {
+      return fail(error.message);
     }
-
-    return NextResponse.json(success({
+    
+    return ok({
       id: data.id,
       classId: data.class_id,
+      subject: data.subject,
       teacherId: data.teacher_id,
-      weekDay: data.week_day,
-      periodIndex: data.period_index,
-    }));
-  } catch (err) {
-    console.error('Failed to create schedule:', err);
-    return NextResponse.json(
-      error('创建课表项失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    });
+  } catch (error) {
+    console.error('创建课程失败:', error);
+    return serverError('服务器错误');
   }
-};
-
-// 导出受保护的路由处理器
-export const GET = protectedRoute(handleGetSchedules, { 
-  module: 'academic', 
-  permission: 'view',
-  optional: true,
-});
-
-export const POST = protectedRoute(handleCreateSchedule, { 
-  module: 'academic', 
-  permission: 'edit' 
 });

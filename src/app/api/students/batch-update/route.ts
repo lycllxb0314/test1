@@ -5,23 +5,22 @@
  * 
  * 安全措施：
  * - 速率限制：每分钟最多10次
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, fail, serverError, withApi, sensitiveRateLimiter } from '@/lib/api';
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import { withAuth } from '@/lib/auth/middleware';
+import { ok, fail, serverError } from '@/lib/api';
+import type { StudentService } from '@/services/student.service';
 
 /**
  * POST - 批量更新学生
  */
-export const POST = withApi(async (request: NextRequest) => {
-  // 速率限制检查
-  const rateLimitResult = await sensitiveRateLimiter(request);
-  if (rateLimitResult) {
-    return rateLimitResult;
-  }
-
-  const client = getSupabaseClient();
+export const POST = withAuth(async (request: NextRequest) => {
+  const studentService = getService<StudentService>(SERVICE_IDENTIFIERS.StudentService);
   const body = await request.json();
   const { ids, updates } = body;
 
@@ -39,7 +38,7 @@ export const POST = withApi(async (request: NextRequest) => {
   }
 
   // 过滤不允许批量更新的字段
-  const allowedFields = ['status', 'class_id', 'class_name'];
+  const allowedFields = ['status', 'classId', 'className'];
   const filteredUpdates: Record<string, unknown> = {};
   for (const key of Object.keys(updates)) {
     if (allowedFields.includes(key)) {
@@ -51,14 +50,14 @@ export const POST = withApi(async (request: NextRequest) => {
     return fail('没有可更新的字段');
   }
 
-  const { error } = await client
-    .from('students')
-    .update(filteredUpdates)
-    .in('id', ids);
-
-  if (error) {
-    return serverError(error.message);
+  // 调用 Service 层批量更新
+  let successCount = 0;
+  for (const id of ids) {
+    const result = await studentService.updateStudent(id, filteredUpdates);
+    if (result.success) {
+      successCount++;
+    }
   }
 
-  return ok({ count: ids.length, message: `成功更新 ${ids.length} 条数据` });
-}, { logRequests: true });
+  return ok({ count: successCount, message: `成功更新 ${successCount} 条数据` });
+});

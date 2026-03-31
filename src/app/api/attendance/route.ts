@@ -1,102 +1,105 @@
 /**
  * 考勤管理 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
- * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ * GET - 获取考勤记录
+ * POST - 创建考勤记录
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用统一认证中间件
  */
 
 import { NextRequest } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { ok, fail, serverError, getQueryParams } from '@/lib/api';
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import { withAuth } from '@/lib/auth/middleware';
+import { ok, fail, serverError } from '@/lib/api';
+import type { AttendanceService } from '@/services/attendance.service';
 
 /**
  * GET - 获取考勤记录
  */
-export async function GET(request: NextRequest) {
-  const params = getQueryParams(request);
-  const { filters, page, pageSize } = params;
+export const GET = withAuth(async (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get('page') || '1');
+  const pageSize = parseInt(searchParams.get('pageSize') || '20');
   
   try {
-    const client = getSupabaseClient();
+    const attendanceService = getService<AttendanceService>(SERVICE_IDENTIFIERS.AttendanceService);
     
-    let query = client
-      .from('student_attendance')
-      .select('*')
-      .order('date', { ascending: false });
+    const result = await attendanceService.listAttendance({
+      classId: searchParams.get('classId') || undefined,
+      studentId: searchParams.get('studentId') || undefined,
+      date: searchParams.get('date') || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
+      status: searchParams.get('status') as 'present' | 'absent' | 'late' | undefined,
+      page,
+      pageSize,
+    });
 
-    if (filters.studentId) query = query.eq('student_id', filters.studentId);
-    if (filters.date) query = query.eq('date', filters.date);
-    if (filters.startDate) query = query.gte('date', filters.startDate);
-    if (filters.endDate) query = query.lte('date', filters.endDate);
-    if (filters.status) query = query.eq('status', filters.status);
-
-    const { data, error: dbError } = await query;
-
-    if (dbError) {
-      return fail('数据库查询失败');
+    if (!result.success) {
+      return fail(result.error || '数据库查询失败');
     }
 
-    const formattedData = (data || []).map((record: Record<string, unknown>) => ({
-      id: record.id,
-      studentId: record.student_id,
-      studentName: record.student_name,
-      classId: record.class_id,
-      className: record.class_name,
-      date: record.date,
-      status: record.status,
-      reason: record.reason,
-      recordedBy: record.recorded_by,
-      createdAt: record.created_at,
-    }));
+    const formattedData = result.data?.map(record => {
+      const r = record as unknown as Record<string, unknown>;
+      return {
+        id: r.id,
+        studentId: r.studentId,
+        studentName: r.studentName,
+        classId: r.classId,
+        className: r.className,
+        date: r.date,
+        status: r.status,
+        reason: r.reason,
+        recordedBy: r.recorderId,
+        createdAt: r.createdAt,
+      };
+    }) || [];
 
     return ok(formattedData);
   } catch (err) {
     console.error('Failed to fetch attendance:', err);
     return serverError('获取考勤记录失败');
   }
-}
+});
 
 /**
  * POST - 创建考勤记录
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest) => {
   try {
-    const client = getSupabaseClient();
+    const attendanceService = getService<AttendanceService>(SERVICE_IDENTIFIERS.AttendanceService);
     const body = await request.json();
-    const { studentId, studentName, classId, className, date, status, reason, recordedBy } = body;
+    const { studentId, classId, date, status, reason, recordedBy } = body;
 
     if (!studentId || !date || !status) {
       return fail('缺少必要参数');
     }
 
-    const { data, error: dbError } = await client
-      .from('student_attendance')
-      .insert({
-        id: `att-${Date.now()}`,
-        student_id: studentId,
-        student_name: studentName,
-        class_id: classId,
-        class_name: className,
-        date,
-        status,
-        reason,
-        recorded_by: recordedBy,
-      })
-      .select()
-      .single();
+    const result = await attendanceService.recordAttendance({
+      studentId,
+      classId,
+      date,
+      status,
+      reason,
+      recorderId: recordedBy,
+    });
 
-    if (dbError) {
-      return fail('创建考勤记录失败: ' + dbError.message);
+    if (!result.success) {
+      return fail(result.error || '创建考勤记录失败');
     }
 
+    const data = result.data as unknown as Record<string, unknown>;
+
     return ok({
-      id: data.id,
-      studentId: data.student_id,
-      date: data.date,
-      status: data.status,
+      id: data?.id,
+      studentId: data?.studentId,
+      date: data?.date,
+      status: data?.status,
     });
   } catch (err) {
     console.error('Failed to create attendance:', err);
     return serverError('创建考勤记录失败');
   }
-}
+});

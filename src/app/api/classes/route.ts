@@ -2,18 +2,27 @@
  * 班级列表 API
  * 
  * GET /api/classes - 获取班级列表（支持分页、筛选）
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用统一认证中间件
  */
 
 import { NextRequest } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import { withAuth } from '@/lib/auth/middleware';
 import { paginated, fail, serverError } from '@/lib/api';
+import type { ClassService } from '@/services/class.service';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
 
-export async function GET(request: NextRequest) {
+/**
+ * GET 处理器 - 获取班级列表
+ */
+export const GET = withAuth(async (request: NextRequest) => {
   try {
-    const client = getSupabaseClient();
+    const classService = getService<ClassService>(SERVICE_IDENTIFIERS.ClassService);
     const { searchParams } = new URL(request.url);
     
     // 分页参数
@@ -21,82 +30,55 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get('pageSize') || '200');
     
     // 筛选参数
-    const search = searchParams.get('search');
+    const search = searchParams.get('search') || undefined;
     const grade = searchParams.get('grade');
     const status = searchParams.get('status');
     
-    // 构建查询
-    let query = client
-      .from('classes')
-      .select('*', { count: 'exact' });
+    // 调用 Service 层
+    const result = await classService.listClasses({
+      grade: grade ? parseInt(grade) : undefined,
+      status: status || undefined,
+      search,
+      page,
+      pageSize,
+    });
     
-    // 应用筛选
-    if (search) {
-      query = query.ilike('name', `%${search}%`);
-    }
-    if (grade && grade !== 'all') {
-      query = query.eq('grade', parseInt(grade));
-    }
-    if (status && status !== 'all') {
-      query = query.eq('status', status);
+    if (!result.success) {
+      return fail(result.error || '获取班级列表失败');
     }
     
-    // 排序
-    query = query.order('grade').order('class_number');
-    
-    // 分页
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to);
-    
-    const { data, error, count } = await query;
-    
-    if (error) {
-      return fail(error.message, undefined, 500);
-    }
-    
-    // 转换数据格式（下划线转驼峰）
-    const formattedData = (data || []).map(c => ({
-      id: c.id,
-      name: c.name,
-      grade: c.grade,
-      gradeName: c.grade_name || GRADE_NAMES[c.grade] || '',
-      classNumber: c.class_number,
-      
-      // 班主任
-      headTeacherId: c.head_teacher_id,
-      headTeacherName: c.head_teacher_name,
-      
-      // 科任（副班主任）
-      subTeacherId: c.sub_teacher_id,
-      subTeacherName: c.sub_teacher_name,
-      
-      // 学生统计
-      studentCount: c.student_count || 0,
-      maleStudentCount: c.male_student_count || 0,
-      femaleStudentCount: c.female_student_count || 0,
-      
-      // 教室信息
-      classroomId: c.classroom_id,
-      classroomName: c.classroom_name,
-      building: c.building,
-      floor: c.floor,
-      
-      // 状态
-      status: c.status || 'active',
-      
-      // 班级特色
-      motto: c.motto,
-      features: c.features,
-      
-      // 时间戳
-      createdAt: c.created_at,
-      updatedAt: c.updated_at,
-    }));
+    // 转换数据格式
+    const formattedData = result.data?.map(c => {
+      const item = c as unknown as Record<string, unknown>;
+      return {
+        id: item.id as string,
+        name: item.name as string,
+        grade: item.grade as number,
+        gradeName: item.gradeName as string || GRADE_NAMES[item.grade as number] || '',
+        classNumber: item.classNumber,
+        headTeacherId: item.headTeacherId as string,
+        headTeacherName: item.headTeacherName as string,
+        subTeacherId: item.subTeacherId,
+        subTeacherName: item.subTeacherName,
+        studentCount: (item.studentCount as number) || 0,
+        maleStudentCount: item.maleStudentCount || 0,
+        femaleStudentCount: item.femaleStudentCount || 0,
+        classroomId: item.classroomId,
+        classroomName: item.classroomName,
+        building: item.building,
+        floor: item.floor,
+        status: item.status || 'active',
+        motto: item.motto,
+        features: item.features,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      };
+    }) || [];
     
     // 计算统计数据
+    const total = result.pagination?.total || 0;
     const statistics = {
-      totalClasses: count || 0,
+      totalClasses: total,
       activeClasses: formattedData.filter(c => c.status === 'active').length,
       inactiveClasses: formattedData.filter(c => c.status !== 'active').length,
       totalStudents: formattedData.reduce((sum, c) => sum + c.studentCount, 0),
@@ -106,12 +88,18 @@ export async function GET(request: NextRequest) {
         acc[c.grade] = (acc[c.grade] || 0) + 1;
         return acc;
       }, {} as Record<number, number>),
-      avgStudentsPerClass: count ? Math.round(formattedData.reduce((sum, c) => sum + c.studentCount, 0) / count) : 0,
+      avgStudentsPerClass: total ? Math.round(formattedData.reduce((sum, c) => sum + c.studentCount, 0) / total) : 0,
     };
     
-    return paginated(formattedData, count || 0, page, pageSize, { statistics });
+    return paginated(
+      formattedData,
+      total,
+      result.pagination?.page || 1,
+      result.pagination?.pageSize || 20,
+      { statistics }
+    );
   } catch (error) {
     console.error('Failed to fetch classes:', error);
     return serverError('获取班级列表失败');
   }
-}
+});

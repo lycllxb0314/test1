@@ -1,177 +1,101 @@
 /**
  * 教研活动 API
  * 
- * 功能：
- * - GET: 获取活动列表
- * - POST: 创建活动
+ * GET: 获取活动列表
+ * POST: 创建新活动
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用统一认证中间件
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { getUserFromSession } from '@/lib/auth/session';
-import { success, error, ErrorCode } from '@/lib/api';
-
-const supabase = getSupabaseClient();
-
-const ACTIVITY_TYPE_LABELS: Record<string, string> = {
-  seminar: '研讨会',
-  lesson_observation: '听课评课',
-  collective_prep: '集体备课',
-  training: '培训学习',
-  workshop: '工作坊',
-  salon: '教学沙龙',
-};
-
-const ACTIVITY_STATUS_LABELS: Record<string, string> = {
-  scheduled: '已安排',
-  in_progress: '进行中',
-  completed: '已完成',
-  cancelled: '已取消',
-};
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import { withAuth } from '@/lib/auth/middleware';
+import { paginated, fail, serverError, ok } from '@/lib/api';
+import type { ResearchActivityService } from '@/services/research.service';
 
 /**
- * GET - 获取活动列表
+ * GET: 获取活动列表
  */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const themeId = searchParams.get('themeId');
-    
-    let query = supabase
-      .from('research_activities')
-      .select('*')
-      .order('scheduled_at', { ascending: false });
-    
-    if (themeId) {
-      query = query.eq('theme_id', themeId);
-    }
-    
-    const { data, error: dbError } = await query;
-    
-    if (dbError) {
-      console.error('查询活动失败:', dbError);
-      return NextResponse.json(error('查询失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-    
-    return NextResponse.json({
-      success: true,
-      data: data?.map(a => ({
-        id: a.id,
-        themeId: a.theme_id,
-        title: a.title,
-        type: a.type,
-        typeLabel: ACTIVITY_TYPE_LABELS[a.type as string] || a.type,
-        description: a.description,
-        location: a.location,
-        scheduledAt: a.scheduled_at,
-        duration: a.duration,
-        hostName: a.host_name,
-        status: a.status,
-        statusLabel: ACTIVITY_STATUS_LABELS[a.status as string] || a.status,
-        createdAt: a.created_at,
-      })) || [],
-    });
-  } catch (err) {
-    console.error('获取活动列表失败:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
-  }
-}
+export const GET = withAuth(async (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status') || undefined;
+  const type = searchParams.get('type') || undefined;
+  const page = parseInt(searchParams.get('page') || '1');
+  const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
-/**
- * POST - 创建活动
- */
-export async function POST(request: NextRequest) {
   try {
-    const user = await getUserFromSession(request);
-    if (!user) {
-      return NextResponse.json(error('未登录', ErrorCode.UNAUTHORIZED), { status: 401 });
-    }
+    const researchService = getService<ResearchActivityService>(SERVICE_IDENTIFIERS.ResearchActivityService);
     
-    const body = await request.json();
-    const { 
-      themeId, 
-      stageId,
-      title, 
-      type, 
-      description, 
-      location, 
-      scheduledAt, 
-      duration,
-      participantIds,
-      participants,
-      bookingId,
-      roomId,
-    } = body;
-    
-    if (!themeId || !title) {
-      return NextResponse.json(error('缺少必要参数', ErrorCode.BAD_REQUEST), { status: 400 });
-    }
-    
-    const { data, error: dbError } = await supabase
-      .from('research_activities')
-      .insert({
-        theme_id: themeId,
-        stage_id: stageId || null,
-        title,
-        type: type || 'lesson_observation',
-        description,
-        location,
-        scheduled_at: scheduledAt || null,
-        duration: duration || null,
-        host_id: user.id,
-        host_name: user.name,
-        status: 'scheduled',
-        participant_ids: participantIds || [],
-        participants: participants || [],
-        booking_id: bookingId || null,
-        room_id: roomId || null,
-      })
-      .select()
-      .single();
-    
-    if (dbError) {
-      console.error('创建活动失败:', dbError);
-      return NextResponse.json(error('创建失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-    
-    // 更新主题统计
-    const { data: currentStats } = await supabase
-      .from('research_statistics')
-      .select('total_activities')
-      .eq('theme_id', themeId)
-      .single();
-    
-    if (currentStats) {
-      await supabase
-        .from('research_statistics')
-        .update({
-          total_activities: (currentStats.total_activities || 0) + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('theme_id', themeId);
-    }
-    
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: data.id,
-        themeId: data.theme_id,
-        stageId: data.stage_id,
-        title: data.title,
-        type: data.type,
-        typeLabel: ACTIVITY_TYPE_LABELS[data.type as string],
-        status: data.status,
-        statusLabel: ACTIVITY_STATUS_LABELS[data.status as string],
-        participants: data.participants,
-        bookingId: data.booking_id,
-        roomId: data.room_id,
-        location: data.location,
-        scheduledAt: data.scheduled_at,
-        duration: data.duration,
+    const result = await researchService.getPaginated({
+      pagination: { page, pageSize },
+      filters: {
+        status,
+        type,
       },
     });
-  } catch (err) {
-    console.error('创建活动失败:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+    }
+    
+    const formattedData = (result.data || []).map(activity => {
+      const item = activity as unknown as Record<string, unknown>;
+      return {
+        id: item.id,
+        title: item.title,
+        type: item.type,
+        status: item.status,
+        hostId: item.hostId,
+        hostName: item.hostName,
+        scheduledAt: item.scheduledAt,
+        location: item.location,
+        description: item.description,
+        participantIds: item.participantIds || [],
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      };
+    });
+    
+    return paginated(formattedData, result.pagination?.total || 0, page, pageSize);
+  } catch (error) {
+    console.error('获取教研活动列表失败:', error);
+    return serverError('服务器错误');
   }
-}
+});
+
+/**
+ * POST: 创建新活动
+ */
+export const POST = withAuth(async (request: NextRequest) => {
+  try {
+    const researchService = getService<ResearchActivityService>(SERVICE_IDENTIFIERS.ResearchActivityService);
+    const body = await request.json();
+    
+    if (!body.title || !body.type) {
+      return fail('活动标题和类型不能为空');
+    }
+    
+    const result = await researchService.create({
+      title: body.title,
+      type: body.type,
+      status: body.status || 'scheduled',
+      hostId: body.hostId,
+      hostName: body.hostName,
+      scheduledAt: body.scheduledAt,
+      location: body.location,
+      description: body.description,
+      participantIds: body.participantIds || [],
+    });
+    
+    if (!result.success) {
+      return fail(result.error || '创建活动失败');
+    }
+    
+    return ok(result.data);
+  } catch (error) {
+    console.error('创建教研活动失败:', error);
+    return serverError('服务器错误');
+  }
+});

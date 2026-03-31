@@ -1,36 +1,41 @@
+/**
+ * 单个学生 API
+ * 
+ * GET - 获取学生详情
+ * PUT - 更新学生信息
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用统一认证中间件
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import { withAuthAndParams } from '@/lib/auth/middleware';
+import { ok, fail, notFound, serverError } from '@/lib/api';
+import type { StudentService } from '@/services/student.service';
 
 /**
  * GET - 获取学生详情
  */
-export async function GET(
+export const GET = withAuthAndParams(async (
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }
+) => {
   try {
-    const client = getSupabaseClient();
-    const { id } = await params;
+    const studentService = getService<StudentService>(SERVICE_IDENTIFIERS.StudentService);
+    const { id } = params;
 
-    const { data, error } = await client
-      .from('students')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const result = await studentService.getStudent(id as string);
 
-    if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+    if (!result.success) {
+      if (result.code === 'NOT_FOUND') {
+        return notFound('学生不存在');
+      }
+      return fail(result.error || '获取学生详情失败');
     }
 
-    if (!data) {
-      return NextResponse.json({
-        success: false,
-        error: '学生不存在',
-      }, { status: 404 });
-    }
+    const data = result.data as unknown as Record<string, unknown>;
 
     return NextResponse.json({
       success: true,
@@ -38,52 +43,39 @@ export async function GET(
     });
   } catch (error) {
     console.error('Failed to fetch student:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取学生详情失败',
-    }, { status: 500 });
+    return serverError('获取学生详情失败');
   }
-}
+});
 
 /**
  * PUT - 更新学生信息
  */
-export async function PUT(
+export const PUT = withAuthAndParams(async (
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }
+) => {
   try {
-    const client = getSupabaseClient();
-    const { id } = await params;
+    const studentService = getService<StudentService>(SERVICE_IDENTIFIERS.StudentService);
+    const { id } = params;
     const body = await request.json();
 
-    const { data, error } = await client
-      .from('students')
-      .update({
-        ...body,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    const result = await studentService.updateStudent(id as string, body);
 
-    if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+    if (!result.success) {
+      if (result.code === 'NOT_FOUND') {
+        return notFound('学生不存在');
+      }
+      return fail(result.error || '更新学生信息失败');
     }
 
-    return NextResponse.json({
-      success: true,
-      data,
+    const data = result.data as unknown as Record<string, unknown>;
+
+    return ok({
+      ...data,
       message: '学生信息更新成功',
     });
   } catch (error) {
     console.error('Failed to update student:', error);
-    return NextResponse.json({
-      success: false,
-      error: '更新学生信息失败',
-    }, { status: 500 });
+    return serverError('更新学生信息失败');
   }
-}
+});
