@@ -50,7 +50,7 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
     zoom: 1,
     pan: { x: 0, y: 0 },
     selection: [],
-    activeTool: 'select',
+    activeTool: 'rectangle',
     activeColor: '#3b82f6',
     activeStrokeWidth: 2,
   });
@@ -295,7 +295,7 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
             <MathCanvas
               width={canvasWidth}
               height={canvasHeight}
-              initialState={state}
+              state={state}
               onChange={(s) => setState(s)}
               onElementAdd={handleElementAdd}
               onElementSelect={handleElementSelect}

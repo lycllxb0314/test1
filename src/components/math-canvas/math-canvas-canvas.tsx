@@ -19,7 +19,7 @@ import type {
 export type MathCanvasProps = {
   width?: number;
   height?: number;
-  initialState?: Partial<CanvasState>;
+  state: CanvasState;
   onChange?: (state: CanvasState) => void;
   onElementAdd?: (element: CanvasElement) => void;
   onElementSelect?: (elementIds: string[]) => void;
@@ -51,16 +51,12 @@ const DEFAULT_STATE: CanvasState = {
 export function MathCanvas({
   width = 800,
   height = 600,
-  initialState,
+  state,
   onChange,
   onElementAdd,
   onElementSelect,
 }: MathCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [state, setState] = useState<CanvasState>({
-    ...DEFAULT_STATE,
-    ...initialState,
-  });
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [currentPoint, setCurrentPoint] = useState<Point | null>(null);
@@ -799,6 +795,15 @@ export function MathCanvas({
         ctx.beginPath();
         ctx.rect(startPoint.x, startPoint.y, currentPoint.x - startPoint.x, currentPoint.y - startPoint.y);
         ctx.stroke();
+      } else if (tool === 'triangle' || tool === 'rightTriangle') {
+        const width = currentPoint.x - startPoint.x;
+        const height = currentPoint.y - startPoint.y;
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x + width / 2, startPoint.y);
+        ctx.lineTo(startPoint.x, currentPoint.y);
+        ctx.lineTo(currentPoint.x, currentPoint.y);
+        ctx.closePath();
+        ctx.stroke();
       } else if (tool === 'circle') {
         const radius = Math.sqrt(
           Math.pow(currentPoint.x - startPoint.x, 2) + Math.pow(currentPoint.y - startPoint.y, 2)
@@ -806,8 +811,32 @@ export function MathCanvas({
         ctx.beginPath();
         ctx.arc(startPoint.x, startPoint.y, radius, 0, Math.PI * 2);
         ctx.stroke();
+      } else if (tool === 'sector') {
+        const radius = Math.sqrt(
+          Math.pow(currentPoint.x - startPoint.x, 2) + Math.pow(currentPoint.y - startPoint.y, 2)
+        );
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x, startPoint.y);
+        ctx.arc(startPoint.x, startPoint.y, radius, 0, Math.PI / 2);
+        ctx.closePath();
+        ctx.stroke();
       } else if (tool === 'cube' || tool === 'cuboid') {
         ctx.strokeRect(startPoint.x, startPoint.y, currentPoint.x - startPoint.x, currentPoint.y - startPoint.y);
+      } else if (['cylinder', 'cone', 'sphere'].includes(tool)) {
+        ctx.beginPath();
+        ctx.ellipse(
+          (startPoint.x + currentPoint.x) / 2,
+          (startPoint.y + currentPoint.y) / 2,
+          Math.abs(currentPoint.x - startPoint.x) / 2,
+          Math.abs(currentPoint.y - startPoint.y) / 2,
+          0, 0, Math.PI * 2
+        );
+        ctx.stroke();
+      } else if (['numberLine', 'segmentDiagram', 'barChart', 'lineChart', 'pieChart', 'squareGrid', 'cubeGrid'].includes(tool)) {
+        // 这些工具只需要点击位置
+        ctx.fillStyle = `${state.activeColor}20`;
+        ctx.fillRect(startPoint.x - 5, startPoint.y - 5, 10, 10);
+        ctx.strokeRect(startPoint.x - 5, startPoint.y - 5, 10, 10);
       }
       ctx.restore();
     }
@@ -1042,6 +1071,56 @@ export function MathCanvas({
         locked: false,
         visible: true,
       };
+    } else if (tool === 'lineChart') {
+      newElement = {
+        id,
+        type: 'chart',
+        chartType: 'line',
+        title: '折线统计图',
+        data: [
+          { label: '一月', value: 10, color: '#3b82f6' },
+          { label: '二月', value: 15, color: '#3b82f6' },
+          { label: '三月', value: 8, color: '#3b82f6' },
+          { label: '四月', value: 20, color: '#3b82f6' },
+        ],
+        points: [startPoint],
+        showValues: true,
+        showLegend: true,
+        showAxis: true,
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: 'transparent',
+        fillMode: 'none',
+        opacity: 1,
+        locked: false,
+        visible: true,
+      };
+    } else if (tool === 'pieChart') {
+      newElement = {
+        id,
+        type: 'chart',
+        chartType: 'pie',
+        title: '扇形统计图',
+        data: [
+          { label: 'A', value: 30, color: '#3b82f6' },
+          { label: 'B', value: 25, color: '#10b981' },
+          { label: 'C', value: 20, color: '#f59e0b' },
+          { label: 'D', value: 25, color: '#ef4444' },
+        ],
+        points: [startPoint],
+        showValues: true,
+        showLegend: true,
+        showAxis: false,
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: 'transparent',
+        fillMode: 'none',
+        opacity: 1,
+        locked: false,
+        visible: true,
+      };
     } else if (tool === 'squareGrid') {
       const size = 5;
       newElement = {
@@ -1062,6 +1141,26 @@ export function MathCanvas({
         locked: false,
         visible: true,
       };
+    } else if (tool === 'cubeGrid') {
+      const size = 3;
+      newElement = {
+        id,
+        type: 'cubeGrid',
+        gridSize: size,
+        cellSize: 40,
+        cells: Array(size).fill(null).map(() => Array(size).fill(true)),
+        showGrid: true,
+        showCount: true,
+        points: [startPoint],
+        strokeColor: state.activeColor,
+        strokeWidth: state.activeStrokeWidth,
+        strokeStyle: 'solid',
+        fillColor: `${state.activeColor}30`,
+        fillMode: 'solid',
+        opacity: 1,
+        locked: false,
+        visible: true,
+      };
     }
 
     if (newElement) {
@@ -1069,7 +1168,6 @@ export function MathCanvas({
         ...state,
         elements: [...state.elements, newElement],
       };
-      setState(newState);
       onChange?.(newState);
       onElementAdd?.(newElement);
     }
@@ -1084,10 +1182,10 @@ export function MathCanvas({
     if (e.ctrlKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setState(prev => ({
-        ...prev,
-        zoom: Math.max(0.1, Math.min(5, prev.zoom * delta)),
-      }));
+      onChange?.({
+        ...state,
+        zoom: Math.max(0.1, Math.min(5, state.zoom * delta)),
+      });
     }
   };
 
