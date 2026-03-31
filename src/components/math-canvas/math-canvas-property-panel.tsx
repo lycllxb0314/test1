@@ -89,7 +89,7 @@ export function PropertyPanel({
   };
 
   return (
-    <div className="h-full w-full p-4 space-y-6 overflow-y-auto">
+    <div className="w-full p-4 space-y-6">
       {/* 操作按钮 */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">操作</Label>

@@ -317,7 +317,7 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
                 编辑 {selectedElement ? '(1)' : ''}
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="properties" className="flex-1 overflow-y-auto mt-0 data-[state=inactive]:hidden min-h-0">
+            <TabsContent value="properties" className="flex-1 overflow-y-auto mt-0 data-[state=inactive]:hidden min-h-0 h-0">
               <PropertyPanel
                 grid={state.grid}
                 zoom={state.zoom}
@@ -337,7 +337,7 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
                 onFillColorChange={setFillColor}
               />
             </TabsContent>
-            <TabsContent value="element" className="flex-1 overflow-y-auto mt-0 data-[state=inactive]:hidden min-h-0">
+            <TabsContent value="element" className="flex-1 overflow-y-auto mt-0 data-[state=inactive]:hidden min-h-0 h-0">
               <ElementEditor
                 element={selectedElement}
                 onUpdate={handleElementUpdate}
