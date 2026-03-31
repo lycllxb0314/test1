@@ -6,6 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type {
   CanvasElement,
   PlaneShape,
@@ -17,7 +24,7 @@ import type {
   PlaneShapeType,
   NetShape,
 } from '@/types/math-canvas';
-import { Trash2, Copy, RotateCw, FlipHorizontal, FlipVertical, UnfoldVertical } from 'lucide-react';
+import { Trash2, Copy, RotateCw, FlipHorizontal, FlipVertical, UnfoldVertical, Palette } from 'lucide-react';
 
 /** 平面图形类型列表 */
 const PLANE_SHAPE_TYPES: PlaneShapeType[] = [
@@ -790,6 +797,8 @@ function TransformEditor({
   const rotation = element.rotation || 0;
   const flipX = element.flipX || false;
   const flipY = element.flipY || false;
+  const fillMode = element.fillMode || 'none';
+  const fillColor = element.fillColor || element.strokeColor || '#3b82f6';
 
   const handleRotate = (angle: number) => {
     onUpdate({ ...element, rotation: (rotation + angle) % 360 });
@@ -803,8 +812,53 @@ function TransformEditor({
     onUpdate({ ...element, flipY: !flipY });
   };
 
+  const handleFillModeChange = (mode: 'none' | 'solid') => {
+    onUpdate({ ...element, fillMode: mode });
+  };
+
+  const handleFillColorChange = (color: string) => {
+    onUpdate({ ...element, fillColor: color });
+  };
+
   return (
     <div className="space-y-3">
+      {/* 填充设置 */}
+      <Separator />
+      <div className="flex items-center gap-2">
+        <Palette className="h-4 w-4 text-muted-foreground" />
+        <Label className="text-xs font-medium">填充</Label>
+      </div>
+      
+      <div className="space-y-2">
+        <Select value={fillMode} onValueChange={(v) => handleFillModeChange(v as 'none' | 'solid')}>
+          <SelectTrigger className="h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">无填充</SelectItem>
+            <SelectItem value="solid">纯色填充</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        {fillMode === 'solid' && (
+          <div className="flex items-center gap-2">
+            <Input
+              type="color"
+              value={fillColor}
+              onChange={(e) => handleFillColorChange(e.target.value)}
+              className="h-8 w-10 p-0 cursor-pointer"
+            />
+            <Input
+              type="text"
+              value={fillColor}
+              onChange={(e) => handleFillColorChange(e.target.value)}
+              className="h-8 flex-1 text-xs"
+              placeholder="#000000"
+            />
+          </div>
+        )}
+      </div>
+      
       <Separator />
       <Label className="text-xs font-medium">变换</Label>
       
