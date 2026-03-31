@@ -14,7 +14,7 @@ import type {
   FillMode,
 } from '@/types/math-canvas';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -309,15 +309,17 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
         </div>
 
         {/* 右侧属性面板 */}
-        <div className="w-64 border-l bg-card overflow-hidden flex flex-col">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="mx-2 mt-2">
-              <TabsTrigger value="properties" className="text-xs">属性</TabsTrigger>
-              <TabsTrigger value="element" className="text-xs">
+        <div className="w-64 border-l bg-card flex flex-col">
+          <div className="shrink-0 p-2">
+            <TabsList className="w-full">
+              <TabsTrigger value="properties" className="text-xs flex-1" onClick={() => setActiveTab('properties')}>属性</TabsTrigger>
+              <TabsTrigger value="element" className="text-xs flex-1" onClick={() => setActiveTab('element')}>
                 编辑 {selectedElement ? '(1)' : ''}
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="properties" className="flex-1 overflow-y-auto mt-0 data-[state=inactive]:hidden min-h-0 h-0">
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {activeTab === 'properties' && (
               <PropertyPanel
                 grid={state.grid}
                 zoom={state.zoom}
@@ -336,8 +338,8 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
                 onFillModeChange={setFillMode}
                 onFillColorChange={setFillColor}
               />
-            </TabsContent>
-            <TabsContent value="element" className="flex-1 overflow-y-auto mt-0 data-[state=inactive]:hidden min-h-0 h-0">
+            )}
+            {activeTab === 'element' && (
               <ElementEditor
                 element={selectedElement}
                 onUpdate={handleElementUpdate}
@@ -345,8 +347,8 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
                 onDuplicate={handleElementDuplicate}
                 onCreateElement={handleCreateElement}
               />
-            </TabsContent>
-          </Tabs>
+            )}
+          </div>
         </div>
       </div>
 
