@@ -33,6 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -651,14 +652,14 @@ export default function ActivityManagementPage() {
                     <input
                       type="file"
                       multiple
-                      accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                      accept={FILE_TYPE_CONFIGS.teaching.accept}
                       className="hidden"
                       onChange={handleFileUpload}
                       disabled={uploading}
                     />
                   </label>
                   <span className="text-xs text-gray-500">
-                    支持图片、视频、文档
+                    {FILE_TYPE_CONFIGS.teaching.hint}
                   </span>
                 </div>
               </div>

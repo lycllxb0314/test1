@@ -28,6 +28,7 @@ import {
   Trash2,
   ChevronDown,
 } from 'lucide-react';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import { cn } from '@/lib/utils';
 import type { EvaluationGuide, TieredTask, WritingIssue } from '@/types/chinese-prep';
 
@@ -649,7 +650,7 @@ function CorrectionContent() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept={FILE_TYPE_CONFIGS.image.accept}
                     multiple
                     onChange={handleImageUpload}
                     className="hidden"

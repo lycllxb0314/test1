@@ -43,6 +43,22 @@ import type { ResourceListItem, ResourceStatistics, ResourceCategory } from '@/t
 import { useFilePreview } from '@/hooks/useFilePreview';
 import { FilePreviewDialog } from '@/components/ui/file-preview-dialog';
 import { getFileType, formatFileSize } from '@/lib/file-preview';
+import { FILE_TYPE_CONFIGS, type FileCategory } from '@/lib/file-upload-config';
+
+// 资源分类到文件分类的映射
+const CATEGORY_TO_FILE_TYPE: Record<ResourceCategory, FileCategory> = {
+  chinese_character: 'all',
+  chinese_reading: 'audio',
+  chinese_writing: 'all',
+  chinese_chat: 'all',
+  math: 'all',
+  math_concept: 'all',
+  math_problem: 'all',
+  lesson_plan: 'document',
+  courseware: 'document',
+  video: 'video',
+  other: 'all',
+};
 
 // 分类名称映射
 const CATEGORY_NAMES: Record<ResourceCategory, string> = {
@@ -89,63 +105,10 @@ const CATEGORY_COLORS: Record<ResourceCategory, string> = {
   other: 'bg-gray-500',
 };
 
-// 文件类型配置
-const FILE_TYPE_CONFIG: Record<ResourceCategory, { accept: string; label: string; hint: string }> = {
-  lesson_plan: {
-    accept: '.pdf,.doc,.docx',
-    label: '教案文件',
-    hint: '支持 PDF、Word 文档',
-  },
-  courseware: {
-    accept: '.ppt,.pptx',
-    label: '课件文件',
-    hint: '支持 PowerPoint 演示文稿',
-  },
-  video: {
-    accept: '.mp4,.mov,.avi,.webm',
-    label: '视频文件',
-    hint: '支持 MP4、MOV、AVI、WebM',
-  },
-  chinese_character: {
-    accept: '*',
-    label: '生字资源',
-    hint: '支持所有文件类型',
-  },
-  chinese_reading: {
-    accept: '.mp3,.wav,.m4a',
-    label: '朗读资源',
-    hint: '支持音频和文档文件',
-  },
-  chinese_writing: {
-    accept: '*',
-    label: '写作资源',
-    hint: '支持所有文件类型',
-  },
-  chinese_chat: {
-    accept: '*',
-    label: '备课资源',
-    hint: '支持所有文件类型',
-  },
-  math: {
-    accept: '*',
-    label: '数学资源',
-    hint: '支持所有文件类型',
-  },
-  math_concept: {
-    accept: '*',
-    label: '概念教学资源',
-    hint: '支持所有文件类型',
-  },
-  math_problem: {
-    accept: '*',
-    label: '问题设计资源',
-    hint: '支持所有文件类型',
-  },
-  other: {
-    accept: '*',
-    label: '任意文件',
-    hint: '支持所有文件类型',
-  },
+// 获取资源分类对应的文件配置
+const getFileConfig = (category: ResourceCategory) => {
+  const fileCategory = CATEGORY_TO_FILE_TYPE[category] || 'all';
+  return FILE_TYPE_CONFIGS[fileCategory];
 };
 
 export default function MyResourcesPage() {
@@ -622,7 +585,7 @@ export default function MyResourcesPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept={FILE_TYPE_CONFIG[uploadForm.category]?.accept || '*'}
+                  accept={getFileConfig(uploadForm.category).accept}
                   onChange={handleFileSelect}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
@@ -647,7 +610,7 @@ export default function MyResourcesPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500">
-                {FILE_TYPE_CONFIG[uploadForm.category]?.hint}
+                {getFileConfig(uploadForm.category).hint}
               </p>
             </div>
 

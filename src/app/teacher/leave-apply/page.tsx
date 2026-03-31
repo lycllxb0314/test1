@@ -39,6 +39,7 @@ import {
   Loader2,
   Info,
 } from 'lucide-react';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -428,13 +429,13 @@ export default function LeaveApplyPage() {
                         type="file"
                         className="hidden"
                         multiple
-                        accept="image/*,.pdf,.doc,.docx"
+                        accept={FILE_TYPE_CONFIGS['image-document'].accept}
                         onChange={handleFileUpload}
                       />
                     </label>
                   </Button>
                   <span className="text-xs text-muted-foreground">
-                    支持图片、PDF、Word 文档
+                    {FILE_TYPE_CONFIGS['image-document'].hint}
                   </span>
                 </div>
                 

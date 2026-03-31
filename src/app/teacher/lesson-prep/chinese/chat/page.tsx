@@ -36,6 +36,7 @@ import {
   FileSpreadsheet,
   FileImage,
 } from 'lucide-react';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import { cn } from '@/lib/utils';
 import type { ConversationListItem, ConversationDetail, ConversationMessage } from '@/types/conversation.types';
 
@@ -828,7 +829,7 @@ export default function ChatPage() {
                 <input
                   ref={imageInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={FILE_TYPE_CONFIGS.image.accept}
                   multiple
                   className="hidden"
                   onChange={handleImageUpload}
@@ -847,7 +848,7 @@ export default function ChatPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.doc,.docx,.xlsx,.xls,.txt"
+                  accept={FILE_TYPE_CONFIGS.document.accept}
                   multiple
                   className="hidden"
                   onChange={handleFileUpload}

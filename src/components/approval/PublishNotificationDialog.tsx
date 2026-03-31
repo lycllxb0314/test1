@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
@@ -573,7 +574,7 @@ export function PublishNotificationDialog({
                   <label className="w-20 h-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={FILE_TYPE_CONFIGS.image.accept}
                       className="hidden"
                       onChange={handleImageUpload}
                       disabled={uploadingImage}
@@ -856,7 +857,7 @@ export function PublishNotificationDialog({
                     <label className="w-32 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={FILE_TYPE_CONFIGS.image.accept}
                         className="hidden"
                         onChange={(e) => handleImageUpload(e, true)}
                         disabled={uploadingImage}
@@ -897,7 +898,7 @@ export function PublishNotificationDialog({
                   <label className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={FILE_TYPE_CONFIGS.image.accept}
                       className="hidden"
                       onChange={handleImageUpload}
                       disabled={uploadingImage}

@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import {
   Table,
   TableBody,
@@ -701,7 +702,7 @@ export default function FinancePage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*,.pdf"
+                    accept={FILE_TYPE_CONFIGS['image-document'].accept}
                     multiple
                     className="hidden"
                     onChange={(e) => e.target.files && handleFileUpload(e.target.files)}

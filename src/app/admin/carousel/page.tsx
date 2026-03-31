@@ -13,6 +13,7 @@ import {
   Save,
   ChevronLeft,
 } from 'lucide-react';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import Link from 'next/link';
 
 interface CarouselItem {
@@ -194,7 +195,7 @@ const carouselItems: CarouselItem[] = ${JSON.stringify(carouselItems, null, 2)};
               <div className="border-2 border-dashed border-[#E8DDD0] rounded-xl p-8 text-center">
                 <input
                   type="file"
-                  accept="video/*"
+                  accept={FILE_TYPE_CONFIGS.video.accept}
                   onChange={handleUpload}
                   className="hidden"
                   id="video-upload"

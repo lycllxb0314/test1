@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import {
   SOP_CATEGORY_LABELS,
   LEDGER_TYPE_LABELS,
@@ -1120,7 +1121,7 @@ const StepCard: React.FC<{
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileUpload}
-                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+                    accept={FILE_TYPE_CONFIGS.teaching.accept}
                     className="hidden"
                   />
                   

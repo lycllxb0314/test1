@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -266,7 +267,7 @@ function ImageUpload({ value, onChange, label = '图片' }: ImageUploadProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={FILE_TYPE_CONFIGS.image.accept}
         className="hidden"
         onChange={handleFileChange}
       />

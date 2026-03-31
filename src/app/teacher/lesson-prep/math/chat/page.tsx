@@ -18,6 +18,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import {
   ArrowLeft,
   Send,
@@ -841,7 +842,7 @@ export default function MathChatPage() {
                 <input
                   ref={imageInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={FILE_TYPE_CONFIGS.image.accept}
                   multiple
                   className="hidden"
                   onChange={handleImageUpload}
@@ -860,7 +861,7 @@ export default function MathChatPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.doc,.docx,.xlsx,.xls,.txt"
+                  accept={FILE_TYPE_CONFIGS.document.accept}
                   multiple
                   className="hidden"
                   onChange={handleFileUpload}

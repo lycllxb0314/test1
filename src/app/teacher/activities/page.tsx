@@ -31,6 +31,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { FILE_TYPE_CONFIGS } from '@/lib/file-upload-config';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Calendar,
@@ -653,14 +654,14 @@ export default function TeacherActivitiesPage() {
                     <input
                       type="file"
                       multiple
-                      accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                      accept={FILE_TYPE_CONFIGS.teaching.accept}
                       className="hidden"
                       onChange={handleFileUpload}
                       disabled={uploading}
                     />
                   </label>
                   <span className="text-xs text-gray-500">
-                    支持图片、视频、文档（PDF/Word/Excel/PPT）
+                    {FILE_TYPE_CONFIGS.teaching.hint}
                   </span>
                 </div>
               </div>
