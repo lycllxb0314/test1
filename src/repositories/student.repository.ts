@@ -79,7 +79,7 @@ export class StudentRepository extends BaseRepository<Student> {
       query = query.eq('status', filters.status);
     }
     
-    query = query.order('student_number').range(from, to);
+    query = query.order('student_no').range(from, to);
     
     const { data, error, count } = await query;
     
