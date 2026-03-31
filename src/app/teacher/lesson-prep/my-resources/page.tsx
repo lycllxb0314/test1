@@ -482,7 +482,7 @@ export default function MyResourcesPage() {
             {/* 文件选择 */}
             <div className="space-y-2">
               <Label>选择文件</Label>
-              <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors">
+              <div className="relative border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors cursor-pointer">
                 {selectedFile ? (
                   <div className="flex items-center justify-center gap-3">
                     <File className="w-8 h-8 text-indigo-600" />
@@ -495,7 +495,8 @@ export default function MyResourcesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedFile(null);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
@@ -504,7 +505,7 @@ export default function MyResourcesPage() {
                     </Button>
                   </div>
                 ) : (
-                  <div>
+                  <div className="pointer-events-none">
                     <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-500 mb-2">点击或拖拽文件到此处上传</p>
                     <p className="text-xs text-gray-400">
@@ -518,7 +519,6 @@ export default function MyResourcesPage() {
                   accept={FILE_TYPE_CONFIG[uploadForm.category]?.accept || '*'}
                   onChange={handleFileSelect}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  style={{ position: 'relative' }}
                 />
               </div>
             </div>
