@@ -38,33 +38,11 @@ import {
   FileSpreadsheet,
   CheckCircle,
   AlertCircle,
-  Download,
-  ExternalLink,
-  Loader2,
 } from 'lucide-react';
 import type { ResourceListItem, ResourceStatistics, ResourceCategory } from '@/types/teaching-resource';
-
-// 文件类型判断
-const getFileType = (fileName?: string, fileUrl?: string): 'pdf' | 'word' | 'ppt' | 'excel' | 'video' | 'image' | 'other' => {
-  const name = fileName?.toLowerCase() || fileUrl?.toLowerCase() || '';
-  if (name.endsWith('.pdf')) return 'pdf';
-  if (name.endsWith('.doc') || name.endsWith('.docx')) return 'word';
-  if (name.endsWith('.ppt') || name.endsWith('.pptx')) return 'ppt';
-  if (name.endsWith('.xls') || name.endsWith('.xlsx')) return 'excel';
-  if (name.match(/\.(mp4|mov|avi|webm|mkv)$/)) return 'video';
-  if (name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) return 'image';
-  return 'other';
-};
-
-// 获取 Office Online Viewer URL
-const getOfficeViewerUrl = (fileUrl: string): string => {
-  return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
-};
-
-// 获取 Google Docs Viewer URL
-const getGoogleViewerUrl = (fileUrl: string): string => {
-  return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
-};
+import { useFilePreview } from '@/hooks/useFilePreview';
+import { FilePreviewDialog } from '@/components/ui/file-preview-dialog';
+import { getFileType, formatFileSize } from '@/lib/file-preview';
 
 // 分类名称映射
 const CATEGORY_NAMES: Record<ResourceCategory, string> = {
@@ -190,11 +168,8 @@ export default function MyResourcesPage() {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // 预览相关状态
-  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
-  const [previewResource, setPreviewResource] = useState<ResourceListItem | null>(null);
-  const [viewerType, setViewerType] = useState<'office' | 'google'>('office');
-  const [previewLoading, setPreviewLoading] = useState(true);
+  // 文件预览
+  const filePreview = useFilePreview();
 
   useEffect(() => {
     loadData();
@@ -312,20 +287,6 @@ export default function MyResourcesPage() {
     }
   };
 
-  // 打开预览弹窗
-  const openPreview = (resource: ResourceListItem) => {
-    setPreviewResource(resource);
-    setPreviewLoading(true);
-    setPreviewDialogOpen(true);
-  };
-
-  // 关闭预览弹窗
-  const closePreview = () => {
-    setPreviewDialogOpen(false);
-    setPreviewResource(null);
-    setPreviewLoading(true);
-  };
-
   // 判断是否为文件类型资源
   const isFileResource = (resource: ResourceListItem) => {
     return ['lesson_plan', 'courseware', 'video', 'other'].includes(resource.category) && resource.fileUrl;
@@ -336,38 +297,15 @@ export default function MyResourcesPage() {
     // 如果是文件类型资源，打开预览弹窗
     if (isFileResource(resource)) {
       e.preventDefault();
-      openPreview(resource);
+      filePreview.open({
+        id: resource.id,
+        title: resource.title,
+        fileName: resource.fileName,
+        fileUrl: resource.fileUrl || '',
+        fileSize: resource.fileSize,
+      });
     }
     // 否则跳转到详情页（Link 默认行为）
-  };
-
-  // 下载文件
-  const handleDownload = async () => {
-    if (!previewResource?.fileUrl) return;
-    
-    try {
-      const response = await fetch(previewResource.fileUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = previewResource.fileName || 'download';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-    } catch (error) {
-      console.error('下载失败:', error);
-      window.open(previewResource.fileUrl, '_blank');
-    }
-  };
-
-  // 格式化文件大小
-  const formatSize = (bytes?: number) => {
-    if (!bytes) return '';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   return (
@@ -499,7 +437,13 @@ export default function MyResourcesPage() {
                   <Card 
                     key={resource.id} 
                     className="border-0 shadow-md bg-white/90 hover:shadow-lg transition-shadow overflow-hidden group cursor-pointer h-full"
-                    onClick={() => openPreview(resource)}
+                    onClick={() => filePreview.open({
+                      id: resource.id,
+                      title: resource.title,
+                      fileName: resource.fileName,
+                      fileUrl: resource.fileUrl || '',
+                      fileSize: resource.fileSize,
+                    })}
                   >
                     <div className={`${colorClass} p-3`}>
                       <div className="flex items-center justify-between text-white">
@@ -524,7 +468,7 @@ export default function MyResourcesPage() {
                         <p className="text-sm text-gray-500 mb-3 flex items-center gap-1">
                           <File className="w-3.5 h-3.5" />
                           {resource.fileName}
-                          {resource.fileSize && <span className="text-xs">({formatSize(resource.fileSize)})</span>}
+                          {resource.fileSize && <span className="text-xs">({formatFileSize(resource.fileSize)})</span>}
                         </p>
                       )}
                       <div className="flex items-center justify-between text-xs text-gray-400">
@@ -616,138 +560,16 @@ export default function MyResourcesPage() {
         )}
       </div>
 
-      {/* 预览弹窗 */}
-      <Dialog open={previewDialogOpen} onOpenChange={(open) => {
-        if (!open) closePreview();
-      }}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] flex flex-col p-0">
-          {previewResource && (
-            <>
-              <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <DialogTitle className="flex items-center gap-2 text-base">
-                    <File className="w-5 h-5 text-indigo-600" />
-                    {previewResource.title}
-                  </DialogTitle>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handleDownload}>
-                      <Download className="w-4 h-4 mr-1" />
-                      下载
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => window.open(previewResource.fileUrl, '_blank')}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-1" />
-                      新窗口
-                    </Button>
-                    {(() => {
-                      const fileType = getFileType(previewResource.fileName, previewResource.fileUrl);
-                      return fileType !== 'video' && fileType !== 'image' && fileType !== 'pdf' && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant={viewerType === 'office' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => { setViewerType('office'); setPreviewLoading(true); }}
-                            className="text-xs"
-                          >
-                            Office
-                          </Button>
-                          <Button
-                            variant={viewerType === 'google' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => { setViewerType('google'); setPreviewLoading(true); }}
-                            className="text-xs"
-                          >
-                            Google
-                          </Button>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                  <span>{previewResource.fileName}</span>
-                  {previewResource.fileSize && <span>{formatSize(previewResource.fileSize)}</span>}
-                  <span>·</span>
-                  <span>{CATEGORY_NAMES[previewResource.category]}</span>
-                </div>
-              </DialogHeader>
-              
-              <div className="flex-1 relative overflow-hidden bg-gray-50">
-                {previewLoading && (() => {
-                  const fileType = getFileType(previewResource.fileName, previewResource.fileUrl);
-                  return fileType !== 'video' && fileType !== 'image' && (
-                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                        <span className="text-sm text-gray-500">正在加载预览...</span>
-                      </div>
-                    </div>
-                  );
-                })()}
-                
-                {(() => {
-                  const fileType = getFileType(previewResource.fileName, previewResource.fileUrl);
-                  const fileUrl = previewResource.fileUrl || '';
-                  
-                  // PDF 预览
-                  if (fileType === 'pdf') {
-                    return (
-                      <iframe
-                        src={fileUrl}
-                        className="w-full h-full border-0"
-                        title="PDF预览"
-                        onLoad={() => setPreviewLoading(false)}
-                      />
-                    );
-                  }
-                  
-                  // 图片预览
-                  if (fileType === 'image') {
-                    return (
-                      <div className="w-full h-full flex items-center justify-center p-4">
-                        <img
-                          src={fileUrl}
-                          alt={previewResource.fileName || '图片'}
-                          className="max-w-full max-h-full object-contain"
-                          onLoad={() => setPreviewLoading(false)}
-                        />
-                      </div>
-                    );
-                  }
-                  
-                  // 视频预览
-                  if (fileType === 'video') {
-                    return (
-                      <div className="w-full h-full flex items-center justify-center bg-black">
-                        <video
-                          src={fileUrl}
-                          controls
-                          className="max-w-full max-h-full"
-                        >
-                          您的浏览器不支持视频播放
-                        </video>
-                      </div>
-                    );
-                  }
-                  
-                  // Office 文档预览
-                  return (
-                    <iframe
-                      src={viewerType === 'office' ? getOfficeViewerUrl(fileUrl) : getGoogleViewerUrl(fileUrl)}
-                      className="w-full h-full border-0"
-                      title="文档预览"
-                      onLoad={() => setPreviewLoading(false)}
-                    />
-                  );
-                })()}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* 文件预览弹窗 */}
+      <FilePreviewDialog
+        open={filePreview.state.isOpen}
+        onOpenChange={(open) => {
+          if (!open) filePreview.close();
+        }}
+        resource={filePreview.state.resource}
+        viewerType={filePreview.state.viewerType}
+        onViewerTypeChange={filePreview.setViewerType}
+      />
 
       {/* 上传对话框 */}
       <Dialog open={uploadDialogOpen} onOpenChange={(open) => {

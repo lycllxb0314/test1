@@ -676,6 +676,16 @@ export type {
   ResourceStatistics,
 } from './teaching-resource';
 
+// ==================== 文件预览类型 ====================
+
+export type {
+  FileType,
+  ViewerType,
+  FilePreviewResource,
+  FilePreviewState,
+  FilePreviewController,
+} from './file-preview';
+
 // ==================== 对话存储类型 ====================
 
 export type {

@@ -85,6 +85,9 @@ export { useIsMobile } from './use-mobile';
 // 前端分页
 export { useFrontendPagination } from './useApi';
 
+// 文件预览
+export { useFilePreview } from './useFilePreview';
+
 // ============================================
 // 类型导出（向后兼容，逐步迁移到 @/types）
 // ============================================
