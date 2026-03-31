@@ -1,33 +1,19 @@
 /**
- * 手动排课 - 保存/更新/删除单个课位
+ * 手动排课 - 课表格子操作 API
+ * 
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { scheduleService } from '@/services/academic.service';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
-// 类型定义
-interface ScheduleSlotRow {
-  id: string;
-  class_id: string;
-  class_name: string;
-  grade: number;
-  week_day: number;
-  period_index: number;
-  period_name: string | null;
-  subject: string;
-  teacher_id: string | null;
-  teacher_name: string | null;
-  employee_id: string | null;
-  status: string;
-  created_at: string;
-}
-
-// GET - 获取某个班级的课表
-export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+/**
+ * GET - 获取某个班级的课表
+ */
+export const GET = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId');
     
@@ -35,41 +21,24 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       return NextResponse.json(error('缺少班级ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
-    const { data: slots, error: dbError } = await client
-      .from('schedule_slots')
-      .select('*')
-      .eq('class_id', classId);
+    const result = await scheduleService.getClassSchedule(classId);
     
-    if (dbError) {
-      return NextResponse.json(error('获取课表失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '获取课表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
-    // 转换为二维数组格式 [weekday][period]
-    const schedule: (ScheduleSlotRow | null)[][] = [[], [], [], [], []];
-    
-    for (const slot of slots || []) {
-      const dayIndex = slot.week_day - 1;
-      if (dayIndex >= 0 && dayIndex < 5) {
-        // 扩展数组
-        while (schedule[dayIndex].length <= slot.period_index) {
-          schedule[dayIndex].push(null);
-        }
-        schedule[dayIndex][slot.period_index] = slot;
-      }
-    }
-    
-    return NextResponse.json(success({ schedule, slots }));
-    
+    return NextResponse.json(success(result.data));
   } catch (err) {
     console.error('获取课表失败:', err);
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });
 
-// POST - 保存单个课位
-export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+/**
+ * POST - 保存单个课位
+ */
+export const POST = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
     
     const { classId, className, grade, weekDay, periodIndex, subject, teacherId, teacherName } = body;
@@ -78,82 +47,33 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
       return NextResponse.json(error('缺少必要参数', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
-    // 获取教师的 employee_id
-    let employeeId = null;
-    if (teacherId) {
-      const { data: teacherData } = await client
-        .from('teachers')
-        .select('employee_id')
-        .eq('id', teacherId)
-        .single();
-      employeeId = teacherData?.employee_id || null;
+    const result = await scheduleService.saveSlot({
+      classId,
+      className,
+      grade,
+      weekDay,
+      periodIndex,
+      subject,
+      teacherId,
+      teacherName,
+    });
+    
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '保存失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
-    // 使用 upsert 避免重复插入（基于唯一约束）
-    // 先删除该位置的旧记录，再插入新记录
-    await client
-      .from('schedule_slots')
-      .delete()
-      .eq('class_id', classId)
-      .eq('week_day', weekDay)
-      .eq('period_index', periodIndex);
-    
-    // 插入新记录
-    const { error: insertError } = await client
-      .from('schedule_slots')
-      .insert({
-        class_id: classId,
-        class_name: className,
-        grade,
-        week_day: weekDay,
-        period_index: periodIndex,
-        subject,
-        teacher_id: teacherId || null,
-        teacher_name: teacherName || null,
-        employee_id: employeeId,
-      });
-    
-    if (insertError) {
-      console.error('保存失败:', insertError);
-      return NextResponse.json(error('保存失败', ErrorCode.DATABASE_ERROR), { status: 500 });
-    }
-    
-    // 返回更新后的教师课时
-    let teacherInfo = null;
-    if (teacherId) {
-      const { data: teacher } = await client
-        .from('teachers')
-        .select('id, name, primary_subject, total_weekly_hours')
-        .eq('id', teacherId)
-        .single();
-      
-      if (teacher) {
-        // 获取该教师已安排的课时
-        const { count } = await client
-          .from('schedule_slots')
-          .select('*', { count: 'exact', head: true })
-          .eq('teacher_id', teacherId);
-        
-        teacherInfo = {
-          id: teacher.id,
-          name: teacher.name,
-          usedHours: count || 0,
-        };
-      }
-    }
-    
-    return NextResponse.json(success({ teacherInfo }));
-    
+    return NextResponse.json(success(result.data));
   } catch (err) {
     console.error('保存课位失败:', err);
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });
 
-// DELETE - 删除单个课位
-export const DELETE = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+/**
+ * DELETE - 删除单个课位
+ */
+export const DELETE = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId');
     const weekDay = searchParams.get('weekDay');
@@ -163,19 +83,17 @@ export const DELETE = protectedRoute(async (request: NextRequest, { user }: Exte
       return NextResponse.json(error('缺少必要参数', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
-    const { error: deleteError } = await client
-      .from('schedule_slots')
-      .delete()
-      .eq('class_id', classId)
-      .eq('week_day', parseInt(weekDay))
-      .eq('period_index', parseInt(periodIndex));
+    const result = await scheduleService.deleteSlot({
+      classId,
+      weekDay: parseInt(weekDay),
+      periodIndex: parseInt(periodIndex),
+    });
     
-    if (deleteError) {
-      return NextResponse.json(error('删除失败', ErrorCode.DATABASE_ERROR), { status: 500 });
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '删除失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
     return NextResponse.json(success(null));
-    
   } catch (err) {
     console.error('删除课位失败:', err);
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });

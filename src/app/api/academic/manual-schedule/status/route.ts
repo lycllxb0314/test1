@@ -1,63 +1,28 @@
 /**
- * 手动排课 - 状态查询
- * 获取草稿和正式课表的状态
+ * 手动排课 - 状态查询 API
+ * 
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { success, error, ErrorCode } from '@/lib/api';
+import { scheduleService } from '@/services/academic.service';
+import { error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
-// 类型定义
-interface ClassSlotData {
-  slots: unknown[];
-}
-
-interface ScheduleDraftRow {
-  updated_at: string;
-  schedule_data: ClassSlotData[] | null;
-}
-
-export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+/**
+ * GET - 获取排课状态
+ */
+export const GET = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
-    const grade = parseInt(searchParams.get('grade') || '0');
+    const result = await scheduleService.getStatus();
     
-    if (!grade) {
-      return NextResponse.json(error('缺少年级参数', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '获取状态失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
-    // 并行查询草稿状态和正式课表状态
-    const [draftResult, officialResult] = await Promise.all([
-      client
-        .from('schedule_drafts')
-        .select('updated_at, schedule_data')
-        .eq('grade', grade)
-        .single(),
-      client
-        .from('schedule_slots')
-        .select('id', { count: 'exact', head: true })
-        .eq('grade', grade),
-    ]);
-    
-    const draft = draftResult.data as ScheduleDraftRow | null;
-    
-    return NextResponse.json(success({
-      grade,
-      // 草稿状态
-      hasDraft: !!draft,
-      draftUpdatedAt: draft?.updated_at || null,
-      draftSlotsCount: draft?.schedule_data 
-        ? draft.schedule_data.reduce((acc: number, c: ClassSlotData) => acc + (c.slots?.length || 0), 0) 
-        : 0,
-      // 正式课表状态（schedule_slots）
-      hasOfficial: (officialResult.count || 0) > 0,
-      officialSlotsCount: officialResult.count || 0,
-    }));
-    
+    return NextResponse.json({ success: true, data: result.data });
   } catch (err) {
-    console.error('获取状态失败:', err);
+    console.error('获取排课状态失败:', err);
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });

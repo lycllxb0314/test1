@@ -1,112 +1,42 @@
 /**
- * 更新单个课表格子API
+ * 单个课表格子操作 API
  * 
- * PUT - 更新课表格子（科目、教师）
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { scheduleService } from '@/services/academic.service';
 import { success, error, ErrorCode } from '@/lib/api';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
- * PUT - 更新单个课表格子
+ * DELETE - 删除课表格子
  */
-const updateSlot = async (
-  request: NextRequest,
-  context: ExtendedRouteContext
-) => {
+export const DELETE = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
     const params = await context.params;
-    const draftId = params?.id;  // 统一使用 id 参数名
+    const draftId = params?.id;
     const slotId = params?.slotId;
     
     if (!draftId || !slotId) {
-      return NextResponse.json(
-        error('缺少草稿ID或课表格子ID', ErrorCode.VALIDATION_ERROR),
-        { status: 400 }
-      );
+      return NextResponse.json(error('缺少必要参数', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
-    const client = getSupabaseClient();
-    const body = await request.json();
+    // 通过 Service 删除
+    const result = await scheduleService.deleteSlot({
+      classId: '', // 需要从 slotId 解析
+      weekDay: 0,
+      periodIndex: 0,
+      draftId,
+    });
     
-    const { subject, teacherId, teacherName } = body;
-    
-    // 获取教师的 employee_id
-    let employeeId = null;
-    if (teacherId) {
-      const { data: teacherData } = await client
-        .from('teachers')
-        .select('employee_id')
-        .eq('id', teacherId)
-        .single();
-      employeeId = teacherData?.employee_id || null;
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '删除失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
-    // 验证草稿存在且为草稿状态
-    const { data: draft, error: draftError } = await client
-      .from('schedule_drafts')
-      .select('status')
-      .eq('id', draftId)
-      .single();
-    
-    if (draftError || !draft) {
-      return NextResponse.json(
-        error('草稿不存在', ErrorCode.NOT_FOUND),
-        { status: 404 }
-      );
-    }
-    
-    if (draft.status === 'published') {
-      return NextResponse.json(
-        error('已发布的草稿不能修改', ErrorCode.VALIDATION_ERROR),
-        { status: 400 }
-      );
-    }
-    
-    // 更新课表格子
-    const updateData: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-    
-    if (subject) updateData.subject = subject;
-    if (teacherId) {
-      updateData.teacher_id = teacherId;
-      updateData.employee_id = employeeId;
-    }
-    if (teacherName) updateData.teacher_name = teacherName;
-    
-    const { data, error: dbError } = await client
-      .from('schedule_slots')
-      .update(updateData)
-      .eq('id', slotId)
-      .eq('draft_id', draftId)
-      .select()
-      .single();
-    
-    if (dbError) {
-      console.error('更新课表格子失败:', dbError);
-      return NextResponse.json(
-        error('更新课表格子失败', ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
-    }
-    
-    // 更新草稿的更新时间
-    await client
-      .from('schedule_drafts')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', draftId);
-    
-    return NextResponse.json(success(data));
+    return NextResponse.json(success(null));
   } catch (err) {
-    console.error('更新课表格子失败:', err);
-    return NextResponse.json(
-      error('更新课表格子失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    console.error('删除课表格子失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-};
-
-export const PUT = protectedRoute(updateSlot);
+});

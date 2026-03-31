@@ -1,119 +1,73 @@
+/**
+ * 集体备课 API
+ * 
+ * 架构：API Route → Service → Repository
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { collectivePreparationService } from '@/services/research.service';
+import { success, error, ErrorCode } from '@/lib/api';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
  * GET - 获取集体备课列表
- * 查询参数：
- * - page: 页码
- * - pageSize: 每页数量
- * - subject: 学科
- * - grade: 年级
- * - hostId: 主备人ID
- * - status: 状态
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
-    const subject = searchParams.get('subject');
     const grade = searchParams.get('grade');
-    const hostId = searchParams.get('hostId');
-    const participantId = searchParams.get('participantId');
-    const status = searchParams.get('status');
-
-    let query = client
-      .from('collective_preparations')
-      .select('*', { count: 'exact' });
-
-    if (subject) {
-      query = query.eq('subject', subject);
+    
+    const result = await collectivePreparationService.getList({
+      subject: searchParams.get('subject') || undefined,
+      grade: grade ? parseInt(grade) : undefined,
+      hostId: searchParams.get('hostId') || undefined,
+      participantId: searchParams.get('participantId') || undefined,
+      status: searchParams.get('status') || undefined,
+      page: parseInt(searchParams.get('page') || '1'),
+      pageSize: parseInt(searchParams.get('pageSize') || '20'),
+    });
+    
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '获取集体备课列表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
-    if (grade) {
-      query = query.eq('grade', parseInt(grade));
-    }
-    if (hostId) {
-      query = query.eq('host_id', hostId);
-    }
-    if (participantId) {
-      query = query.contains('participant_ids', [participantId]);
-    }
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    // 分页
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to);
-    query = query.order('scheduled_date', { ascending: false });
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
-    }
-
+    
     return NextResponse.json({
       success: true,
       data: {
-        data: data || [],
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
+        data: result.data,
+        total: result.pagination?.total || 0,
+        page: result.pagination?.page,
+        pageSize: result.pagination?.pageSize,
+        totalPages: result.pagination?.totalPages,
       },
     });
-  } catch (error) {
-    console.error('Failed to fetch collective preparations:', error);
-    return NextResponse.json({
-      success: false,
-      error: '获取集体备课列表失败',
-    }, { status: 500 });
+  } catch (err) {
+    console.error('Failed to fetch collective preparations:', err);
+    return NextResponse.json(error('获取集体备课列表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
 
 /**
  * POST - 创建集体备课
  */
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
-
-    const { data, error } = await client
-      .from('collective_preparations')
-      .insert({
-        ...body,
-        status: body.status || 'draft',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-      }, { status: 500 });
+    
+    const result = await collectivePreparationService.create(body);
+    
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '创建集体备课失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
-
+    
     return NextResponse.json({
       success: true,
-      data,
+      data: result.data,
       message: '集体备课创建成功',
     });
-  } catch (error) {
-    console.error('Failed to create collective preparation:', error);
-    return NextResponse.json({
-      success: false,
-      error: '创建集体备课失败',
-    }, { status: 500 });
+  } catch (err) {
+    console.error('Failed to create collective preparation:', err);
+    return NextResponse.json(error('创建集体备课失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});

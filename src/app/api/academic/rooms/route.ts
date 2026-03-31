@@ -1,259 +1,81 @@
 /**
  * 教室管理 API
  * 
- * GET - 获取教室列表
- * POST - 创建新教室
- * PUT - 更新教室信息
+ * 架构：API Route → Service → Repository
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { roomService } from '@/services/academic.service';
+import { error, ErrorCode } from '@/lib/api';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
  * GET - 获取教室列表
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     
-    const id = searchParams.get('id');
-    const type = searchParams.get('type');
-    const status = searchParams.get('status');
-    const building = searchParams.get('building');
-    const search = searchParams.get('search');
+    const result = await roomService.getList({
+      id: searchParams.get('id') || undefined,
+      type: searchParams.get('type') || undefined,
+      status: searchParams.get('status') || undefined,
+      building: searchParams.get('building') || undefined,
+      search: searchParams.get('search') || undefined,
+    });
     
-    // 如果指定了ID，查询单个教室
-    if (id) {
-      const { data, error: dbError } = await client
-        .from('rooms')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (dbError) {
-        console.error('获取教室详情失败:', dbError);
-        return NextResponse.json(
-          { success: false, error: '获取教室详情失败' },
-          { status: 500 }
-        );
-      }
-      
-      return NextResponse.json({ success: true, data });
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '获取教室列表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
-    let query = client
-      .from('rooms')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    // 筛选条件
-    if (type && type !== 'all') {
-      query = query.eq('type', type);
-    }
-    if (status && status !== 'all') {
-      query = query.eq('status', status);
-    }
-    if (building && building !== 'all') {
-      query = query.eq('building', building);
-    }
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,location.ilike.%${search}%`);
-    }
-    
-    const { data, error: dbError } = await query;
-    
-    if (dbError) {
-      console.error('获取教室列表失败:', dbError);
-      return NextResponse.json(
-        { success: false, error: '获取教室列表失败' },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({ success: true, data: data || [] });
+    return NextResponse.json({ success: true, data: result.data });
   } catch (err) {
-    console.error('获取教室列表失败:', err);
-    return NextResponse.json(
-      { success: false, error: '获取教室列表失败' },
-      { status: 500 }
-    );
+    console.error('教室管理API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
 
 /**
  * POST - 创建新教室
  */
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
     
-    const {
-      id,
-      name,
-      code,
-      type,
-      building,
-      floor,
-      location,
-      capacity,
-      area,
-      facilities,
-      extraFacilities,
-      status,
-      managerId,
-      managerName,
-      departmentId,
-      remark,
-    } = body;
+    const result = await roomService.create(body);
     
-    // 验证必填字段
-    if (!name || !code || !type || !building) {
-      return NextResponse.json(
-        { success: false, error: '缺少必填字段' },
-        { status: 400 }
-      );
+    if (!result.success) {
+      const statusCode = result.code === 'VALIDATION_ERROR' ? 400 : 500;
+      return NextResponse.json(error(result.error || '创建教室失败', result.code as ErrorCode), { status: statusCode });
     }
     
-    const roomId = id || `room-${Date.now()}`;
-    
-    const { data, error: dbError } = await client
-      .from('rooms')
-      .insert({
-        id: roomId,
-        name,
-        code,
-        type,
-        building,
-        floor,
-        location,
-        capacity: capacity || 30,
-        area,
-        facilities: facilities || {
-          projector: false,
-          computer: false,
-          microphone: false,
-          speaker: false,
-          whiteboard: false,
-          blackboard: false,
-          airConditioner: false,
-          wifi: false,
-          videoConference: false,
-          recording: false,
-        },
-        extra_facilities: extraFacilities,
-        status: status || 'available',
-        manager_id: managerId,
-        manager_name: managerName,
-        department_id: departmentId,
-        remark,
-        usage_stats: {
-          totalBookings: 0,
-          thisMonth: 0,
-        },
-      })
-      .select()
-      .single();
-    
-    if (dbError) {
-      console.error('创建教室失败:', dbError);
-      return NextResponse.json(
-        { success: false, error: '创建教室失败: ' + dbError.message },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data: result.data });
   } catch (err) {
-    console.error('创建教室失败:', err);
-    return NextResponse.json(
-      { success: false, error: '创建教室失败' },
-      { status: 500 }
-    );
+    console.error('创建教室API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
 
 /**
  * PUT - 更新教室信息
  */
-export async function PUT(request: NextRequest) {
+export const PUT = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const client = getSupabaseClient();
     const body = await request.json();
     
-    const {
-      id,
-      name,
-      code,
-      type,
-      building,
-      floor,
-      location,
-      capacity,
-      area,
-      facilities,
-      extraFacilities,
-      status,
-      managerId,
-      managerName,
-      departmentId,
-      remark,
-    } = body;
-    
-    // 验证必填字段
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: '缺少教室ID' },
-        { status: 400 }
-      );
+    if (!body.id) {
+      return NextResponse.json(error('缺少教室ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
     
-    if (!name || !code || !type || !building) {
-      return NextResponse.json(
-        { success: false, error: '缺少必填字段' },
-        { status: 400 }
-      );
+    const result = await roomService.update(body.id, body);
+    
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '更新教室失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
     
-    const { data, error: dbError } = await client
-      .from('rooms')
-      .update({
-        name,
-        code,
-        type,
-        building,
-        floor,
-        location,
-        capacity,
-        area,
-        facilities,
-        extra_facilities: extraFacilities,
-        status,
-        manager_id: managerId,
-        manager_name: managerName,
-        department_id: departmentId,
-        remark,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (dbError) {
-      console.error('更新教室失败:', dbError);
-      return NextResponse.json(
-        { success: false, error: '更新教室失败: ' + dbError.message },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data: result.data });
   } catch (err) {
-    console.error('更新教室失败:', err);
-    return NextResponse.json(
-      { success: false, error: '更新教室失败' },
-      { status: 500 }
-    );
+    console.error('更新教室API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
