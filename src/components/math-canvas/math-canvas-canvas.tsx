@@ -63,6 +63,55 @@ export function MathCanvas({
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [currentPoint, setCurrentPoint] = useState<Point | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragElement, setDragElement] = useState<CanvasElement | null>(null);
+  const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
+  const [snapPreview, setSnapPreview] = useState<Point | null>(null);
+
+  // 计算吸附位置（正方体吸附到其他正方体）
+  const calculateSnapPosition = useCallback((element: CanvasElement, position: Point): Point => {
+    if (element.type !== 'cube') return position;
+    
+    const cubeSize = (element as SolidShape).width || 50;
+    const snapThreshold = 10; // 吸附阈值
+    
+    // 查找其他正方体元素
+    const otherCubes = state.elements.filter(
+      (el) => el.type === 'cube' && el.id !== element.id
+    ) as SolidShape[];
+    
+    let bestSnap: Point | null = null;
+    let minDistance = snapThreshold;
+    
+    for (const otherCube of otherCubes) {
+      const otherPos = otherCube.position;
+      const otherSize = otherCube.width;
+      
+      // 检查八个方向的吸附位置
+      const snapPositions = [
+        { x: otherPos.x - cubeSize, y: otherPos.y }, // 左
+        { x: otherPos.x + otherSize, y: otherPos.y }, // 右
+        { x: otherPos.x, y: otherPos.y - cubeSize }, // 上
+        { x: otherPos.x, y: otherPos.y + otherSize }, // 下
+        { x: otherPos.x - cubeSize, y: otherPos.y - cubeSize }, // 左上
+        { x: otherPos.x + otherSize, y: otherPos.y - cubeSize }, // 右上
+        { x: otherPos.x - cubeSize, y: otherPos.y + otherSize }, // 左下
+        { x: otherPos.x + otherSize, y: otherPos.y + otherSize }, // 右下
+      ];
+      
+      for (const snapPos of snapPositions) {
+        const distance = Math.sqrt(
+          Math.pow(position.x - snapPos.x, 2) + Math.pow(position.y - snapPos.y, 2)
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          bestSnap = snapPos;
+        }
+      }
+    }
+    
+    return bestSnap || position;
+  }, [state.elements]);
 
   // 获取鼠标在画布上的位置
   const getMousePos = useCallback((e: React.MouseEvent): Point => {
@@ -1271,7 +1320,79 @@ export function MathCanvas({
         ctx.beginPath();
         ctx.ellipse(cx, cy, r, r * 0.3, 0, 0, Math.PI * 2);
         ctx.stroke();
-      } else if (['numberLine', 'segmentDiagram', 'barChart', 'lineChart', 'pieChart', 'squareGrid', 'cubeGrid'].includes(tool)) {
+      }
+      
+      // 立体图形预览（使用类型断言避免类型收窄问题）
+      if (tool === 'cube' || tool === 'cuboid' || tool === 'cylinder' || tool === 'cone') {
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        
+        if (tool === 'cube') {
+          // 小正方体预览
+          const size = Math.max(w, h, 30);
+          const offset = size * 0.3;
+          
+          ctx.beginPath();
+          ctx.rect(x, y, size, size);
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + offset, y - offset);
+          ctx.lineTo(x + size + offset, y - offset);
+          ctx.lineTo(x + size, y);
+          ctx.closePath();
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.moveTo(x + size, y);
+          ctx.lineTo(x + size + offset, y - offset);
+          ctx.lineTo(x + size + offset, y + size - offset);
+          ctx.lineTo(x + size, y + size);
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+      
+      if (tool === 'squareGrid') {
+        // 正方形网格预览：显示网格线让用户直观看到圈选范围
+        const x = Math.min(startPoint.x, currentPoint.x);
+        const y = Math.min(startPoint.y, currentPoint.y);
+        const w = Math.abs(currentPoint.x - startPoint.x);
+        const h = Math.abs(currentPoint.y - startPoint.y);
+        const rows = 3;
+        const cols = 3;
+        const cellW = w / cols;
+        const cellH = h / rows;
+        
+        // 绘制外边框
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.stroke();
+        
+        // 绘制内部网格线
+        ctx.lineWidth = 1;
+        for (let i = 1; i < rows; i++) {
+          ctx.beginPath();
+          ctx.moveTo(x, y + i * cellH);
+          ctx.lineTo(x + w, y + i * cellH);
+          ctx.stroke();
+        }
+        for (let j = 1; j < cols; j++) {
+          ctx.beginPath();
+          ctx.moveTo(x + j * cellW, y);
+          ctx.lineTo(x + j * cellW, y + h);
+          ctx.stroke();
+        }
+        
+        // 显示尺寸提示
+        ctx.fillStyle = state.activeColor;
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${cols} × ${rows}`, x + w / 2, y - 8);
+      } else if (['numberLine', 'segmentDiagram', 'barChart', 'lineChart', 'pieChart', 'cubeGrid'].includes(tool)) {
         // 这些工具只需要点击位置
         ctx.fillStyle = `${state.activeColor}20`;
         ctx.fillRect(startPoint.x - 5, startPoint.y - 5, 10, 10);
@@ -1308,8 +1429,21 @@ export function MathCanvas({
       for (let i = state.elements.length - 1; i >= 0; i--) {
         const element = state.elements[i];
         if (isPointInElement(point, element)) {
-          // 普通元素：选中它
+          // 选中元素
           onElementSelect?.([element.id]);
+          
+          // 如果是可拖动的元素（如正方体），开始拖动
+          if (element.type === 'cube') {
+            const bounds = getElementBounds(element);
+            if (bounds) {
+              setIsDragging(true);
+              setDragElement(element);
+              setDragOffset({
+                x: point.x - bounds.x,
+                y: point.y - bounds.y,
+              });
+            }
+          }
           return;
         }
       }
@@ -1326,12 +1460,48 @@ export function MathCanvas({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDrawing) return;
     const point = getMousePos(e);
+    
+    // 拖动模式
+    if (isDragging && dragElement) {
+      const newPosition = {
+        x: point.x - dragOffset.x,
+        y: point.y - dragOffset.y,
+      };
+      
+      // 计算吸附位置
+      const snappedPosition = calculateSnapPosition(dragElement, newPosition);
+      setSnapPreview(snappedPosition);
+      
+      // 更新元素位置
+      if (dragElement.type === 'cube') {
+        const updatedElement = {
+          ...dragElement,
+          position: snappedPosition,
+        };
+        const updatedElements = state.elements.map((el) =>
+          el.id === dragElement.id ? updatedElement : el
+        );
+        onChange?.({ ...state, elements: updatedElements });
+        setDragElement(updatedElement);
+      }
+      return;
+    }
+    
+    // 绘制模式
+    if (!isDrawing) return;
     setCurrentPoint(point);
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    // 结束拖动
+    if (isDragging) {
+      setIsDragging(false);
+      setDragElement(null);
+      setSnapPreview(null);
+      return;
+    }
+    
     if (!isDrawing || !startPoint) {
       setIsDrawing(false);
       return;
