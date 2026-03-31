@@ -145,12 +145,35 @@ export type SolidShape = BaseShapeProps & {
   showNet: boolean;         // 显示展开图
   showDimensions: boolean;  // 显示尺寸标注
   showHiddenLines: boolean; // 显示隐藏线
-  showSideNet?: boolean;    // 显示侧面展开图（圆柱、圆锥）
+  showSideNet?: boolean;    // 显示侧面展开图（圆柱、圆锥）- 已废弃，保留兼容
+  netPosition?: Point;      // 已废弃，保留兼容
   rotation: {
     x: number;
     y: number;
     z: number;
   };
+};
+
+/** 展开图类型 */
+export type NetShapeType =
+  | 'cubeNet'         // 正方体展开图
+  | 'cuboidNet'       // 长方体展开图
+  | 'cylinderNet'     // 圆柱展开图
+  | 'coneNet';        // 圆锥展开图
+
+/** 展开图元素 */
+export type NetShape = BaseShapeProps & {
+  type: NetShapeType;
+  position: Point;              // 展开图位置
+  sourceId?: string;            // 来源图形ID（可选）
+  // 正方体/长方体展开图属性
+  width?: number;               // 宽度
+  height?: number;              // 高度
+  depth?: number;               // 深度
+  // 圆柱/圆锥展开图属性
+  radius?: number;              // 底面半径
+  cylinderHeight?: number;      // 圆柱/圆锥高度
+  showLabels?: boolean;         // 显示标注
 };
 
 /** 3D 积木块位置 */
@@ -270,7 +293,8 @@ export type CanvasElement =
   | SegmentDiagramShape 
   | ChartShape 
   | TextAnnotation 
-  | DimensionAnnotation;
+  | DimensionAnnotation
+  | NetShape;
 
 /** 画布状态 */
 export type CanvasState = {
@@ -325,7 +349,12 @@ export type ToolType =
   | 'lineChart'
   | 'pieChart'
   // 标注
-  | 'dimension';
+  | 'dimension'
+  // 展开图
+  | 'cubeNet'
+  | 'cuboidNet'
+  | 'cylinderNet'
+  | 'coneNet';
 
 /** 工具分组 */
 export type ToolGroup = {

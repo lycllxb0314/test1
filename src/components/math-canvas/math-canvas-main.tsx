@@ -262,6 +262,16 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
     }));
   }, []);
 
+  // 创建新元素（如展开图）
+  const handleCreateElement = useCallback((element: CanvasElement) => {
+    setState((prev) => ({
+      ...prev,
+      elements: [...prev.elements, element],
+      selection: [element.id],
+    }));
+    setActiveTab('element');
+  }, []);
+
   // 教学场景快捷模板
   const templates = [
     { name: '正方形面积', tool: 'squareGrid' as ToolType, desc: '用小正方形研究面积' },
@@ -274,106 +284,6 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* 顶部工具栏 */}
-      <div className="border-b bg-card px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">数学画板</h2>
-          <span className="text-xs text-muted-foreground">
-            支持：平面图形、立体图形、组合图形、数轴、线段图、统计图
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* 快捷模板 */}
-          <div className="flex items-center gap-1 mr-4">
-            <span className="text-xs text-muted-foreground mr-1">快捷：</span>
-            {templates.map((t) => (
-              <Button
-                key={t.name}
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => handleToolChange(t.tool)}
-                title={t.desc}
-              >
-                {t.name}
-              </Button>
-            ))}
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className="hidden"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="h-4 w-4 mr-1" />
-            导入
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-1" />
-            导出
-          </Button>
-          <Dialog open={showHelp} onOpenChange={setShowHelp}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <HelpCircle className="h-4 w-4 mr-1" />
-                帮助
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  数学画板使用指南
-                </DialogTitle>
-                <DialogDescription>
-                  小学数学全领域画图工具
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 text-sm">
-                <div>
-                  <h4 className="font-medium mb-2">📐 图形与几何</h4>
-                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                    <li><strong>平面图形</strong>：点、线、角、三角形、四边形、圆等</li>
-                    <li><strong>立体图形</strong>：正方体、长方体、圆柱、圆锥、球</li>
-                    <li><strong>组合图形</strong>：小正方形拼图（面积研究）、小正方体组合（体积研究）</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">🔢 数与代数</h4>
-                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                    <li><strong>数轴</strong>：整数轴、分数轴、小数轴</li>
-                    <li><strong>线段图</strong>：和差问题、倍数问题、分数问题</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">📊 统计与概率</h4>
-                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                    <li><strong>条形统计图</strong>：分类统计</li>
-                    <li><strong>折线统计图</strong>：变化趋势</li>
-                    <li><strong>扇形统计图</strong>：比例分布</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">📝 操作说明</h4>
-                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                    <li>选择工具后在画布上拖拽绘制</li>
-                    <li>右侧面板调整颜色、线宽、网格</li>
-                    <li>支持导入/导出保存作品</li>
-                  </ul>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
       {/* 主体区域 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧工具栏 */}
@@ -407,7 +317,7 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
                 编辑 {selectedElement ? '(1)' : ''}
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="properties" className="flex-1 overflow-y-auto mt-0">
+            <TabsContent value="properties" className="flex-1 overflow-y-auto mt-0 data-[state=inactive]:hidden">
               <PropertyPanel
                 grid={state.grid}
                 zoom={state.zoom}
@@ -427,12 +337,13 @@ export function MathCanvasMain({ onSave, onLoad }: MathCanvasMainProps) {
                 onFillColorChange={setFillColor}
               />
             </TabsContent>
-            <TabsContent value="element" className="flex-1 overflow-y-auto mt-0">
+            <TabsContent value="element" className="flex-1 overflow-y-auto mt-0 data-[state=inactive]:hidden">
               <ElementEditor
                 element={selectedElement}
                 onUpdate={handleElementUpdate}
                 onDelete={handleElementDelete}
                 onDuplicate={handleElementDuplicate}
+                onCreateElement={handleCreateElement}
               />
             </TabsContent>
           </Tabs>

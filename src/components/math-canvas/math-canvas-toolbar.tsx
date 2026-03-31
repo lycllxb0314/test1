@@ -34,6 +34,7 @@ import {
   BarChart2,
   TrendingUp,
   Ruler,
+  UnfoldVertical,
 } from 'lucide-react';
 
 /** 工具图标映射 */
@@ -69,6 +70,10 @@ const TOOL_ICONS: Record<ToolType, React.ReactNode> = {
   lineChart: <TrendingUp className="h-4 w-4" />,
   pieChart: <PieChart className="h-4 w-4" />,
   dimension: <Ruler className="h-4 w-4" />,
+  cubeNet: <UnfoldVertical className="h-4 w-4" />,
+  cuboidNet: <UnfoldVertical className="h-4 w-4" />,
+  cylinderNet: <UnfoldVertical className="h-4 w-4" />,
+  coneNet: <UnfoldVertical className="h-4 w-4" />,
 };
 
 /** 工具名称映射 */
@@ -104,6 +109,10 @@ const TOOL_NAMES: Record<ToolType, string> = {
   lineChart: '折线统计图',
   pieChart: '扇形统计图',
   dimension: '尺寸标注',
+  cubeNet: '正方体展开图',
+  cuboidNet: '长方体展开图',
+  cylinderNet: '圆柱展开图',
+  coneNet: '圆锥展开图',
 };
 
 /** 工具栏 Props */

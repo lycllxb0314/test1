@@ -13,6 +13,7 @@ import type {
   ChartShape,
   NumberLineShape,
   SegmentDiagramShape,
+  NetShape,
 } from '@/types/math-canvas';
 
 /** CubeShape 类型别名（cube 类型的 SolidShape） */
@@ -594,30 +595,6 @@ export function MathCanvas({
         ctx.beginPath();
         ctx.ellipse(position.x + width / 2, position.y, width / 2, height * 0.15, 0, 0, Math.PI * 2);
         ctx.stroke();
-        
-        // 侧面展开图
-        if (showSideNet) {
-          const netX = position.x + width + 30;
-          const netY = position.y;
-          const circumference = Math.PI * width; // 底面周长
-          
-          // 绘制展开的矩形侧面
-          ctx.beginPath();
-          ctx.rect(netX, netY, circumference, height);
-          ctx.stroke();
-          
-          // 添加标注
-          ctx.font = '12px sans-serif';
-          ctx.fillStyle = '#666';
-          ctx.fillText(`底面周长 = ${circumference.toFixed(1)}`, netX, netY + height + 20);
-          ctx.fillText(`高 = ${height}`, netX + circumference + 10, netY + height / 2);
-          
-          // 绘制展开的圆形底面
-          ctx.beginPath();
-          ctx.arc(netX + circumference / 2, netY + height + 60, width / 2, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.fillText('底面', netX + circumference / 2 - 15, netY + height + 60 + 5);
-        }
         break;
 
       case 'cone':
@@ -634,32 +611,6 @@ export function MathCanvas({
         ctx.moveTo(position.x + width / 2, position.y);
         ctx.lineTo(position.x + width, position.y + height);
         ctx.stroke();
-        
-        // 侧面展开图
-        if (showSideNet) {
-          const netX = position.x + width + 30;
-          const netY = position.y;
-          const slantHeight = Math.sqrt((width / 2) * (width / 2) + height * height); // 母线长
-          const arcAngle = Math.PI * width / slantHeight; // 扇形弧度
-          
-          // 绘制展开的扇形侧面
-          ctx.beginPath();
-          ctx.moveTo(netX, netY + slantHeight);
-          ctx.arc(netX, netY + slantHeight, slantHeight, -Math.PI / 2 - arcAngle / 2, -Math.PI / 2 + arcAngle / 2);
-          ctx.closePath();
-          ctx.stroke();
-          
-          // 添加标注
-          ctx.font = '12px sans-serif';
-          ctx.fillStyle = '#666';
-          ctx.fillText(`母线 = ${slantHeight.toFixed(1)}`, netX + slantHeight + 10, netY + slantHeight / 2);
-          
-          // 绘制展开的圆形底面
-          ctx.beginPath();
-          ctx.arc(netX, netY + slantHeight + 60, width / 2, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.fillText('底面', netX - 15, netY + slantHeight + 60 + 5);
-        }
         break;
 
       case 'sphere':
@@ -1046,6 +997,183 @@ export function MathCanvas({
     ctx.restore();
   }, []);
 
+  // 绘制展开图
+  const drawNetShape = useCallback((ctx: CanvasRenderingContext2D, shape: NetShape) => {
+    ctx.save();
+    const { position, strokeColor, strokeWidth, showLabels } = shape;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = strokeWidth;
+    ctx.fillStyle = shape.fillColor;
+    
+    switch (shape.type) {
+      case 'cubeNet': {
+        // 正方体展开图（十字形）
+        const size = shape.width || 50;
+        const x = position.x;
+        const y = position.y;
+        
+        // 展开图布局：中心一个正方形，上下左右各一个
+        // 布局：上、左、中心、右、下
+        const positions = [
+          { x: x + size, y: y },              // 上
+          { x: x, y: y + size },              // 左
+          { x: x + size, y: y + size },       // 中心
+          { x: x + size * 2, y: y + size },   // 右
+          { x: x + size, y: y + size * 2 },   // 下
+        ];
+        
+        positions.forEach((pos, index) => {
+          ctx.beginPath();
+          ctx.rect(pos.x, pos.y, size, size);
+          if (shape.fillMode === 'solid') {
+            ctx.globalAlpha = shape.opacity * 0.3;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+          ctx.stroke();
+          
+          if (showLabels && index === 2) {
+            ctx.fillStyle = '#666';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('前面', pos.x + size / 2, pos.y + size / 2 + 4);
+          }
+        });
+        
+        if (showLabels) {
+          ctx.fillStyle = '#666';
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`边长 = ${size}`, x + size * 1.5, y + size * 3.5);
+        }
+        break;
+      }
+      
+      case 'cuboidNet': {
+        // 长方体展开图
+        const w = shape.width || 60;
+        const h = shape.height || 40;
+        const d = shape.depth || 30;
+        const x = position.x;
+        const y = position.y;
+        
+        // 展开图布局
+        const positions = [
+          { x: x + d, y: y, w: w, h: d, label: '上' },           // 上
+          { x: x, y: y + d, w: d, h: h, label: '左' },           // 左
+          { x: x + d, y: y + d, w: w, h: h, label: '前' },       // 前
+          { x: x + d + w, y: y + d, w: d, h: h, label: '右' },   // 右
+          { x: x + d, y: y + d + h, w: w, h: d, label: '下' },   // 下
+        ];
+        
+        positions.forEach((pos) => {
+          ctx.beginPath();
+          ctx.rect(pos.x, pos.y, pos.w, pos.h);
+          if (shape.fillMode === 'solid') {
+            ctx.globalAlpha = shape.opacity * 0.3;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+          ctx.stroke();
+          
+          if (showLabels) {
+            ctx.fillStyle = '#666';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(pos.label, pos.x + pos.w / 2, pos.y + pos.h / 2 + 4);
+          }
+        });
+        
+        if (showLabels) {
+          ctx.fillStyle = '#666';
+          ctx.font = '12px sans-serif';
+          ctx.fillText(`宽${w} 高${h} 深${d}`, x + d + w / 2, y + d + h + d + 20);
+        }
+        break;
+      }
+      
+      case 'cylinderNet': {
+        // 圆柱展开图：矩形 + 两个圆
+        const radius = shape.radius || 30;
+        const height = shape.cylinderHeight || 60;
+        const circumference = Math.PI * radius * 2;
+        const x = position.x;
+        const y = position.y;
+        
+        // 矩形侧面
+        ctx.beginPath();
+        ctx.rect(x, y, circumference, height);
+        if (shape.fillMode === 'solid') {
+          ctx.globalAlpha = shape.opacity * 0.3;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        ctx.stroke();
+        
+        // 上底面圆
+        ctx.beginPath();
+        ctx.arc(x + circumference / 2, y - radius - 10, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 下底面圆
+        ctx.beginPath();
+        ctx.arc(x + circumference / 2, y + height + radius + 10, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        if (showLabels) {
+          ctx.fillStyle = '#666';
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`底面周长 = ${circumference.toFixed(1)}`, x + circumference / 2, y + height + radius * 2 + 30);
+          ctx.fillText(`高 = ${height}`, x + circumference + 10, y + height / 2);
+          ctx.fillText('上底面', x + circumference / 2, y - radius - 10 + 4);
+          ctx.fillText('下底面', x + circumference / 2, y + height + radius + 10 + 4);
+        }
+        break;
+      }
+      
+      case 'coneNet': {
+        // 圆锥展开图：扇形 + 一个圆
+        const radius = shape.radius || 30;
+        const height = shape.cylinderHeight || 60;
+        const slantHeight = Math.sqrt(radius * radius + height * height); // 母线长
+        const arcAngle = Math.PI * radius * 2 / slantHeight; // 扇形弧度
+        const x = position.x;
+        const y = position.y;
+        
+        // 扇形侧面
+        const centerX = x + slantHeight;
+        const centerY = y + slantHeight;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, slantHeight, -Math.PI / 2 - arcAngle / 2, -Math.PI / 2 + arcAngle / 2);
+        ctx.closePath();
+        if (shape.fillMode === 'solid') {
+          ctx.globalAlpha = shape.opacity * 0.3;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        ctx.stroke();
+        
+        // 底面圆
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + slantHeight + radius + 20, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        if (showLabels) {
+          ctx.fillStyle = '#666';
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`母线 = ${slantHeight.toFixed(1)}`, centerX + slantHeight + 10, centerY);
+          ctx.fillText('底面', centerX, centerY + slantHeight + radius + 20 + 4);
+        }
+        break;
+      }
+    }
+    
+    ctx.restore();
+  }, []);
+
   // 主绘制函数
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1084,6 +1212,8 @@ export function MathCanvas({
         drawCompositeShape(ctx, element as CompositeShape);
       } else if ('type' in element && element.type === 'cube') {
         drawCube(ctx, element as CubeShape);
+      } else if ('type' in element && ['cubeNet', 'cuboidNet', 'cylinderNet', 'coneNet'].includes(element.type)) {
+        drawNetShape(ctx, element as NetShape);
       } else if ('position' in element && 'depth' in element) {
         drawSolidShape(ctx, element as SolidShape);
       } else if ('points' in element) {

@@ -15,8 +15,9 @@ import type {
   SegmentDiagramShape,
   ChartShape,
   PlaneShapeType,
+  NetShape,
 } from '@/types/math-canvas';
-import { Trash2, Copy, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
+import { Trash2, Copy, RotateCw, FlipHorizontal, FlipVertical, UnfoldVertical } from 'lucide-react';
 
 /** 平面图形类型列表 */
 const PLANE_SHAPE_TYPES: PlaneShapeType[] = [
@@ -36,6 +37,7 @@ export type ElementEditorProps = {
   onUpdate: (element: CanvasElement) => void;
   onDelete: (id: string) => void;
   onDuplicate: (element: CanvasElement) => void;
+  onCreateElement?: (element: CanvasElement) => void;
 };
 
 /** 元素编辑器组件 */
@@ -44,6 +46,7 @@ export function ElementEditor({
   onUpdate,
   onDelete,
   onDuplicate,
+  onCreateElement,
 }: ElementEditorProps) {
   if (!element) {
     return (
@@ -84,7 +87,13 @@ export function ElementEditor({
       case 'cylinder':
       case 'cone':
       case 'sphere':
-        return <SolidEditor element={element as SolidShape} onUpdate={onUpdate} />;
+        return (
+          <SolidEditor
+            element={element as SolidShape}
+            onUpdate={onUpdate}
+            onCreateElement={onCreateElement}
+          />
+        );
       default:
         // 对于其他平面图形，显示变换控制
         if (isPlaneShape(element)) {
@@ -597,11 +606,107 @@ function GridEditor({
 function SolidEditor({
   element,
   onUpdate,
+  onCreateElement,
 }: {
   element: SolidShape;
   onUpdate: (el: CanvasElement) => void;
+  onCreateElement?: (el: CanvasElement) => void;
 }) {
   const isCylinderOrCone = element.type === 'cylinder' || element.type === 'cone';
+  
+  // 生成展开图
+  const handleCreateNet = () => {
+    if (!onCreateElement) return;
+    
+    const netId = `net-${Date.now()}`;
+    const netOffset = 150; // 展开图距离原图形的偏移
+    
+    let netElement: NetShape | null = null;
+    
+    if (element.type === 'cube') {
+      // 正方体展开图
+      netElement = {
+        id: netId,
+        type: 'cubeNet',
+        position: { x: element.position.x + element.width + netOffset, y: element.position.y },
+        width: element.width,
+        height: element.height,
+        depth: element.depth,
+        showLabels: true,
+        strokeColor: element.strokeColor,
+        strokeWidth: element.strokeWidth,
+        strokeStyle: element.strokeStyle,
+        fillColor: element.fillColor,
+        fillMode: element.fillMode,
+        opacity: element.opacity,
+        locked: false,
+        visible: true,
+        sourceId: element.id,
+      };
+    } else if (element.type === 'cuboid') {
+      // 长方体展开图
+      netElement = {
+        id: netId,
+        type: 'cuboidNet',
+        position: { x: element.position.x + element.width + netOffset, y: element.position.y },
+        width: element.width,
+        height: element.height,
+        depth: element.depth,
+        showLabels: true,
+        strokeColor: element.strokeColor,
+        strokeWidth: element.strokeWidth,
+        strokeStyle: element.strokeStyle,
+        fillColor: element.fillColor,
+        fillMode: element.fillMode,
+        opacity: element.opacity,
+        locked: false,
+        visible: true,
+        sourceId: element.id,
+      };
+    } else if (element.type === 'cylinder') {
+      // 圆柱展开图
+      netElement = {
+        id: netId,
+        type: 'cylinderNet',
+        position: { x: element.position.x + element.width + netOffset, y: element.position.y },
+        radius: element.width / 2,
+        cylinderHeight: element.height,
+        showLabels: true,
+        strokeColor: element.strokeColor,
+        strokeWidth: element.strokeWidth,
+        strokeStyle: element.strokeStyle,
+        fillColor: element.fillColor,
+        fillMode: element.fillMode,
+        opacity: element.opacity,
+        locked: false,
+        visible: true,
+        sourceId: element.id,
+      };
+    } else if (element.type === 'cone') {
+      // 圆锥展开图
+      netElement = {
+        id: netId,
+        type: 'coneNet',
+        position: { x: element.position.x + element.width + netOffset, y: element.position.y },
+        radius: element.width / 2,
+        cylinderHeight: element.height,
+        showLabels: true,
+        strokeColor: element.strokeColor,
+        strokeWidth: element.strokeWidth,
+        strokeStyle: element.strokeStyle,
+        fillColor: element.fillColor,
+        fillMode: element.fillMode,
+        opacity: element.opacity,
+        locked: false,
+        visible: true,
+        sourceId: element.id,
+      };
+    }
+    
+    if (netElement) {
+      onCreateElement(netElement);
+    }
+  };
   
   return (
     <div className="space-y-3">
@@ -641,26 +746,17 @@ function SolidEditor({
       
       <Separator />
       
-      {isCylinderOrCone && (
-        <div className="flex items-center justify-between">
-          <Label className="text-xs">显示侧面展开图</Label>
-          <input
-            type="checkbox"
-            checked={element.showSideNet || false}
-            onChange={(e) => onUpdate({ ...element, showSideNet: e.target.checked })}
-          />
-        </div>
-      )}
-      
-      {!isCylinderOrCone && (
-        <div className="flex items-center justify-between">
-          <Label className="text-xs">显示展开图</Label>
-          <input
-            type="checkbox"
-            checked={element.showNet}
-            onChange={(e) => onUpdate({ ...element, showNet: e.target.checked })}
-          />
-        </div>
+      {/* 生成展开图按钮 */}
+      {['cube', 'cuboid', 'cylinder', 'cone'].includes(element.type) && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={handleCreateNet}
+        >
+          <UnfoldVertical className="h-4 w-4 mr-2" />
+          生成展开图
+        </Button>
       )}
       
       <div className="flex items-center justify-between">
