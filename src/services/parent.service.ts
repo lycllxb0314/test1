@@ -1,10 +1,12 @@
 /**
  * 家长服务层
  * 
+ * 架构：API Route → Service → Repository
  * 处理家长相关的业务逻辑
  */
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
+import { parentRepository, ParentRecord } from '@/repositories/parent.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import bcrypt from 'bcryptjs';
 
@@ -16,6 +18,11 @@ export interface ParentQueryParams {
   phone?: string;
   name?: string;
   status?: string;
+  classId?: string;
+  grade?: number;
+  hasAccount?: boolean;
+  search?: string;
+  relation?: string;
   page?: number;
   pageSize?: number;
 }
@@ -40,47 +47,27 @@ export class ParentService extends BaseService {
   /**
    * 获取家长列表
    */
-  async getList(params: ParentQueryParams): Promise<PaginatedServiceResult<Record<string, unknown>[]>> {
+  async getList(params: ParentQueryParams): Promise<PaginatedServiceResult<Record<string, unknown>>> {
     try {
-      const client = getSupabaseClient();
-      const { page = 1, pageSize = 20, studentId, phone, name, status } = params;
-
-      let query = client
-        .from('parents')
-        .select('*', { count: 'exact' });
-
-      if (studentId) {
-        query = query.eq('student_id', studentId);
-      }
-      if (phone) {
-        query = query.ilike('phone', `%${phone}%`);
-      }
-      if (name) {
-        query = query.ilike('name', `%${name}%`);
-      }
-      if (status) {
-        query = query.eq('status', status);
-      }
-
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-
-      const { data, count, error } = await query
-        .order('created_at', { ascending: false })
-        .range(from, to);
-
-      if (error) {
-        return { success: false, error: '获取家长列表失败' };
-      }
+      const result = await parentRepository.findList({
+        studentId: params.studentId,
+        phone: params.phone,
+        name: params.name,
+        status: params.status,
+        classId: params.classId,
+        search: params.search,
+        page: params.page,
+        pageSize: params.pageSize,
+      });
 
       return {
         success: true,
-        data: data || [],
+        data: result.data as unknown as Record<string, unknown>[],
         pagination: {
-          page,
-          pageSize,
-          total: count || 0,
-          totalPages: Math.ceil((count || 0) / pageSize),
+          page: result.page,
+          pageSize: result.pageSize,
+          total: result.total,
+          totalPages: result.totalPages,
         },
       };
     } catch (err) {
@@ -92,19 +79,11 @@ export class ParentService extends BaseService {
   /**
    * 根据ID获取家长详情
    */
-  async getById(id: string): Promise<ServiceResult<Record<string, unknown>>> {
+  async getById(id: string): Promise<ServiceResult<ParentRecord>> {
     try {
-      const client = getSupabaseClient();
-      const { data, error } = await client
-        .from('parents')
-        .select(`
-          *,
-          students (id, name, student_no, class_id, class_name, gender, birth_date)
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error || !data) {
+      const data = await parentRepository.findWithStudent(id);
+      
+      if (!data) {
         return { success: false, error: '家长不存在', code: 'NOT_FOUND' };
       }
 
@@ -118,17 +97,11 @@ export class ParentService extends BaseService {
   /**
    * 根据手机号获取家长信息
    */
-  async getByPhone(phone: string): Promise<ServiceResult<Record<string, unknown>>> {
+  async getByPhone(phone: string): Promise<ServiceResult<ParentRecord>> {
     try {
-      const client = getSupabaseClient();
-      const { data, error } = await client
-        .from('parents')
-        .select('*')
-        .eq('phone', phone)
-        .eq('status', 'active')
-        .single();
-
-      if (error || !data) {
+      const data = await parentRepository.findByPhone(phone);
+      
+      if (!data || data.status !== 'active') {
         return { success: false, error: '家长不存在', code: 'NOT_FOUND' };
       }
 
@@ -144,39 +117,22 @@ export class ParentService extends BaseService {
    */
   async getMyInfo(phone: string): Promise<ServiceResult<Record<string, unknown>>> {
     try {
-      const client = getSupabaseClient();
+      const parent = await parentRepository.findByPhone(phone);
       
-      const { data: parent, error } = await client
-        .from('parents')
-        .select('*')
-        .eq('phone', phone)
-        .eq('status', 'active')
-        .single();
-
-      if (error || !parent) {
+      if (!parent || parent.status !== 'active') {
         return { success: false, error: '家长信息不存在', code: 'NOT_FOUND' };
       }
 
-      // 获取学生信息
-      const { data: studentInfo } = await client
-        .from('students')
-        .select('id, name, student_no, class_id, class_name, gender, birth_date')
-        .eq('id', parent.student_id)
-        .single();
-
-      // 获取该学生的其他家长
-      const { data: otherParents } = await client
-        .from('parents')
-        .select('id, name, relation, relation_name, phone, is_primary')
-        .eq('student_id', parent.student_id)
-        .neq('id', parent.id);
+      // 获取其他家长
+      const otherParents = parent.student_id 
+        ? await parentRepository.findOtherParents(parent.student_id, parent.id)
+        : [];
 
       return {
         success: true,
         data: {
           ...parent,
-          student: studentInfo,
-          otherParents: otherParents || [],
+          otherParents,
         },
       };
     } catch (err) {
@@ -188,18 +144,11 @@ export class ParentService extends BaseService {
   /**
    * 更新当前登录家长信息
    */
-  async updateMyInfo(phone: string, body: Record<string, unknown>): Promise<ServiceResult<Record<string, unknown>>> {
+  async updateMyInfo(phone: string, body: Record<string, unknown>): Promise<ServiceResult<ParentRecord>> {
     try {
-      const client = getSupabaseClient();
-
-      // 查询家长
-      const { data: existingParent, error: fetchError } = await client
-        .from('parents')
-        .select('id, phone')
-        .eq('phone', phone)
-        .single();
-
-      if (fetchError || !existingParent) {
+      const existingParent = await parentRepository.findByPhone(phone);
+      
+      if (!existingParent) {
         return { success: false, error: '家长信息不存在', code: 'NOT_FOUND' };
       }
 
@@ -211,9 +160,7 @@ export class ParentService extends BaseService {
         'occupation', 'work_unit', 'remark'
       ];
 
-      const updateData: Record<string, unknown> = {
-        updated_at: new Date().toISOString(),
-      };
+      const updateData: Record<string, unknown> = {};
 
       for (const field of allowedFields) {
         if (body[field] !== undefined) {
@@ -221,18 +168,16 @@ export class ParentService extends BaseService {
         }
       }
 
-      // 执行更新
-      const { error: updateError } = await client
-        .from('parents')
-        .update(updateData)
-        .eq('id', existingParent.id);
-
-      if (updateError) {
-        return { success: false, error: '更新失败: ' + updateError.message };
+      // 更新家长信息
+      const updated = await parentRepository.update(existingParent.id, updateData);
+      
+      if (!updated) {
+        return { success: false, error: '更新失败' };
       }
 
       // 如果包含密码修改
       if (body.newPassword && body.oldPassword) {
+        const client = getSupabaseClient();
         const { data: userData } = await client
           .from('users')
           .select('password_hash')
@@ -253,21 +198,14 @@ export class ParentService extends BaseService {
             .eq('phone', phone)
             .eq('role', 'parent');
 
-          await client
-            .from('parents')
-            .update({ password: body.newPassword })
-            .eq('id', existingParent.id);
+          await parentRepository.update(existingParent.id, { password: body.newPassword as string });
         }
       }
 
       // 获取更新后的数据
-      const { data: updatedParent } = await client
-        .from('parents')
-        .select('*')
-        .eq('id', existingParent.id)
-        .single();
-
-      return { success: true, data: updatedParent };
+      const finalData = await parentRepository.findById(existingParent.id);
+      
+      return { success: true, data: finalData || updated };
     } catch (err) {
       console.error('Update my info error:', err);
       return { success: false, error: '服务器错误' };
@@ -277,43 +215,34 @@ export class ParentService extends BaseService {
   /**
    * 创建家长
    */
-  async create(params: CreateParentParams): Promise<ServiceResult<Record<string, unknown>>> {
+  async create(params: CreateParentParams): Promise<ServiceResult<ParentRecord>> {
     try {
-      const client = getSupabaseClient();
-
       // 检查手机号是否已存在
-      const { data: existing } = await client
-        .from('parents')
-        .select('id')
-        .eq('phone', params.phone)
-        .single();
-
-      if (existing) {
+      const exists = await parentRepository.existsByPhone(params.phone);
+      
+      if (exists) {
         return { success: false, error: '该手机号已注册', code: 'DUPLICATE_PHONE' };
       }
 
       const parentId = `parent-${Date.now()}`;
 
-      const { data, error } = await client
-        .from('parents')
-        .insert({
-          id: parentId,
-          name: params.name,
-          phone: params.phone,
-          student_id: params.studentId,
-          relation: params.relation,
-          relation_name: params.relationName || params.relation,
-          is_primary: params.isPrimary || false,
-          status: 'active',
-        })
-        .select()
-        .single();
+      const data = await parentRepository.create({
+        id: parentId,
+        name: params.name,
+        phone: params.phone,
+        student_id: params.studentId,
+        relation: params.relation,
+        relation_name: params.relationName || params.relation,
+        is_primary: params.isPrimary || false,
+        status: 'active',
+      } as unknown as Partial<ParentRecord>);
 
-      if (error) {
-        return { success: false, error: '创建失败: ' + error.message };
+      if (!data) {
+        return { success: false, error: '创建失败' };
       }
 
       // 同步创建用户账号
+      const client = getSupabaseClient();
       const defaultPassword = '123456';
       const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
@@ -338,21 +267,11 @@ export class ParentService extends BaseService {
   /**
    * 更新家长
    */
-  async update(id: string, params: Record<string, unknown>): Promise<ServiceResult<Record<string, unknown>>> {
+  async update(id: string, params: Record<string, unknown>): Promise<ServiceResult<ParentRecord>> {
     try {
-      const client = getSupabaseClient();
-
-      const { data, error } = await client
-        .from('parents')
-        .update({
-          ...params,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
+      const data = await parentRepository.update(id, params);
+      
+      if (!data) {
         return { success: false, error: '更新失败' };
       }
 
@@ -368,14 +287,9 @@ export class ParentService extends BaseService {
    */
   async delete(id: string): Promise<ServiceResult<void>> {
     try {
-      const client = getSupabaseClient();
-
-      const { error } = await client
-        .from('parents')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
+      const success = await parentRepository.delete(id);
+      
+      if (!success) {
         return { success: false, error: '删除失败' };
       }
 
@@ -391,22 +305,21 @@ export class ParentService extends BaseService {
    */
   async batchCreate(parents: CreateParentParams[]): Promise<ServiceResult<{ success: number; failed: number; errors: string[] }>> {
     try {
-      const client = getSupabaseClient();
-      let success = 0;
+      let successCount = 0;
       let failed = 0;
       const errors: string[] = [];
 
       for (const parent of parents) {
         const result = await this.create(parent);
         if (result.success) {
-          success++;
+          successCount++;
         } else {
           failed++;
           errors.push(`${parent.name}: ${result.error}`);
         }
       }
 
-      return { success: true, data: { success, failed, errors } };
+      return { success: true, data: { success: successCount, failed, errors } };
     } catch (err) {
       console.error('Batch create parents error:', err);
       return { success: false, error: '服务器错误' };
@@ -418,19 +331,14 @@ export class ParentService extends BaseService {
    */
   async changePassword(id: string, newPassword: string): Promise<ServiceResult<void>> {
     try {
-      const client = getSupabaseClient();
-
-      const { data: parent } = await client
-        .from('parents')
-        .select('phone')
-        .eq('id', id)
-        .single();
-
+      const parent = await parentRepository.findById(id);
+      
       if (!parent) {
         return { success: false, error: '家长不存在', code: 'NOT_FOUND' };
       }
 
       const passwordHash = await bcrypt.hash(newPassword, 10);
+      const client = getSupabaseClient();
 
       await client
         .from('users')
@@ -438,10 +346,7 @@ export class ParentService extends BaseService {
         .eq('phone', parent.phone)
         .eq('role', 'parent');
 
-      await client
-        .from('parents')
-        .update({ password: newPassword, updated_at: new Date().toISOString() })
-        .eq('id', id);
+      await parentRepository.update(id, { password: newPassword });
 
       return { success: true };
     } catch (err) {
@@ -453,10 +358,10 @@ export class ParentService extends BaseService {
   /**
    * 获取用户的子女
    */
-  async getChildrenByUser(userId: string): Promise<ServiceResult<Record<string, unknown>[]>> {
+  async getChildrenByUser(userId: string): Promise<ServiceResult<ParentRecord[]>> {
     try {
       const client = getSupabaseClient();
-
+      
       // 先获取用户的手机号
       const { data: user } = await client
         .from('users')
@@ -469,18 +374,7 @@ export class ParentService extends BaseService {
       }
 
       // 获取该手机号关联的所有学生
-      const { data: parents } = await client
-        .from('parents')
-        .select('student_id, students (*)')
-        .eq('phone', user.phone)
-        .eq('status', 'active');
-
-      const children: Record<string, unknown>[] = [];
-      parents?.forEach(p => {
-        if (p.students && !Array.isArray(p.students)) {
-          children.push(p.students as Record<string, unknown>);
-        }
-      });
+      const children = await parentRepository.findChildrenByPhone(user.phone);
 
       return { success: true, data: children };
     } catch (err) {

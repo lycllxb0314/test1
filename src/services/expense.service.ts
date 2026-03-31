@@ -1,11 +1,12 @@
 /**
  * 经费管理服务层
  * 
+ * 架构：API Route → Service → Repository
  * 处理班级经费相关的业务逻辑
  */
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { expenseRepository, ExpenseRecord } from '@/repositories/expense.repository';
 
 /**
  * 经费查询参数
@@ -17,6 +18,9 @@ export interface ExpenseQueryParams {
   startDate?: string;
   endDate?: string;
   applicantId?: string;
+  department?: string;
+  category?: string;
+  search?: string;
   page?: number;
   pageSize?: number;
 }
@@ -41,53 +45,30 @@ export class ExpenseService extends BaseService {
   /**
    * 获取经费列表
    */
-  async getList(params: ExpenseQueryParams): Promise<PaginatedServiceResult<Record<string, unknown>[]>> {
+  async getList(params: ExpenseQueryParams): Promise<PaginatedServiceResult<Record<string, unknown>>> {
     try {
-      const client = getSupabaseClient();
-      const { page = 1, pageSize = 20, classId, type, status, startDate, endDate, applicantId } = params;
-
-      let query = client
-        .from('class_expenses')
-        .select('*', { count: 'exact' });
-
-      if (classId) {
-        query = query.eq('class_id', classId);
-      }
-      if (type) {
-        query = query.eq('type', type);
-      }
-      if (status) {
-        query = query.eq('status', status);
-      }
-      if (startDate) {
-        query = query.gte('created_at', startDate);
-      }
-      if (endDate) {
-        query = query.lte('created_at', endDate);
-      }
-      if (applicantId) {
-        query = query.eq('applicant_id', applicantId);
-      }
-
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-
-      const { data, count, error } = await query
-        .order('created_at', { ascending: false })
-        .range(from, to);
-
-      if (error) {
-        return { success: false, error: '获取经费列表失败' };
-      }
+      const result = await expenseRepository.findList({
+        classId: params.classId,
+        type: params.type,
+        status: params.status,
+        startDate: params.startDate,
+        endDate: params.endDate,
+        applicantId: params.applicantId,
+        department: params.department,
+        category: params.category,
+        search: params.search,
+        page: params.page,
+        pageSize: params.pageSize,
+      });
 
       return {
         success: true,
-        data: data || [],
+        data: result.data as unknown as Record<string, unknown>[],
         pagination: {
-          page,
-          pageSize,
-          total: count || 0,
-          totalPages: Math.ceil((count || 0) / pageSize),
+          page: result.page,
+          pageSize: result.pageSize,
+          total: result.total,
+          totalPages: result.totalPages,
         },
       };
     } catch (err) {
@@ -99,16 +80,11 @@ export class ExpenseService extends BaseService {
   /**
    * 根据ID获取经费详情
    */
-  async getById(id: string): Promise<ServiceResult<Record<string, unknown>>> {
+  async getById(id: string): Promise<ServiceResult<ExpenseRecord>> {
     try {
-      const client = getSupabaseClient();
-      const { data, error } = await client
-        .from('class_expenses')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error || !data) {
+      const data = await expenseRepository.findById(id);
+      
+      if (!data) {
         return { success: false, error: '经费记录不存在', code: 'NOT_FOUND' };
       }
 
@@ -122,29 +98,26 @@ export class ExpenseService extends BaseService {
   /**
    * 创建经费申请
    */
-  async create(params: CreateExpenseParams): Promise<ServiceResult<Record<string, unknown>>> {
+  async create(params: CreateExpenseParams): Promise<ServiceResult<ExpenseRecord>> {
     try {
-      const client = getSupabaseClient();
-
       const expenseId = `expense-${Date.now()}`;
+      const expenseNo = `BX${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${String(Date.now()).slice(-6)}`;
 
-      const { data, error } = await client
-        .from('class_expenses')
-        .insert({
-          id: expenseId,
-          class_id: params.classId,
-          type: params.type,
-          amount: params.amount,
-          description: params.description,
-          applicant_id: params.applicantId,
-          applicant_name: params.applicantName,
-          status: 'pending',
-        })
-        .select()
-        .single();
+      const data = await expenseRepository.create({
+        id: expenseId,
+        expense_no: expenseNo,
+        class_id: params.classId,
+        type: params.type,
+        amount: params.amount,
+        total_amount: params.amount,
+        description: params.description,
+        applicant_id: params.applicantId,
+        applicant_name: params.applicantName,
+        status: 'pending',
+      });
 
-      if (error) {
-        return { success: false, error: '创建失败: ' + error.message };
+      if (!data) {
+        return { success: false, error: '创建失败' };
       }
 
       return { success: true, data };
@@ -157,21 +130,11 @@ export class ExpenseService extends BaseService {
   /**
    * 更新经费
    */
-  async update(id: string, params: Record<string, unknown>): Promise<ServiceResult<Record<string, unknown>>> {
+  async update(id: string, params: Record<string, unknown>): Promise<ServiceResult<ExpenseRecord>> {
     try {
-      const client = getSupabaseClient();
-
-      const { data, error } = await client
-        .from('class_expenses')
-        .update({
-          ...params,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
+      const data = await expenseRepository.update(id, params);
+      
+      if (!data) {
         return { success: false, error: '更新失败' };
       }
 
@@ -187,14 +150,9 @@ export class ExpenseService extends BaseService {
    */
   async delete(id: string): Promise<ServiceResult<void>> {
     try {
-      const client = getSupabaseClient();
-
-      const { error } = await client
-        .from('class_expenses')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
+      const success = await expenseRepository.delete(id);
+      
+      if (!success) {
         return { success: false, error: '删除失败' };
       }
 
@@ -208,15 +166,9 @@ export class ExpenseService extends BaseService {
   /**
    * 审批经费
    */
-  async approve(id: string, approverId: string, approverName: string, approved: boolean, comment?: string): Promise<ServiceResult<Record<string, unknown>>> {
+  async approve(id: string, approverId: string, approverName: string, approved: boolean, comment?: string): Promise<ServiceResult<ExpenseRecord>> {
     try {
-      const client = getSupabaseClient();
-
-      const { data: existing } = await client
-        .from('class_expenses')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const existing = await expenseRepository.findById(id);
 
       if (!existing) {
         return { success: false, error: '经费记录不存在', code: 'NOT_FOUND' };
@@ -226,21 +178,14 @@ export class ExpenseService extends BaseService {
         return { success: false, error: '该记录已处理', code: 'ALREADY_PROCESSED' };
       }
 
-      const { data, error } = await client
-        .from('class_expenses')
-        .update({
-          status: approved ? 'approved' : 'rejected',
-          approver_id: approverId,
-          approver_name: approverName,
-          approval_comment: comment,
-          approved_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
+      const data = await expenseRepository.updateStatus(id, approved ? 'approved' : 'rejected', {
+        approver_id: approverId,
+        approver_name: approverName,
+        approval_comment: comment,
+        approved_at: new Date().toISOString(),
+      });
 
-      if (error) {
+      if (!data) {
         return { success: false, error: '审批失败' };
       }
 
@@ -254,15 +199,9 @@ export class ExpenseService extends BaseService {
   /**
    * 处理经费（完成/取消）
    */
-  async process(id: string, action: 'complete' | 'cancel', processorId: string, processorName: string, note?: string): Promise<ServiceResult<Record<string, unknown>>> {
+  async process(id: string, action: 'complete' | 'cancel', processorId: string, processorName: string, note?: string): Promise<ServiceResult<ExpenseRecord>> {
     try {
-      const client = getSupabaseClient();
-
-      const { data: existing } = await client
-        .from('class_expenses')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const existing = await expenseRepository.findById(id);
 
       if (!existing) {
         return { success: false, error: '经费记录不存在', code: 'NOT_FOUND' };
@@ -272,21 +211,14 @@ export class ExpenseService extends BaseService {
         return { success: false, error: '只能处理已审批的记录', code: 'INVALID_STATUS' };
       }
 
-      const { data, error } = await client
-        .from('class_expenses')
-        .update({
-          status: action === 'complete' ? 'completed' : 'cancelled',
-          processor_id: processorId,
-          processor_name: processorName,
-          process_note: note,
-          processed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
+      const data = await expenseRepository.updateStatus(id, action === 'complete' ? 'completed' : 'cancelled', {
+        processor_id: processorId,
+        processor_name: processorName,
+        process_note: note,
+        processed_at: new Date().toISOString(),
+      });
 
-      if (error) {
+      if (!data) {
         return { success: false, error: '处理失败' };
       }
 
@@ -311,20 +243,7 @@ export class ExpenseService extends BaseService {
     completedAmount: number;
   }>> {
     try {
-      const client = getSupabaseClient();
-
-      let query = client.from('class_expenses').select('*');
-      if (classId) {
-        query = query.eq('class_id', classId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        return { success: false, error: '获取统计失败' };
-      }
-
-      const expenses = data || [];
+      const expenses = await expenseRepository.findAllForStats(classId);
 
       const stats = {
         total: expenses.length,
@@ -349,26 +268,13 @@ export class ExpenseService extends BaseService {
    */
   async getBalance(classId: string): Promise<ServiceResult<{ balance: number }>> {
     try {
-      const client = getSupabaseClient();
-
       // 收入
-      const { data: incomes } = await client
-        .from('class_expenses')
-        .select('amount')
-        .eq('class_id', classId)
-        .eq('type', 'income')
-        .eq('status', 'completed');
-
+      const incomes = await expenseRepository.findCompletedByClass(classId, 'income');
       // 支出
-      const { data: expenses } = await client
-        .from('class_expenses')
-        .select('amount')
-        .eq('class_id', classId)
-        .eq('type', 'expense')
-        .eq('status', 'completed');
+      const expenses = await expenseRepository.findCompletedByClass(classId, 'expense');
 
-      const totalIncome = incomes?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
-      const totalExpense = expenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
+      const totalIncome = incomes.reduce((sum, i) => sum + (i.amount || 0), 0);
+      const totalExpense = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
       return { success: true, data: { balance: totalIncome - totalExpense } };
     } catch (err) {

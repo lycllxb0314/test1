@@ -1,142 +1,124 @@
 /**
  * 报销申请 API
  * 
- * 数据源：Supabase 数据库（唯一数据源）
- * v3.0: 移除Mock fallback，数据库失败时返回错误响应
+ * 架构：API Route → Service → Repository
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用统一认证中间件
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { 
-  success, 
-  error, 
-  parseQueryParams, 
-  createPagination,
-  ErrorCode 
-} from '@/lib/api';
-import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import type { ExpenseItem } from '@/types';
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import { withAuth } from '@/lib/auth/middleware';
+import { paginated, fail, serverError, ok } from '@/lib/api';
+import type { ExpenseService } from '@/services/expense.service';
 
 /**
  * GET - 获取报销列表
  */
-const handleGetExpenses = async (request: NextRequest, { user }: ExtendedRouteContext) => {
-  const params = parseQueryParams(request);
-  
+export const GET = withAuth(async (request: NextRequest) => {
   try {
-    const client = getSupabaseClient();
+    const expenseService = getService<ExpenseService>(SERVICE_IDENTIFIERS.ExpenseService);
+    const { searchParams } = new URL(request.url);
     
-    let query = client
-      .from('expenses')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
+    // 分页参数
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '20');
     
-    if (params.status && params.status !== 'all') {
-      query = query.eq('status', params.status);
-    }
-    if (params.category && params.category !== 'all') {
-      query = query.eq('category', params.category);
-    }
-    if (params.applicantId) {
-      query = query.eq('applicant_id', params.applicantId);
-    }
-    if (params.department) {
-      query = query.eq('department', params.department);
-    }
+    // 筛选参数
+    const classId = searchParams.get('classId') || undefined;
+    const type = searchParams.get('type') || undefined;
+    const status = searchParams.get('status') || undefined;
+    const applicantId = searchParams.get('applicantId') || undefined;
+    const department = searchParams.get('department') || undefined;
     
-    const page = params.page || 1;
-    const pageSize = params.pageSize || 20;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    
-    query = query.range(from, to);
-    
-    const { data, error: dbError, count } = await query;
-    
-    if (dbError) {
-      return NextResponse.json(
-        error('数据库查询失败', ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({
-      success: true,
-      data: data || [],
-      pagination: createPagination(count || 0, page as number, pageSize as number),
+    // 调用 Service 层
+    const result = await expenseService.getList({
+      classId,
+      type,
+      status,
+      applicantId,
+      department,
+      page,
+      pageSize,
     });
-  } catch (err) {
-    console.error('Failed to fetch expenses:', err);
-    return NextResponse.json(
-      error('获取报销列表失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    
+    if (!result.success) {
+      return fail(result.error || '获取报销列表失败');
+    }
+    
+    // 转换数据格式（下划线转驼峰）
+    const formattedData = (result.data || []).map(e => {
+      const item = e as unknown as Record<string, unknown>;
+      return {
+        id: item.id,
+        expenseNo: item.expense_no,
+        title: item.title,
+        type: item.type,
+        classId: item.class_id,
+        amount: item.amount,
+        totalAmount: item.total_amount,
+        description: item.description,
+        applicantId: item.applicant_id,
+        applicantName: item.applicant_name,
+        department: item.department,
+        phone: item.phone,
+        category: item.category,
+        items: item.items,
+        attachments: item.attachments,
+        status: item.status,
+        approvalFlow: item.approval_flow,
+        currentStep: item.current_step,
+        approvalRecords: item.approval_records,
+        approverId: item.approver_id,
+        approverName: item.approver_name,
+        approvalComment: item.approval_comment,
+        approvedAt: item.approved_at,
+        processorId: item.processor_id,
+        processorName: item.processor_name,
+        processNote: item.process_note,
+        processedAt: item.processed_at,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+      };
+    });
+    
+    return paginated(formattedData, result.pagination?.total || 0, page, pageSize);
+  } catch (error) {
+    console.error('Failed to fetch expenses:', error);
+    return serverError('获取报销列表失败');
   }
-};
+});
 
 /**
  * POST - 创建报销申请
  */
-const handleCreateExpense = async (request: NextRequest, { user }: ExtendedRouteContext) => {
+export const POST = withAuth(async (request: NextRequest) => {
   try {
+    const expenseService = getService<ExpenseService>(SERVICE_IDENTIFIERS.ExpenseService);
     const body = await request.json();
-    const client = getSupabaseClient();
     
-    const expenseNo = `BX${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${String(Date.now()).slice(-6)}`;
-    
-    const totalAmount = body.items?.reduce((sum: number, item: ExpenseItem) => sum + item.amount, 0) || 0;
-    
-    const { data, error: dbError } = await client
-      .from('expenses')
-      .insert({
-        id: `exp_${Date.now()}`,
-        expense_no: expenseNo,
-        title: body.title,
-        applicant_id: body.applicantId || user.id,
-        applicant_name: body.applicantName || user.name,
-        applicant_role: body.applicantRole || user.role,
-        department: body.department,
-        phone: body.phone,
-        category: body.category,
-        items: body.items,
-        total_amount: totalAmount,
-        description: body.description,
-        attachments: body.attachments,
-        status: 'draft',
-        approval_flow: body.approvalFlow || [],
-        current_step: 0,
-        approval_records: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-    
-    if (dbError) {
-      return NextResponse.json(
-        error('创建报销申请失败: ' + dbError.message, ErrorCode.DATABASE_ERROR),
-        { status: 500 }
-      );
+    if (!body.classId || !body.type || !body.amount) {
+      return fail('缺少必填字段');
     }
     
-    return NextResponse.json(success(data));
-  } catch (err) {
-    console.error('Failed to create expense:', err);
-    return NextResponse.json(
-      error('创建报销申请失败', ErrorCode.INTERNAL_ERROR),
-      { status: 500 }
-    );
+    const result = await expenseService.create({
+      classId: body.classId,
+      type: body.type,
+      amount: body.amount,
+      description: body.description,
+      applicantId: body.applicantId,
+      applicantName: body.applicantName,
+    });
+    
+    if (!result.success) {
+      return fail(result.error || '创建报销申请失败');
+    }
+    
+    return ok(result.data);
+  } catch (error) {
+    console.error('Failed to create expense:', error);
+    return serverError('创建报销申请失败');
   }
-};
-
-// 导出受保护的路由处理器
-export const GET = protectedRoute(handleGetExpenses, { 
-  module: 'general', 
-  permission: 'view',
-  optional: true,
-});
-
-export const POST = protectedRoute(handleCreateExpense, { 
-  module: 'general', 
-  permission: 'edit' 
 });

@@ -152,6 +152,13 @@ export const SERVICE_IDENTIFIERS = {
   MathTeachingContentRepository: Symbol.for('MathTeachingContentRepository'),
   DutyTeacherRepository: Symbol.for('DutyTeacherRepository'),
   WeeklyEvaluationRepository: Symbol.for('WeeklyEvaluationRepository'),
+  // P0 新增 Repositories
+  ParentRepository: Symbol.for('ParentRepository'),
+  ExpenseRepository: Symbol.for('ExpenseRepository'),
+  RoomRepository: Symbol.for('RoomRepository'),
+  RoomBookingRepository: Symbol.for('RoomBookingRepository'),
+  ScheduleSlotRepository: Symbol.for('ScheduleSlotRepository'),
+  ScheduleDraftRepository: Symbol.for('ScheduleDraftRepository'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -190,6 +197,9 @@ export const SERVICE_IDENTIFIERS = {
   ReadingTeachingService: Symbol.for('ReadingTeachingService'),
   WritingTeachingService: Symbol.for('WritingTeachingService'),
   TextbookService: Symbol.for('TextbookService'),
+  // P0 新增 Services
+  ParentService: Symbol.for('ParentService'),
+  ExpenseService: Symbol.for('ExpenseService'),
 } as const;
 
 /**

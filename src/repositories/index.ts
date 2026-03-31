@@ -189,3 +189,15 @@ export {
   MathTeachingContentRepository,
   mathTeachingContentRepository,
 } from './math-teaching-content.repository';
+
+// ============================================
+// P0 新增 Repository
+// ============================================
+export { ParentRepository, parentRepository } from './parent.repository';
+export { ExpenseRepository, expenseRepository } from './expense.repository';
+export {
+  RoomRepository, roomRepository,
+  RoomBookingRepository, roomBookingRepository,
+  ScheduleSlotRepository, scheduleSlotRepository,
+  ScheduleDraftRepository, scheduleDraftRepository,
+} from './academic.repository';
