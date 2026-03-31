@@ -288,6 +288,17 @@ export default function MathPrepPage() {
           </div>
           
           <div className="flex items-center gap-3">
+            {/* 童童智能体入口 */}
+            <Link href="/teacher/lesson-prep/math/chat">
+              <Button variant="outline" size="sm" className="gap-2 border-green-200 hover:bg-green-50 hover:border-green-300">
+                <img 
+                  src="/tongtong-avatar.png" 
+                  alt="童童" 
+                  className="w-5 h-5 object-contain"
+                />
+                <span className="text-green-700">童童</span>
+              </Button>
+            </Link>
             {saveSuccess && (
               <Badge variant="secondary" className="bg-green-100 text-green-700">
                 <Check className="w-3 h-3 mr-1" />
