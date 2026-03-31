@@ -6,9 +6,11 @@
  * 
  * ⚠️ 架构原则：
  * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用 protectedRoute 进行认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { informationCollectionService } from '@/services/information-collection.service';
 import { success, error, ErrorCode } from '@/lib/api';
 import type { CollectionStatus } from '@/types/information-collection';
@@ -16,7 +18,7 @@ import type { CollectionStatus } from '@/types/information-collection';
 /**
  * GET - 获取数据采集列表
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') as CollectionStatus | undefined;
   const creatorId = searchParams.get('createdBy') || undefined;
@@ -33,19 +35,19 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(success(result.data));
-}
+});
 
 /**
  * POST - 创建数据采集
  */
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const body = await request.json();
 
   const result = await informationCollectionService.create({
     title: body.title,
     description: body.description,
     deadline: body.deadline,
-    creatorId: body.createdBy,
+    creatorId: user.id,
     fields: body.fields,
   });
 
@@ -57,4 +59,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(success(result.data));
-}
+});

@@ -5,16 +5,18 @@
  * 
  * ⚠️ 架构原则：
  * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用 protectedRoute 进行认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { schoolStatsService } from '@/services/misc.service';
 import { success, error, ErrorCode } from '@/lib/api';
 
 /**
  * GET - 获取学校统计数据
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('startDate') || undefined;
   const endDate = searchParams.get('endDate') || undefined;
@@ -34,4 +36,4 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(success(result.data));
-}
+});

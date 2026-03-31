@@ -1,27 +1,36 @@
 /**
  * SOP 执行步骤 API
  * POST - 更新步骤状态（开始/完成/跳过）
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用 protectedRoute 进行认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { classSopService } from '@/services/class-sop.service';
+import { success, error, ErrorCode } from '@/lib/api';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function POST(
+/**
+ * POST - 更新步骤状态
+ */
+export const POST = protectedRoute(async (
   request: NextRequest,
-  { params }: RouteParams
-) {
+  context: ExtendedRouteContext
+) => {
   try {
-    const { id } = await params;
+    const { id } = await (context as ExtendedRouteContext & RouteParams).params;
     const body = await request.json();
     const { action, stepOrder, content, attachments } = body;
     
     if (!action || !stepOrder) {
       return NextResponse.json(
-        { success: false, error: '缺少必填字段' },
+        error('缺少必填字段', ErrorCode.VALIDATION_ERROR),
         { status: 400 }
       );
     }
@@ -40,20 +49,17 @@ export async function POST(
         break;
       default:
         return NextResponse.json(
-          { success: false, error: '无效的操作' },
+          error('无效的操作', ErrorCode.VALIDATION_ERROR),
           { status: 400 }
         );
     }
     
-    return NextResponse.json({
-      success: true,
-      data: execution,
-    });
-  } catch (error) {
-    console.error('更新步骤状态失败:', error);
+    return NextResponse.json(success(execution));
+  } catch (err) {
+    console.error('更新步骤状态失败:', err);
     return NextResponse.json(
-      { success: false, error: '更新步骤状态失败' },
+      error('更新步骤状态失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
-}
+});

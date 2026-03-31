@@ -6,79 +6,81 @@
  * 
  * ⚠️ 架构原则：
  * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用 protectedRoute 进行认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { actualScheduleService } from '@/services/schedule.service';
 import { success, error, ErrorCode } from '@/lib/api';
 
 /**
  * GET - 获取实际课表
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const { searchParams } = new URL(request.url);
   const classId = searchParams.get('classId') || undefined;
   const teacherId = searchParams.get('teacherId') || undefined;
   const weekNumber = searchParams.get('weekNumber') ? parseInt(searchParams.get('weekNumber')!) : undefined;
 
-  if (!classId && !teacherId) {
+  const result = await actualScheduleService.getActualSchedule({
+    classId,
+    teacherId,
+    weekNumber,
+  });
+
+  if (!result.success || !result.data) {
     return NextResponse.json(
-      error('需要提供班级ID或教师ID', ErrorCode.VALIDATION_ERROR),
-      { status: 400 }
-    );
-  }
-
-  const client = getSupabaseClient();
-  let query = client.from('actual_schedules').select('*');
-
-  if (classId) query = query.eq('class_id', classId);
-  if (teacherId) query = query.eq('teacher_id', teacherId);
-  if (weekNumber) query = query.eq('week_number', weekNumber);
-
-  const { data, error: dbError } = await query.order('week_day').order('period_index');
-
-  if (dbError) {
-    return NextResponse.json(
-      error('获取实际课表失败', ErrorCode.DATABASE_ERROR),
+      error(result.error || '获取实际课表失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
 
-  return NextResponse.json(success(data || []));
-}
+  const formattedData = result.data.map((slot) => ({
+    id: slot.id,
+    classId: slot.class_id,
+    className: slot.class_name,
+    grade: slot.grade,
+    weekDay: slot.week_day,
+    periodIndex: slot.period_index,
+    subject: slot.subject,
+    teacherId: slot.teacher_id,
+    teacherName: slot.teacher_name,
+    weekNumber: slot.week_number,
+    weekStartDate: slot.week_start_date,
+    notes: slot.notes,
+    createdAt: slot.created_at,
+  }));
+
+  return NextResponse.json(success(formattedData));
+});
 
 /**
  * POST - 创建实际课表条目
  */
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const body = await request.json();
 
-  const client = getSupabaseClient();
-  const { data, error: dbError } = await client
-    .from('actual_schedules')
-    .insert({
-      id: `as-${Date.now()}`,
-      class_id: body.classId,
-      class_name: body.className,
-      grade: body.grade,
-      week_day: body.weekDay,
-      period_index: body.periodIndex,
-      subject: body.subject,
-      teacher_id: body.teacherId,
-      teacher_name: body.teacherName,
-      week_number: body.weekNumber,
-      week_start_date: body.weekStartDate,
-      notes: body.notes,
-    })
-    .select()
-    .single();
+  const result = await actualScheduleService.create({
+    class_id: body.classId,
+    class_name: body.className,
+    grade: body.grade,
+    week_day: body.weekDay,
+    period_index: body.periodIndex,
+    subject: body.subject,
+    teacher_id: body.teacherId,
+    teacher_name: body.teacherName,
+    week_number: body.weekNumber,
+    week_start_date: body.weekStartDate,
+    notes: body.notes,
+  });
 
-  if (dbError || !data) {
+  if (!result.success) {
     return NextResponse.json(
-      error('创建实际课表条目失败', ErrorCode.DATABASE_ERROR),
+      error(result.error || '创建实际课表条目失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
 
-  return NextResponse.json(success(data));
-}
+  return NextResponse.json(success(result.data));
+});

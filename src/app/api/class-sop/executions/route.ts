@@ -2,13 +2,22 @@
  * SOP 执行记录 API
  * GET  - 获取执行记录列表
  * POST - 创建执行记录（开始执行）
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用 protectedRoute 进行认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { classSopService } from '@/services/class-sop.service';
 import { SOPCategory, ExecutionStatus } from '@/types/class-sop';
+import { success, error, ErrorCode } from '@/lib/api';
 
-export async function GET(request: NextRequest) {
+/**
+ * GET - 获取执行记录列表
+ */
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const searchParams = request.nextUrl.searchParams;
     const templateId = searchParams.get('templateId');
@@ -29,27 +38,27 @@ export async function GET(request: NextRequest) {
       endDate: endDate || undefined,
     });
     
-    return NextResponse.json({
-      success: true,
-      data: executions,
-    });
-  } catch (error) {
-    console.error('获取执行记录列表失败:', error);
+    return NextResponse.json(success(executions));
+  } catch (err) {
+    console.error('获取执行记录列表失败:', err);
     return NextResponse.json(
-      { success: false, error: '获取执行记录列表失败' },
+      error('获取执行记录列表失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+/**
+ * POST - 创建执行记录（开始执行）
+ */
+export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const body = await request.json();
     
     // 验证必填字段
-    if (!body.templateId || !body.classId || !body.executorId || !body.executorName || !body.className) {
+    if (!body.templateId || !body.classId || !body.className) {
       return NextResponse.json(
-        { success: false, error: '缺少必填字段' },
+        error('缺少必填字段', ErrorCode.VALIDATION_ERROR),
         { status: 400 }
       );
     }
@@ -57,21 +66,18 @@ export async function POST(request: NextRequest) {
     const execution = await classSopService.execution.startExecution(
       { templateId: body.templateId, classId: body.classId },
       {
-        executorId: body.executorId,
-        executorName: body.executorName,
+        executorId: user.id,
+        executorName: user.name || '',
         className: body.className,
       }
     );
     
-    return NextResponse.json({
-      success: true,
-      data: execution,
-    });
-  } catch (error) {
-    console.error('创建执行记录失败:', error);
+    return NextResponse.json(success(execution));
+  } catch (err) {
+    console.error('创建执行记录失败:', err);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : '创建执行记录失败' },
+      error(err instanceof Error ? err.message : '创建执行记录失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
-}
+});

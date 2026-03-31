@@ -2,13 +2,22 @@
  * SOP 模板 API
  * GET  - 获取模板列表
  * POST - 创建模板
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用 protectedRoute 进行认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { classSopService } from '@/services/class-sop.service';
 import { SOPCategory } from '@/types/class-sop';
+import { success, error, ErrorCode } from '@/lib/api';
 
-export async function GET(request: NextRequest) {
+/**
+ * GET - 获取 SOP 模板列表
+ */
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const searchParams = request.nextUrl.searchParams;
     const category = searchParams.get('category') as SOPCategory | null;
@@ -23,34 +32,34 @@ export async function GET(request: NextRequest) {
       search: search || undefined,
     });
     
-    return NextResponse.json({
-      success: true,
-      data: templates,
-    });
-  } catch (error) {
-    console.error('获取 SOP 模板列表失败:', error);
+    return NextResponse.json(success(templates));
+  } catch (err) {
+    console.error('获取 SOP 模板列表失败:', err);
     return NextResponse.json(
-      { success: false, error: '获取 SOP 模板列表失败' },
+      error('获取 SOP 模板列表失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+/**
+ * POST - 创建 SOP 模板
+ */
+export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const body = await request.json();
     
     // 验证必填字段
     if (!body.name || !body.category || !body.description) {
       return NextResponse.json(
-        { success: false, error: '缺少必填字段' },
+        error('缺少必填字段', ErrorCode.VALIDATION_ERROR),
         { status: 400 }
       );
     }
     
     if (!body.steps || body.steps.length === 0) {
       return NextResponse.json(
-        { success: false, error: '至少需要一个步骤' },
+        error('至少需要一个步骤', ErrorCode.VALIDATION_ERROR),
         { status: 400 }
       );
     }
@@ -63,17 +72,16 @@ export async function POST(request: NextRequest) {
       applicableRoles: body.applicableRoles,
       evidenceRequired: body.evidenceRequired,
       timeoutMinutes: body.timeoutMinutes,
+    }, {
+      creatorId: user.id,
     });
     
-    return NextResponse.json({
-      success: true,
-      data: template,
-    });
-  } catch (error) {
-    console.error('创建 SOP 模板失败:', error);
+    return NextResponse.json(success(template));
+  } catch (err) {
+    console.error('创建 SOP 模板失败:', err);
     return NextResponse.json(
-      { success: false, error: '创建 SOP 模板失败' },
+      error('创建 SOP 模板失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
-}
+});

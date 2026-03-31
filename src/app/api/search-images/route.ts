@@ -1,7 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { SearchClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+/**
+ * 图片搜索 API
+ * 
+ * POST - 搜索图片
+ * 
+ * ⚠️ 架构原则：
+ * - 使用 protectedRoute 进行认证保护
+ */
 
-export async function POST(request: NextRequest) {
+import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { SearchClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { success, error, ErrorCode } from '@/lib/api';
+
+/**
+ * POST - 搜索图片
+ */
+export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const { query, count } = await request.json();
     const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
@@ -14,8 +28,7 @@ export async function POST(request: NextRequest) {
       count || 20
     );
 
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json(success({
       images: response.image_items?.map((item) => ({
         id: item.id,
         title: item.title,
@@ -24,12 +37,12 @@ export async function POST(request: NextRequest) {
         height: item.image?.height,
         source: item.site_name,
       })) || [],
-    });
-  } catch (error) {
-    console.error('Image search error:', error);
+    }));
+  } catch (err) {
+    console.error('Image search error:', err);
     return NextResponse.json(
-      { success: false, error: 'Failed to search images' },
+      error('Failed to search images', ErrorCode.INTERNAL_ERROR),
       { status: 500 }
     );
   }
-}
+});

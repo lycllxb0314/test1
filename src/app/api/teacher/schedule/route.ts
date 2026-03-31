@@ -5,25 +5,20 @@
  * 
  * ⚠️ 架构原则：
  * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用 protectedRoute 进行认证保护
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 import { teacherService } from '@/services/teacher.service';
 import { success, error, ErrorCode } from '@/lib/api';
 
 /**
  * GET - 获取教师日程
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   const { searchParams } = new URL(request.url);
-  const teacherId = searchParams.get('teacherId');
-
-  if (!teacherId) {
-    return NextResponse.json(
-      error('缺少教师ID', ErrorCode.VALIDATION_ERROR),
-      { status: 400 }
-    );
-  }
+  const teacherId = searchParams.get('teacherId') || user.id;
 
   const result = await teacherService.getTeacher(teacherId);
 
@@ -35,9 +30,13 @@ export async function GET(request: NextRequest) {
   }
 
   // 返回教师的课程安排作为日程
+  const schedule = result.data && typeof result.data === 'object' && 'schedule' in result.data 
+    ? (result.data as { schedule?: unknown }).schedule 
+    : [];
+  
   return NextResponse.json(success({
-    teacherId: result.data.id,
-    teacherName: result.data.name,
-    schedule: (result.data as any).schedule || [],
+    teacherId: result.data?.id,
+    teacherName: result.data?.name,
+    schedule: schedule || [],
   }));
-}
+});
