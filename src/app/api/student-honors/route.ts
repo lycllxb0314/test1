@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
   const keyword = searchParams.get('keyword') || undefined;
   const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
   const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 20;
+  const needStatistics = searchParams.get('statistics') === 'true';
 
   const result = await studentHonorService.getList({ 
     studentId, 
@@ -70,7 +71,8 @@ export async function GET(request: NextRequest) {
   // 映射字段为驼峰格式
   const mappedData = result.data.data.map(mapHonorToFrontend);
 
-  return NextResponse.json(success({
+  // 构建响应
+  const response: Record<string, unknown> = {
     data: mappedData,
     pagination: {
       total: result.data.total,
@@ -78,7 +80,89 @@ export async function GET(request: NextRequest) {
       pageSize: result.data.pageSize,
       totalPages: result.data.totalPages,
     },
-  }));
+  };
+
+  // 如果需要统计数据，计算统计信息
+  if (needStatistics) {
+    // 获取所有数据用于统计（不分页）
+    const allDataResult = await studentHonorService.getList({ 
+      page: 1, 
+      pageSize: 10000, // 获取足够多的数据用于统计
+    });
+    
+    if (allDataResult.success && allDataResult.data) {
+      const allHonors = allDataResult.data.data;
+      
+      // 计算统计数据
+      const statistics = {
+        total: allDataResult.data.total,
+        uniqueStudents: new Set(allHonors.map(h => h.student_id)).size,
+        byLevel: {} as Record<string, number>,
+        byCategory: {} as Record<string, number>,
+        byGrade: {} as Record<number, number>,
+        byMonth: {} as Record<string, number>,
+        topStudents: [] as Array<{ studentId: string; studentName: string; count: number }>,
+      };
+
+      // 按级别统计
+      allHonors.forEach(h => {
+        const lvl = h.level || '校级';
+        statistics.byLevel[lvl] = (statistics.byLevel[lvl] || 0) + 1;
+      });
+
+      // 按类别统计
+      allHonors.forEach(h => {
+        const cat = h.category || '综合';
+        statistics.byCategory[cat] = (statistics.byCategory[cat] || 0) + 1;
+      });
+
+      // 按年级统计
+      allHonors.forEach(h => {
+        const grade = (h as StudentHonorRecord & { grade?: number }).grade;
+        if (grade) {
+          statistics.byGrade[grade] = (statistics.byGrade[grade] || 0) + 1;
+        }
+      });
+
+      // 按月份统计（本年度）
+      const currentYear = new Date().getFullYear();
+      allHonors.forEach(h => {
+        const date = h.date;
+        if (date) {
+          const year = parseInt(date.split('-')[0]);
+          if (year === currentYear) {
+            const month = date.split('-')[1] || '01';
+            statistics.byMonth[month] = (statistics.byMonth[month] || 0) + 1;
+          }
+        }
+      });
+
+      // 获奖之星（TOP 10）
+      const studentHonorCount: Record<string, { name: string; count: number }> = {};
+      allHonors.forEach(h => {
+        if (!studentHonorCount[h.student_id]) {
+          studentHonorCount[h.student_id] = { 
+            name: h.student_name || '未知学生', 
+            count: 0 
+          };
+        }
+        studentHonorCount[h.student_id].count++;
+      });
+
+      statistics.topStudents = Object.entries(studentHonorCount)
+        .map(([studentId, data]) => ({
+          studentId,
+          studentName: data.name,
+          count: data.count,
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      response.statistics = statistics;
+    }
+  }
+
+  return NextResponse.json(success(response));
 }
 
 /**
