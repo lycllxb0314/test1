@@ -224,7 +224,6 @@ export default function TeacherLeavePage() {
 
   // 从 API 数据构建流程节点
   const buildFlowNodesFromData = (item: Record<string, unknown>): ApprovalNodeItem[] => {
-    // 简化：根据状态构建节点
     // API 返回驼峰格式，但也要兼容下划线格式
     const status = (item.status || item.leave_status) as string;
     const currentStep = (item.currentStep || item.current_step) as number;
@@ -244,38 +243,57 @@ export default function TeacherLeavePage() {
     
     // 审批人信息 - 支持两种字段名格式
     const approvers = (item.approverSelection || item.approver_selection || []) as Array<{ userName: string; employeeId: string }>;
+    const approvedBy = (item.approvedBy || item.approved_by) as string;
+    const approvedAt = (item.approvedAt || item.approved_at) as string;
     
-    // 审批节点
-    const approvalStatus = status === 'approved' || status === 'completed' ? 'approved' : 
-                          status === 'rejected' ? 'rejected' : 
-                          status === 'pending' ? 'processing' : 'pending';
+    // 审批节点状态 - 根据 current_step 精确判断
+    let approvalStatus: ApprovalStatus = 'pending';
+    if (status === 'rejected') {
+      approvalStatus = 'rejected';
+    } else if (status === 'completed' || (status === 'approved' && adjustmentStatus === 'completed')) {
+      approvalStatus = 'approved';
+    } else if (status === 'approved' || currentStep >= 2) {
+      approvalStatus = 'approved';
+    } else if (status === 'pending' || currentStep === 1) {
+      approvalStatus = 'processing';
+    }
     
     nodes.push({
       id: 'approval_1',
       name: approvers.length > 0 ? `${approvers[0]?.userName || '审批人'}审批` : '校长室审批',
       type: 'approval',
       status: approvalStatus,
-      approverName: approvers[0]?.userName || '待审批',
-      isCurrent: status === 'pending' && currentStep === 1,
+      approverName: approvers[0]?.userName || (approvedBy ? '审批人' : '待审批'),
+      approvedAt: approvedAt,
+      isCurrent: currentStep === 1,
     });
     
     // 调课节点 - 根据是否需要调课和当前步骤判断
     const needAdjustment = (item.needAdjustment || item.need_adjustment) as boolean;
     const affectedSlots = (item.affectedSlots || item.affected_slots || []) as unknown[];
+    const adjustedBy = (item.adjustedBy || item.adjusted_by) as string;
+    const adjustedAt = (item.adjustedAt || item.adjusted_at) as string;
     
-    // 如果不需要调课，直接跳过调课和同步节点
+    // 如果不需要调课，审批通过后直接完成
     if (needAdjustment && affectedSlots.length > 0) {
-      // 调课节点状态
-      const adjustNodeStatus = adjustmentStatus === 'completed' ? 'approved' : 
-                               adjustmentStatus === 'processing' ? 'processing' : 
-                               currentStep >= 2 ? 'processing' : 'pending';
+      // 调课节点状态 - 精确判断
+      let adjustNodeStatus: ApprovalStatus = 'pending';
+      if (adjustmentStatus === 'completed' || status === 'completed') {
+        adjustNodeStatus = 'approved';
+      } else if (adjustmentStatus === 'processing' || currentStep === 3) {
+        adjustNodeStatus = 'processing';
+      } else if (currentStep >= 2 || status === 'approved') {
+        adjustNodeStatus = 'processing';
+      }
       
       nodes.push({
         id: 'arrange_class',
         name: '年段长调课安排',
         type: 'course_adjust',
         status: adjustNodeStatus,
-        isCurrent: currentStep >= 2 && adjustmentStatus !== 'completed',
+        approverName: adjustedBy || '年段长',
+        approvedAt: adjustedAt,
+        isCurrent: currentStep === 3 || (currentStep >= 2 && adjustmentStatus !== 'completed'),
       });
       
       // 同步节点
@@ -284,7 +302,7 @@ export default function TeacherLeavePage() {
           id: 'sync', 
           name: '数据同步', 
           type: 'sync', 
-          status: adjustmentStatus === 'completed' ? 'approved' : 'pending' 
+          status: adjustmentStatus === 'completed' || status === 'completed' ? 'approved' : 'pending' 
         },
         { 
           id: 'end', 
@@ -351,31 +369,73 @@ export default function TeacherLeavePage() {
 
   // 转换为流程状态
   const convertToFlowStatus = (app: LeaveApplication): LeaveFlowStatus => {
-    // 计算当前步骤
+    // 流程步骤定义：
+    // 0: 提交申请
+    // 1: 审批中
+    // 2: 审批通过
+    // 3: 调课安排
+    // 4: 流程完成
+    
     let currentStep = 0;
     let flowStatus: 'pending' | 'approved' | 'rejected' | 'completed' = 'pending';
     
-    if (app.status === 'submitted') {
-      // 检查审批状态
-      const approvalNode = app.flowNodes.find(n => n.type === 'approval');
-      if (approvalNode?.status === 'processing') {
-        currentStep = 1; // 审批中
-      } else if (approvalNode?.status === 'approved') {
-        currentStep = 2; // 审批通过
-        flowStatus = 'approved';
-      }
-      
-      // 检查调课状态
-      const adjustNode = app.flowNodes.find(n => n.type === 'course_adjust');
-      if (adjustNode?.status === 'processing' || adjustNode?.status === 'approved') {
-        currentStep = 3; // 调课中
-      }
-    } else if (app.status === 'approved') {
-      currentStep = 4; // 已完成
-      flowStatus = 'completed';
-    } else if (app.status === 'rejected') {
+    // 使用 currentNodeIndex（来自数据库的 current_step）作为主要判断依据
+    const nodeIndex = app.currentNodeIndex || 0;
+    
+    // 根据状态确定当前步骤
+    if (app.status === 'rejected') {
+      // 驳回状态：在审批步骤显示驳回
       currentStep = 2;
       flowStatus = 'rejected';
+    } else if (app.status === 'cancelled') {
+      // 已撤销：回到初始状态
+      currentStep = 0;
+      flowStatus = 'pending';
+    } else if (app.status === 'approved') {
+      // 审批通过或流程完成
+      // 检查是否需要调课
+      const adjustNode = app.flowNodes.find(n => n.type === 'course_adjust');
+      const syncNode = app.flowNodes.find(n => n.type === 'sync');
+      
+      if (syncNode?.status === 'approved' || nodeIndex >= 4) {
+        // 流程已完成
+        currentStep = 4;
+        flowStatus = 'completed';
+      } else if (adjustNode?.status === 'approved' || adjustNode?.status === 'processing') {
+        // 调课中或调课完成
+        currentStep = adjustNode?.status === 'approved' ? 3 : 3;
+        flowStatus = 'pending';
+      } else {
+        // 审批通过，等待调课
+        currentStep = 2;
+        flowStatus = 'approved';
+      }
+    } else if (app.status === 'submitted') {
+      // 已提交，根据节点状态判断
+      const approvalNode = app.flowNodes.find(n => n.type === 'approval');
+      const adjustNode = app.flowNodes.find(n => n.type === 'course_adjust');
+      
+      if (adjustNode?.status === 'approved') {
+        // 调课已完成
+        currentStep = 3;
+        flowStatus = 'pending';
+      } else if (adjustNode?.status === 'processing') {
+        // 调课中
+        currentStep = 3;
+        flowStatus = 'pending';
+      } else if (approvalNode?.status === 'approved') {
+        // 审批通过，等待调课
+        currentStep = 2;
+        flowStatus = 'approved';
+      } else if (approvalNode?.status === 'processing') {
+        // 审批中
+        currentStep = 1;
+        flowStatus = 'pending';
+      } else {
+        // 刚提交
+        currentStep = 0;
+        flowStatus = 'pending';
+      }
     }
     
     // 提取审批人信息
@@ -393,8 +453,10 @@ export default function TeacherLeavePage() {
       rejectedAt: app.status === 'rejected' ? app.createdAt : undefined,
       rejectReason: approvalNode?.comment,
       adjusterName: adjustNode?.approverName || '年段长',
+      adjustmentCount: app.flowNodes.filter(n => n.type === 'course_adjust').length,
+      completedAdjustments: adjustNode?.status === 'approved' ? 1 : 0,
       adjustedAt: adjustNode?.approvedAt,
-      syncedAt: app.status === 'approved' ? app.createdAt : undefined,
+      syncedAt: flowStatus === 'completed' ? app.createdAt : undefined,
     };
   };
 
@@ -612,22 +674,41 @@ function ApplicationCard({
 
   // 计算当前步骤索引（与 convertToFlowStatus 逻辑一致）
   const getCurrentStepIndex = (): number => {
-    if (app.status === 'approved') return 4;
-    if (app.status === 'rejected') return 2;
+    const nodeIndex = app.currentNodeIndex || 0;
     
-    // submitted 状态
+    if (app.status === 'rejected') {
+      return 2; // 审批驳回
+    }
+    if (app.status === 'cancelled') {
+      return 0; // 已撤销
+    }
+    
+    // 检查各节点状态
     const approvalNode = app.flowNodes.find(n => n.type === 'approval');
     const adjustNode = app.flowNodes.find(n => n.type === 'course_adjust');
+    const syncNode = app.flowNodes.find(n => n.type === 'sync');
     
-    if (adjustNode?.status === 'processing' || adjustNode?.status === 'approved') {
-      return 3; // 调课安排中
+    // 流程已完成
+    if (syncNode?.status === 'approved' || nodeIndex >= 4) {
+      return 4;
     }
+    
+    // 调课阶段
+    if (adjustNode?.status === 'approved') {
+      return 3; // 调课完成，等待同步
+    }
+    if (adjustNode?.status === 'processing') {
+      return 3; // 调课中
+    }
+    
+    // 审批阶段
     if (approvalNode?.status === 'approved') {
       return 2; // 审批通过
     }
     if (approvalNode?.status === 'processing') {
       return 1; // 审批中
     }
+    
     return 0; // 刚提交
   };
 
