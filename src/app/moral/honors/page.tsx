@@ -243,10 +243,12 @@ export default function StudentHonorsPage() {
       const result = await res.json();
       
       if (result.success) {
-        setHonors(result.data || []);
-        setTotal(result.pagination?.total || 0);
-        setTotalPages(result.pagination?.totalPages || 1);
-        setStatistics(result.statistics);
+        // API 返回 { data: { data: [], pagination: {} } }，需要处理嵌套结构
+        const honorsData = result.data?.data || result.data || [];
+        setHonors(Array.isArray(honorsData) ? honorsData : []);
+        setTotal(result.data?.pagination?.total || result.pagination?.total || 0);
+        setTotalPages(result.data?.pagination?.totalPages || result.pagination?.totalPages || 1);
+        setStatistics(result.statistics || result.data?.statistics);
       } else {
         toast.error(result.error || '加载失败');
       }

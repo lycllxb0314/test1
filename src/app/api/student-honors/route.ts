@@ -10,7 +10,30 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { studentHonorService } from '@/services/misc.service';
+import type { StudentHonorRecord } from '@/repositories/misc.repository';
 import { success, error, ErrorCode } from '@/lib/api';
+
+/**
+ * 将数据库字段映射为前端期望的驼峰格式
+ */
+function mapHonorToFrontend(record: StudentHonorRecord) {
+  return {
+    id: record.id,
+    studentId: record.student_id,
+    studentName: record.student_name,
+    classId: record.class_id,
+    className: record.class_name,
+    title: record.title,
+    level: record.level,
+    category: record.category,
+    issuer: record.issuer,
+    date: record.date,
+    certificateNo: record.certificate_no,
+    description: record.description,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
 
 /**
  * GET - 获取学生荣誉列表
@@ -32,8 +55,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // 映射字段为驼峰格式
+  const mappedData = result.data.data.map(mapHonorToFrontend);
+
   return NextResponse.json(success({
-    data: result.data.data,
+    data: mappedData,
     pagination: {
       total: result.data.total,
       page: result.data.page,
@@ -72,5 +98,5 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(success(result.data));
+  return NextResponse.json(success(mapHonorToFrontend(result.data!)));
 }
