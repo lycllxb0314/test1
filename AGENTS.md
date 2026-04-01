@@ -632,6 +632,19 @@ const safeHtml = DOMPurify.sanitize(userInput);
 
 ## 更新日志
 
+- 2026-04-01: 修复手动排课无法读取教师数据问题
+  - 根本原因：API 返回数据格式与前端期望不匹配
+    - 前端期望 `{ subjects: [{ subject, teachers }] }` 格式
+    - API 返回的是扁平的教师数组
+  - 解决方案：
+    - 修改 `teachers/route.ts`：将教师列表按科目分组返回
+    - 修改 `academic.service.ts`：使用 `employee_id` 作为教师标识（工号格式）
+    - 更新 `schedule_slots` 表：将 `teacher_id` 从 `t053` 格式统一为工号格式 `ly0053`
+  - 数据一致性修复：
+    - `teachers.id`: `t006` 格式（主键，保持不变）
+    - `teachers.employee_id`: `ly0006` 格式（业务标识）
+    - `schedule_slots.teacher_id`: 统一为工号格式
+    - `classes.head_teacher_id/sub_teacher_id`: 工号格式
 - 2026-04-01: 修复数据展示相关问题
   - 修复学生列表 parents 字段未正确解析问题：在 `student.repository.ts` 中添加 parents 字段映射和类型转换
   - 修复班级管理家长信息未加载问题：确保 API 返回 parents 数组数据
