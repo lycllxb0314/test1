@@ -32,8 +32,9 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
       // 获取待审批列表
       query = query.contains('approver_selection', [{ employeeId }]);
     } else {
-      // 获取我的请假列表
-      query = query.eq('applicant_id', user.id);
+      // 获取我的请假列表 - 使用 employeeId 匹配（applicant_id 存储的是工号）
+      const applicantId = user.employeeId || user.id;
+      query = query.eq('applicant_id', applicantId);
     }
     
     const { data, error: dbError } = await query;
