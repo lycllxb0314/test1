@@ -143,6 +143,29 @@ export const GET = withAuth(async (request: NextRequest) => {
         headTeacherClassId: classInfo.headTeacherClassId,
         headTeacherClassName: classInfo.headTeacherClassName,
         subTeacherClasses: classInfo.subTeacherClasses,
+        // 扩展个人信息
+        birthDate: item.birth_date,
+        ethnicity: item.ethnicity,
+        politicalStatus: item.political_status,
+        nativePlace: item.native_place,
+        idCard: item.id_card,
+        // 扩展联系信息
+        emergencyContact: item.emergency_contact,
+        emergencyPhone: item.emergency_phone,
+        address: item.address,
+        // 扩展学历信息
+        education: item.education,
+        school: item.school,
+        major: item.major,
+        graduationDate: item.graduation_date,
+        // 扩展工作信息
+        titleDate: item.title_date,
+        joinDate: item.join_date,
+        teachYears: item.teach_years,
+        // 可任教信息
+        teachableSubjects: item.teachable_subjects || subjects || [],
+        teachableGrades: item.teachable_grades || [1, 2, 3, 4, 5, 6],
+        secondarySubjects: item.secondary_subjects || [],
         createdAt: item.created_at || item.createdAt,
         updatedAt: item.updated_at || item.updatedAt,
       };
