@@ -27,6 +27,7 @@ interface SlotData {
   period_index: number;
   class_name?: string;
   grade?: number;
+  status?: string; // active, substitute, transferred, cancelled
 }
 
 // 班级信息类型
@@ -87,10 +88,11 @@ async function getPersonalSchedule(teacherId: string, employeeId?: string): Prom
   }
   
   // 2. 获取教师课表 - 使用 teacher_id 或 employee_id 匹配
+  // 包含 active(正常) 和 substitute(代课) 状态的课次
   let query = client
     .from('schedule_slots')
     .select('*')
-    .eq('status', 'active');
+    .in('status', ['active', 'substitute']);
   
   // 优先使用 employee_id 匹配，如果没有则尝试 teacher_id
   const effectiveEmployeeId = employeeId || teacher.employee_id;
@@ -123,6 +125,7 @@ async function getPersonalSchedule(teacherId: string, employeeId?: string): Prom
       period_index: slot.period_index,
       class_name: slot.class_name,
       grade: slot.grade,
+      status: slot.status,
     };
     
     // 填充矩阵 (period_index 从 0 开始, week_day 从 1 开始)
@@ -176,10 +179,11 @@ async function getTeachingClasses(teacherId: string, employeeId?: string): Promi
   const effectiveEmployeeId = employeeId || teacher?.employee_id;
   
   // 获取教师任教的班级
+  // 包含 active(正常) 和 substitute(代课) 状态的课次
   let query = client
     .from('schedule_slots')
-    .select('class_id, class_name, grade, subject')
-    .eq('status', 'active');
+    .select('class_id, class_name, grade, subject, status')
+    .in('status', ['active', 'substitute']);
   
   if (effectiveEmployeeId) {
     query = query.eq('teacher_id', effectiveEmployeeId);
@@ -308,11 +312,12 @@ async function getClassSchedule(classId: string): Promise<ClassScheduleData | nu
   }
   
   // 获取班级课表
+  // 包含 active(正常) 和 substitute(代课) 状态的课次
   const { data: slots, error: slotsError } = await client
     .from('schedule_slots')
     .select('*')
     .eq('class_id', classId)
-    .eq('status', 'active');
+    .in('status', ['active', 'substitute']);
   
   if (slotsError) {
     console.error('获取班级课表失败:', slotsError);
@@ -334,6 +339,7 @@ async function getClassSchedule(classId: string): Promise<ClassScheduleData | nu
       period_index: slot.period_index,
       class_name: slot.class_name,
       grade: slot.grade,
+      status: slot.status,
     };
     
     if (slot.period_index >= 0 && slot.period_index < 6 && slot.week_day >= 1 && slot.week_day <= 5) {
