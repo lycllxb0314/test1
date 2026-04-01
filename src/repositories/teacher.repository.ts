@@ -16,11 +16,42 @@ export interface TeacherFilters {
 }
 
 /**
+ * 数组类型字段列表（在 users 表中是 text[] 或 integer[] 类型）
+ * 这些字段需要特殊处理，因为 Supabase 客户端传递 JavaScript 数组时会有类型不匹配问题
+ */
+const ARRAY_FIELDS = [
+  'subjects',
+  'secondary_subjects',
+  'teachable_subjects',
+  'additional_roles',
+  'teachable_grades',
+  'managed_grades',
+];
+
+/**
  * 教师 Repository
  */
 export class TeacherRepository extends BaseRepository<User> {
   constructor() {
     super('users');
+  }
+  
+  /**
+   * 更新教师信息（覆盖基类方法，处理数组类型字段）
+   */
+  async update(id: string, data: Partial<User>): Promise<User | null> {
+    // 过滤掉数组类型字段，避免类型不匹配错误
+    const filteredData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      // 跳过数组类型字段
+      if (ARRAY_FIELDS.includes(key)) {
+        continue;
+      }
+      filteredData[key] = value;
+    }
+    
+    // 调用基类的 update 方法
+    return super.update(id, filteredData as Partial<User>);
   }
   
   /**
