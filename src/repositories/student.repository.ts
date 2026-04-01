@@ -3,7 +3,7 @@
  */
 
 import { BaseRepository, PaginatedResult } from './base.repository';
-import type { Student, Parent } from '@/types';
+import type { Student, Parent, StudentFullProfile } from '@/types';
 import type { StudentRow, ParentRow } from '@/types/db-helpers';
 
 /**
@@ -14,6 +14,42 @@ export type StudentFilters = {
   grade?: string;
   status?: string;
 };
+
+/**
+ * 将数据库行转换为前端格式
+ */
+function mapStudentRow(s: Record<string, unknown>): Student {
+  return {
+    id: s.id as string,
+    studentNo: s.student_no as string,
+    name: s.name as string,
+    gender: (s.gender as 'male' | 'female') || 'male',
+    birthDate: s.birth_date as string,
+    idCard: s.id_card as string,
+    ethnicity: s.ethnicity as string,
+    nativePlace: s.native_place as string,
+    politicalStatus: s.political_status as string,
+    studentType: s.student_type as string,
+    classId: s.class_id as string,
+    className: s.class_name as string,
+    grade: s.grade as number,
+    gradeName: s.grade ? `${['一', '二', '三', '四', '五', '六'][s.grade as number - 1] || s.grade}年级` : undefined,
+    headTeacherId: s.head_teacher_id as string,
+    headTeacherName: s.head_teacher_name as string,
+    enrollmentDate: s.enrollment_date as string,
+    phone: s.phone as string,
+    address: s.address as string,
+    homeAddress: s.home_address as string,
+    emergencyContact: s.emergency_contact as string,
+    emergencyPhone: s.emergency_phone as string,
+    familyType: s.family_type as string,
+    parents: (Array.isArray(s.parents) ? s.parents : []) as Parent[],
+    status: (s.status as Student['status']) || '在校',
+    avatar: s.avatar as string,
+    createdAt: s.created_at as string,
+    updatedAt: s.updated_at as string,
+  } as Student;
+}
 
 /**
  * 学生 Repository
@@ -30,14 +66,14 @@ export class StudentRepository extends BaseRepository<Student> {
     const { data, error } = await this.client
       .from(this.tableName)
       .select('*')
-      .eq('student_number', studentNumber)
+      .eq('student_no', studentNumber)
       .single();
     
     if (error) {
       return null;
     }
     
-    return data as Student;
+    return mapStudentRow(data as Record<string, unknown>);
   }
   
   /**
@@ -88,23 +124,16 @@ export class StudentRepository extends BaseRepository<Student> {
       return { data: [], total: 0, page, pageSize, totalPages: 0 };
     }
     
-    const students = (data || []).map((s: StudentRow & { parents?: unknown }) => ({
-      id: s.id,
-      studentNo: s.student_no,
-      name: s.name,
-      gender: s.gender,
-      birthDate: s.birth_date,
-      classId: s.class_id,
-      className: s.classes?.name,
-      grade: s.grade,
-      status: s.status as Student['status'],
-      avatar: s.avatar,
-      parents: Array.isArray(s.parents) ? s.parents as Parent[] : [],
-      headTeacherId: s.classes?.head_teacher_id,
-      headTeacherName: s.classes?.head_teacher_name,
-      createdAt: s.created_at,
-      updatedAt: s.updated_at,
-    }));
+    const students = (data || []).map((s: Record<string, unknown> & { classes?: { name?: string; head_teacher_id?: string; head_teacher_name?: string } }) => {
+      const mapped = mapStudentRow(s);
+      // 补充班级关联信息
+      if (s.classes) {
+        mapped.className = s.classes.name || mapped.className;
+        mapped.headTeacherId = s.classes.head_teacher_id;
+        mapped.headTeacherName = s.classes.head_teacher_name;
+      }
+      return mapped;
+    });
     
     return {
       data: students,
@@ -113,6 +142,24 @@ export class StudentRepository extends BaseRepository<Student> {
       pageSize,
       totalPages: Math.ceil((count || 0) / pageSize),
     };
+  }
+  
+  /**
+   * 根据ID查找学生详情
+   */
+  async findById(id: string): Promise<Student | null> {
+    const { data, error } = await this.client
+      .from(this.tableName)
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      console.error('[StudentRepository] findById error:', error.message);
+      return null;
+    }
+    
+    return mapStudentRow(data as Record<string, unknown>);
   }
   
   /**
@@ -132,7 +179,16 @@ export class StudentRepository extends BaseRepository<Student> {
     
     return {
       student: studentResult,
-      parents: (parentsResult.data || []) as Parent[],
+      parents: (parentsResult.data || []).map((p: Record<string, unknown>) => ({
+        id: p.id as string,
+        name: p.name as string,
+        relationship: p.relationship as string,
+        phone: p.phone as string,
+        isPrimary: p.is_primary as boolean,
+        wechat: p.wechat as string,
+        email: p.email as string,
+        occupation: p.occupation as string,
+      })) as Parent[],
     };
   }
   

@@ -19,12 +19,36 @@ export interface Student {
   name: string;
   gender: 'male' | 'female';
   birthDate?: string;
+  idCard?: string;
+  ethnicity?: string;
+  nativePlace?: string;
+  politicalStatus?: string;
+  studentType?: StudentType;
+  
+  // 班级信息
   classId: string;
   className?: string;
   grade: number;
+  gradeName?: string;
+  headTeacherId?: string;
+  headTeacherName?: string;
+  
+  // 联系信息
+  phone?: string;
+  address?: string;
+  homeAddress?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  
+  // 家庭信息
+  familyType?: string;
+  parents?: Parent[];
+  
+  // 状态
   status: StudentStatus;
   avatar?: string;
-  parents?: Parent[];
+  enrollmentDate?: string;
+  
   createdAt?: string;
   updatedAt?: string;
 }

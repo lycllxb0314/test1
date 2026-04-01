@@ -338,7 +338,9 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
         params.append('status', filters.status);
       }
       
-      const response = await fetch(`/api/students?${params.toString()}`);
+      const response = await fetch(`/api/students?${params.toString()}`, {
+        credentials: 'include',
+      });
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -451,6 +453,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const response = await fetch('/api/students', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name: student.name,
           gender: student.gender,
@@ -501,6 +504,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const response = await fetch(`/api/students/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name: data.name,
           gender: data.gender,
@@ -537,6 +541,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     try {
       const response = await fetch(`/api/students/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       
       const result = await response.json();
@@ -595,7 +600,9 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     
     try {
       setProfileLoading(true);
-      const response = await fetch(`/api/students/${id}/full-profile`);
+      const response = await fetch(`/api/students/${id}/full-profile`, {
+        credentials: 'include',
+      });
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -628,6 +635,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const response = await fetch(`/api/students/${studentId}/academic-records`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(record),
       });
       
@@ -648,6 +656,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const response = await fetch(`/api/students/${studentId}/honors`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(honor),
       });
       
@@ -668,6 +677,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const response = await fetch(`/api/students/${studentId}/growth-records`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(record),
       });
       
@@ -695,6 +705,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
       const response = await fetch(`/api/students/${studentId}/habit-assessments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(assessment),
       });
       
