@@ -189,6 +189,10 @@ export default function TeacherAttendancePage() {
   const [markStatus, setMarkStatus] = useState<'late' | 'absent'>('late');
   const [markRemark, setMarkRemark] = useState('');
   const [marking, setMarking] = useState(false);
+  
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // 获取部门列表
   const departments = useMemo(() => {
@@ -307,11 +311,11 @@ export default function TeacherAttendancePage() {
     setShowMarkDialog(true);
   }, []);
 
-  // 过滤数据
+  // 过滤数据 + 工号排序
   const filteredRecords = useMemo(() => {
     if (!dailyData?.records) return [];
     
-    return dailyData.records.filter(record => {
+    const filtered = dailyData.records.filter(record => {
       // 搜索过滤
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -336,7 +340,37 @@ export default function TeacherAttendancePage() {
       
       return true;
     });
+    
+    // 按工号升序排序
+    return filtered.sort((a, b) => {
+      const idA = a.employeeId || '';
+      const idB = b.employeeId || '';
+      return idA.localeCompare(idB, 'zh-CN', { numeric: true });
+    });
   }, [dailyData, searchQuery, statusFilter, departmentFilter]);
+
+  // 分页计算
+  const totalPages = Math.ceil(filteredRecords.length / pageSize);
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredRecords.slice(start, end);
+  }, [filteredRecords, currentPage, pageSize]);
+  
+  // 筛选条件变化时重置页码
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, departmentFilter]);
+  
+  // 分页操作
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+  
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   // 日期导航
   const navigateDate = (direction: 'prev' | 'next') => {
@@ -482,10 +516,18 @@ export default function TeacherAttendancePage() {
                 </CardHeader>
                 <CardContent>
                   <TeacherAttendanceTable 
-                    records={filteredRecords} 
+                    records={paginatedRecords} 
                     onViewDetail={handleViewDetail}
                     onMarkStatus={openMarkDialog}
                     onRestoreNormal={handleRestoreNormal}
+                    pagination={{
+                      page: currentPage,
+                      pageSize,
+                      total: filteredRecords.length,
+                      totalPages,
+                      onPageChange: handlePageChange,
+                      onPageSizeChange: handlePageSizeChange,
+                    }}
                   />
                 </CardContent>
               </Card>
@@ -861,11 +903,20 @@ function TeacherAttendanceTable({
   onViewDetail,
   onMarkStatus,
   onRestoreNormal,
+  pagination,
 }: { 
   records: TeacherAttendanceRecord[];
   onViewDetail: (record: TeacherAttendanceRecord) => void;
   onMarkStatus: (record: TeacherAttendanceRecord, status: 'late' | 'absent') => void;
   onRestoreNormal: (record: TeacherAttendanceRecord) => void;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+  };
 }) {
   if (records.length === 0) {
     return (
@@ -876,112 +927,163 @@ function TeacherAttendanceTable({
     );
   }
 
+  const pageSizeOptions = [10, 30, 50];
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>教师</TableHead>
-          <TableHead>工号</TableHead>
-          <TableHead>部门</TableHead>
-          <TableHead>学科</TableHead>
-          <TableHead>状态</TableHead>
-          <TableHead>备注</TableHead>
-          <TableHead className="w-[120px]">操作</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {records.map((record) => (
-          <TableRow key={record.teacherId} className="hover:bg-muted/50">
-            <TableCell className="font-medium">{record.teacherName}</TableCell>
-            <TableCell className="text-muted-foreground">{record.employeeId || '-'}</TableCell>
-            <TableCell>{record.department}</TableCell>
-            <TableCell>{record.subject || '-'}</TableCell>
-            <TableCell>
-              <Badge className={statusConfig[record.status].bgClass}>
-                <span className="flex items-center gap-1">
-                  {statusConfig[record.status].icon}
-                  {statusConfig[record.status].label}
-                </span>
-              </Badge>
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {record.leaveType ? `${record.leaveType}` : record.remark || '-'}
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center gap-1">
-                {/* 只有正常或迟到/旷工状态才能标记 */}
-                {record.status === 'normal' && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onMarkStatus(record, 'late')}>
-                        <Timer className="h-4 w-4 mr-2 text-amber-600" />
-                        标记迟到
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onMarkStatus(record, 'absent')}>
-                        <UserX className="h-4 w-4 mr-2 text-red-600" />
-                        标记旷工
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => onViewDetail(record)}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        查看详情
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {(record.status === 'late' || record.status === 'absent') && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onRestoreNormal(record)}>
-                        <RotateCcw className="h-4 w-4 mr-2 text-green-600" />
-                        恢复正常
-                      </DropdownMenuItem>
-                      {record.status === 'late' && (
-                        <DropdownMenuItem onClick={() => onMarkStatus(record, 'absent')}>
-                          <UserX className="h-4 w-4 mr-2 text-red-600" />
-                          改为旷工
-                        </DropdownMenuItem>
-                      )}
-                      {record.status === 'absent' && (
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>教师</TableHead>
+            <TableHead>工号</TableHead>
+            <TableHead>部门</TableHead>
+            <TableHead>学科</TableHead>
+            <TableHead>状态</TableHead>
+            <TableHead>备注</TableHead>
+            <TableHead className="w-[120px]">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {records.map((record) => (
+            <TableRow key={record.teacherId} className="hover:bg-muted/50">
+              <TableCell className="font-medium">{record.teacherName}</TableCell>
+              <TableCell className="text-muted-foreground">{record.employeeId || '-'}</TableCell>
+              <TableCell>{record.department}</TableCell>
+              <TableCell>{record.subject || '-'}</TableCell>
+              <TableCell>
+                <Badge className={statusConfig[record.status].bgClass}>
+                  <span className="flex items-center gap-1">
+                    {statusConfig[record.status].icon}
+                    {statusConfig[record.status].label}
+                  </span>
+                </Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {record.leaveType ? `${record.leaveType}` : record.remark || '-'}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  {/* 只有正常或迟到/旷工状态才能标记 */}
+                  {record.status === 'normal' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onMarkStatus(record, 'late')}>
                           <Timer className="h-4 w-4 mr-2 text-amber-600" />
-                          改为迟到
+                          标记迟到
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => onViewDetail(record)}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        查看详情
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {/* 请假状态只能查看详情 */}
-                {record.status === 'leave' && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => onViewDetail(record)}
-                  >
-                    详情
-                  </Button>
-                )}
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+                        <DropdownMenuItem onClick={() => onMarkStatus(record, 'absent')}>
+                          <UserX className="h-4 w-4 mr-2 text-red-600" />
+                          标记旷工
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onViewDetail(record)}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          查看详情
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  {(record.status === 'late' || record.status === 'absent') && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onRestoreNormal(record)}>
+                          <RotateCcw className="h-4 w-4 mr-2 text-green-600" />
+                          恢复正常
+                        </DropdownMenuItem>
+                        {record.status === 'late' && (
+                          <DropdownMenuItem onClick={() => onMarkStatus(record, 'absent')}>
+                            <UserX className="h-4 w-4 mr-2 text-red-600" />
+                            改为旷工
+                          </DropdownMenuItem>
+                        )}
+                        {record.status === 'absent' && (
+                          <DropdownMenuItem onClick={() => onMarkStatus(record, 'late')}>
+                            <Timer className="h-4 w-4 mr-2 text-amber-600" />
+                            改为迟到
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onViewDetail(record)}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          查看详情
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  {/* 请假状态只能查看详情 */}
+                  {record.status === 'leave' && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => onViewDetail(record)}
+                    >
+                      详情
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      
+      {/* 分页控件 */}
+      {pagination && pagination.total > 0 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t">
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              显示 {(pagination.page - 1) * pagination.pageSize + 1} - {Math.min(pagination.page * pagination.pageSize, pagination.total)} 条，共 {pagination.total} 条
+            </div>
+            <Select 
+              value={pagination.pageSize.toString()} 
+              onValueChange={(value) => pagination.onPageSizeChange(parseInt(value))}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map(size => (
+                  <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+              disabled={pagination.page === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              上一页
+            </Button>
+            <span className="text-sm">
+              第 {pagination.page} / {pagination.totalPages} 页
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages}
+            >
+              下一页
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
