@@ -227,3 +227,148 @@ export function SimpleLineChart({ data, height = 300, color = '#3b82f6', chartTy
 }
 
 export type { ChartClickData };
+
+// ==================== 雷达图组件 ====================
+
+interface SimpleRadarChartProps {
+  data: Array<{ category: string; score: number; fullMark?: number }>;
+  height?: number;
+  color?: string;
+}
+
+/**
+ * 简单的 SVG 雷达图组件
+ */
+export function SimpleRadarChart({ data, height = 280, color = '#8b5cf6' }: SimpleRadarChartProps) {
+  if (data.length === 0 || data.every(d => d.score === 0)) {
+    return (
+      <div style={{ width: '100%', height }} className="flex items-center justify-center text-gray-400">
+        暂无数据
+      </div>
+    );
+  }
+
+  const maxScore = 10; // 最大分数
+  const centerX = 150;
+  const centerY = 140;
+  const radius = 100;
+
+  // 计算每个维度的角度
+  const angleStep = (2 * Math.PI) / data.length;
+  const startAngle = -Math.PI / 2; // 从顶部开始
+
+  // 计算数据点坐标
+  const points = data.map((item, index) => {
+    const angle = startAngle + index * angleStep;
+    const r = (item.score / maxScore) * radius;
+    return {
+      x: centerX + r * Math.cos(angle),
+      y: centerY + r * Math.sin(angle),
+      labelX: centerX + (radius + 25) * Math.cos(angle),
+      labelY: centerY + (radius + 25) * Math.sin(angle),
+      ...item,
+    };
+  });
+
+  // 生成多边形路径
+  const polygonPath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
+
+  // 生成背景网格（同心多边形）
+  const gridLevels = [0.2, 0.4, 0.6, 0.8, 1]; // 20%, 40%, 60%, 80%, 100%
+  const gridPaths = gridLevels.map(level => {
+    const gridPoints = data.map((_, index) => {
+      const angle = startAngle + index * angleStep;
+      const r = level * radius;
+      return `${centerX + r * Math.cos(angle)},${centerY + r * Math.sin(angle)}`;
+    });
+    return `M ${gridPoints.join(' L ')} Z`;
+  });
+
+  return (
+    <div style={{ width: '100%', height }} className="flex items-center justify-center">
+      <svg viewBox="0 0 300 280" className="w-full h-full max-w-[400px]">
+        {/* 背景网格 */}
+        {gridPaths.map((path, index) => (
+          <path
+            key={index}
+            d={path}
+            fill="none"
+            stroke="#e5e7eb"
+            strokeWidth="1"
+          />
+        ))}
+
+        {/* 轴线 */}
+        {data.map((_, index) => {
+          const angle = startAngle + index * angleStep;
+          const x = centerX + radius * Math.cos(angle);
+          const y = centerY + radius * Math.sin(angle);
+          return (
+            <line
+              key={index}
+              x1={centerX}
+              y1={centerY}
+              x2={x}
+              y2={y}
+              stroke="#e5e7eb"
+              strokeWidth="1"
+            />
+          );
+        })}
+
+        {/* 数据多边形 */}
+        <path
+          d={polygonPath}
+          fill={color}
+          fillOpacity={0.3}
+          stroke={color}
+          strokeWidth="2"
+        />
+
+        {/* 数据点 */}
+        {points.map((point, index) => (
+          <circle
+            key={index}
+            cx={point.x}
+            cy={point.y}
+            r="4"
+            fill={color}
+          />
+        ))}
+
+        {/* 标签 */}
+        {points.map((point, index) => (
+          <text
+            key={index}
+            x={point.labelX}
+            y={point.labelY}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="text-xs fill-gray-600"
+            style={{ fontSize: '11px' }}
+          >
+            {point.category}
+          </text>
+        ))}
+
+        {/* 分数标注 */}
+        {gridLevels.filter((_, i) => i % 2 === 0).map((level, index) => {
+          const y = centerY - level * radius;
+          return (
+            <text
+              key={index}
+              x={centerX - 5}
+              y={y}
+              textAnchor="end"
+              dominantBaseline="middle"
+              className="fill-gray-400"
+              style={{ fontSize: '10px' }}
+            >
+              {Math.round(level * maxScore)}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}

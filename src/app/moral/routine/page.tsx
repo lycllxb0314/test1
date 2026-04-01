@@ -80,6 +80,7 @@ import {
   Radar,
   CHART_COLORS,
 } from '@/components/charts/DynamicCharts';
+import { SimpleBarChart, SimpleRadarChart } from '@/components/charts/SimpleBarChart';
 
 // ==================== 类型定义 ====================
 
@@ -533,18 +534,11 @@ export default function ClassRoutinePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {summary ? (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={categoryChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                      />
-                      <Bar dataKey="avgScore" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                {summary && categoryChartData.some(d => d.value > 0) ? (
+                  <SimpleBarChart 
+                    data={categoryChartData.map(d => ({ name: d.name, value: d.avgScore, fill: CATEGORY_COLORS[d.name as ScoreCategory] }))}
+                    height={280}
+                  />
                 ) : (
                   <div className="h-[280px] flex items-center justify-center text-gray-400">
                     暂无数据
@@ -563,21 +557,11 @@ export default function ClassRoutinePage() {
               </CardHeader>
               <CardContent>
                 {summary && radarData.some(d => d.score > 0) ? (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <RadarChart data={radarData}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 10]} />
-                      <Radar
-                        name="平均分"
-                        dataKey="score"
-                        stroke="#8b5cf6"
-                        fill="#8b5cf6"
-                        fillOpacity={0.5}
-                      />
-                      <Tooltip />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                  <SimpleRadarChart 
+                    data={radarData}
+                    height={280}
+                    color="#8b5cf6"
+                  />
                 ) : (
                   <div className="h-[280px] flex items-center justify-center text-gray-400">
                     暂无数据
