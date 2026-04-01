@@ -54,7 +54,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement } from '@/hooks/useTeachers';
+import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement, TEACHER_ROLE_LABELS, ADMINISTRATIVE_ROLE_LABELS } from '@/hooks/useTeachers';
 import { toast } from 'sonner';
 import { TeacherProfileDialogs } from '@/components/teacher/TeacherProfileDialogs';
 
@@ -106,17 +106,25 @@ const getRecordTypeInfo = (type: string) => {
   return typeMap[type] || typeMap.other;
 };
 
-// 获取角色显示名称
+// 获取角色显示名称（使用统一映射）
 const getRoleDisplayName = (role: string): string => {
-  const roleMap: Record<string, string> = {
+  // 先检查教师角色映射
+  if (role in TEACHER_ROLE_LABELS) {
+    return TEACHER_ROLE_LABELS[role as keyof typeof TEACHER_ROLE_LABELS];
+  }
+  // 再检查行政职务映射
+  if (role in ADMINISTRATIVE_ROLE_LABELS) {
+    return ADMINISTRATIVE_ROLE_LABELS[role as keyof typeof ADMINISTRATIVE_ROLE_LABELS];
+  }
+  // 兼容旧数据格式
+  const legacyMap: Record<string, string> = {
     'homeroom_teacher': '班主任',
-    'subject_teacher': '科任教师',
-    'grade_leader': '年级组长',
+    'grade_leader': '年段长',
     'research_leader': '教研组长',
     'admin': '行政人员',
     'dean': '教务主任',
   };
-  return roleMap[role] || role;
+  return legacyMap[role] || role;
 };
 
 // 可编辑的表单数据
