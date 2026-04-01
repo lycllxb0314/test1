@@ -196,8 +196,9 @@ export async function calculateTeacherWorkload(
   // 月应上课时 = 周课时 * 4（每月约4周）
   const expectedHours = weeklyHours * 4;
   
-  // 自己上的课 = 月应上课时 - 请假课时
-  const selfTaughtHours = Math.max(0, expectedHours - leaveHours);
+  // 自己上的课 = 月应上课时 - 请假课时 + 代课课时
+  // 代课是帮别人上的课，也算实际授课量
+  const selfTaughtHours = Math.max(0, expectedHours - leaveHours + substituteHours);
   
   // 实际工作量 = 应上课时 - 请假课时 + 代课课时
   const totalWorkload = expectedHours - leaveHours + substituteHours;
