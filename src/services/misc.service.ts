@@ -114,6 +114,100 @@ export class TeacherAttendanceService extends BaseService {
       return this.fail('签退失败');
     }
   }
+
+  /**
+   * 获取每日考勤数据
+   */
+  async getDailyAttendance(date: string): Promise<ServiceResult<{
+    date: string;
+    summary: { total: number; normal: number; late: number; absent: number; leave: number };
+    records: Array<{
+      teacherId: string;
+      teacherName: string;
+      employeeId: string;
+      department: string;
+      subject: string;
+      status: string;
+      leaveType?: string;
+      leaveDuration?: number;
+      remark?: string;
+      recordId?: string;
+    }>;
+  }>> {
+    try {
+      const data = await teacherAttendanceRepository.getDailyAttendance(date);
+      return this.ok(data);
+    } catch (error) {
+      console.error('[TeacherAttendanceService] getDailyAttendance error:', error);
+      return this.fail('获取每日考勤数据失败');
+    }
+  }
+
+  /**
+   * 获取月度考勤数据
+   */
+  async getMonthlyAttendance(month: string): Promise<ServiceResult<{
+    month: string;
+    summary: {
+      totalTeachers: number;
+      totalDays: number;
+      normalDays: number;
+      lateDays: number;
+      absentDays: number;
+      leaveDays: number;
+      averageAttendanceRate: number;
+    };
+    byTeacher: Array<{
+      teacherId: string;
+      teacherName: string;
+      employeeId: string;
+      department: string;
+      normalDays: number;
+      lateDays: number;
+      absentDays: number;
+      leaveDays: number;
+      attendanceRate: number;
+      leaveRecords: Array<{ date: string; type: string }>;
+    }>;
+    byDate: Array<{
+      date: string;
+      weekday: string;
+      normal: number;
+      late: number;
+      absent: number;
+      leave: number;
+    }>;
+  }>> {
+    try {
+      const data = await teacherAttendanceRepository.getMonthlyAttendance(month);
+      return this.ok(data);
+    } catch (error) {
+      console.error('[TeacherAttendanceService] getMonthlyAttendance error:', error);
+      return this.fail('获取月度考勤数据失败');
+    }
+  }
+
+  /**
+   * 标记考勤状态
+   */
+  async markStatus(
+    teacherId: string,
+    teacherName?: string,
+    date?: string,
+    status?: string,
+    remark?: string
+  ): Promise<ServiceResult<TeacherAttendanceRecord>> {
+    try {
+      const record = await teacherAttendanceRepository.markStatus(teacherId, teacherName, date || new Date().toISOString().split('T')[0], status || 'normal', remark);
+      if (!record) {
+        return this.fail('标记考勤状态失败');
+      }
+      return this.ok(record);
+    } catch (error) {
+      console.error('[TeacherAttendanceService] markStatus error:', error);
+      return this.fail('标记考勤状态失败');
+    }
+  }
 }
 
 // ==================== 工作量 ====================
