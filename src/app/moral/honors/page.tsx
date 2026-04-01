@@ -403,6 +403,45 @@ export default function StudentHonorsPage() {
     }
   }, []);
 
+  // 导出弹窗数据
+  const handleExportChartDetail = async () => {
+    if (chartDetailData.length === 0) {
+      toast.error('暂无数据可导出');
+      return;
+    }
+
+    try {
+      // 动态导入 xlsx 库
+      const XLSX = await import('xlsx');
+      
+      // 转换数据格式
+      const rows = chartDetailData.map(honor => ({
+        '学生姓名': honor.studentName,
+        '班级': honor.className,
+        '荣誉名称': honor.title,
+        '级别': honor.level,
+        '类别': honor.category,
+        '颁发单位': honor.issuer || '',
+        '获奖日期': honor.date,
+        '证书编号': honor.certificateNo || '',
+        '备注': honor.description || '',
+      }));
+      
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '学生荣誉');
+      
+      // 生成文件名
+      const filename = `${chartDetailTitle.replace(/[()（）]/g, '')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('导出成功');
+    } catch (err) {
+      console.error('导出失败:', err);
+      toast.error('导出失败');
+    }
+  };
+
   // 打开创建对话框
   const handleCreate = () => {
     setDialogMode('create');
@@ -1556,9 +1595,13 @@ export default function StudentHonorsPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setChartDetailOpen(false)}>
               关闭
+            </Button>
+            <Button onClick={handleExportChartDetail} disabled={chartDetailData.length === 0}>
+              <Download className="h-4 w-4 mr-2" />
+              导出 Excel
             </Button>
           </DialogFooter>
         </DialogContent>
