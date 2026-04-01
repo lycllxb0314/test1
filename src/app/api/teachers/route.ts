@@ -108,6 +108,7 @@ export const GET = withAuth(async (request: NextRequest) => {
     }
     
     // 格式化数据
+    let isFirst = true;
     const formattedData = (result.data || []).map(t => {
       const item = t as unknown as Record<string, unknown>;
       const subjects = item.subjects as string[] | undefined;
@@ -120,6 +121,18 @@ export const GET = withAuth(async (request: NextRequest) => {
         isHeadTeacher: false,
         subTeacherClasses: [],
       };
+      
+      // 调试：输出第一个教师的数据
+      if (isFirst) {
+        console.log('[teachers API] 第一个教师数据:', {
+          id: item.id,
+          employee_id: item.employee_id,
+          name: item.name,
+          primary_subject: item.primary_subject,
+          allKeys: Object.keys(item),
+        });
+        isFirst = false;
+      }
       
       return {
         id: item.id,
