@@ -201,7 +201,8 @@ export async function getTeachersWorkload(
     .from('teachers')
     .select('id, name, total_weekly_hours, employee_id')
     .not('role', 'in', '(principal,secretary,academic_vice_principal,moral_vice_principal,general_vice_principal)')
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .limit(50);  // 限制返回数量
   
   if (params.teacherId) {
     teacherQuery = teacherQuery.eq('id', params.teacherId);
@@ -219,15 +220,22 @@ export async function getTeachersWorkload(
     return [];
   }
   
-  // 批量计算工作量
+  // 批量计算工作量（限制并发数量）
   const results: TeacherWorkload[] = [];
-  for (const teacher of (teachers || [])) {
-    const workload = await calculateTeacherWorkload(
-      teacher.id, 
-      params.semester || '2025-2026-2',
-      params.month
+  const batchSize = 10;
+  
+  for (let i = 0; i < (teachers?.length || 0); i += batchSize) {
+    const batch = teachers!.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(teacher => 
+        calculateTeacherWorkload(
+          teacher.id, 
+          params.semester || '2025-2026-2',
+          params.month
+        )
+      )
     );
-    results.push(workload);
+    results.push(...batchResults);
   }
   
   return results;
