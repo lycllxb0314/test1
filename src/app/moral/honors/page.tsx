@@ -80,8 +80,10 @@ import {
   Target,
   Loader2,
   ChevronLeft,
+  ChevronRight,
   Eye,
 } from 'lucide-react';
+import { PAGINATION } from '@/lib/pagination-config';
 import {
   BarChart,
   Bar,
@@ -194,9 +196,10 @@ export default function StudentHonorsPage() {
   
   // === 分页状态 ===
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize, setPageSize] = useState<number>(PAGINATION.DEFAULT_DISPLAY_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const pageSizeOptions = PAGINATION.PAGE_SIZE_OPTIONS;
   
   // === 批量操作状态 ===
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -246,7 +249,7 @@ export default function StudentHonorsPage() {
       if (filterCategory !== 'all') params.set('category', filterCategory);
       if (filterGrade !== 'all') params.set('grade', filterGrade);
       if (filterYear) params.set('year', filterYear);
-      if (searchTerm) params.set('search', searchTerm);
+      if (searchTerm) params.set('keyword', searchTerm);
       
       const res = await fetch(`/api/student-honors?${params.toString()}`, {
         credentials: 'include',
@@ -270,6 +273,27 @@ export default function StudentHonorsPage() {
       setLoading(false);
     }
   }, [page, pageSize, filterLevel, filterCategory, filterGrade, filterYear, searchTerm]);
+  
+  // 分页操作
+  const handlePrevPage = () => {
+    if (page > 1) {
+      setPage(page - 1);
+      setSelectedIds([]); // 切换页面时清空选择
+    }
+  };
+  
+  const handleNextPage = () => {
+    if (page < totalPages) {
+      setPage(page + 1);
+      setSelectedIds([]); // 切换页面时清空选择
+    }
+  };
+  
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1); // 重置到第一页
+    setSelectedIds([]); // 切换每页条数时清空选择
+  };
 
   // 加载学生列表（用于选择）
   const loadStudents = useCallback(async () => {
@@ -1108,27 +1132,49 @@ export default function StudentHonorsPage() {
               )}
 
               {/* 分页 */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === 1}
-                    onClick={() => setPage(p => p - 1)}
-                  >
-                    上一页
-                  </Button>
-                  <span className="text-sm text-gray-500">
-                    第 {page} / {totalPages} 页
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === totalPages}
-                    onClick={() => setPage(p => p + 1)}
-                  >
-                    下一页
-                  </Button>
+              {total > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      显示 {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, total)} 条，共 {total} 条
+                    </div>
+                    <Select 
+                      value={pageSize.toString()} 
+                      onValueChange={(value) => handlePageSizeChange(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pageSizeOptions.map(size => (
+                          <SelectItem key={size} value={size.toString()}>{size} 条/页</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePrevPage}
+                      disabled={page === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      上一页
+                    </Button>
+                    <span className="text-sm">
+                      第 {page} / {totalPages} 页
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextPage}
+                      disabled={page >= totalPages}
+                    >
+                      下一页
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
