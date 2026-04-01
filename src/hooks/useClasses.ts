@@ -378,10 +378,17 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
         count: students.length
       })).slice(0, 5));
       
-      // 构建教师映射
+      // 构建教师映射（使用 employee_id 作为键，因为班级的 head_teacher_id 是工号格式）
       const teachersMap: Record<string, Record<string, unknown>> = {};
+      const teachersByEmployeeId: Record<string, Record<string, unknown>> = {};
       (teachersData.data || []).forEach((teacher: Record<string, unknown>) => {
+        // 使用 id 作为键（兼容旧逻辑）
         teachersMap[teacher.id as string] = teacher;
+        // 使用 employee_id 作为键（用于匹配班级的班主任/科任工号）
+        const employeeId = teacher.employeeId as string || teacher.employee_id as string;
+        if (employeeId) {
+          teachersByEmployeeId[employeeId] = teacher;
+        }
       });
       
       // 构建班级容器
@@ -404,12 +411,14 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
           // 先获取班主任详情（在聚合家长之前）
           // API 返回驼峰格式，兼容两种格式
           const headTeacherId = (cls.headTeacherId as string) || (cls.head_teacher_id as string) || '';
-          const headTeacher = headTeacherId ? teachersMap[headTeacherId] : null;
+          // 使用工号查找教师（优先），兼容 UUID 格式
+          const headTeacher = headTeacherId ? (teachersByEmployeeId[headTeacherId] || teachersMap[headTeacherId]) : null;
           const headTeacherName = (headTeacher?.name as string) || (cls.headTeacherName as string) || (cls.head_teacher_name as string) || '';
           
           // 获取科任详情
           const subTeacherId = (cls.subTeacherId as string) || (cls.sub_teacher_id as string);
-          const subTeacher = subTeacherId ? teachersMap[subTeacherId] : null;
+          // 使用工号查找教师（优先），兼容 UUID 格式
+          const subTeacher = subTeacherId ? (teachersByEmployeeId[subTeacherId] || teachersMap[subTeacherId]) : null;
           
           // 聚合家长信息（现在可以包含班主任信息了）
           const parents: ParentBasicInfo[] = [];
@@ -452,7 +461,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             headTeacherId,
             headTeacherName,
             headTeacher: headTeacher ? {
-              id: headTeacher.id as string,
+              id: (headTeacher.employeeId as string) || (headTeacher.employee_id as string) || headTeacher.id as string, // 使用工号作为 ID
               name: headTeacher.name as string,
               gender: headTeacher.gender as string,
               phone: headTeacher.phone as string,
@@ -470,7 +479,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             subTeacherId,
             subTeacherName: (subTeacher?.name as string) || (cls.subTeacherName as string) || (cls.sub_teacher_name as string),
             subTeacher: subTeacher ? {
-              id: subTeacher.id as string,
+              id: (subTeacher.employeeId as string) || (subTeacher.employee_id as string) || subTeacher.id as string, // 使用工号作为 ID
               name: subTeacher.name as string,
               gender: subTeacher.gender as string,
               phone: subTeacher.phone as string,

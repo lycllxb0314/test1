@@ -632,6 +632,18 @@ const safeHtml = DOMPurify.sanitize(userInput);
 
 ## 更新日志
 
+- 2026-04-01: 修复手动排课班主任/科任教师信息不显示问题
+  - 根本原因：`useClasses.ts` 中使用 `teacher.id`（UUID格式）作为键查找教师，但 `headTeacherId` 是工号格式
+  - 解决方案：
+    - 修改 `useClasses.ts`：构建两个教师映射（`teachersMap` 用 UUID，`teachersByEmployeeId` 用工号）
+    - 查找教师时优先使用工号匹配
+    - 教师对象中的 `id` 字段使用工号格式，与 `schedule_slots.teacher_id` 保持一致
+  - 数据一致性：
+    - `classes.head_teacher_id/sub_teacher_id`: 工号格式 (ly0006)
+    - `teachers.id`: UUID 格式 (t006)
+    - `teachers.employee_id`: 工号格式 (ly0006)
+    - `schedule_slots.teacher_id`: 工号格式 (ly0053)
+    - 前端教师选择器返回的 `id`: 工号格式
 - 2026-04-01: 修复手动排课无法读取教师数据问题
   - 根本原因：API 返回数据格式与前端期望不匹配
     - 前端期望 `{ subjects: [{ subject, teachers }] }` 格式
