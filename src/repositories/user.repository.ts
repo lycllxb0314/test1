@@ -242,7 +242,14 @@ export class UserRepository extends BaseRepository<User> {
       return [];
     }
 
-    return (data || []) as User[];
+    // 字段映射：数据库下划线 -> TypeScript 驼峰
+    return (data || []).map(user => ({
+      ...user,
+      employeeId: user.employee_id,
+      classId: user.class_id,
+      className: user.class_name,
+      additionalRoles: user.additional_roles,
+    })) as User[];
   }
 
   /**
