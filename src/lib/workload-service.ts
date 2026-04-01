@@ -201,8 +201,7 @@ export async function getTeachersWorkload(
     .from('teachers')
     .select('id, name, total_weekly_hours, employee_id')
     .not('role', 'in', '(principal,secretary,academic_vice_principal,moral_vice_principal,general_vice_principal)')
-    .eq('status', 'active')
-    .limit(50);  // 限制返回数量
+    .eq('status', 'active');
   
   if (params.teacherId) {
     teacherQuery = teacherQuery.eq('id', params.teacherId);
