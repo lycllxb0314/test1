@@ -867,12 +867,12 @@ export default function TeacherProfilePage() {
                     )}
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">毕业日期</Label>
+                    <Label className="text-muted-foreground text-xs">毕业时间</Label>
                     {isEditing ? (
                       <MonthPicker
                         value={formData.graduationDate}
                         onChange={(v) => handleFieldChange('graduationDate', v)}
-                        placeholder="选择毕业日期"
+                        placeholder="选择毕业时间"
                         className="mt-1 h-8"
                       />
                     ) : (
