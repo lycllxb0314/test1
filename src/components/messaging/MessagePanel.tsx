@@ -565,10 +565,18 @@ export function MessagePanel({
           <div className="py-4">
             <p className="whitespace-pre-wrap">{selectedMessage?.content}</p>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               关闭
             </Button>
+            {selectedMessage?.actionUrl && (
+              <Button onClick={() => {
+                setDetailDialogOpen(false);
+                window.location.href = selectedMessage.actionUrl || '';
+              }}>
+                {selectedMessage.actionLabel || '查看详情'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

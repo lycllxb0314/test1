@@ -55,37 +55,26 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
 export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
   try {
     const body = await request.json();
-    const client = getSupabaseClient();
     
-    const { data, error: dbError } = await client
-      .from('leave_requests')
-      .insert({
-        applicant_id: user.employeeId || user.id,
-        applicant_name: body.applicantName || user.name,
-        type: body.type,
-        start_date: body.startDate,
-        end_date: body.endDate,
-        duration: body.duration,
-        reason: body.reason,
-        attachments: body.attachments || [],
-        need_adjustment: body.needAdjustment || false,
-        affected_slots: body.affectedSlots || [],
-        approver_selection: body.approverSelection || [],
-        status: 'pending',
-      })
-      .select()
-      .single();
+    const result = await leaveRequestService.submitLeaveRequest({
+      applicantId: user.employeeId || user.id,
+      applicantName: body.applicantName || user.name,
+      type: body.type,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      duration: body.duration,
+      reason: body.reason,
+      attachments: body.attachments || [],
+      needAdjustment: body.needAdjustment || false,
+      affectedSlots: body.affectedSlots || [],
+      approverSelection: body.approverSelection || [],
+    });
 
-    if (dbError || !data) {
-      console.error('[Leave Request] Insert error:', dbError);
-      return fail(`提交请假申请失败: ${dbError?.message || '未知错误'}`);
+    if (!result.success) {
+      return fail(result.error || '提交请假申请失败');
     }
 
-    return ok({
-      id: data.id,
-      status: data.status,
-      message: '请假申请提交成功',
-    });
+    return ok(result.data);
   } catch (err) {
     console.error('提交请假申请失败:', err);
     return serverError('提交请假申请失败');

@@ -15,6 +15,24 @@ import {
   CourseAdjustmentRow,
 } from '@/repositories/leave.repository';
 import { messageRepository } from '@/repositories/message.repository';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+
+/**
+ * 提交请假申请参数
+ */
+export interface SubmitLeaveParams {
+  applicantId: string;
+  applicantName: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  duration: number;
+  reason: string;
+  attachments?: Array<{ name: string; url: string }>;
+  needAdjustment?: boolean;
+  affectedSlots?: AffectedSlot[];
+  approverSelection: ApproverSelection[];
+}
 
 /**
  * 审批操作参数
@@ -65,6 +83,134 @@ export interface ApproveResult {
  * 请假服务
  */
 export class LeaveRequestService extends BaseService {
+  /**
+   * 提交请假申请
+   */
+  async submitLeaveRequest(params: SubmitLeaveParams): Promise<ServiceResult<{ id: string; status: string; message: string }>> {
+    const {
+      applicantId,
+      applicantName,
+      type,
+      startDate,
+      endDate,
+      duration,
+      reason,
+      attachments = [],
+      needAdjustment = false,
+      affectedSlots = [],
+      approverSelection,
+    } = params;
+
+    try {
+      // 验证审批人选择
+      if (!approverSelection || approverSelection.length === 0) {
+        return { success: false, error: '请选择审批人', code: 'VALIDATION_ERROR' };
+      }
+
+      const client = getSupabaseClient();
+
+      // 插入请假申请
+      const { data, error: dbError } = await client
+        .from('leave_requests')
+        .insert({
+          applicant_id: applicantId,
+          applicant_name: applicantName,
+          type,
+          start_date: startDate,
+          end_date: endDate,
+          duration,
+          reason,
+          attachments,
+          need_adjustment: needAdjustment,
+          affected_slots: affectedSlots,
+          approver_selection: approverSelection,
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (dbError || !data) {
+        console.error('[LeaveRequestService] submitLeaveRequest insert error:', dbError);
+        return { success: false, error: `提交请假申请失败: ${dbError?.message || '未知错误'}` };
+      }
+
+      // 发送消息通知审批人
+      await this.notifyApprovers(data.id, {
+        applicantName,
+        type,
+        startDate,
+        endDate,
+        reason,
+        approverSelection,
+      });
+
+      return {
+        success: true,
+        data: {
+          id: data.id,
+          status: data.status,
+          message: '请假申请提交成功',
+        },
+      };
+    } catch (err) {
+      console.error('[LeaveRequestService] submitLeaveRequest error:', err);
+      return { success: false, error: '服务器错误' };
+    }
+  }
+
+  /**
+   * 通知审批人
+   */
+  private async notifyApprovers(
+    leaveRequestId: string,
+    params: {
+      applicantName: string;
+      type: string;
+      startDate: string;
+      endDate: string;
+      reason: string;
+      approverSelection: ApproverSelection[];
+    }
+  ): Promise<void> {
+    const { applicantName, type, startDate, endDate, reason, approverSelection } = params;
+
+    for (const approver of approverSelection) {
+      try {
+        // 根据 employeeId 查找用户的 UUID
+        const approverUser = await leaveRepository.getUserUUIDByEmployeeId(approver.employeeId);
+        
+        if (!approverUser) {
+          console.warn(`[LeaveRequestService] 未找到审批人: ${approver.employeeId}`);
+          continue;
+        }
+
+        await messageRepository.create({
+          title: `【待审批】${applicantName}的${type}申请`,
+          content: `${applicantName}提交了${type}申请（${startDate}至${endDate}），请及时审批。原因：${reason}`,
+          type: 'leave_approval',
+          priority: 'high',
+          sender_name: applicantName,
+          recipient_id: approverUser.id,
+          recipient_type: 'individual',
+          related_id: leaveRequestId,
+          related_type: 'leave_request',
+          action_url: `/teacher/leave`,
+          action_label: '去审批',
+          metadata: {
+            leaveRequestId,
+            approverEmployeeId: approver.employeeId,
+            signType: approver.signType,
+          },
+          created_at: new Date().toISOString(),
+        } as unknown as Parameters<typeof messageRepository.create>[0]);
+
+        console.log(`[LeaveRequestService] 已发送通知给审批人: ${approver.name} (${approver.employeeId})`);
+      } catch (err) {
+        console.error(`[LeaveRequestService] 发送通知给 ${approver.employeeId} 失败:`, err);
+      }
+    }
+  }
+
   /**
    * 审批请假申请
    */

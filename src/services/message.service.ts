@@ -509,6 +509,11 @@ export class MessageService extends BaseService {
       message: 'personal_message',
       task: 'task_assign',
       approval: 'leave_approval',
+      leave_approval: 'leave_approval',
+      leave_approved: 'leave_approval',
+      leave_rejected: 'leave_approval',
+      leave_cancelled: 'leave_approval',
+      course_adjustment: 'schedule_change',
       notification: 'system_announcement',
     };
     return typeToEventMap[type] || 'personal_message';
