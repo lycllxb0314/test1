@@ -615,10 +615,12 @@ export default function StudentHonorsPage() {
     value: statistics.byCategory[cat] || 0,
   })) : [];
 
-  const gradeChartData = statistics ? GRADES.map(g => ({
+  // 处理 byGrade 键类型问题（JSON 序列化后数字键变成字符串）
+  const gradeData = statistics?.byGrade as Record<string, number> || {};
+  const gradeChartData = GRADES.map(g => ({
     name: `${g}年级`,
-    value: statistics.byGrade[g] || 0,
-  })) : [];
+    value: gradeData[g] || gradeData[g.toString()] || 0,
+  }));
 
   const monthChartData = statistics ? Object.entries(statistics.byMonth).map(([month, count]) => ({
     name: `${month}月`,

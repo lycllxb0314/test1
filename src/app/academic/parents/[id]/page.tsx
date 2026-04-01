@@ -69,35 +69,51 @@ const RELATION_NAMES: Record<string, string> = {
 // 家长类型定义
 interface ParentDetail {
   id: string;
-  student_id: string;
-  student_name: string;
-  class_id: string;
-  class_name: string;
+  student_id?: string;
+  studentId?: string;
+  student_name?: string;
+  studentName?: string;
+  class_id?: string;
+  classId?: string;
+  class_name?: string;
+  className?: string;
   name: string;
   relation: string;
-  relation_name: string;
+  relation_name?: string;
+  relationName?: string;
   phone: string | null;
   wechat: string | null;
   email: string | null;
   // 个人信息（扩展）
   gender: string | null;
-  birth_date: string | null;
-  id_card: string | null;
+  birth_date?: string | null;
+  birthDate?: string | null;
+  id_card?: string | null;
+  idCard?: string | null;
   education: string | null;
-  political_status: string | null;
+  political_status?: string | null;
+  politicalStatus?: string | null;
   // 地址信息
-  household_address: string | null;
-  current_address: string | null;
+  household_address?: string | null;
+  householdAddress?: string | null;
+  current_address?: string | null;
+  currentAddress?: string | null;
   // 紧急联系人
-  emergency_contact: string | null;
-  emergency_phone: string | null;
+  emergency_contact?: string | null;
+  emergencyContact?: string | null;
+  emergency_phone?: string | null;
+  emergencyPhone?: string | null;
   // 工作信息
   occupation: string | null;
-  work_unit: string | null;
+  work_unit?: string | null;
+  company?: string | null;
   // 账号信息
-  is_primary: boolean;
-  has_account: boolean;
-  account_id: string | null;
+  is_primary?: boolean;
+  isPrimary?: boolean;
+  has_account?: boolean;
+  hasAccount?: boolean;
+  account_id?: string | null;
+  userId?: string | null;
   password: string | null;
   status: string;
   remark: string | null;
@@ -109,8 +125,10 @@ interface ParentDetail {
 interface StudentBrief {
   id: string;
   name: string;
-  student_no: string;
-  class_name: string;
+  studentNo?: string;
+  student_no?: string;
+  className?: string;
+  class_name?: string;
   gender: string;
 }
 
@@ -903,21 +921,21 @@ export default function ParentDetailPage({ params }: PageProps) {
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-xl">
-                      {student.gender === '男' ? '👦' : '👧'}
+                      {student.gender === '男' || student.gender === 'male' ? '👦' : '👧'}
                     </div>
                     <div>
                       <p className="font-medium">{student.name}</p>
-                      <p className="text-sm text-gray-500">{student.class_name}</p>
+                      <p className="text-sm text-gray-500">{student.className || student.class_name}</p>
                     </div>
                   </div>
                   <div className="text-sm space-y-1">
                     <div className="flex justify-between">
                       <span className="text-gray-500">学号</span>
-                      <span>{student.student_no}</span>
+                      <span>{student.studentNo || student.student_no}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">性别</span>
-                      <span>{student.gender}</span>
+                      <span>{student.gender === 'male' ? '男' : student.gender === 'female' ? '女' : student.gender}</span>
                     </div>
                   </div>
                 </div>
@@ -949,10 +967,10 @@ export default function ParentDetailPage({ params }: PageProps) {
                         <User className="h-4 w-4 text-gray-400" />
                         <span className="font-medium">{p.name}</span>
                         <Badge className={getRelationColor(p.relation)} variant="outline">
-                          {p.relation_name}
+                          {p.relationName || p.relation_name}
                         </Badge>
                       </div>
-                      {p.is_primary && (
+                      {(p.isPrimary || p.is_primary) && (
                         <Star className="h-4 w-4 text-amber-500" />
                       )}
                     </div>
