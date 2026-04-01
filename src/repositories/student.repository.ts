@@ -1,9 +1,36 @@
 /**
+ * 家长关系映射（英文 -> 中文）
+ */
+const RELATIONSHIP_MAP: Record<string, string> = {
+  'father': '父亲',
+  'mother': '母亲',
+  'grandfather': '爷爷',
+  'grandmother': '奶奶',
+  'maternal_grandfather': '外公',
+  'maternal_grandmother': '外婆',
+  'uncle': '叔叔',
+  'aunt': '阿姨',
+  'other': '其他',
+};
+
+/**
+ * 家长关系映射为中文
+ */
+function mapRelationship(relation: string | undefined | null): string {
+  if (!relation) return '其他';
+  // 如果已经是中文，直接返回
+  if (['父亲', '母亲', '爷爷', '奶奶', '外公', '外婆', '叔叔', '阿姨', '其他'].includes(relation)) {
+    return relation;
+  }
+  return RELATIONSHIP_MAP[relation.toLowerCase()] || relation;
+}
+
+/**
  * 学生 Repository
  */
 
 import { BaseRepository, PaginatedResult } from './base.repository';
-import type { Student, Parent, StudentFullProfile } from '@/types';
+import type { Student, Parent, StudentFullProfile, StudentHonor } from '@/types';
 import type { StudentRow, ParentRow } from '@/types/db-helpers';
 
 /**
@@ -174,7 +201,7 @@ export class StudentRepository extends BaseRepository<Student> {
       this.client
         .from('parents')
         .select('*')
-        .contains('children_ids', [id])
+        .eq('student_id', id)
     ]);
     
     return {
@@ -182,7 +209,7 @@ export class StudentRepository extends BaseRepository<Student> {
       parents: (parentsResult.data || []).map((p: Record<string, unknown>) => ({
         id: p.id as string,
         name: p.name as string,
-        relationship: p.relationship as string,
+        relationship: mapRelationship((p.relation || p.relationship) as string),
         phone: p.phone as string,
         isPrimary: p.is_primary as boolean,
         wechat: p.wechat as string,
@@ -222,6 +249,35 @@ export class StudentRepository extends BaseRepository<Student> {
     }
     
     return data?.length || 0;
+  }
+  
+  /**
+   * 获取学生荣誉列表
+   */
+  async findHonorsByStudentId(studentId: string): Promise<StudentHonor[]> {
+    const { data, error } = await this.client
+      .from('student_honors')
+      .select('*')
+      .eq('student_id', studentId)
+      .order('date', { ascending: false });
+    
+    if (error) {
+      console.error('[StudentRepository] findHonorsByStudentId error:', error.message);
+      return [];
+    }
+    
+    return (data || []).map((h: Record<string, unknown>) => ({
+      id: h.id as string,
+      studentId: h.student_id as string,
+      title: h.title as string,
+      level: h.level as StudentHonor['level'],
+      category: h.category as StudentHonor['category'],
+      issuer: h.issuer as string,
+      date: h.date as string,
+      certificateNo: h.certificate_no as string,
+      description: h.description as string,
+      createdAt: h.created_at as string,
+    }));
   }
 }
 

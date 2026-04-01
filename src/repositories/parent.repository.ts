@@ -168,16 +168,15 @@ export class ParentRepository extends BaseRepository<ParentRecord> implements IP
    * 查询家长及其学生信息
    */
   async findWithStudent(id: string): Promise<ParentRecord | null> {
+    // 先查询家长信息
     const { data, error } = await this.client
       .from(this.tableName)
-      .select(`
-        *,
-        students (id, name, student_no, class_id, class_name, gender, birth_date)
-      `)
+      .select('*')
       .eq('id', id)
       .single();
     
     if (error) {
+      console.error('[ParentRepository] findWithStudent error:', error.message);
       return null;
     }
     

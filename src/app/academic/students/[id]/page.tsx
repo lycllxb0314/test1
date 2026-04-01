@@ -309,8 +309,10 @@ export default function StudentDetailPage({ params }: PageProps) {
           credentials: 'include',
         });
         const result = await res.json();
-        if (result.success) {
-          setStudentHonors(result.data || []);
+        if (result.success && result.data) {
+          // API 返回结构: { data: { data: [...], pagination: {...} } }
+          const honorsArray = Array.isArray(result.data) ? result.data : (result.data.data || []);
+          setStudentHonors(honorsArray);
         }
       } catch (err) {
         console.error('Failed to fetch student honors:', err);

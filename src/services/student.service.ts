@@ -73,12 +73,24 @@ export class StudentService extends BaseService {
       return this.fail('学生不存在', 'NOT_FOUND');
     }
 
-    // 获取关联信息
+    // 获取关联信息（家长信息）
     const { parents } = await studentRepository.findDetailById(id);
+
+    // 获取班级信息（包含班主任信息）
+    let classInfo = null;
+    if (student.classId) {
+      classInfo = await classRepository.findDetailById(student.classId);
+    }
+
+    // 获取学生荣誉
+    const honors = await studentRepository.findHonorsByStudentId(id);
 
     const profile: StudentFullProfile = {
       ...student,
       parents: parents,
+      headTeacherId: classInfo?.headTeacherId,
+      headTeacherName: classInfo?.headTeacherName,
+      honors: honors,
     } as StudentFullProfile;
 
     return this.ok(profile);

@@ -52,17 +52,10 @@ export class ClassRepository extends BaseRepository<Class> {
    * 查询班级详情（包含教师和学生数）
    */
   async findDetailById(id: string): Promise<ClassInfo | null> {
+    // 直接查询 classes 表，该表已包含 head_teacher_id 和 head_teacher_name 字段
     const { data, error } = await this.client
       .from(this.tableName)
-      .select(`
-        *,
-        head_teacher:users!head_teacher_id(id, name, phone),
-        teachers:class_teachers(
-          teacher_id,
-          position,
-          users(id, name, phone, role)
-        )
-      `)
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -71,7 +64,26 @@ export class ClassRepository extends BaseRepository<Class> {
       return null;
     }
 
-    return data as ClassInfo;
+    // 映射字段为驼峰格式
+    const d = data as Record<string, unknown>;
+    return {
+      id: d.id as string,
+      name: d.name as string,
+      grade: d.grade as number,
+      gradeName: d.grade_name as string,
+      classNumber: d.class_number as number,
+      headTeacherId: d.head_teacher_id as string,
+      headTeacherName: d.head_teacher_name as string,
+      subTeacherId: d.sub_teacher_id as string,
+      subTeacherName: d.sub_teacher_name as string,
+      studentCount: d.student_count as number,
+      classroomId: d.classroom_id as string,
+      classroomName: d.classroom_name as string,
+      building: d.building as string,
+      status: d.status as string,
+      motto: d.motto as string,
+      features: d.features as string[],
+    } as ClassInfo;
   }
 
   /**
