@@ -63,3 +63,37 @@ export const DELETE = protectedRoute(async (request: NextRequest, context: Exten
     return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });
+
+/**
+ * PATCH - 更新打卡记录（班主任评论等）
+ */
+export const PATCH = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
+  try {
+    const params = await context.params;
+    const id = params?.id;
+    
+    if (!id) {
+      return NextResponse.json(error('缺少记录ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
+    }
+    
+    const body = await request.json();
+    
+    const result = await habitRecordExtService.update(id, {
+      teacherComment: body.teacherComment,
+      status: body.status,
+    });
+    
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '更新打卡记录失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    }
+    
+    return NextResponse.json({
+      success: true,
+      data: result.data,
+      message: '更新成功',
+    });
+  } catch (err) {
+    console.error('更新打卡记录API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});

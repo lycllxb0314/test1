@@ -655,6 +655,45 @@ export class HabitRecordExtService extends BaseService {
       return { success: false, error: '服务器错误' };
     }
   }
+
+  /**
+   * 更新打卡记录（班主任评论等）
+   */
+  async update(id: string, data: {
+    teacherComment?: string;
+    status?: string;
+  }): Promise<ServiceResult<HabitDailyRecord>> {
+    try {
+      const client = getSupabaseClient();
+
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (data.teacherComment !== undefined) {
+        updateData.teacher_comment = data.teacherComment;
+      }
+      if (data.status !== undefined) {
+        updateData.status = data.status;
+      }
+
+      const { data: result, error } = await client
+        .from('habit_daily_records')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: result as HabitDailyRecord };
+    } catch (err) {
+      console.error('Update record error:', err);
+      return { success: false, error: '服务器错误' };
+    }
+  }
 }
 
 // ==================== 习惯之星服务 ====================
