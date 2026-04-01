@@ -87,6 +87,7 @@ interface TeacherInfo {
   headTeacherClassName?: string
   subTeacherClasses?: Array<{ classId: string; className: string }>
   teachYears?: number
+  employeeId?: string
   [key: string]: unknown
 }
 
@@ -261,6 +262,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
           headTeacherClassName: (t.headTeacherClassName as string) || (t.head_teacher_class_name as string),
           subTeacherClasses: (t.subTeacherClasses as Array<{ classId: string; className: string }>) || [],
           teachYears: (t.teachYears as number) || (t.teach_years as number) || 0,
+          employeeId: (t.employeeId as string) || (t.employee_id as string) || '',
         }))
 
         setTeachers({
