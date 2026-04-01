@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { User, UserRole, ModuleType, Permission } from '@/types';
 import { validateSession as validateJwtSession, extractTokens, getUserFromSession } from './session';
 import { hasPermission, canAccessModule } from './permissions';
+import { extractUserIdLegacy, validateSessionLegacy } from './auth-middleware';
 
 // ==================== 类型定义 ====================
 
@@ -121,45 +122,49 @@ export async function authenticateRequest(
   // 提取 Token
   const { accessToken, refreshToken } = extractTokens(request);
   
-  if (!accessToken) {
-    if (!required) {
-      return { success: true }; // 可选认证，允许无用户
+  // JWT 认证
+  if (accessToken) {
+    // 尝试从缓存获取
+    const decoded = decodeTokenSimple(accessToken);
+    if (decoded && cacheUser) {
+      const cachedUser = getCachedUser(decoded.userId);
+      if (cachedUser) {
+        return { success: true, user: cachedUser };
+      }
     }
-    return {
-      success: false,
-      error: '未登录，请先登录',
-      code: 'UNAUTHORIZED',
-      statusCode: 401,
-    };
-  }
-  
-  // 尝试从缓存获取
-  const decoded = decodeTokenSimple(accessToken);
-  if (decoded && cacheUser) {
-    const cachedUser = getCachedUser(decoded.userId);
-    if (cachedUser) {
-      return { success: true, user: cachedUser };
+    
+    // 验证 JWT 会话
+    const sessionResult = await validateJwtSession(accessToken, refreshToken || undefined);
+    
+    if (sessionResult.success && sessionResult.user) {
+      // 缓存用户信息
+      if (cacheUser) {
+        setCachedUser(sessionResult.user);
+      }
+      return { success: true, user: sessionResult.user };
     }
   }
   
-  // 验证 JWT 会话
-  const sessionResult = await validateJwtSession(accessToken, refreshToken || undefined);
-  
-  if (!sessionResult.success || !sessionResult.user) {
-    return {
-      success: false,
-      error: sessionResult.error || '会话已过期，请重新登录',
-      code: 'SESSION_EXPIRED',
-      statusCode: 401,
-    };
+  // 降级到传统认证方式（向后兼容）
+  const userId = extractUserIdLegacy(request);
+  if (userId) {
+    const legacyResult = await validateSessionLegacy(userId);
+    if (legacyResult.success && legacyResult.user) {
+      return { success: true, user: legacyResult.user };
+    }
   }
   
-  // 缓存用户信息
-  if (cacheUser) {
-    setCachedUser(sessionResult.user);
+  // 认证失败
+  if (!required) {
+    return { success: true }; // 可选认证，允许无用户
   }
   
-  return { success: true, user: sessionResult.user };
+  return {
+    success: false,
+    error: '未登录，请先登录',
+    code: 'UNAUTHORIZED',
+    statusCode: 401,
+  };
 }
 
 /**

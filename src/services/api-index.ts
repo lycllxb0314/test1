@@ -203,10 +203,6 @@ export const GRADE_API = {
 export const RESEARCH_API = {
   activitiesList: '/api/research/activities',
   activitiesCreate: '/api/research/activities',
-  observationsList: '/api/research/observations',
-  observationsCreate: '/api/research/observations',
-  preparationsList: '/api/research/preparations',
-  preparationsCreate: '/api/research/preparations',
 } as const;
 
 /**
