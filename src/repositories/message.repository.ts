@@ -224,7 +224,7 @@ export class MessageRepository extends BaseRepository<MessageRow> {
       .from('message_reads')
       .select('message_id')
       .eq('user_id', userId)
-      .eq('archived', true);
+      .eq('status', 'archived');
     
     if (error) {
       console.error('[MessageRepository] findArchivedMessageIds error:', error.message);
@@ -304,18 +304,16 @@ export class MessageRepository extends BaseRepository<MessageRow> {
   }
   
   /**
-   * 归档消息（插入到 message_archives 表或更新状态）
+   * 归档消息（更新 status 为 archived）
    */
   async archive(messageId: string, userId: string): Promise<boolean> {
-    // 简单实现：在 message_reads 表中添加 archived 标记
-    // 或者可以创建单独的 message_archives 表
     const { error } = await this.client
       .from('message_reads')
       .upsert({
         message_id: messageId,
         user_id: userId,
         read_at: new Date().toISOString(),
-        archived: true,
+        status: 'archived',
       }, { onConflict: 'message_id,user_id' });
     
     if (error) {

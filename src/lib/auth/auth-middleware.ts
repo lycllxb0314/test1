@@ -46,12 +46,7 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
       };
     }
     
-    // JWT 认证失败，返回错误
-    return {
-      success: false,
-      error: sessionResult.error || '会话已过期，请重新登录',
-      statusCode: 401,
-    };
+    // JWT 认证失败，不直接返回错误，而是尝试降级到传统认证
   }
 
   // 2. 降级到传统认证方式（向后兼容）

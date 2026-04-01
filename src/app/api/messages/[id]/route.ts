@@ -14,22 +14,37 @@ import { messageService } from '@/services/message.service';
 import { messageRepository } from '@/repositories/message.repository';
 import { userRepository } from '@/repositories/user.repository';
 import { success, error, ErrorCode } from '@/lib/api';
-import { extractUserIdLegacy } from '@/lib/auth/auth-middleware';
+import { extractUserIdLegacy, validateSessionLegacy } from '@/lib/auth/auth-middleware';
+import { extractTokens, validateSession as validateJwtSession } from '@/lib/auth/session';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 /**
- * 将工号转换为用户 UUID
+ * 从请求中获取用户 UUID（支持 JWT 和传统认证）
  */
-async function getUserUUID(employeeId: string): Promise<string | null> {
-  try {
-    const user = await userRepository.findByEmployeeId(employeeId);
-    return user?.id || null;
-  } catch {
-    return null;
+async function getUserUUID(request: NextRequest): Promise<string | null> {
+  // 1. 尝试 JWT 认证
+  const { accessToken, refreshToken } = extractTokens(request);
+  if (accessToken) {
+    const sessionResult = await validateJwtSession(accessToken, refreshToken || undefined);
+    if (sessionResult.success && sessionResult.user) {
+      return sessionResult.user.id;
+    }
   }
+  
+  // 2. 降级到传统认证
+  const employeeId = extractUserIdLegacy(request);
+  if (!employeeId) return null;
+  
+  // 验证会话并获取用户 UUID
+  const sessionResult = await validateSessionLegacy(employeeId);
+  if (sessionResult.success && sessionResult.user) {
+    return sessionResult.user.id;
+  }
+  
+  return null;
 }
 
 /**
@@ -71,21 +86,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const body = await request.json();
   const action = body.action;
   
-  // 获取当前用户工号
-  const employeeId = extractUserIdLegacy(request);
-  if (!employeeId) {
+  // 获取用户 UUID（支持 JWT 和传统认证）
+  const userUUID = await getUserUUID(request);
+  if (!userUUID) {
     return NextResponse.json(
       error('未登录', ErrorCode.UNAUTHORIZED),
       { status: 401 }
-    );
-  }
-
-  // 转换为用户 UUID
-  const userUUID = await getUserUUID(employeeId);
-  if (!userUUID) {
-    return NextResponse.json(
-      error('用户不存在', ErrorCode.NOT_FOUND),
-      { status: 404 }
     );
   }
 
@@ -124,21 +130,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const employeeId = extractUserIdLegacy(request);
   
-  if (!employeeId) {
+  // 获取用户 UUID（支持 JWT 和传统认证）
+  const userUUID = await getUserUUID(request);
+  if (!userUUID) {
     return NextResponse.json(
       error('未登录', ErrorCode.UNAUTHORIZED),
       { status: 401 }
-    );
-  }
-
-  // 转换为用户 UUID
-  const userUUID = await getUserUUID(employeeId);
-  if (!userUUID) {
-    return NextResponse.json(
-      error('用户不存在', ErrorCode.NOT_FOUND),
-      { status: 404 }
     );
   }
 
