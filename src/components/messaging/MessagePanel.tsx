@@ -78,6 +78,8 @@ import type {
   MessageStatus,
 } from '@/types/messages';
 import { MESSAGE_EVENT_CONFIGS } from '@/types/messages';
+import { LeaveApprovalDialog } from '@/components/leave/LeaveApprovalDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
 
@@ -184,6 +186,13 @@ export function MessagePanel({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedMessage, setSelectedMessage] = useState<UserMessage | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  
+  // 请假审批弹窗状态
+  const [leaveApprovalOpen, setLeaveApprovalOpen] = useState(false);
+  const [leaveRequestId, setLeaveRequestId] = useState<string | null>(null);
+  
+  // 获取当前用户信息
+  const { user } = useAuth();
 
   // 筛选消息
   const filteredMessages = useMemo(() => {
@@ -223,6 +232,20 @@ export function MessagePanel({
 
   // 查看消息详情
   const handleViewMessage = (message: UserMessage) => {
+    // 如果是请假审批消息，打开请假审批弹窗
+    if (message.event === 'leave_approval' || message.metadata?.leaveRequestId) {
+      const lrId = (message.metadata?.leaveRequestId || message.relatedId) as string;
+      if (lrId) {
+        setLeaveRequestId(lrId);
+        setLeaveApprovalOpen(true);
+        if (message.status === 'unread' && onMarkAsRead) {
+          onMarkAsRead(message.id);
+        }
+        return;
+      }
+    }
+    
+    // 其他消息打开详情对话框
     setSelectedMessage(message);
     setDetailDialogOpen(true);
     if (message.status === 'unread' && onMarkAsRead) {
@@ -580,6 +603,17 @@ export function MessagePanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* 请假审批弹窗 */}
+      <LeaveApprovalDialog
+        open={leaveApprovalOpen}
+        onOpenChange={setLeaveApprovalOpen}
+        leaveRequestId={leaveRequestId}
+        currentUserEmployeeId={user?.employeeId || ''}
+        onSuccess={() => {
+          if (onRefresh) onRefresh();
+        }}
+      />
     </>
   );
 }
