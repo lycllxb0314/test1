@@ -90,10 +90,25 @@ export class MoralActivityService extends BaseService {
       return this.fail('活动标题和组织者不能为空', 'VALIDATION_ERROR');
     }
 
+    // 映射字段：organizerId -> created_by, organizerName -> created_by_name
+    // 状态值映射：planned -> draft, ongoing -> published
+    let dbStatus = data.status || 'draft';
+    if (dbStatus === 'planned') dbStatus = 'draft';
+    if (dbStatus === 'ongoing') dbStatus = 'published';
+    
     const activity = await this.moralActivityRepository.create({
-      ...data,
-      status: (data.status || 'planned') as MoralActivityStatus,
-    });
+      title: data.title,
+      content: data.content,
+      target_grades: data.targetGrades || [],
+      target_roles: data.targetRoles || ['head_teacher'],
+      require_submission: data.requireSubmission || false,
+      submission_config: data.submissionConfig || {},
+      deadline: data.submissionDeadline,
+      status: dbStatus,
+      created_by: data.organizerId,
+      created_by_name: data.organizerName,
+      attachments: data.attachments || [],
+    } as unknown as Partial<MoralActivity>);
 
     if (!activity) {
       return this.fail('创建德育活动失败', 'CREATE_ERROR');
@@ -235,7 +250,20 @@ export class MoralActivitySubmissionService extends BaseService {
    * 创建提交
    */
   async create(data: Partial<MoralActivitySubmission>): Promise<ServiceResult<MoralActivitySubmission>> {
-    const submission = await this.moralActivitySubmissionRepository.create(data);
+    // 映射字段名：驼峰命名 -> 数据库下划线命名
+    const submission = await this.moralActivitySubmissionRepository.create({
+      activity_id: data.activityId,
+      class_id: data.classId,
+      class_name: data.className,
+      grade: data.grade,
+      submitter_id: data.submitterId,
+      submitter_name: data.submitterName,
+      submitter_role: data.submitterRole,
+      text_content: data.content,
+      attachments: data.attachments || [],
+      status: data.status || 'pending',
+    } as unknown as Partial<MoralActivitySubmission>);
+    
     if (!submission) {
       return this.fail('创建提交记录失败', 'CREATE_ERROR');
     }
@@ -251,7 +279,15 @@ export class MoralActivitySubmissionService extends BaseService {
       return this.fail('提交记录不存在', 'NOT_FOUND');
     }
 
-    const submission = await this.moralActivitySubmissionRepository.update(id, data);
+    // 映射字段名：驼峰命名 -> 数据库下划线命名
+    const updateData: Record<string, unknown> = {};
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.reviewerId !== undefined) updateData.reviewed_by = data.reviewerId;
+    if (data.reviewComment !== undefined) updateData.review_comment = data.reviewComment;
+    if (data.reviewedAt !== undefined) updateData.reviewed_at = data.reviewedAt;
+    // 注意：数据库表中没有 reviewer_name 字段，所以忽略 reviewerName
+
+    const submission = await this.moralActivitySubmissionRepository.update(id, updateData as unknown as Partial<MoralActivitySubmission>);
     if (!submission) {
       return this.fail('更新提交记录失败', 'UPDATE_ERROR');
     }

@@ -22,7 +22,7 @@ export type MoralActivityStatus = 'planned' | 'ongoing' | 'completed' | 'cancell
 export interface MoralActivity {
   id: string;
   title: string;
-  type: MoralActivityType;
+  type?: MoralActivityType;
   description?: string;
   content?: string;
   organizerId: string;
@@ -31,9 +31,15 @@ export interface MoralActivity {
   targetClasses?: string[];
   targetRoles?: string[];
   requireSubmission?: boolean;
+  submissionConfig?: {
+    requireText?: boolean;
+    requireAttachment?: boolean;
+    allowedTypes?: string[];
+    maxFiles?: number;
+  };
   submissionDeadline?: string;
-  startTime: string;
-  endTime: string;
+  startTime?: string;
+  endTime?: string;
   location?: string;
   status: MoralActivityStatus;
   participantCount?: number;
@@ -52,10 +58,13 @@ export interface MoralActivitySubmission {
   activityId: string;
   classId?: string;
   className?: string;
+  grade?: number;
   studentId?: string;
   submitterId: string;
   submitterName: string;
+  submitterRole?: string;
   content?: string;
+  textContent?: string;
   images?: string[];
   attachments?: string[];
   status: SubmissionReviewStatus;

@@ -42,23 +42,24 @@ export const GET = withAuth(async (request: NextRequest) => {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
     
-    // 格式化数据
+    // 格式化数据（处理数据库字段名到驼峰命名的映射）
     const formattedData = (result.data || []).map(activity => {
       const item = activity as unknown as Record<string, unknown>;
+      const targetGrades = (item.target_grades || item.targetGrades || []) as number[];
       return {
         id: item.id,
         title: item.title,
         content: item.content,
-        targetGrades: item.targetGrades || [],
-        targetGradeNames: ((item.targetGrades || []) as number[]).map(g => GRADE_NAMES[g] || `${g}年级`),
-        targetRoles: item.targetRoles || ['head_teacher', 'grade_leader'],
-        requireSubmission: item.requireSubmission,
-        submissionDeadline: item.submissionDeadline,
+        targetGrades: targetGrades,
+        targetGradeNames: targetGrades.map(g => GRADE_NAMES[g] || `${g}年级`),
+        targetRoles: item.target_roles || item.targetRoles || ['head_teacher', 'grade_leader'],
+        requireSubmission: item.require_submission ?? item.requireSubmission ?? false,
+        submissionDeadline: item.deadline || item.submissionDeadline,
         status: item.status,
-        organizerId: item.organizerId,
-        organizerName: item.organizerName,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
+        organizerId: item.created_by || item.organizerId,
+        organizerName: item.created_by_name || item.organizerName,
+        createdAt: item.created_at || item.createdAt,
+        updatedAt: item.updated_at || item.updatedAt,
       };
     });
     

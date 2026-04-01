@@ -53,7 +53,7 @@ export class MoralActivityRepository extends BaseRepository<MoralActivity> {
    * 根据组织者查询
    */
   async findByOrganizer(organizerId: string): Promise<MoralActivity[]> {
-    return this.findWhere({ organizer_id: organizerId });
+    return this.findWhere({ created_by: organizerId });
   }
 
   /**
