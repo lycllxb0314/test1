@@ -632,6 +632,14 @@ const safeHtml = DOMPurify.sanitize(userInput);
 
 ## 更新日志
 
+- 2026-04-01: 修复手动排课两个问题
+  - **问题1：课表教师不显示**
+    - 根本原因：API 返回扁平数组，前端期望按班级分组 `{ scheduleData: [{ classId, slots }] }`
+    - 解决方案：修改 `grade/route.ts` 将课表数据按班级分组返回
+  - **问题2：一年级十班排在最前面**
+    - 根本原因：`getClassesByGrade` 未排序，字符串排序 "10" < "1"
+    - 解决方案：按 `classNumber` 数字排序
+  - **附加修复**：`cleanup/route.ts` 处理空 body 导致的 JSON 解析错误
 - 2026-04-01: 修复手动排课班主任/科任教师信息不显示问题
   - 根本原因：`useClasses.ts` 中使用 `teacher.id`（UUID格式）作为键查找教师，但 `headTeacherId` 是工号格式
   - 解决方案：

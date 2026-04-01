@@ -14,7 +14,16 @@ import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
  */
 export const POST = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {
-    const body = await request.json();
+    let body = { draftId: undefined };
+    try {
+      const text = await request.text();
+      if (text) {
+        body = JSON.parse(text);
+      }
+    } catch {
+      // body 为空或解析失败，使用默认值
+    }
+    
     const { draftId } = body;
     
     const result = await scheduleService.clearSchedule(draftId);

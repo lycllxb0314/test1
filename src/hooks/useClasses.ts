@@ -616,7 +616,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
   
   // 根据年级获取班级（从全部数据中查找）
   const getClassesByGrade = useCallback((grade: number) => 
-    allClasses.filter(c => c.grade === grade),
+    allClasses.filter(c => c.grade === grade).sort((a, b) => a.classNumber - b.classNumber),
   [allClasses]);
   
   // 根据班主任获取班级（从全部数据中查找）
