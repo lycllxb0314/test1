@@ -272,7 +272,7 @@ export class UserRepository extends BaseRepository<User> {
         password: plainPassword,
         updated_at: new Date().toISOString(),
       })
-      .eq('employeeId', employeeId);
+      .eq('employee_id', employeeId);
 
     if (error) {
       console.error('[UserRepository] syncPasswordToTeachers error:', error.message);
