@@ -135,7 +135,7 @@ export const GET = withAuth(async (request: NextRequest) => {
         employeeId: employeeId,
         primaryRole: item.role,
         additionalRoles: item.administrative_roles || item.additionalRoles || [],
-        primarySubject: item.primary_subject,
+        primarySubject: item.primary_subject || subjects?.[0] || null,
         subjects: item.subjects || [],
         weeklyHours: item.weekly_hours || 0,
         // 班级信息
