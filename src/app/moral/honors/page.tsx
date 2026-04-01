@@ -100,6 +100,7 @@ import {
   Line,
   CHART_COLORS,
 } from '@/components/charts/DynamicCharts';
+import { SimpleBarChart, SimplePieChart, SimpleLineChart } from '@/components/charts/SimpleBarChart';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
@@ -218,6 +219,12 @@ export default function StudentHonorsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [honorToDelete, setHonorToDelete] = useState<StudentHonor | null>(null);
   
+  // === 图表弹窗状态 ===
+  const [chartDetailOpen, setChartDetailOpen] = useState(false);
+  const [chartDetailTitle, setChartDetailTitle] = useState('');
+  const [chartDetailFilter, setChartDetailFilter] = useState<{ key: string; value: string } | null>(null);
+  const [chartDetailData, setChartDetailData] = useState<StudentHonor[]>([]);
+  
   // === 表单状态 ===
   const [formData, setFormData] = useState({
     studentId: '',
@@ -262,7 +269,8 @@ export default function StudentHonorsPage() {
         setHonors(Array.isArray(honorsData) ? honorsData : []);
         setTotal(result.data?.pagination?.total || 0);
         setTotalPages(result.data?.pagination?.totalPages || 1);
-        setStatistics(result.data?.statistics || null);
+        const stats = result.data?.statistics || null;
+        setStatistics(stats);
       } else {
         toast.error(result.error || '加载失败');
       }
@@ -327,6 +335,73 @@ export default function StudentHonorsPage() {
   }, [loadStudents]);
 
   // ==================== 操作处理 ====================
+
+  // 图表点击处理 - 打开弹窗显示筛选后的数据
+  const handleChartClick = useCallback(async (data: { name: string; value: number; type: string }) => {
+    if (data.value === 0) return;
+    
+    // 根据图表类型确定筛选条件
+    let filterKey = '';
+    let filterValue = data.name;
+    let title = '';
+    
+    switch (data.type) {
+      case 'level':
+        filterKey = 'level';
+        // 移除可能的后缀（如"级"）
+        filterValue = data.name;
+        title = `${data.name}荣誉列表 (${data.value}条)`;
+        break;
+      case 'category':
+        filterKey = 'category';
+        filterValue = data.name;
+        title = `${data.name}类荣誉列表 (${data.value}条)`;
+        break;
+      case 'grade':
+        filterKey = 'grade';
+        // 从"X年级"提取数字
+        const gradeMatch = data.name.match(/(\d)/);
+        filterValue = gradeMatch ? gradeMatch[1] : data.name;
+        title = `${data.name}荣誉列表 (${data.value}条)`;
+        break;
+      case 'month':
+        filterKey = 'month';
+        // 从"XX月"提取月份
+        const monthMatch = data.name.match(/(\d+)/);
+        filterValue = monthMatch ? monthMatch[1] : data.name;
+        title = `${data.name}荣誉列表 (${data.value}条)`;
+        break;
+      default:
+        title = `荣誉列表 (${data.value}条)`;
+    }
+    
+    setChartDetailTitle(title);
+    setChartDetailFilter({ key: filterKey, value: filterValue });
+    setChartDetailOpen(true);
+    
+    // 加载筛选后的数据
+    try {
+      const params = new URLSearchParams();
+      params.set('page', '1');
+      params.set('pageSize', '100');
+      if (filterKey && filterValue) {
+        params.set(filterKey, filterValue);
+      }
+      
+      const res = await fetch(`/api/student-honors?${params.toString()}`, {
+        credentials: 'include',
+      });
+      const result = await res.json();
+      
+      if (result.success) {
+        const honorsData = result.data?.data || result.data || [];
+        setChartDetailData(Array.isArray(honorsData) ? honorsData : []);
+      }
+    } catch (err) {
+      console.error('加载图表详情数据失败:', err);
+      setChartDetailData([]);
+    }
+  }, []);
 
   // 打开创建对话框
   const handleCreate = () => {
@@ -729,21 +804,13 @@ export default function StudentHonorsPage() {
               </CardHeader>
               <CardContent>
                 {statistics ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={levelChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                      />
-                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                        {levelChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <SimpleBarChart 
+                    data={levelChartData} 
+                    height={300}
+                    colors={Object.values(LEVEL_COLORS)}
+                    chartType="level"
+                    onItemClick={handleChartClick}
+                  />
                 ) : (
                   <div className="h-[300px] flex items-center justify-center text-gray-400">
                     暂无数据
@@ -762,29 +829,13 @@ export default function StudentHonorsPage() {
               </CardHeader>
               <CardContent>
                 {statistics ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={categoryChartData.filter(d => d.value > 0)}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${((percent as number) * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {categoryChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <SimplePieChart 
+                    data={categoryChartData} 
+                    height={300}
+                    colors={PIE_COLORS}
+                    chartType="category"
+                    onItemClick={handleChartClick}
+                  />
                 ) : (
                   <div className="h-[300px] flex items-center justify-center text-gray-400">
                     暂无数据
@@ -803,17 +854,13 @@ export default function StudentHonorsPage() {
               </CardHeader>
               <CardContent>
                 {statistics ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={gradeChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                      />
-                      <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <SimpleBarChart 
+                    data={gradeChartData} 
+                    height={300}
+                    colors={['#8b5cf6']}
+                    chartType="grade"
+                    onItemClick={handleChartClick}
+                  />
                 ) : (
                   <div className="h-[300px] flex items-center justify-center text-gray-400">
                     暂无数据
@@ -832,24 +879,13 @@ export default function StudentHonorsPage() {
               </CardHeader>
               <CardContent>
                 {statistics ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={monthChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="#22c55e" 
-                        strokeWidth={2}
-                        dot={{ fill: '#22c55e', strokeWidth: 2 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <SimpleLineChart 
+                    data={monthChartData} 
+                    height={300}
+                    color="#22c55e"
+                    chartType="month"
+                    onItemClick={handleChartClick}
+                  />
                 ) : (
                   <div className="h-[300px] flex items-center justify-center text-gray-400">
                     暂无数据
@@ -1458,6 +1494,71 @@ export default function StudentHonorsPage() {
               className={batchMode === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
             >
               {batchMode === 'delete' ? '确认删除' : '确认修改'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 图表详情弹窗 */}
+      <Dialog open={chartDetailOpen} onOpenChange={setChartDetailOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{chartDetailTitle}</DialogTitle>
+            <DialogDescription>
+              点击图表查看详细数据
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {chartDetailData.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>学生姓名</TableHead>
+                    <TableHead>班级</TableHead>
+                    <TableHead>荣誉名称</TableHead>
+                    <TableHead>级别</TableHead>
+                    <TableHead>类别</TableHead>
+                    <TableHead>颁发单位</TableHead>
+                    <TableHead>获奖日期</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {chartDetailData.map((honor) => (
+                    <TableRow key={honor.id}>
+                      <TableCell className="font-medium">{honor.studentName}</TableCell>
+                      <TableCell>{honor.className}</TableCell>
+                      <TableCell>{honor.title}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" style={{ 
+                          borderColor: LEVEL_COLORS[honor.level] || '#gray',
+                          color: LEVEL_COLORS[honor.level] || '#gray'
+                        }}>
+                          {honor.level}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" style={{
+                          backgroundColor: CATEGORY_COLORS[honor.category] ? `${CATEGORY_COLORS[honor.category]}20` : undefined,
+                          color: CATEGORY_COLORS[honor.category]
+                        }}>
+                          {honor.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{honor.issuer || '-'}</TableCell>
+                      <TableCell>{honor.date}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex items-center justify-center h-40 text-gray-400">
+                暂无数据
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChartDetailOpen(false)}>
+              关闭
             </Button>
           </DialogFooter>
         </DialogContent>
