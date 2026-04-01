@@ -532,7 +532,9 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`/api/teachers?pageSize=${PAGINATION.ENTITY_CONFIG.teachers.fetchPageSize}`);
+      const response = await fetch(`/api/teachers?pageSize=${PAGINATION.ENTITY_CONFIG.teachers.fetchPageSize}`, {
+        credentials: 'include',
+      });
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -649,6 +651,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+        credentials: 'include',
       });
       
       const result = await response.json();
@@ -671,6 +674,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+        credentials: 'include', // 包含 cookies
       });
       
       if (response.ok) {
@@ -690,6 +694,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     try {
       const response = await fetch(`/api/teachers/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       
       const result = await response.json();
@@ -720,6 +725,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
           teachable_grades: config.teachableGrades,
           is_head_teacher: config.primaryRole === 'head_teacher',
         }),
+        credentials: 'include', // 包含 cookies
       });
       
       if (response.ok) {
@@ -763,7 +769,9 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
   // 获取教师履历
   const fetchRecords = useCallback(async (teacherId: string): Promise<TeacherRecord[]> => {
     try {
-      const response = await fetch(`/api/teachers/records?teacherId=${teacherId}`);
+      const response = await fetch(`/api/teachers/records?teacherId=${teacherId}`, {
+        credentials: 'include',
+      });
       const result = await response.json();
       if (result.success) {
         return result.data || [];
@@ -782,6 +790,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teacherId, ...record }),
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -798,6 +807,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...record }),
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -812,6 +822,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     try {
       const response = await fetch(`/api/teachers/records?id=${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -826,7 +837,9 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
   // 获取教师荣誉
   const fetchHonors = useCallback(async (teacherId: string): Promise<TeacherHonor[]> => {
     try {
-      const response = await fetch(`/api/teachers/honors?teacherId=${teacherId}`);
+      const response = await fetch(`/api/teachers/honors?teacherId=${teacherId}`, {
+        credentials: 'include',
+      });
       const result = await response.json();
       if (result.success) {
         return result.data || [];
@@ -845,6 +858,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teacherId, ...honor }),
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -861,6 +875,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...honor }),
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -875,6 +890,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     try {
       const response = await fetch(`/api/teachers/honors?id=${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -889,7 +905,9 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
   // 获取教师培训
   const fetchTrainings = useCallback(async (teacherId: string): Promise<TeacherTraining[]> => {
     try {
-      const response = await fetch(`/api/teachers/trainings?teacherId=${teacherId}`);
+      const response = await fetch(`/api/teachers/trainings?teacherId=${teacherId}`, {
+        credentials: 'include',
+      });
       const result = await response.json();
       if (result.success) {
         return result.data || [];
@@ -908,6 +926,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teacherId, ...training }),
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -924,6 +943,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...training }),
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -938,6 +958,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     try {
       const response = await fetch(`/api/teachers/trainings?id=${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -952,7 +973,9 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
   // 获取教师成就
   const fetchAchievements = useCallback(async (teacherId: string): Promise<TeacherAchievement[]> => {
     try {
-      const response = await fetch(`/api/teachers/achievements?teacherId=${teacherId}`);
+      const response = await fetch(`/api/teachers/achievements?teacherId=${teacherId}`, {
+        credentials: 'include',
+      });
       const result = await response.json();
       if (result.success) {
         return result.data || [];
@@ -971,6 +994,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teacherId, ...achievement }),
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -987,6 +1011,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...achievement }),
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
@@ -1001,6 +1026,7 @@ export function useTeachers(initialFilters?: TeacherFilters): UseTeachersReturn 
     try {
       const response = await fetch(`/api/teachers/achievements?id=${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       const result = await response.json();
       return result.success;
