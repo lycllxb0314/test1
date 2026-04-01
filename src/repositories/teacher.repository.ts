@@ -16,17 +16,27 @@ export interface TeacherFilters {
 }
 
 /**
- * 数组类型字段列表（在 users 表中是 text[] 或 integer[] 类型）
- * 这些字段需要特殊处理，因为 Supabase 客户端传递 JavaScript 数组时会有类型不匹配问题
+ * text[] 类型的数组字段
  */
-const ARRAY_FIELDS = [
+const TEXT_ARRAY_FIELDS = [
   'subjects',
   'secondary_subjects',
   'teachable_subjects',
   'additional_roles',
+];
+
+/**
+ * integer[] 类型的数组字段
+ */
+const INT_ARRAY_FIELDS = [
   'teachable_grades',
   'managed_grades',
 ];
+
+/**
+ * 所有数组类型字段
+ */
+const ALL_ARRAY_FIELDS = [...TEXT_ARRAY_FIELDS, ...INT_ARRAY_FIELDS];
 
 /**
  * 教师 Repository
@@ -37,21 +47,57 @@ export class TeacherRepository extends BaseRepository<User> {
   }
   
   /**
-   * 更新教师信息（覆盖基类方法，处理数组类型字段）
+   * 更新教师信息（覆盖基类方法，正确处理数组类型字段）
    */
   async update(id: string, data: Partial<User>): Promise<User | null> {
-    // 过滤掉数组类型字段，避免类型不匹配错误
-    const filteredData: Record<string, unknown> = {};
+    // 分离普通字段和数组字段
+    const normalData: Record<string, unknown> = {};
+    const arrayData: Record<string, unknown> = {};
+    
     for (const [key, value] of Object.entries(data)) {
-      // 跳过数组类型字段
-      if (ARRAY_FIELDS.includes(key)) {
-        continue;
+      if (ALL_ARRAY_FIELDS.includes(key)) {
+        arrayData[key] = value;
+      } else {
+        normalData[key] = value;
       }
-      filteredData[key] = value;
     }
     
-    // 调用基类的 update 方法
-    return super.update(id, filteredData as Partial<User>);
+    // 先更新普通字段
+    if (Object.keys(normalData).length > 0) {
+      const { error } = await this.client
+        .from(this.tableName)
+        .update({
+          ...normalData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+      
+      if (error) {
+        console.error(`[${this.tableName}] update normal fields error:`, error.message);
+        return null;
+      }
+    }
+    
+    // 使用 RPC 更新数组字段
+    if (Object.keys(arrayData).length > 0) {
+      const { error } = await this.client.rpc('update_teacher_array_fields', {
+        p_user_id: id,
+        p_subjects: arrayData.subjects as string[] | undefined,
+        p_secondary_subjects: arrayData.secondary_subjects as string[] | undefined,
+        p_teachable_subjects: arrayData.teachable_subjects as string[] | undefined,
+        p_additional_roles: arrayData.additional_roles as string[] | undefined,
+        p_teachable_grades: arrayData.teachable_grades as number[] | undefined,
+        p_managed_grades: arrayData.managed_grades as number[] | undefined,
+      });
+      
+      if (error) {
+        console.error(`[${this.tableName}] update array fields error:`, error.message);
+        // 数组字段更新失败不影响整体，继续返回
+      }
+    }
+    
+    // 返回更新后的数据
+    return this.findById(id);
   }
   
   /**

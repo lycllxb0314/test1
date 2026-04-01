@@ -175,6 +175,9 @@ export const PATCH = withAuthAndParams(async (request: NextRequest, { params }) 
     if (body.teachableSubjects !== undefined) updateData.teachable_subjects = body.teachableSubjects;
     if (body.primaryRole !== undefined) updateData.role = body.primaryRole;
     if (body.teachableGrades !== undefined) updateData.teachable_grades = body.teachableGrades;
+    if (body.additionalRoles !== undefined) updateData.additional_roles = body.additionalRoles;
+    if (body.secondarySubjects !== undefined) updateData.secondary_subjects = body.secondarySubjects;
+    if (body.managedGrades !== undefined) updateData.managed_grades = body.managedGrades;
     
     const result = await teacherService.updateTeacher(id as string, updateData);
     
