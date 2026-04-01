@@ -428,6 +428,8 @@ export class MessageService extends BaseService {
    * 数据库行转业务模型
    */
   private toUserMessage(row: MessageRow): UserMessage {
+    // 从 metadata 中获取 action_url, action_label, related_id, related_type
+    const metadata = row.metadata || {};
     return {
       id: row.id,
       title: row.title,
@@ -438,10 +440,10 @@ export class MessageService extends BaseService {
       senderId: row.sender_id,
       senderName: row.sender_name,
       recipientId: row.recipient_id || row.user_ids?.[0],  // 使用正确的列名
-      relatedId: row.related_id,
-      relatedType: row.related_type,
-      actionUrl: row.action_url,
-      actionLabel: row.action_label,
+      relatedId: row.related_id || (metadata.related_id as string),
+      relatedType: row.related_type || (metadata.related_type as string),
+      actionUrl: row.action_url || (metadata.action_url as string),
+      actionLabel: row.action_label || (metadata.action_label as string),
       metadata: row.metadata,
       createdAt: row.created_at || new Date().toISOString(),
     };

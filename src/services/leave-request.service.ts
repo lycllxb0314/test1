@@ -184,6 +184,7 @@ export class LeaveRequestService extends BaseService {
           continue;
         }
 
+        // 将 action_url, action_label, related_id, related_type 存入 metadata
         await messageRepository.create({
           title: `【待审批】${applicantName}的${type}申请`,
           content: `${applicantName}提交了${type}申请（${startDate}至${endDate}），请及时审批。原因：${reason}`,
@@ -192,19 +193,19 @@ export class LeaveRequestService extends BaseService {
           sender_name: applicantName,
           recipient_id: approverUser.id,
           recipient_type: 'individual',
-          related_id: leaveRequestId,
-          related_type: 'leave_request',
-          action_url: `/teacher/leave`,
-          action_label: '去审批',
           metadata: {
             leaveRequestId,
             approverEmployeeId: approver.employeeId,
             signType: approver.signType,
+            related_id: leaveRequestId,
+            related_type: 'leave_request',
+            action_url: '/teacher/leave',
+            action_label: '去审批',
           },
           created_at: new Date().toISOString(),
         } as unknown as Parameters<typeof messageRepository.create>[0]);
 
-        console.log(`[LeaveRequestService] 已发送通知给审批人: ${approver.name} (${approver.employeeId})`);
+        console.log(`[LeaveRequestService] 已发送通知给审批人: ${approverUser.name} (${approver.employeeId})`);
       } catch (err) {
         console.error(`[LeaveRequestService] 发送通知给 ${approver.employeeId} 失败:`, err);
       }
