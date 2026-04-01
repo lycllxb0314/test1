@@ -251,6 +251,47 @@ export class MessageRepository extends BaseRepository<MessageRow> {
   }
   
   /**
+   * 标记消息为未读（删除已读记录）
+   */
+  async markAsUnread(messageId: string, userId: string): Promise<boolean> {
+    const { error } = await this.client
+      .from('message_reads')
+      .delete()
+      .eq('message_id', messageId)
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error('[MessageRepository] markAsUnread error:', error.message);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * 归档消息（插入到 message_archives 表或更新状态）
+   */
+  async archive(messageId: string, userId: string): Promise<boolean> {
+    // 简单实现：在 message_reads 表中添加 archived 标记
+    // 或者可以创建单独的 message_archives 表
+    const { error } = await this.client
+      .from('message_reads')
+      .upsert({
+        message_id: messageId,
+        user_id: userId,
+        read_at: new Date().toISOString(),
+        archived: true,
+      }, { onConflict: 'message_id,user_id' });
+    
+    if (error) {
+      console.error('[MessageRepository] archive error:', error.message);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
    * 发送消息
    */
   async sendMessage(message: Partial<MessageRow>): Promise<MessageRow | null> {

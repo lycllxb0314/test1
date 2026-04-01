@@ -415,6 +415,22 @@ export class MessageService extends BaseService {
   }
 
   /**
+   * 标记消息未读
+   */
+  async markAsUnread(messageId: string, userId: string): Promise<ServiceResult<boolean>> {
+    const success = await this.repository.markAsUnread(messageId, userId);
+    return success ? this.ok(true) : this.fail('标记失败');
+  }
+
+  /**
+   * 归档消息
+   */
+  async archive(messageId: string, userId: string): Promise<ServiceResult<boolean>> {
+    const success = await this.repository.archive(messageId, userId);
+    return success ? this.ok(true) : this.fail('归档失败');
+  }
+
+  /**
    * 批量标记已读
    */
   async markAllAsRead(userId: string, messageIds?: string[]): Promise<ServiceResult<number>> {

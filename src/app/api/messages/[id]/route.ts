@@ -2,7 +2,7 @@
  * 消息详情 API
  * 
  * GET: 获取消息详情
- * PUT: 更新消息
+ * PUT: 更新消息状态（已读、未读、归档等）
  * DELETE: 删除消息
  * 
  * ⚠️ 架构原则：
@@ -10,11 +10,26 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { messageService } from '@/services/communication.service';
+import { messageService } from '@/services/message.service';
+import { messageRepository } from '@/repositories/message.repository';
+import { userRepository } from '@/repositories/user.repository';
 import { success, error, ErrorCode } from '@/lib/api';
+import { extractUserIdLegacy } from '@/lib/auth/auth-middleware';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+/**
+ * 将工号转换为用户 UUID
+ */
+async function getUserUUID(employeeId: string): Promise<string | null> {
+  try {
+    const user = await userRepository.findByEmployeeId(employeeId);
+    return user?.id || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -22,50 +37,76 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const result = await messageService.getById(id);
-
-  if (!result.success || !result.data) {
+  
+  // 直接从 repository 获取
+  const message = await messageRepository.findById(id);
+  
+  if (!message) {
     return NextResponse.json(
-      error(result.error || '获取消息详情失败', ErrorCode.DATABASE_ERROR),
-      { status: 500 }
+      error('消息不存在', ErrorCode.NOT_FOUND),
+      { status: 404 }
     );
   }
 
-  const message = result.data;
   return NextResponse.json(success({
     id: message.id,
+    title: message.title,
+    content: message.content,
     senderId: message.sender_id,
     senderName: message.sender_name,
-    receiverId: message.receiver_id,
-    receiverType: message.receiver_type,
-    subject: message.subject,
-    content: message.content,
+    recipientId: message.recipient_id,
     type: message.type,
-    priority: message.priority,
     status: message.status,
     sentAt: message.sent_at,
-    readAt: message.read_at,
     createdAt: message.created_at,
   }));
 }
 
 /**
- * PUT - 更新消息（标记已读等）
+ * PUT - 更新消息状态
+ * 支持 action: read, unread, archive
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const body = await request.json();
+  const action = body.action;
+  
+  // 获取当前用户工号
+  const employeeId = extractUserIdLegacy(request);
+  if (!employeeId) {
+    return NextResponse.json(
+      error('未登录', ErrorCode.UNAUTHORIZED),
+      { status: 401 }
+    );
+  }
+
+  // 转换为用户 UUID
+  const userUUID = await getUserUUID(employeeId);
+  if (!userUUID) {
+    return NextResponse.json(
+      error('用户不存在', ErrorCode.NOT_FOUND),
+      { status: 404 }
+    );
+  }
 
   let result;
-  if (body.action === 'markRead') {
-    result = await messageService.markAsRead(id);
-  } else if (body.action === 'send') {
-    result = await messageService.send(id);
-  } else {
-    return NextResponse.json(
-      error('无效的操作', ErrorCode.VALIDATION_ERROR),
-      { status: 400 }
-    );
+  
+  switch (action) {
+    case 'read':
+    case 'markRead':
+      result = await messageService.markAsRead(id, userUUID);
+      break;
+    case 'unread':
+      result = await messageService.markAsUnread(id, userUUID);
+      break;
+    case 'archive':
+      result = await messageService.archive(id, userUUID);
+      break;
+    default:
+      return NextResponse.json(
+        error('无效的操作', ErrorCode.VALIDATION_ERROR),
+        { status: 400 }
+      );
   }
 
   if (!result.success) {
@@ -79,15 +120,34 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 /**
- * DELETE - 删除消息
+ * DELETE - 删除消息（软删除或从用户视角删除）
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const result = await messageService.delete(id);
+  const employeeId = extractUserIdLegacy(request);
+  
+  if (!employeeId) {
+    return NextResponse.json(
+      error('未登录', ErrorCode.UNAUTHORIZED),
+      { status: 401 }
+    );
+  }
+
+  // 转换为用户 UUID
+  const userUUID = await getUserUUID(employeeId);
+  if (!userUUID) {
+    return NextResponse.json(
+      error('用户不存在', ErrorCode.NOT_FOUND),
+      { status: 404 }
+    );
+  }
+
+  // 标记为已删除（归档）
+  const result = await messageService.archive(id, userUUID);
 
   if (!result.success) {
     return NextResponse.json(
-      error(result.error || '删除消息失败', ErrorCode.DATABASE_ERROR),
+      error('删除消息失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
