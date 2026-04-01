@@ -51,7 +51,17 @@ export class UserRepository extends BaseRepository<User> {
    * 根据工号查找用户
    */
   async findByEmployeeId(employeeId: string): Promise<User | null> {
-    return this.findWhere({ employeeId: employeeId }).then(users => users[0] || null);
+    const { data, error } = await this.client
+      .from(this.tableName)
+      .select('*')
+      .eq('employee_id', employeeId)
+      .single();
+    
+    if (error) {
+      return null;
+    }
+    
+    return data as User;
   }
   
   /**
