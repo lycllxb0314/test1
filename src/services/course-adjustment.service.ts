@@ -221,9 +221,8 @@ export class CourseAdjustmentService extends BaseService {
         `)
         .eq('status', 'active');
 
-      if (grade > 0) {
-        query = query.contains('current_teaching_grades', [grade]);
-      }
+      // 注意：current_teaching_grades 字段大多为空，不再作为过滤条件
+      // 如果需要年级匹配，后续在内存中进行评分调整
 
       const { data: gradeTeachers } = await query;
       const availableTeachers = (gradeTeachers || []).filter((t: any) => t.employee_id !== adjustment.applicant_id);
@@ -259,10 +258,15 @@ export class CourseAdjustmentService extends BaseService {
                              (teacher.secondary_subjects || []).includes(subject);
         const isBusy = busyTeacherIds.has(teacher.employee_id);
         const workload = workloadMap[teacher.employee_id] || { total: 0, substitute: 0 };
+        
+        // 检查是否教该年级
+        const teachingGrades = teacher.current_teaching_grades || teacher.teachable_grades || [];
+        const teachesGrade = grade > 0 ? teachingGrades.includes(grade) : true;
 
         let score = 0;
         if (!isBusy) score += 50;
         if (isSameSubject) score += 30;
+        if (teachesGrade && grade > 0) score += 10;  // 教该年级额外加分
         const maxHours = teacher.total_weekly_hours || 20;
         const availableRatio = Math.max(0, 1 - workload.total / maxHours);
         score += Math.round(availableRatio * 20);
