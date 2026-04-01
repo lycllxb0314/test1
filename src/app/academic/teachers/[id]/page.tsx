@@ -49,6 +49,7 @@ import {
   Loader2,
   type LucideIcon,
 } from 'lucide-react';
+import { DatePicker, MonthPicker } from '@/components/ui/date-picker';
 import { TeacherProfile } from '@/types';
 import { useTeachers, type TeacherInfo, type TeacherRecord, type TeacherHonor, type TeacherTraining, type TeacherAchievement, TEACHER_ROLE_LABELS, TEACHER_ROLE_COLORS, ADMINISTRATIVE_ROLE_LABELS, ADMINISTRATIVE_ROLE_COLORS, type AdministrativeRole, type TeacherRole, type TeacherRoleConfig } from '@/hooks';
 import { GROUP_CONFIGS, type GroupType, type UserGroupMembership } from '@/types';
@@ -700,7 +701,11 @@ export default function TeacherDetailPage() {
                   <div>
                     <Label className="text-muted-foreground">出生日期</Label>
                     {isEditing ? (
-                      <Input type="date" value={formData.birthDate} onChange={(e) => handleFieldChange('birthDate', e.target.value)} />
+                      <DatePicker
+                        value={formData.birthDate}
+                        onChange={(v) => handleFieldChange('birthDate', v)}
+                        placeholder="选择出生日期"
+                      />
                     ) : (
                       <p className="font-medium">{teacher.birthDate}</p>
                     )}
@@ -862,7 +867,11 @@ export default function TeacherDetailPage() {
                   <div>
                     <Label className="text-muted-foreground">毕业时间</Label>
                     {isEditing ? (
-                      <Input type="month" value={formData.graduationDate} onChange={(e) => handleFieldChange('graduationDate', e.target.value)} />
+                      <MonthPicker
+                        value={formData.graduationDate}
+                        onChange={(v) => handleFieldChange('graduationDate', v)}
+                        placeholder="选择毕业时间"
+                      />
                     ) : (
                       <p className="font-medium">{teacher.graduationDate}</p>
                     )}
@@ -870,7 +879,11 @@ export default function TeacherDetailPage() {
                   <div>
                     <Label className="text-muted-foreground">职称取得时间</Label>
                     {isEditing ? (
-                      <Input type="date" value={formData.titleDate} onChange={(e) => handleFieldChange('titleDate', e.target.value)} />
+                      <DatePicker
+                        value={formData.titleDate}
+                        onChange={(v) => handleFieldChange('titleDate', v)}
+                        placeholder="选择职称取得时间"
+                      />
                     ) : (
                       <p className="font-medium">{teacher.titleDate}</p>
                     )}
