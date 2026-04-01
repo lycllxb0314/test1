@@ -316,18 +316,6 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       const classesData = await classesRes.json();
       const teachersData = await teachersRes.json();
       
-      // 调试：输出API响应
-      console.log('[useClasses] 教师API响应:', {
-        success: teachersData.success,
-        dataLength: teachersData.data?.length,
-        firstTeacher: teachersData.data?.[0] ? {
-          id: teachersData.data[0].id,
-          employeeId: teachersData.data[0].employeeId,
-          name: teachersData.data[0].name,
-          primarySubject: teachersData.data[0].primarySubject,
-        } : null,
-      });
-      
       if (!classesData.success) {
         throw new Error('获取班级数据失败');
       }
@@ -403,20 +391,6 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
         }
       });
       
-      // 调试：检查教师映射中的数据
-      const sampleTeacherKeys = Object.keys(teachersByEmployeeId);
-      if (sampleTeacherKeys.length > 0) {
-        const sampleKey = sampleTeacherKeys[0];
-        const sampleTeacher = teachersByEmployeeId[sampleKey];
-        console.log('[useClasses] 教师映射样例:', {
-          employeeId: sampleKey,
-          name: sampleTeacher.name,
-          primarySubject: sampleTeacher.primarySubject,
-          primary_subject: sampleTeacher.primary_subject,
-          allKeys: Object.keys(sampleTeacher),
-        });
-      }
-      
       // 构建班级容器
       const classContainers: ClassContainer[] = (classesData.data || []).map(
         (cls: Record<string, unknown>) => {
@@ -439,33 +413,12 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
           const headTeacherId = (cls.headTeacherId as string) || (cls.head_teacher_id as string) || '';
           // 使用工号查找教师（优先），兼容 UUID 格式
           const headTeacher = headTeacherId ? (teachersByEmployeeId[headTeacherId] || teachersMap[headTeacherId]) : null;
-          
-          // 调试：输出第一个班级的教师信息
-          if (cls.id === 'c001') {
-            console.log('[useClasses] 一年级1班教师信息:', {
-              headTeacherId,
-              headTeacherFound: !!headTeacher,
-              headTeacherRawData: headTeacher,
-            });
-          }
-          
           const headTeacherName = (headTeacher?.name as string) || (cls.headTeacherName as string) || (cls.head_teacher_name as string) || '';
           
           // 获取科任详情
           const subTeacherId = (cls.subTeacherId as string) || (cls.sub_teacher_id as string);
           // 使用工号查找教师（优先），兼容 UUID 格式
           const subTeacher = subTeacherId ? (teachersByEmployeeId[subTeacherId] || teachersMap[subTeacherId]) : null;
-          
-          // 调试：输出第一个班级的科任教师信息
-          if (cls.id === 'c001') {
-            console.log('[useClasses] 一年级1班科任教师信息:', {
-              subTeacherId,
-              subTeacherFound: !!subTeacher,
-              subTeacherKeys: subTeacher ? Object.keys(subTeacher) : [],
-              subTeacher_primarySubject: subTeacher?.primarySubject,
-              subTeacher_primary_subject: subTeacher?.primary_subject,
-            });
-          }
           
           // 聚合家长信息（现在可以包含班主任信息了）
           const parents: ParentBasicInfo[] = [];
@@ -512,8 +465,8 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
               name: headTeacher.name as string,
               gender: headTeacher.gender as string,
               phone: headTeacher.phone as string,
-              subject: (headTeacher.primarySubject as string) || (headTeacher.primary_subject as string),  // 兼容两种格式
-              primarySubject: (headTeacher.primarySubject as string) || (headTeacher.primary_subject as string),
+              subject: (headTeacher.subject as string) || (headTeacher.primarySubject as string) || (headTeacher.primary_subject as string),  // 兼容三种格式
+              primarySubject: (headTeacher.subject as string) || (headTeacher.primarySubject as string) || (headTeacher.primary_subject as string),
               subjects: headTeacher.subjects as string[],
               title: headTeacher.title as string,
               avatar: headTeacher.avatar as string,
@@ -530,8 +483,8 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
               name: subTeacher.name as string,
               gender: subTeacher.gender as string,
               phone: subTeacher.phone as string,
-              subject: (subTeacher.primarySubject as string) || (subTeacher.primary_subject as string),  // 兼容两种格式
-              primarySubject: (subTeacher.primarySubject as string) || (subTeacher.primary_subject as string),
+              subject: (subTeacher.subject as string) || (subTeacher.primarySubject as string) || (subTeacher.primary_subject as string),  // 兼容三种格式
+              primarySubject: (subTeacher.subject as string) || (subTeacher.primarySubject as string) || (subTeacher.primary_subject as string),
               subjects: subTeacher.subjects as string[],
               title: subTeacher.title as string,
               avatar: subTeacher.avatar as string,

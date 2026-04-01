@@ -259,21 +259,6 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     const headSubject = cls.headTeacher?.subject;
     const subSubject = cls.subTeacher?.subject;
     
-    // 调试：输出教师学科信息
-    console.log('[handleSlotClick] 班级教师信息:', {
-      className: cls.name,
-      headTeacherId: cls.headTeacherId,
-      headTeacherName: cls.headTeacherName,
-      headSubject,
-      headTeacher_subject: cls.headTeacher?.subject,
-      headTeacher_primarySubject: cls.headTeacher?.primarySubject,
-      subTeacherId: cls.subTeacherId,
-      subTeacherName: cls.subTeacherName,
-      subSubject,
-      subTeacher_subject: cls.subTeacher?.subject,
-      subTeacher_primarySubject: cls.subTeacher?.primarySubject,
-    });
-    
     let chineseTeacherId: string | undefined;
     let chineseTeacherName: string | undefined;
     let mathTeacherId: string | undefined;
