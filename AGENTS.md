@@ -534,6 +534,45 @@ await completeExecution(executionId, summary, signatures);
 
 ---
 
+## 数据同步机制
+
+### users 表与 teachers 表双向同步
+
+系统存在两个教师相关数据表：
+- **users 表**：Supabase 认证表，存储用户登录信息和基础信息
+- **teachers 表**：教师业务表，存储教师详细业务数据
+
+为保持数据一致性，已创建数据库触发器实现**双向同步**：
+
+```
+┌─────────────┐     INSERT/UPDATE      ┌─────────────┐
+│  teachers   │ ──────────────────────> │    users    │
+│             │ <────────────────────── │             │
+└─────────────┘        UPDATE           └─────────────┘
+```
+
+**同步的字段**：
+| 字段 | 说明 |
+|------|------|
+| primary_subject | 主教学科 |
+| subjects | 可任教科目 |
+| department | 部门 |
+| title | 职称 |
+| weekly_hours / total_weekly_hours | 周课时 |
+| secondary_subjects | 兼教学科 |
+| teachable_subjects | 可教科目 |
+| teachable_grades | 可教年级 |
+| managed_grades | 管理年级 |
+| is_head_teacher | 是否班主任 |
+| status | 状态 |
+
+**注意事项**：
+- 修改教师数据时，两个表会自动同步
+- employee_id 是两个表的关联键
+- 代码中应优先使用 `teachers` 表查询教师业务数据
+
+---
+
 ## 常见问题与修复
 
 ### 1. 类型错误：属性不存在
