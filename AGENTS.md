@@ -571,6 +571,21 @@ await completeExecution(executionId, summary, signatures);
 - employee_id 是两个表的关联键
 - 代码中应优先使用 `teachers` 表查询教师业务数据
 
+### 前端教师数据字段规范
+
+前端存在多种教师类型，按使用场景区分：
+
+| 类型 | 定义位置 | 用途 | 主教学科字段 |
+|------|----------|------|--------------|
+| `TeacherBasicInfo` | `src/hooks/useClasses.ts` | 班级数据中的教师基本信息 | `primarySubject` |
+| `TeacherInfo` | `src/hooks/useTeachers.ts` | 教师管理中的教师完整信息 | `subject` |
+| `TeacherDetail` | `src/components/teacher/TeacherDetailDialog.tsx` | 教师详情编辑表单 | `subject` |
+
+**重要**：
+- `TeacherBasicInfo` 只使用 `primarySubject` 和 `subjects`，不存在冗余的 `subject` 字段
+- `TeacherInfo` 和 `TeacherDetail` 保留 `subject` 字段用于表单编辑
+- 访问班级教师信息时使用 `teacher.primarySubject`，访问教师管理数据时使用 `teacher.subject`
+
 ---
 
 ## 常见问题与修复

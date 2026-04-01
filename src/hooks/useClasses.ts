@@ -47,11 +47,9 @@ export interface TeacherBasicInfo {
   name: string;
   gender?: string;
   phone?: string;
-  subject?: string;        // 主教学科
+  primarySubject?: string;  // 主教学科
   title?: string;
   avatar?: string;
-  // 新增：更详细的教师信息
-  primarySubject?: string;  // 主教学科（数据库字段）
   subjects?: string[];      // 可任教科目
   headTeacherClassId?: string;    // 班主任所在班级ID
   headTeacherClassName?: string;  // 班主任所在班级名称
@@ -465,7 +463,6 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
               name: headTeacher.name as string,
               gender: headTeacher.gender as string,
               phone: headTeacher.phone as string,
-              subject: (headTeacher.subject as string) || (headTeacher.primarySubject as string) || (headTeacher.primary_subject as string),  // 兼容三种格式
               primarySubject: (headTeacher.subject as string) || (headTeacher.primarySubject as string) || (headTeacher.primary_subject as string),
               subjects: headTeacher.subjects as string[],
               title: headTeacher.title as string,
@@ -483,7 +480,6 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
               name: subTeacher.name as string,
               gender: subTeacher.gender as string,
               phone: subTeacher.phone as string,
-              subject: (subTeacher.subject as string) || (subTeacher.primarySubject as string) || (subTeacher.primary_subject as string),  // 兼容三种格式
               primarySubject: (subTeacher.subject as string) || (subTeacher.primarySubject as string) || (subTeacher.primary_subject as string),
               subjects: subTeacher.subjects as string[],
               title: subTeacher.title as string,

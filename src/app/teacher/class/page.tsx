@@ -430,9 +430,9 @@ export default function ClassManagePage() {
                   : currentClass?.subTeacherName || '未配置'
                 }
               </div>
-              {(isSubTeacher() ? user?.subjects?.[0] : currentClass?.subTeacher?.subject) && (
+              {(isSubTeacher() ? user?.subjects?.[0] : currentClass?.subTeacher?.primarySubject) && (
                 <div className="text-sm text-gray-500">
-                  {(isSubTeacher() ? user?.subjects?.[0] : currentClass?.subTeacher?.subject)}教师
+                  {(isSubTeacher() ? user?.subjects?.[0] : currentClass?.subTeacher?.primarySubject)}教师
                 </div>
               )}
             </div>

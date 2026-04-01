@@ -311,8 +311,8 @@ export default function ClassesPage() {
                 <div className="flex-1">
                   <div className="text-sm text-amber-600 font-medium">班主任</div>
                   <div className="font-bold text-lg text-gray-900">{viewingClass.headTeacherName}</div>
-                  {viewingClass.headTeacher?.subject && (
-                    <div className="text-sm text-gray-500">{viewingClass.headTeacher.subject}教师</div>
+                  {viewingClass.headTeacher?.primarySubject && (
+                    <div className="text-sm text-gray-500">{viewingClass.headTeacher.primarySubject}教师</div>
                   )}
                 </div>
                 <Button 
@@ -345,8 +345,8 @@ export default function ClassesPage() {
                   <div className="font-bold text-lg text-gray-900">
                     {viewingClass.subTeacherName || '待配置'}
                   </div>
-                  {viewingClass.subTeacher?.subject && (
-                    <div className="text-sm text-gray-500">{viewingClass.subTeacher.subject}教师</div>
+                  {viewingClass.subTeacher?.primarySubject && (
+                    <div className="text-sm text-gray-500">{viewingClass.subTeacher.primarySubject}教师</div>
                   )}
                 </div>
                 <Button 
@@ -1579,10 +1579,10 @@ function TeachersSection({
               <h3 className="text-xl font-bold text-gray-900">{classData.headTeacherName}</h3>
               {classData.headTeacher && (
                 <div className="mt-2 space-y-1 text-sm text-gray-500">
-                  {classData.headTeacher.subject && (
+                  {classData.headTeacher.primarySubject && (
                     <div className="flex items-center gap-2">
                       <BookOpenCheck className="h-4 w-4" />
-                      <span>任教科目: {classData.headTeacher.subject}</span>
+                      <span>任教科目: {classData.headTeacher.primarySubject}</span>
                     </div>
                   )}
                   {classData.headTeacher.title && (
@@ -1641,10 +1641,10 @@ function TeachersSection({
                   <h3 className="text-xl font-bold text-gray-900">{classData.subTeacherName}</h3>
                   {classData.subTeacher && (
                     <div className="mt-2 space-y-1 text-sm text-gray-500">
-                      {classData.subTeacher.subject && (
+                      {classData.subTeacher.primarySubject && (
                         <div className="flex items-center gap-2">
                           <BookOpenCheck className="h-4 w-4" />
-                          <span>任教科目: {classData.subTeacher.subject}</span>
+                          <span>任教科目: {classData.subTeacher.primarySubject}</span>
                         </div>
                       )}
                       {classData.subTeacher.title && (

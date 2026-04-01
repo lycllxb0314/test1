@@ -256,8 +256,8 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
     const slot = getSlot(cls.id, weekDay, periodIndex);
     
     // 确定本班的语文老师和数学老师
-    const headSubject = cls.headTeacher?.subject;
-    const subSubject = cls.subTeacher?.subject;
+    const headSubject = cls.headTeacher?.primarySubject;
+    const subSubject = cls.subTeacher?.primarySubject;
     
     let chineseTeacherId: string | undefined;
     let chineseTeacherName: string | undefined;
@@ -858,7 +858,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                         <span className="text-stone-400">班主任</span>
                         <span className="font-medium text-stone-700">{cls.headTeacherName}</span>
                         <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                          {cls.headTeacher?.subject || '语文'}
+                          {cls.headTeacher?.primarySubject || '语文'}
                         </span>
                       </div>
                     )}
@@ -867,7 +867,7 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                         <span className="text-stone-400">副班</span>
                         <span className="font-medium text-stone-700">{cls.subTeacherName}</span>
                         <span className="text-xs text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
-                          {cls.subTeacher?.subject || '数学'}
+                          {cls.subTeacher?.primarySubject || '数学'}
                         </span>
                       </div>
                     )}
