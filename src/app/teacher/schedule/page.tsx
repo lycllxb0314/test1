@@ -169,6 +169,15 @@ export default function TeacherSchedulePage() {
     type: 'personal' | 'class',
     showTeacher: boolean = true
   ) => {
+    // 防止 matrix 为空时出错
+    if (!matrix || !Array.isArray(matrix)) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-stone-100 p-8 text-center text-muted-foreground">
+          暂无课表数据
+        </div>
+      );
+    }
+    
     return (
       <div className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
         <div className="p-3">
@@ -403,7 +412,7 @@ export default function TeacherSchedulePage() {
 
   // 渲染班级课表卡片
   const renderClassScheduleCard = () => {
-    if (!classSchedule) return null;
+    if (!classSchedule || !classSchedule.scheduleMatrix) return null;
     
     const cls = classSchedule.class;
     
