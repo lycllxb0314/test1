@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { baseScheduleService } from '@/services/schedule.service';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { success, error, ErrorCode } from '@/lib/api';
 
 /**
@@ -20,45 +20,71 @@ export const GET = protectedRoute(async (request: NextRequest, { user }: Extende
   const { searchParams } = new URL(request.url);
   const classId = searchParams.get('classId') || undefined;
   const teacherId = searchParams.get('teacherId') || undefined;
+  const employeeId = searchParams.get('employeeId') || undefined;
   const grade = searchParams.get('grade') ? parseInt(searchParams.get('grade')!) : undefined;
-  const weekNumber = searchParams.get('weekNumber') ? parseInt(searchParams.get('weekNumber')!) : undefined;
-  const semester = searchParams.get('semester') || undefined;
+  const weekStartDate = searchParams.get('weekStartDate') || undefined;
 
-  if (!classId && !teacherId && !grade) {
+  if (!classId && !teacherId && !employeeId && !grade) {
     return NextResponse.json(
-      error('需要提供班级ID、教师ID或年级', ErrorCode.VALIDATION_ERROR),
+      error('需要提供班级ID、教师ID或工号', ErrorCode.VALIDATION_ERROR),
       { status: 400 }
     );
   }
 
-  const result = await baseScheduleService.getWeeklySchedule({
-    classId,
-    teacherId,
-    grade,
-    weekNumber,
-    semester,
-  });
+  try {
+    const client = getSupabaseClient();
+    
+    // 查询 schedule_slots 表
+    let query = client
+      .from('schedule_slots')
+      .select('*')
+      .eq('status', 'active');
+    
+    if (classId) {
+      query = query.eq('class_id', classId);
+    }
+    if (employeeId) {
+      query = query.eq('teacher_id', employeeId);
+    } else if (teacherId) {
+      query = query.eq('teacher_id', teacherId);
+    }
+    if (grade) {
+      query = query.eq('grade', grade);
+    }
 
-  if (!result.success || !result.data) {
+    const { data, error: dbError } = await query.order('week_day').order('period_index');
+
+    if (dbError) {
+      console.error('[schedule/weekly] query error:', dbError);
+      return NextResponse.json(
+        error('获取周课表失败', ErrorCode.DATABASE_ERROR),
+        { status: 500 }
+      );
+    }
+
+    // 格式化返回数据，匹配前端期望的字段名
+    const formattedSlots = (data || []).map((slot) => ({
+      slotId: slot.id,
+      classId: slot.class_id,
+      className: slot.class_name,
+      grade: slot.grade,
+      weekDay: slot.week_day,
+      periodIndex: slot.period_index,
+      subject: slot.subject,
+      teacherId: slot.teacher_id,
+      teacherName: slot.teacher_name,
+      employeeId: slot.teacher_id, // employeeId 与 teacher_id 相同
+      isAdjusted: false,
+      actualTeacherName: slot.teacher_name,
+      actualEmployeeId: slot.teacher_id,
+    }));
+
+    return NextResponse.json(success({ slots: formattedSlots }));
+  } catch (err) {
+    console.error('[schedule/weekly] error:', err);
     return NextResponse.json(
-      error(result.error || '获取周课表失败', ErrorCode.DATABASE_ERROR),
+      error('获取周课表失败', ErrorCode.DATABASE_ERROR),
       { status: 500 }
     );
   }
-
-  const formattedData = result.data.map((slot) => ({
-    id: slot.id,
-    classId: slot.class_id,
-    className: slot.class_name,
-    grade: slot.grade,
-    dayOfWeek: slot.day_of_week,
-    lesson: slot.lesson,
-    subject: slot.subject,
-    teacherId: slot.teacher_id,
-    teacherName: slot.teacher_name,
-    semester: slot.semester,
-    createdAt: slot.created_at,
-  }));
-
-  return NextResponse.json(success(formattedData));
 });
