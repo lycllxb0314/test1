@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DatePicker, MonthPicker } from '@/components/ui/date-picker';
 import {
   User,
   Phone,
@@ -290,6 +291,7 @@ export default function TeacherProfilePage() {
     setIsSaving(true);
     try {
       // 调用updateProfile更新教师信息
+      // 注意：性别字段直接使用中文 '男'/'女'，无需转换
       const success = await updateProfile({
         phone: formData.phone,
         email: formData.email,
@@ -297,8 +299,7 @@ export default function TeacherProfilePage() {
         emergencyPhone: formData.emergencyPhone,
         address: formData.address,
         birthDate: formData.birthDate,
-        // 性别转换：中文 -> 英文
-        gender: formData.gender === '男' ? 'male' : formData.gender === '女' ? 'female' : formData.gender,
+        gender: formData.gender, // 直接使用中文，不转换
         ethnicity: formData.ethnicity,
         politicalStatus: formData.politicalStatus,
         nativePlace: formData.nativePlace,
@@ -645,11 +646,11 @@ export default function TeacherProfilePage() {
                   <div>
                     <Label className="text-muted-foreground text-xs">出生日期</Label>
                     {isEditing ? (
-                      <Input 
-                        type="date" 
-                        value={formData.birthDate} 
-                        onChange={(e) => handleFieldChange('birthDate', e.target.value)}
-                        className="mt-1 h-8" 
+                      <DatePicker
+                        value={formData.birthDate}
+                        onChange={(v) => handleFieldChange('birthDate', v)}
+                        placeholder="选择出生日期"
+                        className="mt-1 h-8"
                       />
                     ) : (
                       <p className="font-medium mt-1">{profile.birthDate}</p>
@@ -860,11 +861,11 @@ export default function TeacherProfilePage() {
                   <div>
                     <Label className="text-muted-foreground text-xs">毕业日期</Label>
                     {isEditing ? (
-                      <Input 
-                        type="date" 
-                        value={formData.graduationDate} 
-                        onChange={(e) => handleFieldChange('graduationDate', e.target.value)}
-                        className="mt-1 h-8" 
+                      <MonthPicker
+                        value={formData.graduationDate}
+                        onChange={(v) => handleFieldChange('graduationDate', v)}
+                        placeholder="选择毕业日期"
+                        className="mt-1 h-8"
                       />
                     ) : (
                       <p className="font-medium mt-1">{profile.graduationDate}</p>
@@ -873,11 +874,11 @@ export default function TeacherProfilePage() {
                   <div>
                     <Label className="text-muted-foreground text-xs">职称获得日期</Label>
                     {isEditing ? (
-                      <Input 
-                        type="date" 
-                        value={formData.titleDate} 
-                        onChange={(e) => handleFieldChange('titleDate', e.target.value)}
-                        className="mt-1 h-8" 
+                      <DatePicker
+                        value={formData.titleDate}
+                        onChange={(v) => handleFieldChange('titleDate', v)}
+                        placeholder="选择职称获得日期"
+                        className="mt-1 h-8"
                       />
                     ) : (
                       <p className="font-medium mt-1">{profile.titleDate}</p>
