@@ -28,13 +28,17 @@ import {
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const action = searchParams.get('action') || 'batch';
+  const teacherId = searchParams.get('teacherId');
+  // 如果传了 teacherId 但没有指定 action，自动切换到 teacher 模式
+  const action = searchParams.get('action') || (teacherId ? 'teacher' : 'batch');
   const semester = searchParams.get('semester') || '2025-2026-2';
   const monthParam = searchParams.get('month');
   const gradeParam = searchParams.get('grade');
-  const teacherId = searchParams.get('teacherId');
 
-  const month = monthParam ? parseInt(monthParam) : new Date().getMonth() + 1;
+  // month为0或不传时，不进行月份筛选（查询整个学期）
+  const month = monthParam && monthParam !== '0' && monthParam !== 'all' 
+    ? parseInt(monthParam) 
+    : undefined;
   const grade = gradeParam ? parseInt(gradeParam) : undefined;
 
   try {
