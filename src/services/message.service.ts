@@ -147,14 +147,35 @@ export class MessageService extends BaseService {
         pageSize,
       });
 
-      // 转换为业务模型
-      const messages: UserMessage[] = result.data.map(this.toUserMessage.bind(this));
+      // 获取用户已读消息 ID 列表
+      const readMessages = await this.repository.findReadMessageIds(userId);
+      const readMessageIds = new Set(readMessages);
+
+      // 获取用户归档消息 ID 列表
+      const archivedMessages = await this.repository.findArchivedMessageIds?.(userId);
+      const archivedMessageIds = new Set(archivedMessages || []);
+
+      // 转换为业务模型，并设置正确的状态
+      const messages: UserMessage[] = result.data.map(row => {
+        const msg = this.toUserMessage(row);
+        // 根据阅读记录设置状态
+        if (archivedMessageIds.has(row.id)) {
+          msg.status = 'archived';
+        } else if (readMessageIds.has(row.id)) {
+          msg.status = 'read';
+        }
+        return msg;
+      });
 
       // 应用过滤
       let filtered = messages;
       
       if (unreadOnly) {
-        // TODO: 实现已读状态过滤
+        filtered = filtered.filter(m => m.status === 'unread');
+      }
+      
+      if (status && status !== 'all') {
+        filtered = filtered.filter(m => m.status === status);
       }
 
       return {

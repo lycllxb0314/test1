@@ -97,8 +97,12 @@ export function extractUserIdLegacy(request: NextRequest): string | null {
  */
 export async function validateSessionLegacy(userId: string): Promise<AuthResult> {
   // 生产模式：从数据库验证
+  // userId 可能是工号（employee_id）或 UUID，优先用工号查询
   try {
     const client = getSupabaseClient();
+    
+    // 判断是否是 UUID 格式
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
     
     const { data: user, error } = await client
       .from('users')
@@ -119,7 +123,7 @@ export async function validateSessionLegacy(userId: string): Promise<AuthResult>
         employee_id,
         additional_roles
       `)
-      .eq('id', userId)
+      .eq(isUUID ? 'id' : 'employee_id', userId)
       .eq('status', 'active')
       .single();
 

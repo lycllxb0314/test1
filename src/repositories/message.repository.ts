@@ -200,6 +200,41 @@ export class MessageRepository extends BaseRepository<MessageRow> {
   }
   
   /**
+   * 获取用户已读消息 ID 列表
+   */
+  async findReadMessageIds(userId: string): Promise<string[]> {
+    const { data: reads, error } = await this.client
+      .from('message_reads')
+      .select('message_id')
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error('[MessageRepository] findReadMessageIds error:', error.message);
+      return [];
+    }
+    
+    return (reads || []).map(r => r.message_id);
+  }
+  
+  /**
+   * 获取用户归档消息 ID 列表
+   */
+  async findArchivedMessageIds(userId: string): Promise<string[]> {
+    const { data: archives, error } = await this.client
+      .from('message_reads')
+      .select('message_id')
+      .eq('user_id', userId)
+      .eq('archived', true);
+    
+    if (error) {
+      console.error('[MessageRepository] findArchivedMessageIds error:', error.message);
+      return [];
+    }
+    
+    return (archives || []).map(r => r.message_id);
+  }
+  
+  /**
    * 标记消息为已读
    */
   async markAsRead(messageId: string, userId: string): Promise<boolean> {
