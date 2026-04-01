@@ -139,6 +139,8 @@ export interface RoomBookingQueryParams {
   status?: string;
   applicantId?: string;
   date?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface IRoomBookingRepository {
@@ -173,7 +175,13 @@ export class RoomBookingRepository extends BaseRepository<RoomBookingRecord> imp
       query = query.eq('applicant_id', params.applicantId);
     }
     if (params.date) {
-      query = query.gte('start_time', params.date).lt('start_time', `${params.date}T23:59:59`);
+      query = query.eq('booking_date', params.date);
+    }
+    if (params.startDate) {
+      query = query.gte('booking_date', params.startDate);
+    }
+    if (params.endDate) {
+      query = query.lte('booking_date', params.endDate);
     }
     
     const { data, error } = await query;

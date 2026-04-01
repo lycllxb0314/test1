@@ -20,7 +20,9 @@ export const GET = protectedRoute(async (request: NextRequest, context: Extended
       roomId: searchParams.get('roomId') || undefined,
       status: searchParams.get('status') || undefined,
       applicantId: searchParams.get('applicantId') || undefined,
-      date: searchParams.get('date') || undefined,
+      date: searchParams.get('bookingDate') || searchParams.get('date') || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
     });
     
     if (!result.success) {

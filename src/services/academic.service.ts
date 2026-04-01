@@ -152,12 +152,34 @@ export const roomService = {
   async getStats(): Promise<ServiceResult<Record<string, unknown>>> {
     try {
       const rooms = await roomRepository.findAllForStats();
+      const client = getSupabaseClient();
+      
+      // 获取今日预约数
+      const today = new Date().toISOString().split('T')[0];
+      const { count: todayBookings } = await client
+        .from('room_bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('booking_date', today);
+      
+      // 获取待审批预约数
+      const { count: pendingBookings } = await client
+        .from('room_bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
       
       const stats = {
-        total: rooms?.length || 0,
-        available: rooms?.filter(r => r.status === 'available').length || 0,
-        inUse: rooms?.filter(r => r.status === 'in_use').length || 0,
-        maintenance: rooms?.filter(r => r.status === 'maintenance').length || 0,
+        rooms: {
+          total: rooms?.length || 0,
+          available: rooms?.filter(r => r.status === 'available').length || 0,
+          in_use: rooms?.filter(r => r.status === 'in_use').length || 0,
+          reserved: rooms?.filter(r => r.status === 'reserved').length || 0,
+          maintenance: rooms?.filter(r => r.status === 'maintenance').length || 0,
+        },
+        bookings: {
+          today: todayBookings || 0,
+          pending: pendingBookings || 0,
+        },
+        // 保留额外的统计信息
         byType: {} as Record<string, number>,
         byBuilding: {} as Record<string, number>,
         totalCapacity: rooms?.reduce((sum, r) => sum + (r.capacity || 0), 0) || 0,
@@ -189,6 +211,8 @@ export const roomBookingService = {
     status?: string;
     applicantId?: string;
     date?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<ServiceResult<RoomBookingRecord[]>> {
     try {
       const data = await roomBookingRepository.findList(params);
