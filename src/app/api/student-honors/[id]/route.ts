@@ -41,16 +41,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const body = await request.json();
 
+  // 映射字段：前端字段 -> 数据库字段
   const result = await studentHonorService.update(id, {
     student_id: body.studentId,
     student_name: body.studentName,
-    honor_type: body.honorType,
-    honor_name: body.honorName,
-    honor_level: body.honorLevel,
-    award_date: body.awardDate,
-    description: body.description,
-    certificate_no: body.certificateNo,
+    class_id: body.classId,
+    class_name: body.className,
+    title: body.title || body.honorName,
+    level: body.level || body.honorLevel,
+    category: body.category || body.honorType,
     issuer: body.issuer,
+    date: body.date || body.awardDate,
+    certificate_no: body.certificateNo,
+    description: body.description,
   });
 
   if (!result.success) {

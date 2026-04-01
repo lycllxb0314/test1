@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const studentId = searchParams.get('studentId') || undefined;
   const classId = searchParams.get('classId') || undefined;
-  const honorType = searchParams.get('honorType') || undefined;
+  const honorType = searchParams.get('honorType') || searchParams.get('category') || undefined;
   const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
   const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 20;
 
@@ -49,18 +49,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
 
+  // 映射字段：前端字段 -> 数据库字段
   const result = await studentHonorService.create({
+    id: body.id || `honor-${Date.now()}`,
     student_id: body.studentId,
     student_name: body.studentName,
     class_id: body.classId,
     class_name: body.className,
-    honor_type: body.honorType,
-    honor_name: body.honorName,
-    honor_level: body.honorLevel,
-    award_date: body.awardDate,
-    description: body.description,
-    certificate_no: body.certificateNo,
+    title: body.title || body.honorName,
+    level: body.level || body.honorLevel,
+    category: body.category || body.honorType,
     issuer: body.issuer,
+    date: body.date || body.awardDate,
+    certificate_no: body.certificateNo,
+    description: body.description,
   });
 
   if (!result.success) {

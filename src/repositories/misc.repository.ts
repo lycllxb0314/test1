@@ -488,17 +488,17 @@ export class SchoolStatsRepository extends BaseRepository<SchoolStatsRecord> {
 export interface StudentHonorRecord {
   id: string;
   student_id: string;
-  student_name: string;
-  class_id: string;
-  class_name: string;
-  honor_type: string;
-  honor_name: string;
-  honor_level: string;
-  award_date: string;
-  issuer: string;
-  certificate_no: string | null;
-  description: string | null;
-  created_at: string;
+  student_name?: string;
+  class_id?: string;
+  class_name?: string;
+  title: string;
+  level: string;
+  category: string;
+  issuer?: string;
+  date: string; // 数据库使用 date 字段
+  certificate_no?: string;
+  description?: string;
+  created_at?: string;
   updated_at?: string;
 }
 
@@ -527,11 +527,11 @@ export class StudentHonorRepository extends BaseRepository<StudentHonorRecord> {
     let query = this.client
       .from('student_honors')
       .select('*', { count: 'exact' })
-      .order('award_date', { ascending: false });
+      .order('date', { ascending: false });
 
     if (params.studentId) query = query.eq('student_id', params.studentId);
     if (params.classId) query = query.eq('class_id', params.classId);
-    if (params.honorType) query = query.eq('honor_type', params.honorType);
+    if (params.honorType) query = query.eq('category', params.honorType);
 
     const { data, error, count } = await query.range(from, to);
 
