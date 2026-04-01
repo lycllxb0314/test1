@@ -406,10 +406,11 @@ export class CourseAdjustmentService extends BaseService {
     
     try {
       // 查找对应的课表记录
+      // 注意：schedule_slots 表使用 teacher_id 字段存储教师工号
       const { data: slots, error: findError } = await client
         .from('schedule_slots')
         .select('*')
-        .eq('employee_id', adjustment.applicant_id)
+        .eq('teacher_id', adjustment.applicant_id)
         .eq('week_day', adjustment.week_day || 0)
         .eq('period_index', adjustment.period_index || 0)
         .eq('class_id', adjustment.class_id || '')

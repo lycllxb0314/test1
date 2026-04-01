@@ -89,6 +89,7 @@ async function getPersonalSchedule(teacherId: string, employeeId?: string): Prom
   
   // 2. 获取教师课表 - 使用 teacher_id 或 employee_id 匹配
   // 包含 active(正常) 和 substitute(代课) 状态的课次
+  // 注意：transferred(调出) 的课不再属于该教师，不显示在个人课表中
   let query = client
     .from('schedule_slots')
     .select('*')
@@ -179,7 +180,7 @@ async function getTeachingClasses(teacherId: string, employeeId?: string): Promi
   const effectiveEmployeeId = employeeId || teacher?.employee_id;
   
   // 获取教师任教的班级
-  // 包含 active(正常) 和 substitute(代课) 状态的课次
+  // 包含 active(正常)、substitute(代课) 状态的课次（不包含 transferred，因为调出的课不算任教）
   let query = client
     .from('schedule_slots')
     .select('class_id, class_name, grade, subject, status')
