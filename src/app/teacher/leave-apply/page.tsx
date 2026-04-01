@@ -284,6 +284,7 @@ export default function LeaveApplyPage() {
       const response = await fetch('/api/leave-requests-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           type: leaveType,
           startDate,
