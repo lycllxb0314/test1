@@ -519,33 +519,246 @@ export class StudentHonorRepository extends BaseRepository<StudentHonorRecord> {
     return this.findWhere({ honor_type: honorType });
   }
 
-  async findByParams(params: { studentId?: string; classId?: string; honorType?: string; page?: number; pageSize?: number }): Promise<PaginatedResult<StudentHonorRecord>> {
+  /**
+   * 分页查询荣誉列表，关联获取学生班级信息
+   */
+  async findByParams(params: { 
+    studentId?: string; 
+    classId?: string; 
+    honorType?: string; 
+    level?: string;
+    keyword?: string;
+    page?: number; 
+    pageSize?: number 
+  }): Promise<PaginatedResult<StudentHonorRecord & { grade?: number }>> {
     const { page = 1, pageSize = 20 } = params;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
+    // 构建基础查询
     let query = this.client
       .from('student_honors')
-      .select('*', { count: 'exact' })
-      .order('date', { ascending: false });
+      .select('*', { count: 'exact' });
 
-    if (params.studentId) query = query.eq('student_id', params.studentId);
-    if (params.classId) query = query.eq('class_id', params.classId);
-    if (params.honorType) query = query.eq('category', params.honorType);
+    // 应用筛选条件
+    if (params.studentId) {
+      query = query.eq('student_id', params.studentId);
+    }
+    if (params.honorType) {
+      query = query.eq('category', params.honorType);
+    }
+    if (params.level) {
+      query = query.eq('level', params.level);
+    }
+    if (params.keyword) {
+      query = query.or(`title.ilike.%${params.keyword}%,student_name.ilike.%${params.keyword}%`);
+    }
 
-    const { data, error, count } = await query.range(from, to);
+    // 排序和分页
+    query = query.order('date', { ascending: false }).range(from, to);
+
+    const { data: honorsData, error, count } = await query;
 
     if (error) {
+      console.error('查询荣誉列表失败:', error);
       return { data: [], total: 0, page, pageSize, totalPages: 0 };
     }
 
+    if (!honorsData || honorsData.length === 0) {
+      return { data: [], total: count || 0, page, pageSize, totalPages: Math.ceil((count || 0) / pageSize) };
+    }
+
+    // 获取所有学生ID，用于批量查询学生信息
+    const studentIds = [...new Set(honorsData.map(h => h.student_id).filter(Boolean))];
+    
+    // 批量查询学生信息（包含班级信息）
+    let studentsMap: Record<string, { name: string; class_id: string | null; class_name: string | null; grade: number | null }> = {};
+    
+    if (studentIds.length > 0) {
+      const { data: studentsData } = await this.client
+        .from('students')
+        .select('id, name, class_id, class_name, grade')
+        .in('id', studentIds);
+
+      if (studentsData) {
+        studentsMap = studentsData.reduce((acc, s) => {
+          acc[s.id] = s;
+          return acc;
+        }, {} as typeof studentsMap);
+      }
+    }
+
+    // 如果有 classId 筛选，需要过滤
+    let filteredHonors = honorsData;
+    if (params.classId) {
+      filteredHonors = honorsData.filter(h => {
+        const student = studentsMap[h.student_id];
+        return student?.class_id === params.classId;
+      });
+    }
+
+    // 合并数据
+    const result = filteredHonors.map(honor => {
+      const student = studentsMap[honor.student_id];
+      return {
+        ...honor,
+        student_name: honor.student_name || student?.name || '未知学生',
+        class_id: honor.class_id || student?.class_id || null,
+        class_name: honor.class_name || student?.class_name || null,
+        grade: student?.grade || null,
+      } as StudentHonorRecord & { grade?: number };
+    });
+
+    // 计算总数（如果有 classId 筛选需要重新计算）
+    let totalCount = count || 0;
+    if (params.classId) {
+      // 需要单独计算符合条件总数
+      const { count: filteredCount } = await this.client
+        .from('student_honors')
+        .select('id', { count: 'exact', head: true });
+      
+      // 获取所有相关学生ID
+      const { data: classStudents } = await this.client
+        .from('students')
+        .select('id')
+        .eq('class_id', params.classId);
+      
+      if (classStudents && classStudents.length > 0) {
+        const classStudentIds = classStudents.map(s => s.id);
+        const { count: honorCount } = await this.client
+          .from('student_honors')
+          .select('id', { count: 'exact', head: true })
+          .in('student_id', classStudentIds);
+        totalCount = honorCount || 0;
+      } else {
+        totalCount = 0;
+      }
+    }
+
     return {
-      data: (data || []) as StudentHonorRecord[],
-      total: count || 0,
+      data: result,
+      total: totalCount,
       page,
       pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
+      totalPages: Math.ceil(totalCount / pageSize),
     };
+  }
+
+  /**
+   * 批量删除荣誉
+   */
+  async batchDelete(ids: string[]): Promise<number> {
+    const { count, error } = await this.client
+      .from('student_honors')
+      .delete({ count: 'exact' })
+      .in('id', ids);
+
+    if (error) {
+      throw error;
+    }
+
+    return count || 0;
+  }
+
+  /**
+   * 批量更新荣誉
+   */
+  async batchUpdate(ids: string[], data: Partial<StudentHonorRecord>): Promise<number> {
+    const updateData = {
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+    
+    const { count, error } = await this.client
+      .from('student_honors')
+      .update(updateData, { count: 'exact' })
+      .in('id', ids);
+
+    if (error) {
+      throw error;
+    }
+
+    return count || 0;
+  }
+
+  /**
+   * 导出荣誉数据（不分页）
+   */
+  async exportData(params: { 
+    studentId?: string; 
+    classId?: string; 
+    honorType?: string;
+    level?: string;
+    ids?: string[];
+  }): Promise<(StudentHonorRecord & { grade?: number })[]> {
+    // 构建基础查询
+    let query = this.client
+      .from('student_honors')
+      .select('*');
+
+    // 应用筛选条件
+    if (params.ids && params.ids.length > 0) {
+      query = query.in('id', params.ids);
+    } else {
+      if (params.studentId) {
+        query = query.eq('student_id', params.studentId);
+      }
+      if (params.honorType) {
+        query = query.eq('category', params.honorType);
+      }
+      if (params.level) {
+        query = query.eq('level', params.level);
+      }
+    }
+
+    query = query.order('date', { ascending: false });
+
+    const { data: honorsData, error } = await query;
+
+    if (error || !honorsData) {
+      return [];
+    }
+
+    // 获取所有学生ID
+    const studentIds = [...new Set(honorsData.map(h => h.student_id).filter(Boolean))];
+    
+    // 批量查询学生信息
+    let studentsMap: Record<string, { name: string; class_id: string | null; class_name: string | null; grade: number | null }> = {};
+    
+    if (studentIds.length > 0) {
+      const { data: studentsData } = await this.client
+        .from('students')
+        .select('id, name, class_id, class_name, grade')
+        .in('id', studentIds);
+
+      if (studentsData) {
+        studentsMap = studentsData.reduce((acc, s) => {
+          acc[s.id] = s;
+          return acc;
+        }, {} as typeof studentsMap);
+      }
+    }
+
+    // 如果有 classId 筛选，过滤数据
+    let filteredHonors = honorsData;
+    if (params.classId) {
+      filteredHonors = honorsData.filter(h => {
+        const student = studentsMap[h.student_id];
+        return student?.class_id === params.classId;
+      });
+    }
+
+    // 合并数据
+    return filteredHonors.map(honor => {
+      const student = studentsMap[honor.student_id];
+      return {
+        ...honor,
+        student_name: honor.student_name || student?.name || '未知学生',
+        class_id: honor.class_id || student?.class_id || null,
+        class_name: honor.class_name || student?.class_name || null,
+        grade: student?.grade || null,
+      } as StudentHonorRecord & { grade?: number };
+    });
   }
 }
 

@@ -57,6 +57,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -196,6 +197,16 @@ export default function StudentHonorsPage() {
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // === 批量操作状态 ===
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [batchMode, setBatchMode] = useState<'edit' | 'delete'>('edit');
+  const [batchFormData, setBatchFormData] = useState({
+    level: '' as HonorLevel | '',
+    category: '' as HonorCategory | '',
+    issuer: '',
+  });
   
   // === 对话框状态 ===
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -395,6 +406,175 @@ export default function StudentHonorsPage() {
     } catch (err) {
       console.error('删除失败:', err);
       toast.error('删除失败');
+    }
+  };
+
+  // ==================== 批量操作 ====================
+
+  // 全选/取消全选
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(honors.map(h => h.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  // 单个选择
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(i => i !== id));
+    }
+  };
+
+  // 打开批量编辑对话框
+  const handleBatchEdit = () => {
+    if (selectedIds.length === 0) {
+      toast.error('请选择要编辑的荣誉记录');
+      return;
+    }
+    setBatchMode('edit');
+    setBatchFormData({
+      level: '',
+      category: '',
+      issuer: '',
+    });
+    setBatchDialogOpen(true);
+  };
+
+  // 打开批量删除确认
+  const handleBatchDelete = () => {
+    if (selectedIds.length === 0) {
+      toast.error('请选择要删除的荣誉记录');
+      return;
+    }
+    setBatchMode('delete');
+    setBatchDialogOpen(true);
+  };
+
+  // 执行批量操作
+  const handleBatchSubmit = async () => {
+    if (batchMode === 'delete') {
+      try {
+        const res = await fetch('/api/student-honors/batch', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ids: selectedIds }),
+        });
+        
+        const result = await res.json();
+        
+        if (result.success) {
+          toast.success(`成功删除 ${result.data.count} 条记录`);
+          setBatchDialogOpen(false);
+          setSelectedIds([]);
+          loadHonors();
+        } else {
+          toast.error(result.error || '批量删除失败');
+        }
+      } catch (err) {
+        console.error('批量删除失败:', err);
+        toast.error('批量删除失败');
+      }
+    } else {
+      // 批量编辑
+      const updateData: Record<string, string> = {};
+      if (batchFormData.level) updateData.level = batchFormData.level;
+      if (batchFormData.category) updateData.category = batchFormData.category;
+      if (batchFormData.issuer) updateData.issuer = batchFormData.issuer;
+      
+      if (Object.keys(updateData).length === 0) {
+        toast.error('请至少选择一项要修改的内容');
+        return;
+      }
+      
+      try {
+        const res = await fetch('/api/student-honors/batch', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ids: selectedIds, data: updateData }),
+        });
+        
+        const result = await res.json();
+        
+        if (result.success) {
+          toast.success(`成功更新 ${result.data.count} 条记录`);
+          setBatchDialogOpen(false);
+          setSelectedIds([]);
+          loadHonors();
+        } else {
+          toast.error(result.error || '批量更新失败');
+        }
+      } catch (err) {
+        console.error('批量更新失败:', err);
+        toast.error('批量更新失败');
+      }
+    }
+  };
+
+  // 导出数据
+  const handleExport = async (format: 'csv' | 'excel') => {
+    try {
+      const params = new URLSearchParams();
+      params.set('format', format);
+      
+      // 如果有选中记录，只导出选中的
+      if (selectedIds.length > 0) {
+        params.set('ids', selectedIds.join(','));
+      } else {
+        // 否则按筛选条件导出
+        if (filterLevel !== 'all') params.set('level', filterLevel);
+        if (filterCategory !== 'all') params.set('category', filterCategory);
+        if (filterGrade !== 'all') params.set('grade', filterGrade);
+        if (filterYear) params.set('year', filterYear);
+      }
+      
+      if (format === 'csv') {
+        // 直接下载 CSV
+        const res = await fetch(`/api/student-honors/export?${params.toString()}`, {
+          credentials: 'include',
+        });
+        
+        if (!res.ok) {
+          toast.error('导出失败');
+          return;
+        }
+        
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `student_honors_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success('导出成功');
+      } else {
+        // Excel 格式需要前端处理
+        const res = await fetch(`/api/student-honors/export?${params.toString()}`, {
+          credentials: 'include',
+        });
+        
+        const result = await res.json();
+        
+        if (result.success) {
+          // 动态导入 xlsx 库生成 Excel
+          const XLSX = await import('xlsx');
+          const ws = XLSX.utils.json_to_sheet(result.data.rows);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, '学生荣誉');
+          XLSX.writeFile(wb, result.data.filename);
+          toast.success('导出成功');
+        } else {
+          toast.error(result.error || '导出失败');
+        }
+      }
+    } catch (err) {
+      console.error('导出失败:', err);
+      toast.error('导出失败');
     }
   };
 
@@ -760,6 +940,72 @@ export default function StudentHonorsPage() {
             </CardContent>
           </Card>
 
+          {/* 批量操作栏 */}
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="select-all"
+                      checked={selectedIds.length === honors.length && honors.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                    <Label htmlFor="select-all" className="text-sm cursor-pointer">
+                      全选
+                    </Label>
+                  </div>
+                  {selectedIds.length > 0 && (
+                    <Badge variant="secondary" className="gap-1">
+                      已选 {selectedIds.length} 项
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleBatchEdit}
+                    disabled={selectedIds.length === 0}
+                  >
+                    <Edit className="h-4 w-4" />
+                    批量修改
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 text-destructive hover:text-destructive"
+                    onClick={handleBatchDelete}
+                    disabled={selectedIds.length === 0}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    批量删除
+                  </Button>
+                  <div className="w-px h-6 bg-gray-200 mx-2" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => handleExport('csv')}
+                  >
+                    <Download className="h-4 w-4" />
+                    导出 CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => handleExport('excel')}
+                  >
+                    <Download className="h-4 w-4" />
+                    导出 Excel
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 荣誉列表 */}
           <Card className="border-0 shadow-md">
             <CardHeader>
@@ -785,6 +1031,12 @@ export default function StudentHonorsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={selectedIds.length === honors.length && honors.length > 0}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead>学生</TableHead>
                       <TableHead>班级</TableHead>
                       <TableHead>荣誉名称</TableHead>
@@ -798,6 +1050,12 @@ export default function StudentHonorsPage() {
                   <TableBody>
                     {honors.map((honor) => (
                       <TableRow key={honor.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.includes(honor.id)}
+                            onCheckedChange={(checked) => handleSelectOne(honor.id, checked as boolean)}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">{honor.studentName}</p>
@@ -1080,6 +1338,82 @@ export default function StudentHonorsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ========== 批量操作对话框 ========== */}
+      <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {batchMode === 'delete' ? '批量删除确认' : '批量修改'}
+            </DialogTitle>
+            <DialogDescription>
+              {batchMode === 'delete' 
+                ? `确定要删除选中的 ${selectedIds.length} 条荣誉记录吗？此操作不可撤销。`
+                : `将对选中的 ${selectedIds.length} 条记录进行修改，留空的字段保持不变。`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {batchMode === 'edit' && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>荣誉级别</Label>
+                <Select 
+                  value={batchFormData.level} 
+                  onValueChange={(v) => setBatchFormData(prev => ({ ...prev, level: v as HonorLevel }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="不修改" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">不修改</SelectItem>
+                    {HONOR_LEVELS.map(level => (
+                      <SelectItem key={level} value={level}>{level}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>荣誉类别</Label>
+                <Select 
+                  value={batchFormData.category} 
+                  onValueChange={(v) => setBatchFormData(prev => ({ ...prev, category: v as HonorCategory }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="不修改" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">不修改</SelectItem>
+                    {HONOR_CATEGORIES.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>颁发单位</Label>
+                <Input
+                  placeholder="留空则不修改"
+                  value={batchFormData.issuer}
+                  onChange={(e) => setBatchFormData(prev => ({ ...prev, issuer: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchDialogOpen(false)}>
+              取消
+            </Button>
+            <Button 
+              onClick={handleBatchSubmit}
+              className={batchMode === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            >
+              {batchMode === 'delete' ? '确认删除' : '确认修改'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

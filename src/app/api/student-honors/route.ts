@@ -3,6 +3,7 @@
  * 
  * GET: 获取学生荣誉列表
  * POST: 创建学生荣誉
+ * DELETE: 批量删除荣誉
  * 
  * ⚠️ 架构原则：
  * - 通过 Service 层访问数据，禁止直接操作数据库
@@ -16,13 +17,14 @@ import { success, error, ErrorCode } from '@/lib/api';
 /**
  * 将数据库字段映射为前端期望的驼峰格式
  */
-function mapHonorToFrontend(record: StudentHonorRecord) {
+function mapHonorToFrontend(record: StudentHonorRecord & { grade?: number }) {
   return {
     id: record.id,
     studentId: record.student_id,
     studentName: record.student_name,
     classId: record.class_id,
     className: record.class_name,
+    grade: record.grade,
     title: record.title,
     level: record.level,
     category: record.category,
@@ -43,10 +45,20 @@ export async function GET(request: NextRequest) {
   const studentId = searchParams.get('studentId') || undefined;
   const classId = searchParams.get('classId') || undefined;
   const honorType = searchParams.get('honorType') || searchParams.get('category') || undefined;
+  const level = searchParams.get('level') || undefined;
+  const keyword = searchParams.get('keyword') || undefined;
   const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
   const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 20;
 
-  const result = await studentHonorService.getList({ studentId, classId, honorType, page, pageSize });
+  const result = await studentHonorService.getList({ 
+    studentId, 
+    classId, 
+    honorType, 
+    level, 
+    keyword,
+    page, 
+    pageSize 
+  });
 
   if (!result.success || !result.data) {
     return NextResponse.json(
@@ -99,4 +111,33 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(success(mapHonorToFrontend(result.data!)));
+}
+
+/**
+ * DELETE - 批量删除荣誉
+ */
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const ids = searchParams.get('ids')?.split(',').filter(Boolean);
+
+  if (!ids || ids.length === 0) {
+    return NextResponse.json(
+      error('请选择要删除的荣誉记录', ErrorCode.VALIDATION_ERROR),
+      { status: 400 }
+    );
+  }
+
+  const result = await studentHonorService.batchDelete(ids);
+
+  if (!result.success) {
+    return NextResponse.json(
+      error(result.error || '批量删除失败', ErrorCode.DATABASE_ERROR),
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(success({ 
+    message: `成功删除 ${result.data!.count} 条记录`,
+    count: result.data!.count 
+  }));
 }

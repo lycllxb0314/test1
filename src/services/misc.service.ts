@@ -280,7 +280,15 @@ export class SchoolStatsService extends BaseService {
 // ==================== 学生荣誉 ====================
 
 export class StudentHonorService extends BaseService {
-  async getList(params: { studentId?: string; classId?: string; honorType?: string; page?: number; pageSize?: number }): Promise<ServiceResult<PaginatedResult<StudentHonorRecord>>> {
+  async getList(params: { 
+    studentId?: string; 
+    classId?: string; 
+    honorType?: string;
+    level?: string;
+    keyword?: string;
+    page?: number; 
+    pageSize?: number 
+  }): Promise<ServiceResult<PaginatedResult<StudentHonorRecord & { grade?: number }>>> {
     try {
       const data = await studentHonorRepository.findByParams(params);
       return this.ok(data);
@@ -339,6 +347,57 @@ export class StudentHonorService extends BaseService {
     } catch (error) {
       console.error('[StudentHonorService] delete error:', error);
       return this.fail('删除荣誉记录失败');
+    }
+  }
+
+  /**
+   * 批量删除荣誉
+   */
+  async batchDelete(ids: string[]): Promise<ServiceResult<{ count: number }>> {
+    try {
+      if (!ids || ids.length === 0) {
+        return this.fail('请选择要删除的荣誉记录');
+      }
+      const count = await studentHonorRepository.batchDelete(ids);
+      return this.ok({ count });
+    } catch (error) {
+      console.error('[StudentHonorService] batchDelete error:', error);
+      return this.fail('批量删除失败');
+    }
+  }
+
+  /**
+   * 批量更新荣誉
+   */
+  async batchUpdate(ids: string[], data: Partial<StudentHonorRecord>): Promise<ServiceResult<{ count: number }>> {
+    try {
+      if (!ids || ids.length === 0) {
+        return this.fail('请选择要更新的荣誉记录');
+      }
+      const count = await studentHonorRepository.batchUpdate(ids, data);
+      return this.ok({ count });
+    } catch (error) {
+      console.error('[StudentHonorService] batchUpdate error:', error);
+      return this.fail('批量更新失败');
+    }
+  }
+
+  /**
+   * 导出荣誉数据
+   */
+  async exportData(params: { 
+    studentId?: string; 
+    classId?: string; 
+    honorType?: string;
+    level?: string;
+    ids?: string[];
+  }): Promise<ServiceResult<(StudentHonorRecord & { grade?: number })[]>> {
+    try {
+      const data = await studentHonorRepository.exportData(params);
+      return this.ok(data);
+    } catch (error) {
+      console.error('[StudentHonorService] exportData error:', error);
+      return this.fail('导出数据失败');
     }
   }
 }
