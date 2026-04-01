@@ -501,8 +501,9 @@ export class UserService extends BaseService {
       await this.repository.updatePassword(targetUser.id, newPasswordHash);
 
       // 同步更新 teachers 表
-      if (targetUser.employeeId) {
-        await this.repository.syncPasswordToTeachers(targetUser.employeeId, newPassword);
+      const targetUserEmployeeId = (targetUser as any).employee_id || targetUser.employeeId;
+      if (targetUserEmployeeId) {
+        await this.repository.syncPasswordToTeachers(targetUserEmployeeId, newPassword);
       }
 
       return this.ok({ message: `已成功修改 ${targetUser.name} 的密码` });
@@ -541,8 +542,11 @@ export class UserService extends BaseService {
       await this.repository.updatePassword(dbUser.id, newPasswordHash);
 
       // 同步更新 teachers 表
-      if (dbUser.role !== 'parent' && dbUser.employeeId) {
-        await this.repository.syncPasswordToTeachers(dbUser.employeeId, newPassword);
+      if (dbUser.role !== 'parent') {
+        const userEmployeeId = (dbUser as any).employee_id || dbUser.employeeId;
+        if (userEmployeeId) {
+          await this.repository.syncPasswordToTeachers(userEmployeeId, newPassword);
+        }
       }
 
       return this.ok({ message: '密码修改成功' });

@@ -61,7 +61,14 @@ export class UserRepository extends BaseRepository<User> {
       return null;
     }
     
-    return data as User;
+    // 字段映射：数据库下划线 -> TypeScript 驼峰
+    return {
+      ...data,
+      employeeId: data.employee_id,
+      classId: data.class_id,
+      className: data.class_name,
+      additionalRoles: data.additional_roles,
+    } as User;
   }
   
   /**
@@ -135,7 +142,7 @@ export class UserRepository extends BaseRepository<User> {
   async updatePassword(userId: string, hashedPassword: string): Promise<boolean> {
     const { error } = await this.client
       .from(this.tableName)
-      .update({ password: hashedPassword, updated_at: new Date().toISOString() })
+      .update({ password_hash: hashedPassword, updated_at: new Date().toISOString() })
       .eq('id', userId);
     
     if (error) {
