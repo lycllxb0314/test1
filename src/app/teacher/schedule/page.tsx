@@ -605,7 +605,7 @@ export default function TeacherSchedulePage() {
               <div className="flex items-center gap-2">
                 <School className="h-5 w-5 text-green-500" />
                 <div>
-                  <div className="text-2xl font-bold">{personalData.classes.length}</div>
+                  <div className="text-2xl font-bold">{personalData.classes?.length || 0}</div>
                   <div className="text-xs text-muted-foreground">任教班级</div>
                 </div>
               </div>
@@ -616,7 +616,7 @@ export default function TeacherSchedulePage() {
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-purple-500" />
                 <div>
-                  <div className="text-2xl font-bold">{personalData.teacher.primary_subject}</div>
+                  <div className="text-2xl font-bold">{personalData.teacher?.primary_subject || '-'}</div>
                   <div className="text-xs text-muted-foreground">任教学科</div>
                 </div>
               </div>
@@ -681,7 +681,7 @@ export default function TeacherSchedulePage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">完整课表</CardTitle>
                   <CardDescription>
-                    {personalData.teacher.name} · {personalData.teacher.primary_subject}教师 · 共{personalData.totalHours}节课
+                    {personalData.teacher?.name || '教师'} · {personalData.teacher?.primary_subject || ''}教师 · 共{personalData.totalHours}节课
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
