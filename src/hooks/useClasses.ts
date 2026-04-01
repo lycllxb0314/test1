@@ -465,8 +465,8 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
               name: headTeacher.name as string,
               gender: headTeacher.gender as string,
               phone: headTeacher.phone as string,
-              subject: headTeacher.primary_subject as string,  // 修正：使用 primary_subject
-              primarySubject: headTeacher.primary_subject as string,
+              subject: (headTeacher.primarySubject as string) || (headTeacher.primary_subject as string),  // 兼容两种格式
+              primarySubject: (headTeacher.primarySubject as string) || (headTeacher.primary_subject as string),
               subjects: headTeacher.subjects as string[],
               title: headTeacher.title as string,
               avatar: headTeacher.avatar as string,
@@ -483,8 +483,8 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
               name: subTeacher.name as string,
               gender: subTeacher.gender as string,
               phone: subTeacher.phone as string,
-              subject: subTeacher.primary_subject as string,  // 修正：使用 primary_subject
-              primarySubject: subTeacher.primary_subject as string,
+              subject: (subTeacher.primarySubject as string) || (subTeacher.primary_subject as string),  // 兼容两种格式
+              primarySubject: (subTeacher.primarySubject as string) || (subTeacher.primary_subject as string),
               subjects: subTeacher.subjects as string[],
               title: subTeacher.title as string,
               avatar: subTeacher.avatar as string,

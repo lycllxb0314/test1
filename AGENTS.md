@@ -632,6 +632,10 @@ const safeHtml = DOMPurify.sanitize(userInput);
 
 ## 更新日志
 
+- 2026-04-01: 修复手动排课语文/数学/书法教师无法选择问题
+  - 根本原因：`useClasses.ts` 中 `headTeacher.subject` 使用下划线格式 `primary_subject`，但 teachers API 返回驼峰格式 `primarySubject`
+  - 解决方案：兼容两种格式 `(headTeacher.primarySubject || headTeacher.primary_subject)`
+  - 同步修复 `subTeacher.subject` 字段
 - 2026-04-01: 修复手动排课两个问题
   - **问题1：课表教师不显示**
     - 根本原因：API 返回扁平数组，前端期望按班级分组 `{ scheduleData: [{ classId, slots }] }`
