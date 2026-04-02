@@ -109,26 +109,51 @@ export class RoomRepository extends BaseRepository<RoomRecord> implements IRoomR
 // ==================== 教室预订 Repository ====================
 
 /**
- * 预订记录类型
+ * 预订记录类型（与数据库 room_bookings 表对应）
  */
 export interface RoomBookingRecord {
   id: string;
   room_id: string;
-  room_name?: string;
-  title: string;
-  purpose: string;
+  room_name: string;
+  room_type: string;
+  building: string;
+  location?: string;
   applicant_id: string;
   applicant_name: string;
-  applicant_department?: string;
+  applicant_role: string;
+  department?: string;
+  phone?: string;
+  purpose: string;
+  purpose_detail?: string;
+  title: string;
+  description?: string;
+  booking_date: string;
   start_time: string;
   end_time: string;
+  duration: number;
+  expected_attendees: number;
+  attendee_type?: string;
+  required_facilities?: Record<string, unknown>;
   status: string;
-  attendees: number;
-  equipment_needed?: string[];
-  remark?: string;
-  approval_info?: Record<string, unknown>;
+  approval_flow?: Record<string, unknown>[];
+  current_step?: number;
+  reject_reason?: string;
+  conflict_with?: Record<string, unknown>;
+  cancelled_at?: string;
+  cancelled_by?: string;
+  cancelled_by_name?: string;
+  cancel_reason?: string;
+  actual_start_time?: string;
+  actual_end_time?: string;
+  actual_attendees?: number;
+  usage_report?: string;
+  maintenance_request?: string;
+  cleaning_required?: boolean;
+  cleaning_requested?: boolean;
   created_at: string;
   updated_at?: string;
+  time_slot?: string;
+  time_slots?: string[];
 }
 
 /**

@@ -225,17 +225,81 @@ export const roomBookingService = {
   
   /**
    * 创建预订
+   * 支持前端发送的 camelCase 字段，自动映射为数据库字段
    */
-  async create(data: Partial<RoomBookingRecord>): Promise<ServiceResult<RoomBookingRecord>> {
+  async create(data: Partial<RoomBookingRecord> & Record<string, unknown>): Promise<ServiceResult<RoomBookingRecord>> {
     try {
-      if (!data.room_id || !data.title || !data.applicant_id || !data.start_time || !data.end_time) {
+      // 兼容 camelCase 和 snake_case 字段
+      const roomId = (data.room_id || data.roomId) as string;
+      const roomName = (data.room_name || data.roomName) as string;
+      const roomType = (data.room_type || data.roomType) as string;
+      const building = data.building as string;
+      const applicantId = (data.applicant_id || data.applicantId) as string;
+      const applicantName = (data.applicant_name || data.applicantName) as string;
+      const applicantRole = (data.applicant_role || data.applicantRole) as string;
+      const department = data.department as string;
+      const purpose = data.purpose as string;
+      const title = data.title as string;
+      const description = data.description as string;
+      const bookingDate = (data.booking_date || data.bookingDate) as string;
+      const timeSlots = (data.time_slots || data.timeSlots) as string[];
+      const expectedAttendees = (data.expected_attendees || data.expectedAttendees) as number;
+      
+      // 验证必填字段
+      if (!roomId || !title || !applicantId || !bookingDate) {
         return { success: false, error: '缺少必填字段', code: 'VALIDATION_ERROR' };
       }
       
+      // 从 timeSlots 计算 start_time 和 end_time
+      // 时段定义：morning_1, morning_2, morning_3, noon, afternoon_1, afternoon_2, afternoon_3, evening
+      const TIME_SLOT_MAP: Record<string, { start: string; end: string; duration: number }> = {
+        'morning_1': { start: '08:00', end: '08:45', duration: 45 },
+        'morning_2': { start: '08:55', end: '09:40', duration: 45 },
+        'morning_3': { start: '10:00', end: '10:45', duration: 45 },
+        'noon': { start: '12:00', end: '14:00', duration: 120 },
+        'afternoon_1': { start: '14:00', end: '14:45', duration: 45 },
+        'afternoon_2': { start: '14:55', end: '15:40', duration: 45 },
+        'afternoon_3': { start: '16:00', end: '16:45', duration: 45 },
+        'evening': { start: '18:00', end: '21:00', duration: 180 },
+      };
+      
+      let startTime = '08:00';
+      let endTime = '09:00';
+      let totalDuration = 45;
+      
+      if (timeSlots && timeSlots.length > 0) {
+        const validSlots = timeSlots.filter(s => TIME_SLOT_MAP[s]);
+        if (validSlots.length > 0) {
+          // 按 TIME_SLOT_MAP 的顺序排序
+          const slotOrder = Object.keys(TIME_SLOT_MAP);
+          validSlots.sort((a, b) => slotOrder.indexOf(a) - slotOrder.indexOf(b));
+          
+          startTime = TIME_SLOT_MAP[validSlots[0]].start;
+          endTime = TIME_SLOT_MAP[validSlots[validSlots.length - 1]].end;
+          totalDuration = validSlots.reduce((sum, s) => sum + TIME_SLOT_MAP[s].duration, 0);
+        }
+      }
+      
       const result = await roomBookingRepository.create({
-        id: data.id || `booking-${Date.now()}`,
-        ...data,
-        status: data.status || 'pending',
+        id: data.id as string || `booking-${Date.now()}`,
+        room_id: roomId,
+        room_name: roomName || '',
+        room_type: roomType || 'meeting_room',
+        building: building || '',
+        applicant_id: applicantId,
+        applicant_name: applicantName || '',
+        applicant_role: applicantRole || 'teacher',
+        department: department,
+        purpose: purpose || 'meeting',
+        title: title,
+        description: description,
+        booking_date: bookingDate,
+        start_time: startTime,
+        end_time: endTime,
+        duration: totalDuration,
+        expected_attendees: expectedAttendees || 20,
+        time_slots: timeSlots,
+        status: (data.status as string) || 'pending',
       });
       
       if (!result) {

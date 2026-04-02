@@ -192,9 +192,16 @@ export class RoomBookingService extends BaseService {
         start_time: params.startTime,
         end_time: params.endTime,
         status: 'pending',
-        attendees: params.attendeesCount || 0,
-        equipment_needed: params.facilitiesNeeded || [],
-        remark: params.notes,
+        expected_attendees: params.attendeesCount || 0,
+        room_name: '',
+        room_type: 'meeting_room',
+        building: '',
+        applicant_role: 'teacher',
+        title: params.purpose || '教室预约',
+        booking_date: new Date().toISOString().split('T')[0],
+        duration: 60,
+        required_facilities: params.facilitiesNeeded ? { facilities: params.facilitiesNeeded } : undefined,
+        description: params.notes,
       });
 
       if (!data) {
