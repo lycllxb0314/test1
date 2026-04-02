@@ -73,8 +73,10 @@ import {
   Crown,
   Loader2,
   ChevronLeft,
+  CheckCircle,
 } from 'lucide-react';
 import { HonorCharts } from '@/components/honors/HonorCharts';
+import { HonorApprovalTab } from '@/components/honors/HonorApprovalTab';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
@@ -470,6 +472,10 @@ export default function TeacherHonorsPage() {
             <Trophy className="h-4 w-4" />
             荣誉管理
           </TabsTrigger>
+          <TabsTrigger value="approval" className="gap-2">
+            <CheckCircle className="h-4 w-4" />
+            待审批
+          </TabsTrigger>
         </TabsList>
 
         {/* Tab 1: 统计概览 */}
@@ -715,6 +721,11 @@ export default function TeacherHonorsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab 3: 待审批 */}
+        <TabsContent value="approval" className="space-y-4">
+          <HonorApprovalTab />
         </TabsContent>
       </Tabs>
 

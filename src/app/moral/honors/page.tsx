@@ -79,9 +79,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Calendar,
 } from 'lucide-react';
 import { PAGINATION } from '@/lib/pagination-config';
 import { HonorCharts } from '@/components/honors/HonorCharts';
+import { HonorCampaignTab } from '@/components/honors/HonorCampaignTab';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
@@ -624,6 +626,10 @@ export default function StudentHonorsPage() {
             <Trophy className="h-4 w-4" />
             荣誉管理
           </TabsTrigger>
+          <TabsTrigger value="campaign" className="gap-2">
+            <Calendar className="h-4 w-4" />
+            荣誉评选
+          </TabsTrigger>
         </TabsList>
 
         {/* ========== Tab 1: 可视化展示 ========== */}
@@ -1008,6 +1014,11 @@ export default function StudentHonorsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ========== Tab 3: 荣誉评选 ========== */}
+        <TabsContent value="campaign" className="space-y-6">
+          <HonorCampaignTab />
         </TabsContent>
       </Tabs>
 

@@ -183,7 +183,7 @@ export default function MoralDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Link href="/moral/honor-campaigns" className="block">
+        <Link href="/moral/honors?tab=campaign" className="block">
           <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">

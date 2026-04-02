@@ -32,8 +32,6 @@ import {
   AlertCircle,
   Activity,
   ArrowRight,
-  Settings,
-  Calendar,
 } from 'lucide-react';
 
 export default function VicePrincipalMoralDashboard() {
@@ -126,27 +124,7 @@ export default function VicePrincipalMoralDashboard() {
       </div>
 
       {/* 快捷入口 */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Link href="/vice-principal-moral/honor-approval" className="block">
-          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">荣誉审批</p>
-                  <p className="text-2xl font-bold text-purple-600">{approvalStats.pending}</p>
-                  <p className="text-xs text-gray-400 mt-1">待审批</p>
-                </div>
-                <div className="p-2 rounded-lg bg-purple-100">
-                  <Award className="h-5 w-5 text-purple-600" />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center text-sm text-purple-600">
-                <span>前往审批</span>
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('messages')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
