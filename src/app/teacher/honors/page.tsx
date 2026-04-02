@@ -90,6 +90,7 @@ import {
   Cell,
   CHART_COLORS,
 } from '@/components/charts/DynamicCharts';
+import { SimpleBarChart, SimplePieChart } from '@/components/charts/SimpleBarChart';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
@@ -428,20 +429,16 @@ export default function TeacherHonorsPage() {
 
   // ==================== 图表数据转换 ====================
 
-  const levelChartData = statistics ? HONOR_LEVELS
-    .filter(level => statistics.byLevel[level] > 0)
-    .map(level => ({
-      name: level,
-      value: statistics.byLevel[level] || 0,
-      fill: LEVEL_COLORS[level],
-    })) : [];
+  const levelChartData = statistics ? HONOR_LEVELS.map(level => ({
+    name: level,
+    value: statistics.byLevel[level] || 0,
+    fill: LEVEL_COLORS[level],
+  })) : [];
 
-  const categoryChartData = statistics ? HONOR_CATEGORIES
-    .filter(cat => statistics.byCategory[cat] > 0)
-    .map(cat => ({
-      name: cat,
-      value: statistics.byCategory[cat] || 0,
-    })) : [];
+  const categoryChartData = statistics ? HONOR_CATEGORIES.map(cat => ({
+    name: cat,
+    value: statistics.byCategory[cat] || 0,
+  })) : [];
 
   // ==================== 渲染 ====================
 
@@ -555,22 +552,13 @@ export default function TeacherHonorsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {statistics && levelChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={levelChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                      />
-                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                        {levelChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                {statistics ? (
+                  <SimpleBarChart 
+                    data={levelChartData} 
+                    height={250}
+                    colors={Object.values(LEVEL_COLORS)}
+                    chartType="level"
+                  />
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-gray-400">
                     暂无数据
@@ -588,29 +576,13 @@ export default function TeacherHonorsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {statistics && categoryChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                      <Pie
-                        data={categoryChartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${((percent as number) * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {categoryChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                {statistics ? (
+                  <SimplePieChart 
+                    data={categoryChartData} 
+                    height={250}
+                    colors={PIE_COLORS}
+                    chartType="category"
+                  />
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-gray-400">
                     暂无数据
