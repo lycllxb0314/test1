@@ -108,6 +108,8 @@ type MessageRow = {
   grades?: string[];
   /** 接收者ID（单条消息） */
   recipient_id?: string;
+  /** 接收者类型 */
+  recipient_type?: string;
   related_id?: string;
   related_type?: string;
   action_url?: string;
@@ -140,7 +142,7 @@ export class MessageService extends BaseService {
     const { userId, event, status, priority, page = 1, pageSize = 20, unreadOnly } = params;
 
     try {
-      // 获取用户收到的消息
+      // 获取用户收到的消息（包含部门广播消息）
       const result = await this.repository.findReceived(userId, {
         type: event && event !== 'all' ? event : undefined,
         page,
@@ -477,6 +479,7 @@ export class MessageService extends BaseService {
       senderId: row.sender_id,
       senderName: row.sender_name,
       recipientId: row.recipient_id || row.user_ids?.[0],  // 使用正确的列名
+      recipientType: row.recipient_type, // 接收者类型
       relatedId: row.related_id || (metadata.related_id as string),
       relatedType: row.related_type || (metadata.related_type as string),
       actionUrl: row.action_url || (metadata.action_url as string),

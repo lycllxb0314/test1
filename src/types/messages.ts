@@ -350,6 +350,7 @@ export interface UserMessage {
   recipientId?: string;
   recipientName?: string;
   recipientRole?: UserRole;
+  recipientType?: string; // 接收者类型：individual, department, etc.
   recipients?: MessageRecipient;
   relatedId?: string;
   relatedType?: string;

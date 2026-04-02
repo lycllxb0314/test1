@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { User, UserRole, ModuleType, Permission } from '@/types';
+import { User, UserRole, ModuleType, Permission, GROUP_CONFIGS, UserGroupMembership } from '@/types';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { ROLE_PERMISSIONS, getRoleModules, hasPermission, canAccessModule } from './permissions';
 import { validateSession as validateJwtSession, extractTokens } from './session';
@@ -130,6 +130,27 @@ export async function validateSessionLegacy(userId: string): Promise<AuthResult>
       };
     }
 
+    // 查询用户所属群组
+    const userEmployeeId = user.employee_id;
+    let groups: UserGroupMembership[] = [];
+    
+    if (userEmployeeId) {
+      const { data: groupMemberships } = await client
+        .from('group_members')
+        .select('group_id, group_type, is_admin, join_type')
+        .eq('user_id', userEmployeeId);
+
+      if (groupMemberships && groupMemberships.length > 0) {
+        groups = groupMemberships.map((gm) => ({
+          groupId: gm.group_id,
+          groupType: gm.group_type as UserGroupMembership['groupType'],
+          groupName: GROUP_CONFIGS[gm.group_type as keyof typeof GROUP_CONFIGS]?.name || gm.group_type,
+          isAdmin: gm.is_admin,
+          joinType: gm.join_type as 'auto' | 'manual',
+        }));
+      }
+    }
+
     return {
       success: true,
       user: {
@@ -147,6 +168,7 @@ export async function validateSessionLegacy(userId: string): Promise<AuthResult>
         avatar: user.avatar,
         children: user.children,
         additionalRoles: user.additional_roles,
+        groups, // 添加群组成员信息
       },
     };
   } catch (error) {

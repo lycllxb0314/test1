@@ -87,11 +87,11 @@ function getMessageScope(event: MessageEvent, metadata?: Record<string, unknown>
     'repair_notice',
     'asset_notice',
     'safety_alert',
+    'leave_approval', // 审批相关消息现在是业务通知
   ];
   
   // 个人通知：不在部门工作台显示
   const personalEvents: MessageEvent[] = [
-    'leave_approval',
     'task_assign',
     'task_reminder',
     'personal_message',
@@ -127,6 +127,14 @@ function getRelevantDepartments(event: MessageEvent, metadata?: Record<string, u
   if (event === 'group_notice' && metadata?.target_department) {
     const targetDept = metadata.target_department as string;
     return [targetDept];
+  }
+  
+  // 审批通知：根据 business_type 判断目标部门
+  if (event === 'leave_approval' && metadata?.business_type) {
+    const businessType = metadata.business_type as string;
+    if (businessType === 'room_booking') return ['academic'];
+    if (businessType === 'leave_request') return ['academic']; // 请假审批也在教务处
+    // 可以根据需要添加更多业务类型
   }
   
   return [];
@@ -168,7 +176,7 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
   const userId = user.id;
 
   try {
-    // 使用 MessageService 查询消息
+    // 使用 MessageService 查询消息（包含部门广播消息）
     const result = await messageService.queryUserMessages({
       userId,
       event: eventFilter as MessageEvent | undefined,
@@ -202,6 +210,37 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
 
     // 应用额外筛选
     let filteredMessages = displayMessages;
+    
+    // 根据用户群组成员身份过滤部门广播消息
+    // 群组类型到部门标识的映射
+    const groupTypeToDept: Record<string, string> = {
+      'principal_office': 'principal',
+      'academic_office': 'academic',
+      'moral_office': 'moral',
+      'general_office': 'general',
+    };
+    
+    // 获取用户所属的部门标识列表
+    const userGroupTypes = user.groups?.map(g => g.groupType) || [];
+    const userDeptIdentifiers = userGroupTypes.map(gt => groupTypeToDept[gt]).filter(Boolean);
+    
+    // 过滤消息：对于部门广播消息，只保留目标部门与用户所属群组匹配的消息
+    filteredMessages = filteredMessages.filter(m => {
+      // 非部门广播消息直接通过
+      if (m.recipientType !== 'department') {
+        return true;
+      }
+      
+      // 部门广播消息：检查用户是否属于目标部门
+      const targetDept = m.metadata?.target_department as string;
+      if (!targetDept) {
+        return false; // 没有目标部门标识的消息不显示
+      }
+      
+      // 用户所属群组包含目标部门
+      return userDeptIdentifiers.includes(targetDept);
+    });
+    
     if (eventFilter) {
       filteredMessages = filteredMessages.filter(m => m.event === eventFilter);
     }
@@ -229,8 +268,9 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       const targetDept = deptMapping[department] || department;
       
       filteredMessages = filteredMessages.filter(m => {
-        // 部门广播消息
-        if (m.recipients?.type === 'department') {
+        // 部门广播消息 - 检查 recipientType 或 recipients.type
+        const isDeptBroadcast = m.recipientType === 'department' || m.recipients?.type === 'department';
+        if (isDeptBroadcast) {
           const msgTargetDept = m.metadata?.target_department as string;
           return msgTargetDept === targetDept;
         }

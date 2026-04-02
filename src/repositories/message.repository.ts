@@ -81,21 +81,37 @@ export class MessageRepository extends BaseRepository<MessageRow> {
    * 查询条件（在数据库层面过滤）：
    * 1. recipient_id 等于当前用户ID（个人消息）
    * 2. 或者 user_ids 包含用户ID
+   * 3. 或者 recipient_type = 'department'（部门广播消息，后续在业务层过滤）
    */
   async findReceived(
     userId: string,
-    options: { type?: string; event?: string; page?: number; pageSize?: number } = {}
+    options: { 
+      type?: string; 
+      event?: string; 
+      page?: number; 
+      pageSize?: number;
+    } = {}
   ): Promise<PaginatedResult<MessageRow>> {
     const { type, event, page = 1, pageSize = 20 } = options;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
     
-    // 使用 Supabase 的 or 条件在数据库层面过滤
-    // recipient_id.eq.{userId} OR user_ids.cs.["{userId}"]
+    // 构建查询条件
+    // 条件1: 个人消息 (recipient_id = userId)
+    // 条件2: 用户组消息 (user_ids 包含 userId)
+    // 条件3: 部门广播消息 (recipient_type = 'department')
     let query = this.client
       .from(this.tableName)
-      .select('*', { count: 'exact' })
-      .or(`recipient_id.eq.${userId},user_ids.cs.{${userId}}`);
+      .select('*', { count: 'exact' });
+
+    // 构建OR条件
+    const orConditions: string[] = [
+      `recipient_id.eq.${userId}`,
+      `user_ids.cs.{${userId}}`,
+      `recipient_type.eq.department`,
+    ];
+
+    query = query.or(orConditions.join(','));
     
     if (type) {
       query = query.eq('type', type);
@@ -104,7 +120,7 @@ export class MessageRepository extends BaseRepository<MessageRow> {
     if (event) {
       query = query.eq('event', event);
     }
-    
+
     query = query.order('created_at', { ascending: false }).range(from, to);
     
     const { data, error, count } = await query;
