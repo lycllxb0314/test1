@@ -24,6 +24,10 @@ export type MessageEvent =
   // === 德育通知 ===
   | 'activity_notice'          // 活动通知
   | 'honor_notice'             // 荣誉通知
+  | 'honor_campaign'           // 荣誉评选发布通知
+  | 'honor_approval'           // 荣誉审批流转通知
+  | 'honor_approved'           // 荣誉审批通过通知
+  | 'honor_rejected'           // 荣誉审批拒绝通知
   | 'moral_evaluation'         // 德育评价
   | 'habit_record'             // 习惯记录提醒
   | 'duty_reminder'            // 值日提醒
@@ -176,6 +180,42 @@ export const MESSAGE_EVENT_CONFIGS: Record<MessageEvent, MessageEventConfig> = {
     description: '荣誉表彰通知',
     icon: 'award',
     color: 'yellow',
+    defaultPriority: 'normal',
+    channels: ['in_app', 'wechat'],
+  },
+  honor_campaign: {
+    event: 'honor_campaign',
+    label: '荣誉评选发布',
+    description: '荣誉评选活动发布通知',
+    icon: 'trophy',
+    color: 'amber',
+    defaultPriority: 'high',
+    channels: ['in_app', 'wechat'],
+  },
+  honor_approval: {
+    event: 'honor_approval',
+    label: '荣誉审批流转',
+    description: '荣誉申报审批流转通知',
+    icon: 'clipboard-check',
+    color: 'blue',
+    defaultPriority: 'high',
+    channels: ['in_app'],
+  },
+  honor_approved: {
+    event: 'honor_approved',
+    label: '荣誉审批通过',
+    description: '荣誉申报审批通过通知',
+    icon: 'check-circle',
+    color: 'green',
+    defaultPriority: 'high',
+    channels: ['in_app', 'wechat'],
+  },
+  honor_rejected: {
+    event: 'honor_rejected',
+    label: '荣誉审批拒绝',
+    description: '荣誉申报审批拒绝通知',
+    icon: 'x-circle',
+    color: 'red',
     defaultPriority: 'normal',
     channels: ['in_app', 'wechat'],
   },

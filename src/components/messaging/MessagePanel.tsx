@@ -65,9 +65,13 @@ import {
   BarChart,
   ListTodo,
   ClipboardList,
+  ClipboardCheck,
   Sparkles,
   Filter,
   RefreshCw,
+  Trophy,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -128,6 +132,10 @@ const EVENT_ICONS: Record<MessageEvent, React.ElementType> = {
   homework_assign: BookOpen,
   activity_notice: Calendar,
   honor_notice: Award,
+  honor_campaign: Trophy,
+  honor_approval: ClipboardCheck,
+  honor_approved: CheckCircle,
+  honor_rejected: XCircle,
   moral_evaluation: Heart,
   habit_record: Star,
   duty_reminder: Calendar,
