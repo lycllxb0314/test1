@@ -157,7 +157,6 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
         description: updatedDescription,
         expected_attendees: updatedExpectedAttendees,
         updated_at: now,
-        resubmitted_at: now,
       };
       
       console.log('[Room Booking] Updating booking with data:', updateData);
