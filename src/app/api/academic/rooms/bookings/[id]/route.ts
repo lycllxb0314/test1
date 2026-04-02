@@ -137,12 +137,17 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
       const now = new Date().toISOString();
       
       // 更新预约状态和信息
+      const updatedTitle = body.title || booking.title;
+      const updatedPurpose = body.purpose || booking.purpose;
+      const updatedDescription = body.description ?? booking.description;
+      const updatedExpectedAttendees = body.expectedAttendees || booking.expected_attendees;
+      
       const updateData: Record<string, unknown> = {
         status: 'pending',
-        purpose: body.purpose || booking.purpose,
-        title: body.title || booking.title,
-        description: body.description ?? booking.description,
-        expected_attendees: body.expectedAttendees || booking.expected_attendees,
+        purpose: updatedPurpose,
+        title: updatedTitle,
+        description: updatedDescription,
+        expected_attendees: updatedExpectedAttendees,
         updated_at: now,
         resubmitted_at: now,
       };
@@ -152,34 +157,73 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
         .update(updateData)
         .eq('id', id);
       
-      // 更新关联的审批实例状态
-      await client
+      // 获取审批实例
+      const { data: instance } = await client
         .from('approval_instances')
-        .update({
-          status: 'pending',
-          current_step: 1,
-          updated_at: now,
-        })
+        .select('id')
         .eq('business_id', id)
-        .eq('business_type', 'room_booking');
+        .eq('business_type', 'room_booking')
+        .single();
       
-      // 重置审批节点
-      await client
-        .from('approval_nodes')
-        .update({
-          status: 'pending',
-          processed_at: null,
-          processed_by: null,
-          processed_by_name: null,
-          comment: null,
-          updated_at: now,
-        })
-        .eq('instance_id', (await client
+      const instanceId = instance?.id;
+      
+      if (instanceId) {
+        // 更新关联的审批实例状态
+        await client
           .from('approval_instances')
-          .select('id')
-          .eq('business_id', id)
-          .eq('business_type', 'room_booking')
-          .single()).data?.id);
+          .update({
+            status: 'pending',
+            current_node_order: 2, // 当前在审批节点（第2个节点）
+            updated_at: now,
+          })
+          .eq('id', instanceId);
+        
+        // 重置审批节点
+        await client
+          .from('approval_nodes')
+          .update({
+            status: 'pending',
+            processed_at: null,
+            processed_by: null,
+            processed_by_name: null,
+            comment: null,
+            updated_at: now,
+          })
+          .eq('instance_id', instanceId);
+        
+        // 更新提交节点为已重新提交
+        await client
+          .from('approval_nodes')
+          .update({
+            status: 'approved',
+            processed_at: now,
+            processed_by: user.id,
+            processed_by_name: user.name,
+            comment: '已修改并重新提交',
+            updated_at: now,
+          })
+          .eq('instance_id', instanceId)
+          .eq('node_order', 1);
+        
+        // 发送通知给教务处（部门广播）
+        await client.from('messages').insert({
+          id: crypto.randomUUID(),
+          title: `【预约待审批】${updatedTitle}`,
+          content: `${user.name || '教师'}修改后重新提交了教室预约申请，请及时审批。预约日期：${booking.booking_date}，教室：${booking.room_name || '待定'}`,
+          type: 'approval',
+          priority: 'high',
+          sender_id: user.id,
+          sender_name: user.name,
+          recipient_id: user.id, // 占位符
+          recipient_type: 'department',
+          metadata: {
+            instance_id: instanceId,
+            business_type: 'room_booking',
+            business_id: id,
+            target_department: 'academic',
+          },
+        });
+      }
       
       return NextResponse.json({ success: true, message: '预约已重新提交' });
     }
