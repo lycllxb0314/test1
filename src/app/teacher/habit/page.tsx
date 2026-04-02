@@ -60,6 +60,7 @@ import {
   BarChart3,
   Send,
   X,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -180,9 +181,15 @@ export default function TeacherHabitPage() {
   
   // 加载学生列表
   const fetchStudents = async () => {
+    if (!user?.classId) {
+      console.error('用户没有关联班级');
+      setStudentsLoading(false);
+      return;
+    }
+    
     setStudentsLoading(true);
     try {
-      const res = await fetch(`/api/students?teacherId=${user?.id}&pageSize=100`);
+      const res = await fetch(`/api/students?classId=${user.classId}&pageSize=100`);
       const data = await res.json();
       if (data.success) {
         setStudents(data.data.map((s: StudentFromApi) => ({
@@ -260,21 +267,22 @@ export default function TeacherHabitPage() {
   };
   
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && user?.classId) {
+      // 并行加载学生列表、目标库、月度目标、打卡记录
       fetchStudents();
       fetchGoals();
-      fetchMonthlyGoals();
+      fetchMonthlyGoals(user.classId);
+      fetchRecords(user.classId);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.classId]);
   
-  // 学生列表加载完成后，获取月度目标和打卡记录
+  // 月份变化时重新加载
   useEffect(() => {
-    if (students.length > 0 && currentMonth) {
-      const classId = students[0].classId;
-      fetchMonthlyGoals(classId);
-      fetchRecords(classId);
+    if (user?.classId && currentMonth) {
+      fetchMonthlyGoals(user.classId);
+      fetchRecords(user.classId);
     }
-  }, [students.length, currentMonth]);
+  }, [currentMonth]);
   
   // 根据类别筛选目标
   const filteredGoals = useMemo(() => {
@@ -424,6 +432,20 @@ export default function TeacherHabitPage() {
               制定班级月度习惯目标 · 查看打卡进度 · 审核补打卡
             </p>
           </div>
+          
+          {/* 未关联班级提示 */}
+          {!user?.classId && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <AlertCircle className="h-5 w-5" />
+                  <span className="font-medium">您未关联班级，无法使用习惯养成功能</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          {user?.classId && (
           <div className="flex items-center gap-3">
             <Input
               type="month"
@@ -432,9 +454,22 @@ export default function TeacherHabitPage() {
               className="w-40 bg-white/80 border-gray-200"
             />
           </div>
+          )}
         </div>
         
+        {/* 未关联班级时显示提示 */}
+        {!user?.classId && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-8 text-center">
+              <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-amber-700 mb-2">无法访问习惯养成功能</h3>
+              <p className="text-amber-600">您当前未关联班级，只有班主任才能使用习惯养成管理功能。</p>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* 统计卡片 */}
+        {user?.classId && (
         <div className="grid gap-4 md:grid-cols-5">
           <Card className="relative overflow-hidden border-0 shadow-lg shadow-blue-500/10 bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
             <CardContent className="p-4">
@@ -506,8 +541,10 @@ export default function TeacherHabitPage() {
             </CardContent>
           </Card>
         </div>
+        )}
         
         {/* 主要内容 */}
+        {user?.classId && (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100 p-1 rounded-xl">
             <TabsTrigger value="overview" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-md">
@@ -973,6 +1010,7 @@ export default function TeacherHabitPage() {
             </Card>
           </TabsContent>
         </Tabs>
+        )}
         
         {/* 添加月度目标对话框 */}
         <Dialog open={addGoalDialogOpen} onOpenChange={setAddGoalDialogOpen}>
