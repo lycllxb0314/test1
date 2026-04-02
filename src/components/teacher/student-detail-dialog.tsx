@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Tabs,
   TabsContent,
@@ -25,12 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   User,
   Phone,
-  Mail,
-  MapPin,
   Calendar,
   GraduationCap,
   Users,
@@ -46,8 +43,6 @@ import {
 import { useStudents } from '@/hooks/useStudents';
 import { StudentFullProfile, Parent } from '@/types';
 import { toast } from 'sonner';
-import { HabitTabContent } from '@/components/student/habit-tab-content';
-import { MoralTabContent } from '@/components/student/moral-tab-content';
 
 type ParentRelationship = '父亲' | '母亲' | '爷爷' | '奶奶' | '外公' | '外婆' | '其他';
 
@@ -406,23 +401,12 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
                       </span>
                     </div>
 
-                    {/* 统计概览 */}
-                    <div className="grid grid-cols-4 gap-3 mt-4">
-                      <div className="text-center p-2 bg-primary/5 rounded-lg">
-                        <div className="text-lg font-bold text-primary">{studentHonors.length || 0}</div>
-                        <div className="text-xs text-muted-foreground">荣誉</div>
-                      </div>
-                      <div className="text-center p-2 bg-primary/5 rounded-lg">
-                        <div className="text-lg font-bold text-primary">{profile.habitProfile?.habitStarCount || 0}</div>
-                        <div className="text-xs text-muted-foreground">习惯之星</div>
-                      </div>
-                      <div className="text-center p-2 bg-primary/5 rounded-lg">
-                        <div className="text-lg font-bold text-primary">{profile.attendanceStats?.attendanceRate?.toFixed(0) || 100}%</div>
-                        <div className="text-xs text-muted-foreground">出勤率</div>
-                      </div>
-                      <div className="text-center p-2 bg-primary/5 rounded-lg">
-                        <div className="text-lg font-bold text-primary">{profile.moralPerformance?.behaviorStats?.behaviorScore || '-'}</div>
-                        <div className="text-xs text-muted-foreground">德育评分</div>
+                    {/* 统计概览 - 仅显示荣誉数量 */}
+                    <div className="mt-4">
+                      <div className="inline-flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg">
+                        <Trophy className="h-4 w-4 text-primary" />
+                        <span className="text-sm text-muted-foreground">荣誉奖项</span>
+                        <span className="text-lg font-bold text-primary">{studentHonors.length || 0}</span>
                       </div>
                     </div>
                   </div>
@@ -435,8 +419,6 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
               <TabsList className="bg-muted/50 border rounded-lg p-1 w-full justify-start">
                 <TabsTrigger value="overview" className="text-sm">基本信息</TabsTrigger>
                 <TabsTrigger value="family" className="text-sm">家庭信息</TabsTrigger>
-                <TabsTrigger value="habit" className="text-sm">习惯养成</TabsTrigger>
-                <TabsTrigger value="moral" className="text-sm">德育活动</TabsTrigger>
                 <TabsTrigger value="honors" className="text-sm">在校荣誉</TabsTrigger>
               </TabsList>
 
@@ -636,16 +618,6 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
-
-              {/* 习惯养成 */}
-              <TabsContent value="habit" className="mt-4">
-                <HabitTabContent profile={profile} />
-              </TabsContent>
-
-              {/* 德育活动 */}
-              <TabsContent value="moral" className="mt-4">
-                <MoralTabContent profile={profile} canViewWarnings={true} />
               </TabsContent>
 
               {/* 在校荣誉 */}
