@@ -228,14 +228,27 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     // 过滤消息逻辑
     // 
     // 规则：
-    // 1. 教师个人工作台（无 department 参数）：只显示个人消息（recipientType !== 'department'）
+    // 1. 教师个人工作台（无 department 参数）：只显示个人消息
+    //    - 排除部门广播消息（recipientType === 'department'）
+    //    - 排除行政业务消息（recipientType === 'administrative'，如审批待办）
     // 2. 部门工作台（有 department 参数）：显示该部门的广播消息 + 相关业务消息
     
     if (!department) {
-      // 教师个人工作台：过滤掉所有部门广播消息，只保留个人消息
+      // 教师个人工作台：只显示个人消息，排除行政业务消息
       filteredMessages = filteredMessages.filter(m => {
-        // 只显示个人消息（非部门广播）
-        return m.recipientType !== 'department' && m.recipients?.type !== 'department';
+        // 排除部门广播消息
+        if (m.recipientType === 'department' || m.recipients?.type === 'department') {
+          return false;
+        }
+        // 排除行政业务消息（如审批待办）
+        if (m.recipientType === 'administrative') {
+          return false;
+        }
+        // 排除审批待办类消息（event === 'leave_approval' 且标题包含"审批待办"）
+        if (m.event === 'leave_approval' && m.title?.includes('审批待办')) {
+          return false;
+        }
+        return true;
       });
     } else {
       // 部门工作台过滤逻辑
@@ -258,6 +271,19 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
           const msgTargetDept = m.metadata?.target_department as string;
           // 只显示目标部门匹配的广播消息
           return msgTargetDept === targetDept;
+        }
+        
+        // 审批待办消息 - 显示在领导工作台
+        if (m.recipientType === 'administrative' || 
+            (m.event === 'leave_approval' && m.title?.includes('审批待办'))) {
+          // 检查消息的目标部门是否与当前部门匹配
+          const msgTargetDept = m.metadata?.target_department as string;
+          if (msgTargetDept && msgTargetDept === targetDept) {
+            return true;
+          }
+          // 如果没有目标部门信息，根据消息类型推断
+          const relevantDepts = getRelevantDepartments(m.event, m.metadata);
+          return relevantDepts.includes(targetDept);
         }
         
         // 非广播消息：检查是否与目标部门相关
