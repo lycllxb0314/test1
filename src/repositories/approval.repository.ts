@@ -462,6 +462,7 @@ export class ApprovalRepository {
     applicantId: string;
     applicantName: string;
     applicantDepartment?: string;
+    currentNodeOrder?: number;
   }): Promise<string | null> {
     const id = crypto.randomUUID();
 
@@ -477,7 +478,7 @@ export class ApprovalRepository {
         applicant_id: data.applicantId,
         applicant_name: data.applicantName,
         applicant_department: data.applicantDepartment,
-        current_node_order: 1,
+        current_node_order: data.currentNodeOrder || 1,
         status: 'in_progress',
       });
 

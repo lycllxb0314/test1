@@ -14,6 +14,7 @@ import {
   ScheduleSlotRecord,
   ScheduleDraftRecord,
 } from '@/repositories/academic.repository';
+import { approvalRepository } from '@/repositories/approval.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 // ==================== 类型定义 ====================
@@ -304,6 +305,43 @@ export const roomBookingService = {
       
       if (!result) {
         return { success: false, error: '创建预订失败', code: 'DATABASE_ERROR' };
+      }
+      
+      // 创建审批实例
+      const bookingId = result.id;
+      const instanceId = await approvalRepository.createInstance({
+        flowId: undefined,
+        flowName: '教室预约审批',
+        businessType: 'room_booking',
+        businessId: bookingId,
+        title: title,
+        applicantId: applicantId,
+        applicantName: applicantName || '',
+        applicantDepartment: department,
+        currentNodeOrder: 2, // 当前在审批节点（第2个节点）
+      });
+      
+      if (instanceId) {
+        // 创建审批节点记录（提交节点 + 审批节点）
+        await approvalRepository.createNodeRecords([
+          {
+            instanceId,
+            nodeOrder: 1,
+            nodeName: '提交预约',
+            nodeType: 'submit',
+            approverIds: [],
+            status: 'approved',
+            approvedBy: [{ userId: applicantId, userName: applicantName || '', action: 'submitted', time: new Date().toISOString() }],
+          },
+          {
+            instanceId,
+            nodeOrder: 2,
+            nodeName: '教务处审批',
+            nodeType: 'approve',
+            approverIds: [], // 空数组表示任何部门成员都可以审批
+            status: 'pending',
+          },
+        ]);
       }
       
       return { success: true, data: result };
