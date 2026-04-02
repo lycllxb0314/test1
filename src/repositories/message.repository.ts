@@ -159,13 +159,14 @@ export class MessageRepository extends BaseRepository<MessageRow> {
    * 查询未读消息
    * 
    * 查询条件：用户收到的消息中未标记为已读的
+   * 包括：个人消息、用户组消息、部门广播消息
    */
   async findUnread(userId: string): Promise<MessageRow[]> {
-    // 使用数据库层面的过滤获取用户的消息
+    // 使用数据库层面的过滤获取用户的消息（包括部门广播消息）
     const { data: messages, error: msgError } = await this.client
       .from(this.tableName)
       .select('id')
-      .or(`recipient_id.eq.${userId},user_ids.cs.{${userId}}`);
+      .or(`recipient_id.eq.${userId},user_ids.cs.{${userId}},recipient_type.eq.department`);
     
     if (msgError || !messages?.length) {
       return [];
