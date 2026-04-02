@@ -217,10 +217,14 @@ export default function TeacherHabitPage() {
   };
   
   // 加载月度目标
-  const fetchMonthlyGoals = async () => {
+  const fetchMonthlyGoals = async (classId?: string) => {
     setMonthlyGoalsLoading(true);
     try {
-      const res = await fetch(`/api/habit/monthly-goals?month=${currentMonth}`);
+      const params = new URLSearchParams({ month: currentMonth });
+      if (classId) {
+        params.set('classId', classId);
+      }
+      const res = await fetch(`/api/habit/monthly-goals?${params}`);
       const data = await res.json();
       if (data.success) {
         setMonthlyGoals(data.data);
@@ -263,25 +267,14 @@ export default function TeacherHabitPage() {
     }
   }, [user?.id]);
   
-  // 学生列表加载完成后，获取打卡记录
+  // 学生列表加载完成后，获取月度目标和打卡记录
   useEffect(() => {
     if (students.length > 0 && currentMonth) {
       const classId = students[0].classId;
+      fetchMonthlyGoals(classId);
       fetchRecords(classId);
     }
   }, [students.length, currentMonth]);
-  
-  useEffect(() => {
-    // 仅当 user 存在且月份变化时重新加载
-    if (user?.id) {
-      fetchMonthlyGoals();
-      // 如果学生列表已加载，重新获取打卡记录
-      if (students.length > 0) {
-        const classId = students[0].classId;
-        fetchRecords(classId);
-      }
-    }
-  }, [currentMonth]);
   
   // 根据类别筛选目标
   const filteredGoals = useMemo(() => {
@@ -296,13 +289,14 @@ export default function TeacherHabitPage() {
     const active = monthlyGoals.filter(g => g.status === 'active').length;
     
     // 计算班级整体打卡率
+    // 应打卡总数 = 学生数量 × 本月天数（每个学生每天打卡1次）
     const completedRecords = records.filter(r => r.status === 'completed').length;
     const totalDays = getTodayInMonth(currentMonth);
-    const expectedRecords = total * totalDays;
+    const expectedRecords = students.length * totalDays;
     const completionRate = expectedRecords > 0 ? Math.round((completedRecords / expectedRecords) * 100) : 0;
     
     return { total, approved, completed, active, completionRate };
-  }, [monthlyGoals, records, currentMonth]);
+  }, [monthlyGoals, records, currentMonth, students.length]);
   
   // 学生打卡进度
   const studentProgress = useMemo(() => {
