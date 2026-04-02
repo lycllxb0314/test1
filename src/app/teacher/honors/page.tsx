@@ -262,12 +262,13 @@ export default function TeacherHonorsPage() {
       const result = await res.json();
       
       if (result.success) {
-        setHonors(result.data || []);
-        setTotal(result.pagination?.total || 0);
-        setTotalPages(result.pagination?.totalPages || 1);
+        // API 返回结构: { success: true, data: { data: [...], pagination: {...} } }
+        const honorList = result.data?.data || [];
+        setHonors(honorList);
+        setTotal(result.data?.pagination?.total || 0);
+        setTotalPages(result.data?.pagination?.totalPages || 1);
         
         // 计算本班统计
-        const honorList = result.data || [];
         const byLevel: Record<string, number> = {};
         const byCategory: Record<string, number> = {};
         const studentCount: Record<string, { name: string; count: number }> = {};
