@@ -25,6 +25,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PAGINATION } from '@/lib/pagination-config';
+import { withAuth } from '@/lib/auth-client';
 import type { 
   Parent, 
   StudentFullProfile, 
@@ -338,9 +339,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
         params.append('status', filters.status);
       }
       
-      const response = await fetch(`/api/students?${params.toString()}`, {
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/students?${params.toString()}`, withAuth());
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -450,10 +449,9 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     }
     
     try {
-      const response = await fetch('/api/students', {
+      const response = await fetch('/api/students', withAuth({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           name: student.name,
           gender: student.gender,
@@ -469,7 +467,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           emergency_phone: student.emergencyPhone,
           home_address: student.homeAddress,
         }),
-      });
+      }));
       
       const result = await response.json();
       
@@ -501,10 +499,9 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   // 更新学生
   const updateStudent = useCallback(async (id: string, data: Partial<StudentInfo>): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/students/${id}`, {
+      const response = await fetch(`/api/students/${id}`, withAuth({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           name: data.name,
           gender: data.gender,
@@ -516,7 +513,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           emergency_phone: data.emergencyPhone,
           home_address: data.homeAddress,
         }),
-      });
+      }));
       
       const result = await response.json();
       
@@ -539,10 +536,9 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   // 删除学生
   const deleteStudent = useCallback(async (id: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/students/${id}`, {
+      const response = await fetch(`/api/students/${id}`, withAuth({
         method: 'DELETE',
-        credentials: 'include',
-      });
+      }));
       
       const result = await response.json();
       
@@ -560,7 +556,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
   // 批量更新学生
   const batchUpdateStudents = useCallback(async (ids: string[], data: Partial<StudentInfo>): Promise<boolean> => {
     try {
-      const response = await fetch('/api/students/batch-update', {
+      const response = await fetch('/api/students/batch-update', withAuth({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -570,7 +566,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
             status: data.status,
           },
         }),
-      });
+      }));
       
       const result = await response.json();
       
@@ -600,9 +596,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     
     try {
       setProfileLoading(true);
-      const response = await fetch(`/api/students/${id}/full-profile`, {
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/students/${id}/full-profile`, withAuth());
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -632,12 +626,11 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     record: Partial<StudentAcademicRecord>
   ): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/students/${studentId}/academic-records`, {
+      const response = await fetch(`/api/students/${studentId}/academic-records`, withAuth({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(record),
-      });
+      }));
       
       const result = await response.json();
       return result.success;
@@ -653,12 +646,11 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     honor: Partial<StudentHonor>
   ): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/students/${studentId}/honors`, {
+      const response = await fetch(`/api/students/${studentId}/honors`, withAuth({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(honor),
-      });
+      }));
       
       const result = await response.json();
       return result.success;
@@ -674,12 +666,11 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     record: Partial<StudentGrowthRecord>
   ): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/students/${studentId}/growth-records`, {
+      const response = await fetch(`/api/students/${studentId}/growth-records`, withAuth({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(record),
-      });
+      }));
       
       const result = await response.json();
       return result.success;
@@ -702,12 +693,11 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
     }
   ): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/students/${studentId}/habit-assessments`, {
+      const response = await fetch(`/api/students/${studentId}/habit-assessments`, withAuth({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(assessment),
-      });
+      }));
       
       const result = await response.json();
       return result.success;

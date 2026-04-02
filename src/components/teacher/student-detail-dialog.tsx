@@ -41,6 +41,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { useStudents } from '@/hooks/useStudents';
+import { withAuth } from '@/lib/auth-client';
 import { StudentFullProfile, Parent } from '@/types';
 import { toast } from 'sonner';
 
@@ -170,9 +171,7 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
       if (!studentId || !open) return;
       setHonorsLoading(true);
       try {
-        const res = await fetch(`/api/student-honors?studentId=${studentId}&pageSize=100`, {
-          credentials: 'include',
-        });
+        const res = await fetch(`/api/student-honors?studentId=${studentId}&pageSize=100`, withAuth());
         const result = await res.json();
         if (result.success && result.data) {
           const honorsArray = Array.isArray(result.data) ? result.data : (result.data.data || []);
