@@ -83,8 +83,9 @@ export default function TeacherPage() {
   const [selectedAdjust, setSelectedAdjust] = useState<CourseAdjustment | null>(null);
   const [showAdjustDialog, setShowAdjustDialog] = useState(false);
 
-  // 判断是否是班主任
-  const isHeadTeacher = user?.role === 'head_teacher' || user?.role === 'principal' || user?.role === 'academic_vice_principal' || user?.role === 'moral_vice_principal' || user?.role === 'general_vice_principal';
+  // 判断角色类型
+  const isHeadTeacher = user?.role === 'head_teacher'; // 只有班主任才是班主任
+  const isLeader = ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'].includes(user?.role || '');
   
   // 判断是否是年段长（兼任角色）
   const additionalRoles = user?.additionalRoles;
@@ -204,12 +205,14 @@ export default function TeacherPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {isHeadTeacher ? '班主任工作台' : '教师工作台'}
+            {isLeader ? '个人工作台' : isHeadTeacher ? '班主任工作台' : '教师工作台'}
           </h1>
           <p className="text-gray-500 mt-1">
-            {isHeadTeacher 
-              ? `${user?.className || '我的班级'} · 班级管理与家校沟通` 
-              : `${user?.department || '教学组'} · 教学与教研工作`
+            {isLeader 
+              ? `${user?.name} · 个人事务管理` 
+              : isHeadTeacher 
+                ? `${user?.className || '我的班级'} · 班级管理与家校沟通` 
+                : `${user?.department || '教学组'} · 教学与教研工作`
             }
             {isGradeLeader && ' · 年段长'}
           </p>
@@ -233,7 +236,7 @@ export default function TeacherPage() {
       </div>
 
       {/* 统计卡片 */}
-      <div className={`grid gap-4 ${isGradeLeader ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
+      <div className={`grid gap-4 ${isGradeLeader ? 'md:grid-cols-5' : isHeadTeacher ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -252,7 +255,7 @@ export default function TeacherPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">总消息数</p>
-                <p className="text-2xl font-bold text-blue-600">{statistics.total}</p>
+                <p className="text-2xl font-bold text-blue-600">{total}</p>
               </div>
               <div className="p-2 rounded-lg bg-blue-100">
                 <Bell className="h-5 w-5 text-blue-600" />
@@ -265,7 +268,7 @@ export default function TeacherPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">已读消息</p>
-                <p className="text-2xl font-bold text-green-600">{statistics.read}</p>
+                <p className="text-2xl font-bold text-green-600">{total - statistics.unread}</p>
               </div>
               <div className="p-2 rounded-lg bg-green-100">
                 <Bell className="h-5 w-5 text-green-600" />
@@ -273,19 +276,22 @@ export default function TeacherPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('published')}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">我发布的</p>
-                <p className="text-2xl font-bold text-purple-600">{approvalStats.my}</p>
+        {/* 班主任专属：我发布的 */}
+        {isHeadTeacher && (
+          <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('published')}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">我发布的</p>
+                  <p className="text-2xl font-bold text-purple-600">{approvalStats.my}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-purple-100">
+                  <Send className="h-5 w-5 text-purple-600" />
+                </div>
               </div>
-              <div className="p-2 rounded-lg bg-purple-100">
-                <Send className="h-5 w-5 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
         {/* 年段长专属：待调课统计 */}
         {isGradeLeader && (
           <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('adjust')}>
@@ -304,13 +310,15 @@ export default function TeacherPage() {
         )}
       </div>
 
-      {/* 发布按钮 */}
-      <div className="flex justify-end">
-        <Button onClick={() => setPublishOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          发布班级通知
-        </Button>
-      </div>
+      {/* 发布按钮 - 仅班主任显示 */}
+      {isHeadTeacher && (
+        <div className="flex justify-end">
+          <Button onClick={() => setPublishOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            发布班级通知
+          </Button>
+        </div>
+      )}
 
       {/* 主要内容区域 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -319,10 +327,13 @@ export default function TeacherPage() {
             <Bell className="h-4 w-4" />
             消息中心
           </TabsTrigger>
-          <TabsTrigger value="published" className="gap-2">
-            <Send className="h-4 w-4" />
-            我发布的
-          </TabsTrigger>
+          {/* 班主任专属：我发布的 */}
+          {isHeadTeacher && (
+            <TabsTrigger value="published" className="gap-2">
+              <Send className="h-4 w-4" />
+              我发布的
+            </TabsTrigger>
+          )}
           {/* 年段长专属：调课中心 */}
           {isGradeLeader && (
             <TabsTrigger value="adjust" className="gap-2">
@@ -361,52 +372,54 @@ export default function TeacherPage() {
           />
         </TabsContent>
 
-        {/* 我发布的 */}
-        <TabsContent value="published" className="mt-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>我发布的通知</CardTitle>
-                  <CardDescription>查看您发布的班级通知</CardDescription>
+        {/* 我发布的 - 班主任专属 */}
+        {isHeadTeacher && (
+          <TabsContent value="published" className="mt-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>我发布的通知</CardTitle>
+                    <CardDescription>查看您发布的班级通知</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => fetchApprovals('my')}>
+                    刷新
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => fetchApprovals('my')}>
-                  刷新
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {approvalsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : approvals.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Send className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>暂无发布记录</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {approvals.map((item) => (
-                    <Card key={item.id} className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-medium">{item.title}</h4>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {new Date(item.createdAt).toLocaleString()}
-                          </p>
+              </CardHeader>
+              <CardContent>
+                {approvalsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : approvals.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Send className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>暂无发布记录</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {approvals.map((item) => (
+                      <Card key={item.id} className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-medium">{item.title}</h4>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {new Date(item.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <Badge variant={item.status === 'approved' ? 'default' : 'secondary'}>
+                            {item.status === 'approved' ? '已发布' : '待审批'}
+                          </Badge>
                         </div>
-                        <Badge variant={item.status === 'approved' ? 'default' : 'secondary'}>
-                          {item.status === 'approved' ? '已发布' : '待审批'}
-                        </Badge>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* 调课中心 - 年段长专属 */}
         {isGradeLeader && (
