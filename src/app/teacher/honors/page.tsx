@@ -62,7 +62,6 @@ import { toast } from 'sonner';
 import {
   Award,
   Trophy,
-  Medal,
   Star,
   Plus,
   Search,
@@ -70,27 +69,12 @@ import {
   Trash2,
   Filter,
   Users,
-  Calendar,
   BarChart3,
   Crown,
-  Target,
   Loader2,
   ChevronLeft,
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  CHART_COLORS,
-} from '@/components/charts/DynamicCharts';
-import { SimpleBarChart, SimplePieChart } from '@/components/charts/SimpleBarChart';
+import { HonorCharts } from '@/components/honors/HonorCharts';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
@@ -145,8 +129,6 @@ const CATEGORY_COLORS: Record<HonorCategory, string> = {
   '科技': '#06b6d4',
 };
 
-const PIE_COLORS = ['#f43f5e', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#06b6d4'];
-
 // ==================== 主组件 ====================
 
 export default function TeacherHonorsPage() {
@@ -191,6 +173,9 @@ export default function TeacherHonorsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [honorToDelete, setHonorToDelete] = useState<StudentHonor | null>(null);
   
+  // === 图表弹窗状态 ===
+  // 已移至 HonorCharts 组件
+
   // === 表单状态 ===
   const [formData, setFormData] = useState({
     studentId: '',
@@ -427,19 +412,6 @@ export default function TeacherHonorsPage() {
     }
   };
 
-  // ==================== 图表数据转换 ====================
-
-  const levelChartData = statistics ? HONOR_LEVELS.map(level => ({
-    name: level,
-    value: statistics.byLevel[level] || 0,
-    fill: LEVEL_COLORS[level],
-  })) : [];
-
-  const categoryChartData = statistics ? HONOR_CATEGORIES.map(cat => ({
-    name: cat,
-    value: statistics.byCategory[cat] || 0,
-  })) : [];
-
   // ==================== 渲染 ====================
 
   // 未分配班级提示
@@ -541,56 +513,12 @@ export default function TeacherHonorsPage() {
             </Card>
           </div>
 
-          {/* 图表区域 */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* 按级别统计 */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Medal className="h-5 w-5 text-amber-500" />
-                  按级别统计
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statistics ? (
-                  <SimpleBarChart 
-                    data={levelChartData} 
-                    height={250}
-                    colors={Object.values(LEVEL_COLORS)}
-                    chartType="level"
-                  />
-                ) : (
-                  <div className="h-[250px] flex items-center justify-center text-gray-400">
-                    暂无数据
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 按类别统计 */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="h-5 w-5 text-blue-500" />
-                  按类别统计
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statistics ? (
-                  <SimplePieChart 
-                    data={categoryChartData} 
-                    height={250}
-                    colors={PIE_COLORS}
-                    chartType="category"
-                  />
-                ) : (
-                  <div className="h-[250px] flex items-center justify-center text-gray-400">
-                    暂无数据
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          {/* 图表区域 - 使用共享组件 */}
+          <HonorCharts 
+            statistics={statistics}
+            classId={user?.classId}
+            chartHeight={250}
+          />
 
           {/* 获奖之星 */}
           <Card className="border-0 shadow-md">

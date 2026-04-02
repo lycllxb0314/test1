@@ -63,7 +63,6 @@ import { toast } from 'sonner';
 import {
   Award,
   Trophy,
-  Medal,
   Star,
   Plus,
   Search,
@@ -73,34 +72,16 @@ import {
   Filter,
   TrendingUp,
   Users,
-  Calendar,
   BarChart3,
   PieChart as PieChartIcon,
   Crown,
-  Target,
   Loader2,
   ChevronLeft,
   ChevronRight,
   Eye,
 } from 'lucide-react';
 import { PAGINATION } from '@/lib/pagination-config';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  CHART_COLORS,
-} from '@/components/charts/DynamicCharts';
-import { SimpleBarChart, SimplePieChart, SimpleLineChart } from '@/components/charts/SimpleBarChart';
+import { HonorCharts } from '@/components/honors/HonorCharts';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ==================== 类型定义 ====================
@@ -170,8 +151,6 @@ const CATEGORY_COLORS: Record<HonorCategory, string> = {
   '科技': '#06b6d4',
 };
 
-const PIE_COLORS = ['#f43f5e', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#06b6d4'];
-
 // ==================== 主组件 ====================
 
 export default function StudentHonorsPage() {
@@ -220,10 +199,7 @@ export default function StudentHonorsPage() {
   const [honorToDelete, setHonorToDelete] = useState<StudentHonor | null>(null);
   
   // === 图表弹窗状态 ===
-  const [chartDetailOpen, setChartDetailOpen] = useState(false);
-  const [chartDetailTitle, setChartDetailTitle] = useState('');
-  const [chartDetailFilter, setChartDetailFilter] = useState<{ key: string; value: string } | null>(null);
-  const [chartDetailData, setChartDetailData] = useState<StudentHonor[]>([]);
+  // 已移至 HonorCharts 组件
   
   // === 表单状态 ===
   const [formData, setFormData] = useState({
@@ -336,111 +312,7 @@ export default function StudentHonorsPage() {
 
   // ==================== 操作处理 ====================
 
-  // 图表点击处理 - 打开弹窗显示筛选后的数据
-  const handleChartClick = useCallback(async (data: { name: string; value: number; type: string }) => {
-    if (data.value === 0) return;
-    
-    // 根据图表类型确定筛选条件
-    let filterKey = '';
-    let filterValue = data.name;
-    let title = '';
-    
-    switch (data.type) {
-      case 'level':
-        filterKey = 'level';
-        // 移除可能的后缀（如"级"）
-        filterValue = data.name;
-        title = `${data.name}荣誉列表 (${data.value}条)`;
-        break;
-      case 'category':
-        filterKey = 'category';
-        filterValue = data.name;
-        title = `${data.name}类荣誉列表 (${data.value}条)`;
-        break;
-      case 'grade':
-        filterKey = 'grade';
-        // 从"X年级"提取数字
-        const gradeMatch = data.name.match(/(\d)/);
-        filterValue = gradeMatch ? gradeMatch[1] : data.name;
-        title = `${data.name}荣誉列表 (${data.value}条)`;
-        break;
-      case 'month':
-        filterKey = 'month';
-        // 从"XX月"提取月份
-        const monthMatch = data.name.match(/(\d+)/);
-        filterValue = monthMatch ? monthMatch[1] : data.name;
-        title = `${data.name}荣誉列表 (${data.value}条)`;
-        break;
-      default:
-        title = `荣誉列表 (${data.value}条)`;
-    }
-    
-    setChartDetailTitle(title);
-    setChartDetailFilter({ key: filterKey, value: filterValue });
-    setChartDetailOpen(true);
-    
-    // 加载筛选后的数据
-    try {
-      const params = new URLSearchParams();
-      params.set('page', '1');
-      params.set('pageSize', '100');
-      if (filterKey && filterValue) {
-        params.set(filterKey, filterValue);
-      }
-      
-      const res = await fetch(`/api/student-honors?${params.toString()}`, {
-        credentials: 'include',
-      });
-      const result = await res.json();
-      
-      if (result.success) {
-        const honorsData = result.data?.data || result.data || [];
-        setChartDetailData(Array.isArray(honorsData) ? honorsData : []);
-      }
-    } catch (err) {
-      console.error('加载图表详情数据失败:', err);
-      setChartDetailData([]);
-    }
-  }, []);
-
-  // 导出弹窗数据
-  const handleExportChartDetail = async () => {
-    if (chartDetailData.length === 0) {
-      toast.error('暂无数据可导出');
-      return;
-    }
-
-    try {
-      // 动态导入 xlsx 库
-      const XLSX = await import('xlsx');
-      
-      // 转换数据格式
-      const rows = chartDetailData.map(honor => ({
-        '学生姓名': honor.studentName,
-        '班级': honor.className,
-        '荣誉名称': honor.title,
-        '级别': honor.level,
-        '类别': honor.category,
-        '颁发单位': honor.issuer || '',
-        '获奖日期': honor.date,
-        '证书编号': honor.certificateNo || '',
-        '备注': honor.description || '',
-      }));
-      
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, '学生荣誉');
-      
-      // 生成文件名
-      const filename = `${chartDetailTitle.replace(/[()（）]/g, '')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(wb, filename);
-      
-      toast.success('导出成功');
-    } catch (err) {
-      console.error('导出失败:', err);
-      toast.error('导出失败');
-    }
-  };
+  // 图表点击处理和导出功能已移至 HonorCharts 组件
 
   // 打开创建对话框
   const handleCreate = () => {
@@ -716,31 +588,6 @@ export default function StudentHonorsPage() {
     }
   };
 
-  // ==================== 图表数据转换 ====================
-
-  const levelChartData = statistics ? HONOR_LEVELS.map(level => ({
-    name: level,
-    value: statistics.byLevel[level] || 0,
-    fill: LEVEL_COLORS[level],
-  })) : [];
-
-  const categoryChartData = statistics ? HONOR_CATEGORIES.map(cat => ({
-    name: cat,
-    value: statistics.byCategory[cat] || 0,
-  })) : [];
-
-  // 处理 byGrade 键类型问题（JSON 序列化后数字键变成字符串）
-  const gradeData = statistics?.byGrade as Record<string, number> || {};
-  const gradeChartData = GRADES.map(g => ({
-    name: `${g}年级`,
-    value: gradeData[g] || gradeData[g.toString()] || 0,
-  }));
-
-  const monthChartData = statistics ? Object.entries(statistics.byMonth).map(([month, count]) => ({
-    name: `${month}月`,
-    value: count,
-  })) : [];
-
   // ==================== 渲染 ====================
 
   return (
@@ -831,108 +678,13 @@ export default function StudentHonorsPage() {
             </Card>
           </div>
 
-          {/* 图表区域 */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* 按级别统计 */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Medal className="h-5 w-5 text-amber-500" />
-                  按级别统计
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statistics ? (
-                  <SimpleBarChart 
-                    data={levelChartData} 
-                    height={300}
-                    colors={Object.values(LEVEL_COLORS)}
-                    chartType="level"
-                    onItemClick={handleChartClick}
-                  />
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-gray-400">
-                    暂无数据
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 按类别统计 */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="h-5 w-5 text-blue-500" />
-                  按类别统计
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statistics ? (
-                  <SimplePieChart 
-                    data={categoryChartData} 
-                    height={300}
-                    colors={PIE_COLORS}
-                    chartType="category"
-                    onItemClick={handleChartClick}
-                  />
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-gray-400">
-                    暂无数据
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 按年级统计 */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5 text-purple-500" />
-                  按年级统计
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statistics ? (
-                  <SimpleBarChart 
-                    data={gradeChartData} 
-                    height={300}
-                    colors={['#8b5cf6']}
-                    chartType="grade"
-                    onItemClick={handleChartClick}
-                  />
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-gray-400">
-                    暂无数据
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 按月份统计 */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-green-500" />
-                  按月份统计（本年度）
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statistics ? (
-                  <SimpleLineChart 
-                    data={monthChartData} 
-                    height={300}
-                    color="#22c55e"
-                    chartType="month"
-                    onItemClick={handleChartClick}
-                  />
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-gray-400">
-                    暂无数据
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          {/* 图表区域 - 使用共享组件 */}
+          <HonorCharts 
+            statistics={statistics}
+            showGradeChart={true}
+            showMonthChart={true}
+            chartHeight={300}
+          />
 
           {/* 获奖之星 */}
           <Card className="border-0 shadow-md">
@@ -1533,75 +1285,6 @@ export default function StudentHonorsPage() {
               className={batchMode === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
             >
               {batchMode === 'delete' ? '确认删除' : '确认修改'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 图表详情弹窗 */}
-      <Dialog open={chartDetailOpen} onOpenChange={setChartDetailOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{chartDetailTitle}</DialogTitle>
-            <DialogDescription>
-              点击图表查看详细数据
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto">
-            {chartDetailData.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>学生姓名</TableHead>
-                    <TableHead>班级</TableHead>
-                    <TableHead>荣誉名称</TableHead>
-                    <TableHead>级别</TableHead>
-                    <TableHead>类别</TableHead>
-                    <TableHead>颁发单位</TableHead>
-                    <TableHead>获奖日期</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {chartDetailData.map((honor) => (
-                    <TableRow key={honor.id}>
-                      <TableCell className="font-medium">{honor.studentName}</TableCell>
-                      <TableCell>{honor.className}</TableCell>
-                      <TableCell>{honor.title}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" style={{ 
-                          borderColor: LEVEL_COLORS[honor.level] || '#gray',
-                          color: LEVEL_COLORS[honor.level] || '#gray'
-                        }}>
-                          {honor.level}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" style={{
-                          backgroundColor: CATEGORY_COLORS[honor.category] ? `${CATEGORY_COLORS[honor.category]}20` : undefined,
-                          color: CATEGORY_COLORS[honor.category]
-                        }}>
-                          {honor.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{honor.issuer || '-'}</TableCell>
-                      <TableCell>{honor.date}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex items-center justify-center h-40 text-gray-400">
-                暂无数据
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setChartDetailOpen(false)}>
-              关闭
-            </Button>
-            <Button onClick={handleExportChartDetail} disabled={chartDetailData.length === 0}>
-              <Download className="h-4 w-4 mr-2" />
-              导出 Excel
             </Button>
           </DialogFooter>
         </DialogContent>

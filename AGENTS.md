@@ -686,6 +686,15 @@ const safeHtml = DOMPurify.sanitize(userInput);
 
 ## 更新日志
 
+- 2026-04-03: 统一荣誉管理图表组件
+  - 创建 `HonorCharts` 共享组件 (`src/components/honors/HonorCharts.tsx`)
+  - 德育处和班主任荣誉管理页面统一使用该组件
+  - 支持通过 props 控制显示内容：
+    - `classId`: 限定班级（班主任专用）
+    - `showGradeChart`: 显示年级图表（德育处专用）
+    - `showMonthChart`: 显示月趋势图（德育处专用）
+  - 封装图表点击处理、详情弹窗、Excel 导出功能
+  - 后续修改图表功能只需改一处代码
 - 2026-04-01: 修复手动排课语文/数学/书法教师无法选择问题
   - 根本原因：`useClasses.ts` 中 `headTeacher.subject` 使用下划线格式 `primary_subject`，但 teachers API 返回驼峰格式 `primarySubject`
   - 解决方案：兼容两种格式 `(headTeacher.primarySubject || headTeacher.primary_subject)`
