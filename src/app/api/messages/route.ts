@@ -15,7 +15,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { getMergedPermissions, ROLE_PERMISSIONS } from '@/lib/auth/permissions';
 import { messageService } from '@/services/message.service';
 import { messageRepository } from '@/repositories/message.repository';
 import type { 
@@ -226,76 +225,29 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     // 应用额外筛选
     let filteredMessages = displayMessages;
     
-    // 部门标识到模块类型的映射
-    const deptToModule: Record<string, string> = {
-      'academic': 'academic',
-      'moral': 'moral',
-      'general': 'general',
-    };
-
-    // 获取用户的角色权限（不包含群组权限）
-    // 对于特定工作台（传入 department 参数），消息过滤基于用户的角色职责
-    const rolePermissions = ROLE_PERMISSIONS[user.role]?.modules || {};
+    // 过滤消息逻辑
+    // 
+    // 规则：
+    // 1. 教师个人工作台（无 department 参数）：只显示个人消息（recipientType !== 'department'）
+    // 2. 部门工作台（有 department 参数）：显示该部门的广播消息 + 相关业务消息
     
-    // 如果传入了 department 参数，说明是特定工作台，只使用角色权限
-    // 如果没有传入 department 参数，使用合并权限（包含群组权限）
-    const userPermissions = department 
-      ? rolePermissions 
-      : getMergedPermissions(
-          user.role,
-          user.additionalRoles || [],
-          user.groups || []
-        );
-
-    // 过滤消息：对于部门广播消息，检查用户是否有对应模块的权限
-    filteredMessages = filteredMessages.filter(m => {
-      // 非部门广播消息直接通过
-      if (m.recipientType !== 'department') {
-        return true;
-      }
-
-      // 部门广播消息：检查用户是否有对应模块的权限
-      const targetDept = m.metadata?.target_department as string;
-      if (!targetDept) {
-        return false; // 没有目标部门标识的消息不显示
-      }
-
-      // 获取对应的模块类型
-      const moduleType = deptToModule[targetDept];
-      if (!moduleType) {
-        return false; // 未知的部门标识
-      }
-
-      // 检查用户是否有该模块的权限（至少有 view 权限）
-      const modulePermissions = userPermissions[moduleType as 'academic' | 'moral' | 'general'];
-      return modulePermissions && modulePermissions.length > 0;
-    });
-    
-    if (eventFilter) {
-      filteredMessages = filteredMessages.filter(m => m.event === eventFilter);
-    }
-    if (statusFilter) {
-      filteredMessages = filteredMessages.filter(m => m.status === statusFilter);
-    }
-    if (searchFilter) {
-      const search = searchFilter.toLowerCase();
-      filteredMessages = filteredMessages.filter(m =>
-        m.title.toLowerCase().includes(search) ||
-        m.content.toLowerCase().includes(search)
-      );
-    }
-    if (unreadOnly) {
-      filteredMessages = filteredMessages.filter(m => m.status === 'unread');
-    }
-    
-    // 部门工作台过滤逻辑
-    if (department) {
+    if (!department) {
+      // 教师个人工作台：过滤掉所有部门广播消息，只保留个人消息
+      filteredMessages = filteredMessages.filter(m => {
+        // 只显示个人消息（非部门广播）
+        return m.recipientType !== 'department' && m.recipients?.type !== 'department';
+      });
+    } else {
+      // 部门工作台过滤逻辑
+      
       // 部门标识映射：将前端传入的 department 参数映射到实际部门
       const deptMapping: Record<string, string> = {
         'academic': 'academic',
         'moral': 'moral',
         'general': 'general',
         'vice-principal-moral': 'moral', // 德育副校长看到德育相关消息
+        'vice-principal-academic': 'academic', // 教学副校长看到教务相关消息
+        'vice-principal-general': 'general', // 总务副校长看到总务相关消息
       };
       const targetDept = deptMapping[department] || department;
       
@@ -304,38 +256,40 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
         const isDeptBroadcast = m.recipientType === 'department' || m.recipients?.type === 'department';
         if (isDeptBroadcast) {
           const msgTargetDept = m.metadata?.target_department as string;
+          // 只显示目标部门匹配的广播消息
           return msgTargetDept === targetDept;
         }
         
+        // 非广播消息：检查是否与目标部门相关
         const scope = getMessageScope(m.event, m.metadata);
         const relevantDepts = getRelevantDepartments(m.event, m.metadata);
         
+        // 部门通知：显示在所有部门工作台（如系统公告）
         if (scope === 'department') return true;
+        // 业务通知：只显示与目标部门相关的
         if (scope === 'business') return relevantDepts.includes(targetDept);
+        // 个人通知：不在部门工作台显示
         return false;
       });
     }
 
-    // 计算统计数据 - 使用数据库总数
+    // 计算统计数据 - 使用过滤后的消息
     const statistics: MessageStatistics = {
-      total: result.pagination?.total || 0,
-      unread: messages.filter(m => m.status === 'unread').length,
-      read: messages.filter(m => m.status === 'read').length,
-      archived: messages.filter(m => m.status === 'archived').length,
+      total: filteredMessages.length,
+      unread: filteredMessages.filter(m => m.status === 'unread').length,
+      read: filteredMessages.filter(m => m.status === 'read').length,
+      archived: filteredMessages.filter(m => m.status === 'archived').length,
       byEvent: {} as Record<MessageEvent, number>,
       byPriority: {} as Record<MessagePriority, number>,
     };
 
-    // 分页处理
-    const finalTotal = department ? filteredMessages.length : (result.pagination?.total || 0);
+    // 分页处理 - 使用过滤后的总数
+    const finalTotal = filteredMessages.length;
     const totalPages = Math.max(1, Math.ceil(finalTotal / pageSize));
     
-    let paginatedMessages = filteredMessages;
-    if (department) {
-      const start = (page - 1) * pageSize;
-      const end = start + pageSize;
-      paginatedMessages = filteredMessages.slice(start, end);
-    }
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const paginatedMessages = filteredMessages.slice(start, end);
 
     return NextResponse.json({
       success: true,
