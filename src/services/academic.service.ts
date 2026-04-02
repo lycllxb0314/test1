@@ -342,6 +342,26 @@ export const roomBookingService = {
             status: 'pending',
           },
         ]);
+        
+        // 发送通知给教务处（部门广播）
+        const client = getSupabaseClient();
+        await client.from('messages').insert({
+          id: crypto.randomUUID(),
+          title: `【预约待审批】${title}`,
+          content: `${applicantName || '教师'}提交了教室预约申请，请及时审批。预约日期：${bookingDate}，教室：${roomName || '待定'}`,
+          type: 'approval',
+          priority: 'high',
+          sender_id: applicantId,
+          sender_name: applicantName,
+          recipient_id: applicantId, // 占位符
+          recipient_type: 'department',
+          metadata: {
+            instance_id: instanceId,
+            business_type: 'room_booking',
+            business_id: bookingId,
+            target_department: 'academic',
+          },
+        });
       }
       
       return { success: true, data: result };

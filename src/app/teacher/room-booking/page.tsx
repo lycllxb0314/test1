@@ -185,15 +185,14 @@ export default function TeacherRoomBookingPage() {
 
   // 获取我的预约
   const fetchMyBookings = useCallback(async () => {
+    if (!user?.id) return;
+    
     try {
-      const res = await fetch('/api/academic/rooms/bookings');
+      const res = await fetch(`/api/academic/rooms/bookings?applicantId=${user.id}`);
       const data = await res.json();
       
       if (data.success && data.data) {
-        const myData = data.data.filter((b: Booking) => 
-          user && (b.applicant_name === user.name)
-        );
-        setMyBookings(myData);
+        setMyBookings(data.data);
       }
     } catch (err) {
       console.error('获取我的预约失败:', err);

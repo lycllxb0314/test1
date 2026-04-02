@@ -381,6 +381,50 @@ export class ApprovalRepository {
     return result;
   }
 
+  /**
+   * 获取关联的教室预约数据
+   */
+  async getRoomBookings(ids: string[]): Promise<Record<string, unknown>> {
+    if (!ids.length) return {};
+
+    const { data, error } = await this.client
+      .from('room_bookings')
+      .select('*')
+      .in('id', ids);
+
+    if (error) {
+      console.error('[ApprovalRepository] getRoomBookings error:', error.message);
+      return {};
+    }
+
+    const result: Record<string, unknown> = {};
+    (data || []).forEach(rb => {
+      result[rb.id] = {
+        id: rb.id,
+        room_id: rb.room_id,
+        room_name: rb.room_name,
+        room_type: rb.room_type,
+        building: rb.building,
+        applicant_id: rb.applicant_id,
+        applicant_name: rb.applicant_name,
+        applicant_role: rb.applicant_role,
+        department: rb.department,
+        purpose: rb.purpose,
+        title: rb.title,
+        description: rb.description,
+        booking_date: rb.booking_date,
+        start_time: rb.start_time,
+        end_time: rb.end_time,
+        duration: rb.duration,
+        expected_attendees: rb.expected_attendees,
+        time_slots: rb.time_slots,
+        status: rb.status,
+        createdAt: rb.created_at,
+      };
+    });
+    return result;
+  }
+
   // ==================== 创建操作 ====================
 
   /**

@@ -247,10 +247,16 @@ export class ApprovalService extends BaseService {
       .map(i => i.businessId)
       .filter((id): id is string => id !== undefined);
 
+    const roomBookingIds = result.data
+      .filter(i => i.businessType === 'room_booking')
+      .map(i => i.businessId)
+      .filter((id): id is string => id !== undefined);
+
     // 获取关联数据
-    const [announcements, leaveRequests] = await Promise.all([
+    const [announcements, leaveRequests, roomBookings] = await Promise.all([
       this.repository.getAnnouncements(announcementIds),
       this.repository.getLeaveRequests(leaveIds),
+      this.repository.getRoomBookings(roomBookingIds),
     ]);
 
     // 合并数据
@@ -260,6 +266,8 @@ export class ApprovalService extends BaseService {
         business = announcements[instance.businessId];
       } else if (instance.businessType === 'leave_request' && instance.businessId) {
         business = leaveRequests[instance.businessId];
+      } else if (instance.businessType === 'room_booking' && instance.businessId) {
+        business = roomBookings[instance.businessId];
       }
       return { ...instance, business };
     });
@@ -847,17 +855,16 @@ export class ApprovalService extends BaseService {
         publishStatus: 'published',
         publishedAt: now,
       });
+      // 只对非 room_booking 类型发送通用通知（room_booking 在 handleRoomBookingApproval 中发送详细通知）
+      await this.repository.createMessages([{
+        title: `【审批通过】${instance.title}`,
+        content: '您的审批申请已通过。',
+        type: 'approval',
+        priority: 'high',
+        recipientId: instance.applicantId,
+        metadata: { instance_id: instance.id },
+      }]);
     }
-
-    // 发送通知给申请人
-    await this.repository.createMessages([{
-      title: `【审批通过】${instance.title}`,
-      content: '您的审批申请已通过。',
-      type: 'approval',
-      priority: 'high',
-      recipientId: instance.applicantId,
-      metadata: { instance_id: instance.id },
-    }]);
 
     return this.ok({ message: '审批通过' });
   }
