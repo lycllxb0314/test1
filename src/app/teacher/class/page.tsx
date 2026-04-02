@@ -51,8 +51,6 @@ import {
   MoreHorizontal,
   UserPlus,
   Download,
-  Eye,
-  Edit,
   Trash2,
   Loader2,
   ChevronLeft,
@@ -87,6 +85,7 @@ import { ROUTINE_SCORE_CATEGORIES, ROUTINE_CATEGORY_LABELS, ROUTINE_CATEGORY_MAX
 import type { RoutineScoreCategory } from '@/types/class-routine';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
+import { StudentDetailDialog } from '@/components/teacher/student-detail-dialog';
 
 // 懒加载座位表组件
 const SeatingPlanView = dynamic(
@@ -229,6 +228,10 @@ export default function ClassManagePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<StudentInfo | null>(null);
 
+  // 学生详情弹窗
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+
   // 权限检查
   useEffect(() => {
     if (user && !canManageClass()) {
@@ -237,14 +240,10 @@ export default function ClassManagePage() {
     }
   }, [user, canManageClass, router]);
 
-  // 查看详情
+  // 查看详情（点击学生行）
   const handleViewDetail = (studentId: string) => {
-    router.push(`/teacher/class/students/${studentId}`);
-  };
-
-  // 编辑学生
-  const handleEdit = (studentId: string) => {
-    router.push(`/teacher/class/students/${studentId}?edit=true`);
+    setSelectedStudentId(studentId);
+    setDetailDialogOpen(true);
   };
 
   // 确认删除
@@ -786,7 +785,11 @@ export default function ClassManagePage() {
                         {pagination.paginatedData.map((student) => {
                           const genderStyle = getGenderStyle(student.gender);
                           return (
-                            <TableRow key={student.id} className="hover:bg-gray-50">
+                            <TableRow 
+                              key={student.id} 
+                              className="hover:bg-gray-50 cursor-pointer"
+                              onClick={() => handleViewDetail(student.id)}
+                            >
                               <TableCell className="font-mono text-sm">{student.studentNo}</TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -807,7 +810,7 @@ export default function ClassManagePage() {
                                   {student.status}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="sm">
@@ -815,17 +818,6 @@ export default function ClassManagePage() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>操作</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleViewDetail(student.id)}>
-                                      <Eye className="h-4 w-4 mr-2" />
-                                      查看详情
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleEdit(student.id)}>
-                                      <Edit className="h-4 w-4 mr-2" />
-                                      编辑信息
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem 
                                       className="text-red-600"
                                       onClick={() => confirmDelete(student)}
@@ -1037,6 +1029,13 @@ export default function ClassManagePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 学生详情弹窗 */}
+      <StudentDetailDialog
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        studentId={selectedStudentId}
+      />
     </div>
   );
 }
