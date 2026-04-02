@@ -1100,6 +1100,12 @@ export class ApprovalService extends BaseService {
         returnedAt: now,
         returnReason: approval.comment,
       });
+    } else if (instance.businessType === 'room_booking' && instance.businessId) {
+      // 更新教室预约状态为 returned
+      await this.repository.updateRoomBookingStatus(instance.businessId, {
+        status: 'returned',
+        rejectReason: approval.comment,
+      });
     } else if (instance.businessId) {
       await this.repository.updateAnnouncementStatus(instance.businessId, {
         status: 'draft',

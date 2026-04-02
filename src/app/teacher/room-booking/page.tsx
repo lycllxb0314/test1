@@ -40,6 +40,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Edit3,
+  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -137,6 +139,16 @@ export default function TeacherRoomBookingPage() {
     expectedAttendees: 20,
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // 编辑预约弹窗
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [editForm, setEditForm] = useState({
+    purpose: 'meeting',
+    title: '',
+    description: '',
+    expectedAttendees: 20,
+  });
 
   // 获取教室列表
   const fetchRooms = useCallback(async () => {
@@ -392,6 +404,60 @@ export default function TeacherRoomBookingPage() {
     }
   };
 
+  // 打开编辑弹窗
+  const openEditDialog = (booking: Booking) => {
+    setEditingBooking(booking);
+    setEditForm({
+      purpose: booking.purpose || 'meeting',
+      title: booking.title || '',
+      description: booking.description || '',
+      expectedAttendees: booking.expected_attendees || 20,
+    });
+    setShowEditDialog(true);
+  };
+
+  // 重新提交预约
+  const handleResubmitBooking = async () => {
+    if (!editingBooking) return;
+    
+    if (!editForm.title.trim()) {
+      alert('请填写活动标题');
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/academic/rooms/bookings/${editingBooking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'resubmit',
+          purpose: editForm.purpose,
+          title: editForm.title,
+          description: editForm.description,
+          expectedAttendees: editForm.expectedAttendees,
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setShowEditDialog(false);
+        setEditingBooking(null);
+        fetchBookings();
+        fetchMyBookings();
+        alert('预约已重新提交，请等待审批');
+      } else {
+        alert(data.error || '重新提交失败');
+      }
+    } catch (err) {
+      console.error('重新提交失败:', err);
+      alert('重新提交失败，请重试');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // 清空选择
   const clearSelection = () => {
     setSelectedSlots([]);
@@ -450,6 +516,7 @@ export default function TeacherRoomBookingPage() {
   const stats = {
     total: myBookings.length,
     pending: myBookings.filter(b => b.status === 'pending').length,
+    returned: myBookings.filter(b => b.status === 'returned').length,
     approved: myBookings.filter(b => b.status === 'approved').length,
   };
 
@@ -489,6 +556,17 @@ export default function TeacherRoomBookingPage() {
                 <p className="text-2xl font-bold text-orange-600 mt-1">{stats.pending}</p>
               </div>
               <Clock className="h-8 w-8 text-orange-300" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">待修改</p>
+                <p className="text-2xl font-bold text-amber-600 mt-1">{stats.returned}</p>
+              </div>
+              <Edit3 className="h-8 w-8 text-amber-300" />
             </div>
           </CardContent>
         </Card>
@@ -758,13 +836,38 @@ export default function TeacherRoomBookingPage() {
                   TIME_SLOTS.find(s => s.id === id)?.label
                 ).join('、') || '';
                 
+                // 状态显示配置
+                const getStatusConfig = (status: string) => {
+                  switch (status) {
+                    case 'approved':
+                      return { label: '已批准', variant: 'default' as const, color: 'text-green-600' };
+                    case 'pending':
+                      return { label: '待审批', variant: 'secondary' as const, color: 'text-yellow-600' };
+                    case 'returned':
+                      return { label: '待修改', variant: 'outline' as const, color: 'text-orange-600' };
+                    case 'rejected':
+                      return { label: '已拒绝', variant: 'destructive' as const, color: 'text-red-600' };
+                    case 'cancelled':
+                      return { label: '已取消', variant: 'outline' as const, color: 'text-gray-500' };
+                    default:
+                      return { label: status, variant: 'secondary' as const, color: 'text-gray-600' };
+                  }
+                };
+                const statusConfig = getStatusConfig(booking.status);
+                
                 return (
-                  <div key={booking.id} className="flex items-center justify-between p-3 rounded-lg border">
+                  <div 
+                    key={booking.id} 
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      booking.status === 'returned' ? 'border-orange-200 bg-orange-50 cursor-pointer hover:bg-orange-100' : ''
+                    }`}
+                    onClick={() => booking.status === 'returned' && openEditDialog(booking)}
+                  >
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{booking.title}</span>
-                        <Badge variant={booking.status === 'approved' ? 'default' : booking.status === 'pending' ? 'secondary' : 'destructive'}>
-                          {booking.status === 'approved' ? '已批准' : booking.status === 'pending' ? '待审批' : '已拒绝'}
+                        <Badge variant={statusConfig.variant}>
+                          {statusConfig.label}
                         </Badge>
                       </div>
                       <div className="text-sm text-gray-500 mt-1">
@@ -775,9 +878,25 @@ export default function TeacherRoomBookingPage() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => handleCancelBooking(booking.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelBooking(booking.id);
+                        }}
                       >
                         取消
+                      </Button>
+                    )}
+                    {booking.status === 'returned' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="border-orange-300 text-orange-600 hover:bg-orange-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditDialog(booking);
+                        }}
+                      >
+                        编辑
                       </Button>
                     )}
                   </div>
@@ -854,6 +973,85 @@ export default function TeacherRoomBookingPage() {
             <Button onClick={handleSubmitBooking} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               提交预约
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑预约弹窗 */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>修改预约</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* 原有预约信息 */}
+            {editingBooking && (
+              <div className="p-3 rounded-lg bg-amber-50 text-sm">
+                <div className="flex items-center gap-2 text-amber-700 mb-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <span className="font-medium">预约信息</span>
+                </div>
+                <div className="text-amber-600 space-y-1">
+                  <p><strong>教室：</strong>{editingBooking.room_name}</p>
+                  <p><strong>日期：</strong>{editingBooking.booking_date}</p>
+                  <p><strong>时段：</strong>{editingBooking.time_slots?.map((id: string) => 
+                    TIME_SLOTS.find(s => s.id === id)?.label
+                  ).join('、') || ''}</p>
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label>活动用途</Label>
+              <Select 
+                value={editForm.purpose} 
+                onValueChange={(v) => setEditForm({ ...editForm, purpose: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PURPOSE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>活动标题 *</Label>
+              <Input 
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                placeholder="请输入活动标题"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>预期人数</Label>
+              <Input 
+                type="number"
+                value={editForm.expectedAttendees}
+                onChange={(e) => setEditForm({ ...editForm, expectedAttendees: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>备注说明</Label>
+              <Textarea 
+                value={editForm.description}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                placeholder="可选"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>取消</Button>
+            <Button onClick={handleResubmitBooking} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              重新提交
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -109,6 +109,81 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
       return NextResponse.json({ success: true, message: '预约已取消' });
     }
     
+    // 处理重新提交操作
+    if (body.action === 'resubmit') {
+      const client = getSupabaseClient();
+      
+      // 获取预订详情，验证权限
+      const { data: booking, error: bookingError } = await client
+        .from('room_bookings')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (bookingError || !booking) {
+        return NextResponse.json(error('预订不存在', ErrorCode.NOT_FOUND), { status: 404 });
+      }
+      
+      // 验证是否是申请人本人
+      if (booking.applicant_id !== user.id) {
+        return NextResponse.json(error('只能修改自己的预约', ErrorCode.FORBIDDEN), { status: 403 });
+      }
+      
+      // 检查状态，只有 returned 状态才能重新提交
+      if (booking.status !== 'returned') {
+        return NextResponse.json(error('该预约不在待修改状态', ErrorCode.VALIDATION_ERROR), { status: 400 });
+      }
+      
+      const now = new Date().toISOString();
+      
+      // 更新预约状态和信息
+      const updateData: Record<string, unknown> = {
+        status: 'pending',
+        purpose: body.purpose || booking.purpose,
+        title: body.title || booking.title,
+        description: body.description ?? booking.description,
+        expected_attendees: body.expectedAttendees || booking.expected_attendees,
+        updated_at: now,
+        resubmitted_at: now,
+      };
+      
+      await client
+        .from('room_bookings')
+        .update(updateData)
+        .eq('id', id);
+      
+      // 更新关联的审批实例状态
+      await client
+        .from('approval_instances')
+        .update({
+          status: 'pending',
+          current_step: 1,
+          updated_at: now,
+        })
+        .eq('business_id', id)
+        .eq('business_type', 'room_booking');
+      
+      // 重置审批节点
+      await client
+        .from('approval_nodes')
+        .update({
+          status: 'pending',
+          processed_at: null,
+          processed_by: null,
+          processed_by_name: null,
+          comment: null,
+          updated_at: now,
+        })
+        .eq('instance_id', (await client
+          .from('approval_instances')
+          .select('id')
+          .eq('business_id', id)
+          .eq('business_type', 'room_booking')
+          .single()).data?.id);
+      
+      return NextResponse.json({ success: true, message: '预约已重新提交' });
+    }
+    
     // 默认更新操作
     const result = await roomBookingService.update(id, body);
     
