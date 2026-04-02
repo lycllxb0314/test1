@@ -174,31 +174,32 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
           .update({
             status: 'pending',
             current_node_order: 2, // 当前在审批节点（第2个节点）
+            finish_at: null, // 重置完成时间
             updated_at: now,
           })
           .eq('id', instanceId);
         
-        // 重置审批节点
+        // 重置审批节点记录 - 审批节点设为 pending
         await client
-          .from('approval_nodes')
+          .from('approval_node_records')
           .update({
             status: 'pending',
-            processed_at: null,
-            processed_by: null,
-            processed_by_name: null,
+            approved_by: [],
+            final_approver_id: null,
+            final_approver_name: null,
+            action: null,
             comment: null,
             updated_at: now,
           })
-          .eq('instance_id', instanceId);
+          .eq('instance_id', instanceId)
+          .eq('node_order', 2);
         
         // 更新提交节点为已重新提交
         await client
-          .from('approval_nodes')
+          .from('approval_node_records')
           .update({
             status: 'approved',
-            processed_at: now,
-            processed_by: user.id,
-            processed_by_name: user.name,
+            approved_by: [{ userId: user.id, userName: user.name || '', action: 'resubmitted', time: now }],
             comment: '已修改并重新提交',
             updated_at: now,
           })
