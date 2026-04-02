@@ -175,12 +175,18 @@ export class ApprovalService extends BaseService {
 
     // 7. 部门过滤
     if (options.department) {
+      // 部门映射：将特殊标识映射到标准部门
+      const deptMapping: Record<string, string> = {
+        'vice-principal-moral': 'moral',  // 德育副校长看到德育相关审批
+      };
+      const normalizedDept = deptMapping[options.department] || options.department;
+
       allInstances = allInstances.filter(instance => {
         const businessDept = this.repository.getBusinessDepartment(
           instance.businessType || '',
           instance.applicantDepartment
         );
-        return businessDept === options.department;
+        return businessDept === normalizedDept;
       });
     }
 

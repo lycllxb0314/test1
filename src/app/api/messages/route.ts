@@ -269,10 +269,12 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     
     // 部门工作台过滤逻辑
     if (department) {
+      // 部门标识映射：将前端传入的 department 参数映射到实际部门
       const deptMapping: Record<string, string> = {
         'academic': 'academic',
         'moral': 'moral',
         'general': 'general',
+        'vice-principal-moral': 'moral', // 德育副校长看到德育相关消息
       };
       const targetDept = deptMapping[department] || department;
       
@@ -288,7 +290,7 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
         const relevantDepts = getRelevantDepartments(m.event, m.metadata);
         
         if (scope === 'department') return true;
-        if (scope === 'business') return relevantDepts.includes(department);
+        if (scope === 'business') return relevantDepts.includes(targetDept);
         return false;
       });
     }

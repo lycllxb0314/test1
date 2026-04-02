@@ -27,13 +27,9 @@ import {
   Users,
   Heart,
   CheckCircle,
-  Clock,
   FileText,
-  Plus,
-  Calendar,
   Award,
   AlertCircle,
-  Activity,
   ArrowRight,
 } from 'lucide-react';
 
@@ -140,8 +136,8 @@ export default function MoralDashboard() {
       </div>
 
       {/* 部门工作台统计卡片 - 部门视角 */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-0 shadow-md">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('messages')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -169,28 +165,14 @@ export default function MoralDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">本月活动</p>
-                <p className="text-2xl font-bold text-pink-600">0</p>
-                <p className="text-xs text-gray-400 mt-1">德育活动</p>
-              </div>
-              <div className="p-2 rounded-lg bg-pink-100">
-                <Activity className="h-5 w-5 text-pink-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Link href="/moral/honors?tab=campaign" className="block">
+        <Link href="/moral/honors" className="block">
           <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">荣誉评选</p>
+                  <p className="text-sm text-gray-500">学生荣誉</p>
                   <p className="text-2xl font-bold text-purple-600">0</p>
-                  <p className="text-xs text-gray-400 mt-1">进行中</p>
+                  <p className="text-xs text-gray-400 mt-1">管理与评选</p>
                 </div>
                 <div className="p-2 rounded-lg bg-purple-100">
                   <Award className="h-5 w-5 text-purple-600" />

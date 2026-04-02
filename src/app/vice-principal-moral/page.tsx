@@ -20,7 +20,6 @@ import { useApprovals } from '@/hooks/useApprovals';
 import { MessagePanel } from '@/components/messaging/MessagePanel';
 import { ApprovalActionDialog, ApprovalCard } from '@/components/approval/ApprovalActionDialog';
 import type { ApprovalInstance } from '@/types/approval';
-import Link from 'next/link';
 import {
   Bell,
   Users,

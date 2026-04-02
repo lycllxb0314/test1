@@ -186,11 +186,17 @@ export class ApprovalRepository {
     for (const instance of instances) {
       // 部门过滤
       if (department) {
+        // 部门映射：将特殊标识映射到标准部门
+        const deptMapping: Record<string, string> = {
+          'vice-principal-moral': 'moral',  // 德育副校长看到德育相关审批
+        };
+        const normalizedDept = deptMapping[department] || department;
+
         const businessDept = this.getBusinessDepartment(
           instance.business_type,
           instance.applicant_department
         );
-        if (businessDept !== department) continue;
+        if (businessDept !== normalizedDept) continue;
       }
 
       // 检查节点记录
@@ -254,6 +260,12 @@ export class ApprovalRepository {
     // 部门过滤
     let filteredIds = processedIds;
     if (department && processedIds.length > 0) {
+      // 部门映射：将特殊标识映射到标准部门
+      const deptMapping: Record<string, string> = {
+        'vice-principal-moral': 'moral',  // 德育副校长看到德育相关审批
+      };
+      const normalizedDept = deptMapping[department] || department;
+
       const { data: instancesForFilter } = await this.client
         .from('approval_instances')
         .select('id, business_type, applicant_department')
@@ -262,7 +274,7 @@ export class ApprovalRepository {
       filteredIds = (instancesForFilter || [])
         .filter((inst: { business_type: string; applicant_department?: string }) => {
           const businessDept = this.getBusinessDepartment(inst.business_type, inst.applicant_department);
-          return businessDept === department;
+          return businessDept === normalizedDept;
         })
         .map((inst: { id: string }) => inst.id);
     }
