@@ -27,6 +27,7 @@ export interface MonthlyGoal {
   id: string;
   classId: string;
   studentId: string;
+  studentName?: string;  // 学生姓名
   month: string;
   academicYear: string;
   goalId: string;
@@ -43,6 +44,7 @@ export interface HabitDailyRecord {
   id: string;
   studentGoalId: string;
   studentId: string;
+  studentName?: string;  // 学生姓名
   checkDate: string;
   month: string;
   status: string;
@@ -308,10 +310,23 @@ export class MonthlyGoalService extends BaseService {
         return { success: false, error: error.message };
       }
 
+      // 获取学生姓名
+      const studentIds = [...new Set((data || []).map(g => g.student_id))];
+      const { data: students } = await client
+        .from('students')
+        .select('id, name')
+        .in('id', studentIds);
+      
+      const studentNameMap: Record<string, string> = {};
+      (students || []).forEach(s => {
+        studentNameMap[s.id] = s.name;
+      });
+
       const formattedData: MonthlyGoal[] = (data || []).map(g => ({
         id: g.id,
         classId: g.class_id,
         studentId: g.student_id,
+        studentName: studentNameMap[g.student_id] || g.student_id,
         month: g.month,
         academicYear: g.academic_year,
         goalId: g.goal_template_id,
@@ -509,10 +524,23 @@ export class HabitRecordExtService extends BaseService {
         return { success: false, error: error.message };
       }
 
+      // 获取学生姓名
+      const studentIds = [...new Set((data || []).map(r => r.student_id))];
+      const { data: students } = await client
+        .from('students')
+        .select('id, name')
+        .in('id', studentIds);
+      
+      const studentNameMap: Record<string, string> = {};
+      (students || []).forEach(s => {
+        studentNameMap[s.id] = s.name;
+      });
+
       const formattedData: HabitDailyRecord[] = (data || []).map(r => ({
         id: r.id,
         studentGoalId: r.student_goal_id,
         studentId: r.student_id,
+        studentName: studentNameMap[r.student_id] || r.student_id,
         checkDate: r.check_date,
         month: r.month,
         status: r.status,

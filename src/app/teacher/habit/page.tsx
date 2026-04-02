@@ -87,6 +87,7 @@ interface MonthlyGoal {
   id: string;
   classId: string;
   studentId: string;
+  studentName?: string;
   month: string;
   academicYear: string;
   goalId: string;
@@ -110,6 +111,7 @@ interface HabitRecord {
   id: string;
   monthlyGoalId: string;
   studentId: string;
+  studentName?: string;
   checkDate: string;
   month: string;
   status: 'completed' | 'pending' | 'missed' | 'make_up';
@@ -731,11 +733,11 @@ export default function TeacherHabitPage() {
                                 <div className="flex items-center gap-3">
                                   <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
                                     <AvatarFallback className="bg-gradient-to-br from-violet-100 to-purple-100 text-violet-600 font-medium">
-                                      {goal.studentId?.charAt(0)?.toUpperCase() || 'S'}
+                                      {goal.studentName?.charAt(0)?.toUpperCase() || 'S'}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <p className="font-medium text-gray-900">{goal.studentId.slice(0, 8)}...</p>
+                                    <p className="font-medium text-gray-900">{goal.studentName || '未知学生'}</p>
                                     <p className="text-xs text-gray-500">ID: {goal.studentId.slice(0, 12)}...</p>
                                   </div>
                                 </div>
@@ -913,7 +915,7 @@ export default function TeacherHabitPage() {
                         records.slice(0, 30).map(record => (
                           <tr key={record.id} className="border-b last:border-b-0 hover:bg-gray-50/50 transition-colors">
                             <td className="p-4">
-                              <span className="font-medium">{record.studentId.slice(0, 8)}...</span>
+                              <span className="font-medium">{record.studentName || '未知学生'}</span>
                             </td>
                             <td className="p-4 text-gray-600">{record.checkDate}</td>
                             <td className="p-4">
