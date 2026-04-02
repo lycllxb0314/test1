@@ -66,6 +66,12 @@ export interface StudentBasicInfo {
   status: '在校' | '请假' | '休学' | '毕业' | '转学';
   avatar?: string;
   
+  // 班级信息
+  classId: string;
+  className: string;
+  grade: number;
+  gradeName: string;
+  
   // 家长信息
   parents: Parent[];
 }
@@ -213,6 +219,7 @@ export interface UseClassesReturn {
   // === 数据 ===
   allClasses: ClassContainer[];     // 全部班级数据（用于统计等）
   classes: ClassContainer[];        // 当前页班级数据
+  allStudents: StudentBasicInfo[];  // 所有学生列表（聚合）
   loading: boolean;
   error: string | null;
   
@@ -406,6 +413,11 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
             birthDate: (s.birthDate as string) || (s.birth_date as string),
             status: (s.status as StudentBasicInfo['status']) || '在校',
             avatar: s.avatar as string,
+            // 班级信息
+            classId: cls.id as string,
+            className: cls.name as string,
+            grade: cls.grade as number,
+            gradeName: GRADE_NAMES[cls.grade as number] || `${cls.grade}年级`,
             parents: (s.parents as Parent[]) || [],
           }));
           
@@ -627,6 +639,11 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
   const getStudentsByClass = useCallback((classId: string) => {
     const cls = allClasses.find(c => c.id === classId);
     return cls?.students || [];
+  }, [allClasses]);
+  
+  // 获取所有学生列表（聚合所有班级的学生）
+  const allStudents = useMemo(() => {
+    return allClasses.flatMap(c => c.students);
   }, [allClasses]);
   
   // 获取班级家长列表（从全部数据中查找）
@@ -882,6 +899,7 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
     // 数据
     allClasses,
     classes,
+    allStudents,
     loading,
     error,
     statistics,

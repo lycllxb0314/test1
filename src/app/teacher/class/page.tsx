@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -75,8 +75,8 @@ import {
   Grid3X3,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useStudents, type StudentInfo } from '@/hooks/useStudents';
-import { useClasses } from '@/hooks/useClasses';
+import { useClasses, type StudentBasicInfo } from '@/hooks/useClasses';
+import type { Parent } from '@/types';
 import { useFrontendPagination } from '@/hooks/useApi';
 import { PAGINATION } from '@/lib/pagination-config';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -133,22 +133,41 @@ export default function ClassManagePage() {
   // 班级选择状态（科任教师可能有多个班级）
   const [selectedClassId, setSelectedClassId] = useState<string>('');
 
-  // 使用统一 Hook 获取学生列表
-  const { 
-    allStudents,
-    loading: studentsLoading, 
-    error, 
-    refetch: refetchStudents,
-    deleteStudent,
-    getPrimaryParent
-  } = useStudents();
-
-  // 获取班级信息（包含科任教师）
+  // 获取班级信息（包含科任教师和学生）- 只用一个 Hook 避免重复请求
   const { 
     allClasses, 
+    allStudents,
     loading: classesLoading,
     refetch: refetchClasses
   } = useClasses();
+
+  // 学生操作相关状态
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // 删除学生方法
+  const deleteStudent = useCallback(async (studentId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/students/${studentId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const result = await response.json();
+      if (result.success) {
+        refetchClasses();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('删除学生失败:', err);
+      return false;
+    }
+  }, [refetchClasses]);
+  
+  // 获取主要家长
+  const getPrimaryParent = useCallback((parents: Parent[]) => {
+    return parents.find(p => p.isPrimary);
+  }, []);
 
   // 班主任：自己的班级；科任：选择的班级
   const classId = useMemo(() => {
@@ -226,7 +245,7 @@ export default function ClassManagePage() {
 
   // 删除确认弹窗
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [studentToDelete, setStudentToDelete] = useState<StudentInfo | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<StudentBasicInfo | null>(null);
 
   // 学生详情弹窗
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -247,7 +266,7 @@ export default function ClassManagePage() {
   };
 
   // 确认删除
-  const confirmDelete = (student: StudentInfo) => {
+  const confirmDelete = (student: StudentBasicInfo) => {
     setStudentToDelete(student);
     setDeleteDialogOpen(true);
   };
@@ -262,7 +281,7 @@ export default function ClassManagePage() {
     
     if (success) {
       toast.success('学生已删除');
-      refetchStudents();
+      refetchClasses();
     } else {
       toast.error('删除失败，请重试');
     }
@@ -317,7 +336,7 @@ export default function ClassManagePage() {
         <div className="text-center">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto" />
           <p className="mt-4 text-muted-foreground">{error}</p>
-          <Button variant="outline" className="mt-4" onClick={() => refetchStudents()}>
+          <Button variant="outline" className="mt-4" onClick={() => refetchClasses()}>
             重试
           </Button>
         </div>
@@ -487,7 +506,7 @@ export default function ClassManagePage() {
             </TabsList>
 
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" className="gap-2" onClick={() => { refetchStudents(); refetchClasses(); }}>
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => { refetchClasses(); refetchClasses(); }}>
                 <RefreshCw className="h-4 w-4" />
                 刷新
               </Button>
@@ -908,7 +927,7 @@ export default function ClassManagePage() {
                   <>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {parentPagination.paginatedData.map((student) => {
-                        const primaryParent = getPrimaryParent(student.id);
+                        const primaryParent = getPrimaryParent(student.parents);
                         return (
                           <Card key={student.id} className="border">
                             <CardContent className="p-4">
