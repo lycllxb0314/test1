@@ -107,6 +107,20 @@ export function LeaderDashboard({ config }: LeaderDashboardProps) {
   const [selectedInstance, setSelectedInstance] = useState<ApprovalInstance | null>(null);
   const [approvalOpen, setApprovalOpen] = useState(false);
 
+  // 根据用户角色确定部门参数
+  const getDepartmentParam = (): 'academic' | 'moral' | 'general' | undefined => {
+    switch (dashboardConfig.role) {
+      case 'academic_vice_principal':
+        return 'academic';
+      case 'moral_vice_principal':
+        return 'moral';
+      case 'general_vice_principal':
+        return 'general';
+      default:
+        return undefined; // 校长、书记等看到所有消息
+    }
+  };
+
   // 消息 Hook
   const {
     messages,
@@ -124,7 +138,7 @@ export function LeaderDashboard({ config }: LeaderDashboardProps) {
     archiveMessage,
     deleteMessage,
     markAllAsRead,
-  } = useMessages();
+  } = useMessages(getDepartmentParam());
 
   // 审批 Hook
   const {
@@ -138,7 +152,7 @@ export function LeaderDashboard({ config }: LeaderDashboardProps) {
     withdrawApproval,
     statistics: approvalStats,
     refreshStatistics,
-  } = useApprovals('pending');
+  } = useApprovals('pending', getDepartmentParam());
 
   // 初始化加载
   useEffect(() => {

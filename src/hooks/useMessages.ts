@@ -220,7 +220,7 @@ export function useMessages(department?: 'academic' | 'moral' | 'general' | 'vic
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, refreshKey]);
+  }, [page, pageSize, filters.event, filters.status, filters.priority, filters.search, filters.unreadOnly, refreshKey, department]);
 
   // 手动刷新
   const refetch = useCallback(async () => {

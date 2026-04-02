@@ -157,6 +157,15 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
   const unreadOnly = searchParams.get('unreadOnly') === 'true';
   const department = searchParams.get('department') || undefined;
 
+  // 调试日志
+  console.log('[Messages API] Request params:', { 
+    userId: user?.id, 
+    role: user?.role, 
+    department,
+    page, 
+    pageSize 
+  });
+
   // 如果用户未登录，返回空列表
   if (!user) {
     return NextResponse.json({
