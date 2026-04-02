@@ -563,6 +563,11 @@ export class MessageService extends BaseService {
       parent_notice: 'personal_message',
       room_booking_approval: 'leave_approval',
       information_collection: 'personal_message',
+      reminder: 'task_reminder',
+      honor_campaign: 'honor_notice',
+      honor_approval: 'honor_notice',
+      honor_approved: 'honor_notice',
+      honor_rejected: 'honor_notice',
     };
     return typeToEventMap[type] || 'personal_message';
   }

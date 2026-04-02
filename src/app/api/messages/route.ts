@@ -15,7 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { getMergedPermissions } from '@/lib/auth/permissions';
+import { getMergedPermissions, ROLE_PERMISSIONS } from '@/lib/auth/permissions';
 import { messageService } from '@/services/message.service';
 import { messageRepository } from '@/repositories/message.repository';
 import type { 
@@ -223,33 +223,40 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
       'moral': 'moral',
       'general': 'general',
     };
+
+    // 获取用户的角色权限（不包含群组权限）
+    // 对于特定工作台（传入 department 参数），消息过滤基于用户的角色职责
+    const rolePermissions = ROLE_PERMISSIONS[user.role]?.modules || {};
     
-    // 获取用户的合并权限（角色权限 + 兼任职务权限 + 群组权限）
-    const userPermissions = getMergedPermissions(
-      user.role,
-      user.additionalRoles || [],
-      user.groups || []
-    );
-    
+    // 如果传入了 department 参数，说明是特定工作台，只使用角色权限
+    // 如果没有传入 department 参数，使用合并权限（包含群组权限）
+    const userPermissions = department 
+      ? rolePermissions 
+      : getMergedPermissions(
+          user.role,
+          user.additionalRoles || [],
+          user.groups || []
+        );
+
     // 过滤消息：对于部门广播消息，检查用户是否有对应模块的权限
     filteredMessages = filteredMessages.filter(m => {
       // 非部门广播消息直接通过
       if (m.recipientType !== 'department') {
         return true;
       }
-      
+
       // 部门广播消息：检查用户是否有对应模块的权限
       const targetDept = m.metadata?.target_department as string;
       if (!targetDept) {
         return false; // 没有目标部门标识的消息不显示
       }
-      
+
       // 获取对应的模块类型
       const moduleType = deptToModule[targetDept];
       if (!moduleType) {
         return false; // 未知的部门标识
       }
-      
+
       // 检查用户是否有该模块的权限（至少有 view 权限）
       const modulePermissions = userPermissions[moduleType as 'academic' | 'moral' | 'general'];
       return modulePermissions && modulePermissions.length > 0;

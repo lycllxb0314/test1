@@ -10,9 +10,10 @@
  * - 格式化响应
  */
 
-import { NextRequest } from 'next/server';
-import { getUserFromSession } from '@/lib/auth/session';
-import { ok, fail, serverError, paginated, unauthorized } from '@/lib/api';
+import { NextRequest, NextResponse } from 'next/server';
+import { withAuth } from '@/lib/auth';
+import type { User } from '@/types';
+import { ok, fail, serverError, paginated } from '@/lib/api';
 import { approvalService, ApprovalListParams, SubmitApprovalParams } from '@/services/approval.service';
 
 /**
@@ -25,15 +26,12 @@ import { approvalService, ApprovalListParams, SubmitApprovalParams } from '@/ser
  * - pageSize: 每页数量
  * - department: 部门过滤
  */
-export async function GET(request: NextRequest) {
+const handleGetApprovals = async (
+  request: NextRequest, 
+  context: { user: User }
+): Promise<NextResponse> => {
   try {
-    // 1. 身份验证
-    const user = await getUserFromSession(request);
-    if (!user) {
-      return unauthorized('未登录，请先登录');
-    }
-
-    // 2. 解析查询参数
+    // 解析查询参数
     const { searchParams } = new URL(request.url);
     const params: ApprovalListParams = {
       type: (searchParams.get('type') as 'my' | 'pending' | 'processed') || 'pending',
@@ -43,10 +41,10 @@ export async function GET(request: NextRequest) {
       pageSize: parseInt(searchParams.get('pageSize') || '10'),
     };
 
-    // 3. 调用服务层
-    const result = await approvalService.getApprovalList(user.id, params);
+    // 调用服务层
+    const result = await approvalService.getApprovalList(context.user.id, params);
 
-    // 4. 返回结果
+    // 返回结果
     if (!result.success) {
       return fail(result.error || '查询失败');
     }
@@ -62,7 +60,7 @@ export async function GET(request: NextRequest) {
     console.error('[Approvals API] GET error:', error);
     return serverError('获取审批列表失败');
   }
-}
+};
 
 /**
  * POST /api/approvals
@@ -70,15 +68,12 @@ export async function GET(request: NextRequest) {
  * 提交新的审批申请
  * 支持类型：announcement, news, internal_notice, parent_notice
  */
-export async function POST(request: NextRequest) {
+const handleSubmitApproval = async (
+  request: NextRequest,
+  context: { user: User }
+): Promise<NextResponse> => {
   try {
-    // 1. 身份验证
-    const user = await getUserFromSession(request);
-    if (!user) {
-      return unauthorized('未登录，请先登录');
-    }
-
-    // 2. 解析请求体
+    // 解析请求体
     const body = await request.json();
     
     const params: SubmitApprovalParams = {
@@ -101,14 +96,14 @@ export async function POST(request: NextRequest) {
       customFlow: body.customFlow,
     };
 
-    // 3. 调用服务层
+    // 调用服务层
     const result = await approvalService.submitApproval(
-      user.id,
-      (user as any).name || user.id,
+      context.user.id,
+      (context.user as any).name || context.user.id,
       params
     );
 
-    // 4. 返回结果
+    // 返回结果
     if (!result.success) {
       return fail(result.error || '提交失败');
     }
@@ -119,21 +114,7 @@ export async function POST(request: NextRequest) {
     console.error('[Approvals API] POST error:', error);
     return serverError('提交审批失败');
   }
-}
+};
 
-/**
- * 重构对比：
- * 
- * 原版：1136 行
- * - 200+ 行数据库查询
- * - 300+ 行业务逻辑
- * - 200+ 行数据映射
- * - 200+ 行通知发送
- * - 所有代码混在一起
- * 
- * 重构版：约 110 行
- * - 路由只负责请求解析和响应格式化
- * - 业务逻辑在 Service 层
- * - 数据访问在 Repository 层
- * - 代码清晰，易于维护和测试
- */
+export const GET = withAuth(handleGetApprovals);
+export const POST = withAuth(handleSubmitApproval);
