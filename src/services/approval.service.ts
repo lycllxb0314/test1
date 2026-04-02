@@ -670,7 +670,7 @@ export class ApprovalService extends BaseService {
     // 1. 获取审批实例
     const instance = await this.repository.findInstanceById(instanceId);
     if (!instance) {
-      return this.fail('审批实例不存在', 'NOT_FOUND');
+      return this.fail('审批实例不存在，请刷新页面后重试', 'NOT_FOUND');
     }
 
     // 撤回操作特殊处理

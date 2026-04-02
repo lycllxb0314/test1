@@ -617,14 +617,26 @@ export class ApprovalRepository {
    * 获取审批实例详情
    */
   async findInstanceById(instanceId: string): Promise<ApprovalInstanceSimple | null> {
+    // 验证 UUID 格式
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(instanceId)) {
+      console.error('[ApprovalRepository] findInstanceById: invalid UUID format:', instanceId);
+      return null;
+    }
+
     const { data, error } = await this.client
       .from('approval_instances')
       .select('*')
       .eq('id', instanceId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('[ApprovalRepository] findInstanceById error:', error.message);
+      return null;
+    }
+
+    if (!data) {
+      console.error('[ApprovalRepository] findInstanceById: instance not found:', instanceId);
       return null;
     }
 
