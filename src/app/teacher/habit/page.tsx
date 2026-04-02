@@ -233,10 +233,13 @@ export default function TeacherHabitPage() {
   };
   
   // 加载打卡记录
-  const fetchRecords = async (studentId?: string) => {
+  const fetchRecords = async (classId?: string, studentId?: string) => {
     setRecordsLoading(true);
     try {
       const params = new URLSearchParams({ month: currentMonth });
+      if (classId) {
+        params.set('classId', classId);
+      }
       if (studentId) {
         params.set('studentId', studentId);
       }
@@ -256,12 +259,28 @@ export default function TeacherHabitPage() {
     if (user?.id) {
       fetchStudents();
       fetchGoals();
+      fetchMonthlyGoals();
     }
   }, [user?.id]);
   
+  // 学生列表加载完成后，获取打卡记录
   useEffect(() => {
-    fetchMonthlyGoals();
-    fetchRecords();
+    if (students.length > 0 && currentMonth) {
+      const classId = students[0].classId;
+      fetchRecords(classId);
+    }
+  }, [students.length, currentMonth]);
+  
+  useEffect(() => {
+    // 仅当 user 存在且月份变化时重新加载
+    if (user?.id) {
+      fetchMonthlyGoals();
+      // 如果学生列表已加载，重新获取打卡记录
+      if (students.length > 0) {
+        const classId = students[0].classId;
+        fetchRecords(classId);
+      }
+    }
   }, [currentMonth]);
   
   // 根据类别筛选目标
@@ -289,19 +308,23 @@ export default function TeacherHabitPage() {
   const studentProgress = useMemo(() => {
     const progressMap: Record<string, { completed: number; total: number; rate: number }> = {};
     
+    // 本月到今天为止应打卡的天数
+    const totalDays = getTodayInMonth(currentMonth);
+    
     students.forEach(student => {
       const studentRecords = records.filter(r => r.studentId === student.id);
       const completed = studentRecords.filter(r => r.status === 'completed').length;
-      const total = studentRecords.length || 1;
+      
+      // 使用本月天数作为基准，而不是 records.length
       progressMap[student.id] = {
         completed,
-        total,
-        rate: Math.round((completed / total) * 100),
+        total: totalDays,
+        rate: totalDays > 0 ? Math.round((completed / totalDays) * 100) : 0,
       };
     });
     
     return progressMap;
-  }, [students, records]);
+  }, [students, records, currentMonth]);
   
   // 创建月度目标
   const handleCreateMonthlyGoals = async () => {
@@ -352,7 +375,7 @@ export default function TeacherHabitPage() {
   // 查看学生打卡记录
   const handleViewRecords = (student: Student) => {
     setSelectedStudent(student);
-    fetchRecords(student.id);
+    fetchRecords(student.classId, student.id);
     setViewRecordsDialogOpen(true);
   };
   

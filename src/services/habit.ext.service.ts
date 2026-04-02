@@ -491,6 +491,7 @@ export class HabitRecordExtService extends BaseService {
   async getList(params: {
     monthlyGoalId?: string;
     studentId?: string;
+    classId?: string;
     month?: string;
     startDate?: string;
     endDate?: string;
@@ -498,7 +499,22 @@ export class HabitRecordExtService extends BaseService {
   }): Promise<ServiceResult<{ data: HabitDailyRecord[]; statistics: Record<string, number> }>> {
     try {
       const client = getSupabaseClient();
-      const limit = params.limit || 100;
+      const limit = params.limit || 500;
+
+      // 如果有 classId，先获取该班级的学生 ID 列表
+      let studentIdsFilter: string[] | null = null;
+      if (params.classId) {
+        const { data: classStudents } = await client
+          .from('students')
+          .select('id')
+          .eq('class_id', params.classId);
+        studentIdsFilter = (classStudents || []).map(s => s.id);
+        
+        // 如果班级没有学生，直接返回空结果
+        if (studentIdsFilter.length === 0) {
+          return { success: true, data: { data: [], statistics: { total: 0, completed: 0, pending: 0, missed: 0, makeUp: 0 } } };
+        }
+      }
 
       let query = client
         .from('habit_daily_records')
@@ -515,6 +531,11 @@ export class HabitRecordExtService extends BaseService {
       if (params.month) query = query.eq('month', params.month);
       if (params.startDate) query = query.gte('check_date', params.startDate);
       if (params.endDate) query = query.lte('check_date', params.endDate);
+      
+      // 应用班级过滤
+      if (studentIdsFilter && studentIdsFilter.length > 0) {
+        query = query.in('student_id', studentIdsFilter);
+      }
 
       query = query.order('check_date', { ascending: false }).limit(limit);
 

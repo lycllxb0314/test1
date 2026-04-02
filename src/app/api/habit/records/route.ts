@@ -19,10 +19,11 @@ export const GET = protectedRoute(async (request: NextRequest, context: Extended
     const result = await habitRecordExtService.getList({
       monthlyGoalId: searchParams.get('monthlyGoalId') || undefined,
       studentId: searchParams.get('studentId') || undefined,
+      classId: searchParams.get('classId') || undefined,
       month: searchParams.get('month') || undefined,
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
-      limit: parseInt(searchParams.get('limit') || '100'),
+      limit: parseInt(searchParams.get('limit') || '500'),
     });
     
     if (!result.success) {
