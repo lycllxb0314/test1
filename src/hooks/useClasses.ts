@@ -297,10 +297,12 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       setLoading(true);
       setError(null);
       
-      // 并行获取班级和教师数据（使用统一分页配置）
-      const [classesRes, teachersRes] = await Promise.all([
+      // 并行获取班级、教师、学生第一页数据（优化性能）
+      const batchSize = 1000;
+      const [classesRes, teachersRes, firstStudentsRes] = await Promise.all([
         fetch(`/api/classes?pageSize=${PAGINATION.ENTITY_CONFIG.classes.fetchPageSize}`),
         fetch(`/api/teachers?pageSize=${PAGINATION.ENTITY_CONFIG.teachers.fetchPageSize}`),
+        fetch(`/api/students?page=1&pageSize=${batchSize}`),
       ]);
       
       // 检查响应状态
@@ -310,23 +312,19 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
       if (!teachersRes.ok) {
         throw new Error(`获取教师数据失败: ${teachersRes.status}`);
       }
+      if (!firstStudentsRes.ok) {
+        throw new Error(`获取学生数据失败: ${firstStudentsRes.status}`);
+      }
       
       const classesData = await classesRes.json();
       const teachersData = await teachersRes.json();
+      const firstStudentsData = await firstStudentsRes.json();
       
       if (!classesData.success) {
         throw new Error('获取班级数据失败');
       }
       
-      // 并行获取学生数据（优化：先获取第一页确定总数，再并行获取剩余页面）
-      const batchSize = 1000; // 使用更大的批次
-      const firstStudentsRes = await fetch(`/api/students?page=1&pageSize=${batchSize}`);
-      
-      if (!firstStudentsRes.ok) {
-        throw new Error(`获取学生数据失败: ${firstStudentsRes.status}`);
-      }
-      
-      const firstStudentsData = await firstStudentsRes.json();
+      // 处理学生数据
       const allStudents: Record<string, unknown>[] = [];
       
       if (firstStudentsData.success && firstStudentsData.data) {

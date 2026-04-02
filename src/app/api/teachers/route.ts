@@ -31,21 +31,23 @@ export const GET = withAuth(async (request: NextRequest) => {
     const teacherService = getService<TeacherService>(SERVICE_IDENTIFIERS.TeacherService);
     const classService = getService<ClassService>(SERVICE_IDENTIFIERS.ClassService);
     
-    const result = await teacherService.listTeachers({
-      page,
-      pageSize,
-      search,
-      role,
-      department,
-      status,
-    });
+    // 并行获取教师列表和班级列表（优化性能）
+    const [result, classesResult] = await Promise.all([
+      teacherService.listTeachers({
+        page,
+        pageSize,
+        search,
+        role,
+        department,
+        status,
+      }),
+      classService.listClasses({ pageSize: 1000 }),
+    ]);
     
     if (!result.success) {
       return fail(result.error || '获取教师列表失败');
     }
     
-    // 获取所有班级用于关联教师班级信息
-    const classesResult = await classService.listClasses({ pageSize: 1000 });
     const allClasses = classesResult.data || [];
     
     // 构建教师-班级映射
