@@ -55,6 +55,8 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
     
     const body = await request.json();
     
+    console.log('[Room Booking PUT] Request:', { id, action: body.action, title: body.title });
+    
     // 处理取消操作
     if (body.action === 'cancel') {
       const client = getSupabaseClient();
@@ -111,6 +113,7 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
     
     // 处理重新提交操作
     if (body.action === 'resubmit') {
+      console.log('[Room Booking] Resubmit action received for booking:', id);
       const client = getSupabaseClient();
       
       // 获取预订详情，验证权限
@@ -121,16 +124,21 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
         .single();
       
       if (bookingError || !booking) {
+        console.error('[Room Booking] Booking not found:', bookingError);
         return NextResponse.json(error('预订不存在', ErrorCode.NOT_FOUND), { status: 404 });
       }
       
+      console.log('[Room Booking] Current booking status:', booking.status, 'applicant:', booking.applicant_id, 'user:', user.id);
+      
       // 验证是否是申请人本人
       if (booking.applicant_id !== user.id) {
+        console.error('[Room Booking] Not the applicant');
         return NextResponse.json(error('只能修改自己的预约', ErrorCode.FORBIDDEN), { status: 403 });
       }
       
       // 检查状态，只有 returned 状态才能重新提交
       if (booking.status !== 'returned') {
+        console.error('[Room Booking] Wrong status:', booking.status);
         return NextResponse.json(error('该预约不在待修改状态', ErrorCode.VALIDATION_ERROR), { status: 400 });
       }
       
@@ -152,10 +160,18 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
         resubmitted_at: now,
       };
       
-      await client
+      console.log('[Room Booking] Updating booking with data:', updateData);
+      
+      const { error: updateError } = await client
         .from('room_bookings')
         .update(updateData)
         .eq('id', id);
+      
+      if (updateError) {
+        console.error('[Room Booking] Update error:', updateError);
+      } else {
+        console.log('[Room Booking] Booking updated successfully');
+      }
       
       // 获取审批实例
       const { data: instance } = await client
