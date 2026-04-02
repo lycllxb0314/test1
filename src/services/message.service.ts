@@ -531,6 +531,8 @@ export class MessageService extends BaseService {
   private typeToEvent(type: string): MessageEvent {
     const typeToEventMap: Record<string, MessageEvent> = {
       system: 'system_announcement',
+      notification: 'system_announcement',
+      announcement: 'system_announcement',
       group: 'group_notice',
       schedule: 'schedule_change',
       exam: 'exam_notice',
@@ -549,6 +551,7 @@ export class MessageService extends BaseService {
       asset: 'asset_notice',
       safety: 'safety_alert',
       message: 'personal_message',
+      internal_notice: 'personal_message',
       task: 'task_assign',
       approval: 'leave_approval',
       leave_approval: 'leave_approval',
@@ -556,7 +559,10 @@ export class MessageService extends BaseService {
       leave_rejected: 'leave_approval',
       leave_cancelled: 'leave_approval',
       course_adjustment: 'schedule_change',
-      notification: 'system_announcement',
+      department_notice: 'system_announcement',
+      parent_notice: 'personal_message',
+      room_booking_approval: 'leave_approval',
+      information_collection: 'personal_message',
     };
     return typeToEventMap[type] || 'personal_message';
   }

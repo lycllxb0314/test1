@@ -49,15 +49,18 @@ function mapTypeToEvent(dbType: string): MessageEvent {
     safety: 'safety_alert',
     message: 'personal_message',
     reminder: 'task_reminder',
+    internal_notice: 'personal_message',
+    parent_notice: 'personal_message',
+    department_notice: 'system_announcement',
+    room_booking_approval: 'leave_approval',
+    information_collection: 'personal_message',
+    course_adjustment: 'schedule_change',
     // 群组通知类型
     group_notice_principal: 'system_announcement',
     group_notice: 'group_notice',
     group_notice_academic: 'group_notice',
     group_notice_moral: 'group_notice',
     group_notice_general: 'group_notice',
-    // 部门广播通知
-    department_notice: 'system_announcement',
-    internal_notice: 'personal_message',
   };
   
   return typeMap[dbType] || 'personal_message';
@@ -116,7 +119,8 @@ function getRelevantDepartments(event: MessageEvent, metadata?: Record<string, u
   // 教务相关事件
   const academicEvents: MessageEvent[] = ['schedule_change', 'exam_notice', 'grade_publish', 'homework_assign'];
   // 德育相关事件
-  const moralEvents: MessageEvent[] = ['activity_notice', 'honor_notice', 'moral_evaluation', 'habit_record'];
+  const moralEvents: MessageEvent[] = ['activity_notice', 'honor_notice', 'moral_evaluation', 'habit_record', 
+    'honor_campaign', 'honor_approval', 'honor_approved', 'honor_rejected', 'routine_score', 'duty_reminder'];
   // 总务相关事件
   const generalEvents: MessageEvent[] = ['repair_notice', 'asset_notice', 'safety_alert'];
   
@@ -134,8 +138,9 @@ function getRelevantDepartments(event: MessageEvent, metadata?: Record<string, u
   if (event === 'leave_approval' && metadata?.business_type) {
     const businessType = metadata.business_type as string;
     if (businessType === 'room_booking') return ['academic'];
-    if (businessType === 'leave_request') return ['academic']; // 请假审批也在教务处
-    // 可以根据需要添加更多业务类型
+    if (businessType === 'leave_request') return ['academic'];
+    // 默认返回 academic，因为请假和教室预约都归教务处
+    return ['academic'];
   }
   
   return [];
