@@ -42,6 +42,7 @@ import {
   Info,
   Edit3,
   AlertCircle,
+  Plus,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -226,17 +227,30 @@ export default function TeacherRoomBookingPage() {
     }
   }, [fetchMyBookings, user]);
 
-  // 检查格子是否被预约
+  // 检查格子是否被预约（只有已批准的才算真正预约，会阻塞其他人）
   const isSlotBooked = (date: string, slotId: string): { booked: boolean; booking?: Booking } => {
     for (const booking of bookings) {
+      // 只有 approved 状态才阻塞
       if (booking.booking_date === date && 
-          booking.status !== 'rejected' && 
-          booking.status !== 'cancelled' &&
+          booking.status === 'approved' &&
           booking.time_slots?.includes(slotId)) {
         return { booked: true, booking };
       }
     }
     return { booked: false };
+  };
+
+  // 检查格子是否有待审批/待修改的预约（显示但不阻塞）
+  const isSlotPending = (date: string, slotId: string): { pending: boolean; booking?: Booking } => {
+    for (const booking of bookings) {
+      // pending 或 returned 状态显示但不阻塞
+      if (booking.booking_date === date && 
+          (booking.status === 'pending' || booking.status === 'returned') &&
+          booking.time_slots?.includes(slotId)) {
+        return { pending: true, booking };
+      }
+    }
+    return { pending: false };
   };
 
   // 检查格子是否被选中
@@ -722,6 +736,7 @@ export default function TeacherRoomBookingPage() {
                         </td>
                         {getWeekDates().map((date, idx) => {
                           const { booked, booking } = isSlotBooked(formatDate(date), slot.id);
+                          const { pending, booking: pendingBooking } = isSlotPending(formatDate(date), slot.id);
                           const selected = isSlotSelected(formatDate(date), slot.id);
                           const isPast = date < new Date(new Date().setHours(0,0,0,0));
                           const roomMaintenance = selectedRoomData?.status === 'maintenance';
@@ -736,14 +751,25 @@ export default function TeacherRoomBookingPage() {
                               onClick={(e) => handleSlotClick(formatDate(date), slot.id, e)}
                             >
                               {booked ? (
-                                <div className={cn(
-                                  'rounded h-full flex flex-col items-center justify-center p-1',
-                                  booking?.status === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
-                                )}>
+                                // 已批准的预约 - 红色，不可选
+                                <div className="bg-red-100 text-red-700 rounded h-full flex flex-col items-center justify-center p-1">
                                   <span className="text-xs font-medium truncate w-full text-center">
                                     {booking?.title}
                                   </span>
                                   <span className="text-xs opacity-70">{booking?.applicant_name}</span>
+                                </div>
+                              ) : pending ? (
+                                // 待审批/待修改 - 橙色，仍可选
+                                <div className="bg-orange-100 text-orange-700 rounded h-full flex flex-col items-center justify-center p-1 relative">
+                                  <span className="text-xs font-medium truncate w-full text-center">
+                                    {pendingBooking?.title}
+                                  </span>
+                                  <span className="text-xs opacity-70">
+                                    {pendingBooking?.status === 'returned' ? '待修改' : '待审批'}
+                                  </span>
+                                  <div className="absolute top-0.5 right-0.5">
+                                    <Plus className="h-3 w-3 text-green-600" />
+                                  </div>
                                 </div>
                               ) : roomMaintenance ? (
                                 <div className="bg-gray-200 text-gray-500 rounded h-full flex items-center justify-center">
@@ -784,11 +810,11 @@ export default function TeacherRoomBookingPage() {
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-4 h-4 rounded bg-red-100"></div>
-                <span>已预约</span>
+                <span>已预约（已批准）</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-4 h-4 rounded bg-orange-100"></div>
-                <span>待审批</span>
+                <span>待审批/待修改</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-4 h-4 rounded bg-gray-200"></div>
