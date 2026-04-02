@@ -425,11 +425,13 @@ export default function InformationCollectionPage() {
     
     try {
       const res = await fetch(`/api/information-collections/${collection.id}/responses`);
-      const data = await res.json();
-      if (data.success) {
-        setResponses(data.data);
-        setNotSubmitted(data.notSubmitted || []);
-        setStatistics(data.statistics || { total: 0, submitted: 0, notSubmitted: 0 });
+      const result = await res.json();
+      if (result.success) {
+        // API 返回 { data: { data: responses, notSubmitted, statistics } }
+        const apiData = result.data;
+        setResponses(apiData.data || []);
+        setNotSubmitted(apiData.notSubmitted || []);
+        setStatistics(apiData.statistics || { total: 0, submitted: 0, notSubmitted: 0 });
       }
     } catch (error) {
       console.error('获取响应失败:', error);

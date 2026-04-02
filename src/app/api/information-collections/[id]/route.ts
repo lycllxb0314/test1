@@ -11,10 +11,59 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { informationCollectionService } from '@/services/information-collection.service';
+import { collectionResponseRepository } from '@/repositories/information-collection.repository';
 import { success, error, ErrorCode } from '@/lib/api';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+/**
+ * 数据库行类型（下划线命名）
+ */
+interface CollectionRow {
+  id: string;
+  title: string;
+  description?: string;
+  class_id: string;
+  teacher_id: string;
+  teacher_name: string;
+  fields: unknown[];
+  status: string;
+  deadline?: string;
+  created_at: string;
+  updated_at: string;
+  published_at?: string;
+}
+
+/**
+ * 转换数据库行到前端格式（驼峰命名）
+ */
+async function transformToFrontend(row: CollectionRow): Promise<ReturnType<typeof transformToFrontendSync>> {
+  // 获取响应数
+  const stats = await collectionResponseRepository.getCollectionStats(row.id);
+  return transformToFrontendSync(row, stats.total);
+}
+
+/**
+ * 同步转换（无响应数查询）
+ */
+function transformToFrontendSync(row: CollectionRow, responseCount: number = 0) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description || '',
+    classId: row.class_id,
+    teacherId: row.teacher_id,
+    teacherName: row.teacher_name,
+    fields: row.fields || [],
+    status: row.status,
+    deadline: row.deadline || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    publishedAt: row.published_at || null,
+    responseCount,
+  };
 }
 
 /**
@@ -31,17 +80,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const collection = result.data;
-  return NextResponse.json(success({
-    id: collection.id,
-    title: collection.title,
-    description: collection.description,
-    status: collection.status,
-    deadline: collection.deadline,
-    fields: collection.fields,
-    creatorId: collection.creatorId,
-    createdAt: collection.createdAt,
-  }));
+  return NextResponse.json(success(await transformToFrontend(result.data as unknown as CollectionRow)));
 }
 
 /**
@@ -62,6 +101,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       description: body.description,
       deadline: body.deadline,
       fields: body.fields,
+      status: body.status,
     });
   }
 
@@ -72,7 +112,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  return NextResponse.json(success(result.data));
+  return NextResponse.json(success(await transformToFrontend(result.data as unknown as CollectionRow)));
 }
 
 /**

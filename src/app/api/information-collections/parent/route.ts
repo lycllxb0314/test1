@@ -9,7 +9,47 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { informationCollectionService } from '@/services/information-collection.service';
+import { collectionResponseRepository } from '@/repositories/information-collection.repository';
 import { success, error, ErrorCode } from '@/lib/api';
+
+/**
+ * 数据库行类型（下划线命名）
+ */
+interface CollectionRow {
+  id: string;
+  title: string;
+  description?: string;
+  class_id: string;
+  teacher_id: string;
+  teacher_name: string;
+  fields: unknown[];
+  status: string;
+  deadline?: string;
+  created_at: string;
+  updated_at: string;
+  published_at?: string;
+}
+
+/**
+ * 转换数据库行到前端格式（驼峰命名）
+ */
+function transformToFrontend(row: CollectionRow, responseCount: number = 0) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description || '',
+    classId: row.class_id,
+    teacherId: row.teacher_id,
+    teacherName: row.teacher_name,
+    fields: row.fields || [],
+    status: row.status,
+    deadline: row.deadline || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    publishedAt: row.published_at || null,
+    responseCount,
+  };
+}
 
 /**
  * GET - 获取家长可见的信息采集列表
@@ -36,16 +76,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 格式化返回
-  const formattedData = result.data.map((collection: any) => ({
-    id: collection.id,
-    title: collection.title,
-    description: collection.description,
-    status: collection.status,
-    deadline: collection.deadline,
-    fields: collection.fields,
-    createdAt: collection.createdAt,
-  }));
+  const rows = result.data as unknown as CollectionRow[];
+  
+  // 批量获取响应数
+  const collectionIds = rows.map(r => r.id);
+  const responseCounts = await collectionResponseRepository.getResponseCounts(collectionIds);
 
-  return NextResponse.json(success(formattedData));
+  // 转换字段名：下划线 -> 驼峰
+  const transformedData = rows.map(row => 
+    transformToFrontend(row, responseCounts.get(row.id) || 0)
+  );
+
+  return NextResponse.json(success(transformedData));
 }

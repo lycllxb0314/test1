@@ -94,10 +94,19 @@ export class InformationCollectionService extends BaseService {
       return this.fail('采集标题和创建者不能为空', 'VALIDATION_ERROR');
     }
 
-    const collection = await this.informationCollectionRepository.create({
-      ...data,
+    // 映射字段名：驼峰 -> 下划线
+    const dbData: Record<string, unknown> = {
+      title: data.title,
+      description: data.description,
+      deadline: data.deadline,
+      fields: data.fields,
       status: (data.status || 'draft') as CollectionStatus,
-    });
+      teacher_id: data.creatorId,
+      teacher_name: data.creatorName,
+      class_id: (data as Record<string, unknown>).classId || null,
+    };
+
+    const collection = await this.informationCollectionRepository.create(dbData as Partial<InformationCollection>);
 
     if (!collection) {
       return this.fail('创建信息采集失败', 'CREATE_ERROR');
@@ -115,7 +124,15 @@ export class InformationCollectionService extends BaseService {
       return this.fail('信息采集不存在', 'NOT_FOUND');
     }
 
-    const collection = await this.informationCollectionRepository.update(id, data);
+    // 映射字段名：驼峰 -> 下划线
+    const dbData: Record<string, unknown> = {};
+    if (data.title !== undefined) dbData.title = data.title;
+    if (data.description !== undefined) dbData.description = data.description;
+    if (data.deadline !== undefined) dbData.deadline = data.deadline;
+    if (data.fields !== undefined) dbData.fields = data.fields;
+    if (data.status !== undefined) dbData.status = data.status;
+
+    const collection = await this.informationCollectionRepository.update(id, dbData as Partial<InformationCollection>);
     if (!collection) {
       return this.fail('更新信息采集失败', 'UPDATE_ERROR');
     }
