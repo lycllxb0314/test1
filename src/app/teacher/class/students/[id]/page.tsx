@@ -8,6 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -53,6 +60,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { StudentFullProfile, Parent } from '@/types';
 import { toast } from 'sonner';
+import { HabitTabContent } from '@/components/student/habit-tab-content';
+import { MoralTabContent } from '@/components/student/moral-tab-content';
 
 // 获取性别显示
 const getGenderDisplay = (gender: string) => {
@@ -72,9 +81,25 @@ const getStatusColor = (status: string) => {
   return colorMap[status] || 'bg-gray-100 text-gray-700';
 };
 
-interface PageProps {
+// 获取荣誉级别颜色
+const getHonorLevelColor = (level: string) => {
+  const colorMap: Record<string, string> = {
+    '国家级': 'text-red-600 bg-red-50',
+    '省级': 'text-purple-600 bg-purple-50',
+    '市级': 'text-blue-600 bg-blue-50',
+    '区级': 'text-green-600 bg-green-50',
+    '校级': 'text-orange-600 bg-orange-50',
+    '班级': 'text-gray-600 bg-gray-50',
+  };
+  return colorMap[level] || 'text-gray-600 bg-gray-50';
+};
+
+type PageProps = {
   params: Promise<{ id: string }>;
-}
+};
+
+// 家长关系类型
+type ParentRelationship = '父亲' | '母亲' | '爷爷' | '奶奶' | '外公' | '外婆' | '其他';
 
 // 家庭类型选项
 const familyTypeOptions = [
@@ -104,6 +129,21 @@ export default function StudentDetailPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Tab 状态
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // 学生荣誉数据状态
+  const [studentHonors, setStudentHonors] = useState<Array<{
+    id: string;
+    title: string;
+    level: string;
+    category: string;
+    issuer: string;
+    date: string;
+    description?: string;
+  }>>([]);
+  const [honorsLoading, setHonorsLoading] = useState(false);
+
   // 加载学生档案
   useEffect(() => {
     const loadProfile = async () => {
@@ -119,6 +159,29 @@ export default function StudentDetailPage({ params }: PageProps) {
     };
     loadProfile();
   }, [id, fetchStudentProfile]);
+
+  // 获取学生荣誉数据
+  useEffect(() => {
+    const fetchHonors = async () => {
+      if (!id) return;
+      setHonorsLoading(true);
+      try {
+        const res = await fetch(`/api/student-honors?studentId=${id}&pageSize=100`, {
+          credentials: 'include',
+        });
+        const result = await res.json();
+        if (result.success && result.data) {
+          const honorsArray = Array.isArray(result.data) ? result.data : (result.data.data || []);
+          setStudentHonors(honorsArray);
+        }
+      } catch (err) {
+        console.error('Failed to fetch student honors:', err);
+      } finally {
+        setHonorsLoading(false);
+      }
+    };
+    fetchHonors();
+  }, [id]);
 
   // 刷新数据
   const refetch = async () => {
@@ -136,7 +199,7 @@ export default function StudentDetailPage({ params }: PageProps) {
   const [isEditing, setIsEditing] = useState(isEditMode);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 编辑表单数据
+  // 编辑表单数据 - 仅包含班主任可以修改的字段
   const [formData, setFormData] = useState({
     // 个人信息
     name: '',
@@ -162,7 +225,7 @@ export default function StudentDetailPage({ params }: PageProps) {
   const [parentFormData, setParentFormData] = useState({
     id: '',
     name: '',
-    relationship: '父亲' as '父亲' | '母亲' | '爷爷' | '奶奶' | '外公' | '外婆' | '其他',
+    relationship: '父亲' as ParentRelationship,
     phone: '',
     isPrimary: false,
     wechat: '',
@@ -371,7 +434,7 @@ export default function StudentDetailPage({ params }: PageProps) {
               <User className="h-7 w-7 text-primary" />
               <h1 className="text-2xl font-bold">学生档案</h1>
             </div>
-            <p className="text-muted-foreground mt-1">查看和管理学生信息</p>
+            <p className="text-muted-foreground mt-1">查看和管理本班学生信息</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -438,213 +501,406 @@ export default function StudentDetailPage({ params }: PageProps) {
                   <span>班主任：{profile.headTeacherName}</span>
                 </div>
               </div>
+
+              {/* 统计概览 */}
+              <div className="grid grid-cols-4 gap-4 mt-6">
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{studentHonors.length || 0}</div>
+                  <div className="text-xs text-muted-foreground">荣誉奖项</div>
+                </div>
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">
+                    {profile.habitProfile?.habitStarCount || 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground">习惯之星</div>
+                </div>
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">
+                    {profile.attendanceStats?.attendanceRate?.toFixed(1) || 100}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">出勤率</div>
+                </div>
+                <div className="text-center p-3 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">
+                    {profile.moralPerformance?.behaviorStats?.behaviorScore || '-'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">德育评分</div>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 详细信息 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 个人信息 */}
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              个人信息
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <Label className="text-muted-foreground">出生日期</Label>
-                {isEditing ? (
-                  <Input
-                    type="date"
-                    value={formData.birthDate}
-                    onChange={(e) => handleFieldChange('birthDate', e.target.value)}
-                  />
-                ) : (
-                  <p className="font-medium">{profile.birthDate || '-'}</p>
-                )}
-              </div>
-              <div>
-                <Label className="text-muted-foreground">民族</Label>
-                {isEditing ? (
-                  <Input
-                    value={formData.ethnicity}
-                    onChange={(e) => handleFieldChange('ethnicity', e.target.value)}
-                  />
-                ) : (
-                  <p className="font-medium">{profile.ethnicity || '-'}</p>
-                )}
-              </div>
-              <div>
-                <Label className="text-muted-foreground">籍贯</Label>
-                {isEditing ? (
-                  <Input
-                    value={formData.nativePlace}
-                    onChange={(e) => handleFieldChange('nativePlace', e.target.value)}
-                  />
-                ) : (
-                  <p className="font-medium">{profile.nativePlace || '-'}</p>
-                )}
-              </div>
-              <div>
-                <Label className="text-muted-foreground">学生类型</Label>
-                <p className="font-medium">{profile.studentType || '普通'}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* 详情标签页 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="bg-card border rounded-lg p-1">
+          <TabsTrigger value="overview">基本信息</TabsTrigger>
+          <TabsTrigger value="family">家庭信息</TabsTrigger>
+          <TabsTrigger value="habit">习惯养成</TabsTrigger>
+          <TabsTrigger value="moral">德育活动</TabsTrigger>
+          <TabsTrigger value="honors">在校荣誉</TabsTrigger>
+        </TabsList>
 
-        {/* 联系信息 */}
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Phone className="h-5 w-5 text-primary" />
-              联系信息
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <Label className="text-muted-foreground">联系电话</Label>
-                {isEditing ? (
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) => handleFieldChange('phone', e.target.value)}
-                  />
-                ) : (
-                  <p className="font-medium">{profile.phone || '-'}</p>
-                )}
-              </div>
-              <div>
-                <Label className="text-muted-foreground">紧急联系人</Label>
-                {isEditing ? (
-                  <Input
-                    value={formData.emergencyContact}
-                    onChange={(e) => handleFieldChange('emergencyContact', e.target.value)}
-                  />
-                ) : (
-                  <p className="font-medium">{profile.emergencyContact || '-'}</p>
-                )}
-              </div>
-              <div>
-                <Label className="text-muted-foreground">紧急联系电话</Label>
-                {isEditing ? (
-                  <Input
-                    value={formData.emergencyPhone}
-                    onChange={(e) => handleFieldChange('emergencyPhone', e.target.value)}
-                  />
-                ) : (
-                  <p className="font-medium">{profile.emergencyPhone || '-'}</p>
-                )}
-              </div>
-              <div className="col-span-2">
-                <Label className="text-muted-foreground">家庭住址</Label>
-                {isEditing ? (
-                  <Textarea
-                    value={formData.homeAddress}
-                    onChange={(e) => handleFieldChange('homeAddress', e.target.value)}
-                    rows={2}
-                  />
-                ) : (
-                  <p className="font-medium">{profile.homeAddress || profile.address || '-'}</p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* 基本信息 */}
+        <TabsContent value="overview" className="space-y-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User className="h-5 w-5 text-primary" />
+                  个人信息
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">姓名</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.name} 
+                      onChange={(e) => handleFieldChange('name', e.target.value)}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span className="font-medium">{profile.name}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">性别</span>
+                  {isEditing ? (
+                    <Select value={formData.gender} onValueChange={(v) => handleFieldChange('gender', v)}>
+                      <SelectTrigger className="w-[100px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">男</SelectItem>
+                        <SelectItem value="female">女</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className={genderDisplay.color}>{genderDisplay.label}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">出生日期</span>
+                  {isEditing ? (
+                    <Input 
+                      type="date"
+                      value={formData.birthDate} 
+                      onChange={(e) => handleFieldChange('birthDate', e.target.value)}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span>{profile.birthDate || '-'}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">民族</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.ethnicity} 
+                      onChange={(e) => handleFieldChange('ethnicity', e.target.value)}
+                      className="h-8 w-40"
+                      placeholder="如：汉族"
+                    />
+                  ) : (
+                    <span>{profile.ethnicity || '-'}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">籍贯</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.nativePlace} 
+                      onChange={(e) => handleFieldChange('nativePlace', e.target.value)}
+                      className="h-8 w-40"
+                      placeholder="如：福建龙岩"
+                    />
+                  ) : (
+                    <span>{profile.nativePlace || '-'}</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                  学籍信息
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">学号</span>
+                  <span className="font-medium">{profile.studentNo}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">年级</span>
+                  <span>{profile.gradeName}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">班级</span>
+                  <span>{profile.className}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">班主任</span>
+                  <span>{profile.headTeacherName || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">入学日期</span>
+                  <span>{profile.enrollmentDate || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">学生类型</span>
+                  <span>{profile.studentType || '普通'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">状态</span>
+                  <Badge className={getStatusColor(profile.status)}>{profile.status}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Phone className="h-5 w-5 text-primary" />
+                  联系信息
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">联系电话</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.phone} 
+                      onChange={(e) => handleFieldChange('phone', e.target.value)}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span>{profile.phone || '未填写'}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">家庭地址</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.address} 
+                      onChange={(e) => handleFieldChange('address', e.target.value)}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span>{profile.address || '未填写'}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">紧急联系人</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.emergencyContact} 
+                      onChange={(e) => handleFieldChange('emergencyContact', e.target.value)}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span>{profile.emergencyContact || '未填写'}</span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">紧急联系电话</span>
+                  {isEditing ? (
+                    <Input 
+                      value={formData.emergencyPhone} 
+                      onChange={(e) => handleFieldChange('emergencyPhone', e.target.value)}
+                      className="h-8 w-40"
+                    />
+                  ) : (
+                    <span>{profile.emergencyPhone || '未填写'}</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         {/* 家庭信息 */}
-        <Card className="shadow-md lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Home className="h-5 w-5 text-primary" />
-              家庭信息
-            </CardTitle>
-            <CardDescription>家长联系方式与家庭情况</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4 flex items-center gap-4">
-              <span className="text-muted-foreground">家庭类型：</span>
-              {isEditing ? (
-                <Select
-                  value={formData.familyType}
-                  onValueChange={(v) => handleFieldChange('familyType', v as any)}
-                >
-                  <SelectTrigger className="w-[140px] h-8">
-                    <SelectValue placeholder="选择" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {familyTypeOptions.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Badge variant="outline">{profile.familyType || '未设置'}</Badge>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">家长信息</h4>
-                {isEditing && (
-                  <Button size="sm" variant="outline" onClick={handleAddParent}>
-                    <Users className="h-4 w-4 mr-1" />
-                    添加家长
-                  </Button>
+        <TabsContent value="family" className="space-y-4 mt-4">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Home className="h-5 w-5 text-primary" />
+                家庭信息
+              </CardTitle>
+              <CardDescription>家长联系方式与家庭情况</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 flex items-center gap-4">
+                <span className="text-muted-foreground">家庭类型：</span>
+                {isEditing ? (
+                  <Select
+                    value={formData.familyType}
+                    onValueChange={(v) => handleFieldChange('familyType', v)}
+                  >
+                    <SelectTrigger className="w-[140px] h-8">
+                      <SelectValue placeholder="选择" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {familyTypeOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge variant="outline">{profile.familyType || '未设置'}</Badge>
                 )}
               </div>
-              {(isEditing ? formData.parents : profile.parents)?.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(isEditing ? formData.parents : profile.parents).map((parent) => (
-                    <div key={parent.id} className="p-4 bg-muted/30 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">{parent.name}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{parent.relationship}</Badge>
-                          {parent.isPrimary && (
-                            <Badge className="bg-primary/10 text-primary">主要联系人</Badge>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">家长信息</h4>
+                  {isEditing && (
+                    <Button size="sm" variant="outline" onClick={handleAddParent}>
+                      <Users className="h-4 w-4 mr-1" />
+                      添加家长
+                    </Button>
+                  )}
+                </div>
+                {(isEditing ? formData.parents : profile.parents)?.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(isEditing ? formData.parents : profile.parents).map((parent) => (
+                      <div key={parent.id} className="p-4 bg-muted/30 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">{parent.name}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{parent.relationship}</Badge>
+                            {parent.isPrimary && (
+                              <Badge className="bg-primary/10 text-primary">主要联系人</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          {parent.phone}
+                        </div>
+                        {parent.wechat && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                            <Mail className="h-3 w-3" />
+                            微信：{parent.wechat}
+                          </div>
+                        )}
+                        {isEditing && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t">
+                            <Button size="sm" variant="ghost" onClick={() => handleEditParent(parent)}>
+                              编辑
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-500"
+                              onClick={() => handleDeleteParent(parent.id)}
+                            >
+                              删除
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">暂无家长信息</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 习惯养成 */}
+        <TabsContent value="habit" className="space-y-4 mt-4">
+          <HabitTabContent profile={profile} />
+        </TabsContent>
+
+        {/* 德育活动 */}
+        <TabsContent value="moral" className="space-y-4 mt-4">
+          <MoralTabContent profile={profile} canViewWarnings={true} />
+        </TabsContent>
+
+        {/* 在校荣誉 */}
+        <TabsContent value="honors" className="space-y-4 mt-4">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                在校荣誉
+              </CardTitle>
+              <CardDescription>
+                该学生获得的各项荣誉和奖项
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {honorsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : studentHonors.length > 0 ? (
+                <div className="space-y-3">
+                  {studentHonors.map((honor) => (
+                    <div 
+                      key={honor.id} 
+                      className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        honor.level === '国家级' ? 'bg-red-100 text-red-600' :
+                        honor.level === '省级' ? 'bg-purple-100 text-purple-600' :
+                        honor.level === '市级' ? 'bg-blue-100 text-blue-600' :
+                        honor.level === '区级' ? 'bg-green-100 text-green-600' :
+                        honor.level === '校级' ? 'bg-orange-100 text-orange-600' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        <Award className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{honor.title}</span>
+                          <Badge variant="secondary" className={`text-xs ${
+                            honor.level === '国家级' ? 'bg-red-50 text-red-700' :
+                            honor.level === '省级' ? 'bg-purple-50 text-purple-700' :
+                            honor.level === '市级' ? 'bg-blue-50 text-blue-700' :
+                            honor.level === '区级' ? 'bg-green-50 text-green-700' :
+                            honor.level === '校级' ? 'bg-orange-50 text-orange-700' :
+                            'bg-gray-50 text-gray-700'
+                          }`}>
+                            {honor.level}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {honor.category}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {honor.date}
+                          </span>
+                          {honor.issuer && (
+                            <span>颁发单位：{honor.issuer}</span>
                           )}
                         </div>
+                        {honor.description && (
+                          <p className="mt-2 text-sm text-muted-foreground">{honor.description}</p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Phone className="h-3 w-3" />
-                        {parent.phone}
-                      </div>
-                      {parent.wechat && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                          <Mail className="h-3 w-3" />
-                          微信：{parent.wechat}
-                        </div>
-                      )}
-                      {isEditing && (
-                        <div className="flex gap-2 mt-3 pt-3 border-t">
-                          <Button size="sm" variant="ghost" onClick={() => handleEditParent(parent)}>
-                            编辑
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-red-500"
-                            onClick={() => handleDeleteParent(parent.id)}
-                          >
-                            删除
-                          </Button>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground">暂无家长信息</p>
+                <div className="text-center py-12">
+                  <Trophy className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-muted-foreground">暂无荣誉记录</p>
+                </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* 家长编辑对话框 */}
       <Dialog open={parentDialogOpen} onOpenChange={setParentDialogOpen}>
@@ -670,7 +926,7 @@ export default function StudentDetailPage({ params }: PageProps) {
               <Label htmlFor="parent-relation" className="text-right">关系</Label>
               <Select
                 value={parentFormData.relationship}
-                onValueChange={(v) => setParentFormData(prev => ({ ...prev, relationship: v as any }))}
+                onValueChange={(v) => setParentFormData(prev => ({ ...prev, relationship: v as ParentRelationship }))}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="选择关系" />
