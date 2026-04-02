@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { getMergedPermissions } from '@/lib/auth/permissions';
 import { messageService } from '@/services/message.service';
 import { messageRepository } from '@/repositories/message.repository';
 import type { 
@@ -211,34 +212,42 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     // 应用额外筛选
     let filteredMessages = displayMessages;
     
-    // 根据用户群组成员身份过滤部门广播消息
-    // 群组类型到部门标识的映射
-    const groupTypeToDept: Record<string, string> = {
-      'principal_office': 'principal',
-      'academic_office': 'academic',
-      'moral_office': 'moral',
-      'general_office': 'general',
+    // 部门标识到模块类型的映射
+    const deptToModule: Record<string, string> = {
+      'academic': 'academic',
+      'moral': 'moral',
+      'general': 'general',
     };
     
-    // 获取用户所属的部门标识列表
-    const userGroupTypes = user.groups?.map(g => g.groupType) || [];
-    const userDeptIdentifiers = userGroupTypes.map(gt => groupTypeToDept[gt]).filter(Boolean);
+    // 获取用户的合并权限（角色权限 + 兼任职务权限 + 群组权限）
+    const userPermissions = getMergedPermissions(
+      user.role,
+      user.additionalRoles || [],
+      user.groups || []
+    );
     
-    // 过滤消息：对于部门广播消息，只保留目标部门与用户所属群组匹配的消息
+    // 过滤消息：对于部门广播消息，检查用户是否有对应模块的权限
     filteredMessages = filteredMessages.filter(m => {
       // 非部门广播消息直接通过
       if (m.recipientType !== 'department') {
         return true;
       }
       
-      // 部门广播消息：检查用户是否属于目标部门
+      // 部门广播消息：检查用户是否有对应模块的权限
       const targetDept = m.metadata?.target_department as string;
       if (!targetDept) {
         return false; // 没有目标部门标识的消息不显示
       }
       
-      // 用户所属群组包含目标部门
-      return userDeptIdentifiers.includes(targetDept);
+      // 获取对应的模块类型
+      const moduleType = deptToModule[targetDept];
+      if (!moduleType) {
+        return false; // 未知的部门标识
+      }
+      
+      // 检查用户是否有该模块的权限（至少有 view 权限）
+      const modulePermissions = userPermissions[moduleType as 'academic' | 'moral' | 'general'];
+      return modulePermissions && modulePermissions.length > 0;
     });
     
     if (eventFilter) {
