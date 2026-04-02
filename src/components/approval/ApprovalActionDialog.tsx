@@ -158,19 +158,26 @@ export function ApprovalActionDialog({
   const isRoomBooking = instance.businessType === 'room_booking';
   // 使用类型断言来处理联合类型
   const leaveInfo = isLeaveRequest ? (instance.business as unknown as LeaveInfo) : null;
-  // 教室预约信息从 metadata 中获取
-  const roomBookingInfo = isRoomBooking ? (instance.metadata as {
+  // 教室预约信息从 business 中获取（通过 getRoomBookings 查询）
+  const roomBookingInfo = isRoomBooking ? (instance.business as {
+    id?: string;
     room_id?: string;
     room_name?: string;
+    room_type?: string;
     building?: string;
-    location?: string;
+    applicant_id?: string;
+    applicant_name?: string;
+    department?: string;
     purpose?: string;
+    title?: string;
+    description?: string;
     booking_date?: string;
     start_time?: string;
     end_time?: string;
     duration?: number;
     expected_attendees?: number;
-    description?: string;
+    time_slots?: string[];
+    status?: string;
   }) : null;
   
   // 获取业务类型显示名称
@@ -689,19 +696,26 @@ export function ApprovalCard({ instance, currentUserId, onClick }: ApprovalCardP
   // 使用类型断言来处理联合类型
   const leaveInfo = isLeaveRequest ? (instance.business as any) : null;
   const approvers = isLeaveRequest ? (instance.metadata?.approvers as any[] || []) : [];
-  // 教室预约信息从 metadata 中获取
-  const roomBookingInfo = isRoomBooking ? (instance.metadata as {
+  // 教室预约信息从 business 中获取（通过 getRoomBookings 查询）
+  const roomBookingInfo = isRoomBooking ? (instance.business as {
+    id?: string;
     room_id?: string;
     room_name?: string;
+    room_type?: string;
     building?: string;
-    location?: string;
+    applicant_id?: string;
+    applicant_name?: string;
+    department?: string;
     purpose?: string;
+    title?: string;
+    description?: string;
     booking_date?: string;
     start_time?: string;
     end_time?: string;
     duration?: number;
     expected_attendees?: number;
-    description?: string;
+    time_slots?: string[];
+    status?: string;
   }) : null;
   
   // 获取请假类型显示名称
