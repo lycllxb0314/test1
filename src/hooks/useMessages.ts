@@ -148,7 +148,7 @@ const DEFAULT_FILTERS: MessageQueryParams = {};
  *                   - 'general': 总务处工作台
  *                   - undefined: 个人中心，显示所有消息
  */
-export function useMessages(department?: 'academic' | 'moral' | 'general'): UseMessagesReturn {
+export function useMessages(department?: 'academic' | 'moral' | 'general' | 'vice-principal-moral'): UseMessagesReturn {
   const [messages, setMessages] = useState<UserMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

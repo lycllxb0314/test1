@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * 德育处工作台
+ * 德育副校长工作台
  * 
- * 部门工作台特点：
- * - 部门通知：接收校长室等上级部门的通知
- * - 待办事项：本部门需要处理的审批和任务
+ * 部门领导工作台特点：
+ * - 部门通知：接收上级通知和本部门重要消息
+ * - 待办事项：需要本人审批的事项
  * - 业务概况：德育相关业务数据统计
  */
 
@@ -18,9 +18,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMessages } from '@/hooks/useMessages';
 import { useApprovals } from '@/hooks/useApprovals';
 import { MessagePanel } from '@/components/messaging/MessagePanel';
-import { PublishNotificationDialog } from '@/components/approval/PublishNotificationDialog';
 import { ApprovalActionDialog, ApprovalCard } from '@/components/approval/ApprovalActionDialog';
-import type { ApprovalInstance, SubmitApprovalRequest } from '@/types/approval';
+import type { ApprovalInstance } from '@/types/approval';
 import Link from 'next/link';
 import {
   Bell,
@@ -29,23 +28,21 @@ import {
   CheckCircle,
   Clock,
   FileText,
-  Plus,
-  Calendar,
   Award,
   AlertCircle,
   Activity,
   ArrowRight,
+  Settings,
+  Calendar,
 } from 'lucide-react';
 
-export default function MoralDashboard() {
+export default function VicePrincipalMoralDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('messages');
-  const [publishOpen, setPublishOpen] = useState(false);
-  const [selectedType, setSelectedType] = useState<'announcement' | 'news' | 'internal_notice'>('announcement');
   const [selectedInstance, setSelectedInstance] = useState<ApprovalInstance | null>(null);
   const [approvalOpen, setApprovalOpen] = useState(false);
 
-  // 消息 Hook - 传入部门参数，只显示部门通知和德育相关业务通知
+  // 消息 Hook - 传入部门参数
   const {
     messages,
     loading: messagesLoading,
@@ -62,21 +59,19 @@ export default function MoralDashboard() {
     archiveMessage,
     deleteMessage,
     markAllAsRead,
-    sendMessage,
-  } = useMessages('moral');
+  } = useMessages('vice-principal-moral');
 
-  // 审批 Hook - 传入部门参数，只显示德育相关的审批
+  // 审批 Hook - 传入部门参数
   const {
     approvals,
     loading: approvalsLoading,
     fetchApprovals,
-    submitApproval,
     approveApproval,
     rejectApproval,
     returnApproval,
     withdrawApproval,
     statistics: approvalStats,
-  } = useApprovals('pending', 'moral');
+  } = useApprovals('pending', 'vice-principal-moral');
 
   // 初始化加载
   useEffect(() => {
@@ -84,15 +79,6 @@ export default function MoralDashboard() {
       fetchApprovals('pending');
     }
   }, [activeTab, fetchApprovals]);
-
-  // 发布处理
-  const handleSubmit = async (request: SubmitApprovalRequest) => {
-    const result = await submitApproval(request);
-    if (result.success) {
-      refetch();
-    }
-    return result;
-  };
 
   // 审批操作处理
   const handleApprove = async (instanceId: string, comment?: string) => {
@@ -122,9 +108,9 @@ export default function MoralDashboard() {
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">德育处工作台</h1>
+          <h1 className="text-2xl font-bold text-gray-900">德育副校长工作台</h1>
           <p className="text-gray-500 mt-1">
-            龙岩师范附属小学 · 德育活动 · 家校沟通 · 学生评价
+            龙岩师范附属小学 · 德育管理 · 审批决策
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -134,14 +120,34 @@ export default function MoralDashboard() {
           </Badge>
           <Badge className="bg-pink-500 text-white gap-1">
             <Heart className="h-3 w-3" />
-            德育处
+            德育副校长
           </Badge>
         </div>
       </div>
 
-      {/* 部门工作台统计卡片 - 部门视角 */}
+      {/* 快捷入口 */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-0 shadow-md">
+        <Link href="/vice-principal-moral/honor-approval" className="block">
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">荣誉审批</p>
+                  <p className="text-2xl font-bold text-purple-600">{approvalStats.pending}</p>
+                  <p className="text-xs text-gray-400 mt-1">待审批</p>
+                </div>
+                <div className="p-2 rounded-lg bg-purple-100">
+                  <Award className="h-5 w-5 text-purple-600" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-center text-sm text-purple-600">
+                <span>前往审批</span>
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('messages')}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -183,26 +189,6 @@ export default function MoralDashboard() {
             </div>
           </CardContent>
         </Card>
-        <Link href="/moral/honor-campaigns" className="block">
-          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">荣誉评选</p>
-                  <p className="text-2xl font-bold text-purple-600">0</p>
-                  <p className="text-xs text-gray-400 mt-1">进行中</p>
-                </div>
-                <div className="p-2 rounded-lg bg-purple-100">
-                  <Award className="h-5 w-5 text-purple-600" />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center text-sm text-purple-600">
-                <span>前往管理</span>
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
       </div>
 
       {/* Tab 切换 */}
@@ -216,10 +202,6 @@ export default function MoralDashboard() {
             <CheckCircle className="h-4 w-4" />
             待办事项
           </TabsTrigger>
-          <TabsTrigger value="publish" className="gap-2">
-            <FileText className="h-4 w-4" />
-            发布通知
-          </TabsTrigger>
         </TabsList>
 
         {/* 部门通知 */}
@@ -228,7 +210,7 @@ export default function MoralDashboard() {
             <CardHeader>
               <CardTitle className="text-lg">部门通知</CardTitle>
               <CardDescription>
-                来自校长室等上级部门的通知，以及德育相关的业务通知
+                来自校长室等上级部门的通知，以及德育相关的重要通知
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -259,7 +241,7 @@ export default function MoralDashboard() {
                 <div>
                   <CardTitle className="text-lg">待办事项</CardTitle>
                   <CardDescription>
-                    德育相关审批事项，如活动申请、荣誉评选等
+                    需要德育副校长审批的事项，如荣誉评选终审等
                   </CardDescription>
                 </div>
               </div>
@@ -289,59 +271,7 @@ export default function MoralDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* 发布通知 */}
-        <TabsContent value="publish">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-lg">发布通知</CardTitle>
-              <CardDescription>
-                发布德育相关的公告、新闻或通知
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => { setSelectedType('announcement'); setPublishOpen(true); }}>
-                  <CardContent className="p-6 text-center">
-                    <div className="p-3 rounded-full bg-pink-100 w-fit mx-auto mb-3">
-                      <FileText className="h-6 w-6 text-pink-600" />
-                    </div>
-                    <h3 className="font-medium">校园公告</h3>
-                    <p className="text-sm text-gray-500 mt-1">发布到学校主页</p>
-                  </CardContent>
-                </Card>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => { setSelectedType('news'); setPublishOpen(true); }}>
-                  <CardContent className="p-6 text-center">
-                    <div className="p-3 rounded-full bg-purple-100 w-fit mx-auto mb-3">
-                      <FileText className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <h3 className="font-medium">新闻动态</h3>
-                    <p className="text-sm text-gray-500 mt-1">发布到学校主页</p>
-                  </CardContent>
-                </Card>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow border-dashed" onClick={() => { setSelectedType('internal_notice'); setPublishOpen(true); }}>
-                  <CardContent className="p-6 text-center">
-                    <div className="p-3 rounded-full bg-green-100 w-fit mx-auto mb-3">
-                      <Bell className="h-6 w-6 text-green-600" />
-                    </div>
-                    <h3 className="font-medium">内部通知</h3>
-                    <p className="text-sm text-gray-500 mt-1">仅校内可见</p>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
-
-      {/* 发布弹窗 */}
-      <PublishNotificationDialog
-        open={publishOpen}
-        onOpenChange={setPublishOpen}
-        onSubmit={handleSubmit}
-        department="德育处"
-        defaultType={selectedType}
-      />
 
       {/* 审批详情弹窗 */}
       <ApprovalActionDialog

@@ -197,7 +197,7 @@ export function canUserView(instance: ApprovalInstance, userId: string, userRole
  *                   - 'general': 总务处工作台
  *                   - undefined: 个人中心，显示所有审批
  */
-export function useApprovals(initialType: ApprovalListType = 'pending', department?: 'academic' | 'moral' | 'general'): UseApprovalsReturn {
+export function useApprovals(initialType: ApprovalListType = 'pending', department?: 'academic' | 'moral' | 'general' | 'vice-principal-moral'): UseApprovalsReturn {
   // === 状态 ===
   const [approvals, setApprovals] = useState<ApprovalInstance[]>([]);
   const [loading, setLoading] = useState(true);

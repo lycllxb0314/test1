@@ -60,13 +60,31 @@ export type FormConfig = {
 
 // ==================== 审批配置类型 ====================
 
+/** 审批环节配置 */
+export type ApprovalStepConfig = {
+  /** 审批步骤 */
+  step: ApprovalStep;
+  /** 环节名称 */
+  name: string;
+  /** 环节描述 */
+  description?: string;
+  /** 时间限制（天数），0 表示无限制 */
+  timeLimit?: number;
+  /** 超时自动处理方式 */
+  timeoutAction?: 'auto_approve' | 'auto_reject' | 'escalate' | 'none';
+  /** 升级到的审批人（当 timeoutAction 为 escalate 时） */
+  escalateTo?: string;
+};
+
 /** 审批配置 */
 export type ApprovalConfig = {
   /** 审批步骤 */
   steps: ApprovalStep[];
+  /** 环节详细配置 */
+  stepConfigs?: ApprovalStepConfig[];
   /** 是否允许退回 */
   allowReturn?: boolean;
-  /** 审批超时天数 */
+  /** 审批超时天数（全局默认） */
   timeoutDays?: number;
 };
 

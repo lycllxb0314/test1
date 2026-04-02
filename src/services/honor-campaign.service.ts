@@ -451,7 +451,9 @@ export class HonorCampaignService extends BaseService {
       if (data.result === 'approved' && nextStep) {
         await this.sendApprovalNotification(updated, nextStep);
       } else if (data.result === 'approved' && newStatus === 'approved') {
-        // 最终审批通过，通知家长
+        // 最终审批通过，写入学生荣誉表
+        await this.writeToStudentHonors(updated);
+        // 通知家长
         await this.sendFinalApprovalNotification(updated);
       } else if (data.result === 'rejected') {
         await this.sendRejectionNotification(updated);
@@ -628,6 +630,44 @@ export class HonorCampaignService extends BaseService {
       console.log(`[HonorCampaignService] 审批流转通知已发送`);
     } catch (error) {
       console.error('[HonorCampaignService] sendApprovalNotification error:', error);
+    }
+  }
+
+  /**
+   * 写入学生荣誉表（荣誉联动）
+   */
+  private async writeToStudentHonors(application: HonorApplication): Promise<void> {
+    try {
+      const { getSupabaseClient } = await import('@/storage/database/supabase-client');
+      const supabase = getSupabaseClient();
+
+      // 生成证书编号
+      const certificateNo = application.certificateNo || `H${new Date().getFullYear()}${Date.now().toString().slice(-6)}`;
+
+      // 写入 student_honors 表
+      const { error } = await supabase.from('student_honors').insert({
+        id: `honor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        student_id: application.studentId,
+        student_name: application.studentName,
+        class_id: application.classId,
+        class_name: application.className,
+        title: application.campaign?.honorType || '荣誉',
+        level: '校级',
+        category: '荣誉评选',
+        issuer: '龙岩师范附属小学',
+        date: new Date().toISOString().split('T')[0],
+        certificate_no: certificateNo,
+        description: `${application.campaign?.title} - 通过评选获得`,
+        grade: application.grade,
+      });
+
+      if (error) {
+        console.error('[HonorCampaignService] writeToStudentHonors error:', error);
+      } else {
+        console.log(`[HonorCampaignService] 荣誉已写入学生荣誉表: ${application.studentName}`);
+      }
+    } catch (error) {
+      console.error('[HonorCampaignService] writeToStudentHonors error:', error);
     }
   }
 
