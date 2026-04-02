@@ -318,33 +318,38 @@ export function useClasses(initialFilters?: ClassFilters): UseClassesReturn {
         throw new Error('获取班级数据失败');
       }
       
-      // 分批获取学生数据（使用统一分页配置）
-      const allStudents: Record<string, unknown>[] = [];
-      let page = 1;
-      const batchSize = PAGINATION.ENTITY_CONFIG.students.fetchPageSize;
+      // 并行获取学生数据（优化：先获取第一页确定总数，再并行获取剩余页面）
+      const batchSize = 1000; // 使用更大的批次
+      const firstStudentsRes = await fetch(`/api/students?page=1&pageSize=${batchSize}`);
       
-      while (true) {
-        const studentsRes = await fetch(`/api/students?page=${page}&pageSize=${batchSize}`);
+      if (!firstStudentsRes.ok) {
+        throw new Error(`获取学生数据失败: ${firstStudentsRes.status}`);
+      }
+      
+      const firstStudentsData = await firstStudentsRes.json();
+      const allStudents: Record<string, unknown>[] = [];
+      
+      if (firstStudentsData.success && firstStudentsData.data) {
+        allStudents.push(...firstStudentsData.data);
         
-        // 检查响应状态
-        if (!studentsRes.ok) {
-          console.error(`获取学生数据失败: ${studentsRes.status}`);
-          break;
+        // 获取总数，计算剩余页面
+        const totalCount = firstStudentsData.pagination?.total || firstStudentsData.statistics?.total || 0;
+        const totalPages = Math.ceil(totalCount / batchSize);
+        
+        // 并行获取剩余页面
+        if (totalPages > 1) {
+          const pagePromises: Promise<Record<string, unknown>[]>[] = [];
+          for (let page = 2; page <= totalPages; page++) {
+            pagePromises.push(
+              fetch(`/api/students?page=${page}&pageSize=${batchSize}`)
+                .then(res => res.json())
+                .then(data => data.success && data.data ? data.data : [])
+                .catch(() => [])
+            );
+          }
+          const remainingPagesData = await Promise.all(pagePromises);
+          allStudents.push(...remainingPagesData.flat());
         }
-        
-        const studentsData = await studentsRes.json();
-        
-        if (!studentsData.success || !studentsData.data || studentsData.data.length === 0) {
-          break;
-        }
-        
-        allStudents.push(...studentsData.data);
-        
-        // 如果返回的数据少于 batchSize，说明已经获取完所有数据
-        if (studentsData.data.length < batchSize) {
-          break;
-        }
-        page++;
       }
       
       console.log(`获取学生数据完成: ${allStudents.length}人`);

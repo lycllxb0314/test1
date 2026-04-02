@@ -291,7 +291,7 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
     }
   }, [teachers.loaded, teachers.lastFetch])
 
-  // 获取学生数据（分页循环获取，绕过 Supabase 1000 行限制）
+  // 获取学生数据（并行分页获取，绕过 Supabase 1000 行限制）
   const fetchStudents = useCallback(async (force = false) => {
     if (fetchingRef.current.has('students')) return
     
@@ -306,8 +306,6 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
     try {
       const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级']
       const BATCH_SIZE = 1000 // Supabase 每次最多返回 1000 行
-      let allData: StudentInfo[] = []
-      let totalCount = 0
       
       // 首次请求获取 total
       const firstResponse = await fetch(`/api/students?page=1&pageSize=${BATCH_SIZE}`)
@@ -323,8 +321,43 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
         return
       }
       
-      totalCount = firstResult.pagination?.total || firstResult.statistics?.total || 0
-      allData = firstResult.data.map((s: Record<string, unknown>) => ({
+      const totalCount = firstResult.pagination?.total || firstResult.statistics?.total || 0
+      const totalPages = Math.ceil(totalCount / BATCH_SIZE)
+      
+      // 并行获取剩余页面
+      const pagePromises: Promise<StudentInfo[]>[] = []
+      for (let page = 2; page <= totalPages; page++) {
+        pagePromises.push(
+          fetch(`/api/students?page=${page}&pageSize=${BATCH_SIZE}`)
+            .then(res => res.json())
+            .then(result => {
+              if (result.success && result.data) {
+                return result.data.map((s: Record<string, unknown>) => ({
+                  id: s.id as string,
+                  studentNo: (s.studentNo as string) || (s.student_no as string) || '',
+                  name: s.name as string,
+                  gender: (s.gender as StudentInfo['gender']) || 'male',
+                  grade: (s.grade as number) || 1,
+                  gradeName: GRADE_NAMES[s.grade as number] || '一年级',
+                  classId: (s.classId as string) || (s.class_id as string) || '',
+                  className: (s.className as string) || (s.class_name as string) || '',
+                  status: (s.status as string) || '在校',
+                  parents: (s.parents as Parent[]) || [],
+                  headTeacherId: (s.headTeacherId as string) || (s.head_teacher_id as string) || '',
+                  headTeacherName: (s.headTeacherName as string) || (s.head_teacher_name as string) || '',
+                }))
+              }
+              return []
+            })
+            .catch(() => [])
+        )
+      }
+      
+      // 并行执行所有请求
+      const remainingPagesData = await Promise.all(pagePromises)
+      
+      // 处理第一页数据
+      const firstPageData: StudentInfo[] = firstResult.data.map((s: Record<string, unknown>) => ({
         id: s.id as string,
         studentNo: (s.studentNo as string) || (s.student_no as string) || '',
         name: s.name as string,
@@ -339,32 +372,8 @@ export function GlobalDataProvider({ children }: { children: React.ReactNode }) 
         headTeacherName: (s.headTeacherName as string) || (s.head_teacher_name as string) || '',
       }))
       
-      // 计算还需要多少次请求
-      const totalPages = Math.ceil(totalCount / BATCH_SIZE)
-      
-      // 循环获取剩余页面
-      for (let page = 2; page <= totalPages; page++) {
-        const response = await fetch(`/api/students?page=${page}&pageSize=${BATCH_SIZE}`)
-        const result = await response.json()
-        
-        if (result.success && result.data) {
-          const pageData = result.data.map((s: Record<string, unknown>) => ({
-            id: s.id as string,
-            studentNo: (s.studentNo as string) || (s.student_no as string) || '',
-            name: s.name as string,
-            gender: (s.gender as StudentInfo['gender']) || 'male',
-            grade: (s.grade as number) || 1,
-            gradeName: GRADE_NAMES[s.grade as number] || '一年级',
-            classId: (s.classId as string) || (s.class_id as string) || '',
-            className: (s.className as string) || (s.class_name as string) || '',
-            status: (s.status as string) || '在校',
-            parents: (s.parents as Parent[]) || [],
-            headTeacherId: (s.headTeacherId as string) || (s.head_teacher_id as string) || '',
-            headTeacherName: (s.headTeacherName as string) || (s.head_teacher_name as string) || '',
-          }))
-          allData = [...allData, ...pageData]
-        }
-      }
+      // 合并所有数据
+      const allData = [firstPageData, ...remainingPagesData].flat()
 
       setStudents({
         data: allData,
