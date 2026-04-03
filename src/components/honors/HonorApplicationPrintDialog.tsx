@@ -150,26 +150,46 @@ export function HonorApplicationPrintDialog({
     if (!contentRef.current || !application) return;
 
     setGenerating(true);
+    const startTime = Date.now();
+    const TIMEOUT = 30000; // 30秒超时
+    
+    // 用于跟踪是否需要清理
+    let mainCanvas: HTMLCanvasElement | null = null;
+    let watermarkCanvas: HTMLCanvasElement | null = null;
+    
     try {
       // 临时移除CSS背景水印，避免PDF双重水印
       const originalBg = contentRef.current.style.backgroundImage;
       contentRef.current.style.backgroundImage = 'none';
       
-      // 使用 html2canvas 截图（降低 scale 提升速度）
-      const canvas = await html2canvas(contentRef.current, {
-        scale: 1.5, // 降低 scale 提升速度
+      // 检查超时
+      if (Date.now() - startTime > TIMEOUT) {
+        throw new Error('PDF生成超时');
+      }
+      
+      // 使用 html2canvas 截图（使用 scale: 1 减少内存占用）
+      mainCanvas = await html2canvas(contentRef.current, {
+        scale: 1, // 使用1倍缩放，减少内存占用
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        imageTimeout: 0,
+        imageTimeout: 5000, // 图片加载超时5秒
+        // 限制最大尺寸，防止内存溢出
+        windowWidth: contentRef.current.scrollWidth,
+        windowHeight: contentRef.current.scrollHeight,
       });
       
       // 恢复CSS背景水印
       contentRef.current.style.backgroundImage = originalBg;
 
+      // 检查超时
+      if (Date.now() - startTime > TIMEOUT) {
+        throw new Error('PDF生成超时');
+      }
+
       // 计算 PDF 尺寸 (A4)
       const imgWidth = 210; // A4 宽度 mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const imgHeight = (mainCanvas.height * imgWidth) / mainCanvas.width;
       const pageHeight = 297; // A4 高度 mm
 
       // 创建 PDF
@@ -179,9 +199,10 @@ export function HonorApplicationPrintDialog({
         format: 'a4',
       });
 
-      // 创建带logo的水印图案（使用统一配置）
-      const watermarkCanvas = document.createElement('canvas');
+      // 创建带logo的水印图案
+      watermarkCanvas = document.createElement('canvas');
       const wCtx = watermarkCanvas.getContext('2d');
+      
       if (wCtx) {
         const { color, fontSize, rotate, gap, logoSize, logoTextGap, scale } = WATERMARK_CONFIG;
         
@@ -198,6 +219,8 @@ export function HonorApplicationPrintDialog({
             img.onload = () => resolve(img);
             img.onerror = () => reject(new Error('Logo load failed'));
             img.src = '/logo-school.png';
+            // 3秒超时
+            setTimeout(() => reject(new Error('Logo load timeout')), 3000);
           });
         } catch {
           // logo加载失败，仅使用文字
@@ -236,44 +259,60 @@ export function HonorApplicationPrintDialog({
         wCtx.fillText(schoolName, currentX, 0);
       }
 
-      let heightLeft = imgHeight;
-      let imgData = canvas.toDataURL('image/png', 0.8); // 压缩图片
+      // 检查超时
+      if (Date.now() - startTime > TIMEOUT) {
+        throw new Error('PDF生成超时');
+      }
+
+      // 使用 JPEG 格式，压缩率更高
+      const imgData = mainCanvas.toDataURL('image/jpeg', 0.85);
 
       // 页边距配置（与CSS padding一致：上3cm、下2.7cm、左2.7cm、右2.7cm）
       const marginTop = 30;    // 上边距 mm
       const marginBottom = 27; // 下边距 mm
       const contentHeightPerPage = pageHeight - marginTop - marginBottom; // 每页有效内容高度 240mm
 
-      // 添加第一页（图片从顶部开始，padding自然成为页边距）
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      // 添加第一页
+      let heightLeft = imgHeight;
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
       // 如果内容超过一页，添加更多页
       let pageNum = 1;
       while (heightLeft > 0) {
+        // 检查超时
+        if (Date.now() - startTime > TIMEOUT) {
+          throw new Error('PDF生成超时');
+        }
+        
         pdf.addPage();
-        // 后续页面：图片向上偏移
-        // 偏移量计算：让图片的"第一页结束位置"显示在"第二页顶部边距后"
-        // 第一页结束位置 = marginTop + contentHeightPerPage + marginBottom = 297mm
-        // 我们想让图片的297mm位置显示在页面的marginTop位置(20mm)
-        // 所以偏移 = marginTop - 297 = -277mm
         const offset = -(pageNum * pageHeight);
-        pdf.addImage(imgData, 'PNG', 0, offset, imgWidth, imgHeight);
+        pdf.addImage(imgData, 'JPEG', 0, offset, imgWidth, imgHeight);
         heightLeft -= contentHeightPerPage;
         pageNum++;
+        
+        // 安全限制：最多10页
+        if (pageNum > 10) {
+          console.warn('PDF页数超过限制，截断到10页');
+          break;
+        }
       }
 
-      // 添加水印到每一页（平铺）
+      // 添加水印到每一页（简化平铺逻辑）
       const totalPages = pdf.getNumberOfPages();
       const watermarkData = watermarkCanvas.toDataURL('image/png');
-      // 水印单元大小：根据gap计算mm单位（假设屏幕96dpi，1mm≈3.78px）
       const watermarkSizeMm = (WATERMARK_CONFIG.gap * 2) / 3.78;
       
       for (let i = 1; i <= totalPages; i++) {
+        // 检查超时
+        if (Date.now() - startTime > TIMEOUT) {
+          throw new Error('PDF生成超时');
+        }
+        
         pdf.setPage(i);
-        // 平铺水印覆盖整页
-        for (let x = -watermarkSizeMm/2; x < 210 + watermarkSizeMm; x += watermarkSizeMm) {
-          for (let y = -watermarkSizeMm/2; y < 297 + watermarkSizeMm; y += watermarkSizeMm) {
+        // 简化平铺：减少循环次数
+        for (let x = 0; x < 210; x += watermarkSizeMm) {
+          for (let y = 0; y < 297; y += watermarkSizeMm) {
             pdf.addImage(watermarkData, 'PNG', x, y, watermarkSizeMm, watermarkSizeMm);
           }
         }
@@ -283,10 +322,23 @@ export function HonorApplicationPrintDialog({
       const pdfBlob = pdf.output('blob');
       const url = URL.createObjectURL(pdfBlob);
       setPdfUrl(url);
+      
+      console.log(`PDF生成完成，耗时: ${(Date.now() - startTime) / 1000}s`);
+      
     } catch (error) {
       console.error('生成 PDF 失败:', error);
-      toast.error('生成 PDF 失败');
+      const errorMessage = error instanceof Error ? error.message : '生成 PDF 失败';
+      toast.error(errorMessage);
     } finally {
+      // 清理 canvas 内存
+      if (mainCanvas) {
+        mainCanvas.width = 0;
+        mainCanvas.height = 0;
+      }
+      if (watermarkCanvas) {
+        watermarkCanvas.width = 0;
+        watermarkCanvas.height = 0;
+      }
       setGenerating(false);
     }
   }, [application, schoolName]);
