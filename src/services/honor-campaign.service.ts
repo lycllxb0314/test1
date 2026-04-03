@@ -769,9 +769,16 @@ export class HonorCampaignService extends BaseService {
         return;
       }
 
+      // 重新查询完整数据，确保包含 studentName 和 campaign 信息
+      const fullApp = await this.applicationRepo.findByIdWithDetails(application.id);
+      if (!fullApp) {
+        console.log('[HonorCampaignService] 无法获取完整申报数据');
+        return;
+      }
+
       await messageService.sendMessage({
-        title: `【恭喜】${application.studentName} 的荣誉申报已通过`,
-        content: `恭喜！您为孩子 ${application.studentName} 申报的「${application.campaign?.honorType}」已通过全部审批。\n\n证书编号：${application.certificateNo || '待生成'}\n\n请登录系统查看详情并打印申报表。`,
+        title: `【恭喜】${fullApp.studentName || '孩子'} 的荣誉申报已通过`,
+        content: `恭喜！您为孩子 ${fullApp.studentName || '孩子'} 申报的「${fullApp.campaign?.honorType || '荣誉'}」已通过全部审批。\n\n证书编号：${fullApp.certificateNo || '待生成'}`,
         event: 'honor_approved',
         priority: 'high',
         recipientIds: [application.applicantId],
@@ -782,9 +789,9 @@ export class HonorCampaignService extends BaseService {
         metadata: {
           applicationId: application.id,
           campaignId: application.campaignId,
-          studentName: application.studentName,
-          honorType: application.campaign?.honorType,
-          certificateNo: application.certificateNo,
+          studentName: fullApp.studentName,
+          honorType: fullApp.campaign?.honorType,
+          certificateNo: fullApp.certificateNo,
         },
       });
 
@@ -805,12 +812,19 @@ export class HonorCampaignService extends BaseService {
         return;
       }
 
+      // 重新查询完整数据，确保包含 studentName 和 campaign 信息
+      const fullApp = await this.applicationRepo.findByIdWithDetails(application.id);
+      if (!fullApp) {
+        console.log('[HonorCampaignService] 无法获取完整申报数据');
+        return;
+      }
+
       // 获取最后一条审批意见
-      const lastComment = application.approvalComments[application.approvalComments.length - 1];
+      const lastComment = fullApp.approvalComments[fullApp.approvalComments.length - 1];
 
       await messageService.sendMessage({
-        title: `【通知】${application.studentName} 的荣誉申报未通过`,
-        content: `很遗憾，您为孩子 ${application.studentName} 申报的「${application.campaign?.honorType}」未通过审批。\n\n审批意见：${lastComment?.comment || '无'}\n\n如有疑问，请联系班主任。`,
+        title: `【通知】${fullApp.studentName || '孩子'} 的荣誉申报未通过`,
+        content: `很遗憾，您为孩子 ${fullApp.studentName || '孩子'} 申报的「${fullApp.campaign?.honorType || '荣誉'}」未通过审批。\n\n审批意见：${lastComment?.comment || '无'}\n\n如有疑问，请联系班主任。`,
         event: 'honor_rejected',
         priority: 'normal',
         recipientIds: [application.applicantId],
@@ -821,8 +835,8 @@ export class HonorCampaignService extends BaseService {
         metadata: {
           applicationId: application.id,
           campaignId: application.campaignId,
-          studentName: application.studentName,
-          honorType: application.campaign?.honorType,
+          studentName: fullApp.studentName,
+          honorType: fullApp.campaign?.honorType,
           reason: lastComment?.comment,
         },
       });
