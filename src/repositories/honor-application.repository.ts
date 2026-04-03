@@ -98,15 +98,16 @@ export class HonorApplicationRepository {
     const application = this.toModel(data);
     
     // 2. 查询关联数据
+    // 注意：student_id 可能是 UUID 格式（students.id）或学号格式（students.student_no）
     const [campaignResult, studentResult, classResult] = await Promise.all([
       data.campaign_id 
         ? this.client.from('honor_campaigns').select('id, title, honor_type, status, form_config').eq('id', data.campaign_id).single()
         : { data: null, error: null },
       data.student_id
-        ? this.client.from('students').select('id, name, student_no').eq('id', data.student_id).single()
+        ? this.client.from('students').select('id, name, student_no').or(`id.eq.${data.student_id},student_no.eq.${data.student_id}`).single()
         : { data: null, error: null },
       data.class_id
-        ? this.client.from('classes').select('id, name, grade').eq('id', data.class_id).single()
+        ? this.client.from('classes').select('id, name, grade').or(`id.eq.${data.class_id},name.eq.${data.class_id}`).single()
         : { data: null, error: null },
     ]);
 
@@ -187,22 +188,35 @@ export class HonorApplicationRepository {
     const classIds = [...new Set(data.map(row => row.class_id).filter(Boolean))];
 
     // 3. 批量查询关联数据
+    // 注意：student_id 可能是 UUID 格式（students.id）或学号格式（students.student_no）
     const [campaignsResult, studentsResult, classesResult] = await Promise.all([
       campaignIds.length > 0 
         ? this.client.from('honor_campaigns').select('id, title, honor_type, status').in('id', campaignIds)
         : { data: [], error: null },
       studentIds.length > 0
-        ? this.client.from('students').select('id, name, student_no').in('id', studentIds)
+        ? this.client.from('students').select('id, name, student_no').or(`id.in.(${studentIds.join(',')}),student_no.in.(${studentIds.join(',')})`)
         : { data: [], error: null },
       classIds.length > 0
-        ? this.client.from('classes').select('id, name, grade').in('id', classIds)
+        ? this.client.from('classes').select('id, name, grade').or(`id.in.(${classIds.join(',')}),name.in.(${classIds.join(',')})`)
         : { data: [], error: null },
     ]);
 
-    // 4. 构建映射表
+    // 4. 构建映射表 - 同时支持 id 和 student_no 作为键
     const campaignsMap = new Map((campaignsResult.data || []).map(c => [c.id, c]));
-    const studentsMap = new Map((studentsResult.data || []).map(s => [s.id, s]));
-    const classesMap = new Map((classesResult.data || []).map(c => [c.id, c]));
+    const studentsMap = new Map<string, { id: string; name: string; student_no: string }>();
+    (studentsResult.data || []).forEach(s => {
+      studentsMap.set(s.id, s);
+      if (s.student_no) {
+        studentsMap.set(s.student_no, s);
+      }
+    });
+    const classesMap = new Map<string, { id: string; name: string; grade: number }>();
+    (classesResult.data || []).forEach(c => {
+      classesMap.set(c.id, c);
+      if (c.name) {
+        classesMap.set(c.name, c);
+      }
+    });
 
     // 5. 组装数据
     const applications = data.map(row => {
@@ -270,22 +284,35 @@ export class HonorApplicationRepository {
     const classIds = [...new Set(data.map(row => row.class_id).filter(Boolean))];
 
     // 3. 批量查询关联数据
+    // 注意：student_id 可能是 UUID 格式（students.id）或学号格式（students.student_no）
     const [campaignsResult, studentsResult, classesResult] = await Promise.all([
       campaignIds.length > 0 
         ? this.client.from('honor_campaigns').select('id, title, honor_type, status').in('id', campaignIds)
         : { data: [], error: null },
       studentIds.length > 0
-        ? this.client.from('students').select('id, name, student_no').in('id', studentIds)
+        ? this.client.from('students').select('id, name, student_no').or(`id.in.(${studentIds.join(',')}),student_no.in.(${studentIds.join(',')})`)
         : { data: [], error: null },
       classIds.length > 0
-        ? this.client.from('classes').select('id, name, grade').in('id', classIds)
+        ? this.client.from('classes').select('id, name, grade').or(`id.in.(${classIds.join(',')}),name.in.(${classIds.join(',')})`)
         : { data: [], error: null },
     ]);
 
-    // 4. 构建映射表
+    // 4. 构建映射表 - 同时支持 id 和 student_no 作为键
     const campaignsMap = new Map((campaignsResult.data || []).map(c => [c.id, c]));
-    const studentsMap = new Map((studentsResult.data || []).map(s => [s.id, s]));
-    const classesMap = new Map((classesResult.data || []).map(c => [c.id, c]));
+    const studentsMap = new Map<string, { id: string; name: string; student_no: string }>();
+    (studentsResult.data || []).forEach(s => {
+      studentsMap.set(s.id, s);
+      if (s.student_no) {
+        studentsMap.set(s.student_no, s);
+      }
+    });
+    const classesMap = new Map<string, { id: string; name: string; grade: number }>();
+    (classesResult.data || []).forEach(c => {
+      classesMap.set(c.id, c);
+      if (c.name) {
+        classesMap.set(c.name, c);
+      }
+    });
 
     // 5. 组装数据
     return data.map(row => {
