@@ -487,15 +487,13 @@ export function HonorApplicationPrintDialog({
                 <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>{application.className}</p>
               </div>
               <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>申报荣誉</span>
+                <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>{campaign?.honorType || '-'}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
                 <span style={{ color: '#9ca3af', fontSize: '11px' }}>申报日期</span>
                 <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>
                   {application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : '-'}
-                </p>
-              </div>
-              <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
-                <span style={{ color: '#9ca3af', fontSize: '11px' }}>证书编号</span>
-                <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>
-                  {application.certificateNo || '-'}
                 </p>
               </div>
             </div>
@@ -619,9 +617,6 @@ export function HonorApplicationPrintDialog({
             {/* 底部信息 */}
             <div style={{ marginTop: '32px', textAlign: 'center', fontSize: '10px', color: '#9ca3af', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
               <p style={{ margin: 0 }}>申报编号：{application.id}</p>
-              {application.certificateNo && (
-                <p style={{ marginTop: '4px', margin: '4px 0 0 0' }}>证书编号：{application.certificateNo}</p>
-              )}
               <p style={{ marginTop: '4px', margin: '4px 0 0 0' }}>{schoolName}</p>
             </div>
           </div>
