@@ -23,7 +23,8 @@ import {
   FileText,
   FileOutput,
 } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import type { HonorApplication } from '@/types/honor-campaign';
 import { APPROVAL_STEP_NAMES } from '@/types/honor-campaign';
 
@@ -50,44 +51,69 @@ export function HonorApplicationPrintDialog({
 }: HonorApplicationPrintDialogProps) {
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [watermarkPattern, setWatermarkPattern] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLImageElement | null>(null);
 
-  // 创建水印图案
+  // 预加载logo
   useEffect(() => {
-    const createWatermark = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return '';
-
-      const fontSize = 20;
-      const gap = 200;
-      const rotate = -25;
-      
-      canvas.width = gap * 2;
-      canvas.height = gap * 2;
-
-      // 加载logo
-      const logoImg = new Image();
-      logoImg.crossOrigin = 'anonymous';
-      
-      // 先绘制文字水印
-      ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-      ctx.fillStyle = 'rgba(180, 180, 180, 0.15)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      ctx.translate(gap, gap);
-      ctx.rotate((rotate * Math.PI) / 180);
-      ctx.fillText(schoolName, 0, 0);
-
-      setWatermarkPattern(canvas.toDataURL('image/png'));
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      logoRef.current = img;
     };
+    img.src = '/logo-school.png';
+  }, []);
+
+  // 创建水印图片
+  const createWatermarkImage = useCallback(async (): Promise<string> => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+
+    const fontSize = 20;
+    const gap = 200;
+    const rotate = -25;
+    const logoSize = 32;
+    const logoTextGap = 10;
+    const scale = 2;
     
-    createWatermark();
+    canvas.width = gap * 2 * scale;
+    canvas.height = gap * 2 * scale;
+    ctx.scale(scale, scale);
+
+    // 计算总宽度
+    ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+    const textWidth = ctx.measureText(schoolName).width;
+    const totalWidth = (logoRef.current ? logoSize + logoTextGap : 0) + textWidth;
+
+    // 移动到中心点并旋转
+    ctx.translate(gap, gap);
+    ctx.rotate((rotate * Math.PI) / 180);
+
+    // 从中心点开始绘制
+    let currentX = -totalWidth / 2;
+
+    // 绘制logo
+    if (logoRef.current) {
+      ctx.globalAlpha = 0.15;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(logoRef.current, currentX, -logoSize / 2, logoSize, logoSize);
+      ctx.globalAlpha = 1;
+      currentX += logoSize + logoTextGap;
+    }
+
+    // 绘制文字
+    ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+    ctx.fillStyle = 'rgba(180, 180, 180, 0.15)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(schoolName, currentX, 0);
+
+    return canvas.toDataURL('image/png');
   }, [schoolName]);
 
-  // 生成 PDF（使用 html2pdf.js）
+  // 生成 PDF
   const generatePdf = useCallback(async () => {
     if (!contentRef.current || !application) return;
 
@@ -95,41 +121,77 @@ export function HonorApplicationPrintDialog({
     const startTime = Date.now();
     
     try {
-      // 计算 A4 尺寸的像素值（96dpi）
-      const a4WidthPx = Math.floor(210 * 96 / 25.4); // 约 794px
+      // 页面配置
+      const pageWidth = 210; // A4 宽度 mm
+      const pageHeight = 297; // A4 高度 mm
+      const marginTop = 30;
+      const marginBottom = 27;
+      const marginLeft = 27;
+      const marginRight = 27;
+      const contentHeight = pageHeight - marginTop - marginBottom; // 有效内容高度
 
-      // html2pdf 配置 - 不设置margin和height，让内容自动分页
-      const opt = {
-        margin: 0,
-        filename: `${application.studentName}_${application.campaign?.title || '申报表'}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: a4WidthPx,
-          // 不设置height，让内容自动延伸
-        },
-        jsPDF: { 
-          unit: 'mm' as const, 
-          format: 'a4' as const, 
-          orientation: 'portrait' as const,
-        },
-        pagebreak: { 
-          mode: ['css', 'legacy'],
-          before: '.page-break-before',
-          after: '.page-break-after',
-          avoid: ['tr', '.avoid-break'],
-        },
-      };
+      // 创建水印
+      const watermarkData = await createWatermarkImage();
+      const watermarkSizeMm = 400 / 3.78; // gap * 2 转换为 mm
 
-      // 生成 PDF blob
-      const pdfBlob = await html2pdf().set(opt).from(contentRef.current).outputPdf('blob');
+      // 使用 html2canvas 截图
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+
+      // 计算图片尺寸
+      const imgWidth = pageWidth - marginLeft - marginRight;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // 创建 PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      // 计算需要多少页
+      let currentY = 0;
+      let pageNum = 1;
+      const totalPages = Math.ceil(imgHeight / contentHeight);
+
+      // 添加第一页
+      pdf.addImage(imgData, 'JPEG', marginLeft, marginTop - currentY, imgWidth, imgHeight);
+      currentY += contentHeight;
+
+      // 添加后续页面
+      while (currentY < imgHeight) {
+        pdf.addPage();
+        pageNum++;
+        // 图片向上偏移，让新页面的顶部显示后续内容
+        const offsetY = marginTop - currentY;
+        pdf.addImage(imgData, 'JPEG', marginLeft, offsetY, imgWidth, imgHeight);
+        currentY += contentHeight;
+      }
+
+      // 为每一页添加水印
+      for (let i = 1; i <= pageNum; i++) {
+        pdf.setPage(i);
+        
+        // 平铺水印
+        for (let x = -watermarkSizeMm / 2; x < pageWidth + watermarkSizeMm; x += watermarkSizeMm) {
+          for (let y = -watermarkSizeMm / 2; y < pageHeight + watermarkSizeMm; y += watermarkSizeMm) {
+            pdf.addImage(watermarkData, 'PNG', x, y, watermarkSizeMm, watermarkSizeMm);
+          }
+        }
+      }
+
+      // 生成 Blob URL
+      const pdfBlob = pdf.output('blob');
       const url = URL.createObjectURL(pdfBlob);
       setPdfUrl(url);
       
-      console.log(`PDF生成完成，耗时: ${(Date.now() - startTime) / 1000}s`);
+      console.log(`PDF生成完成，共${pageNum}页，耗时: ${(Date.now() - startTime) / 1000}s`);
       
     } catch (error) {
       console.error('生成 PDF 失败:', error);
@@ -138,7 +200,7 @@ export function HonorApplicationPrintDialog({
     } finally {
       setGenerating(false);
     }
-  }, [application, schoolName]);
+  }, [application, createWatermarkImage]);
 
   // 打开时异步生成 PDF
   useEffect(() => {
@@ -308,14 +370,14 @@ export function HonorApplicationPrintDialog({
             ref={contentRef}
             className="bg-white relative avoid-break"
             style={{ 
-              width: '210mm', 
-              minHeight: '297mm',
-              padding: '30mm 27mm 27mm 27mm',
+              // 内容宽度 = A4宽度 - 左右边距 = 210 - 27*2 = 156mm
+              width: '156mm', 
+              minHeight: '240mm',
+              padding: 0,
               boxSizing: 'border-box',
-              backgroundImage: watermarkPattern ? `url(${watermarkPattern})` : 'none',
-              backgroundRepeat: 'repeat',
             }}
           >
+            <div>
             {/* 标题 */}
             <div style={{ textAlign: 'center', marginBottom: '8mm' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '8px' }}>
@@ -492,6 +554,7 @@ export function HonorApplicationPrintDialog({
             <div style={{ marginTop: '8mm', textAlign: 'center', fontSize: '11px', color: '#666' }}>
               <span style={{ marginRight: '24mm' }}>申报编号：{application.id}</span>
               <span>{schoolName}</span>
+            </div>
             </div>
           </div>
         </div>
