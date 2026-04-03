@@ -89,11 +89,10 @@ export type PsychologyMessage = {
   sessionId: string;
   role: MessageRole;
   content: string;
-  audioUrl?: string;
-  emotion?: EmotionType;
   emotionScore?: number;
-  isCrisis: boolean;
-  crisisKeywords?: string[];
+  emotionLabels?: string[];
+  riskKeywords?: string[];
+  riskLevel?: string;
   createdAt: string;
 };
 
@@ -104,9 +103,10 @@ export type CreateMessageRequest = {
   sessionId: string;
   role: MessageRole;
   content: string;
-  audioUrl?: string;
-  emotion?: EmotionType;
   emotionScore?: number;
+  emotionLabels?: string[];
+  riskKeywords?: string[];
+  riskLevel?: string;
 };
 
 /**
@@ -403,13 +403,12 @@ export type PsychologySessionRow = {
 export type PsychologyMessageRow = {
   id: string;
   session_id: string;
-  role: MessageRole;
+  role: string;
   content: string;
-  audio_url?: string;
-  emotion?: string;
   emotion_score?: number;
-  is_crisis: boolean;
-  crisis_keywords?: string;  // JSON 字符串
+  emotion_labels?: string[];
+  risk_keywords?: string[];
+  risk_level?: string;
   created_at: string;
 };
 

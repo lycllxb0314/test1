@@ -198,13 +198,12 @@ export class PsychologyMessageRepository extends BaseRepository<PsychologyMessag
     return {
       id: row.id,
       sessionId: row.session_id,
-      role: row.role,
+      role: row.role as 'user' | 'assistant' | 'system',
       content: row.content,
-      audioUrl: row.audio_url,
-      emotion: row.emotion as PsychologyMessage['emotion'],
       emotionScore: row.emotion_score ?? undefined,
-      isCrisis: row.is_crisis,
-      crisisKeywords: row.crisis_keywords ? JSON.parse(row.crisis_keywords) : undefined,
+      emotionLabels: row.emotion_labels,
+      riskKeywords: row.risk_keywords,
+      riskLevel: row.risk_level,
       createdAt: row.created_at,
     };
   }
@@ -235,23 +234,24 @@ export class PsychologyMessageRepository extends BaseRepository<PsychologyMessag
     sessionId: string;
     role: string;
     content: string;
-    audioUrl?: string;
-    emotion?: string;
     emotionScore?: number;
-    isCrisis?: boolean;
-    crisisKeywords?: string[];
+    emotionLabels?: string[];
+    riskKeywords?: string[];
+    riskLevel?: string;
   }): Promise<PsychologyMessage | null> {
+    const id = crypto.randomUUID();
+    
     const { data, error } = await this.client
       .from(this.tableName)
       .insert({
+        id,
         session_id: message.sessionId,
         role: message.role,
         content: message.content,
-        audio_url: message.audioUrl,
-        emotion: message.emotion,
         emotion_score: message.emotionScore,
-        is_crisis: message.isCrisis || false,
-        crisis_keywords: message.crisisKeywords ? JSON.stringify(message.crisisKeywords) : null,
+        emotion_labels: message.emotionLabels || [],
+        risk_keywords: message.riskKeywords || [],
+        risk_level: message.riskLevel,
       })
       .select()
       .single();
