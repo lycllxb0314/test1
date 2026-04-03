@@ -361,7 +361,7 @@ export class ParentService extends BaseService {
         if (existingUser) {
           // 更新家长记录关联用户
           await parentRepository.update(parentId, { 
-            user_id: existingUser.id, 
+            account_id: existingUser.id, 
             has_account: true 
           });
           successData.push({ id: parentId, name: parent.name, defaultPassword: '(已存在)' });
@@ -392,7 +392,7 @@ export class ParentService extends BaseService {
 
         // 更新家长记录
         await parentRepository.update(parentId, { 
-          user_id: userId, 
+          account_id: userId, 
           has_account: true,
           password: defaultPassword 
         });
@@ -590,7 +590,7 @@ export class ParentService extends BaseService {
       const { data: parents } = await client
         .from('parents')
         .select('id, phone, name, password')
-        .is('user_id', null);
+        .is('account_id', null);
 
       let migrated = 0;
 
@@ -606,7 +606,7 @@ export class ParentService extends BaseService {
           // 更新家长记录
           await client
             .from('parents')
-            .update({ user_id: existingUser.id })
+            .update({ account_id: existingUser.id, has_account: true })
             .eq('id', parent.id);
         } else {
           // 创建新用户
@@ -626,7 +626,7 @@ export class ParentService extends BaseService {
 
           await client
             .from('parents')
-            .update({ user_id: userId })
+            .update({ account_id: userId, has_account: true })
             .eq('id', parent.id);
         }
 
