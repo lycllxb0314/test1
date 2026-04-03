@@ -52,6 +52,7 @@ export const GET = withAuth(async (request: NextRequest) => {
       classId,
       studentId,
       status,
+      hasAccount: hasAccount === 'true' ? true : hasAccount === 'false' ? false : undefined,
       page,
       pageSize,
     });

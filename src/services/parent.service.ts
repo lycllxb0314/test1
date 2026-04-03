@@ -56,6 +56,7 @@ export class ParentService extends BaseService {
         status: params.status,
         classId: params.classId,
         search: params.search,
+        hasAccount: params.hasAccount,
         page: params.page,
         pageSize: params.pageSize,
       });
@@ -322,6 +323,201 @@ export class ParentService extends BaseService {
       return { success: true, data: { success: successCount, failed, errors } };
     } catch (err) {
       console.error('Batch create parents error:', err);
+      return { success: false, error: '服务器错误' };
+    }
+  }
+
+  /**
+   * 批量开通账号
+   */
+  async batchCreateAccounts(parentIds: string[]): Promise<ServiceResult<{ success: number; failed: number; data: { id: string; name: string; defaultPassword: string }[]; errors: string[] }>> {
+    try {
+      const successData: { id: string; name: string; defaultPassword: string }[] = [];
+      const errors: string[] = [];
+      let successCount = 0;
+
+      for (const parentId of parentIds) {
+        const parent = await parentRepository.findById(parentId);
+        
+        if (!parent) {
+          errors.push(`家长ID ${parentId} 不存在`);
+          continue;
+        }
+
+        if (!parent.phone) {
+          errors.push(`${parent.name}: 请先填写手机号`);
+          continue;
+        }
+
+        // 检查是否已有账号
+        const client = getSupabaseClient();
+        const { data: existingUser } = await client
+          .from('users')
+          .select('id')
+          .eq('phone', parent.phone)
+          .eq('role', 'parent')
+          .single();
+
+        if (existingUser) {
+          // 更新家长记录关联用户
+          await parentRepository.update(parentId, { 
+            user_id: existingUser.id, 
+            has_account: true 
+          });
+          successData.push({ id: parentId, name: parent.name, defaultPassword: '(已存在)' });
+          successCount++;
+          continue;
+        }
+
+        // 创建新用户账号
+        const defaultPassword = '123456';
+        const passwordHash = await bcrypt.hash(defaultPassword, 10);
+        const userId = `user-parent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        const { error: insertError } = await client
+          .from('users')
+          .insert({
+            id: userId,
+            phone: parent.phone,
+            name: parent.name,
+            role: 'parent',
+            password_hash: passwordHash,
+            status: 'active',
+          });
+
+        if (insertError) {
+          errors.push(`${parent.name}: 创建账号失败 - ${insertError.message}`);
+          continue;
+        }
+
+        // 更新家长记录
+        await parentRepository.update(parentId, { 
+          user_id: userId, 
+          has_account: true,
+          password: defaultPassword 
+        });
+
+        successData.push({ id: parentId, name: parent.name, defaultPassword });
+        successCount++;
+      }
+
+      return { 
+        success: true, 
+        data: { 
+          success: successCount, 
+          failed: errors.length, 
+          data: successData,
+          errors 
+        } 
+      };
+    } catch (err) {
+      console.error('Batch create accounts error:', err);
+      return { success: false, error: '服务器错误' };
+    }
+  }
+
+  /**
+   * 批量重置密码
+   */
+  async batchResetPasswords(parentIds: string[]): Promise<ServiceResult<{ success: number; failed: number; data: { id: string; name: string; newPassword: string }[]; errors: string[] }>> {
+    try {
+      const successData: { id: string; name: string; newPassword: string }[] = [];
+      const errors: string[] = [];
+      let successCount = 0;
+
+      for (const parentId of parentIds) {
+        const parent = await parentRepository.findById(parentId);
+        
+        if (!parent) {
+          errors.push(`家长ID ${parentId} 不存在`);
+          continue;
+        }
+
+        if (!parent.phone) {
+          errors.push(`${parent.name || parentId}: 请先填写手机号`);
+          continue;
+        }
+
+        // 生成新密码
+        const newPassword = Math.random().toString(36).slice(-6);
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        const client = getSupabaseClient();
+
+        // 更新用户密码
+        const { error: updateError } = await client
+          .from('users')
+          .update({ password_hash: passwordHash, updated_at: new Date().toISOString() })
+          .eq('phone', parent.phone)
+          .eq('role', 'parent');
+
+        if (updateError) {
+          errors.push(`${parent.name}: 重置密码失败 - ${updateError.message}`);
+          continue;
+        }
+
+        // 更新家长记录
+        await parentRepository.update(parentId, { password: newPassword });
+
+        successData.push({ id: parentId, name: parent.name || parentId, newPassword });
+        successCount++;
+      }
+
+      return { 
+        success: true, 
+        data: { 
+          success: successCount, 
+          failed: errors.length, 
+          data: successData,
+          errors 
+        } 
+      };
+    } catch (err) {
+      console.error('Batch reset passwords error:', err);
+      return { success: false, error: '服务器错误' };
+    }
+  }
+
+  /**
+   * 批量设置主要联系人
+   */
+  async batchSetPrimary(parentIds: string[]): Promise<ServiceResult<{ success: number; failed: number; errors: string[] }>> {
+    try {
+      const errors: string[] = [];
+      let successCount = 0;
+
+      for (const parentId of parentIds) {
+        const parent = await parentRepository.findById(parentId);
+        
+        if (!parent) {
+          errors.push(`家长ID ${parentId} 不存在`);
+          continue;
+        }
+
+        // 如果该学生已有主要联系人，先取消
+        if (parent.student_id) {
+          const client = getSupabaseClient();
+          await client
+            .from('parents')
+            .update({ is_primary: false })
+            .eq('student_id', parent.student_id)
+            .eq('is_primary', true);
+        }
+
+        // 设置为主要联系人
+        await parentRepository.update(parentId, { is_primary: true });
+        successCount++;
+      }
+
+      return { 
+        success: true, 
+        data: { 
+          success: successCount, 
+          failed: errors.length, 
+          errors 
+        } 
+      };
+    } catch (err) {
+      console.error('Batch set primary error:', err);
       return { success: false, error: '服务器错误' };
     }
   }
