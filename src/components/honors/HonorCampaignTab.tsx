@@ -250,7 +250,7 @@ export function HonorCampaignTab() {
         setDialogOpen(false);
         loadCampaigns();
       } else {
-        toast.error(result.message || '操作失败');
+        toast.error(result.error || result.message || '操作失败');
       }
     } catch (err) {
       console.error('提交失败:', err);

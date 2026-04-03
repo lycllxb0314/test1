@@ -54,10 +54,19 @@ export const POST = protectedRoute(async (request: NextRequest, { user }) => {
     }
 
     const body: CreateCampaignRequest = await request.json();
+    
+    // 调试日志
+    console.log('[API] POST /api/honor-campaigns body:', JSON.stringify(body, null, 2));
 
     // 验证必填字段
     if (!body.title || !body.honorType || !body.startDate || !body.endDate) {
-      return NextResponse.json(error('缺少必填字段', ErrorCode.BAD_REQUEST), { status: 400 });
+      const missingFields = [];
+      if (!body.title) missingFields.push('title');
+      if (!body.honorType) missingFields.push('honorType');
+      if (!body.startDate) missingFields.push('startDate');
+      if (!body.endDate) missingFields.push('endDate');
+      console.log('[API] Missing required fields:', missingFields);
+      return NextResponse.json(error(`缺少必填字段: ${missingFields.join(', ')}`, ErrorCode.BAD_REQUEST), { status: 400 });
     }
 
     const result = await honorCampaignService.createCampaign(body, user.id);
