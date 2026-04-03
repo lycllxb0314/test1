@@ -4,8 +4,8 @@
  * @module components/honors/HonorApplicationPrintDialog
  * 
  * 功能：
- * - 立即显示HTML预览（无需等待）
- * - 后台异步生成PDF
+ * - 立即显示HTML预览
+ * - 可选：后台异步生成PDF（仅家长端需要）
  * - 申报专属水印（学校logo+学校名称）
  * - 支持下载和打印
  */
@@ -37,6 +37,8 @@ type HonorApplicationPrintDialogProps = {
   application: HonorApplication | null;
   /** 学校名称 */
   schoolName?: string;
+  /** 是否启用 PDF 功能（默认 false，仅家长端需要时传 true） */
+  enablePdf?: boolean;
 };
 
 /**
@@ -47,6 +49,7 @@ export function HonorApplicationPrintDialog({
   onOpenChange,
   application,
   schoolName = '龙岩师范附属小学',
+  enablePdf = false,
 }: HonorApplicationPrintDialogProps) {
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -192,16 +195,16 @@ export function HonorApplicationPrintDialog({
     }
   }, [application]);
 
-  // 打开时异步生成 PDF
+  // 打开时异步生成 PDF（仅当启用 PDF 功能时）
   useEffect(() => {
-    if (open && application) {
+    if (open && application && enablePdf) {
       setPdfUrl(null);
       const timer = setTimeout(() => {
         generatePdf();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [open, application?.id, generatePdf]);
+  }, [open, application?.id, enablePdf, generatePdf]);
 
   // 关闭时清理
   useEffect(() => {
@@ -281,10 +284,10 @@ export function HonorApplicationPrintDialog({
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
-              申报表打印预览
+              申报表预览
             </DialogTitle>
             <div className="flex items-center gap-2">
-              {generating && (
+              {enablePdf && generating && (
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   正在生成PDF...
@@ -292,16 +295,20 @@ export function HonorApplicationPrintDialog({
               )}
               <Button size="sm" variant="outline" onClick={handleQuickPrint}>
                 <FileOutput className="w-4 h-4 mr-1" />
-                快速打印
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleDownload} disabled={!pdfUrl}>
-                <Download className="w-4 h-4 mr-1" />
-                下载
-              </Button>
-              <Button size="sm" onClick={handlePrint} disabled={!pdfUrl}>
-                <Printer className="w-4 h-4 mr-1" />
                 打印
               </Button>
+              {enablePdf && (
+                <>
+                  <Button size="sm" variant="outline" onClick={handleDownload} disabled={!pdfUrl}>
+                    <Download className="w-4 h-4 mr-1" />
+                    下载
+                  </Button>
+                  <Button size="sm" onClick={handlePrint} disabled={!pdfUrl}>
+                    <Printer className="w-4 h-4 mr-1" />
+                    PDF打印
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </DialogHeader>

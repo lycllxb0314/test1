@@ -810,6 +810,7 @@ export default function ParentHonorApplicationPage() {
         open={printDialogOpen}
         onOpenChange={setPrintDialogOpen}
         application={selectedApplication}
+        enablePdf={true}
       />
     </div>
   );
