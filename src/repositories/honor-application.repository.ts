@@ -78,16 +78,13 @@ export class HonorApplicationRepository {
 
   /**
    * 查询申报记录详情（含关联信息）
+   * 注意：由于 Supabase schema cache 问题，不使用 JOIN，改为分步查询
    */
   async findByIdWithDetails(id: string): Promise<HonorApplication | null> {
+    // 1. 查询申报记录
     const { data, error } = await this.client
       .from(this.tableName)
-      .select(`
-        *,
-        campaign:honor_campaigns(id, title, honor_type, status),
-        student:students(id, name, student_no),
-        class:classes(id, name, grade)
-      `)
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -100,22 +97,35 @@ export class HonorApplicationRepository {
 
     const application = this.toModel(data);
     
-    // 添加关联信息
-    if (data.campaign) {
+    // 2. 查询关联数据
+    const [campaignResult, studentResult, classResult] = await Promise.all([
+      data.campaign_id 
+        ? this.client.from('honor_campaigns').select('id, title, honor_type, status').eq('id', data.campaign_id).single()
+        : { data: null, error: null },
+      data.student_id
+        ? this.client.from('students').select('id, name, student_no').eq('id', data.student_id).single()
+        : { data: null, error: null },
+      data.class_id
+        ? this.client.from('classes').select('id, name, grade').eq('id', data.class_id).single()
+        : { data: null, error: null },
+    ]);
+
+    // 3. 添加关联信息
+    if (campaignResult.data) {
       application.campaign = {
-        id: data.campaign.id,
-        title: data.campaign.title,
-        honorType: data.campaign.honor_type,
-        status: data.campaign.status,
+        id: campaignResult.data.id,
+        title: campaignResult.data.title,
+        honorType: campaignResult.data.honor_type,
+        status: campaignResult.data.status,
       } as any;
     }
-    if (data.student) {
-      application.studentName = data.student.name;
-      application.studentNo = data.student.student_no;
+    if (studentResult.data) {
+      application.studentName = studentResult.data.name;
+      application.studentNo = studentResult.data.student_no;
     }
-    if (data.class) {
-      application.className = data.class.name;
-      application.grade = data.class.grade;
+    if (classResult.data) {
+      application.className = classResult.data.name;
+      application.grade = classResult.data.grade;
     }
 
     return application;
@@ -123,16 +133,13 @@ export class HonorApplicationRepository {
 
   /**
    * 查询申报记录列表
+   * 注意：由于 Supabase schema cache 问题，不使用 JOIN，改为分步查询
    */
   async findByParams(params: ApplicationQueryParams): Promise<{ data: HonorApplication[]; total: number }> {
+    // 1. 查询申报记录
     let query = this.client
       .from(this.tableName)
-      .select(`
-        *,
-        campaign:honor_campaigns(id, title, honor_type, status),
-        student:students(id, name, student_no),
-        class:classes(id, name, grade)
-      `, { count: 'exact' });
+      .select('*', { count: 'exact' });
 
     // 过滤条件
     if (params.campaignId) {
@@ -169,26 +176,58 @@ export class HonorApplicationRepository {
       return { data: [], total: 0 };
     }
 
-    // 转换数据
-    const applications = (data || []).map(row => {
+    if (!data || data.length === 0) {
+      return { data: [], total: count || 0 };
+    }
+
+    // 2. 收集关联 ID
+    const campaignIds = [...new Set(data.map(row => row.campaign_id).filter(Boolean))];
+    const studentIds = [...new Set(data.map(row => row.student_id).filter(Boolean))];
+    const classIds = [...new Set(data.map(row => row.class_id).filter(Boolean))];
+
+    // 3. 批量查询关联数据
+    const [campaignsResult, studentsResult, classesResult] = await Promise.all([
+      campaignIds.length > 0 
+        ? this.client.from('honor_campaigns').select('id, title, honor_type, status').in('id', campaignIds)
+        : { data: [], error: null },
+      studentIds.length > 0
+        ? this.client.from('students').select('id, name, student_no').in('id', studentIds)
+        : { data: [], error: null },
+      classIds.length > 0
+        ? this.client.from('classes').select('id, name, grade').in('id', classIds)
+        : { data: [], error: null },
+    ]);
+
+    // 4. 构建映射表
+    const campaignsMap = new Map((campaignsResult.data || []).map(c => [c.id, c]));
+    const studentsMap = new Map((studentsResult.data || []).map(s => [s.id, s]));
+    const classesMap = new Map((classesResult.data || []).map(c => [c.id, c]));
+
+    // 5. 组装数据
+    const applications = data.map(row => {
       const app = this.toModel(row);
       
       // 添加关联信息
-      if (row.campaign) {
+      const campaign = campaignsMap.get(row.campaign_id);
+      if (campaign) {
         app.campaign = {
-          id: row.campaign.id,
-          title: row.campaign.title,
-          honorType: row.campaign.honor_type,
-          status: row.campaign.status,
+          id: campaign.id,
+          title: campaign.title,
+          honorType: campaign.honor_type,
+          status: campaign.status,
         } as any;
       }
-      if (row.student) {
-        app.studentName = row.student.name;
-        app.studentNo = row.student.student_no;
+      
+      const student = studentsMap.get(row.student_id);
+      if (student) {
+        app.studentName = student.name;
+        app.studentNo = student.student_no;
       }
-      if (row.class) {
-        app.className = row.class.name;
-        app.grade = row.class.grade;
+      
+      const cls = classesMap.get(row.class_id);
+      if (cls) {
+        app.className = cls.name;
+        app.grade = cls.grade;
       }
       
       return app;
@@ -199,16 +238,13 @@ export class HonorApplicationRepository {
 
   /**
    * 查询待审批列表（按审批步骤）
+   * 注意：由于 Supabase schema cache 问题，不使用 JOIN，改为分步查询
    */
   async findPendingByStep(step: ApprovalStep, classId?: string): Promise<HonorApplication[]> {
+    // 1. 查询申报记录
     let query = this.client
       .from(this.tableName)
-      .select(`
-        *,
-        campaign:honor_campaigns(id, title, honor_type, status),
-        student:students(id, name, student_no),
-        class:classes(id, name, grade)
-      `)
+      .select('*')
       .eq('current_step', step)
       .eq('status', 'pending');
 
@@ -223,24 +259,57 @@ export class HonorApplicationRepository {
       return [];
     }
 
-    return (data || []).map(row => {
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // 2. 收集关联 ID
+    const campaignIds = [...new Set(data.map(row => row.campaign_id).filter(Boolean))];
+    const studentIds = [...new Set(data.map(row => row.student_id).filter(Boolean))];
+    const classIds = [...new Set(data.map(row => row.class_id).filter(Boolean))];
+
+    // 3. 批量查询关联数据
+    const [campaignsResult, studentsResult, classesResult] = await Promise.all([
+      campaignIds.length > 0 
+        ? this.client.from('honor_campaigns').select('id, title, honor_type, status').in('id', campaignIds)
+        : { data: [], error: null },
+      studentIds.length > 0
+        ? this.client.from('students').select('id, name, student_no').in('id', studentIds)
+        : { data: [], error: null },
+      classIds.length > 0
+        ? this.client.from('classes').select('id, name, grade').in('id', classIds)
+        : { data: [], error: null },
+    ]);
+
+    // 4. 构建映射表
+    const campaignsMap = new Map((campaignsResult.data || []).map(c => [c.id, c]));
+    const studentsMap = new Map((studentsResult.data || []).map(s => [s.id, s]));
+    const classesMap = new Map((classesResult.data || []).map(c => [c.id, c]));
+
+    // 5. 组装数据
+    return data.map(row => {
       const app = this.toModel(row);
       
-      if (row.campaign) {
+      const campaign = campaignsMap.get(row.campaign_id);
+      if (campaign) {
         app.campaign = {
-          id: row.campaign.id,
-          title: row.campaign.title,
-          honorType: row.campaign.honor_type,
-          status: row.campaign.status,
+          id: campaign.id,
+          title: campaign.title,
+          honorType: campaign.honor_type,
+          status: campaign.status,
         } as any;
       }
-      if (row.student) {
-        app.studentName = row.student.name;
-        app.studentNo = row.student.student_no;
+      
+      const student = studentsMap.get(row.student_id);
+      if (student) {
+        app.studentName = student.name;
+        app.studentNo = student.student_no;
       }
-      if (row.class) {
-        app.className = row.class.name;
-        app.grade = row.class.grade;
+      
+      const cls = classesMap.get(row.class_id);
+      if (cls) {
+        app.className = cls.name;
+        app.grade = cls.grade;
       }
       
       return app;
