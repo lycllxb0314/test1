@@ -49,6 +49,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useFilePreview } from '@/hooks/useFilePreview';
 import { FilePreviewDialog } from '@/components/ui/file-preview-dialog';
 import { HonorInput } from '@/components/honors/HonorInput';
+import { HonorApplicationPrintDialog } from '@/components/honors/HonorApplicationPrintDialog';
 import type {
   HonorCampaign,
   HonorApplication,
@@ -93,6 +94,7 @@ export default function ParentHonorApplicationPage() {
   // === 对话框状态 ===
   const [applyDialogOpen, setApplyDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<HonorCampaign | null>(null);
   const [selectedApplication, setSelectedApplication] = useState<HonorApplication | null>(null);
 
@@ -317,8 +319,9 @@ export default function ParentHonorApplicationPage() {
 
   // 打印申报表
   const handlePrint = async (application: HonorApplication) => {
-    // 打开打印预览页面
-    window.open(`/parent/honor-application/${application.id}/print`, '_blank');
+    // 打开打印预览弹窗
+    setSelectedApplication(application);
+    setPrintDialogOpen(true);
   };
 
   // ==================== 渲染 ====================
@@ -770,6 +773,13 @@ export default function ParentHonorApplicationPage() {
         resource={filePreview.state.resource}
         viewerType={filePreview.state.viewerType}
         onViewerTypeChange={filePreview.setViewerType}
+      />
+
+      {/* 打印预览对话框 */}
+      <HonorApplicationPrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        application={selectedApplication}
       />
     </div>
   );
