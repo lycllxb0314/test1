@@ -466,11 +466,6 @@ export function HonorApplicationPrintDialog({
                   <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#1f2937' }}>
                     {campaign?.title || '荣誉评选申报表'}
                   </h1>
-                  {campaign?.honorType && (
-                    <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '2px', margin: '2px 0 0 0' }}>
-                      {campaign.honorType}
-                    </p>
-                  )}
                 </div>
               </div>
               <div style={{ width: '100px', height: '3px', background: 'linear-gradient(90deg, #3b82f6, #1d4ed8)', margin: '0 auto', borderRadius: '2px' }} />
