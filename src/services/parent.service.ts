@@ -129,10 +129,21 @@ export class ParentService extends BaseService {
         ? await parentRepository.findOtherParents(parent.student_id, parent.id)
         : [];
 
+      // 组装学生信息为嵌套对象格式
+      const student = parent.student_id ? {
+        id: parent.student_id,
+        name: parent.student_name,
+        student_no: parent.student_id, // student_id 就是学号
+        class_id: parent.class_id,
+        class_name: parent.class_name,
+        gender: parent.gender, // 如果有的话
+      } : undefined;
+
       return {
         success: true,
         data: {
           ...parent,
+          student,
           otherParents,
         },
       };
