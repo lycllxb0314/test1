@@ -252,12 +252,14 @@ export class MessageService extends BaseService {
         sender_id: params.senderId,
         sender_name: params.senderName,
         user_ids: params.recipientIds,
+        roles: params.recipientRoles, // 直接设置 roles 列
+        recipient_type: params.recipientType || 'individual',
         // 所有额外字段都存储在 metadata 中
         metadata: {
           ...params.metadata,
           event: params.event,
           status: 'sent',
-          roles: params.recipientRoles, // 角色列表存储在 metadata 中
+          roles: params.recipientRoles, // 角色列表也存储在 metadata 中（兼容）
           recipient_type: params.recipientType || 'individual', // 接收者类型
           target_department: params.targetDepartment, // 目标部门
           action_url: params.actionUrl,

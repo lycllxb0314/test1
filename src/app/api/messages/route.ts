@@ -242,14 +242,23 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     
     // 过滤消息逻辑
     // 
-    // 规则：
+    // 工作台分类：
     // 1. 教师个人工作台（无 department 参数）：只显示个人消息
-    //    - 排除部门广播消息（recipientType === 'department'）
-    //    - 排除行政业务消息（recipientType === 'administrative'，如审批待办）
-    // 2. 部门工作台（有 department 参数）：显示该部门的广播消息 + 相关业务消息
+    // 2. 领导个人工作台（department 以 'vice-principal'/'principal'/'secretary' 开头）：
+    //    - 显示个人消息（角色匹配）
+    //    - 显示审批待办消息（需要自己审批的）
+    // 3. 部门工作台（moral/academic/general）：
+    //    - 显示部门广播消息 + 相关业务消息
+    
+    // 判断是否为领导个人工作台
+    const isLeadershipWorkbench = department && (
+      department.startsWith('vice-principal') ||
+      department === 'principal' ||
+      department === 'secretary'
+    );
     
     if (!department) {
-      // 教师个人工作台：只显示个人消息，排除行政业务消息
+      // 教师个人工作台：只显示个人消息，排除部门广播和审批待办
       filteredMessages = filteredMessages.filter(m => {
         // 排除部门广播消息
         if (m.recipientType === 'department' || m.recipients?.type === 'department') {
@@ -265,6 +274,46 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
         }
         return true;
       });
+    } else if (isLeadershipWorkbench) {
+      // 领导个人工作台：显示个人消息 + 审批待办消息
+      // 角色映射：从 department 参数推断领导角色
+      const leadershipRoleMapping: Record<string, string> = {
+        'vice-principal-moral': 'moral_vice_principal',
+        'vice-principal-academic': 'academic_vice_principal',
+        'vice-principal-general': 'general_vice_principal',
+        'principal': 'principal',
+        'secretary': 'secretary',
+      };
+      const leadershipRole = leadershipRoleMapping[department];
+      
+      filteredMessages = filteredMessages.filter(m => {
+        // 排除部门广播消息（领导有自己的个人工作台，不需要看部门广播）
+        if (m.recipientType === 'department' || m.recipients?.type === 'department') {
+          return false;
+        }
+        
+        // 个人消息：检查角色是否匹配
+        if (m.recipientType === 'individual' || !m.recipientType) {
+          const targetRoles = m._roles || (m.metadata?.roles as string[]) || [];
+          // 如果消息指定了目标角色，检查是否匹配
+          if (targetRoles.length > 0 && leadershipRole) {
+            return targetRoles.includes(leadershipRole);
+          }
+          // 如果没有指定角色，检查 user_ids 是否包含当前用户
+          return true;
+        }
+        
+        // 审批待办消息：检查目标角色是否匹配
+        if (m.recipientType === 'administrative') {
+          const targetRoles = m._roles || (m.metadata?.roles as string[]) || [];
+          if (targetRoles.length > 0 && leadershipRole) {
+            return targetRoles.includes(leadershipRole);
+          }
+          return false;
+        }
+        
+        return false;
+      });
     } else {
       // 部门工作台过滤逻辑
       
@@ -273,9 +322,6 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
         'academic': 'academic',
         'moral': 'moral',
         'general': 'general',
-        'vice-principal-moral': 'moral', // 德育副校长看到德育相关消息
-        'vice-principal-academic': 'academic', // 教学副校长看到教务相关消息
-        'vice-principal-general': 'general', // 总务副校长看到总务相关消息
       };
       const targetDept = deptMapping[department] || department;
       
