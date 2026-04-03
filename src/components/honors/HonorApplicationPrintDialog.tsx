@@ -345,7 +345,7 @@ export function HonorApplicationPrintDialog({
         </DialogHeader>
 
         {/* 预览区域 - 立即显示 HTML 预览 */}
-        <div className="flex-1 relative overflow-auto bg-gray-100 print:bg-white flex justify-center">
+        <div className="flex-1 relative overflow-auto bg-white flex justify-center">
           {/* 导出样式 - 解决边框和分页问题 */}
           <style jsx global>{`
             /* 解决 html2canvas 边框消失问题 */
@@ -365,12 +365,6 @@ export function HonorApplicationPrintDialog({
             .export-table tr {
               page-break-inside: avoid !important;
               break-inside: avoid !important;
-            }
-            /* 容器宽度不能超 A4 */
-            #pdf-container {
-              width: 100% !important;
-              max-width: 700px !important;
-              margin: 0 auto;
             }
             /* 背景色单元格 */
             .export-table .bg-gray {
