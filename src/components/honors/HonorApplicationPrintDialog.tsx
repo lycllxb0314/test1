@@ -60,16 +60,22 @@ export function HonorApplicationPrintDialog({
     const startTime = Date.now();
     
     try {
-      // html2pdf 配置
+      // 计算 A4 尺寸的像素值（96dpi）
+      const a4WidthPx = Math.floor(210 * 96 / 25.4); // 约 794px
+      const a4HeightPx = Math.floor(297 * 96 / 25.4); // 约 1123px
+
+      // html2pdf 配置 - 不设置margin，让HTML内容自己控制边距
       const opt = {
-        margin: [30, 27, 27, 27] as [number, number, number, number], // 上、左、下、右（mm）
+        margin: 0,
         filename: `${application.studentName}_${application.campaign?.title || '申报表'}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.95 },
+        image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { 
-          scale: 1.5,
+          scale: 2,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
+          width: a4WidthPx,
+          height: a4HeightPx,
         },
         jsPDF: { 
           unit: 'mm' as const, 
@@ -262,15 +268,16 @@ export function HonorApplicationPrintDialog({
         </DialogHeader>
 
         {/* 预览区域 - 立即显示 HTML 预览 */}
-        <div className="flex-1 relative overflow-auto bg-gray-100 print:bg-white">
+        <div className="flex-1 relative overflow-auto bg-gray-100 print:bg-white flex justify-center">
           {/* HTML 内容预览（立即显示） */}
           <div 
             ref={contentRef}
-            className="bg-white mx-auto print:mx-0 print:w-full relative"
+            className="bg-white relative"
             style={{ 
               width: '210mm', 
               minHeight: '297mm',
               padding: '30mm 27mm 27mm 27mm',
+              boxSizing: 'border-box',
             }}
           >
             {/* 标题 */}
