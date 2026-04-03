@@ -370,42 +370,23 @@ export function HonorApplicationPrintDialog({
             .export-table .bg-gray {
               background: #f5f5f5 !important;
             }
-            /* 水印样式 */
-            .watermark-container {
-              position: relative;
-            }
-            .watermark-container::before {
-              content: '';
-              position: absolute;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              background-image: url('${watermarkUrl}');
-              background-repeat: repeat;
-              pointer-events: none;
-              z-index: 0;
-            }
-            .watermark-content {
-              position: relative;
-              z-index: 1;
-            }
           `}</style>
           
           {/* HTML 内容预览（立即显示） */}
           <div 
             id="pdf-container"
             ref={contentRef}
-            className="bg-white relative watermark-container"
+            className="bg-white relative"
             style={{ 
               width: '156mm', 
               minHeight: '240mm',
               padding: '5mm',
               boxSizing: 'border-box',
+              backgroundImage: watermarkUrl ? `url('${watermarkUrl}')` : 'none',
+              backgroundRepeat: 'repeat',
             }}
           >
-            <div className="watermark-content">
-              {/* 标题 */}
+            {/* 标题 */}
               <div style={{ textAlign: 'center', marginBottom: '8mm' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '8px' }}>
                   {/* 学校 Logo */}
@@ -576,7 +557,6 @@ export function HonorApplicationPrintDialog({
                 <span style={{ marginRight: '24mm' }}>申报编号：{application.id}</span>
                 <span>{schoolName}</span>
               </div>
-            </div>
           </div>
         </div>
       </DialogContent>
