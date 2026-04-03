@@ -339,7 +339,7 @@ export function HonorApplicationPrintDialog({
         <style>
           @page {
             size: A4;
-            margin: 10mm;
+            margin: 0;
           }
           body {
             margin: 0;
@@ -348,32 +348,24 @@ export function HonorApplicationPrintDialog({
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .watermark {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            pointer-events: none;
+          .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 15mm;
+            margin: 0 auto;
+            box-sizing: border-box;
             background-image: url('${watermarkPattern}');
             background-repeat: repeat;
           }
-          .content {
-            position: relative;
-            z-index: 1;
-            background: white;
-          }
           @media print {
-            .watermark {
-              opacity: 0.15;
+            .page {
+              margin: 0;
             }
           }
         </style>
       </head>
       <body>
-        <div class="watermark"></div>
-        <div class="content">${contentHtml}</div>
+        <div class="page">${contentHtml}</div>
         <script>
           // 自动打印
           window.onload = function() {
@@ -444,25 +436,17 @@ export function HonorApplicationPrintDialog({
 
         {/* 预览区域 - 立即显示 HTML 预览 */}
         <div className="flex-1 relative overflow-auto bg-gray-100 print:bg-white">
-          {/* 水印层 */}
-          {watermarkPattern && (
-            <div 
-              className="absolute inset-0 pointer-events-none z-10 print:hidden"
-              style={{
-                backgroundImage: `url(${watermarkPattern})`,
-                backgroundRepeat: 'repeat',
-              }}
-            />
-          )}
-          
           {/* HTML 内容预览（立即显示） */}
           <div 
             ref={contentRef}
-            className="bg-white mx-auto print:mx-0 print:w-full"
+            className="bg-white mx-auto print:mx-0 print:w-full relative"
             style={{ 
               width: '210mm', 
               minHeight: '297mm',
               padding: '15mm',
+              // 水印在文档内容区域内
+              backgroundImage: watermarkPattern ? `url(${watermarkPattern})` : 'none',
+              backgroundRepeat: 'repeat',
             }}
           >
             {/* 学校 Logo 和标题 */}
@@ -523,14 +507,29 @@ export function HonorApplicationPrintDialog({
               <h2 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', color: '#374151', borderBottom: '2px solid #e5e7eb', paddingBottom: '8px' }}>
                 申报内容
               </h2>
-              {Object.entries(application.formData).map(([key, value]) => (
-                <div key={key} style={{ marginBottom: '12px' }}>
-                  <h3 style={{ fontWeight: 500, marginBottom: '4px', fontSize: '12px', color: '#4b5563' }}>{key}</h3>
-                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0, fontSize: '13px' }}>
-                    {value || '-'}
-                  </p>
-                </div>
-              ))}
+              {/* 字段映射：使用formConfig.fields的label */}
+              {(() => {
+                // 构建字段名到标签的映射
+                const fieldLabels: Record<string, string> = {};
+                if (campaign?.formConfig?.fields) {
+                  campaign.formConfig.fields.forEach(f => {
+                    fieldLabels[f.field] = f.label;
+                  });
+                }
+                
+                return Object.entries(application.formData).map(([key, value]) => {
+                  // 使用映射后的中文标签，如果没有映射则使用原key
+                  const label = fieldLabels[key] || key;
+                  return (
+                    <div key={key} style={{ marginBottom: '12px' }}>
+                      <h3 style={{ fontWeight: 500, marginBottom: '4px', fontSize: '12px', color: '#4b5563' }}>{label}</h3>
+                      <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0, fontSize: '13px' }}>
+                        {value || '-'}
+                      </p>
+                    </div>
+                  );
+                });
+              })()}
             </div>
 
             {/* 已获奖荣誉 */}
