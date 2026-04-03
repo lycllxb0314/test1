@@ -77,7 +77,7 @@ class PsychologySessionServiceClass extends BaseService {
   /**
    * 创建新会话
    */
-  async createSession(studentId: string, sessionType?: string): Promise<ServiceResult<PsychologySession>> {
+  async createSession(studentId: string): Promise<ServiceResult<PsychologySession>> {
     try {
       // 检查是否有活跃会话
       const activeSession = await psychologySessionRepository.findActiveByStudentId(studentId);
@@ -88,7 +88,6 @@ class PsychologySessionServiceClass extends BaseService {
       // 创建新会话
       const session = await psychologySessionRepository.createSession({
         studentId,
-        sessionType: sessionType || 'chat',
       });
 
       if (!session) {
@@ -118,15 +117,15 @@ class PsychologySessionServiceClass extends BaseService {
    */
   async endSession(
     sessionId: string,
-    summary?: string,
-    emotionAnalysis?: Record<string, unknown>
+    riskLevel?: string,
+    riskScore?: number
   ): Promise<ServiceResult<PsychologySession>> {
     try {
       const session = await psychologySessionRepository.updateStatus(
         sessionId,
         'ended',
-        summary,
-        emotionAnalysis
+        riskLevel,
+        riskScore
       );
 
       if (!session) {

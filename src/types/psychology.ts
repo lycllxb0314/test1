@@ -14,9 +14,9 @@
 export type SessionStatus = 'active' | 'ended' | 'paused';
 
 /**
- * 会话类型
+ * 风险等级
  */
-export type SessionType = 'chat' | 'crisis' | 'follow_up';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
 /**
  * 心理会话
@@ -24,14 +24,29 @@ export type SessionType = 'chat' | 'crisis' | 'follow_up';
 export type PsychologySession = {
   id: string;
   studentId: string;
+  studentName?: string;
+  classId?: string;
+  className?: string;
+  grade?: number;
   status: SessionStatus;
+  riskLevel?: RiskLevel;
+  riskScore?: number;
+  messageCount?: number;
+  avgEmotionScore?: number;
+  emotionTrend?: EmotionTrendItem[];
   startedAt: string;
   endedAt?: string;
-  sessionType: SessionType;
-  summary?: string;
-  emotionAnalysis: EmotionAnalysis;
   createdAt: string;
   updatedAt: string;
+};
+
+/**
+ * 情感趋势项
+ */
+export type EmotionTrendItem = {
+  timestamp: string;
+  score: number;
+  emotion: string;
 };
 
 /**
@@ -39,7 +54,6 @@ export type PsychologySession = {
  */
 export type CreateSessionRequest = {
   studentId: string;
-  sessionType?: SessionType;
 };
 
 /**
@@ -47,8 +61,8 @@ export type CreateSessionRequest = {
  */
 export type UpdateSessionRequest = {
   status?: SessionStatus;
-  summary?: string;
-  emotionAnalysis?: EmotionAnalysis;
+  riskLevel?: RiskLevel;
+  riskScore?: number;
 };
 
 // ============================================
@@ -191,11 +205,6 @@ export type AlertStatistics = {
 // ============================================
 // 档案相关类型
 // ============================================
-
-/**
- * 风险等级
- */
-export type RiskLevel = 'normal' | 'attention' | 'warning' | 'crisis';
 
 /**
  * 学生心理档案
@@ -375,12 +384,18 @@ export type ChatStreamChunk = {
 export type PsychologySessionRow = {
   id: string;
   student_id: string;
+  student_name?: string;
+  class_id?: string;
+  class_name?: string;
+  grade?: number;
   status: SessionStatus;
+  risk_level?: RiskLevel;
+  risk_score?: number;
+  message_count?: number;
+  avg_emotion_score?: number;
+  emotion_trend?: EmotionTrendItem[];  // JSONB
   started_at: string;
   ended_at?: string;
-  session_type: SessionType;
-  summary?: string;
-  emotion_analysis: string;  // JSON 字符串
   created_at: string;
   updated_at: string;
 };

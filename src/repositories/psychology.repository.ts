@@ -35,12 +35,18 @@ export class PsychologySessionRepository extends BaseRepository<PsychologySessio
     return {
       id: row.id,
       studentId: row.student_id,
+      studentName: row.student_name,
+      classId: row.class_id,
+      className: row.class_name,
+      grade: row.grade,
       status: row.status,
+      riskLevel: row.risk_level,
+      riskScore: row.risk_score,
+      messageCount: row.message_count,
+      avgEmotionScore: row.avg_emotion_score,
+      emotionTrend: row.emotion_trend,
       startedAt: row.started_at,
       endedAt: row.ended_at,
-      sessionType: row.session_type,
-      summary: row.summary,
-      emotionAnalysis: JSON.parse(row.emotion_analysis || '{}'),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -101,17 +107,18 @@ export class PsychologySessionRepository extends BaseRepository<PsychologySessio
    */
   async createSession(session: {
     studentId: string;
-    sessionType?: string;
     status?: SessionStatus;
   }): Promise<PsychologySession | null> {
+    // 生成 UUID
+    const id = crypto.randomUUID();
+    
     const { data, error } = await this.client
       .from(this.tableName)
       .insert({
+        id,
         student_id: session.studentId,
-        session_type: session.sessionType || 'chat',
         status: session.status || 'active',
         started_at: new Date().toISOString(),
-        emotion_analysis: '{}',
       })
       .select()
       .single();
@@ -130,8 +137,8 @@ export class PsychologySessionRepository extends BaseRepository<PsychologySessio
   async updateStatus(
     sessionId: string,
     status: SessionStatus,
-    summary?: string,
-    emotionAnalysis?: Record<string, unknown>
+    riskLevel?: string,
+    riskScore?: number
   ): Promise<PsychologySession | null> {
     const updateData: Record<string, unknown> = {
       status,
@@ -141,11 +148,11 @@ export class PsychologySessionRepository extends BaseRepository<PsychologySessio
     if (status === 'ended') {
       updateData.ended_at = new Date().toISOString();
     }
-    if (summary) {
-      updateData.summary = summary;
+    if (riskLevel) {
+      updateData.risk_level = riskLevel;
     }
-    if (emotionAnalysis) {
-      updateData.emotion_analysis = JSON.stringify(emotionAnalysis);
+    if (riskScore !== undefined) {
+      updateData.risk_score = riskScore;
     }
 
     const { data, error } = await this.client
