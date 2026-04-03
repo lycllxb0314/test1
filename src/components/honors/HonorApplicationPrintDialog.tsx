@@ -128,7 +128,7 @@ export function HonorApplicationPrintDialog({
       const marginBottom = 27;
       const marginLeft = 27;
       const marginRight = 27;
-      const contentHeight = pageHeight - marginTop - marginBottom; // 有效内容高度
+      const contentHeightPerPage = pageHeight - marginTop - marginBottom; // 每页有效内容高度 240mm
 
       // 创建水印
       const watermarkData = await createWatermarkImage();
@@ -142,7 +142,7 @@ export function HonorApplicationPrintDialog({
         backgroundColor: '#ffffff',
       });
 
-      // 计算图片尺寸
+      // 计算图片在PDF中的尺寸
       const imgWidth = pageWidth - marginLeft - marginRight;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
@@ -153,29 +153,32 @@ export function HonorApplicationPrintDialog({
         format: 'a4',
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      // 使用 PNG 格式避免边框被压缩
+      const imgData = canvas.toDataURL('image/png');
 
-      // 计算需要多少页
-      let currentY = 0;
-      let pageNum = 1;
-      const totalPages = Math.ceil(imgHeight / contentHeight);
+      // 计算总页数
+      const totalPages = Math.ceil(imgHeight / contentHeightPerPage);
+      console.log(`图片高度: ${imgHeight}mm, 每页内容高度: ${contentHeightPerPage}mm, 总页数: ${totalPages}`);
 
-      // 添加第一页
-      pdf.addImage(imgData, 'JPEG', marginLeft, marginTop - currentY, imgWidth, imgHeight);
-      currentY += contentHeight;
-
-      // 添加后续页面
-      while (currentY < imgHeight) {
-        pdf.addPage();
-        pageNum++;
-        // 图片向上偏移，让新页面的顶部显示后续内容
-        const offsetY = marginTop - currentY;
-        pdf.addImage(imgData, 'JPEG', marginLeft, offsetY, imgWidth, imgHeight);
-        currentY += contentHeight;
+      // 添加所有页面
+      for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        if (pageNum > 0) {
+          pdf.addPage();
+        }
+        
+        // 计算当前页面图片的偏移量
+        // 第0页：图片顶部在 marginTop 位置
+        // 第1页：图片顶部在 marginTop - contentHeightPerPage 位置（向上偏移）
+        // 第N页：图片顶部在 marginTop - N * contentHeightPerPage 位置
+        const offsetY = marginTop - (pageNum * contentHeightPerPage);
+        
+        // 在指定位置绘制图片
+        pdf.addImage(imgData, 'PNG', marginLeft, offsetY, imgWidth, imgHeight);
       }
 
       // 为每一页添加水印
-      for (let i = 1; i <= pageNum; i++) {
+      const actualPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= actualPages; i++) {
         pdf.setPage(i);
         
         // 平铺水印
@@ -191,7 +194,7 @@ export function HonorApplicationPrintDialog({
       const url = URL.createObjectURL(pdfBlob);
       setPdfUrl(url);
       
-      console.log(`PDF生成完成，共${pageNum}页，耗时: ${(Date.now() - startTime) / 1000}s`);
+      console.log(`PDF生成完成，共${actualPages}页，耗时: ${(Date.now() - startTime) / 1000}s`);
       
     } catch (error) {
       console.error('生成 PDF 失败:', error);
