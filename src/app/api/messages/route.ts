@@ -188,9 +188,10 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
   }
 
   const userId = user.id;
+  const userRole = user.role; // 获取用户角色
 
   try {
-    // 使用 MessageService 查询消息（包含部门广播消息）
+    // 使用 MessageService 查询消息（包含部门广播消息和角色消息）
     const result = await messageService.queryUserMessages({
       userId,
       event: eventFilter as MessageEvent | undefined,
@@ -208,13 +209,27 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     const readStatuses = await messageRepository.findUnread(userId);
     
     // 格式化消息
-    let messages: (UserMessage & { _deletedAt?: string; _isArchived?: boolean })[] = (result.data || []).map(msg => ({
+    let messages: (UserMessage & { _deletedAt?: string; _isArchived?: boolean; _roles?: string[] })[] = (result.data || []).map(msg => ({
       ...msg,
       _isArchived: msg.status === 'archived',
+      // 从 metadata 中获取 roles（Supabase schema cache 问题）
+      _roles: (msg.metadata?.roles as string[]) || [],
     }));
     
     // 过滤掉已删除的消息
-    const activeMessages = messages.filter(msg => !msg._deletedAt);
+    let activeMessages = messages.filter(msg => !msg._deletedAt);
+
+    // 过滤角色消息：只保留角色匹配的消息
+    activeMessages = activeMessages.filter(m => {
+      // 如果消息有 roles 字段，检查用户角色是否匹配
+      if (m._roles && m._roles.length > 0) {
+        // 如果用户角色不在消息的目标角色列表中，过滤掉
+        if (!m._roles.includes(userRole)) {
+          return false;
+        }
+      }
+      return true;
+    });
 
     // 默认不显示已归档的消息
     let displayMessages = activeMessages;

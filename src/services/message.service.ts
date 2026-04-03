@@ -237,31 +237,41 @@ export class MessageService extends BaseService {
    */
   async sendMessage(params: SendMessageParams): Promise<ServiceResult<UserMessage>> {
     try {
+      // 注意: Supabase schema cache 问题，多个字段不可用
+      // 只使用确认存在的字段：title, content, type, priority, sender_id, sender_name, user_ids, metadata, sent_at
+      // roles, related_id, related_type, action_url, action_label, event, status 都存储在 metadata 中
       const messageRow: Partial<MessageRow> = {
         title: params.title,
         content: params.content,
         type: this.eventToType(params.event),
-        event: params.event,
         priority: params.priority || 'normal',
         sender_id: params.senderId,
         sender_name: params.senderName,
-        user_ids: params.recipientIds,  // 使用正确的列名
-        roles: params.recipientRoles,     // 使用正确的列名
-        related_id: params.relatedId,
-        related_type: params.relatedType,
-        action_url: params.actionUrl,
-        action_label: params.actionLabel,
-        metadata: params.metadata,
-        status: 'sent',
+        user_ids: params.recipientIds,
+        // 所有额外字段都存储在 metadata 中
+        metadata: {
+          ...params.metadata,
+          event: params.event,
+          status: 'sent',
+          roles: params.recipientRoles, // 角色列表存储在 metadata 中
+          action_url: params.actionUrl,
+          action_label: params.actionLabel,
+          related_id: params.relatedId,
+          related_type: params.relatedType,
+        },
         sent_at: new Date().toISOString(),
       };
+
+      console.log('[MessageService] Creating message with title:', params.title);
 
       const created = await this.repository.create(messageRow);
       
       if (!created) {
+        console.error('[MessageService] repository.create returned null');
         return this.fail('发送消息失败');
       }
 
+      console.log('[MessageService] Message created successfully:', created.id);
       return this.ok(this.toUserMessage(created as MessageRow));
     } catch (error) {
       console.error('[MessageService] sendMessage error:', error);
@@ -467,19 +477,20 @@ export class MessageService extends BaseService {
    * 数据库行转业务模型
    */
   private toUserMessage(row: MessageRow): UserMessage {
-    // 从 metadata 中获取 action_url, action_label, related_id, related_type
+    // 从 metadata 中获取 action_url, action_label, related_id, related_type, event
     const metadata = row.metadata || {};
     return {
       id: row.id,
       title: row.title,
       content: row.content,
-      event: (row.event || this.typeToEvent(row.type)) as MessageEvent,
+      // 优先从 metadata 中获取 event，兼容旧数据
+      event: (metadata.event || row.event || this.typeToEvent(row.type)) as MessageEvent,
       priority: (row.priority || 'normal') as MessagePriority,
       status: 'unread', // TODO: 从 message_reads 表获取实际状态
       senderId: row.sender_id,
       senderName: row.sender_name,
-      recipientId: row.recipient_id || row.user_ids?.[0],  // 使用正确的列名
-      recipientType: row.recipient_type, // 接收者类型
+      recipientId: row.recipient_id || row.user_ids?.[0],
+      recipientType: row.recipient_type,
       relatedId: row.related_id || (metadata.related_id as string),
       relatedType: row.related_type || (metadata.related_type as string),
       actionUrl: row.action_url || (metadata.action_url as string),

@@ -78,10 +78,11 @@ export class MessageRepository extends BaseRepository<MessageRow> {
   /**
    * 查询用户收到的消息
    * 
-   * 查询条件（在数据库层面过滤）：
+   * 查询条件：
    * 1. recipient_id 等于当前用户ID（个人消息）
    * 2. 或者 user_ids 包含用户ID
-   * 3. 或者 recipient_type = 'department'（部门广播消息，后续在业务层过滤）
+   * 3. 或者 recipient_type = 'department'（部门广播消息）
+   * 4. 或者 metadata->roles 有值（角色消息）
    */
   async findReceived(
     userId: string,
@@ -97,18 +98,17 @@ export class MessageRepository extends BaseRepository<MessageRow> {
     const to = from + pageSize - 1;
     
     // 构建查询条件
-    // 条件1: 个人消息 (recipient_id = userId)
-    // 条件2: 用户组消息 (user_ids 包含 userId)
-    // 条件3: 部门广播消息 (recipient_type = 'department')
     let query = this.client
       .from(this.tableName)
       .select('*', { count: 'exact' });
 
-    // 构建OR条件
+    // 构建OR条件：个人消息、用户组消息、部门广播、角色消息
+    // 注意: 使用 metadata->roles 检查角色消息（JSONB 查询）
     const orConditions: string[] = [
       `recipient_id.eq.${userId}`,
       `user_ids.cs.{${userId}}`,
       `recipient_type.eq.department`,
+      `metadata->roles.not.is.null`, // JSONB 查询：metadata 中包含 roles 字段
     ];
 
     query = query.or(orConditions.join(','));

@@ -545,8 +545,10 @@ export class HonorCampaignService extends BaseService {
    */
   private async sendCampaignNotification(campaign: HonorCampaign): Promise<void> {
     try {
+      console.log('[HonorCampaignService] 开始发送评选活动通知...');
+
       // 发送给班主任
-      await messageService.sendMessage({
+      const teacherResult = await messageService.sendMessage({
         title: `【荣誉评选】${campaign.title}`,
         content: `新的荣誉评选活动已发布，请通知班级符合条件的学生家长及时申报。\n\n荣誉类型：${campaign.honorType}\n申报截止：${campaign.endDate}\n\n${campaign.requirements || ''}`,
         event: 'honor_campaign',
@@ -563,8 +565,14 @@ export class HonorCampaignService extends BaseService {
         },
       });
 
+      if (!teacherResult.success) {
+        console.error('[HonorCampaignService] 发送班主任通知失败:', teacherResult.error);
+      } else {
+        console.log('[HonorCampaignService] 班主任通知已发送:', teacherResult.data?.id);
+      }
+
       // 发送给家长
-      await messageService.sendMessage({
+      const parentResult = await messageService.sendMessage({
         title: `【荣誉申报】${campaign.title}`,
         content: `学校发布了新的荣誉评选活动，欢迎符合条件的学生申报。\n\n荣誉类型：${campaign.honorType}\n申报截止：${campaign.endDate}\n\n申报条件：${campaign.requirements || '详见活动说明'}`,
         event: 'honor_campaign',
@@ -580,6 +588,12 @@ export class HonorCampaignService extends BaseService {
           endDate: campaign.endDate,
         },
       });
+
+      if (!parentResult.success) {
+        console.error('[HonorCampaignService] 发送家长通知失败:', parentResult.error);
+      } else {
+        console.log('[HonorCampaignService] 家长通知已发送:', parentResult.data?.id);
+      }
 
       console.log(`[HonorCampaignService] 发布通知已发送`);
     } catch (error) {
