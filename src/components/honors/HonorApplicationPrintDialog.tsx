@@ -43,11 +43,12 @@ type HonorApplicationPrintDialogProps = {
 /** 水印配置 */
 const WATERMARK_CONFIG = {
   color: 'rgba(180, 180, 180, 0.12)',
-  fontSize: 14,
+  fontSize: 28,        // 放大字体
   rotate: -25,
-  gap: 180,
-  logoSize: 22,
-  logoTextGap: 8, // logo和文字之间的间距
+  gap: 300,            // 增大间距
+  logoSize: 44,        // 放大logo
+  logoTextGap: 12,     // logo和文字之间的间距
+  scale: 2,            // 高清缩放比例
 };
 
 /**
@@ -60,11 +61,11 @@ async function createWatermarkPattern(schoolName: string): Promise<string> {
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  const { color, fontSize, rotate, gap, logoSize, logoTextGap } = WATERMARK_CONFIG;
+  const { color, fontSize, rotate, gap, logoSize, logoTextGap, scale } = WATERMARK_CONFIG;
   
-  // 设置画布尺寸
-  canvas.width = gap * 2;
-  canvas.height = gap * 2;
+  // 设置高清画布尺寸（2倍分辨率）
+  canvas.width = gap * 2 * scale;
+  canvas.height = gap * 2 * scale;
 
   // 尝试加载学校logo
   let logoImage: HTMLImageElement | null = null;
@@ -80,6 +81,9 @@ async function createWatermarkPattern(schoolName: string): Promise<string> {
     // logo加载失败，仅使用文字
   }
 
+  // 缩放上下文以支持高清绘制
+  ctx.scale(scale, scale);
+
   // 设置字体以测量文字宽度
   ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
   const textWidth = ctx.measureText(schoolName).width;
@@ -88,7 +92,7 @@ async function createWatermarkPattern(schoolName: string): Promise<string> {
   const totalWidth = (logoImage ? logoSize + logoTextGap : 0) + textWidth;
 
   // 移动到中心点并旋转
-  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.translate(gap, gap);  // 使用未缩放的gap值
   ctx.rotate((rotate * Math.PI) / 180);
 
   // 从中心点开始绘制，整体水平居中
@@ -97,6 +101,9 @@ async function createWatermarkPattern(schoolName: string): Promise<string> {
   // 绘制logo（如果有）- 在左边
   if (logoImage) {
     ctx.globalAlpha = 0.15;
+    // 启用图像平滑
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(
       logoImage,
       currentX,
@@ -165,12 +172,15 @@ export function HonorApplicationPrintDialog({
         format: 'a4',
       });
 
-      // 创建带logo的水印图案（logo和文字水平对齐）
+      // 创建带logo的水印图案（logo和文字水平对齐，高清）
       const watermarkCanvas = document.createElement('canvas');
       const wCtx = watermarkCanvas.getContext('2d');
       if (wCtx) {
-        watermarkCanvas.width = 400;
-        watermarkCanvas.height = 400;
+        // 高清尺寸
+        const scale = 2;
+        const baseSize = 300;
+        watermarkCanvas.width = baseSize * 2 * scale;
+        watermarkCanvas.height = baseSize * 2 * scale;
         
         // 尝试加载logo
         let logoImg: HTMLImageElement | null = null;
@@ -186,16 +196,19 @@ export function HonorApplicationPrintDialog({
           // logo加载失败，仅使用文字
         }
 
-        // 设置字体测量文字宽度
-        const fontSize = 18;
-        const logoSize = 28;
-        const logoTextGap = 6;
+        // 缩放上下文
+        wCtx.scale(scale, scale);
+
+        // 设置字体测量文字宽度（放大尺寸）
+        const fontSize = 24;
+        const logoSize = 36;
+        const logoTextGap = 8;
         wCtx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
         const textWidth = wCtx.measureText(schoolName).width;
         const totalWidth = (logoImg ? logoSize + logoTextGap : 0) + textWidth;
 
         // 移动到中心并旋转
-        wCtx.translate(200, 200);
+        wCtx.translate(baseSize, baseSize);
         wCtx.rotate((-25 * Math.PI) / 180);
 
         // 从中心开始绘制，整体水平居中
@@ -204,6 +217,8 @@ export function HonorApplicationPrintDialog({
         // 绘制logo（左边）
         if (logoImg) {
           wCtx.globalAlpha = 0.15;
+          wCtx.imageSmoothingEnabled = true;
+          wCtx.imageSmoothingQuality = 'high';
           wCtx.drawImage(logoImg, currentX, -logoSize / 2, logoSize, logoSize);
           wCtx.globalAlpha = 1;
           currentX += logoSize + logoTextGap;
