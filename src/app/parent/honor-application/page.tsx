@@ -319,9 +319,27 @@ export default function ParentHonorApplicationPage() {
 
   // 打印申报表
   const handlePrint = async (application: HonorApplication) => {
-    // 打开打印预览弹窗
-    setSelectedApplication(application);
-    setPrintDialogOpen(true);
+    // 先获取完整的申报详情（包含campaign.formConfig）
+    try {
+      const res = await fetch(`/api/honor-applications/${application.id}`, {
+        credentials: 'include',
+      });
+      const result = await res.json();
+
+      if (result.success) {
+        setSelectedApplication(result.data);
+        setPrintDialogOpen(true);
+      } else {
+        // 如果获取失败，使用列表数据
+        setSelectedApplication(application);
+        setPrintDialogOpen(true);
+      }
+    } catch (err) {
+      console.error('获取申报详情失败:', err);
+      // 出错时使用列表数据
+      setSelectedApplication(application);
+      setPrintDialogOpen(true);
+    }
   };
 
   // ==================== 渲染 ====================

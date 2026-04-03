@@ -100,7 +100,7 @@ export class HonorApplicationRepository {
     // 2. 查询关联数据
     const [campaignResult, studentResult, classResult] = await Promise.all([
       data.campaign_id 
-        ? this.client.from('honor_campaigns').select('id, title, honor_type, status').eq('id', data.campaign_id).single()
+        ? this.client.from('honor_campaigns').select('id, title, honor_type, status, form_config').eq('id', data.campaign_id).single()
         : { data: null, error: null },
       data.student_id
         ? this.client.from('students').select('id, name, student_no').eq('id', data.student_id).single()
@@ -117,6 +117,7 @@ export class HonorApplicationRepository {
         title: campaignResult.data.title,
         honorType: campaignResult.data.honor_type,
         status: campaignResult.data.status,
+        formConfig: campaignResult.data.form_config,
       } as any;
     }
     if (studentResult.data) {

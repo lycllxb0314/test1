@@ -42,13 +42,13 @@ type HonorApplicationPrintDialogProps = {
 
 /** 水印配置 */
 const WATERMARK_CONFIG = {
-  color: 'rgba(180, 180, 180, 0.12)',
-  fontSize: 28,        // 放大字体
+  color: 'rgba(180, 180, 180, 0.10)',
+  fontSize: 16,         // 缩小字体
   rotate: -25,
-  gap: 300,            // 增大间距
-  logoSize: 44,        // 放大logo
-  logoTextGap: 12,     // logo和文字之间的间距
-  scale: 2,            // 高清缩放比例
+  gap: 120,             // 缩小间距，增加密度
+  logoSize: 24,         // 缩小logo
+  logoTextGap: 6,       // logo和文字之间的间距
+  scale: 2,             // 高清缩放比例
 };
 
 /**
