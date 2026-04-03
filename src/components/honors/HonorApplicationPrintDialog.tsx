@@ -144,9 +144,9 @@ export function HonorApplicationPrintDialog({
     });
   }, [createWatermark]);
 
-  // 生成 PDF
-  const generatePdf = useCallback(async () => {
-    if (!contentRef.current || !application) return;
+  // 生成 PDF（返回 URL）
+  const generatePdf = useCallback(async (): Promise<string | null> => {
+    if (!contentRef.current || !application) return null;
 
     setGenerating(true);
     const startTime = Date.now();
@@ -186,25 +186,24 @@ export function HonorApplicationPrintDialog({
       
       console.log(`PDF生成完成，耗时: ${(Date.now() - startTime) / 1000}s`);
       
+      return url;
+      
     } catch (error) {
       console.error('生成 PDF 失败:', error);
       const errorMessage = error instanceof Error ? error.message : '生成 PDF 失败';
       toast.error(errorMessage);
+      return null;
     } finally {
       setGenerating(false);
     }
   }, [application]);
 
-  // 打开时异步生成 PDF（仅当启用 PDF 功能时）
+  // 打开时重置 PDF URL
   useEffect(() => {
-    if (open && application && enablePdf) {
+    if (open) {
       setPdfUrl(null);
-      const timer = setTimeout(() => {
-        generatePdf();
-      }, 500);
-      return () => clearTimeout(timer);
     }
-  }, [open, application?.id, enablePdf, generatePdf]);
+  }, [open, application?.id]);
 
   // 关闭时清理
   useEffect(() => {
@@ -215,25 +214,37 @@ export function HonorApplicationPrintDialog({
     };
   }, [pdfUrl]);
 
-  // 下载 PDF
-  const handleDownload = () => {
-    if (!pdfUrl || !application) return;
-    const a = document.createElement('a');
-    a.href = pdfUrl;
-    a.download = `${application.studentName}_${application.campaign?.title || '申报表'}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  // 下载 PDF（按需生成）
+  const handleDownload = async () => {
+    if (!application) return;
+    
+    // 如果还没有生成 PDF，先生成
+    const url = pdfUrl || await generatePdf();
+    
+    if (url) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${application.studentName}_${application.campaign?.title || '申报表'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   };
 
-  // 打印
-  const handlePrint = () => {
-    if (!pdfUrl) return;
-    const printWindow = window.open(pdfUrl, '_blank');
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.print();
-      };
+  // PDF 打印（按需生成）
+  const handlePdfPrint = async () => {
+    if (!application) return;
+    
+    // 如果还没有生成 PDF，先生成
+    const url = pdfUrl || await generatePdf();
+    
+    if (url) {
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
     }
   };
 
@@ -299,11 +310,11 @@ export function HonorApplicationPrintDialog({
               </Button>
               {enablePdf && (
                 <>
-                  <Button size="sm" variant="outline" onClick={handleDownload} disabled={!pdfUrl}>
+                  <Button size="sm" variant="outline" onClick={handleDownload} disabled={generating}>
                     <Download className="w-4 h-4 mr-1" />
                     下载
                   </Button>
-                  <Button size="sm" onClick={handlePrint} disabled={!pdfUrl}>
+                  <Button size="sm" onClick={handlePdfPrint} disabled={generating}>
                     <Printer className="w-4 h-4 mr-1" />
                     PDF打印
                   </Button>
