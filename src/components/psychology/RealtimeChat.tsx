@@ -3,10 +3,10 @@
 /**
  * 实时视频对话组件
  * 
- * 真正的实时视频通话体验：
- * - 用户摄像头实时显示
- * - 说话时实时转写+回复+语音播放（并行处理）
- * - 童童同步显示回复动画
+ * 真正的实时体验：
+ * - 用户视频正常显示
+ * - 说完话立即响应
+ * - 不会自言自语
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -17,25 +17,19 @@ import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone } from 'lucide-react';
 
 type RealtimeChatProps = {
   studentId: string;
-  onCrisisDetected?: (keywords: string[]) => void;
   className?: string;
 };
 
-export const RealtimeChat: React.FC<RealtimeChatProps> = ({
-  studentId,
-  className,
-}) => {
-  // 通话状态
+export const RealtimeChat: React.FC<RealtimeChatProps> = ({ studentId, className }) => {
+  // 状态
   const [isInCall, setIsInCall] = useState(false);
-  const [isMicEnabled, setIsMicEnabled] = useState(true);
-  const [isCameraEnabled, setIsCameraEnabled] = useState(true);
-  
-  // 对话状态
-  const [sessionId, setSessionId] = useState<string>('');
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [sessionId, setSessionId] = useState('');
   const [tongtongState, setTongtongState] = useState<TongtongState>('idle');
   const [responseText, setResponseText] = useState('');
-  const [isResponding, setIsResponding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState('点击开始通话');
+  const [error, setError] = useState('');
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -43,11 +37,10 @@ export const RealtimeChat: React.FC<RealtimeChatProps> = ({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const processingRef = useRef(false);
-  const speakingRef = useRef(false);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const isProcessingRef = useRef(false);
+  const isPlayingRef = useRef(false);
 
   // 初始化会话
   useEffect(() => {
@@ -56,222 +49,211 @@ export const RealtimeChat: React.FC<RealtimeChatProps> = ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ studentId }),
     })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data?.session?.id) {
-          setSessionId(data.data.session.id);
-        }
-      })
-      .catch(console.error);
+      .then(r => r.json())
+      .then(d => d.success && setSessionId(d.data?.session?.id || ''))
+      .catch(() => {});
   }, [studentId]);
 
   // 清理
   useEffect(() => {
     return () => {
-      stopAll();
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      audioContextRef.current?.close();
     };
   }, []);
-
-  const stopAll = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-      recorderRef.current.stop();
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(() => {});
-    }
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-    }
-  };
 
   // 开始通话
   const startCall = async () => {
     try {
-      setError(null);
-      
+      setError('');
+      setStatus('正在获取权限...');
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: 640, height: 480 },
-        audio: { echoCancellation: true, noiseSuppression: true },
+        video: { facingMode: 'user', width: 1280, height: 720 },
+        audio: true,
       });
 
       streamRef.current = stream;
-      
-      // 立即设置视频
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+
+      // 立即设置视频 - 关键！
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        try {
+          await video.play();
+        } catch (e) {
+          console.error('视频播放失败:', e);
+        }
       }
 
       setIsInCall(true);
-      setIsMicEnabled(true);
-      setIsCameraEnabled(true);
+      setIsMicOn(true);
+      setIsCameraOn(true);
+      setStatus('请说话');
 
-      // 设置音频分析
-      setupAudioAnalysis(stream);
-      
-      // 开始录音
-      startRecording(stream);
+      // 设置VAD（但不录音，等用户说话才录）
+      setupVAD(stream);
 
-    } catch (err) {
-      console.error('获取媒体失败:', err);
-      setError('需要摄像头和麦克风权限');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '获取权限失败';
+      setError(msg);
+      setStatus('权限被拒绝');
     }
   };
 
-  // 设置音频分析（VAD）
-  const setupAudioAnalysis = (stream: MediaStream) => {
-    const ctx = new AudioContext();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    const source = ctx.createMediaStreamSource(stream);
-    source.connect(analyser);
-    
-    audioContextRef.current = ctx;
-    analyserRef.current = analyser;
+  // VAD - 只检测是否在说话
+  const setupVAD = (stream: MediaStream) => {
+    try {
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      const source = ctx.createMediaStreamSource(stream);
+      source.connect(analyser);
+      
+      audioContextRef.current = ctx;
+      analyserRef.current = analyser;
 
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    
-    const checkAudio = () => {
-      if (!streamRef.current) return;
-      
-      analyser.getByteFrequencyData(data);
-      const avg = data.reduce((a, b) => a + b, 0) / data.length;
-      
-      // 检测是否在说话
-      if (avg > 30) {
-        if (!speakingRef.current) {
-          speakingRef.current = true;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      let speaking = false;
+      let silenceTimer: NodeJS.Timeout | null = null;
+      let recordTimer: NodeJS.Timeout | null = null;
+
+      const check = () => {
+        if (!streamRef.current) return;
+        
+        analyser.getByteFrequencyData(data);
+        const vol = data.reduce((a, b) => a + b, 0) / data.length;
+
+        // 正在播放TTS时不处理
+        if (isPlayingRef.current || isProcessingRef.current) {
+          requestAnimationFrame(check);
+          return;
         }
-        // 重置静音计时器
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-      } else if (speakingRef.current && !silenceTimerRef.current) {
-        // 静音800ms后处理
-        silenceTimerRef.current = setTimeout(() => {
-          if (speakingRef.current && !processingRef.current) {
-            speakingRef.current = false;
-            processAudio();
+
+        if (vol > 35) {
+          if (!speaking) {
+            speaking = true;
+            setStatus('正在听...');
+            // 开始录音
+            startRecording(stream);
+            // 最多录10秒
+            recordTimer = setTimeout(() => {
+              if (speaking) {
+                speaking = false;
+                processAudio();
+              }
+            }, 10000);
           }
-        }, 800);
-      }
-      
-      requestAnimationFrame(checkAudio);
-    };
-    
-    requestAnimationFrame(checkAudio);
+          if (silenceTimer) {
+            clearTimeout(silenceTimer);
+            silenceTimer = null;
+          }
+        } else if (speaking) {
+          if (!silenceTimer) {
+            silenceTimer = setTimeout(() => {
+              speaking = false;
+              if (recordTimer) clearTimeout(recordTimer);
+              processAudio();
+            }, 1000); // 1秒静音
+          }
+        }
+
+        requestAnimationFrame(check);
+      };
+
+      requestAnimationFrame(check);
+    } catch (e) {
+      console.error('VAD setup error:', e);
+    }
   };
 
   // 开始录音
   const startRecording = (stream: MediaStream) => {
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-      ? 'audio/webm;codecs=opus' 
-      : 'audio/webm';
-    
-    const recorder = new MediaRecorder(stream, { mimeType });
     chunksRef.current = [];
     
+    let mimeType = '';
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      mimeType = 'audio/webm;codecs=opus';
+    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+      mimeType = 'audio/webm';
+    }
+
+    const recorder = mimeType 
+      ? new MediaRecorder(stream, { mimeType }) 
+      : new MediaRecorder(stream);
+
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
-    
+
     recorder.start(100);
     recorderRef.current = recorder;
   };
 
   // 处理音频
   const processAudio = async () => {
-    if (!recorderRef.current || processingRef.current) return;
+    if (isProcessingRef.current) return;
     
-    // 停止当前录音
-    recorderRef.current.stop();
-    
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state === 'recording') {
+      recorder.stop();
+    }
+
+    // 等数据收集
+    await new Promise(r => setTimeout(r, 200));
+
     const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
     chunksRef.current = [];
-    
+
+    // 太短忽略
     if (blob.size < 3000) {
-      // 太短，重新开始录音
-      if (streamRef.current) startRecording(streamRef.current);
+      setStatus('请说话');
       return;
     }
 
-    processingRef.current = true;
+    isProcessingRef.current = true;
     setTongtongState('thinking');
+    setStatus('思考中...');
 
     try {
-      // 转base64
-      const base64 = await blobToBase64(blob);
-      
       // ASR
+      const base64 = await blobToBase64(blob);
       const asrRes = await fetch('/api/psychology/asr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ audioData: base64, format: 'webm' }),
       });
       const asrData = await asrRes.json();
-      
+
       if (!asrData.success || !asrData.data?.text?.trim()) {
-        processingRef.current = false;
+        setStatus('没听清，请再说');
+        isProcessingRef.current = false;
         setTongtongState('idle');
-        if (streamRef.current) startRecording(streamRef.current);
         return;
       }
 
       const text = asrData.data.text.trim();
-      
-      // 立即开始LLM流式回复
+      setStatus('');
+
+      // LLM + TTS 并行
       setTongtongState('speaking');
       setResponseText('');
-      setIsResponding(true);
-      
+
       const chatRes = await fetch('/api/psychology/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          studentId,
-          message: text,
-        }),
+        body: JSON.stringify({ sessionId, studentId, message: text }),
       });
 
       const reader = chatRes.body?.getReader();
+      if (!reader) throw new Error('无法读取');
+
       const decoder = new TextDecoder();
-      let fullResponse = '';
+      let response = '';
 
-      // 流式读取并实时TTS
-      const ttsQueue: string[] = [];
-      let isTtsPlaying = false;
-
-      const playNextTts = async () => {
-        if (isTtsPlaying || ttsQueue.length === 0) return;
-        isTtsPlaying = true;
-        
-        const textToSpeak = ttsQueue.shift()!;
-        try {
-          const ttsRes = await fetch('/api/psychology/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: textToSpeak, returnBase64: true }),
-          });
-          const ttsData = await ttsRes.json();
-          
-          if (ttsData.success && ttsData.audioData) {
-            const audio = new Audio(ttsData.audioData);
-            audioRef.current = audio;
-            await audio.play();
-            await new Promise<void>(r => { audio.onended = () => r(); });
-          }
-        } catch {}
-        
-        isTtsPlaying = false;
-        if (ttsQueue.length > 0) playNextTts();
-      };
-
-      while (reader) {
+      while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -279,138 +261,112 @@ export const RealtimeChat: React.FC<RealtimeChatProps> = ({
         for (const line of chunk.split('\n')) {
           if (line.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6));
-              if (data.type === 'text' && data.content) {
-                fullResponse += data.content;
-                setResponseText(fullResponse);
-                
-                // 每积累一定字数就播放TTS
-                if (fullResponse.length > 0 && (fullResponse.endsWith('。') || fullResponse.endsWith('？') || fullResponse.endsWith('！') || fullResponse.endsWith('，'))) {
-                  ttsQueue.push(fullResponse.slice(-10));
-                  playNextTts();
-                }
+              const d = JSON.parse(line.slice(6));
+              if (d.type === 'text' && d.content) {
+                response += d.content;
+                setResponseText(response);
               }
             } catch {}
           }
         }
       }
 
-      // 播放剩余内容
-      if (fullResponse && ttsQueue.length === 0) {
-        // 整段播放
-        try {
-          const ttsRes = await fetch('/api/psychology/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: fullResponse, returnBase64: true }),
-          });
-          const ttsData = await ttsRes.json();
-          
-          if (ttsData.success && ttsData.audioData) {
-            const audio = new Audio(ttsData.audioData);
-            audioRef.current = audio;
-            await audio.play();
-            await new Promise<void>(r => { audio.onended = () => r(); });
-          }
-        } catch {}
+      // 播放TTS
+      if (response) {
+        isPlayingRef.current = true;
+        const ttsRes = await fetch('/api/psychology/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: response, returnBase64: true }),
+        });
+        const ttsData = await ttsRes.json();
+
+        if (ttsData.success && ttsData.audioData) {
+          const audio = new Audio(ttsData.audioData);
+          audioRef.current = audio;
+          await audio.play();
+          await new Promise<void>(r => { audio.onended = () => { isPlayingRef.current = false; r(); }; });
+        }
+        isPlayingRef.current = false;
       }
 
-      setIsResponding(false);
       setTongtongState('idle');
-      processingRef.current = false;
-      
-      // 重新开始录音
-      if (streamRef.current) startRecording(streamRef.current);
+      setStatus('请说话');
 
     } catch (err) {
-      console.error('处理失败:', err);
-      processingRef.current = false;
+      console.error('Error:', err);
+      setStatus('出错了，请重试');
       setTongtongState('idle');
-      if (streamRef.current) startRecording(streamRef.current);
+    } finally {
+      isProcessingRef.current = false;
     }
   };
 
-  const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
+  const blobToBase64 = (blob: Blob): Promise<string> => 
+    new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
+      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-  };
 
   // 结束通话
   const endCall = () => {
-    stopAll();
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    audioContextRef.current?.close();
+    if (videoRef.current) videoRef.current.srcObject = null;
     setIsInCall(false);
+    setTongtongState('idle');
   };
 
   const toggleMic = () => {
-    if (streamRef.current) {
-      streamRef.current.getAudioTracks().forEach(t => t.enabled = !isMicEnabled);
-      setIsMicEnabled(!isMicEnabled);
-    }
+    const tracks = streamRef.current?.getAudioTracks() || [];
+    tracks.forEach(t => t.enabled = !isMicOn);
+    setIsMicOn(!isMicOn);
   };
 
   const toggleCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getVideoTracks().forEach(t => t.enabled = !isCameraEnabled);
-      setIsCameraEnabled(!isCameraEnabled);
-    }
+    const tracks = streamRef.current?.getVideoTracks() || [];
+    tracks.forEach(t => t.enabled = !isCameraOn);
+    setIsCameraOn(!isCameraOn);
   };
 
-  // 未通话界面
+  // 未通话
   if (!isInCall) {
     return (
-      <div className={cn('flex flex-col items-center justify-center h-full bg-gradient-to-b from-slate-900 to-slate-800', className)}>
-        <TongtongAvatar state="idle" emotion="happy" size="xl" animated />
-        <h2 className="text-2xl font-bold text-white mt-6 mb-2">童童哥哥在这里等你</h2>
-        <p className="text-slate-400 mb-8">点击开始视频通话</p>
-        {error && <p className="text-red-400 mb-4">{error}</p>}
-        <Button
-          onClick={startCall}
-          className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600"
-        >
-          <Phone className="w-7 h-7" />
+      <div className={cn('flex flex-col items-center justify-center h-full bg-slate-900', className)}>
+        <TongtongAvatar state="idle" emotion="happy" size="xl" />
+        <h2 className="text-xl text-white mt-6 mb-2">童童哥哥在这里等你</h2>
+        {error && <p className="text-red-400 mb-4 text-sm">{error}</p>}
+        <Button onClick={startCall} className="w-14 h-14 rounded-full bg-green-500 hover:bg-green-600">
+          <Phone className="w-6 h-6" />
         </Button>
+        <p className="text-slate-400 text-sm mt-3">{status}</p>
       </div>
     );
   }
 
-  // 视频通话界面
+  // 视频通话
   return (
     <div className={cn('relative h-full bg-black', className)}>
-      {/* 背景 - 童童 */}
+      {/* 童童背景 */}
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-blue-900 to-slate-900">
-        <TongtongAvatar state={tongtongState} emotion="neutral" size="xl" animated />
+        <TongtongAvatar state={tongtongState} emotion="neutral" size="xl" />
         
-        {/* 回复文本 */}
         {responseText && (
-          <div 
-            className="absolute bottom-28 left-4 right-4 max-w-xl mx-auto px-4 py-3 rounded-xl backdrop-blur-md"
-            style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
-          >
-            <p className="text-white text-base">{responseText}</p>
+          <div className="absolute bottom-24 left-4 right-4 px-4 py-3 rounded-xl bg-black/60 backdrop-blur">
+            <p className="text-white text-sm leading-relaxed">{responseText}</p>
           </div>
         )}
 
-        {/* 状态 */}
-        <div 
-          className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm text-white"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-        >
-          {isResponding ? '💬 回复中...' : '🎤 请说话'}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/50 text-white text-sm">
+          {status || '通话中'}
         </div>
       </div>
 
-      {/* 用户视频 - 画中画 */}
-      <div className="absolute bottom-24 right-4 w-28 h-40 rounded-xl overflow-hidden border-2 border-white/20 bg-black">
+      {/* 用户视频 */}
+      <div className="absolute bottom-20 right-3 w-24 h-32 rounded-lg overflow-hidden border border-white/20 bg-black">
         <video
           ref={videoRef}
           autoPlay
@@ -418,49 +374,23 @@ export const RealtimeChat: React.FC<RealtimeChatProps> = ({
           muted
           className="w-full h-full object-cover"
         />
-        {!isCameraEnabled && (
+        {!isCameraOn && (
           <div className="absolute inset-0 bg-slate-800 flex items-center justify-center">
-            <VideoOff className="w-6 h-6 text-slate-500" />
+            <VideoOff className="w-5 h-5 text-slate-500" />
           </div>
         )}
-        <div 
-          className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-xs text-white"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-        >
-          我
-        </div>
       </div>
 
-      {/* 控制栏 */}
-      <div 
-        className="absolute bottom-0 left-0 right-0 p-4 flex justify-center gap-4"
-        style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
-      >
-        <Button
-          onClick={toggleMic}
-          className={cn(
-            'w-12 h-12 rounded-full',
-            isMicEnabled ? 'bg-white/20 text-white' : 'bg-red-500 text-white'
-          )}
-        >
-          {isMicEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+      {/* 控制 */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center gap-3 bg-black/30">
+        <Button onClick={toggleMic} className={`w-11 h-11 rounded-full ${isMicOn ? 'bg-white/20' : 'bg-red-500'}`}>
+          {isMicOn ? <Mic className="w-5 h-5 text-white" /> : <MicOff className="w-5 h-5 text-white" />}
         </Button>
-
-        <Button
-          onClick={endCall}
-          className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 text-white"
-        >
-          <PhoneOff className="w-6 h-6" />
+        <Button onClick={endCall} className="w-12 h-12 rounded-full bg-red-500 hover:bg-red-600">
+          <PhoneOff className="w-5 h-5 text-white" />
         </Button>
-
-        <Button
-          onClick={toggleCamera}
-          className={cn(
-            'w-12 h-12 rounded-full',
-            isCameraEnabled ? 'bg-white/20 text-white' : 'bg-red-500 text-white'
-          )}
-        >
-          {isCameraEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+        <Button onClick={toggleCamera} className={`w-11 h-11 rounded-full ${isCameraOn ? 'bg-white/20' : 'bg-red-500'}`}>
+          {isCameraOn ? <Video className="w-5 h-5 text-white" /> : <VideoOff className="w-5 h-5 text-white" />}
         </Button>
       </div>
     </div>
