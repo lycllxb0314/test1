@@ -23,8 +23,8 @@ import {
   FileText,
   FileOutput,
 } from 'lucide-react';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type { HonorApplication } from '@/types/honor-campaign';
 import { APPROVAL_STEP_NAMES } from '@/types/honor-campaign';
 
@@ -40,91 +40,6 @@ type HonorApplicationPrintDialogProps = {
   schoolName?: string;
 };
 
-/** 水印配置 - 统一CSS和PDF使用 */
-const WATERMARK_CONFIG = {
-  color: 'rgba(180, 180, 180, 0.15)',
-  fontSize: 20,         // 字体大小
-  rotate: -25,
-  gap: 200,             // 间距
-  logoSize: 32,         // logo大小
-  logoTextGap: 10,      // logo和文字之间的间距
-  scale: 2,             // 高清缩放比例
-};
-
-/**
- * 创建带logo的水印图案（返回 data URL）
- * 异步加载学校logo图片后绘制
- * logo和文字在同一条水平线上
- */
-async function createWatermarkPattern(schoolName: string): Promise<string> {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
-
-  const { color, fontSize, rotate, gap, logoSize, logoTextGap, scale } = WATERMARK_CONFIG;
-  
-  // 设置高清画布尺寸（2倍分辨率）
-  canvas.width = gap * 2 * scale;
-  canvas.height = gap * 2 * scale;
-
-  // 尝试加载学校logo
-  let logoImage: HTMLImageElement | null = null;
-  try {
-    logoImage = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Logo load failed'));
-      img.src = '/logo-school.png';
-    });
-  } catch {
-    // logo加载失败，仅使用文字
-  }
-
-  // 缩放上下文以支持高清绘制
-  ctx.scale(scale, scale);
-
-  // 设置字体以测量文字宽度
-  ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-  const textWidth = ctx.measureText(schoolName).width;
-  
-  // 计算总宽度：logo + 间距 + 文字
-  const totalWidth = (logoImage ? logoSize + logoTextGap : 0) + textWidth;
-
-  // 移动到中心点并旋转
-  ctx.translate(gap, gap);  // 使用未缩放的gap值
-  ctx.rotate((rotate * Math.PI) / 180);
-
-  // 从中心点开始绘制，整体水平居中
-  let currentX = -totalWidth / 2;
-
-  // 绘制logo（如果有）- 在左边
-  if (logoImage) {
-    ctx.globalAlpha = 0.15;
-    // 启用图像平滑
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(
-      logoImage,
-      currentX,
-      -logoSize / 2, // 垂直居中
-      logoSize,
-      logoSize
-    );
-    ctx.globalAlpha = 1;
-    currentX += logoSize + logoTextGap;
-  }
-
-  // 绘制文字 - 在logo右边，同一水平线
-  ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-  ctx.fillStyle = color;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(schoolName, currentX, 0);
-
-  return canvas.toDataURL('image/png');
-}
-
 /**
  * 申报表打印预览弹窗
  */
@@ -136,62 +51,16 @@ export function HonorApplicationPrintDialog({
 }: HonorApplicationPrintDialogProps) {
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [watermarkPattern, setWatermarkPattern] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
-  const watermarkRef = useRef<HTMLDivElement>(null);
 
-  // 初始化水印（异步加载logo）
-  useEffect(() => {
-    createWatermarkPattern(schoolName).then(setWatermarkPattern);
-  }, [schoolName]);
-
-  // 生成 PDF（后台异步）
+  // 生成 PDF（直接绘制表格）
   const generatePdf = useCallback(async () => {
-    if (!contentRef.current || !application) return;
+    if (!application || !campaign) return;
 
     setGenerating(true);
     const startTime = Date.now();
-    const TIMEOUT = 30000; // 30秒超时
-    
-    // 用于跟踪是否需要清理
-    let mainCanvas: HTMLCanvasElement | null = null;
-    let watermarkCanvas: HTMLCanvasElement | null = null;
     
     try {
-      // 临时移除CSS背景水印，避免PDF双重水印
-      const originalBg = contentRef.current.style.backgroundImage;
-      contentRef.current.style.backgroundImage = 'none';
-      
-      // 检查超时
-      if (Date.now() - startTime > TIMEOUT) {
-        throw new Error('PDF生成超时');
-      }
-      
-      // 使用 html2canvas 截图（使用 scale: 1 减少内存占用）
-      mainCanvas = await html2canvas(contentRef.current, {
-        scale: 1, // 使用1倍缩放，减少内存占用
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        imageTimeout: 5000, // 图片加载超时5秒
-        // 限制最大尺寸，防止内存溢出
-        windowWidth: contentRef.current.scrollWidth,
-        windowHeight: contentRef.current.scrollHeight,
-      });
-      
-      // 恢复CSS背景水印
-      contentRef.current.style.backgroundImage = originalBg;
-
-      // 检查超时
-      if (Date.now() - startTime > TIMEOUT) {
-        throw new Error('PDF生成超时');
-      }
-
-      // 计算 PDF 尺寸 (A4)
-      const imgWidth = 210; // A4 宽度 mm
-      const imgHeight = (mainCanvas.height * imgWidth) / mainCanvas.width;
-      const pageHeight = 297; // A4 高度 mm
-
       // 创建 PDF
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -199,123 +68,293 @@ export function HonorApplicationPrintDialog({
         format: 'a4',
       });
 
-      // 创建带logo的水印图案
-      watermarkCanvas = document.createElement('canvas');
-      const wCtx = watermarkCanvas.getContext('2d');
+      // 页边距配置（上3cm、下2.7cm、左2.7cm、右2.7cm）
+      const margin = {
+        top: 30,
+        bottom: 27,
+        left: 27,
+        right: 27,
+      };
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const contentWidth = pageWidth - margin.left - margin.right;
+
+      // 设置字体 - 使用内置字体
+      pdf.setFont('helvetica');
       
-      if (wCtx) {
-        const { color, fontSize, rotate, gap, logoSize, logoTextGap, scale } = WATERMARK_CONFIG;
-        
-        // 设置高清画布尺寸
-        watermarkCanvas.width = gap * 2 * scale;
-        watermarkCanvas.height = gap * 2 * scale;
-        
-        // 尝试加载logo
-        let logoImg: HTMLImageElement | null = null;
-        try {
-          logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error('Logo load failed'));
-            img.src = '/logo-school.png';
-            // 3秒超时
-            setTimeout(() => reject(new Error('Logo load timeout')), 3000);
+      // 当前Y位置
+      let currentY = margin.top;
+
+      // 添加标题
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      const title = campaign.title || '荣誉评选申报表';
+      const titleWidth = pdf.getTextWidth(title);
+      pdf.text(title, margin.left + (contentWidth - titleWidth) / 2, currentY + 7);
+      currentY += 15;
+
+      // 基本信息表
+      autoTable(pdf, {
+        startY: currentY,
+        margin: { left: margin.left, right: margin.right },
+        head: [],
+        body: [
+          [
+            { content: '姓　名', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+            { content: application.studentName || '-', styles: { halign: 'center' as const } },
+            { content: '班　级', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+            { content: application.className || '-', styles: { halign: 'center' as const } },
+          ],
+          [
+            { content: '申报荣誉', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+            { content: campaign.honorType || '-', styles: { halign: 'center' as const } },
+            { content: '申报日期', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+            { content: application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : '-', styles: { halign: 'center' as const } },
+          ],
+        ],
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 11,
+          cellPadding: 4,
+          lineColor: [0, 0, 0] as [number, number, number],
+          lineWidth: 0.5,
+        },
+        columnStyles: {
+          0: { cellWidth: contentWidth * 0.2 },
+          1: { cellWidth: contentWidth * 0.3 },
+          2: { cellWidth: contentWidth * 0.2 },
+          3: { cellWidth: contentWidth * 0.3 },
+        },
+      });
+
+      currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+      // 申报内容字段
+      if (campaign.formConfig?.fields && application.formData) {
+        const fieldRows = campaign.formConfig.fields
+          .filter(f => application.formData[f.field])
+          .map(f => [
+            { content: f.label, styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const, valign: 'top' as const } },
+            { content: String(application.formData[f.field] || '-') },
+          ]);
+
+        if (fieldRows.length > 0) {
+          autoTable(pdf, {
+            startY: currentY - 0.5,
+            margin: { left: margin.left, right: margin.right },
+            head: [],
+            body: fieldRows,
+            theme: 'grid',
+            styles: {
+              font: 'helvetica',
+              fontSize: 11,
+              cellPadding: 4,
+              lineColor: [0, 0, 0] as [number, number, number],
+              lineWidth: 0.5,
+              minCellHeight: 12,
+            },
+            columnStyles: {
+              0: { cellWidth: contentWidth * 0.2 },
+              1: { cellWidth: contentWidth * 0.8 },
+            },
           });
-        } catch {
-          // logo加载失败，仅使用文字
+
+          currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
         }
-
-        // 缩放上下文
-        wCtx.scale(scale, scale);
-
-        // 设置字体测量文字宽度
-        wCtx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-        const textWidth = wCtx.measureText(schoolName).width;
-        const totalWidth = (logoImg ? logoSize + logoTextGap : 0) + textWidth;
-
-        // 移动到中心并旋转
-        wCtx.translate(gap, gap);
-        wCtx.rotate((rotate * Math.PI) / 180);
-
-        // 从中心开始绘制，整体水平居中
-        let currentX = -totalWidth / 2;
-
-        // 绘制logo（左边）
-        if (logoImg) {
-          wCtx.globalAlpha = 0.2;
-          wCtx.imageSmoothingEnabled = true;
-          wCtx.imageSmoothingQuality = 'high';
-          wCtx.drawImage(logoImg, currentX, -logoSize / 2, logoSize, logoSize);
-          wCtx.globalAlpha = 1;
-          currentX += logoSize + logoTextGap;
-        }
-
-        // 绘制文字（右边，同一水平线）
-        wCtx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-        wCtx.fillStyle = color;
-        wCtx.textAlign = 'left';
-        wCtx.textBaseline = 'middle';
-        wCtx.fillText(schoolName, currentX, 0);
       }
 
-      // 检查超时
-      if (Date.now() - startTime > TIMEOUT) {
-        throw new Error('PDF生成超时');
+      // 已获奖荣誉
+      if (application.existingHonors && application.existingHonors.length > 0) {
+        // 标题行
+        autoTable(pdf, {
+          startY: currentY - 0.5,
+          margin: { left: margin.left, right: margin.right },
+          head: [],
+          body: [
+            [{ content: '已获奖荣誉', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } }],
+          ],
+          theme: 'grid',
+          styles: {
+            font: 'helvetica',
+            fontSize: 11,
+            cellPadding: 4,
+            lineColor: [0, 0, 0] as [number, number, number],
+            lineWidth: 0.5,
+          },
+        });
+
+        currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+        // 荣誉列表
+        const honorRows = application.existingHonors.map(h => [
+          h.title || '-',
+          h.level || '校级',
+          h.category || '其他',
+          h.issuer || '-',
+          h.date || '-',
+        ]);
+
+        autoTable(pdf, {
+          startY: currentY - 0.5,
+          margin: { left: margin.left, right: margin.right },
+          head: [
+            [
+              { content: '荣誉名称', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+              { content: '级别', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+              { content: '类别', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+              { content: '颁发单位', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+              { content: '获奖日期', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
+            ],
+          ],
+          body: honorRows,
+          theme: 'grid',
+          styles: {
+            font: 'helvetica',
+            fontSize: 10,
+            cellPadding: 3,
+            lineColor: [0, 0, 0] as [number, number, number],
+            lineWidth: 0.5,
+            halign: 'center' as const,
+          },
+          columnStyles: {
+            0: { cellWidth: contentWidth * 0.35 },
+            1: { cellWidth: contentWidth * 0.15 },
+            2: { cellWidth: contentWidth * 0.15 },
+            3: { cellWidth: contentWidth * 0.2 },
+            4: { cellWidth: contentWidth * 0.15 },
+          },
+        });
+
+        currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
       }
 
-      // 使用 JPEG 格式，压缩率更高
-      const imgData = mainCanvas.toDataURL('image/jpeg', 0.85);
+      // 审批意见
+      if (application.approvalComments && application.approvalComments.length > 0) {
+        // 标题行
+        autoTable(pdf, {
+          startY: currentY - 0.5,
+          margin: { left: margin.left, right: margin.right },
+          head: [],
+          body: [
+            [{ content: '审批意见', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } }],
+          ],
+          theme: 'grid',
+          styles: {
+            font: 'helvetica',
+            fontSize: 11,
+            cellPadding: 4,
+            lineColor: [0, 0, 0] as [number, number, number],
+            lineWidth: 0.5,
+          },
+        });
 
-      // 页边距配置（与CSS padding一致：上3cm、下2.7cm、左2.7cm、右2.7cm）
-      const marginTop = 30;    // 上边距 mm
-      const marginBottom = 27; // 下边距 mm
-      const contentHeightPerPage = pageHeight - marginTop - marginBottom; // 每页有效内容高度 240mm
+        currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
 
-      // 添加第一页
-      let heightLeft = imgHeight;
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+        // 审批意见列表
+        const commentRows = application.approvalComments.map(c => {
+          const resultText = c.result === 'approved' ? '同意' : c.result === 'rejected' ? '不同意' : '';
+          return [
+            { content: APPROVAL_STEP_NAMES[c.step] || c.step, styles: { fillColor: [245, 245, 245] as [number, number, number], halign: 'center' as const } },
+            { 
+              content: `审批人：${c.approverName}    结果：${resultText}\n${c.comment ? `意见：${c.comment}\n` : ''}时间：${new Date(c.time).toLocaleString()}`, 
+              styles: { fontSize: 10 } 
+            },
+          ];
+        });
 
-      // 如果内容超过一页，添加更多页
-      let pageNum = 1;
-      while (heightLeft > 0) {
-        // 检查超时
-        if (Date.now() - startTime > TIMEOUT) {
-          throw new Error('PDF生成超时');
-        }
-        
+        autoTable(pdf, {
+          startY: currentY - 0.5,
+          margin: { left: margin.left, right: margin.right },
+          head: [],
+          body: commentRows,
+          theme: 'grid',
+          styles: {
+            font: 'helvetica',
+            fontSize: 10,
+            cellPadding: 4,
+            lineColor: [0, 0, 0] as [number, number, number],
+            lineWidth: 0.5,
+          },
+          columnStyles: {
+            0: { cellWidth: contentWidth * 0.2 },
+            1: { cellWidth: contentWidth * 0.8 },
+          },
+        });
+
+        currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+      }
+
+      // 签字栏 - 检查是否需要新页
+      const signHeight = 35;
+      if (currentY + signHeight > pageHeight - margin.bottom) {
         pdf.addPage();
-        const offset = -(pageNum * pageHeight);
-        pdf.addImage(imgData, 'JPEG', 0, offset, imgWidth, imgHeight);
-        heightLeft -= contentHeightPerPage;
-        pageNum++;
-        
-        // 安全限制：最多10页
-        if (pageNum > 10) {
-          console.warn('PDF页数超过限制，截断到10页');
-          break;
-        }
+        currentY = margin.top;
+      } else {
+        currentY += 8;
       }
 
-      // 添加水印到每一页（简化平铺逻辑）
+      autoTable(pdf, {
+        startY: currentY,
+        margin: { left: margin.left, right: margin.right },
+        head: [],
+        body: [
+          [
+            { content: '家长签字：', styles: { valign: 'bottom' as const, minCellHeight: 20 } },
+            { content: '班主任签字：', styles: { valign: 'bottom' as const, minCellHeight: 20 } },
+            { content: '学校盖章：', styles: { valign: 'bottom' as const, minCellHeight: 20 } },
+          ],
+          [
+            { content: '日期：      年      月      日', styles: { fontSize: 10 } },
+            { content: '日期：      年      月      日', styles: { fontSize: 10 } },
+            { content: '日期：      年      月      日', styles: { fontSize: 10 } },
+          ],
+        ],
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 11,
+          cellPadding: 4,
+          lineColor: [0, 0, 0] as [number, number, number],
+          lineWidth: 0.5,
+        },
+        columnStyles: {
+          0: { cellWidth: contentWidth / 3 },
+          1: { cellWidth: contentWidth / 3 },
+          2: { cellWidth: contentWidth / 3 },
+        },
+      });
+
+      currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+      // 底部信息
+      currentY += 8;
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(102, 102, 102);
+      const footerText = `申报编号：${application.id}    ${schoolName}`;
+      const footerWidth = pdf.getTextWidth(footerText);
+      pdf.text(footerText, margin.left + (contentWidth - footerWidth) / 2, currentY);
+
+      // 添加水印到每一页
       const totalPages = pdf.getNumberOfPages();
-      const watermarkData = watermarkCanvas.toDataURL('image/png');
-      const watermarkSizeMm = (WATERMARK_CONFIG.gap * 2) / 3.78;
-      
       for (let i = 1; i <= totalPages; i++) {
-        // 检查超时
-        if (Date.now() - startTime > TIMEOUT) {
-          throw new Error('PDF生成超时');
-        }
-        
         pdf.setPage(i);
-        // 简化平铺：减少循环次数
-        for (let x = 0; x < 210; x += watermarkSizeMm) {
-          for (let y = 0; y < 297; y += watermarkSizeMm) {
-            pdf.addImage(watermarkData, 'PNG', x, y, watermarkSizeMm, watermarkSizeMm);
+        
+        // 绘制文字水印
+        pdf.setTextColor(200, 200, 200);
+        pdf.setFontSize(40);
+        pdf.setFont('helvetica', 'normal');
+        
+        // 平铺水印
+        for (let x = margin.left; x < pageWidth - margin.right; x += 80) {
+          for (let y = margin.top + 30; y < pageHeight - margin.bottom; y += 60) {
+            pdf.text(schoolName, x, y, { angle: 45, align: 'center' });
           }
         }
+        
+        // 重置文本颜色
+        pdf.setTextColor(0, 0, 0);
       }
 
       // 生成 Blob URL
@@ -330,15 +369,6 @@ export function HonorApplicationPrintDialog({
       const errorMessage = error instanceof Error ? error.message : '生成 PDF 失败';
       toast.error(errorMessage);
     } finally {
-      // 清理 canvas 内存
-      if (mainCanvas) {
-        mainCanvas.width = 0;
-        mainCanvas.height = 0;
-      }
-      if (watermarkCanvas) {
-        watermarkCanvas.width = 0;
-        watermarkCanvas.height = 0;
-      }
       setGenerating(false);
     }
   }, [application, schoolName]);
@@ -426,8 +456,6 @@ export function HonorApplicationPrintDialog({
             padding: 15mm;
             margin: 0 auto;
             box-sizing: border-box;
-            background-image: url('${watermarkPattern}');
-            background-repeat: repeat;
           }
           @media print {
             .page {
@@ -516,9 +544,6 @@ export function HonorApplicationPrintDialog({
               width: '210mm', 
               minHeight: '297mm',
               padding: '30mm 27mm 27mm 27mm',
-              // 水印在文档内容区域内
-              backgroundImage: watermarkPattern ? `url(${watermarkPattern})` : 'none',
-              backgroundRepeat: 'repeat',
             }}
           >
             {/* 标题 */}
