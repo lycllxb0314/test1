@@ -7,6 +7,7 @@
 
 import { BaseService, ServiceResult, PaginatedServiceResult } from './base.service';
 import { parentRepository, ParentRecord } from '@/repositories/parent.repository';
+import { studentRepository } from '@/repositories/student.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import bcrypt from 'bcryptjs';
 
@@ -129,15 +130,32 @@ export class ParentService extends BaseService {
         ? await parentRepository.findOtherParents(parent.student_id, parent.id)
         : [];
 
-      // 组装学生信息为嵌套对象格式
-      const student = parent.student_id ? {
-        id: parent.student_id,
-        name: parent.student_name,
-        student_no: parent.student_id, // student_id 就是学号
-        class_id: parent.class_id,
-        class_name: parent.class_name,
-        gender: parent.gender, // 如果有的话
-      } : undefined;
+      // 查询学生完整信息（获取性别等字段）
+      let student = undefined;
+      if (parent.student_id) {
+        // parent.student_id 是 students.id（UUID格式），不是 student_no
+        const studentData = await studentRepository.findById(parent.student_id);
+        if (studentData) {
+          student = {
+            id: studentData.id,
+            name: studentData.name,
+            student_no: studentData.studentNo,
+            class_id: studentData.classId,
+            class_name: studentData.className,
+            gender: studentData.gender,
+          };
+        } else {
+          // 如果查不到学生记录，使用家长表中的信息
+          student = {
+            id: parent.student_id,
+            name: parent.student_name,
+            student_no: parent.student_id,
+            class_id: parent.class_id,
+            class_name: parent.class_name,
+            gender: undefined,
+          };
+        }
+      }
 
       return {
         success: true,

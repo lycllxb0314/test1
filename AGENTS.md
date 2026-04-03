@@ -686,6 +686,17 @@ const safeHtml = DOMPurify.sanitize(userInput);
 
 ## 更新日志
 
+- 2026-04-03: 修复家长端个人资料页面关联子女显示问题
+  - 根本原因：`getMyInfo` 方法中 `parent.student_id` 实际是 `students.id`（UUID格式），但之前错误使用了 `findByStudentNumber` 方法查询
+  - 同时修复了学生性别字段错误：`parent.gender` 是家长性别，非学生性别
+  - 解决方案：
+    - 使用 `studentRepository.findById(parent.student_id)` 正确查询学生数据
+    - 从学生记录中获取正确的 `gender` 字段
+  - 数据字段说明：
+    - `parents.student_id`: 存储的是 `students.id`（如 `s0118`），不是 `student_no`
+    - `students.id`: UUID格式（如 `s0118`）
+    - `students.student_no`: 学号格式（如 `10328`）
+  - 关键修改文件：`src/services/parent.service.ts`
 - 2026-04-03: 统一荣誉管理图表组件
   - 创建 `HonorCharts` 共享组件 (`src/components/honors/HonorCharts.tsx`)
   - 德育处和班主任荣誉管理页面统一使用该组件

@@ -1,285 +1,194 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+/**
+ * 家长端子女信息页面
+ * 
+ * 功能：
+ * - 展示子女详细信息（复用教务处/班主任端的学生详情卡片逻辑）
+ * - 支持编辑部分信息（联系电话、家庭住址等）
+ * - 关键信息（姓名、性别、学号等）只读，需联系班主任修改
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Loader2, Users, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { ChildDetailCard } from '@/components/parent/ChildDetailCard';
 import { toast } from 'sonner';
-import {
-  Users,
-  Phone,
-  MapPin,
-  Calendar,
-  Edit,
-  User,
-  Mail,
-  CreditCard,
-  Home,
-} from 'lucide-react';
 
 // 子女信息类型
 interface ChildInfo {
   id: string;
   name: string;
-  gender: string;
-  avatar: string;
   classId: string;
   className: string;
-  grade: number;
-  studentNo: string;
-  birthDate: string;
-  idCard: string;
-  ethnicity: string;
-  nativePlace: string;
-  address: string;
-  phone: string;
-  status: string;
-  parents: Array<{
-    name: string;
-    relation: string;
-    phone: string;
-    isEmergency: boolean;
-  }>;
 }
 
 export default function ChildrenPage() {
   const { user } = useAuth();
-  const [editDialog, setEditDialog] = useState(false);
-  const [selectedChild, setSelectedChild] = useState<ChildInfo | null>(null);
+  const [children, setChildren] = useState<ChildInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
-  // 模拟子女数据
-  const children = [
-    {
-      id: 's001',
-      name: '张小明',
-      gender: 'male',
-      avatar: '👦',
-      classId: 'c001',
-      className: '三年(1)班',
-      grade: 3,
-      studentNo: '20220301',
-      birthDate: '2015-06-15',
-      idCard: '350802201506150011',
-      ethnicity: '汉族',
-      nativePlace: '福建龙岩',
-      address: '龙岩市新罗区东城街道xx路xx号',
-      phone: '',
-      status: '在校',
-      parents: [
-        { name: '张伟', relation: '父亲', phone: '13800138001', isEmergency: true },
-        { name: '李芳', relation: '母亲', phone: '13800138002', isEmergency: false },
-      ],
-    },
-  ];
+  // 加载子女列表
+  useEffect(() => {
+    const fetchChildren = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const res = await fetch('/api/parent/children', { credentials: 'include' });
+        const result = await res.json();
+        
+        if (result.success && result.data) {
+          setChildren(result.data);
+          // 默认选中第一个子女
+          if (result.data.length > 0) {
+            setSelectedChildId(result.data[0].id);
+          }
+        } else {
+          setError(result.error || '获取子女信息失败');
+        }
+      } catch (err) {
+        console.error('Failed to fetch children:', err);
+        setError('加载失败，请重试');
+      }
+      setLoading(false);
+    };
+    
+    fetchChildren();
+  }, []);
 
-  // 打开编辑对话框
-  const handleEdit = (child: ChildInfo) => {
-    setSelectedChild({ ...child });
-    setEditDialog(true);
+  // 刷新
+  const handleRefresh = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const res = await fetch('/api/parent/children', { credentials: 'include' });
+      const result = await res.json();
+      
+      if (result.success && result.data) {
+        setChildren(result.data);
+        if (result.data.length > 0 && !selectedChildId) {
+          setSelectedChildId(result.data[0].id);
+        }
+        toast.success('刷新成功');
+      } else {
+        setError(result.error || '获取子女信息失败');
+      }
+    } catch (err) {
+      console.error('Failed to refresh children:', err);
+      setError('加载失败，请重试');
+    }
+    setLoading(false);
   };
 
-  // 保存编辑
-  const handleSave = () => {
-    toast.success('信息更新成功');
-    setEditDialog(false);
-  };
+  // 加载中
+  if (loading) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">子女信息</h1>
+            <p className="text-muted-foreground mt-1">查看和管理子女基本信息</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 加载失败
+  if (error) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">子女信息</h1>
+            <p className="text-muted-foreground mt-1">查看和管理子女基本信息</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-10 w-10 text-red-300 mb-3" />
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              重试
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 无子女
+  if (children.length === 0) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">子女信息</h1>
+            <p className="text-muted-foreground mt-1">查看和管理子女基本信息</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Users className="h-10 w-10 text-gray-300 mb-3" />
+            <p className="text-gray-500 mb-2">暂无子女信息</p>
+            <p className="text-sm text-muted-foreground">如需绑定子女，请联系班主任</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
+      {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">子女信息</h1>
           <p className="text-muted-foreground mt-1">查看和管理子女基本信息</p>
         </div>
+        <Button onClick={handleRefresh} variant="outline" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          刷新
+        </Button>
       </div>
 
-      <div className="space-y-6">
-        {children.map((child) => (
-          <Card key={child.id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="text-4xl">{child.avatar}</div>
-                  <div>
-                    <CardTitle className="text-xl">{child.name}</CardTitle>
-                    <CardDescription>
-                      {child.className} · 学号: {child.studentNo}
-                    </CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-green-100 text-green-700">{child.status}</Badge>
-                  <Button variant="outline" onClick={() => handleEdit(child)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    编辑信息
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="basic">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="basic">基本信息</TabsTrigger>
-                  <TabsTrigger value="family">家庭信息</TabsTrigger>
-                  <TabsTrigger value="school">学籍信息</TabsTrigger>
-                </TabsList>
+      {/* 子女选择器（多个子女时显示） */}
+      {children.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-muted-foreground">选择子女：</span>
+          {children.map((child) => (
+            <Button
+              key={child.id}
+              variant={selectedChildId === child.id ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedChildId(child.id)}
+            >
+              {child.name}
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {child.className}
+              </Badge>
+            </Button>
+          ))}
+        </div>
+      )}
 
-                <TabsContent value="basic" className="mt-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">姓名</p>
-                      <p className="font-medium">{child.name}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">性别</p>
-                      <p className="font-medium">{child.gender === 'male' ? '男' : '女'}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">出生日期</p>
-                      <p className="font-medium">{child.birthDate}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">身份证号</p>
-                      <p className="font-medium">{child.idCard}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">民族</p>
-                      <p className="font-medium">{child.ethnicity}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">籍贯</p>
-                      <p className="font-medium">{child.nativePlace}</p>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="family" className="mt-4">
-                  <div className="space-y-4">
-                    <h4 className="font-medium flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      家长信息
-                    </h4>
-                    <div className="grid gap-4">
-                      {child.parents.map((parent, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{parent.name}</p>
-                              <p className="text-sm text-muted-foreground">{parent.relation}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Phone className="h-4 w-4" />
-                              <span>{parent.phone}</span>
-                            </div>
-                            {parent.isEmergency && (
-                              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                紧急联系人
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-4">
-                      <h4 className="font-medium flex items-center gap-2 mb-2">
-                        <Home className="h-4 w-4" />
-                        家庭住址
-                      </h4>
-                      <p className="text-muted-foreground bg-muted/30 p-4 rounded-lg">{child.address}</p>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="school" className="mt-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">学号</p>
-                      <p className="font-medium">{child.studentNo}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">年级</p>
-                      <p className="font-medium">{child.grade}年级</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">班级</p>
-                      <p className="font-medium">{child.className}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">入学日期</p>
-                      <p className="font-medium">2022-09-01</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">学生类型</p>
-                      <p className="font-medium">普通</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">在读状态</p>
-                      <Badge className="bg-green-100 text-green-700">{child.status}</Badge>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* 编辑对话框 */}
-      <Dialog open={editDialog} onOpenChange={setEditDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>编辑子女信息</DialogTitle>
-            <DialogDescription>
-              更新子女的基本信息
-            </DialogDescription>
-          </DialogHeader>
-          {selectedChild && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>姓名</Label>
-                  <Input value={selectedChild.name} disabled />
-                </div>
-                <div className="space-y-2">
-                  <Label>性别</Label>
-                  <Input value={selectedChild.gender === 'male' ? '男' : '女'} disabled />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>家庭住址</Label>
-                <Input 
-                  value={selectedChild.address}
-                  onChange={(e) => setSelectedChild({ ...selectedChild, address: e.target.value })}
-                />
-              </div>
-              <div className="text-sm text-muted-foreground">
-                注：姓名、性别、身份证等关键信息需联系班主任修改
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialog(false)}>取消</Button>
-            <Button onClick={handleSave}>保存修改</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 子女详情卡片 */}
+      {selectedChildId && (
+        <ChildDetailCard studentId={selectedChildId} />
+      )}
     </div>
   );
 }
