@@ -42,36 +42,64 @@ type HonorApplicationPrintDialogProps = {
 
 /** 水印配置 */
 const WATERMARK_CONFIG = {
-  text: '龙岩师范附属小学',
-  color: 'rgba(180, 180, 180, 0.15)',
-  fontSize: 16,
+  color: 'rgba(180, 180, 180, 0.12)',
+  fontSize: 14,
   rotate: -25,
-  gap: 120,
+  gap: 160,
+  logoSize: 24,
 };
 
 /**
- * 创建水印图案（返回 data URL）
+ * 创建带logo的水印图案（返回 data URL）
+ * 异步加载学校logo图片后绘制
  */
-function createWatermarkPattern(schoolName: string): string {
+async function createWatermarkPattern(schoolName: string): Promise<string> {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  const { color, fontSize, rotate, gap } = WATERMARK_CONFIG;
+  const { color, fontSize, rotate, gap, logoSize } = WATERMARK_CONFIG;
   
   // 设置画布尺寸
   canvas.width = gap * 2;
   canvas.height = gap * 2;
 
-  // 绘制水印
+  // 尝试加载学校logo
+  let logoImage: HTMLImageElement | null = null;
+  try {
+    logoImage = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Logo load failed'));
+      img.src = '/logo-school.png';
+    });
+  } catch {
+    // logo加载失败，仅使用文字
+  }
+
+  // 移动到中心点并旋转
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((rotate * Math.PI) / 180);
+
+  // 绘制logo（如果有）
+  if (logoImage) {
+    ctx.globalAlpha = 0.15;
+    ctx.drawImage(
+      logoImage,
+      -logoSize / 2,
+      -fontSize - logoSize / 2 - 4, // logo在文字上方
+      logoSize,
+      logoSize
+    );
+    ctx.globalAlpha = 1;
+  }
+
+  // 绘制文字
   ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
   ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  
-  // 旋转并绘制
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.rotate((rotate * Math.PI) / 180);
   ctx.fillText(schoolName, 0, 0);
 
   return canvas.toDataURL('image/png');
@@ -92,9 +120,9 @@ export function HonorApplicationPrintDialog({
   const contentRef = useRef<HTMLDivElement>(null);
   const watermarkRef = useRef<HTMLDivElement>(null);
 
-  // 初始化水印
+  // 初始化水印（异步加载logo）
   useEffect(() => {
-    setWatermarkPattern(createWatermarkPattern(schoolName));
+    createWatermarkPattern(schoolName).then(setWatermarkPattern);
   }, [schoolName]);
 
   // 生成 PDF（后台异步）
@@ -124,19 +152,45 @@ export function HonorApplicationPrintDialog({
         format: 'a4',
       });
 
-      // 创建水印图案
+      // 创建带logo的水印图案
       const watermarkCanvas = document.createElement('canvas');
       const wCtx = watermarkCanvas.getContext('2d');
       if (wCtx) {
         watermarkCanvas.width = 400;
         watermarkCanvas.height = 400;
-        wCtx.font = '20px "PingFang SC", "Microsoft YaHei", sans-serif';
+        
+        // 尝试加载logo
+        let logoImg: HTMLImageElement | null = null;
+        try {
+          logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Logo load failed'));
+            img.src = '/logo-school.png';
+          });
+        } catch {
+          // logo加载失败，仅使用文字
+        }
+
+        // 移动到中心并旋转
+        wCtx.translate(200, 200);
+        wCtx.rotate((-25 * Math.PI) / 180);
+
+        // 绘制logo
+        if (logoImg) {
+          const logoSize = 36;
+          wCtx.globalAlpha = 0.15;
+          wCtx.drawImage(logoImg, -logoSize / 2, -30 - logoSize / 2, logoSize, logoSize);
+          wCtx.globalAlpha = 1;
+        }
+
+        // 绘制文字
+        wCtx.font = '18px "PingFang SC", "Microsoft YaHei", sans-serif';
         wCtx.fillStyle = 'rgba(180, 180, 180, 0.2)';
         wCtx.textAlign = 'center';
         wCtx.textBaseline = 'middle';
-        wCtx.translate(200, 200);
-        wCtx.rotate((-25 * Math.PI) / 180);
-        wCtx.fillText(schoolName, 0, 0);
+        wCtx.fillText(schoolName, 0, 10);
       }
 
       let heightLeft = imgHeight;
