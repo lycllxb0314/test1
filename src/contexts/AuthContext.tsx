@@ -200,9 +200,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // 切换角色（仅用于开发测试）
-  const switchRole = useCallback((role: UserRole) => {
+  const switchRole = useCallback(async (role: UserRole) => {
     if (user) {
-      const updatedUser = { ...user, role };
+      let updatedUser = { ...user, role };
+      
+      // 如果切换到家长角色，需要获取子女信息
+      if (role === 'parent') {
+        try {
+          const res = await fetch('/api/parent/children', { credentials: 'include' });
+          const result = await res.json();
+          if (result.success && result.data) {
+            updatedUser.children = result.data;
+          }
+        } catch (error) {
+          console.error('[AuthContext] Failed to fetch children:', error);
+        }
+      } else {
+        // 非家长角色，清空 children
+        updatedUser.children = undefined;
+      }
+      
       setUser(updatedUser);
       localStorage.setItem('smart_campus_user', JSON.stringify(updatedUser));
     }

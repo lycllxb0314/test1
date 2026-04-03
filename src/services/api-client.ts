@@ -199,12 +199,28 @@ class ApiClient {
     // 获取 token
     const token = localStorage.getItem('smart_campus_token');
     
+    // 获取当前用户角色（支持前端临时角色切换）
+    let userRole: string | null = null;
+    try {
+      const userStr = localStorage.getItem('smart_campus_user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        userRole = user.role;
+      }
+    } catch {
+      // 忽略解析错误
+    }
+    
     // 准备请求头
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+    // 添加角色头（用于后端识别临时角色切换）
+    if (userRole) {
+      headers['x-user-role'] = userRole;
     }
 
     try {

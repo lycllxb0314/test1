@@ -101,8 +101,16 @@ export default function ParentHonorApplicationPage() {
 
   // ==================== 数据加载 ====================
 
-  // 加载子女信息
+  // 加载子女信息 - 优先使用 AuthContext 中的数据
   const loadChildren = useCallback(async () => {
+    // 如果 AuthContext 中已有子女信息，直接使用
+    if (user?.children && user.children.length > 0) {
+      setChildren(user.children);
+      setSelectedChildId(user.children[0].id);
+      return;
+    }
+    
+    // 否则从 API 获取
     try {
       const res = await fetch('/api/parent/children', { credentials: 'include' });
       const result = await res.json();
@@ -116,7 +124,7 @@ export default function ParentHonorApplicationPage() {
     } catch (err) {
       console.error('加载子女信息失败:', err);
     }
-  }, []);
+  }, [user?.children]);
 
   // 加载可申报的评选活动
   const loadCampaigns = useCallback(async () => {

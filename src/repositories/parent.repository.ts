@@ -187,24 +187,19 @@ export class ParentRepository extends BaseRepository<ParentRecord> implements IP
    * 根据手机号查询子女
    */
   async findChildrenByPhone(phone: string): Promise<ParentRecord[]> {
+    // parents 表已经包含了学生信息，直接查询即可
     const { data, error } = await this.client
       .from(this.tableName)
-      .select('student_id, students (*)')
+      .select('student_id, student_name, class_id, class_name')
       .eq('phone', phone)
       .eq('status', 'active');
     
     if (error) {
+      console.error('[ParentRepository] findChildrenByPhone error:', error.message);
       return [];
     }
     
-    const children: ParentRecord[] = [];
-    data?.forEach(p => {
-      if (p.students && !Array.isArray(p.students)) {
-        children.push(p.students as ParentRecord);
-      }
-    });
-    
-    return children;
+    return (data || []) as ParentRecord[];
   }
 
   /**

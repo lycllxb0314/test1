@@ -40,6 +40,11 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     const sessionResult = await validateJwtSession(accessToken, refreshToken || undefined);
     
     if (sessionResult.success && sessionResult.user) {
+      // 支持前端临时角色切换（仅用于演示）
+      const overrideRole = request.headers.get('x-user-role') as UserRole | null;
+      if (overrideRole && sessionResult.user.role !== overrideRole) {
+        sessionResult.user.role = overrideRole;
+      }
       return {
         success: true,
         user: sessionResult.user,
@@ -60,7 +65,17 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     };
   }
 
-  return validateSessionLegacy(userId);
+  const result = await validateSessionLegacy(userId);
+  
+  // 支持前端临时角色切换（仅用于演示）
+  if (result.success && result.user) {
+    const overrideRole = request.headers.get('x-user-role') as UserRole | null;
+    if (overrideRole && result.user.role !== overrideRole) {
+      result.user.role = overrideRole;
+    }
+  }
+  
+  return result;
 }
 
 /**
