@@ -686,33 +686,8 @@ export class HonorCampaignService extends BaseService {
         console.log(`[HonorCampaignService] 主荣誉已写入: ${application.studentName} - ${application.campaign?.honorType}`);
       }
 
-      // 2. 写入申报时提交的已有荣誉
-      if (application.existingHonors && application.existingHonors.length > 0) {
-        const existingHonorsData = application.existingHonors.map((honor, index) => ({
-          id: `honor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${index}`,
-          student_id: application.studentId,
-          student_name: application.studentName,
-          class_id: application.classId,
-          class_name: application.className,
-          title: honor.title,
-          level: honor.level || '校级',
-          category: honor.category || '其他',
-          issuer: honor.issuer || '',
-          date: honor.date || null,
-          certificate_no: honor.certificateNo || null,
-          description: null,
-          grade: application.grade,
-          school_year: honor.schoolYear || schoolYear,
-        }));
-
-        const { error: existingHonorsError } = await supabase.from('student_honors').insert(existingHonorsData);
-
-        if (existingHonorsError) {
-          console.error('[HonorCampaignService] 写入已有荣誉失败:', existingHonorsError);
-        } else {
-          console.log(`[HonorCampaignService] 已有荣誉已写入: ${application.studentName} - ${application.existingHonors.length}条`);
-        }
-      }
+      // 注：existingHonors（已有荣誉）不写入学生荣誉表
+      // 这些荣誉本来就已存在于学生荣誉表中，只是作为申报材料展示
     } catch (error) {
       console.error('[HonorCampaignService] writeToStudentHonors error:', error);
     }
