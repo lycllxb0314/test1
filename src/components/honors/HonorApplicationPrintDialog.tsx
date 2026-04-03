@@ -4,8 +4,9 @@
  * @module components/honors/HonorApplicationPrintDialog
  * 
  * 功能：
- * - 将申报表 HTML 转换为 PDF
- * - 在弹窗中预览 PDF
+ * - 立即显示HTML预览（无需等待）
+ * - 后台异步生成PDF
+ * - 申报专属水印（学校logo+学校名称）
  * - 支持下载和打印
  */
 
@@ -14,13 +15,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   Download,
   Printer,
   Loader2,
   FileText,
+  FileOutput,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -35,7 +36,46 @@ type HonorApplicationPrintDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** 申报记录 */
   application: HonorApplication | null;
+  /** 学校名称 */
+  schoolName?: string;
 };
+
+/** 水印配置 */
+const WATERMARK_CONFIG = {
+  text: '福州市仓山区第六中心小学',
+  color: 'rgba(180, 180, 180, 0.15)',
+  fontSize: 16,
+  rotate: -25,
+  gap: 120,
+};
+
+/**
+ * 创建水印图案（返回 data URL）
+ */
+function createWatermarkPattern(): string {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+
+  const { text, color, fontSize, rotate, gap } = WATERMARK_CONFIG;
+  
+  // 设置画布尺寸
+  canvas.width = gap * 2;
+  canvas.height = gap * 2;
+
+  // 绘制水印
+  ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  // 旋转并绘制
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((rotate * Math.PI) / 180);
+  ctx.fillText(text, 0, 0);
+
+  return canvas.toDataURL('image/png');
+}
 
 /**
  * 申报表打印预览弹窗
@@ -44,26 +84,32 @@ export function HonorApplicationPrintDialog({
   open,
   onOpenChange,
   application,
+  schoolName = '福州市仓山区第六中心小学',
 }: HonorApplicationPrintDialogProps) {
-  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [watermarkPattern, setWatermarkPattern] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
+  const watermarkRef = useRef<HTMLDivElement>(null);
 
-  // 生成 PDF
+  // 初始化水印
+  useEffect(() => {
+    setWatermarkPattern(createWatermarkPattern());
+  }, []);
+
+  // 生成 PDF（后台异步）
   const generatePdf = useCallback(async () => {
     if (!contentRef.current || !application) return;
 
-    setLoading(true);
+    setGenerating(true);
     try {
-      // 等待内容渲染
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // 使用 html2canvas 截图
+      // 使用 html2canvas 截图（降低 scale 提升速度）
       const canvas = await html2canvas(contentRef.current, {
-        scale: 2, // 高清
+        scale: 1.5, // 降低 scale 提升速度
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
+        imageTimeout: 0,
       });
 
       // 计算 PDF 尺寸 (A4)
@@ -78,9 +124,24 @@ export function HonorApplicationPrintDialog({
         format: 'a4',
       });
 
+      // 创建水印图案
+      const watermarkCanvas = document.createElement('canvas');
+      const wCtx = watermarkCanvas.getContext('2d');
+      if (wCtx) {
+        watermarkCanvas.width = 400;
+        watermarkCanvas.height = 400;
+        wCtx.font = '20px "PingFang SC", "Microsoft YaHei", sans-serif';
+        wCtx.fillStyle = 'rgba(180, 180, 180, 0.2)';
+        wCtx.textAlign = 'center';
+        wCtx.textBaseline = 'middle';
+        wCtx.translate(200, 200);
+        wCtx.rotate((-25 * Math.PI) / 180);
+        wCtx.fillText(schoolName, 0, 0);
+      }
+
       let heightLeft = imgHeight;
       let position = 0;
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 0.8); // 压缩图片
 
       // 添加第一页
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
@@ -94,6 +155,17 @@ export function HonorApplicationPrintDialog({
         heightLeft -= pageHeight;
       }
 
+      // 添加水印到每一页
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        if (watermarkCanvas) {
+          const watermarkData = watermarkCanvas.toDataURL('image/png');
+          // 在页面中心添加水印
+          pdf.addImage(watermarkData, 'PNG', 105, 148.5, 80, 80);
+        }
+      }
+
       // 生成 Blob URL
       const pdfBlob = pdf.output('blob');
       const url = URL.createObjectURL(pdfBlob);
@@ -102,15 +174,19 @@ export function HonorApplicationPrintDialog({
       console.error('生成 PDF 失败:', error);
       toast.error('生成 PDF 失败');
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
-  }, [application]);
+  }, [application, schoolName]);
 
-  // 打开时生成 PDF
+  // 打开时异步生成 PDF
   useEffect(() => {
     if (open && application) {
       setPdfUrl(null);
-      generatePdf();
+      // 延迟生成 PDF，让用户先看到 HTML 预览
+      const timer = setTimeout(() => {
+        generatePdf();
+      }, 500);
+      return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, application?.id]);
@@ -146,7 +222,83 @@ export function HonorApplicationPrintDialog({
     }
   };
 
+  // 快速打印 HTML（直接打印预览内容）
+  const handleQuickPrint = () => {
+    if (!contentRef.current || !application) return;
+    
+    // 创建打印窗口
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('无法打开打印窗口，请检查浏览器设置');
+      return;
+    }
+
+    // 获取当前内容的 HTML
+    const contentHtml = contentRef.current.innerHTML;
+    
+    // 创建打印页面
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>申报表打印 - ${application.studentName}</title>
+        <style>
+          @page {
+            size: A4;
+            margin: 10mm;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .watermark {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            background-image: url('${watermarkPattern}');
+            background-repeat: repeat;
+          }
+          .content {
+            position: relative;
+            z-index: 1;
+            background: white;
+          }
+          @media print {
+            .watermark {
+              opacity: 0.15;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="watermark"></div>
+        <div class="content">${contentHtml}</div>
+        <script>
+          // 自动打印
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              window.close();
+            }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   if (!application) return null;
+
+  const campaign = application.campaign;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -157,13 +309,29 @@ export function HonorApplicationPrintDialog({
             <DialogTitle className="flex items-center gap-2 text-base">
               <FileText className="w-5 h-5 text-primary" />
               <span>申报表预览</span>
+              {generating && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  生成PDF中...
+                </span>
+              )}
             </DialogTitle>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleQuickPrint}
+                title="直接打印（快速）"
+              >
+                <FileOutput className="w-4 h-4 mr-1" />
+                快速打印
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
-                disabled={!pdfUrl || loading}
+                disabled={!pdfUrl}
+                title="下载PDF文件"
               >
                 <Download className="w-4 h-4 mr-1" />
                 下载
@@ -171,7 +339,8 @@ export function HonorApplicationPrintDialog({
               <Button
                 size="sm"
                 onClick={handlePrint}
-                disabled={!pdfUrl || loading}
+                disabled={!pdfUrl}
+                title="打印PDF文件"
               >
                 <Printer className="w-4 h-4 mr-1" />
                 打印
@@ -180,174 +349,193 @@ export function HonorApplicationPrintDialog({
           </div>
         </DialogHeader>
 
-        {/* 预览区域 */}
-        <div className="flex-1 relative overflow-hidden bg-gray-100">
-          {loading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-10">
-              <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-              <p className="text-muted-foreground">正在生成 PDF...</p>
-            </div>
-          )}
-          {pdfUrl ? (
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full border-0"
-              title="PDF 预览"
+        {/* 预览区域 - 立即显示 HTML 预览 */}
+        <div className="flex-1 relative overflow-auto bg-gray-100 print:bg-white">
+          {/* 水印层 */}
+          {watermarkPattern && (
+            <div 
+              className="absolute inset-0 pointer-events-none z-10 print:hidden"
+              style={{
+                backgroundImage: `url(${watermarkPattern})`,
+                backgroundRepeat: 'repeat',
+              }}
             />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <p className="text-gray-400">等待生成...</p>
-            </div>
           )}
-        </div>
-
-        {/* 隐藏的 HTML 内容用于生成 PDF */}
-        <div
-          ref={contentRef}
-          className="absolute left-[-9999px] top-0 bg-white"
-          style={{ width: '800px', padding: '40px' }}
-        >
-          {/* 学校 Logo 和标题 */}
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '16px' }}>
-              <div style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                background: '#f3f4f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#6b7280' }}>校</span>
-              </div>
-              <div>
-                <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>{application.campaign?.title}</h1>
-                <p style={{ color: '#6b7280', marginTop: '4px', margin: 0 }}>申报表</p>
-              </div>
-            </div>
-            <div style={{ width: '128px', height: '4px', background: '#e5e7eb', margin: '0 auto' }} />
-          </div>
-
-          {/* 基本信息 */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-            <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
-              <span style={{ color: '#6b7280', fontSize: '12px' }}>学生姓名</span>
-              <p style={{ fontSize: '16px', fontWeight: 500, margin: '4px 0 0 0' }}>{application.studentName}</p>
-            </div>
-            <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
-              <span style={{ color: '#6b7280', fontSize: '12px' }}>所在班级</span>
-              <p style={{ fontSize: '16px', fontWeight: 500, margin: '4px 0 0 0' }}>{application.className}</p>
-            </div>
-            <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
-              <span style={{ color: '#6b7280', fontSize: '12px' }}>申报荣誉</span>
-              <p style={{ fontSize: '16px', fontWeight: 500, margin: '4px 0 0 0' }}>{application.campaign?.honorType}</p>
-            </div>
-            <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
-              <span style={{ color: '#6b7280', fontSize: '12px' }}>申报日期</span>
-              <p style={{ fontSize: '16px', fontWeight: 500, margin: '4px 0 0 0' }}>
-                {application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : '-'}
-              </p>
-            </div>
-          </div>
-
-          {/* 申报内容 */}
-          <div style={{ marginBottom: '32px' }}>
-            {Object.entries(application.formData).map(([key, value]) => (
-              <div key={key} style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px', marginBottom: '16px' }}>
-                <h3 style={{ fontWeight: 500, marginBottom: '8px', fontSize: '14px' }}>{key}</h3>
-                <p style={{ color: '#4b5563', whiteSpace: 'pre-wrap', lineHeight: 1.8, margin: 0, fontSize: '14px' }}>
-                  {value || '-'}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* 已获奖荣誉 */}
-          {application.existingHonors && application.existingHonors.length > 0 && (
-            <div style={{ marginBottom: '32px' }}>
-              <h3 style={{ fontWeight: 500, marginBottom: '16px', fontSize: '14px' }}>已获奖荣誉</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ background: '#f9fafb' }}>
-                    <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>荣誉名称</th>
-                    <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>级别</th>
-                    <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>类别</th>
-                    <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>颁发单位</th>
-                    <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>获奖日期</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {application.existingHonors.map((honor, index) => (
-                    <tr key={index}>
-                      <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{honor.title}</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{honor.level || '校级'}</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{honor.category || '其他'}</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{honor.issuer || '-'}</td>
-                      <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{honor.date || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* 审批意见 */}
-          {application.approvalComments.length > 0 && (
-            <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '32px', marginBottom: '32px' }}>
-              <h3 style={{ fontWeight: 500, marginBottom: '24px' }}>审批意见</h3>
-              {application.approvalComments.map((comment, index) => (
-                <div key={index} style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontWeight: 500 }}>{APPROVAL_STEP_NAMES[comment.step]}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '12px', color: '#6b7280' }}>{comment.approverName}</span>
-                      <span style={{
-                        fontSize: '12px',
-                        color: comment.result === 'approved' ? '#16a34a' : '#dc2626',
-                      }}>
-                        {comment.result === 'approved' ? '同意' : comment.result === 'rejected' ? '不同意' : ''}
-                      </span>
-                    </div>
-                  </div>
-                  {comment.comment && (
-                    <p style={{ color: '#4b5563', background: '#f9fafb', padding: '12px', borderRadius: '4px', margin: 0, fontSize: '14px' }}>
-                      {comment.comment}
+          
+          {/* HTML 内容预览（立即显示） */}
+          <div 
+            ref={contentRef}
+            className="bg-white mx-auto print:mx-0 print:w-full"
+            style={{ 
+              width: '210mm', 
+              minHeight: '297mm',
+              padding: '15mm',
+            }}
+          >
+            {/* 学校 Logo 和标题 */}
+            <div style={{ textAlign: 'center', marginBottom: '24px', position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '12px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                }}>
+                  <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'white' }}>校</span>
+                </div>
+                <div>
+                  <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#1f2937' }}>
+                    {campaign?.title || '荣誉评选申报表'}
+                  </h1>
+                  {campaign?.honorType && (
+                    <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '2px', margin: '2px 0 0 0' }}>
+                      {campaign.honorType}
                     </p>
                   )}
-                  <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px', margin: '8px 0 0 0' }}>
-                    {new Date(comment.time).toLocaleString()}
+                </div>
+              </div>
+              <div style={{ width: '100px', height: '3px', background: 'linear-gradient(90deg, #3b82f6, #1d4ed8)', margin: '0 auto', borderRadius: '2px' }} />
+            </div>
+
+            {/* 基本信息 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>学生姓名</span>
+                <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>{application.studentName}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>所在班级</span>
+                <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>{application.className}</p>
+              </div>
+              <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>申报日期</span>
+                <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>
+                  {application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : '-'}
+                </p>
+              </div>
+              <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>当前状态</span>
+                <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>
+                  {application.status === 'approved' ? '已通过' : 
+                   application.status === 'rejected' ? '未通过' : 
+                   application.status === 'pending' ? '审批中' : '已撤回'}
+                </p>
+              </div>
+            </div>
+
+            {/* 申报内容 */}
+            <div style={{ marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', color: '#374151', borderBottom: '2px solid #e5e7eb', paddingBottom: '8px' }}>
+                申报内容
+              </h2>
+              {Object.entries(application.formData).map(([key, value]) => (
+                <div key={key} style={{ marginBottom: '12px' }}>
+                  <h3 style={{ fontWeight: 500, marginBottom: '4px', fontSize: '12px', color: '#4b5563' }}>{key}</h3>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0, fontSize: '13px' }}>
+                    {value || '-'}
                   </p>
                 </div>
               ))}
             </div>
-          )}
 
-          {/* 底部签字栏 */}
-          <div style={{ marginTop: '48px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '32px' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ borderBottom: '2px solid #d1d5db', marginBottom: '8px' }} />
-              <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>家长签字</p>
-              <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', margin: '4px 0 0 0' }}>日期：______年______月______日</p>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ borderBottom: '2px solid #d1d5db', marginBottom: '8px' }} />
-              <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>班主任签字</p>
-              <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', margin: '4px 0 0 0' }}>日期：______年______月______日</p>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ borderBottom: '2px solid #d1d5db', marginBottom: '8px' }} />
-              <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>学校盖章</p>
-              <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', margin: '4px 0 0 0' }}>日期：______年______月______日</p>
-            </div>
-          </div>
-
-          {/* 底部信息 */}
-          <div style={{ marginTop: '48px', textAlign: 'center', fontSize: '11px', color: '#9ca3af' }}>
-            <p style={{ margin: 0 }}>申报编号：{application.id}</p>
-            {application.certificateNo && (
-              <p style={{ marginTop: '4px', margin: '4px 0 0 0' }}>证书编号：{application.certificateNo}</p>
+            {/* 已获奖荣誉 */}
+            {application.existingHonors && application.existingHonors.length > 0 && (
+              <div style={{ marginBottom: '24px' }}>
+                <h2 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', color: '#374151', borderBottom: '2px solid #e5e7eb', paddingBottom: '8px' }}>
+                  已获奖荣誉
+                </h2>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                  <thead>
+                    <tr style={{ background: '#f9fafb' }}>
+                      <th style={{ border: '1px solid #d1d5db', padding: '6px 8px', textAlign: 'left', fontWeight: 500 }}>荣誉名称</th>
+                      <th style={{ border: '1px solid #d1d5db', padding: '6px 8px', textAlign: 'left', fontWeight: 500 }}>级别</th>
+                      <th style={{ border: '1px solid #d1d5db', padding: '6px 8px', textAlign: 'left', fontWeight: 500 }}>类别</th>
+                      <th style={{ border: '1px solid #d1d5db', padding: '6px 8px', textAlign: 'left', fontWeight: 500 }}>颁发单位</th>
+                      <th style={{ border: '1px solid #d1d5db', padding: '6px 8px', textAlign: 'left', fontWeight: 500 }}>获奖日期</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {application.existingHonors.map((honor, index) => (
+                      <tr key={index}>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>{honor.title}</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>{honor.level || '校级'}</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>{honor.category || '其他'}</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>{honor.issuer || '-'}</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px 8px' }}>{honor.date || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
+
+            {/* 审批意见 */}
+            {application.approvalComments.length > 0 && (
+              <div style={{ marginBottom: '24px' }}>
+                <h2 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', color: '#374151', borderBottom: '2px solid #e5e7eb', paddingBottom: '8px' }}>
+                  审批意见
+                </h2>
+                {application.approvalComments.map((comment, index) => (
+                  <div key={index} style={{ marginBottom: '12px', padding: '10px', background: '#f9fafb', borderRadius: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: 500, fontSize: '12px' }}>{APPROVAL_STEP_NAMES[comment.step]}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', color: '#6b7280' }}>{comment.approverName}</span>
+                        <span style={{
+                          fontSize: '11px',
+                          padding: '1px 6px',
+                          borderRadius: '3px',
+                          background: comment.result === 'approved' ? '#dcfce7' : '#fee2e2',
+                          color: comment.result === 'approved' ? '#16a34a' : '#dc2626',
+                        }}>
+                          {comment.result === 'approved' ? '同意' : comment.result === 'rejected' ? '不同意' : ''}
+                        </span>
+                      </div>
+                    </div>
+                    {comment.comment && (
+                      <p style={{ color: '#4b5563', margin: '4px 0 0 0', fontSize: '12px' }}>
+                        {comment.comment}
+                      </p>
+                    )}
+                    <p style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', margin: '4px 0 0 0' }}>
+                      {new Date(comment.time).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 底部签字栏 */}
+            <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ borderBottom: '1px solid #d1d5db', height: '40px', marginBottom: '8px' }} />
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>家长签字</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', margin: '4px 0 0 0' }}>日期：______年______月______日</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ borderBottom: '1px solid #d1d5db', height: '40px', marginBottom: '8px' }} />
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>班主任签字</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', margin: '4px 0 0 0' }}>日期：______年______月______日</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ borderBottom: '1px solid #d1d5db', height: '40px', marginBottom: '8px' }} />
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>学校盖章</p>
+                <p style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', margin: '4px 0 0 0' }}>日期：______年______月______日</p>
+              </div>
+            </div>
+
+            {/* 底部信息 */}
+            <div style={{ marginTop: '32px', textAlign: 'center', fontSize: '10px', color: '#9ca3af', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+              <p style={{ margin: 0 }}>申报编号：{application.id}</p>
+              {application.certificateNo && (
+                <p style={{ marginTop: '4px', margin: '4px 0 0 0' }}>证书编号：{application.certificateNo}</p>
+              )}
+              <p style={{ marginTop: '4px', margin: '4px 0 0 0' }}>{schoolName}</p>
+            </div>
           </div>
         </div>
       </DialogContent>
