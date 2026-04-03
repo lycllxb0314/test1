@@ -237,19 +237,30 @@ export function HonorApplicationPrintDialog({
       }
 
       let heightLeft = imgHeight;
-      let position = 0;
-      const imgData = canvas.toDataURL('image/png', 0.8); // 压缩图片
+      let imgData = canvas.toDataURL('image/png', 0.8); // 压缩图片
 
-      // 添加第一页
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      // 页边距配置（与CSS padding一致：上3cm、下2.7cm、左2.7cm、右2.7cm）
+      const marginTop = 30;    // 上边距 mm
+      const marginBottom = 27; // 下边距 mm
+      const contentHeightPerPage = pageHeight - marginTop - marginBottom; // 每页有效内容高度 240mm
+
+      // 添加第一页（图片从顶部开始，padding自然成为页边距）
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
       // 如果内容超过一页，添加更多页
+      let pageNum = 1;
       while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        // 后续页面：图片向上偏移
+        // 偏移量计算：让图片的"第一页结束位置"显示在"第二页顶部边距后"
+        // 第一页结束位置 = marginTop + contentHeightPerPage + marginBottom = 297mm
+        // 我们想让图片的297mm位置显示在页面的marginTop位置(20mm)
+        // 所以偏移 = marginTop - 297 = -277mm
+        const offset = -(pageNum * pageHeight);
+        pdf.addImage(imgData, 'PNG', 0, offset, imgWidth, imgHeight);
+        heightLeft -= contentHeightPerPage;
+        pageNum++;
       }
 
       // 添加水印到每一页（平铺）
@@ -452,7 +463,7 @@ export function HonorApplicationPrintDialog({
             style={{ 
               width: '210mm', 
               minHeight: '297mm',
-              padding: '20mm 25mm',
+              padding: '30mm 27mm 27mm 27mm',
               // 水印在文档内容区域内
               backgroundImage: watermarkPattern ? `url(${watermarkPattern})` : 'none',
               backgroundRepeat: 'repeat',
@@ -483,15 +494,15 @@ export function HonorApplicationPrintDialog({
               </div>
             </div>
 
-            {/* 主表格 - 整体合并 */}
+            {/* 主表格 */}
             <table style={{ 
               width: '100%', 
               borderCollapse: 'collapse', 
               fontSize: '14px',
               fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif',
             }}>
+              {/* 基本信息行 */}
               <tbody>
-                {/* 基本信息行 */}
                 <tr>
                   <td style={{ border: '1px solid #000', padding: '8px 12px', width: '20%', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500 }}>姓　名</td>
                   <td style={{ border: '1px solid #000', padding: '8px 12px', width: '30%', textAlign: 'center' }}>{application.studentName}</td>
@@ -506,60 +517,84 @@ export function HonorApplicationPrintDialog({
                     {application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : '-'}
                   </td>
                 </tr>
+              </tbody>
+            </table>
 
-                {/* 申报内容 */}
-                {(() => {
-                  const fieldLabels: Record<string, string> = {};
-                  if (campaign?.formConfig?.fields) {
-                    campaign.formConfig.fields.forEach(f => {
-                      fieldLabels[f.field] = f.label;
-                    });
-                  }
-                  return Object.entries(application.formData).map(([key, value]) => (
-                    <tr key={key}>
-                      <td style={{ border: '1px solid #000', padding: '8px 12px', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500, verticalAlign: 'top' }}>
+            {/* 申报内容表格 */}
+            {(() => {
+              const fieldLabels: Record<string, string> = {};
+              if (campaign?.formConfig?.fields) {
+                campaign.formConfig.fields.forEach(f => {
+                  fieldLabels[f.field] = f.label;
+                });
+              }
+              return Object.entries(application.formData).map(([key, value]) => (
+                <table key={key} style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ border: '1px solid #000', padding: '8px 12px', width: '20%', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500, verticalAlign: 'top' }}>
                         {fieldLabels[key] || key}
                       </td>
-                      <td colSpan={3} style={{ border: '1px solid #000', padding: '8px 12px', minHeight: '60px', whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+                      <td style={{ border: '1px solid #000', padding: '8px 12px', minHeight: '60px', whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
                         {value || '-'}
                       </td>
                     </tr>
-                  ));
-                })()}
+                  </tbody>
+                </table>
+              ));
+            })()}
 
-                {/* 已获奖荣誉 */}
-                {application.existingHonors && application.existingHonors.length > 0 && (
-                  <>
+            {/* 已获奖荣誉表格 */}
+            {application.existingHonors && application.existingHonors.length > 0 && (
+              <>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
+                  <tbody>
                     <tr>
-                      <td colSpan={4} style={{ border: '1px solid #000', padding: '8px 12px', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500 }}>已获奖荣誉</td>
+                      <td style={{ border: '1px solid #000', padding: '8px 12px', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500 }}>已获奖荣誉</td>
                     </tr>
+                  </tbody>
+                </table>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
+                  <thead>
                     <tr>
-                      <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500 }}>荣誉名称</td>
-                      <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500 }}>级别</td>
-                      <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500 }}>类别</td>
-                      <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500 }}>颁发单位/日期</td>
+                      <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500, width: '35%' }}>荣誉名称</th>
+                      <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500, width: '15%' }}>级别</th>
+                      <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500, width: '15%' }}>类别</th>
+                      <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500, width: '20%' }}>颁发单位</th>
+                      <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500, width: '15%' }}>获奖日期</th>
                     </tr>
+                  </thead>
+                  <tbody>
                     {application.existingHonors.map((honor, index) => (
                       <tr key={index}>
                         <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>{honor.title}</td>
                         <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>{honor.level || '校级'}</td>
                         <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>{honor.category || '其他'}</td>
-                        <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>{honor.issuer || '-'} / {honor.date || '-'}</td>
+                        <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>{honor.issuer || '-'}</td>
+                        <td style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>{honor.date || '-'}</td>
                       </tr>
                     ))}
-                  </>
-                )}
+                  </tbody>
+                </table>
+              </>
+            )}
 
-                {/* 审批意见 */}
-                {application.approvalComments.length > 0 && (
-                  <>
+            {/* 审批意见表格 */}
+            {application.approvalComments.length > 0 && (
+              <>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
+                  <tbody>
                     <tr>
-                      <td colSpan={4} style={{ border: '1px solid #000', padding: '8px 12px', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500 }}>审批意见</td>
+                      <td style={{ border: '1px solid #000', padding: '8px 12px', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500 }}>审批意见</td>
                     </tr>
-                    {application.approvalComments.map((comment, index) => (
-                      <tr key={index}>
-                        <td style={{ border: '1px solid #000', padding: '8px 12px', backgroundColor: '#f5f5f5', textAlign: 'center' }}>{APPROVAL_STEP_NAMES[comment.step]}</td>
-                        <td colSpan={3} style={{ border: '1px solid #000', padding: '8px 12px' }}>
+                  </tbody>
+                </table>
+                {application.approvalComments.map((comment, index) => (
+                  <table key={index} style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ border: '1px solid #000', padding: '8px 12px', width: '20%', backgroundColor: '#f5f5f5', textAlign: 'center' }}>{APPROVAL_STEP_NAMES[comment.step]}</td>
+                        <td style={{ border: '1px solid #000', padding: '8px 12px' }}>
                           <div style={{ marginBottom: '4px' }}>
                             <span style={{ marginRight: '16px' }}>审批人：{comment.approverName}</span>
                             <span>结果：
@@ -572,20 +607,36 @@ export function HonorApplicationPrintDialog({
                           <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{new Date(comment.time).toLocaleString()}</div>
                         </td>
                       </tr>
-                    ))}
-                  </>
-                )}
+                    </tbody>
+                  </table>
+                ))}
+              </>
+            )}
 
-                {/* 签字栏 */}
+            {/* 签字栏表格 */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '8mm' }}>
+              <tbody>
                 <tr style={{ height: '60px' }}>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', verticalAlign: 'bottom' }}>家长签字：</td>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', verticalAlign: 'bottom' }}>班主任签字：</td>
-                  <td colSpan={2} style={{ border: '1px solid #000', padding: '8px 12px', verticalAlign: 'bottom' }}>学校盖章：</td>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', verticalAlign: 'bottom' }}>
+                    家长签字：
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', verticalAlign: 'bottom' }}>
+                    班主任签字：
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', verticalAlign: 'bottom' }}>
+                    学校盖章：
+                  </td>
                 </tr>
                 <tr>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日</td>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日</td>
-                  <td colSpan={2} style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日</td>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
+                    日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
+                    日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
+                    日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日
+                  </td>
                 </tr>
               </tbody>
             </table>
