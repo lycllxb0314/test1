@@ -53,71 +53,82 @@ export function HonorApplicationPrintDialog({
   const [watermarkUrl, setWatermarkUrl] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // 创建水印图片（包含logo和文字）
+  // 创建水印图片（包含logo和文字，多个形成网格）
   const createWatermark = useCallback(async () => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
     const fontSize = 20;
-    const gap = 200;
+    const gapX = 300; // 水印水平间距
+    const gapY = 200; // 水印垂直间距
     const rotate = -25;
     const logoSize = 32;
     const logoTextGap = 10;
     const scale = 2;
     
-    canvas.width = gap * 2 * scale;
-    canvas.height = gap * 2 * scale;
+    // 创建更大的canvas以容纳多个水印
+    canvas.width = gapX * 2 * scale;
+    canvas.height = gapY * 2 * scale;
     ctx.scale(scale, scale);
 
     // 计算文字宽度
     ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
     const textWidth = ctx.measureText(schoolName).width;
 
-    // 移动到中心点并旋转
-    ctx.translate(gap, gap);
-    ctx.rotate((rotate * Math.PI) / 180);
-
-    // 尝试加载并绘制logo
-    let logoWidth = 0;
+    // 尝试加载logo
+    let logoImg: HTMLImageElement | null = null;
     try {
-      const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+      logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
         img.onerror = reject;
         img.src = '/logo-school.png';
       });
-      
-      // 计算总宽度
-      logoWidth = logoSize + logoTextGap;
-      const totalWidth = logoWidth + textWidth;
-      
-      // 从中心点开始绘制
-      let currentX = -totalWidth / 2;
-      
-      // 绘制logo
-      ctx.globalAlpha = 0.15;
-      ctx.drawImage(logoImg, currentX, -logoSize / 2, logoSize, logoSize);
-      currentX += logoWidth;
-      
-      // 绘制文字
-      ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-      ctx.fillStyle = 'rgba(180, 180, 180, 0.15)';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(schoolName, currentX, 0);
     } catch {
-      // logo加载失败，只绘制文字
-      const totalWidth = textWidth;
-      const currentX = -totalWidth / 2;
-      
-      ctx.globalAlpha = 0.15;
-      ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-      ctx.fillStyle = 'rgba(180, 180, 180, 0.15)';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(schoolName, currentX, 0);
+      console.warn('Logo加载失败，使用纯文字水印');
+    }
+
+    // 计算总宽度
+    const logoWidth = logoImg ? logoSize + logoTextGap : 0;
+    const totalWidth = logoWidth + textWidth;
+
+    // 设置透明度
+    ctx.globalAlpha = 0.15;
+
+    // 绘制多个水印形成网格（3x3）
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        const centerX = gapX * (col + 0.5);
+        const centerY = gapY * (row + 0.5);
+        
+        // 保存状态
+        ctx.save();
+        
+        // 移动到当前位置并旋转
+        ctx.translate(centerX, centerY);
+        ctx.rotate((rotate * Math.PI) / 180);
+        
+        // 从中心点开始绘制
+        let currentX = -totalWidth / 2;
+        
+        // 绘制logo
+        if (logoImg) {
+          ctx.drawImage(logoImg, currentX, -logoSize / 2, logoSize, logoSize);
+          currentX += logoWidth;
+        }
+        
+        // 绘制文字
+        ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+        ctx.fillStyle = '#888888';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(schoolName, currentX, 0);
+        
+        // 恢复状态
+        ctx.restore();
+      }
     }
 
     return canvas.toDataURL('image/png');
