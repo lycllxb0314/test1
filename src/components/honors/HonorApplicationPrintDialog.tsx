@@ -42,7 +42,7 @@ type HonorApplicationPrintDialogProps = {
 
 /** 水印配置 */
 const WATERMARK_CONFIG = {
-  text: '福州市仓山区第六中心小学',
+  text: '龙岩师范附属小学',
   color: 'rgba(180, 180, 180, 0.15)',
   fontSize: 16,
   rotate: -25,
@@ -52,12 +52,12 @@ const WATERMARK_CONFIG = {
 /**
  * 创建水印图案（返回 data URL）
  */
-function createWatermarkPattern(): string {
+function createWatermarkPattern(schoolName: string): string {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  const { text, color, fontSize, rotate, gap } = WATERMARK_CONFIG;
+  const { color, fontSize, rotate, gap } = WATERMARK_CONFIG;
   
   // 设置画布尺寸
   canvas.width = gap * 2;
@@ -72,7 +72,7 @@ function createWatermarkPattern(): string {
   // 旋转并绘制
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.rotate((rotate * Math.PI) / 180);
-  ctx.fillText(text, 0, 0);
+  ctx.fillText(schoolName, 0, 0);
 
   return canvas.toDataURL('image/png');
 }
@@ -84,7 +84,7 @@ export function HonorApplicationPrintDialog({
   open,
   onOpenChange,
   application,
-  schoolName = '福州市仓山区第六中心小学',
+  schoolName = '龙岩师范附属小学',
 }: HonorApplicationPrintDialogProps) {
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -94,8 +94,8 @@ export function HonorApplicationPrintDialog({
 
   // 初始化水印
   useEffect(() => {
-    setWatermarkPattern(createWatermarkPattern());
-  }, []);
+    setWatermarkPattern(createWatermarkPattern(schoolName));
+  }, [schoolName]);
 
   // 生成 PDF（后台异步）
   const generatePdf = useCallback(async () => {
@@ -375,18 +375,16 @@ export function HonorApplicationPrintDialog({
             {/* 学校 Logo 和标题 */}
             <div style={{ textAlign: 'center', marginBottom: '24px', position: 'relative' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '12px' }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
-                }}>
-                  <span style={{ fontSize: '20px', fontWeight: 'bold', color: 'white' }}>校</span>
-                </div>
+                {/* 学校 Logo */}
+                <img 
+                  src="/logo-school.png" 
+                  alt={schoolName}
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    objectFit: 'contain',
+                  }}
+                />
                 <div>
                   <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#1f2937' }}>
                     {campaign?.title || '荣誉评选申报表'}
