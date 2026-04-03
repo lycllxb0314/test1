@@ -51,21 +51,25 @@ export function HonorApplicationPrintDialog({
 }: HonorApplicationPrintDialogProps) {
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [watermarkUrl, setWatermarkUrl] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLImageElement | null>(null);
 
-  // 预加载logo
+  // 预加载logo并生成水印
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       logoRef.current = img;
+      // logo加载后立即生成水印
+      createWatermark();
     };
     img.src = '/logo-school.png';
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolName]);
 
   // 创建水印图片
-  const createWatermarkImage = useCallback(async (): Promise<string> => {
+  const createWatermark = useCallback(() => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
@@ -110,7 +114,9 @@ export function HonorApplicationPrintDialog({
     ctx.textBaseline = 'middle';
     ctx.fillText(schoolName, currentX, 0);
 
-    return canvas.toDataURL('image/png');
+    const url = canvas.toDataURL('image/png');
+    setWatermarkUrl(url);
+    return url;
   }, [schoolName]);
 
   // 生成 PDF
@@ -124,9 +130,6 @@ export function HonorApplicationPrintDialog({
       const contentElement = contentRef.current;
       
       console.log(`开始生成PDF...`);
-
-      // 创建水印
-      const watermarkData = await createWatermarkImage();
       
       // html2pdf.js 配置 - 关键配置解决分页和边框问题
       const opt = {
@@ -154,9 +157,6 @@ export function HonorApplicationPrintDialog({
       // 生成 PDF
       const pdf = await html2pdf().set(opt).from(contentElement).outputPdf('blob');
       
-      // 为 PDF 添加水印
-      // 由于 html2pdf 生成的 blob 无法直接修改，我们创建一个新的 PDF
-      
       // 生成 Blob URL
       const url = URL.createObjectURL(pdf);
       setPdfUrl(url);
@@ -170,7 +170,7 @@ export function HonorApplicationPrintDialog({
     } finally {
       setGenerating(false);
     }
-  }, [application, createWatermarkImage]);
+  }, [application]);
 
   // 打开时异步生成 PDF
   useEffect(() => {
@@ -345,7 +345,7 @@ export function HonorApplicationPrintDialog({
         </DialogHeader>
 
         {/* 预览区域 - 立即显示 HTML 预览 */}
-        <div className="flex-1 relative overflow-auto bg-white flex justify-center">
+        <div className="flex-1 relative overflow-auto bg-white flex justify-center py-8">
           {/* 导出样式 - 解决边框和分页问题 */}
           <style jsx global>{`
             /* 解决 html2canvas 边框消失问题 */
@@ -370,13 +370,33 @@ export function HonorApplicationPrintDialog({
             .export-table .bg-gray {
               background: #f5f5f5 !important;
             }
+            /* 水印样式 */
+            .watermark-container {
+              position: relative;
+            }
+            .watermark-container::before {
+              content: '';
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              background-image: url('${watermarkUrl}');
+              background-repeat: repeat;
+              pointer-events: none;
+              z-index: 0;
+            }
+            .watermark-content {
+              position: relative;
+              z-index: 1;
+            }
           `}</style>
           
           {/* HTML 内容预览（立即显示） */}
           <div 
             id="pdf-container"
             ref={contentRef}
-            className="bg-white relative"
+            className="bg-white relative watermark-container"
             style={{ 
               width: '156mm', 
               minHeight: '240mm',
@@ -384,7 +404,7 @@ export function HonorApplicationPrintDialog({
               boxSizing: 'border-box',
             }}
           >
-            <div>
+            <div className="watermark-content">
               {/* 标题 */}
               <div style={{ textAlign: 'center', marginBottom: '8mm' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '8px' }}>
