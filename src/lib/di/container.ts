@@ -183,6 +183,11 @@ export const SERVICE_IDENTIFIERS = {
   WorkloadRepository: Symbol.for('WorkloadRepository'),
   SchoolStatsRepository: Symbol.for('SchoolStatsRepository'),
   StudentHonorRepository: Symbol.for('StudentHonorRepository'),
+  // 心理系统 Repositories
+  PsychologySessionRepository: Symbol.for('PsychologySessionRepository'),
+  PsychologyMessageRepository: Symbol.for('PsychologyMessageRepository'),
+  PsychologyAlertRepository: Symbol.for('PsychologyAlertRepository'),
+  PsychologyProfileRepository: Symbol.for('PsychologyProfileRepository'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -251,6 +256,11 @@ export const SERVICE_IDENTIFIERS = {
   WorkloadService: Symbol.for('WorkloadService'),
   SchoolStatsService: Symbol.for('SchoolStatsService'),
   StudentHonorService: Symbol.for('StudentHonorService'),
+  // 心理系统 Services
+  PsychologySessionService: Symbol.for('PsychologySessionService'),
+  PsychologyMessageService: Symbol.for('PsychologyMessageService'),
+  PsychologyAlertService: Symbol.for('PsychologyAlertService'),
+  PsychologyProfileService: Symbol.for('PsychologyProfileService'),
 } as const;
 
 /**
