@@ -50,7 +50,42 @@ export function HonorApplicationPrintDialog({
 }: HonorApplicationPrintDialogProps) {
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [watermarkPattern, setWatermarkPattern] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // 创建水印图案
+  useEffect(() => {
+    const createWatermark = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return '';
+
+      const fontSize = 20;
+      const gap = 200;
+      const rotate = -25;
+      
+      canvas.width = gap * 2;
+      canvas.height = gap * 2;
+
+      // 加载logo
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      
+      // 先绘制文字水印
+      ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+      ctx.fillStyle = 'rgba(180, 180, 180, 0.15)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      ctx.translate(gap, gap);
+      ctx.rotate((rotate * Math.PI) / 180);
+      ctx.fillText(schoolName, 0, 0);
+
+      setWatermarkPattern(canvas.toDataURL('image/png'));
+    };
+    
+    createWatermark();
+  }, [schoolName]);
 
   // 生成 PDF（使用 html2pdf.js）
   const generatePdf = useCallback(async () => {
@@ -62,9 +97,8 @@ export function HonorApplicationPrintDialog({
     try {
       // 计算 A4 尺寸的像素值（96dpi）
       const a4WidthPx = Math.floor(210 * 96 / 25.4); // 约 794px
-      const a4HeightPx = Math.floor(297 * 96 / 25.4); // 约 1123px
 
-      // html2pdf 配置 - 不设置margin，让HTML内容自己控制边距
+      // html2pdf 配置 - 不设置margin和height，让内容自动分页
       const opt = {
         margin: 0,
         filename: `${application.studentName}_${application.campaign?.title || '申报表'}.pdf`,
@@ -75,7 +109,7 @@ export function HonorApplicationPrintDialog({
           logging: false,
           backgroundColor: '#ffffff',
           width: a4WidthPx,
-          height: a4HeightPx,
+          // 不设置height，让内容自动延伸
         },
         jsPDF: { 
           unit: 'mm' as const, 
@@ -83,10 +117,10 @@ export function HonorApplicationPrintDialog({
           orientation: 'portrait' as const,
         },
         pagebreak: { 
-          mode: ['avoid-all', 'css', 'legacy'],
+          mode: ['css', 'legacy'],
           before: '.page-break-before',
           after: '.page-break-after',
-          avoid: ['tr', 'table'],
+          avoid: ['tr', '.avoid-break'],
         },
       };
 
@@ -272,12 +306,14 @@ export function HonorApplicationPrintDialog({
           {/* HTML 内容预览（立即显示） */}
           <div 
             ref={contentRef}
-            className="bg-white relative"
+            className="bg-white relative avoid-break"
             style={{ 
               width: '210mm', 
               minHeight: '297mm',
               padding: '30mm 27mm 27mm 27mm',
               boxSizing: 'border-box',
+              backgroundImage: watermarkPattern ? `url(${watermarkPattern})` : 'none',
+              backgroundRepeat: 'repeat',
             }}
           >
             {/* 标题 */}
