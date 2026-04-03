@@ -250,7 +250,7 @@ export class ParentService extends BaseService {
       await client
         .from('users')
         .insert({
-          id: `user-parent-${Date.now()}`,
+          id: crypto.randomUUID(),
           phone: params.phone,
           name: params.name,
           role: 'parent',
@@ -369,10 +369,10 @@ export class ParentService extends BaseService {
           continue;
         }
 
-        // 创建新用户账号
+        // 创建新用户账号 - 使用有效的 UUID
         const defaultPassword = '123456';
         const passwordHash = await bcrypt.hash(defaultPassword, 10);
-        const userId = `user-parent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const userId = crypto.randomUUID();
 
         const { error: insertError } = await client
           .from('users')
@@ -611,7 +611,7 @@ export class ParentService extends BaseService {
         } else {
           // 创建新用户
           const passwordHash = await bcrypt.hash(parent.password || '123456', 10);
-          const userId = `user-parent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const userId = crypto.randomUUID();
 
           await client
             .from('users')
