@@ -45,20 +45,22 @@ const WATERMARK_CONFIG = {
   color: 'rgba(180, 180, 180, 0.12)',
   fontSize: 14,
   rotate: -25,
-  gap: 160,
-  logoSize: 24,
+  gap: 180,
+  logoSize: 22,
+  logoTextGap: 8, // logo和文字之间的间距
 };
 
 /**
  * 创建带logo的水印图案（返回 data URL）
  * 异步加载学校logo图片后绘制
+ * logo和文字在同一条水平线上
  */
 async function createWatermarkPattern(schoolName: string): Promise<string> {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  const { color, fontSize, rotate, gap, logoSize } = WATERMARK_CONFIG;
+  const { color, fontSize, rotate, gap, logoSize, logoTextGap } = WATERMARK_CONFIG;
   
   // 设置画布尺寸
   canvas.width = gap * 2;
@@ -78,29 +80,40 @@ async function createWatermarkPattern(schoolName: string): Promise<string> {
     // logo加载失败，仅使用文字
   }
 
+  // 设置字体以测量文字宽度
+  ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  const textWidth = ctx.measureText(schoolName).width;
+  
+  // 计算总宽度：logo + 间距 + 文字
+  const totalWidth = (logoImage ? logoSize + logoTextGap : 0) + textWidth;
+
   // 移动到中心点并旋转
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.rotate((rotate * Math.PI) / 180);
 
-  // 绘制logo（如果有）
+  // 从中心点开始绘制，整体水平居中
+  let currentX = -totalWidth / 2;
+
+  // 绘制logo（如果有）- 在左边
   if (logoImage) {
     ctx.globalAlpha = 0.15;
     ctx.drawImage(
       logoImage,
-      -logoSize / 2,
-      -fontSize - logoSize / 2 - 4, // logo在文字上方
+      currentX,
+      -logoSize / 2, // 垂直居中
       logoSize,
       logoSize
     );
     ctx.globalAlpha = 1;
+    currentX += logoSize + logoTextGap;
   }
 
-  // 绘制文字
+  // 绘制文字 - 在logo右边，同一水平线
   ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
   ctx.fillStyle = color;
-  ctx.textAlign = 'center';
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(schoolName, 0, 0);
+  ctx.fillText(schoolName, currentX, 0);
 
   return canvas.toDataURL('image/png');
 }
@@ -152,7 +165,7 @@ export function HonorApplicationPrintDialog({
         format: 'a4',
       });
 
-      // 创建带logo的水印图案
+      // 创建带logo的水印图案（logo和文字水平对齐）
       const watermarkCanvas = document.createElement('canvas');
       const wCtx = watermarkCanvas.getContext('2d');
       if (wCtx) {
@@ -173,24 +186,35 @@ export function HonorApplicationPrintDialog({
           // logo加载失败，仅使用文字
         }
 
+        // 设置字体测量文字宽度
+        const fontSize = 18;
+        const logoSize = 28;
+        const logoTextGap = 6;
+        wCtx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+        const textWidth = wCtx.measureText(schoolName).width;
+        const totalWidth = (logoImg ? logoSize + logoTextGap : 0) + textWidth;
+
         // 移动到中心并旋转
         wCtx.translate(200, 200);
         wCtx.rotate((-25 * Math.PI) / 180);
 
-        // 绘制logo
+        // 从中心开始绘制，整体水平居中
+        let currentX = -totalWidth / 2;
+
+        // 绘制logo（左边）
         if (logoImg) {
-          const logoSize = 36;
           wCtx.globalAlpha = 0.15;
-          wCtx.drawImage(logoImg, -logoSize / 2, -30 - logoSize / 2, logoSize, logoSize);
+          wCtx.drawImage(logoImg, currentX, -logoSize / 2, logoSize, logoSize);
           wCtx.globalAlpha = 1;
+          currentX += logoSize + logoTextGap;
         }
 
-        // 绘制文字
-        wCtx.font = '18px "PingFang SC", "Microsoft YaHei", sans-serif';
+        // 绘制文字（右边，同一水平线）
+        wCtx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
         wCtx.fillStyle = 'rgba(180, 180, 180, 0.2)';
-        wCtx.textAlign = 'center';
+        wCtx.textAlign = 'left';
         wCtx.textBaseline = 'middle';
-        wCtx.fillText(schoolName, 0, 10);
+        wCtx.fillText(schoolName, currentX, 0);
       }
 
       let heightLeft = imgHeight;
