@@ -597,24 +597,24 @@ export function HonorApplicationPrintDialog({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '8mm' }}>
               <tbody>
                 <tr style={{ height: '60px' }}>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                    <div style={{ marginBottom: '8px' }}>家长签字：</div>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', verticalAlign: 'bottom' }}>
+                    家长签字：
                   </td>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                    <div style={{ marginBottom: '8px' }}>班主任签字：</div>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', verticalAlign: 'bottom' }}>
+                    班主任签字：
                   </td>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', textAlign: 'center', verticalAlign: 'bottom' }}>
-                    <div style={{ marginBottom: '8px' }}>学校盖章：</div>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', verticalAlign: 'bottom' }}>
+                    学校盖章：
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', textAlign: 'center', fontSize: '12px' }}>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
                     日期：    年    月    日
                   </td>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', textAlign: 'center', fontSize: '12px' }}>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
                     日期：    年    月    日
                   </td>
-                  <td style={{ border: '1px solid #000', padding: '8px 12px', textAlign: 'center', fontSize: '12px' }}>
+                  <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
                     日期：    年    月    日
                   </td>
                 </tr>
