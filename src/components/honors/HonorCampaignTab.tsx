@@ -72,6 +72,7 @@ import type {
   ApprovalComment,
 } from '@/types/honor-campaign';
 import { FORM_PRESET_EXCELLENT_YOUNG_PIONEER, FORM_PRESET_MERIT_STUDENT, APPROVAL_STEP_NAMES, APPROVAL_STEP_ORDER, getSchoolYearOptions, getCurrentSchoolYear } from '@/types/honor-campaign';
+import { HonorApplicationPrintDialog } from './HonorApplicationPrintDialog';
 
 // ==================== 配置 ====================
 
@@ -114,8 +115,8 @@ export function HonorCampaignTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [selectedCampaign, setSelectedCampaign] = useState<HonorCampaign | null>(null);
-  const [applicationDetailOpen, setApplicationDetailOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<HonorApplication | null>(null);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [approvalResult, setApprovalResult] = useState<'approved' | 'rejected' | 'returned'>('approved');
   const [approvalComment, setApprovalComment] = useState('');
@@ -551,9 +552,9 @@ export function HonorCampaignTab() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => { setSelectedApplication(app); setApplicationDetailOpen(true); }}>
+                            <Button variant="outline" size="sm" onClick={() => { setSelectedApplication(app); setPrintDialogOpen(true); }}>
                               <Eye className="h-4 w-4 mr-1" />
-                              查看
+                              预览
                             </Button>
                             <Button size="sm" onClick={() => handleOpenApproval(app)}>
                               审批
@@ -692,102 +693,6 @@ export function HonorCampaignTab() {
         </DialogContent>
       </Dialog>
 
-      {/* 申报详情对话框 */}
-      <Dialog open={applicationDetailOpen} onOpenChange={setApplicationDetailOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>申报详情</DialogTitle>
-          </DialogHeader>
-
-          {selectedApplication && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">学生姓名</Label>
-                  <p className="font-medium">{selectedApplication.studentName}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">班级</Label>
-                  <p className="font-medium">{selectedApplication.className}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">荣誉类型</Label>
-                  <p className="font-medium">{selectedApplication.campaign?.honorType}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">申报时间</Label>
-                  <p className="font-medium">
-                    {selectedApplication.submittedAt
-                      ? new Date(selectedApplication.submittedAt).toLocaleString()
-                      : '-'}
-                  </p>
-                </div>
-              </div>
-
-              {selectedApplication.formData && Object.keys(selectedApplication.formData).length > 0 && (
-                <div>
-                  <Label className="text-muted-foreground">申报内容</Label>
-                  <div className="mt-2 space-y-2">
-                    {Object.entries(selectedApplication.formData).map(([key, value]) => (
-                      <div key={key} className="bg-muted/50 p-3 rounded-lg">
-                        <p className="text-sm font-medium">{key}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{value as string}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 审批记录 */}
-              {selectedApplication.approvalComments && selectedApplication.approvalComments.length > 0 && (
-                <div>
-                  <Label className="text-muted-foreground">审批记录</Label>
-                  <div className="mt-2 space-y-2">
-                    {selectedApplication.approvalComments.map((comment: ApprovalComment, index: number) => (
-                      <div key={index} className="bg-muted/50 p-3 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{APPROVAL_STEP_NAMES[comment.step]}</span>
-                          <div className="flex items-center gap-2">
-                            {comment.result === 'approved' ? (
-                              <Badge className="bg-green-100 text-green-700">通过</Badge>
-                            ) : comment.result === 'rejected' ? (
-                              <Badge className="bg-red-100 text-red-700">拒绝</Badge>
-                            ) : (
-                              <Badge className="bg-orange-100 text-orange-700">退回</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          审批人：{comment.approverName}
-                        </p>
-                        {comment.comment && (
-                          <p className="text-sm mt-1">{comment.comment}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(comment.time).toLocaleString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApplicationDetailOpen(false)}>关闭</Button>
-            <Button onClick={() => {
-              setApplicationDetailOpen(false);
-              if (selectedApplication) {
-                handleOpenApproval(selectedApplication);
-              }
-            }}>
-              审批
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* 审批对话框 */}
       <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>
         <DialogContent>
@@ -865,6 +770,13 @@ export function HonorCampaignTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 打印预览弹窗 */}
+      <HonorApplicationPrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        application={selectedApplication}
+      />
     </div>
   );
 }
