@@ -609,13 +609,13 @@ export function HonorApplicationPrintDialog({
                 </tr>
                 <tr>
                   <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
-                    日期：    年    月    日
+                    日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日
                   </td>
                   <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
-                    日期：    年    月    日
+                    日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日
                   </td>
                   <td style={{ border: '1px solid #000', padding: '8px 12px', fontSize: '12px' }}>
-                    日期：    年    月    日
+                    日期：&emsp;&emsp;年&emsp;&emsp;月&emsp;&emsp;日
                   </td>
                 </tr>
               </tbody>
