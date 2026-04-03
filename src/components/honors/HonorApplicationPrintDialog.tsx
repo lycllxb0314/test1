@@ -40,14 +40,14 @@ type HonorApplicationPrintDialogProps = {
   schoolName?: string;
 };
 
-/** 水印配置 */
+/** 水印配置 - 统一CSS和PDF使用 */
 const WATERMARK_CONFIG = {
-  color: 'rgba(180, 180, 180, 0.10)',
-  fontSize: 16,         // 缩小字体
+  color: 'rgba(180, 180, 180, 0.15)',
+  fontSize: 20,         // 字体大小
   rotate: -25,
-  gap: 120,             // 缩小间距，增加密度
-  logoSize: 24,         // 缩小logo
-  logoTextGap: 6,       // logo和文字之间的间距
+  gap: 200,             // 间距
+  logoSize: 32,         // logo大小
+  logoTextGap: 10,      // logo和文字之间的间距
   scale: 2,             // 高清缩放比例
 };
 
@@ -151,6 +151,10 @@ export function HonorApplicationPrintDialog({
 
     setGenerating(true);
     try {
+      // 临时移除CSS背景水印，避免PDF双重水印
+      const originalBg = contentRef.current.style.backgroundImage;
+      contentRef.current.style.backgroundImage = 'none';
+      
       // 使用 html2canvas 截图（降低 scale 提升速度）
       const canvas = await html2canvas(contentRef.current, {
         scale: 1.5, // 降低 scale 提升速度
@@ -159,6 +163,9 @@ export function HonorApplicationPrintDialog({
         backgroundColor: '#ffffff',
         imageTimeout: 0,
       });
+      
+      // 恢复CSS背景水印
+      contentRef.current.style.backgroundImage = originalBg;
 
       // 计算 PDF 尺寸 (A4)
       const imgWidth = 210; // A4 宽度 mm
@@ -172,15 +179,15 @@ export function HonorApplicationPrintDialog({
         format: 'a4',
       });
 
-      // 创建带logo的水印图案（logo和文字水平对齐，高清）
+      // 创建带logo的水印图案（使用统一配置）
       const watermarkCanvas = document.createElement('canvas');
       const wCtx = watermarkCanvas.getContext('2d');
       if (wCtx) {
-        // 高清尺寸
-        const scale = 2;
-        const baseSize = 300;
-        watermarkCanvas.width = baseSize * 2 * scale;
-        watermarkCanvas.height = baseSize * 2 * scale;
+        const { color, fontSize, rotate, gap, logoSize, logoTextGap, scale } = WATERMARK_CONFIG;
+        
+        // 设置高清画布尺寸
+        watermarkCanvas.width = gap * 2 * scale;
+        watermarkCanvas.height = gap * 2 * scale;
         
         // 尝试加载logo
         let logoImg: HTMLImageElement | null = null;
@@ -199,24 +206,21 @@ export function HonorApplicationPrintDialog({
         // 缩放上下文
         wCtx.scale(scale, scale);
 
-        // 设置字体测量文字宽度（放大尺寸）
-        const fontSize = 24;
-        const logoSize = 36;
-        const logoTextGap = 8;
+        // 设置字体测量文字宽度
         wCtx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
         const textWidth = wCtx.measureText(schoolName).width;
         const totalWidth = (logoImg ? logoSize + logoTextGap : 0) + textWidth;
 
         // 移动到中心并旋转
-        wCtx.translate(baseSize, baseSize);
-        wCtx.rotate((-25 * Math.PI) / 180);
+        wCtx.translate(gap, gap);
+        wCtx.rotate((rotate * Math.PI) / 180);
 
         // 从中心开始绘制，整体水平居中
         let currentX = -totalWidth / 2;
 
         // 绘制logo（左边）
         if (logoImg) {
-          wCtx.globalAlpha = 0.15;
+          wCtx.globalAlpha = 0.2;
           wCtx.imageSmoothingEnabled = true;
           wCtx.imageSmoothingQuality = 'high';
           wCtx.drawImage(logoImg, currentX, -logoSize / 2, logoSize, logoSize);
@@ -226,7 +230,7 @@ export function HonorApplicationPrintDialog({
 
         // 绘制文字（右边，同一水平线）
         wCtx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-        wCtx.fillStyle = 'rgba(180, 180, 180, 0.2)';
+        wCtx.fillStyle = color;
         wCtx.textAlign = 'left';
         wCtx.textBaseline = 'middle';
         wCtx.fillText(schoolName, currentX, 0);
@@ -248,14 +252,19 @@ export function HonorApplicationPrintDialog({
         heightLeft -= pageHeight;
       }
 
-      // 添加水印到每一页
+      // 添加水印到每一页（平铺）
       const totalPages = pdf.getNumberOfPages();
+      const watermarkData = watermarkCanvas.toDataURL('image/png');
+      // 水印单元大小：根据gap计算mm单位（假设屏幕96dpi，1mm≈3.78px）
+      const watermarkSizeMm = (WATERMARK_CONFIG.gap * 2) / 3.78;
+      
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
-        if (watermarkCanvas) {
-          const watermarkData = watermarkCanvas.toDataURL('image/png');
-          // 在页面中心添加水印
-          pdf.addImage(watermarkData, 'PNG', 105, 148.5, 80, 80);
+        // 平铺水印覆盖整页
+        for (let x = -watermarkSizeMm/2; x < 210 + watermarkSizeMm; x += watermarkSizeMm) {
+          for (let y = -watermarkSizeMm/2; y < 297 + watermarkSizeMm; y += watermarkSizeMm) {
+            pdf.addImage(watermarkData, 'PNG', x, y, watermarkSizeMm, watermarkSizeMm);
+          }
         }
       }
 
