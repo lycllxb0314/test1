@@ -451,15 +451,27 @@ export function HonorApplicationPrintDialog({
           >
             {/* 标题 */}
             <div style={{ textAlign: 'center', marginBottom: '8mm' }}>
-              <h1 style={{ 
-                fontSize: '22px', 
-                fontWeight: 'bold', 
-                margin: 0, 
-                fontFamily: 'SimHei, "Microsoft YaHei", sans-serif',
-                letterSpacing: '4px',
-              }}>
-                {campaign?.title || '荣誉评选申报表'}
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '8px' }}>
+                {/* 学校 Logo */}
+                <img 
+                  src="/logo-school.png" 
+                  alt={schoolName}
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    objectFit: 'contain',
+                  }}
+                />
+                <h1 style={{ 
+                  fontSize: '22px', 
+                  fontWeight: 'bold', 
+                  margin: 0, 
+                  fontFamily: 'SimHei, "Microsoft YaHei", sans-serif',
+                  letterSpacing: '4px',
+                }}>
+                  {campaign?.title || '荣誉评选申报表'}
+                </h1>
+              </div>
             </div>
 
             {/* 主表格 */}
@@ -467,7 +479,7 @@ export function HonorApplicationPrintDialog({
               width: '100%', 
               borderCollapse: 'collapse', 
               fontSize: '14px',
-              fontFamily: 'SimSun, serif',
+              fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif',
             }}>
               {/* 基本信息行 */}
               <tbody>
@@ -497,7 +509,7 @@ export function HonorApplicationPrintDialog({
                 });
               }
               return Object.entries(application.formData).map(([key, value]) => (
-                <table key={key} style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: 'SimSun, serif', marginTop: '-1px' }}>
+                <table key={key} style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
                   <tbody>
                     <tr>
                       <td style={{ border: '1px solid #000', padding: '8px 12px', width: '20%', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500, verticalAlign: 'top' }}>
@@ -515,14 +527,14 @@ export function HonorApplicationPrintDialog({
             {/* 已获奖荣誉表格 */}
             {application.existingHonors && application.existingHonors.length > 0 && (
               <>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: 'SimSun, serif', marginTop: '-1px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
                   <tbody>
                     <tr>
                       <td style={{ border: '1px solid #000', padding: '8px 12px', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500 }}>已获奖荣誉</td>
                     </tr>
                   </tbody>
                 </table>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'SimSun, serif', marginTop: '-1px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
                   <thead>
                     <tr>
                       <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontWeight: 500, width: '35%' }}>荣誉名称</th>
@@ -550,7 +562,7 @@ export function HonorApplicationPrintDialog({
             {/* 审批意见表格 */}
             {application.approvalComments.length > 0 && (
               <>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: 'SimSun, serif', marginTop: '-1px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
                   <tbody>
                     <tr>
                       <td style={{ border: '1px solid #000', padding: '8px 12px', backgroundColor: '#f5f5f5', textAlign: 'center', fontWeight: 500 }}>审批意见</td>
@@ -558,7 +570,7 @@ export function HonorApplicationPrintDialog({
                   </tbody>
                 </table>
                 {application.approvalComments.map((comment, index) => (
-                  <table key={index} style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'SimSun, serif', marginTop: '-1px' }}>
+                  <table key={index} style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '-1px' }}>
                     <tbody>
                       <tr>
                         <td style={{ border: '1px solid #000', padding: '8px 12px', width: '20%', backgroundColor: '#f5f5f5', textAlign: 'center' }}>{APPROVAL_STEP_NAMES[comment.step]}</td>
@@ -582,7 +594,7 @@ export function HonorApplicationPrintDialog({
             )}
 
             {/* 签字栏表格 */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: 'SimSun, serif', marginTop: '8mm' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontFamily: '"SimSun", "Songti SC", "Noto Serif SC", serif', marginTop: '8mm' }}>
               <tbody>
                 <tr style={{ height: '60px' }}>
                   <td style={{ border: '1px solid #000', padding: '8px 12px', width: '33.33%', textAlign: 'center', verticalAlign: 'bottom' }}>
