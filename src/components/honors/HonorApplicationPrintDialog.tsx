@@ -23,8 +23,7 @@ import {
   FileText,
   FileOutput,
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2pdf from 'html2pdf.js';
 import type { HonorApplication } from '@/types/honor-campaign';
 import { APPROVAL_STEP_NAMES } from '@/types/honor-campaign';
 
@@ -53,312 +52,40 @@ export function HonorApplicationPrintDialog({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // 生成 PDF（直接绘制表格）
+  // 生成 PDF（使用 html2pdf.js）
   const generatePdf = useCallback(async () => {
-    if (!application || !campaign) return;
+    if (!contentRef.current || !application) return;
 
     setGenerating(true);
     const startTime = Date.now();
     
     try {
-      // 创建 PDF
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      // 页边距配置（上3cm、下2.7cm、左2.7cm、右2.7cm）
-      const margin = {
-        top: 30,
-        bottom: 27,
-        left: 27,
-        right: 27,
+      // html2pdf 配置
+      const opt = {
+        margin: [30, 27, 27, 27] as [number, number, number, number], // 上、左、下、右（mm）
+        filename: `${application.studentName}_${application.campaign?.title || '申报表'}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.95 },
+        html2canvas: { 
+          scale: 1.5,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        },
+        jsPDF: { 
+          unit: 'mm' as const, 
+          format: 'a4' as const, 
+          orientation: 'portrait' as const,
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy'],
+          before: '.page-break-before',
+          after: '.page-break-after',
+          avoid: ['tr', 'table'],
+        },
       };
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const contentWidth = pageWidth - margin.left - margin.right;
 
-      // 设置字体 - 使用内置字体
-      pdf.setFont('helvetica');
-      
-      // 当前Y位置
-      let currentY = margin.top;
-
-      // 添加标题
-      pdf.setFontSize(18);
-      pdf.setFont('helvetica', 'bold');
-      const title = campaign.title || '荣誉评选申报表';
-      const titleWidth = pdf.getTextWidth(title);
-      pdf.text(title, margin.left + (contentWidth - titleWidth) / 2, currentY + 7);
-      currentY += 15;
-
-      // 基本信息表
-      autoTable(pdf, {
-        startY: currentY,
-        margin: { left: margin.left, right: margin.right },
-        head: [],
-        body: [
-          [
-            { content: '姓　名', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-            { content: application.studentName || '-', styles: { halign: 'center' as const } },
-            { content: '班　级', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-            { content: application.className || '-', styles: { halign: 'center' as const } },
-          ],
-          [
-            { content: '申报荣誉', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-            { content: campaign.honorType || '-', styles: { halign: 'center' as const } },
-            { content: '申报日期', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-            { content: application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : '-', styles: { halign: 'center' as const } },
-          ],
-        ],
-        theme: 'grid',
-        styles: {
-          font: 'helvetica',
-          fontSize: 11,
-          cellPadding: 4,
-          lineColor: [0, 0, 0] as [number, number, number],
-          lineWidth: 0.5,
-        },
-        columnStyles: {
-          0: { cellWidth: contentWidth * 0.2 },
-          1: { cellWidth: contentWidth * 0.3 },
-          2: { cellWidth: contentWidth * 0.2 },
-          3: { cellWidth: contentWidth * 0.3 },
-        },
-      });
-
-      currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-
-      // 申报内容字段
-      if (campaign.formConfig?.fields && application.formData) {
-        const fieldRows = campaign.formConfig.fields
-          .filter(f => application.formData[f.field])
-          .map(f => [
-            { content: f.label, styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const, valign: 'top' as const } },
-            { content: String(application.formData[f.field] || '-') },
-          ]);
-
-        if (fieldRows.length > 0) {
-          autoTable(pdf, {
-            startY: currentY - 0.5,
-            margin: { left: margin.left, right: margin.right },
-            head: [],
-            body: fieldRows,
-            theme: 'grid',
-            styles: {
-              font: 'helvetica',
-              fontSize: 11,
-              cellPadding: 4,
-              lineColor: [0, 0, 0] as [number, number, number],
-              lineWidth: 0.5,
-              minCellHeight: 12,
-            },
-            columnStyles: {
-              0: { cellWidth: contentWidth * 0.2 },
-              1: { cellWidth: contentWidth * 0.8 },
-            },
-          });
-
-          currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-        }
-      }
-
-      // 已获奖荣誉
-      if (application.existingHonors && application.existingHonors.length > 0) {
-        // 标题行
-        autoTable(pdf, {
-          startY: currentY - 0.5,
-          margin: { left: margin.left, right: margin.right },
-          head: [],
-          body: [
-            [{ content: '已获奖荣誉', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } }],
-          ],
-          theme: 'grid',
-          styles: {
-            font: 'helvetica',
-            fontSize: 11,
-            cellPadding: 4,
-            lineColor: [0, 0, 0] as [number, number, number],
-            lineWidth: 0.5,
-          },
-        });
-
-        currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-
-        // 荣誉列表
-        const honorRows = application.existingHonors.map(h => [
-          h.title || '-',
-          h.level || '校级',
-          h.category || '其他',
-          h.issuer || '-',
-          h.date || '-',
-        ]);
-
-        autoTable(pdf, {
-          startY: currentY - 0.5,
-          margin: { left: margin.left, right: margin.right },
-          head: [
-            [
-              { content: '荣誉名称', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-              { content: '级别', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-              { content: '类别', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-              { content: '颁发单位', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-              { content: '获奖日期', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } },
-            ],
-          ],
-          body: honorRows,
-          theme: 'grid',
-          styles: {
-            font: 'helvetica',
-            fontSize: 10,
-            cellPadding: 3,
-            lineColor: [0, 0, 0] as [number, number, number],
-            lineWidth: 0.5,
-            halign: 'center' as const,
-          },
-          columnStyles: {
-            0: { cellWidth: contentWidth * 0.35 },
-            1: { cellWidth: contentWidth * 0.15 },
-            2: { cellWidth: contentWidth * 0.15 },
-            3: { cellWidth: contentWidth * 0.2 },
-            4: { cellWidth: contentWidth * 0.15 },
-          },
-        });
-
-        currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-      }
-
-      // 审批意见
-      if (application.approvalComments && application.approvalComments.length > 0) {
-        // 标题行
-        autoTable(pdf, {
-          startY: currentY - 0.5,
-          margin: { left: margin.left, right: margin.right },
-          head: [],
-          body: [
-            [{ content: '审批意见', styles: { fillColor: [245, 245, 245] as [number, number, number], fontStyle: 'bold' as const, halign: 'center' as const } }],
-          ],
-          theme: 'grid',
-          styles: {
-            font: 'helvetica',
-            fontSize: 11,
-            cellPadding: 4,
-            lineColor: [0, 0, 0] as [number, number, number],
-            lineWidth: 0.5,
-          },
-        });
-
-        currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-
-        // 审批意见列表
-        const commentRows = application.approvalComments.map(c => {
-          const resultText = c.result === 'approved' ? '同意' : c.result === 'rejected' ? '不同意' : '';
-          return [
-            { content: APPROVAL_STEP_NAMES[c.step] || c.step, styles: { fillColor: [245, 245, 245] as [number, number, number], halign: 'center' as const } },
-            { 
-              content: `审批人：${c.approverName}    结果：${resultText}\n${c.comment ? `意见：${c.comment}\n` : ''}时间：${new Date(c.time).toLocaleString()}`, 
-              styles: { fontSize: 10 } 
-            },
-          ];
-        });
-
-        autoTable(pdf, {
-          startY: currentY - 0.5,
-          margin: { left: margin.left, right: margin.right },
-          head: [],
-          body: commentRows,
-          theme: 'grid',
-          styles: {
-            font: 'helvetica',
-            fontSize: 10,
-            cellPadding: 4,
-            lineColor: [0, 0, 0] as [number, number, number],
-            lineWidth: 0.5,
-          },
-          columnStyles: {
-            0: { cellWidth: contentWidth * 0.2 },
-            1: { cellWidth: contentWidth * 0.8 },
-          },
-        });
-
-        currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-      }
-
-      // 签字栏 - 检查是否需要新页
-      const signHeight = 35;
-      if (currentY + signHeight > pageHeight - margin.bottom) {
-        pdf.addPage();
-        currentY = margin.top;
-      } else {
-        currentY += 8;
-      }
-
-      autoTable(pdf, {
-        startY: currentY,
-        margin: { left: margin.left, right: margin.right },
-        head: [],
-        body: [
-          [
-            { content: '家长签字：', styles: { valign: 'bottom' as const, minCellHeight: 20 } },
-            { content: '班主任签字：', styles: { valign: 'bottom' as const, minCellHeight: 20 } },
-            { content: '学校盖章：', styles: { valign: 'bottom' as const, minCellHeight: 20 } },
-          ],
-          [
-            { content: '日期：      年      月      日', styles: { fontSize: 10 } },
-            { content: '日期：      年      月      日', styles: { fontSize: 10 } },
-            { content: '日期：      年      月      日', styles: { fontSize: 10 } },
-          ],
-        ],
-        theme: 'grid',
-        styles: {
-          font: 'helvetica',
-          fontSize: 11,
-          cellPadding: 4,
-          lineColor: [0, 0, 0] as [number, number, number],
-          lineWidth: 0.5,
-        },
-        columnStyles: {
-          0: { cellWidth: contentWidth / 3 },
-          1: { cellWidth: contentWidth / 3 },
-          2: { cellWidth: contentWidth / 3 },
-        },
-      });
-
-      currentY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-
-      // 底部信息
-      currentY += 8;
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(102, 102, 102);
-      const footerText = `申报编号：${application.id}    ${schoolName}`;
-      const footerWidth = pdf.getTextWidth(footerText);
-      pdf.text(footerText, margin.left + (contentWidth - footerWidth) / 2, currentY);
-
-      // 添加水印到每一页
-      const totalPages = pdf.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        
-        // 绘制文字水印
-        pdf.setTextColor(200, 200, 200);
-        pdf.setFontSize(40);
-        pdf.setFont('helvetica', 'normal');
-        
-        // 平铺水印
-        for (let x = margin.left; x < pageWidth - margin.right; x += 80) {
-          for (let y = margin.top + 30; y < pageHeight - margin.bottom; y += 60) {
-            pdf.text(schoolName, x, y, { angle: 45, align: 'center' });
-          }
-        }
-        
-        // 重置文本颜色
-        pdf.setTextColor(0, 0, 0);
-      }
-
-      // 生成 Blob URL
-      const pdfBlob = pdf.output('blob');
+      // 生成 PDF blob
+      const pdfBlob = await html2pdf().set(opt).from(contentRef.current).outputPdf('blob');
       const url = URL.createObjectURL(pdfBlob);
       setPdfUrl(url);
       
