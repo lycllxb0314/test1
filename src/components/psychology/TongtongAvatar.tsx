@@ -4,13 +4,13 @@
  * 数字人童童组件
  * 
  * 功能：
- * - 显示童童形象
- * - 口型同步动画（说话时嘴巴动画）
- * - 表情动画（根据情感变化）
- * - 播放状态控制
+ * - 显示童童形象（绿色植物头发、学士帽、粉色T恤、红领巾）
+ * - 动态效果：呼吸浮动、说话抖动、状态光环
+ * - 口型同步动画（说话时轻微缩放）
+ * - 表情动画（根据情感变化装饰）
  */
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 // 童童表情类型
@@ -34,124 +34,24 @@ type TongtongAvatarProps = {
   onClick?: () => void;
 };
 
-// 眼睛眨眼动画
-const BlinkingEyes: React.FC<{ emotion: TongtongEmotion }> = ({ emotion }) => {
-  const [isBlinking, setIsBlinking] = useState(false);
-
-  useEffect(() => {
-    // 随机眨眼
-    const blinkInterval = setInterval(() => {
-      if (Math.random() > 0.7) {
-        setIsBlinking(true);
-        setTimeout(() => setIsBlinking(false), 150);
-      }
-    }, 2000);
-
-    return () => clearInterval(blinkInterval);
-  }, []);
-
-  // 根据情感调整眼睛
-  const getEyeStyle = () => {
-    switch (emotion) {
-      case 'happy':
-        return 'animate-pulse';
-      case 'sad':
-        return 'opacity-80';
-      case 'surprised':
-        return 'scale-125';
-      case 'thinking':
-        return 'animate-pulse';
-      default:
-        return '';
-    }
-  };
-
-  return (
-    <div className={cn(
-      'absolute flex gap-4 transition-all duration-200',
-      getEyeStyle(),
-      isBlinking && 'opacity-0'
-    )}>
-      {/* 左眼 */}
-      <div className="w-4 h-5 bg-primary rounded-full" />
-      {/* 右眼 */}
-      <div className="w-4 h-5 bg-primary rounded-full" />
-    </div>
-  );
+// 状态指示器配置
+const STATE_CONFIG = {
+  idle: { text: '我在这里', emoji: '🌱', color: 'bg-gradient-to-r from-green-400 to-emerald-500' },
+  listening: { text: '正在倾听...', emoji: '👂', color: 'bg-gradient-to-r from-blue-400 to-cyan-500' },
+  speaking: { text: '正在回复...', emoji: '💬', color: 'bg-gradient-to-r from-pink-400 to-rose-500' },
+  thinking: { text: '让我想想...', emoji: '💭', color: 'bg-gradient-to-r from-amber-400 to-orange-500' },
 };
 
-// 嘴巴动画（说话时）
-const SpeakingMouth: React.FC<{ 
-  isSpeaking: boolean;
-  emotion: TongtongEmotion;
-}> = ({ isSpeaking, emotion }) => {
-  const [mouthOpen, setMouthOpen] = useState(false);
-
-  useEffect(() => {
-    if (isSpeaking) {
-      // 模拟说话时嘴巴开合
-      const interval = setInterval(() => {
-        setMouthOpen(prev => !prev);
-      }, 100 + Math.random() * 100);
-
-      return () => clearInterval(interval);
-    } else {
-      setMouthOpen(false);
-    }
-  }, [isSpeaking]);
-
-  // 根据情感调整嘴巴形状
-  const getMouthStyle = () => {
-    if (isSpeaking) {
-      return mouthOpen ? 'h-4 w-6 rounded-full' : 'h-2 w-6 rounded-full';
-    }
-    
-    switch (emotion) {
-      case 'happy':
-        return 'h-3 w-6 rounded-b-full';
-      case 'sad':
-        return 'h-2 w-6 rounded-t-full';
-      case 'surprised':
-        return 'h-4 w-4 rounded-full';
-      default:
-        return 'h-2 w-4 rounded-full';
-    }
-  };
-
-  return (
-    <div className={cn(
-      'bg-primary/80 transition-all duration-100',
-      getMouthStyle()
-    )} />
-  );
+// 表情装饰配置
+const EMOTION_DECORATION = {
+  neutral: null,
+  happy: { emoji: '✨', position: 'top-right' },
+  sad: { emoji: '💧', position: 'top-left' },
+  surprised: { emoji: '❗', position: 'top-center' },
+  thinking: { emoji: '💭', position: 'top-center' },
+  concerned: { emoji: '🤗', position: 'top-center' },
 };
 
-// 状态指示器
-const StateIndicator: React.FC<{ 
-  state: TongtongState;
-}> = ({ state }) => {
-  const indicators = {
-    idle: { text: '我在这里', color: 'bg-muted' },
-    listening: { text: '正在倾听...', color: 'bg-blue-500 animate-pulse' },
-    speaking: { text: '正在回复...', color: 'bg-green-500 animate-pulse' },
-    thinking: { text: '让我想想...', color: 'bg-yellow-500 animate-pulse' },
-  };
-
-  const indicator = indicators[state];
-
-  return (
-    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
-      <span className={cn(
-        'px-3 py-1 rounded-full text-xs text-white',
-        indicator.color
-      )}>
-        {indicator.text}
-      </span>
-    </div>
-  );
-};
-
-// 主组件
 export const TongtongAvatar: React.FC<TongtongAvatarProps> = ({
   state = 'idle',
   emotion = 'neutral',
@@ -161,110 +61,173 @@ export const TongtongAvatar: React.FC<TongtongAvatarProps> = ({
   onClick,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [floatOffset, setFloatOffset] = useState(0);
+  const [scale, setScale] = useState(1);
 
   // 尺寸配置
   const sizeConfig = {
-    sm: { container: 'w-24 h-24', avatar: 'w-20 h-20' },
-    md: { container: 'w-32 h-32', avatar: 'w-28 h-28' },
-    lg: { container: 'w-48 h-48', avatar: 'w-40 h-40' },
-    xl: { container: 'w-64 h-64', avatar: 'w-56 h-56' },
+    sm: { container: 'w-24 h-32', avatar: 'w-20 h-28', textSize: 'text-xs' },
+    md: { container: 'w-36 h-44', avatar: 'w-32 h-40', textSize: 'text-sm' },
+    lg: { container: 'w-48 h-60', avatar: 'w-44 h-56', textSize: 'text-base' },
+    xl: { container: 'w-64 h-80', avatar: 'w-60 h-76', textSize: 'text-lg' },
   };
 
   const isSpeaking = state === 'speaking';
   const isListening = state === 'listening';
+  const isThinking = state === 'thinking';
+  const stateConfig = STATE_CONFIG[state];
+  const decoration = EMOTION_DECORATION[emotion];
 
-  // 头部微动动画
+  // 呼吸浮动动画
   useEffect(() => {
-    if (!animated || !containerRef.current) return;
+    if (!animated) return;
 
-    const container = containerRef.current;
-    
-    // 轻微晃动效果
-    const wobble = () => {
-      const rotate = Math.sin(Date.now() / 1000) * 2;
-      container.style.transform = `rotate(${rotate}deg)`;
-      requestAnimationFrame(wobble);
+    let animationId: number;
+    let startTime = Date.now();
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      // 平滑的上下浮动
+      const float = Math.sin(elapsed / 1500) * 6;
+      setFloatOffset(float);
+
+      // 说话时的缩放动画
+      if (isSpeaking) {
+        const speakScale = 1 + Math.sin(elapsed / 150) * 0.03;
+        setScale(speakScale);
+      } else {
+        setScale(1);
+      }
+
+      animationId = requestAnimationFrame(animate);
     };
 
-    const animationId = requestAnimationFrame(wobble);
+    animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [animated]);
+  }, [animated, isSpeaking]);
 
   return (
     <div 
       className={cn(
-        'relative flex items-center justify-center',
+        'relative flex flex-col items-center',
         sizeConfig[size].container,
         className
       )}
       onClick={onClick}
     >
-      {/* 光环效果 */}
-      {(isSpeaking || isListening) && (
-        <div className={cn(
-          'absolute inset-0 rounded-full',
-          'bg-gradient-to-r from-blue-400/20 to-green-400/20',
-          'animate-ping'
-        )} />
+      {/* 背景光环效果 */}
+      {(isSpeaking || isListening || isThinking) && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div 
+            className={cn(
+              'absolute rounded-full opacity-20 animate-ping',
+              isSpeaking && 'bg-gradient-to-r from-pink-300 to-rose-400',
+              isListening && 'bg-gradient-to-r from-blue-300 to-cyan-400',
+              isThinking && 'bg-gradient-to-r from-amber-300 to-orange-400',
+              size === 'sm' && 'w-20 h-20',
+              size === 'md' && 'w-32 h-32',
+              size === 'lg' && 'w-44 h-44',
+              size === 'xl' && 'w-60 h-60',
+            )}
+            style={{ animationDuration: '2s' }}
+          />
+          <div 
+            className={cn(
+              'absolute rounded-full opacity-30',
+              isSpeaking && 'bg-gradient-to-r from-pink-200 to-rose-300',
+              isListening && 'bg-gradient-to-r from-blue-200 to-cyan-300',
+              isThinking && 'bg-gradient-to-r from-amber-200 to-orange-300',
+              size === 'sm' && 'w-24 h-24',
+              size === 'md' && 'w-36 h-36',
+              size === 'lg' && 'w-48 h-48',
+              size === 'xl' && 'w-64 h-64',
+            )}
+          />
+        </div>
       )}
 
-      {/* 头像容器 */}
+      {/* 童童形象容器 */}
       <div 
         ref={containerRef}
         className={cn(
-          'relative rounded-full overflow-hidden',
-          'bg-gradient-to-b from-blue-100 to-purple-100',
-          'border-4 border-white shadow-lg',
+          'relative transition-transform duration-200',
           sizeConfig[size].avatar,
-          'transition-transform duration-300',
-          isSpeaking && 'scale-105',
-          onClick && 'cursor-pointer hover:scale-110'
+          onClick && 'cursor-pointer hover:scale-105'
         )}
+        style={{ 
+          transform: `translateY(${floatOffset}px) scale(${scale})`,
+        }}
       >
-        {/* 使用项目已有的童童头像图片 */}
+        {/* 童童形象图片 */}
         <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: 'url(/tongtong-avatar.png)' }}
+          className={cn(
+            'w-full h-full bg-contain bg-center bg-no-repeat',
+            'drop-shadow-lg',
+            isSpeaking && 'animate-pulse',
+          )}
+          style={{ 
+            backgroundImage: 'url(/tongtong-avatar.png)',
+            filter: isSpeaking ? 'brightness(1.05)' : 'brightness(1)',
+          }}
         />
 
-        {/* 如果图片不存在，显示备用卡通头像 */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-amber-100 to-orange-100">
-          {/* 脸部 */}
-          <div className="relative flex flex-col items-center pt-8">
-            {/* 眼睛区域 */}
-            <div className="relative mb-4">
-              <BlinkingEyes emotion={emotion} />
-            </div>
-            
-            {/* 腮红 */}
-            <div className="absolute -left-6 top-2 w-4 h-2 bg-pink-300 rounded-full opacity-50" />
-            <div className="absolute -right-6 top-2 w-4 h-2 bg-pink-300 rounded-full opacity-50" />
-            
-            {/* 嘴巴 */}
-            <div className="mt-2">
-              <SpeakingMouth isSpeaking={isSpeaking} emotion={emotion} />
-            </div>
-          </div>
-        </div>
+        {/* 说话时的波纹效果 */}
+        {isSpeaking && (
+          <>
+            <div 
+              className="absolute inset-0 rounded-full border-2 border-pink-300/50 animate-ping"
+              style={{ animationDuration: '1s' }}
+            />
+            <div 
+              className="absolute inset-0 rounded-full border-2 border-pink-300/30 animate-ping"
+              style={{ animationDuration: '1.5s', animationDelay: '0.3s' }}
+            />
+          </>
+        )}
       </div>
 
       {/* 状态指示器 */}
-      <StateIndicator state={state} />
+      <div className={cn(
+        'absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap z-10',
+        sizeConfig[size].textSize
+      )}>
+        <span className={cn(
+          'px-3 py-1 rounded-full text-white font-medium shadow-md',
+          stateConfig.color,
+          'backdrop-blur-sm',
+        )}>
+          {stateConfig.text}
+        </span>
+      </div>
 
       {/* 情感装饰 */}
-      {emotion === 'happy' && (
-        <div className="absolute -top-2 -right-2 text-2xl animate-bounce">
-          ✨
+      {decoration && (
+        <div 
+          className={cn(
+            'absolute text-2xl animate-bounce',
+            decoration.position === 'top-right' && 'top-0 right-0',
+            decoration.position === 'top-left' && 'top-0 left-0',
+            decoration.position === 'top-center' && 'top-0 left-1/2 -translate-x-1/2',
+          )}
+          style={{ animationDelay: '0.1s' }}
+        >
+          {decoration.emoji}
         </div>
       )}
-      {emotion === 'thinking' && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-xl animate-bounce">
-          💭
+
+      {/* 思考时的星星效果 */}
+      {isThinking && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-1">
+          <span className="text-lg animate-ping" style={{ animationDelay: '0s' }}>⭐</span>
+          <span className="text-lg animate-ping" style={{ animationDelay: '0.3s' }}>⭐</span>
+          <span className="text-lg animate-ping" style={{ animationDelay: '0.6s' }}>⭐</span>
         </div>
       )}
-      {emotion === 'concerned' && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-xl">
-          🤗
+
+      {/* 快乐时的闪光效果 */}
+      {emotion === 'happy' && !isThinking && (
+        <div className="absolute -top-2 -right-2">
+          <span className="text-xl animate-spin" style={{ animationDuration: '3s' }}>✨</span>
         </div>
       )}
     </div>
