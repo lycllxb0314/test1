@@ -655,11 +655,15 @@ export class HonorCampaignService extends BaseService {
       const { getSupabaseClient } = await import('@/storage/database/supabase-client');
       const supabase = getSupabaseClient();
 
+      // 获取评选活动的学年
+      const campaign = await this.campaignRepo.findById(application.campaignId);
+      const schoolYear = campaign?.schoolYear || this.getCurrentSchoolYear();
+
       // 生成证书编号
       const certificateNo = application.certificateNo || `H${new Date().getFullYear()}${Date.now().toString().slice(-6)}`;
 
-      // 写入 student_honors 表
-      const { error } = await supabase.from('student_honors').insert({
+      // 1. 写入本次评选获得的荣誉
+      const { error: mainHonorError } = await supabase.from('student_honors').insert({
         id: `honor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         student_id: application.studentId,
         student_name: application.studentName,
@@ -667,22 +671,65 @@ export class HonorCampaignService extends BaseService {
         class_name: application.className,
         title: application.campaign?.honorType || '荣誉',
         level: '校级',
-        category: '荣誉评选',
+        category: '综合荣誉',
         issuer: '龙岩师范附属小学',
         date: new Date().toISOString().split('T')[0],
         certificate_no: certificateNo,
         description: `${application.campaign?.title} - 通过评选获得`,
         grade: application.grade,
+        school_year: schoolYear,
       });
 
-      if (error) {
-        console.error('[HonorCampaignService] writeToStudentHonors error:', error);
+      if (mainHonorError) {
+        console.error('[HonorCampaignService] 写入主荣誉失败:', mainHonorError);
       } else {
-        console.log(`[HonorCampaignService] 荣誉已写入学生荣誉表: ${application.studentName}`);
+        console.log(`[HonorCampaignService] 主荣誉已写入: ${application.studentName} - ${application.campaign?.honorType}`);
+      }
+
+      // 2. 写入申报时提交的已有荣誉
+      if (application.existingHonors && application.existingHonors.length > 0) {
+        const existingHonorsData = application.existingHonors.map((honor, index) => ({
+          id: `honor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${index}`,
+          student_id: application.studentId,
+          student_name: application.studentName,
+          class_id: application.classId,
+          class_name: application.className,
+          title: honor.title,
+          level: honor.level || '校级',
+          category: honor.category || '其他',
+          issuer: honor.issuer || '',
+          date: honor.date || null,
+          certificate_no: honor.certificateNo || null,
+          description: null,
+          grade: application.grade,
+          school_year: honor.schoolYear || schoolYear,
+        }));
+
+        const { error: existingHonorsError } = await supabase.from('student_honors').insert(existingHonorsData);
+
+        if (existingHonorsError) {
+          console.error('[HonorCampaignService] 写入已有荣誉失败:', existingHonorsError);
+        } else {
+          console.log(`[HonorCampaignService] 已有荣誉已写入: ${application.studentName} - ${application.existingHonors.length}条`);
+        }
       }
     } catch (error) {
       console.error('[HonorCampaignService] writeToStudentHonors error:', error);
     }
+  }
+
+  /**
+   * 获取当前学年
+   */
+  private getCurrentSchoolYear(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    // 9月之前算上一学年，9月及之后算新一学年
+    if (month < 9) {
+      return `${year - 1}-${year}`;
+    }
+    return `${year}-${year + 1}`;
   }
 
   /**

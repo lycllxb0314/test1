@@ -13,6 +13,7 @@ import type {
   CampaignQueryParams,
   CampaignStatistics,
 } from '@/types/honor-campaign';
+import { getCurrentSchoolYear } from '@/types/honor-campaign';
 
 /**
  * 评选活动数据仓库
@@ -42,6 +43,7 @@ export class HonorCampaignRepository {
       status: row.status,
       maxApplicantsPerClass: row.max_applicants_per_class,
       approvalConfig: row.approval_config,
+      schoolYear: row.school_year,
       createdBy: row.created_by,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -67,6 +69,9 @@ export class HonorCampaignRepository {
     }
     if ('approvalConfig' in data && data.approvalConfig !== undefined) {
       row.approval_config = data.approvalConfig;
+    }
+    if ('schoolYear' in data && data.schoolYear !== undefined) {
+      row.school_year = data.schoolYear;
     }
 
     return row;
@@ -165,6 +170,7 @@ export class HonorCampaignRepository {
       max_applicants_per_class: data.maxApplicantsPerClass || 5,
       approval_config: data.approvalConfig || null,
       created_by: createdBy,
+      school_year: data.schoolYear || getCurrentSchoolYear(),
     };
 
     const { data: created, error } = await this.client

@@ -41,6 +41,7 @@ export class HonorApplicationRepository {
       applicantRelation: row.applicant_relation || '家长',
       formData: row.form_data,
       attachments: row.attachments,
+      existingHonors: row.existing_honors || [],
       approvalInstanceId: row.approval_instance_id,
       currentStep: row.current_step,
       status: row.status,
@@ -266,6 +267,7 @@ export class HonorApplicationRepository {
       applicant_relation: '家长',
       form_data: data.formData,
       attachments: data.attachments || [],
+      existing_honors: data.existingHonors || [],
       approval_instance_id: null,
       current_step: 'head_teacher',
       status: 'pending',
@@ -304,6 +306,9 @@ export class HonorApplicationRepository {
     }
     if (data.attachments !== undefined) {
       row.attachments = data.attachments;
+    }
+    if (data.existingHonors !== undefined) {
+      row.existing_honors = data.existingHonors;
     }
 
     const { data: updated, error } = await this.client

@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -47,11 +48,13 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useFilePreview } from '@/hooks/useFilePreview';
 import { FilePreviewDialog } from '@/components/ui/file-preview-dialog';
+import { HonorInput } from '@/components/honors/HonorInput';
 import type {
   HonorCampaign,
   HonorApplication,
   FormFieldConfig,
   ApplicationAttachment,
+  StudentHonor,
 } from '@/types/honor-campaign';
 import { APPROVAL_STEP_NAMES } from '@/types/honor-campaign';
 
@@ -96,6 +99,8 @@ export default function ParentHonorApplicationPage() {
   // === 表单状态 ===
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<ApplicationAttachment[]>([]);
+  const [existingHonors, setExistingHonors] = useState<StudentHonor[]>([]);
+  const [studentHonors, setStudentHonors] = useState<StudentHonor[]>([]);
   const [children, setChildren] = useState<Array<{ id: string; name: string; classId: string; className: string }>>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>('');
 
@@ -125,6 +130,33 @@ export default function ParentHonorApplicationPage() {
       console.error('加载子女信息失败:', err);
     }
   }, [user?.children]);
+
+  // 加载学生已有荣誉
+  const loadStudentHonors = useCallback(async (studentId: string): Promise<StudentHonor[]> => {
+    try {
+      const res = await fetch(`/api/students/${studentId}/honors`, { credentials: 'include' });
+      const result = await res.json();
+      
+      if (result.success && result.data) {
+        // 转换为 StudentHonor 格式
+        const honors: StudentHonor[] = result.data.map((h: any) => ({
+          title: h.title,
+          level: h.level || '校级',
+          category: h.category || '其他',
+          issuer: h.issuer || '',
+          date: h.date || '',
+          certificateNo: h.certificate_no || '',
+          schoolYear: h.school_year || '',
+        }));
+        setStudentHonors(honors);
+        return honors;
+      }
+    } catch (err) {
+      console.error('加载学生荣誉失败:', err);
+    }
+    setStudentHonors([]);
+    return [];
+  }, []);
 
   // 加载可申报的评选活动
   const loadCampaigns = useCallback(async () => {
@@ -171,7 +203,7 @@ export default function ParentHonorApplicationPage() {
   // ==================== 操作处理 ====================
 
   // 打开申报对话框
-  const handleApply = (campaign: HonorCampaign) => {
+  const handleApply = async (campaign: HonorCampaign) => {
     setSelectedCampaign(campaign);
     // 初始化表单数据
     const initialData: Record<string, string> = {};
@@ -180,6 +212,16 @@ export default function ParentHonorApplicationPage() {
     });
     setFormData(initialData);
     setAttachments([]);
+    
+    // 加载选中孩子的已有荣誉
+    if (selectedChildId) {
+      const honors = await loadStudentHonors(selectedChildId);
+      // 初始化 existingHonors 为学生已有荣誉的副本
+      setExistingHonors(honors.length > 0 ? [...honors] : []);
+    } else {
+      setExistingHonors([]);
+    }
+    
     setApplyDialogOpen(true);
   };
 
@@ -210,6 +252,7 @@ export default function ParentHonorApplicationPage() {
           studentId: selectedChildId,
           formData,
           attachments,
+          existingHonors,
         }),
       });
 
@@ -523,6 +566,33 @@ export default function ParentHonorApplicationPage() {
               </div>
             )}
 
+            {/* 选择孩子 */}
+            {children.length > 1 && (
+              <div className="grid gap-2">
+                <Label>选择孩子 *</Label>
+                <Select
+                  value={selectedChildId}
+                  onValueChange={async (value) => {
+                    setSelectedChildId(value);
+                    // 切换孩子时重新加载荣誉
+                    const honors = await loadStudentHonors(value);
+                    setExistingHonors(honors.length > 0 ? [...honors] : []);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {children.map(child => (
+                      <SelectItem key={child.id} value={child.id}>
+                        {child.name} ({child.className})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* 表单字段 */}
             {selectedCampaign?.formConfig?.fields.map((field) => (
               <div key={field.field} className="grid gap-2">
@@ -558,6 +628,20 @@ export default function ParentHonorApplicationPage() {
                 )}
               </div>
             ))}
+
+            {/* 已获奖荣誉填写 */}
+            <div className="border-t pt-4 mt-4">
+              <HonorInput
+                value={existingHonors}
+                onChange={setExistingHonors}
+                schoolYear={selectedCampaign?.schoolYear ?? undefined}
+              />
+              {studentHonors.length > 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  已自动加载该学生在本学年的 {studentHonors.length} 条荣誉记录
+                </p>
+              )}
+            </div>
           </div>
 
           <DialogFooter>

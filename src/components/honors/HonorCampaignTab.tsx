@@ -71,7 +71,7 @@ import type {
   CreateCampaignRequest,
   ApprovalComment,
 } from '@/types/honor-campaign';
-import { FORM_PRESET_EXCELLENT_YOUNG_PIONEER, FORM_PRESET_MERIT_STUDENT, APPROVAL_STEP_NAMES, APPROVAL_STEP_ORDER } from '@/types/honor-campaign';
+import { FORM_PRESET_EXCELLENT_YOUNG_PIONEER, FORM_PRESET_MERIT_STUDENT, APPROVAL_STEP_NAMES, APPROVAL_STEP_ORDER, getSchoolYearOptions, getCurrentSchoolYear } from '@/types/honor-campaign';
 
 // ==================== 配置 ====================
 
@@ -135,6 +135,7 @@ export function HonorCampaignTab() {
       allowReturn: true,
       timeoutDays: 7,
     },
+    schoolYear: getCurrentSchoolYear(),
   });
 
   // ==================== 数据加载 ====================
@@ -199,6 +200,7 @@ export function HonorCampaignTab() {
         allowReturn: true,
         timeoutDays: 7,
       },
+      schoolYear: getCurrentSchoolYear(),
     });
     setDialogOpen(true);
   };
@@ -216,6 +218,7 @@ export function HonorCampaignTab() {
       formConfig: campaign.formConfig || FORM_PRESET_EXCELLENT_YOUNG_PIONEER,
       maxApplicantsPerClass: campaign.maxApplicantsPerClass,
       approvalConfig: campaign.approvalConfig || undefined,
+      schoolYear: campaign.schoolYear || getCurrentSchoolYear(),
     });
     setDialogOpen(true);
   };
@@ -606,6 +609,23 @@ export function HonorCampaignTab() {
                 <SelectContent>
                   {HONOR_TYPE_OPTIONS.map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>学年 *</Label>
+              <Select
+                value={formData.schoolYear || getCurrentSchoolYear()}
+                onValueChange={(value) => setFormData({ ...formData, schoolYear: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSchoolYearOptions().map(year => (
+                    <SelectItem key={year} value={year}>{year}学年</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

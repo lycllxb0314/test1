@@ -21,6 +21,52 @@ export type ApprovalStep = 'head_teacher' | 'moral_dept' | 'moral_vice_principal
 /** 材料类型 */
 export type MaterialType = 'award' | 'certificate' | 'photo' | 'other';
 
+/** 荣誉级别 */
+export type HonorLevel = '校级' | '区级' | '市级' | '省级' | '国家级' | '国际级';
+
+/** 荣誉类别 */
+export type HonorCategory = '综合荣誉' | '学科竞赛' | '体育竞赛' | '艺术竞赛' | '科技竞赛' | '社会实践' | '其他';
+
+// ==================== 学生荣誉类型 ====================
+
+/** 学生荣誉（统一格式） */
+export type StudentHonor = {
+  /** 荣誉名称 */
+  title: string;
+  /** 荣誉级别 */
+  level: HonorLevel | string;
+  /** 荣誉类别 */
+  category: HonorCategory | string;
+  /** 颁发单位 */
+  issuer: string;
+  /** 获奖日期 */
+  date: string;
+  /** 证书编号（可选） */
+  certificateNo?: string;
+  /** 学年 */
+  schoolYear?: string;
+};
+
+/** 学生荣誉数据库行 */
+export type StudentHonorRow = {
+  id: string;
+  student_id: string;
+  student_name: string;
+  class_id: string;
+  class_name: string;
+  grade: number | null;
+  title: string;
+  level: string | null;
+  category: string | null;
+  issuer: string | null;
+  date: string | null;
+  certificate_no: string | null;
+  description: string | null;
+  school_year: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 // ==================== 表单配置类型 ====================
 
 /** 表单字段类型 */
@@ -135,6 +181,7 @@ export type HonorCampaignRow = {
   status: CampaignStatus;
   max_applicants_per_class: number;
   approval_config: ApprovalConfig | null;
+  school_year: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -151,6 +198,7 @@ export type HonorApplicationRow = {
   applicant_relation: string | null;
   form_data: Record<string, string>;
   attachments: ApplicationAttachment[];
+  existing_honors: StudentHonor[];
   approval_instance_id: string | null;
   current_step: ApprovalStep | null;
   status: ApplicationStatus;
@@ -192,6 +240,7 @@ export type HonorCampaign = {
   status: CampaignStatus;
   maxApplicantsPerClass: number;
   approvalConfig: ApprovalConfig | null;
+  schoolYear: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -212,6 +261,7 @@ export type HonorApplication = {
   applicantRelation: string;
   formData: Record<string, string>;
   attachments: ApplicationAttachment[];
+  existingHonors: StudentHonor[];
   approvalInstanceId: string | null;
   currentStep: ApprovalStep | null;
   status: ApplicationStatus;
@@ -257,6 +307,7 @@ export type CreateCampaignRequest = {
   formConfig?: FormConfig;
   maxApplicantsPerClass?: number;
   approvalConfig?: ApprovalConfig;
+  schoolYear?: string;
 };
 
 /** 更新评选活动请求 */
@@ -270,12 +321,14 @@ export type CreateApplicationRequest = {
   studentId: string;
   formData: Record<string, string>;
   attachments?: ApplicationAttachment[];
+  existingHonors?: StudentHonor[];
 };
 
 /** 更新申报请求 */
 export type UpdateApplicationRequest = {
   formData?: Record<string, string>;
   attachments?: ApplicationAttachment[];
+  existingHonors?: StudentHonor[];
 };
 
 /** 审批请求 */
@@ -349,14 +402,6 @@ export const FORM_PRESET_EXCELLENT_YOUNG_PIONEER: FormConfig = {
       maxLength: 500,
     },
     {
-      field: 'awards',
-      label: '获奖情况',
-      type: 'textarea',
-      required: false,
-      placeholder: '请列出近一年获得的荣誉和奖项',
-      maxLength: 300,
-    },
-    {
       field: 'performance',
       label: '学习表现',
       type: 'textarea',
@@ -427,17 +472,38 @@ export const FORM_PRESET_MERIT_STUDENT: FormConfig = {
       placeholder: '请描述学生的体育锻炼情况、体质健康等',
       maxLength: 200,
     },
-    {
-      field: 'awards',
-      label: '获奖情况',
-      type: 'textarea',
-      required: false,
-      placeholder: '请列出近一年获得的荣誉和奖项',
-      maxLength: 300,
-    },
   ],
   instructions: '三好学生评选标准：品德好、学习好、身体好。',
 };
+
+/** 荣誉级别选项 */
+export const HONOR_LEVEL_OPTIONS: HonorLevel[] = ['校级', '区级', '市级', '省级', '国家级', '国际级'];
+
+/** 荣誉类别选项 */
+export const HONOR_CATEGORY_OPTIONS: HonorCategory[] = ['综合荣誉', '学科竞赛', '体育竞赛', '艺术竞赛', '科技竞赛', '社会实践', '其他'];
+
+/** 获取当前学年（格式：2024-2025） */
+export function getCurrentSchoolYear(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  // 9月之前算上一学年，9月及之后算新一学年
+  if (month < 9) {
+    return `${year - 1}-${year}`;
+  }
+  return `${year}-${year + 1}`;
+}
+
+/** 学年选项（最近5年） */
+export function getSchoolYearOptions(): string[] {
+  const currentYear = new Date().getFullYear();
+  const options: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const year = currentYear - i;
+    options.push(`${year}-${year + 1}`);
+  }
+  return options;
+}
 
 /** 默认审批配置 */
 export const DEFAULT_APPROVAL_CONFIG: ApprovalConfig = {
