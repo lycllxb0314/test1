@@ -32,6 +32,10 @@ export type SendMessageParams = {
   priority?: MessagePriority;
   recipientIds?: string[];
   recipientRoles?: string[];
+  /** 接收者类型：'individual' 个人工作台，'department' 部门工作台 */
+  recipientType?: 'individual' | 'department';
+  /** 目标部门（当 recipientType='department' 时使用） */
+  targetDepartment?: string;
   relatedId?: string;
   relatedType?: string;
   actionUrl?: string;
@@ -254,6 +258,8 @@ export class MessageService extends BaseService {
           event: params.event,
           status: 'sent',
           roles: params.recipientRoles, // 角色列表存储在 metadata 中
+          recipient_type: params.recipientType || 'individual', // 接收者类型
+          target_department: params.targetDepartment, // 目标部门
           action_url: params.actionUrl,
           action_label: params.actionLabel,
           related_id: params.relatedId,
@@ -262,7 +268,7 @@ export class MessageService extends BaseService {
         sent_at: new Date().toISOString(),
       };
 
-      console.log('[MessageService] Creating message with title:', params.title);
+      console.log('[MessageService] Creating message with title:', params.title, 'recipientType:', params.recipientType);
 
       const created = await this.repository.create(messageRow);
       
@@ -477,7 +483,7 @@ export class MessageService extends BaseService {
    * 数据库行转业务模型
    */
   private toUserMessage(row: MessageRow): UserMessage {
-    // 从 metadata 中获取 action_url, action_label, related_id, related_type, event
+    // 从 metadata 中获取 action_url, action_label, related_id, related_type, event, recipient_type
     const metadata = row.metadata || {};
     return {
       id: row.id,
@@ -490,7 +496,8 @@ export class MessageService extends BaseService {
       senderId: row.sender_id,
       senderName: row.sender_name,
       recipientId: row.recipient_id || row.user_ids?.[0],
-      recipientType: row.recipient_type,
+      // 优先从 metadata 中获取 recipient_type（Supabase schema cache 问题）
+      recipientType: (metadata.recipient_type as string) || row.recipient_type,
       relatedId: row.related_id || (metadata.related_id as string),
       relatedType: row.related_type || (metadata.related_type as string),
       actionUrl: row.action_url || (metadata.action_url as string),

@@ -630,44 +630,69 @@ export class HonorCampaignService extends BaseService {
   /**
    * 发送审批流转通知
    * 通知下一审批人
+   * 
+   * 消息分类原则：
+   * - 部门工作台：recipientType='department', targetDepartment='moral'（德育处部门消息）
+   * - 个人工作台：recipientType='individual', recipientRoles=['moral_vice_principal']（德育副校长个人消息）
    */
   private async sendApprovalNotification(application: HonorApplication, nextStep: ApprovalStep): Promise<void> {
     try {
-      let recipientRoles: string[] = [];
-
-      // 根据下一步骤确定通知对象
+      // 根据下一步骤确定通知对象和类型
       if (nextStep === 'moral_dept') {
-        recipientRoles = ['moral_vice_principal']; // 德育副校长或德育主任
+        // 班主任审批通过 → 通知德育处部门（部门工作台）
+        console.log('[HonorCampaignService] 班主任审批通过，发送通知到德育处部门工作台');
+        
+        await messageService.sendMessage({
+          title: `【待审批】${application.studentName} 的荣誉申报`,
+          content: `学生 ${application.studentName}（${application.className}）申报的「${application.campaign?.honorType}」已通过班主任审批，等待德育处审批。`,
+          event: 'honor_approval',
+          priority: 'high',
+          recipientType: 'department', // 部门工作台
+          targetDepartment: 'moral', // 德育处部门
+          relatedId: application.id,
+          relatedType: 'honor_application',
+          actionUrl: '/moral/honors',
+          actionLabel: '立即审批',
+          metadata: {
+            applicationId: application.id,
+            campaignId: application.campaignId,
+            studentName: application.studentName,
+            className: application.className,
+            honorType: application.campaign?.honorType,
+            currentStep: nextStep,
+          },
+        });
+        console.log(`[HonorCampaignService] 审批流转通知已发送到德育处部门工作台`);
+        return;
       } else if (nextStep === 'moral_vice_principal') {
-        recipientRoles = ['moral_vice_principal'];
-      }
-
-      if (recipientRoles.length === 0) {
-        console.log(`[HonorCampaignService] 未找到 ${nextStep} 的接收角色`);
+        // 德育处审批通过 → 通知德育副校长（个人工作台）
+        console.log('[HonorCampaignService] 德育处审批通过，发送通知到德育副校长个人工作台');
+        
+        await messageService.sendMessage({
+          title: `【待审批】${application.studentName} 的荣誉申报`,
+          content: `学生 ${application.studentName}（${application.className}）申报的「${application.campaign?.honorType}」已通过德育处审批，等待您最终审批。`,
+          event: 'honor_approval',
+          priority: 'high',
+          recipientType: 'individual', // 个人工作台
+          recipientRoles: ['moral_vice_principal'], // 德育副校长角色
+          relatedId: application.id,
+          relatedType: 'honor_application',
+          actionUrl: '/moral-vice-principal/honor-approval',
+          actionLabel: '立即审批',
+          metadata: {
+            applicationId: application.id,
+            campaignId: application.campaignId,
+            studentName: application.studentName,
+            className: application.className,
+            honorType: application.campaign?.honorType,
+            currentStep: nextStep,
+          },
+        });
+        console.log(`[HonorCampaignService] 审批流转通知已发送到德育副校长个人工作台`);
         return;
       }
 
-      await messageService.sendMessage({
-        title: `【待审批】${application.studentName} 的荣誉申报`,
-        content: `学生 ${application.studentName}（${application.className}）申报的「${application.campaign?.honorType}」已通过班主任审批，等待您审批。`,
-        event: 'honor_approval',
-        priority: 'high',
-        recipientRoles,
-        relatedId: application.id,
-        relatedType: 'honor_application',
-        actionUrl: nextStep === 'moral_dept' ? '/moral/honor-campaigns' : '/vice-principal-moral/honor-approval',
-        actionLabel: '立即审批',
-        metadata: {
-          applicationId: application.id,
-          campaignId: application.campaignId,
-          studentName: application.studentName,
-          className: application.className,
-          honorType: application.campaign?.honorType,
-          currentStep: nextStep,
-        },
-      });
-
-      console.log(`[HonorCampaignService] 审批流转通知已发送`);
+      console.log(`[HonorCampaignService] 未找到 ${nextStep} 的接收对象`);
     } catch (error) {
       console.error('[HonorCampaignService] sendApprovalNotification error:', error);
     }
