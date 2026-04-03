@@ -203,6 +203,16 @@ export class HonorCampaignService extends BaseService {
   async getCampaigns(params: CampaignQueryParams): Promise<ServiceResult<{ data: HonorCampaign[]; total: number }>> {
     try {
       const result = await this.campaignRepo.findByParams(params);
+
+      // 为每个活动添加统计数据
+      const campaigns = result.data;
+      for (const campaign of campaigns) {
+        const stats = await this.campaignRepo.getStatistics(campaign.id);
+        campaign.applicantCount = stats.totalApplications;
+        campaign.approvedCount = stats.passedApplications;
+        campaign.classCount = stats.classCount;
+      }
+
       return this.ok(result);
     } catch (error) {
       console.error('[HonorCampaignService] getCampaigns error:', error);

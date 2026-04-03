@@ -140,11 +140,23 @@ export default function ParentHonorApplicationPage() {
       const result = await res.json();
       
       if (result.success && result.data?.data) {
+        // 类别映射：数据库简短格式 -> 标准完整格式
+        const categoryMap: Record<string, string> = {
+          '综合': '综合荣誉',
+          '学习': '学科竞赛',
+          '德育': '综合荣誉',
+          '体育': '体育竞赛',
+          '艺术': '艺术竞赛',
+          '科技': '科技竞赛',
+          '劳动': '社会实践',
+          '其他': '其他',
+        };
+        
         // 转换为 StudentHonor 格式
         const honors: StudentHonor[] = result.data.data.map((h: any) => ({
           title: h.title,
           level: h.level || '校级',
-          category: h.category || '其他',
+          category: categoryMap[h.category] || h.category || '其他',
           issuer: h.issuer || '',
           date: h.date || '',
           certificateNo: h.certificateNo || '',

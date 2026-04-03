@@ -493,11 +493,9 @@ export function HonorApplicationPrintDialog({
                 </p>
               </div>
               <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
-                <span style={{ color: '#9ca3af', fontSize: '11px' }}>当前状态</span>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>证书编号</span>
                 <p style={{ fontSize: '14px', fontWeight: 500, margin: '2px 0 0 0', color: '#1f2937' }}>
-                  {application.status === 'approved' ? '已通过' : 
-                   application.status === 'rejected' ? '未通过' : 
-                   application.status === 'pending' ? '审批中' : '已撤回'}
+                  {application.certificateNo || '-'}
                 </p>
               </div>
             </div>
