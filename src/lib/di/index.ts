@@ -107,13 +107,6 @@ import {
   schoolStatsRepository, SchoolStatsRepository,
   studentHonorRepository, StudentHonorRepository,
 } from '@/repositories/misc.repository';
-// 心理系统 Repository
-import {
-  psychologySessionRepository,
-  psychologyMessageRepository,
-  psychologyAlertRepository,
-  psychologyProfileRepository,
-} from '@/repositories/psychology.repository';
 
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
@@ -203,13 +196,6 @@ import {
   schoolStatsService, SchoolStatsService,
   studentHonorService, StudentHonorService,
 } from '@/services/misc.service';
-// 心理系统 Service
-import {
-  psychologySessionService,
-  psychologyMessageService,
-  psychologyAlertService,
-  psychologyProfileService,
-} from '@/services/psychology.service';
 
 /**
  * 初始化 DI 容器
@@ -289,11 +275,6 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.WorkloadRepository, () => workloadRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SchoolStatsRepository, () => schoolStatsRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.StudentHonorRepository, () => studentHonorRepository);
-  // 心理系统 Repositories
-  container.registerSingleton(SERVICE_IDENTIFIERS.PsychologySessionRepository, () => psychologySessionRepository);
-  container.registerSingleton(SERVICE_IDENTIFIERS.PsychologyMessageRepository, () => psychologyMessageRepository);
-  container.registerSingleton(SERVICE_IDENTIFIERS.PsychologyAlertRepository, () => psychologyAlertRepository);
-  container.registerSingleton(SERVICE_IDENTIFIERS.PsychologyProfileRepository, () => psychologyProfileRepository);
 
   // ========================================
   // 注册 Services（单例）
@@ -365,11 +346,6 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.WorkloadService, () => workloadService);
   container.registerSingleton(SERVICE_IDENTIFIERS.SchoolStatsService, () => schoolStatsService);
   container.registerSingleton(SERVICE_IDENTIFIERS.StudentHonorService, () => studentHonorService);
-  // 心理系统 Services
-  container.registerSingleton(SERVICE_IDENTIFIERS.PsychologySessionService, () => psychologySessionService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.PsychologyMessageService, () => psychologyMessageService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.PsychologyAlertService, () => psychologyAlertService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.PsychologyProfileService, () => psychologyProfileService);
 }
 
 // 导出

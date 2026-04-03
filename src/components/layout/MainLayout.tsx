@@ -179,7 +179,6 @@ const gradeLeaderNav: NavItem[] = [
 // 家长端导航
 const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
-  { name: '心理陪伴', href: '/parent/psychology', icon: Heart, description: '童童心理陪伴助手', badge: '新' },
   { name: '荣誉申报', href: '/parent/honor-application', icon: Trophy, description: '为孩子申报学校荣誉', badge: '新' },
   { name: '信息收集', href: '/parent/collection', icon: ClipboardList, description: '填写信息收集表', badge: '新' },
   { name: '习惯打卡', href: '/parent/habit', icon: Target, description: '子女习惯养成打卡', badge: '新' },
