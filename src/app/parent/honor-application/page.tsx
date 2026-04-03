@@ -134,19 +134,19 @@ export default function ParentHonorApplicationPage() {
   // 加载学生已有荣誉
   const loadStudentHonors = useCallback(async (studentId: string): Promise<StudentHonor[]> => {
     try {
-      const res = await fetch(`/api/students/${studentId}/honors`, { credentials: 'include' });
+      const res = await fetch(`/api/student-honors?studentId=${studentId}&pageSize=100`, { credentials: 'include' });
       const result = await res.json();
       
-      if (result.success && result.data) {
+      if (result.success && result.data?.data) {
         // 转换为 StudentHonor 格式
-        const honors: StudentHonor[] = result.data.map((h: any) => ({
+        const honors: StudentHonor[] = result.data.data.map((h: any) => ({
           title: h.title,
           level: h.level || '校级',
           category: h.category || '其他',
           issuer: h.issuer || '',
           date: h.date || '',
-          certificateNo: h.certificate_no || '',
-          schoolYear: h.school_year || '',
+          certificateNo: h.certificateNo || '',
+          schoolYear: h.schoolYear || '',
         }));
         setStudentHonors(honors);
         return honors;

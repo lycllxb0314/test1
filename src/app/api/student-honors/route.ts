@@ -17,7 +17,7 @@ import { success, error, ErrorCode } from '@/lib/api';
 /**
  * 将数据库字段映射为前端期望的驼峰格式
  */
-function mapHonorToFrontend(record: StudentHonorRecord & { grade?: number }) {
+function mapHonorToFrontend(record: StudentHonorRecord & { grade?: number; school_year?: string }) {
   return {
     id: record.id,
     studentId: record.student_id,
@@ -32,6 +32,7 @@ function mapHonorToFrontend(record: StudentHonorRecord & { grade?: number }) {
     date: record.date,
     certificateNo: record.certificate_no,
     description: record.description,
+    schoolYear: record.school_year,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
