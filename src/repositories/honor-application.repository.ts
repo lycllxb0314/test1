@@ -191,7 +191,7 @@ export class HonorApplicationRepository {
     // 注意：student_id 可能是 UUID 格式（students.id）或学号格式（students.student_no）
     const [campaignsResult, studentsResult, classesResult] = await Promise.all([
       campaignIds.length > 0 
-        ? this.client.from('honor_campaigns').select('id, title, honor_type, status').in('id', campaignIds)
+        ? this.client.from('honor_campaigns').select('id, title, honor_type, status, form_config').in('id', campaignIds)
         : { data: [], error: null },
       studentIds.length > 0
         ? this.client.from('students').select('id, name, student_no').or(`id.in.(${studentIds.join(',')}),student_no.in.(${studentIds.join(',')})`)
@@ -230,6 +230,7 @@ export class HonorApplicationRepository {
           title: campaign.title,
           honorType: campaign.honor_type,
           status: campaign.status,
+          formConfig: campaign.form_config,
         } as any;
       }
       
