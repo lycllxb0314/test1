@@ -516,17 +516,17 @@ export default function ParentHonorApplicationPage() {
                           size="sm"
                           onClick={() => handleViewDetail(application)}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4 mr-1" />
+                          详情
                         </Button>
-                        {application.status === 'approved' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePrint(application)}
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handlePrint(application)}
+                        >
+                          <Printer className="h-4 w-4 mr-1" />
+                          打印预览
+                        </Button>
                         {application.status === 'pending' && (
                           <Button
                             variant="ghost"
@@ -699,6 +699,25 @@ export default function ParentHonorApplicationPage() {
                 ))}
               </div>
 
+              {/* 已获奖荣誉 */}
+              {selectedApplication.existingHonors && selectedApplication.existingHonors.length > 0 && (
+                <div className="pt-4 border-t">
+                  <Label className="text-gray-500 mb-3 block">已获奖荣誉</Label>
+                  <div className="space-y-2">
+                    {selectedApplication.existingHonors.map((honor, index) => (
+                      <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                        <Trophy className="h-4 w-4 text-amber-500" />
+                        <div className="flex-1">
+                          <span className="font-medium text-sm">{honor.title}</span>
+                          <span className="text-xs text-gray-400 ml-2">{honor.level} · {honor.category}</span>
+                        </div>
+                        <span className="text-xs text-gray-400">{honor.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* 审批流程 */}
               {selectedApplication.approvalComments.length > 0 && (
                 <div className="pt-4 border-t">
@@ -736,12 +755,10 @@ export default function ParentHonorApplicationPage() {
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               关闭
             </Button>
-            {selectedApplication?.status === 'approved' && (
-              <Button onClick={() => handlePrint(selectedApplication)}>
-                <Printer className="h-4 w-4 mr-2" />
-                打印申报表
-              </Button>
-            )}
+            <Button onClick={() => handlePrint(selectedApplication!)}>
+              <Printer className="h-4 w-4 mr-2" />
+              打印预览
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

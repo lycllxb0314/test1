@@ -377,6 +377,22 @@ export class HonorCampaignService extends BaseService {
     }
   }
 
+  /**
+   * 获取单个申报记录详情
+   */
+  async getApplicationById(id: string): Promise<ServiceResult<HonorApplication>> {
+    try {
+      const application = await this.applicationRepo.findByIdWithDetails(id);
+      if (!application) {
+        return this.fail('申报记录不存在', 'NOT_FOUND');
+      }
+      return this.ok(application);
+    } catch (error) {
+      console.error('[HonorCampaignService] getApplicationById error:', error);
+      return this.fail('获取申报详情失败', 'INTERNAL_ERROR');
+    }
+  }
+
   // ==================== 审批管理 ====================
 
   /**

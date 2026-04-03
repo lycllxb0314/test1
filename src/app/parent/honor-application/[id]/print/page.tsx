@@ -148,11 +148,40 @@ export default function HonorApplicationPrintPage() {
                 <div key={key} className="border-b border-gray-200 pb-4 print:pb-6">
                   <h3 className="font-medium mb-2 print:font-normal print:mb-3">{key}</h3>
                   <p className="text-gray-600 print:text-gray-800 whitespace-pre-wrap leading-relaxed print:leading-loose">
-                    {value}
+                    {value || '-'}
                   </p>
                 </div>
               ))}
             </div>
+
+            {/* 已获奖荣誉 */}
+            {application.existingHonors && application.existingHonors.length > 0 && (
+              <div className="mb-8 print:mb-10">
+                <h3 className="font-medium mb-4 print:font-normal print:mb-6">已获奖荣誉</h3>
+                <table className="w-full border-collapse border border-gray-300 print:border-gray-400">
+                  <thead>
+                    <tr className="bg-gray-50 print:bg-gray-100">
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm">荣誉名称</th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm">级别</th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm">类别</th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm">颁发单位</th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm">获奖日期</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {application.existingHonors.map((honor, index) => (
+                      <tr key={index}>
+                        <td className="border border-gray-300 px-3 py-2 text-sm">{honor.title}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-sm">{honor.level || '校级'}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-sm">{honor.category || '其他'}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-sm">{honor.issuer || '-'}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-sm">{honor.date || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* 审批意见 */}
             <div className="border-t-2 border-gray-200 pt-8 print:pt-10">
