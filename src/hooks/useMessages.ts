@@ -143,12 +143,17 @@ const DEFAULT_FILTERS: MessageQueryParams = {};
 /**
  * useMessages Hook
  * @param department 部门过滤参数，用于部门工作台
- *                   - 'academic': 教务处工作台
- *                   - 'moral': 德育处工作台
- *                   - 'general': 总务处工作台
- *                   - undefined: 个人中心，显示所有消息
+ *                   - 'academic': 教务处部门工作台
+ *                   - 'moral': 德育处部门工作台
+ *                   - 'general': 总务处部门工作台
+ *                   - 'vice-principal-moral': 德育副校长个人工作台
+ *                   - 'vice-principal-academic': 教学副校长个人工作台
+ *                   - 'vice-principal-general': 总务副校长个人工作台
+ *                   - 'principal': 校长个人工作台
+ *                   - 'secretary': 书记个人工作台
+ *                   - undefined: 教师个人工作台，显示所有消息
  */
-export function useMessages(department?: 'academic' | 'moral' | 'general' | 'vice-principal-moral'): UseMessagesReturn {
+export function useMessages(department?: 'academic' | 'moral' | 'general' | 'vice-principal-moral' | 'vice-principal-academic' | 'vice-principal-general' | 'principal' | 'secretary'): UseMessagesReturn {
   const [messages, setMessages] = useState<UserMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

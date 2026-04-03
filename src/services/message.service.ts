@@ -500,6 +500,7 @@ export class MessageService extends BaseService {
       recipientId: row.recipient_id || row.user_ids?.[0],
       // 优先从 metadata 中获取 recipient_type（Supabase schema cache 问题）
       recipientType: (metadata.recipient_type as string) || row.recipient_type,
+      roles: row.roles || (metadata.roles as string[]), // 目标角色列表
       relatedId: row.related_id || (metadata.related_id as string),
       relatedType: row.related_type || (metadata.related_type as string),
       actionUrl: row.action_url || (metadata.action_url as string),

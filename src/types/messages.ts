@@ -391,6 +391,7 @@ export interface UserMessage {
   recipientName?: string;
   recipientRole?: UserRole;
   recipientType?: string; // 接收者类型：individual, department, etc.
+  roles?: string[]; // 目标角色列表
   recipients?: MessageRecipient;
   relatedId?: string;
   relatedType?: string;

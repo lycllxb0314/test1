@@ -212,9 +212,21 @@ const handleGetMessages = async (request: NextRequest, { user }: ExtendedRouteCo
     let messages: (UserMessage & { _deletedAt?: string; _isArchived?: boolean; _roles?: string[] })[] = (result.data || []).map(msg => ({
       ...msg,
       _isArchived: msg.status === 'archived',
-      // 从 metadata 中获取 roles（Supabase schema cache 问题）
-      _roles: (msg.metadata?.roles as string[]) || [],
+      // 优先从 roles 列获取，其次从 metadata.roles 获取
+      _roles: msg.roles || (msg.metadata?.roles as string[]) || [],
     }));
+    
+    // 调试日志：检查消息数据
+    console.log('[Messages API] Total messages from DB:', messages.length);
+    console.log('[Messages API] User role:', userRole);
+    if (messages.length > 0) {
+      console.log('[Messages API] First message:', {
+        title: messages[0].title,
+        roles: messages[0].roles,
+        _roles: messages[0]._roles,
+        recipientType: messages[0].recipientType,
+      });
+    }
     
     // 过滤掉已删除的消息
     let activeMessages = messages.filter(msg => !msg._deletedAt);

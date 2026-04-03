@@ -108,16 +108,21 @@ export function LeaderDashboard({ config }: LeaderDashboardProps) {
   const [approvalOpen, setApprovalOpen] = useState(false);
 
   // 根据用户角色确定部门参数
-  const getDepartmentParam = (): 'academic' | 'moral' | 'general' | undefined => {
+  // 领导工作台使用 'vice-principal-xxx' 格式，区分于部门工作台（moral/academic/general）
+  const getDepartmentParam = (): 'academic' | 'moral' | 'general' | 'vice-principal-moral' | 'vice-principal-academic' | 'vice-principal-general' | 'principal' | 'secretary' | undefined => {
     switch (dashboardConfig.role) {
       case 'academic_vice_principal':
-        return 'academic';
+        return 'vice-principal-academic';
       case 'moral_vice_principal':
-        return 'moral';
+        return 'vice-principal-moral';
       case 'general_vice_principal':
-        return 'general';
+        return 'vice-principal-general';
+      case 'principal':
+        return 'principal';
+      case 'secretary':
+        return 'secretary';
       default:
-        return undefined; // 校长、书记等看到所有消息
+        return undefined; // 其他角色看到所有消息
     }
   };
 
