@@ -51,12 +51,21 @@ export async function POST(request: NextRequest) {
       contentType: file.type || 'application/octet-stream',
     });
     
+    // 构建文件访问 URL（30天有效期）
+    const url = await storage.generatePresignedUrl({
+      key,
+      expireTime: 30 * 24 * 60 * 60,
+    });
+    
     return NextResponse.json({
       success: true,
-      key,
-      fileName: file.name,
-      size: file.size,
-      type: file.type,
+      data: {
+        url,
+        key,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      },
     });
   } catch (err) {
     console.error('文件上传失败:', err);

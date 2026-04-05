@@ -765,6 +765,18 @@ const safeHtml = DOMPurify.sanitize(userInput);
   - 扩展 `ResourceSourceType` 类型，支持 `upload`、`generated`、`research_import` 三种来源
   - 备课中心资源库页面新增上传功能，支持文件选择、分类设置、学科年级标注
   - 教研活动资源库页面新增"添加到备课中心"按钮，一键复制资源
+- 2026-04-06: 修复门户管理图片上传功能
+  - **问题**: 图片上传失败，提示 "上传失败"
+  - **根本原因**:
+    1. `PortalManagement.tsx` 调用 `/api/admin/upload` 接口，但该接口不存在
+    2. 实际存在的 `/api/upload` 接口返回格式与前端期望不匹配（缺少 `data` 包装和 `url` 字段）
+  - **解决方案**:
+    1. 修改 `PortalManagement.tsx` 使用正确的 `/api/upload` 接口
+    2. 修改 `/api/upload` 路由返回格式：`{ success: true, data: { url, key, name, size, type } }`
+    3. 使用 `storage.generatePresignedUrl()` 生成文件访问 URL
+  - **关键修改文件**:
+    - `src/components/portal/PortalManagement.tsx`
+    - `src/app/api/upload/route.ts`
 - 2026-04-05: 修复生产环境构建失败问题
   - **问题1: lucide-react 图标导入路径错误**
     - 根本原因：`next.config.ts` 中 `modularizeImports` 配置错误，将 `CalendarIcon` 转换成 `calendar-icon`，但 `lucide-react` 实际文件名为 `calendar.js`
