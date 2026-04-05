@@ -39,13 +39,14 @@ const nextConfig: NextConfig = {
   },
   
   // 模块导入优化
-  modularizeImports: {
-    // 优化 lucide-react 导入
-    'lucide-react': {
-      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
-      skipDefaultConversion: true,
-    },
-  },
+  // 注意: lucide-react 的图标文件名格式为 'calendar.js' 而非 'calendar-icon.js'
+  // 暂时禁用 modularizeImports 以避免构建错误
+  // modularizeImports: {
+  //   'lucide-react': {
+  //     transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+  //     skipDefaultConversion: true,
+  //   },
+  // },
   
   // 生产环境头部配置
   async headers() {

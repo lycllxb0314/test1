@@ -5,12 +5,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// 延迟加载 Supabase 客户端
+function getSupabase() {
+  return getSupabaseClient();
+}
 
 export async function GET(
   request: NextRequest,
@@ -20,7 +20,7 @@ export async function GET(
     const { id: activityId } = await params;
     
     // 获取教研活动详情
-    const { data: activity, error: activityError } = await supabase
+    const { data: activity, error: activityError } = await getSupabase()
       .from('research_activities')
       .select(`
         id,
@@ -47,7 +47,7 @@ export async function GET(
     }
     
     // 获取活动参与人员
-    const { data: participants, error: participantsError } = await supabase
+    const { data: participants, error: participantsError } = await getSupabase()
       .from('research_activity_participants')
       .select(`
         teacher_id,

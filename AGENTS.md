@@ -765,5 +765,18 @@ const safeHtml = DOMPurify.sanitize(userInput);
   - 扩展 `ResourceSourceType` 类型，支持 `upload`、`generated`、`research_import` 三种来源
   - 备课中心资源库页面新增上传功能，支持文件选择、分类设置、学科年级标注
   - 教研活动资源库页面新增"添加到备课中心"按钮，一键复制资源
+- 2026-04-05: 修复生产环境构建失败问题
+  - **问题1: lucide-react 图标导入路径错误**
+    - 根本原因：`next.config.ts` 中 `modularizeImports` 配置错误，将 `CalendarIcon` 转换成 `calendar-icon`，但 `lucide-react` 实际文件名为 `calendar.js`
+    - 解决方案：暂时禁用 `modularizeImports` 配置中的 lucide-react 优化
+    - 关键修改文件：`next.config.ts`
+  - **问题2: Supabase 客户端构建时初始化错误**
+    - 根本原因：`src/app/api/teacher/research/[id]/route.ts` 在模块级别直接调用 `createClient()`，导致构建时需要真实的环境变量
+    - 解决方案：
+      1. 修改 API 路由使用延迟加载模式（`getSupabaseClient()`）
+      2. 修改 `supabase-client.ts` 的 `getSupabaseCredentials()` 函数，在构建时允许使用占位符值
+    - 关键修改文件：
+      - `src/app/api/teacher/research/[id]/route.ts`
+      - `src/storage/database/supabase-client.ts`
 - 2026-03-27: 完成 `any` 类型清理，类型检查通过
 - 2026-03-27: 创建 AGENTS.md 项目规范文件

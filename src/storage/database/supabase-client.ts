@@ -223,10 +223,27 @@ function getSupabaseCredentials(): SupabaseCredentials {
   const url = process.env.COZE_SUPABASE_URL;
   const anonKey = process.env.COZE_SUPABASE_ANON_KEY;
 
+  // 构建时允许使用占位符（当环境变量未设置时）
+  const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                      process.env.NODE_ENV === 'production' && !process.env.COZE_SUPABASE_URL;
+  
   if (!url) {
+    if (isBuildTime) {
+      // 构建时使用占位符值
+      return { 
+        url: process.env.COZE_SUPABASE_URL || 'https://placeholder.supabase.co', 
+        anonKey: process.env.COZE_SUPABASE_ANON_KEY || 'placeholder-key' 
+      };
+    }
     throw new Error('COZE_SUPABASE_URL is not set');
   }
   if (!anonKey) {
+    if (isBuildTime) {
+      return { 
+        url: process.env.COZE_SUPABASE_URL || 'https://placeholder.supabase.co', 
+        anonKey: process.env.COZE_SUPABASE_ANON_KEY || 'placeholder-key' 
+      };
+    }
     throw new Error('COZE_SUPABASE_ANON_KEY is not set');
   }
 
