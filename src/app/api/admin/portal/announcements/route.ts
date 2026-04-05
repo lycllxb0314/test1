@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
 
+  // 传递完整的前端字段到 Service 层
   const data = {
     title: body.title,
     summary: body.summary || '',
@@ -38,6 +39,12 @@ export async function POST(request: NextRequest) {
     type: body.type || 'announcement',
     category: body.category || null,
     publishStatus: body.publishStatus || 'pending',
+    publishedAt: body.publishedAt,
+    mediaLevel: body.mediaLevel,
+    department: body.department,
+    coverImage: body.coverImage,
+    isPinned: body.isPinned ?? false,
+    pinOrder: body.pinOrder ?? 0,
   };
 
   const result = await adminAnnouncementService.create(data);
@@ -59,6 +66,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: false, error: '缺少 ID' }, { status: 400 });
   }
 
+  // 传递完整的前端字段到 Service 层
   const data: Record<string, any> = {};
   if (body.title !== undefined) data.title = body.title;
   if (body.summary !== undefined) data.summary = body.summary;
@@ -66,6 +74,12 @@ export async function PUT(request: NextRequest) {
   if (body.type !== undefined) data.type = body.type;
   if (body.category !== undefined) data.category = body.category;
   if (body.publishStatus !== undefined) data.publishStatus = body.publishStatus;
+  if (body.publishedAt !== undefined) data.publishedAt = body.publishedAt;
+  if (body.mediaLevel !== undefined) data.mediaLevel = body.mediaLevel;
+  if (body.department !== undefined) data.department = body.department;
+  if (body.coverImage !== undefined) data.coverImage = body.coverImage;
+  if (body.isPinned !== undefined) data.isPinned = body.isPinned;
+  if (body.pinOrder !== undefined) data.pinOrder = body.pinOrder;
 
   const result = await adminAnnouncementService.update(body.id, data);
 

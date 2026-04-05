@@ -691,13 +691,18 @@ const safeHtml = DOMPurify.sanitize(userInput);
     - 根本原因：数据库使用 `status` 字段（值为 `published/draft`），但前端期望 `publishStatus` 字段（值为 `pending/scheduled/published/unpublished`），获取数据时没有做字段映射
   - **问题2: 部分数据加载不出来**
     - 根本原因：数据库使用下划线命名（如 `cover_image`, `media_level`），但前端期望驼峰命名（如 `coverImage`, `mediaLevel`）
+  - **问题3: 创建公告失败**
+    - 根本原因：API 路由层只传递了部分字段到 Service 层，且缺少 id 字段生成
   - **解决方案**:
     - 在 `AdminAnnouncementService` 中添加完整的字段映射
     - 获取数据时：将数据库字段（下划线）映射为前端字段（驼峰）
     - 创建/更新数据时：将前端字段（驼峰）映射为数据库字段（下划线）
     - 发布状态映射：`published` → `published`，其他 → `draft`
+    - API 路由层传递完整字段
+    - 使用 `crypto.randomUUID()` 生成记录 ID
   - **关键修改文件**:
     - `src/services/admin-portal.service.ts`
+    - `src/app/api/admin/portal/announcements/route.ts`
     - `src/repositories/portal.repository.ts`
 - 2026-04-03: 修复家长端个人资料页面关联子女显示问题
   - 根本原因：`getMyInfo` 方法中 `parent.student_id` 实际是 `students.id`（UUID格式），但之前错误使用了 `findByStudentNumber` 方法查询

@@ -241,8 +241,13 @@ export class AdminAnnouncementService extends BaseService {
       };
       const dbStatus = statusMap[data.publishStatus] || 'draft';
       
+      // 生成 UUID（如果数据库没有自动生成）
+      const { randomUUID } = await import('crypto');
+      const id = randomUUID();
+      
       // 将前端字段（驼峰命名）映射为数据库字段（下划线命名）
       const insertData: Record<string, any> = {
+        id,
         title: data.title,
         content: data.content || '',
         type: data.type || 'announcement',
