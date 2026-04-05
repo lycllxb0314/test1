@@ -122,6 +122,8 @@ export interface AnnouncementRecord {
   published_at?: string;
   status: string;
   view_count?: number;
+  is_pinned?: boolean;
+  pin_order?: number;
   created_at: string;
   updated_at?: string;
 }

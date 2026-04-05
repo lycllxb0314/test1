@@ -198,10 +198,29 @@ export class AdminPhilosophyService extends BaseService {
 
 export class AdminAnnouncementService extends BaseService {
   /** 获取公告列表 */
-  async getList(params: { type?: string; category?: string; limit?: number }): Promise<ServiceResult<AnnouncementRecord[]>> {
+  async getList(params: { type?: string; category?: string; limit?: number }): Promise<ServiceResult<any[]>> {
     try {
       const data = await announcementRepository.findAllForAdmin(params);
-      return this.ok(data);
+      // 将数据库字段（下划线命名）映射为前端字段（驼峰命名）
+      const mappedData = data.map(item => ({
+        id: item.id,
+        title: item.title,
+        summary: item.summary,
+        content: item.content,
+        type: item.type,
+        category: item.category,
+        mediaLevel: item.media_level,
+        department: item.department,
+        coverImage: item.cover_image,
+        publishStatus: item.status === 'published' ? 'published' : 'pending',
+        publishedAt: item.published_at,
+        isPinned: item.is_pinned ?? false,
+        pinOrder: item.pin_order ?? 0,
+        viewCount: item.view_count ?? 0,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+      }));
+      return this.ok(mappedData);
     } catch (error) {
       console.error('[AdminAnnouncementService] getList error:', error);
       return this.fail('获取公告数据失败');
@@ -212,13 +231,30 @@ export class AdminAnnouncementService extends BaseService {
   async create(data: Record<string, any>): Promise<ServiceResult<AnnouncementRecord>> {
     try {
       const now = new Date().toISOString();
+      
+      // 发布状态映射：前端 publishStatus -> 数据库 status
+      const statusMap: Record<string, string> = {
+        pending: 'draft',
+        scheduled: 'draft',
+        published: 'published',
+        unpublished: 'draft',
+      };
+      const dbStatus = statusMap[data.publishStatus] || 'draft';
+      
+      // 将前端字段（驼峰命名）映射为数据库字段（下划线命名）
       const insertData: Record<string, any> = {
         title: data.title,
         content: data.content || '',
         type: data.type || 'announcement',
         category: data.category || null,
-        status: data.publishStatus === 'published' ? 'published' : 'draft',
-        published_at: data.publishStatus === 'published' ? now : null,
+        status: dbStatus,
+        published_at: data.publishStatus === 'published' ? (data.publishedAt || now) : null,
+        summary: data.summary || null,
+        media_level: data.mediaLevel || null,
+        department: data.department || null,
+        cover_image: data.coverImage || null,
+        is_pinned: data.isPinned ?? false,
+        pin_order: data.pinOrder ?? 0,
       };
 
       const record = await announcementRepository.create(insertData);
@@ -237,16 +273,34 @@ export class AdminAnnouncementService extends BaseService {
     try {
       const updateData: Record<string, any> = {};
 
+      // 基础字段映射（驼峰 -> 下划线）
       if (data.title !== undefined) updateData.title = data.title;
       if (data.content !== undefined) updateData.content = data.content;
       if (data.type !== undefined) updateData.type = data.type;
       if (data.category !== undefined) updateData.category = data.category;
+      if (data.summary !== undefined) updateData.summary = data.summary;
+      if (data.department !== undefined) updateData.department = data.department;
+      
+      // 特殊字段映射（驼峰 -> 下划线）
+      if (data.mediaLevel !== undefined) updateData.media_level = data.mediaLevel;
+      if (data.coverImage !== undefined) updateData.cover_image = data.coverImage;
+      if (data.isPinned !== undefined) updateData.is_pinned = data.isPinned;
+      if (data.pinOrder !== undefined) updateData.pin_order = data.pinOrder;
 
-      // 发布状态处理
+      // 发布状态处理：映射前端 publishStatus 到数据库 status
       if (data.publishStatus !== undefined) {
-        updateData.status = data.publishStatus === 'published' ? 'published' : 'draft';
+        // 前端: pending/scheduled/published/unpublished -> 数据库: draft/published
+        const statusMap: Record<string, string> = {
+          pending: 'draft',
+          scheduled: 'draft',
+          published: 'published',
+          unpublished: 'draft',
+        };
+        updateData.status = statusMap[data.publishStatus] || 'draft';
+        
+        // 发布时设置发布时间
         if (data.publishStatus === 'published') {
-          updateData.published_at = new Date().toISOString();
+          updateData.published_at = data.publishedAt || new Date().toISOString();
         }
       }
 
