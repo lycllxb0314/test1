@@ -478,7 +478,15 @@ export class HonorCampaignService extends BaseService {
         await this.sendApprovalNotification(updated, nextStep);
       } else if (data.result === 'approved' && newStatus === 'approved') {
         // 最终审批通过，写入学生荣誉表
-        await this.writeToStudentHonors(updated);
+        // 注意：updated 对象不包含 campaign 关联数据，需要使用原始 application 对象
+        // 或者重新查询完整数据
+        const fullApplication = await this.applicationRepo.findByIdWithDetails(id);
+        if (fullApplication) {
+          await this.writeToStudentHonors(fullApplication);
+        } else {
+          // 降级处理：使用原始 application 对象（已包含 campaign 信息）
+          await this.writeToStudentHonors(application);
+        }
         // 通知家长
         await this.sendFinalApprovalNotification(updated);
       } else if (data.result === 'rejected') {
@@ -706,12 +714,22 @@ export class HonorCampaignService extends BaseService {
       const { getSupabaseClient } = await import('@/storage/database/supabase-client');
       const supabase = getSupabaseClient();
 
-      // 获取评选活动的学年
-      const campaign = await this.campaignRepo.findById(application.campaignId);
+      // 获取评选活动的完整信息（优先使用 application.campaign，否则查询数据库）
+      let campaign = application.campaign;
+      if (!campaign && application.campaignId) {
+        const campaignData = await this.campaignRepo.findById(application.campaignId);
+        campaign = campaignData || undefined;
+      }
+      
       const schoolYear = campaign?.schoolYear || this.getCurrentSchoolYear();
 
       // 生成证书编号
       const certificateNo = application.certificateNo || `H${new Date().getFullYear()}${Date.now().toString().slice(-6)}`;
+      
+      // 获取荣誉名称和类别
+      const honorTitle = campaign?.honorType || application.campaign?.honorType || '荣誉';
+      // 根据荣誉类型推断类别
+      const honorCategory = this.inferHonorCategory(honorTitle);
 
       // 1. 写入本次评选获得的荣誉
       const { error: mainHonorError } = await supabase.from('student_honors').insert({
@@ -720,13 +738,13 @@ export class HonorCampaignService extends BaseService {
         student_name: application.studentName,
         class_id: application.classId,
         class_name: application.className,
-        title: application.campaign?.honorType || '荣誉',
+        title: honorTitle,
         level: '校级',
-        category: '综合荣誉',
+        category: honorCategory,
         issuer: '龙岩师范附属小学',
         date: new Date().toISOString().split('T')[0],
         certificate_no: certificateNo,
-        description: `${application.campaign?.title} - 通过评选获得`,
+        description: `${campaign?.title || application.campaign?.title || '荣誉评选'} - 通过评选获得`,
         grade: application.grade,
         school_year: schoolYear,
       });
@@ -734,7 +752,7 @@ export class HonorCampaignService extends BaseService {
       if (mainHonorError) {
         console.error('[HonorCampaignService] 写入主荣誉失败:', mainHonorError);
       } else {
-        console.log(`[HonorCampaignService] 主荣誉已写入: ${application.studentName} - ${application.campaign?.honorType}`);
+        console.log(`[HonorCampaignService] 主荣誉已写入: ${application.studentName} - ${honorTitle}, 类别: ${honorCategory}`);
       }
 
       // 注：existingHonors（已有荣誉）不写入学生荣誉表
@@ -742,6 +760,47 @@ export class HonorCampaignService extends BaseService {
     } catch (error) {
       console.error('[HonorCampaignService] writeToStudentHonors error:', error);
     }
+  }
+
+  /**
+   * 根据荣誉名称推断荣誉类别
+   */
+  private inferHonorCategory(honorTitle: string): string {
+    const title = honorTitle.toLowerCase();
+    
+    // 综合荣誉
+    if (title.includes('三好') || title.includes('优秀') || title.includes('标兵') || 
+        title.includes('先进') || title.includes('模范') || title.includes('少先队员')) {
+      return '综合荣誉';
+    }
+    // 学科竞赛
+    if (title.includes('数学') || title.includes('语文') || title.includes('英语') || 
+        title.includes('作文') || title.includes('阅读') || title.includes('学科')) {
+      return '学科竞赛';
+    }
+    // 体育竞赛
+    if (title.includes('体育') || title.includes('运动') || title.includes('田径') || 
+        title.includes('篮球') || title.includes('足球') || title.includes('游泳')) {
+      return '体育竞赛';
+    }
+    // 艺术竞赛
+    if (title.includes('艺术') || title.includes('音乐') || title.includes('美术') || 
+        title.includes('书法') || title.includes('绘画') || title.includes('舞蹈')) {
+      return '艺术竞赛';
+    }
+    // 科技竞赛
+    if (title.includes('科技') || title.includes('创新') || title.includes('发明') || 
+        title.includes('编程') || title.includes('机器人')) {
+      return '科技竞赛';
+    }
+    // 社会实践
+    if (title.includes('实践') || title.includes('志愿') || title.includes('劳动') || 
+        title.includes('环保')) {
+      return '社会实践';
+    }
+    
+    // 默认为综合荣誉
+    return '综合荣誉';
   }
 
   /**
