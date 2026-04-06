@@ -20,6 +20,9 @@ import type {
   MathDomain,
 } from '@/types/math-prep';
 
+/** 最大重试次数 */
+const MAX_RETRIES = 3;
+
 /**
  * 数学备课服务
  */
@@ -33,19 +36,19 @@ export class MathPrepService extends BaseService {
   }
 
   /**
-   * 生成完整数学备课方案 - 并行生成策略
+   * 生成完整数学备课方案 - 并行生成策略 + 空值重试
    */
   async generateMathPrepPlan(request: MathPrepRequest): Promise<ServiceResult<MathPrepPlan>> {
     const { grade, semester, domain, unitName, contentName, contentKey } = request;
 
     try {
-      // 并行生成五个模块
+      // 并行生成五个模块（带重试）
       const [essenceResult, processResult, thoughtResult, structureResult, pathResult] = await Promise.all([
-        this.generateEssenceAnalysis(grade, domain, contentName),
-        this.generateProcessRestoration(grade, domain, contentName),
-        this.generateThoughtRevelation(grade, domain, contentName),
-        this.generateStructureConnection(grade, domain, contentName),
-        this.generateTeachingPath(grade, domain, contentName),
+        this.generateWithRetry('essence', () => this.generateEssenceAnalysis(grade, domain, contentName), contentName),
+        this.generateWithRetry('process', () => this.generateProcessRestoration(grade, domain, contentName), contentName),
+        this.generateWithRetry('thought', () => this.generateThoughtRevelation(grade, domain, contentName), contentName),
+        this.generateWithRetry('structure', () => this.generateStructureConnection(grade, domain, contentName), contentName),
+        this.generateWithRetry('path', () => this.generateTeachingPath(grade, domain, contentName), contentName),
       ]);
 
       const plan: MathPrepPlan = {
@@ -71,6 +74,122 @@ export class MathPrepService extends BaseService {
   }
 
   /**
+   * 带重试的生成函数
+   */
+  private async generateWithRetry<T>(
+    dimension: string,
+    generator: () => Promise<T>,
+    contentName: string,
+    isEmptyChecker?: (result: T) => boolean
+  ): Promise<T> {
+    // 使用默认的空值检查器
+    const checker = isEmptyChecker || ((result: T) => this.isEmpty(result));
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      console.log(`[MathPrepService] 生成${dimension}，第${attempt}次尝试...`);
+      
+      try {
+        const result = await generator();
+        
+        if (!checker(result)) {
+          console.log(`[MathPrepService] ${dimension}生成成功`);
+          return result;
+        }
+        
+        console.warn(`[MathPrepService] ${dimension}第${attempt}次生成为空，准备重试...`);
+        
+        // 如果不是最后一次尝试，等待一段时间再重试
+        if (attempt < MAX_RETRIES) {
+          await this.delay(500 * attempt); // 递增延迟
+        }
+      } catch (error) {
+        console.error(`[MathPrepService] ${dimension}第${attempt}次生成失败:`, error);
+        if (attempt < MAX_RETRIES) {
+          await this.delay(500 * attempt);
+        }
+      }
+    }
+    
+    // 所有重试都失败，返回默认值并记录警告
+    console.warn(`[MathPrepService] ${dimension}经过${MAX_RETRIES}次重试仍为空，使用默认值`);
+    return this.getDefaultByDimension(dimension, contentName) as T;
+  }
+
+  /**
+   * 检查结果是否为空
+   */
+  private isEmpty(result: unknown): boolean {
+    if (!result) return true;
+    
+    // 检查对象的关键字段是否都为空
+    if (typeof result === 'object') {
+      const obj = result as Record<string, unknown>;
+      
+      // 本质挖掘：检查定义和本质属性
+      if ('conceptCore' in obj) {
+        const core = obj.conceptCore as Record<string, unknown>;
+        return !core?.definition && (!core?.essentialAttributes || (core.essentialAttributes as unknown[]).length === 0);
+      }
+      
+      // 过程还原：检查知识起源
+      if ('knowledgeOrigin' in obj) {
+        const origin = obj.knowledgeOrigin as Record<string, unknown>;
+        return !origin?.historicalBackground && !origin?.causeOfEmergence;
+      }
+      
+      // 思想显影：检查隐含思想
+      if ('implicitThoughts' in obj) {
+        const thoughts = obj.implicitThoughts as unknown[];
+        return !thoughts || thoughts.length === 0;
+      }
+      
+      // 结构贯通：检查纵向连接
+      if ('verticalConnection' in obj) {
+        const vertical = obj.verticalConnection as Record<string, unknown>;
+        const prior = vertical?.priorLink as Record<string, unknown>;
+        const subsequent = vertical?.subsequentLink as Record<string, unknown>;
+        return !prior?.content && !subsequent?.content && !vertical?.developmentContext;
+      }
+      
+      // 教学路径：检查目标和阶段
+      if ('objectives' in obj && 'phases' in obj) {
+        const objectives = obj.objectives as unknown[];
+        const phases = obj.phases as unknown[];
+        return (!objectives || objectives.length === 0) && (!phases || phases.length === 0);
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 根据维度获取默认值
+   */
+  private getDefaultByDimension(dimension: string, contentName: string): unknown {
+    switch (dimension) {
+      case 'essence':
+        return this.getDefaultEssenceAnalysis(contentName);
+      case 'process':
+        return this.getDefaultProcessRestoration();
+      case 'thought':
+        return this.getDefaultThoughtRevelation();
+      case 'structure':
+        return this.getDefaultStructureConnection();
+      case 'path':
+        return this.getDefaultTeachingPath();
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * 延迟函数
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
    * 生成本质挖掘
    */
   private async generateEssenceAnalysis(
@@ -79,20 +198,15 @@ export class MathPrepService extends BaseService {
     contentName: string
   ): Promise<EssenceAnalysis> {
     const prompt = this.buildEssencePrompt(grade, domain, contentName);
-    try {
-      console.log('[MathPrepService] 开始生成本质挖掘...');
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
-      );
-      console.log('[MathPrepService] 本质挖掘响应长度:', response.content?.length);
-      const json = this.extractJSON(response.content);
-      console.log('[MathPrepService] 本质挖掘JSON解析结果:', JSON.stringify(json).substring(0, 200));
-      return this.parseEssenceAnalysis(json);
-    } catch (error) {
-      console.error('[MathPrepService] 生成本质挖掘失败:', error);
-      return this.getDefaultEssenceAnalysis(contentName);
-    }
+    console.log('[MathPrepService] 生成本质挖掘...');
+    const response = await this.llmClient.invoke(
+      [{ role: 'user', content: prompt }],
+      { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+    );
+    console.log('[MathPrepService] 本质挖掘响应长度:', response.content?.length);
+    const json = this.extractJSON(response.content);
+    console.log('[MathPrepService] 本质挖掘JSON解析结果:', JSON.stringify(json).substring(0, 200));
+    return this.parseEssenceAnalysis(json);
   }
 
   /**
@@ -104,15 +218,13 @@ export class MathPrepService extends BaseService {
     contentName: string
   ): Promise<ProcessRestoration> {
     const prompt = this.buildProcessPrompt(grade, domain, contentName);
-    try {
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
-      );
-      return this.parseProcessRestoration(this.extractJSON(response.content));
-    } catch {
-      return this.getDefaultProcessRestoration();
-    }
+    console.log('[MathPrepService] 生成过程还原...');
+    const response = await this.llmClient.invoke(
+      [{ role: 'user', content: prompt }],
+      { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+    );
+    console.log('[MathPrepService] 过程还原响应长度:', response.content?.length);
+    return this.parseProcessRestoration(this.extractJSON(response.content));
   }
 
   /**
@@ -124,15 +236,13 @@ export class MathPrepService extends BaseService {
     contentName: string
   ): Promise<ThoughtRevelation> {
     const prompt = this.buildThoughtPrompt(grade, domain, contentName);
-    try {
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
-      );
-      return this.parseThoughtRevelation(this.extractJSON(response.content));
-    } catch {
-      return this.getDefaultThoughtRevelation();
-    }
+    console.log('[MathPrepService] 生成思想显影...');
+    const response = await this.llmClient.invoke(
+      [{ role: 'user', content: prompt }],
+      { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+    );
+    console.log('[MathPrepService] 思想显影响应长度:', response.content?.length);
+    return this.parseThoughtRevelation(this.extractJSON(response.content));
   }
 
   /**
@@ -144,15 +254,13 @@ export class MathPrepService extends BaseService {
     contentName: string
   ): Promise<StructureConnection> {
     const prompt = this.buildStructurePrompt(grade, domain, contentName);
-    try {
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
-      );
-      return this.parseStructureConnection(this.extractJSON(response.content));
-    } catch {
-      return this.getDefaultStructureConnection();
-    }
+    console.log('[MathPrepService] 生成结构贯通...');
+    const response = await this.llmClient.invoke(
+      [{ role: 'user', content: prompt }],
+      { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+    );
+    console.log('[MathPrepService] 结构贯通响应长度:', response.content?.length);
+    return this.parseStructureConnection(this.extractJSON(response.content));
   }
 
   /**
@@ -164,23 +272,17 @@ export class MathPrepService extends BaseService {
     contentName: string
   ): Promise<TeachingPath> {
     const prompt = this.buildTeachingPathPrompt(grade, domain, contentName);
-    try {
-      console.log('[MathPrepService] 开始生成教学路径...');
-      const response = await this.llmClient.invoke(
-        [{ role: 'user', content: prompt }],
-        { model: 'deepseek-v3-2-251201', temperature: 0.7 }
-      );
-      console.log('[MathPrepService] 教学路径响应长度:', response.content?.length);
-      console.log('[MathPrepService] 教学路径响应预览:', response.content?.substring(0, 500));
-      const json = this.extractJSON(response.content);
-      console.log('[MathPrepService] 教学路径JSON解析结果:', JSON.stringify(json).substring(0, 300));
-      const parsed = this.parseTeachingPath(json);
-      console.log('[MathPrepService] 教学路径解析完成，phases数量:', parsed.phases?.length);
-      return parsed;
-    } catch (error) {
-      console.error('[MathPrepService] 生成教学路径失败:', error);
-      return this.getDefaultTeachingPath();
-    }
+    console.log('[MathPrepService] 生成教学路径...');
+    const response = await this.llmClient.invoke(
+      [{ role: 'user', content: prompt }],
+      { model: 'deepseek-v3-2-251201', temperature: 0.7 }
+    );
+    console.log('[MathPrepService] 教学路径响应长度:', response.content?.length);
+    const json = this.extractJSON(response.content);
+    console.log('[MathPrepService] 教学路径JSON解析结果:', JSON.stringify(json).substring(0, 300));
+    const parsed = this.parseTeachingPath(json);
+    console.log('[MathPrepService] 教学路径解析完成，phases数量:', parsed.phases?.length);
+    return parsed;
   }
 
   // ==================== Prompt 构建 ====================
