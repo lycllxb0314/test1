@@ -159,6 +159,14 @@ export class HonorApplicationRepository {
     if (params.status) {
       query = query.eq('status', params.status);
     }
+    // 多状态查询
+    if (params.statuses && params.statuses.length > 0) {
+      query = query.in('status', params.statuses);
+    }
+    // 排除指定状态
+    if (params.excludeStatus) {
+      query = query.neq('status', params.excludeStatus);
+    }
     if (params.currentStep) {
       query = query.eq('current_step', params.currentStep);
     }

@@ -27,6 +27,18 @@ export const GET = protectedRoute(async (request: NextRequest, { user }) => {
       pageSize: parseInt(searchParams.get('pageSize') || '20'),
     };
 
+    // 支持多状态查询
+    const statusesParam = searchParams.get('statuses');
+    if (statusesParam) {
+      params.statuses = statusesParam.split(',') as ApplicationQueryParams['statuses'];
+    }
+
+    // 支持排除状态
+    const excludeStatus = searchParams.get('excludeStatus');
+    if (excludeStatus) {
+      params.excludeStatus = excludeStatus as ApplicationQueryParams['excludeStatus'];
+    }
+
     // 根据角色过滤
     if (user.role === 'head_teacher') {
       // 班主任只能看本班的申报

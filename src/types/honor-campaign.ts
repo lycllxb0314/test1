@@ -344,6 +344,10 @@ export type ApplicationQueryParams = {
   classId?: string;
   applicantId?: string;
   status?: ApplicationStatus;
+  /** 多状态查询（用于查询已审批的申报） */
+  statuses?: ApplicationStatus[];
+  /** 排除指定状态 */
+  excludeStatus?: ApplicationStatus;
   currentStep?: ApprovalStep;
   page?: number;
   pageSize?: number;

@@ -63,6 +63,7 @@ import {
   ChevronRight,
   FileText,
   RotateCcw,
+  FileCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
@@ -73,6 +74,7 @@ import type {
 } from '@/types/honor-campaign';
 import { FORM_PRESET_EXCELLENT_YOUNG_PIONEER, FORM_PRESET_MERIT_STUDENT, APPROVAL_STEP_NAMES, APPROVAL_STEP_ORDER, getSchoolYearOptions, getCurrentSchoolYear } from '@/types/honor-campaign';
 import { HonorApplicationPrintDialog } from './HonorApplicationPrintDialog';
+import { HonorApprovedList } from './HonorApprovedList';
 
 // ==================== 配置 ====================
 
@@ -397,6 +399,10 @@ export function HonorCampaignTab() {
                 <Badge className="ml-1 bg-red-500 text-white text-xs">{applications.length}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="approved" className="gap-2">
+              <FileCheck className="h-4 w-4" />
+              已审批
+            </TabsTrigger>
           </TabsList>
 
           {activeTab === 'campaigns' && (
@@ -568,6 +574,11 @@ export function HonorCampaignTab() {
               </Table>
             </Card>
           )}
+        </TabsContent>
+
+        {/* 已审批申报列表 */}
+        <TabsContent value="approved" className="space-y-4">
+          <HonorApprovedList step="moral_dept" />
         </TabsContent>
       </Tabs>
 

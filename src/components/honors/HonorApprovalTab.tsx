@@ -7,14 +7,16 @@
  * - 查看本班学生的荣誉申报
  * - 审批/退回申报
  * - 打印预览申报表
+ * - 查看已审批记录
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -41,6 +43,7 @@ import {
   RotateCcw,
   Users,
   Trophy,
+  FileCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
@@ -49,11 +52,15 @@ import type {
 } from '@/types/honor-campaign';
 import { APPROVAL_STEP_NAMES } from '@/types/honor-campaign';
 import { HonorApplicationPrintDialog } from './HonorApplicationPrintDialog';
+import { HonorApprovedList } from './HonorApprovedList';
 
 // ==================== 主组件 ====================
 
 export function HonorApprovalTab() {
   const { user } = useAuth();
+
+  // === Tab 状态 ===
+  const [activeTab, setActiveTab] = useState('pending');
 
   // === 数据状态 ===
   const [applications, setApplications] = useState<HonorApplication[]>([]);
@@ -141,103 +148,128 @@ export function HonorApprovalTab() {
 
   return (
     <div className="space-y-4">
-      {/* 统计卡片 */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-0 shadow-md bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/80">待审批</p>
-                <p className="text-3xl font-bold">{applications.length}</p>
-              </div>
-              <Clock className="h-8 w-8 text-white/60" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/80">本班学生</p>
-                <p className="text-3xl font-bold">{applications.length > 0 ? new Set(applications.map(a => a.studentId)).size : 0}</p>
-              </div>
-              <Users className="h-8 w-8 text-white/60" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md bg-gradient-to-br from-purple-500 to-pink-600 text-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/80">荣誉类型</p>
-                <p className="text-xl font-bold">
-                  {applications.length > 0 ? [...new Set(applications.map(a => a.campaign?.honorType))].filter(Boolean).join('、') : '-'}
-                </p>
-              </div>
-              <Trophy className="h-8 w-8 text-white/60" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Tab切换 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="bg-white border mb-4">
+          <TabsTrigger value="pending" className="gap-2">
+            <Clock className="h-4 w-4" />
+            待审批
+            {applications.length > 0 && (
+              <Badge className="ml-1 bg-red-500 text-white text-xs">{applications.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="gap-2">
+            <FileCheck className="h-4 w-4" />
+            已审批
+          </TabsTrigger>
+        </TabsList>
 
-      {/* 申报列表 */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : applications.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <CheckCircle className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">暂无待审批的申报</p>
-            <p className="text-sm text-muted-foreground mt-2">家长提交申报后，您将在此处收到通知</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-0 shadow-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>学生</TableHead>
-                <TableHead>荣誉类型</TableHead>
-                <TableHead>评选活动</TableHead>
-                <TableHead>申报时间</TableHead>
-                <TableHead className="text-right">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {applications.map((app) => (
-                <TableRow key={app.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{app.studentName}</p>
-                      <p className="text-xs text-muted-foreground">{app.className}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{app.campaign?.honorType || '-'}</Badge>
-                  </TableCell>
-                  <TableCell>{app.campaign?.title || '-'}</TableCell>
-                  <TableCell>
-                    {app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => { setSelectedApplication(app); setPrintDialogOpen(true); }}>
-                        <Eye className="h-4 w-4 mr-1" />
-                        预览
-                      </Button>
-                      <Button size="sm" onClick={() => handleOpenApproval(app)}>
-                        审批
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
+        {/* 待审批Tab */}
+        <TabsContent value="pending" className="space-y-4">
+          {/* 统计卡片 */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card className="border-0 shadow-md bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white/80">待审批</p>
+                    <p className="text-3xl font-bold">{applications.length}</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-white/60" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white/80">本班学生</p>
+                    <p className="text-3xl font-bold">{applications.length > 0 ? new Set(applications.map(a => a.studentId)).size : 0}</p>
+                  </div>
+                  <Users className="h-8 w-8 text-white/60" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md bg-gradient-to-br from-purple-500 to-pink-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white/80">荣誉类型</p>
+                    <p className="text-xl font-bold">
+                      {applications.length > 0 ? [...new Set(applications.map(a => a.campaign?.honorType))].filter(Boolean).join('、') : '-'}
+                    </p>
+                  </div>
+                  <Trophy className="h-8 w-8 text-white/60" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 申报列表 */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : applications.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <CheckCircle className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground">暂无待审批的申报</p>
+                <p className="text-sm text-muted-foreground mt-2">家长提交申报后，您将在此处收到通知</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-0 shadow-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>学生</TableHead>
+                    <TableHead>荣誉类型</TableHead>
+                    <TableHead>评选活动</TableHead>
+                    <TableHead>申报时间</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {applications.map((app) => (
+                    <TableRow key={app.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{app.studentName}</p>
+                          <p className="text-xs text-muted-foreground">{app.className}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{app.campaign?.honorType || '-'}</Badge>
+                      </TableCell>
+                      <TableCell>{app.campaign?.title || '-'}</TableCell>
+                      <TableCell>
+                        {app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { setSelectedApplication(app); setPrintDialogOpen(true); }}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            预览
+                          </Button>
+                          <Button size="sm" onClick={() => handleOpenApproval(app)}>
+                            审批
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* 已审批Tab */}
+        <TabsContent value="approved" className="space-y-4">
+          <HonorApprovedList step="head_teacher" classOnly={true} classId={user?.classId} />
+        </TabsContent>
+      </Tabs>
 
       {/* 审批对话框 */}
       <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>
