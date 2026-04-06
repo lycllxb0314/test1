@@ -42,12 +42,12 @@ export const GET = protectedRoute(async (request: NextRequest, { user }) => {
     // 根据角色过滤
     if (user.role === 'head_teacher') {
       // 班主任只能看本班的申报
-      // params.classId 需要从用户的班级信息获取
       params.classId = params.classId || user.classId;
     } else if (user.role === 'parent') {
       // 家长只能看自己的申报
       params.applicantId = user.id;
     }
+    // 德育处、德育副校长、校长等角色可以查看所有数据，不需要额外过滤
 
     const result = await honorCampaignService.getApplications(params);
     

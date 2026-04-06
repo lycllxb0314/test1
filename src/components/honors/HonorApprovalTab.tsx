@@ -267,7 +267,7 @@ export function HonorApprovalTab() {
 
         {/* 已审批Tab */}
         <TabsContent value="approved" className="space-y-4">
-          <HonorApprovedList step="head_teacher" classOnly={true} classId={user?.classId} />
+          <HonorApprovedList classOnly={true} classId={user?.classId} />
         </TabsContent>
       </Tabs>
 

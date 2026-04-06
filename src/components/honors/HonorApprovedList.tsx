@@ -47,8 +47,6 @@ import { HonorApplicationPrintDialog } from './HonorApplicationPrintDialog';
 type ApprovalStatus = 'all' | 'approved' | 'rejected';
 
 type HonorApprovedListProps = {
-  /** 查询参数：审批步骤（head_teacher 或 moral_dept） */
-  step: 'head_teacher' | 'moral_dept';
   /** 是否限制为本班（班主任端使用） */
   classOnly?: boolean;
   /** 班级ID（classOnly 为 true 时需要） */
@@ -74,7 +72,6 @@ const STATUS_COLORS: Record<string, string> = {
 // ==================== 主组件 ====================
 
 export function HonorApprovedList({
-  step,
   classOnly = false,
   classId,
 }: HonorApprovedListProps) {
@@ -98,15 +95,17 @@ export function HonorApprovedList({
     try {
       // 构建查询参数
       const params = new URLSearchParams();
-      params.append('currentStep', step);
-      // 获取已审批的申报（已通过 + 已拒绝）
+      
+      // 已审批的申报：不设置 currentStep（因为已审批的 current_step 为空）
+      // 只按状态过滤
       if (statusFilter === 'all') {
-        // 不设置 status，后端会返回所有非 pending 的
-        params.append('excludeStatus', 'pending');
+        // 查询已通过和已拒绝的
+        params.append('statuses', 'approved,rejected');
       } else {
         params.append('status', statusFilter);
       }
 
+      // 班主任端：只查询本班数据
       if (classOnly && classId) {
         params.append('classId', classId);
       }
@@ -138,7 +137,7 @@ export function HonorApprovedList({
     } finally {
       setLoading(false);
     }
-  }, [step, statusFilter, classOnly, classId, searchTerm]);
+  }, [statusFilter, classOnly, classId, searchTerm]);
 
   useEffect(() => {
     loadApplications();

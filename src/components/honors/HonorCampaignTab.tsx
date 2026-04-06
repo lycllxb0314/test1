@@ -578,7 +578,7 @@ export function HonorCampaignTab() {
 
         {/* 已审批申报列表 */}
         <TabsContent value="approved" className="space-y-4">
-          <HonorApprovedList step="moral_dept" />
+          <HonorApprovedList />
         </TabsContent>
       </Tabs>
 
