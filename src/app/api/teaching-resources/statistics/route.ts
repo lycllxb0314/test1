@@ -5,16 +5,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute } from '@/lib/auth';
 import { teachingResourceService } from '@/services/teaching-resource.service';
 
 /**
  * GET /api/teaching-resources/statistics
  * 获取统计数据
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request, { user }) => {
   try {
-    // TODO: 从认证获取教师ID
-    const teacherId = 'teacher-001';
+    // 使用认证用户的 ID
+    const teacherId = user.id;
 
     const statistics = await teachingResourceService.getStatistics(teacherId);
 
@@ -29,4 +30,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Storage } from 'coze-coding-dev-sdk';
+import { protectedRoute } from '@/lib/auth';
 import { teachingResourceRepository } from '@/repositories/teaching-resource.repository';
 import type { ResourceCategory, ResourceType } from '@/types/teaching-resource';
 
@@ -40,7 +41,7 @@ const FILE_TYPE_MAP: Record<string, { category: ResourceCategory; type: Resource
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { category: 'other', type: 'document_file' },
 };
 
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request, { user }) => {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -57,9 +58,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 开发环境：使用默认教师ID
-    const teacherId = process.env.NODE_ENV === 'production' ? 'teacher-001' : 'dev-teacher';
-    const teacherName = '开发教师';
+    // 使用认证用户信息
+    const teacherId = user.id;
+    const teacherName = user.name || '教师';
 
     // 根据文件类型确定分类
     const mimeType = file.type;
@@ -123,4 +124,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

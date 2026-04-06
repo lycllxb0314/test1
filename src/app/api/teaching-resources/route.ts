@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute } from '@/lib/auth';
 import { teachingResourceService } from '@/services/teaching-resource.service';
 import type { CreateResourceRequest, ResourceQueryParams } from '@/types/teaching-resource';
 
@@ -15,7 +16,7 @@ import type { CreateResourceRequest, ResourceQueryParams } from '@/types/teachin
  * GET /api/teaching-resources
  * 查询资源列表
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request, { user }) => {
   try {
     const searchParams = request.nextUrl.searchParams;
     
@@ -31,9 +32,8 @@ export async function GET(request: NextRequest) {
       sortOrder: searchParams.get('sortOrder') as ResourceQueryParams['sortOrder'] || 'desc',
     };
 
-    // 开发环境：不过滤 teacherId，显示所有资源
-    // 生产环境：TODO 从认证获取教师ID
-    const teacherId = process.env.NODE_ENV === 'production' ? 'teacher-001' : undefined;
+    // 使用认证用户的 ID 过滤资源
+    const teacherId = user.id;
 
     const result = await teachingResourceService.getResources(teacherId, params);
 
@@ -51,19 +51,19 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * POST /api/teaching-resources
  * 创建资源
  */
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request, { user }) => {
   try {
     const body = await request.json();
 
-    // TODO: 从认证获取教师信息，暂时使用模拟数据
-    const teacherId = 'teacher-001';
-    const teacherName = '张老师';
+    // 使用认证用户信息
+    const teacherId = user.id;
+    const teacherName = user.name || '教师';
 
     // 判断是否为生字专项资源
     if (body.characters && body.grade && body.content) {
@@ -155,4 +155,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

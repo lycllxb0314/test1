@@ -7,19 +7,24 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute } from '@/lib/auth';
 import { teachingResourceService } from '@/services/teaching-resource.service';
-
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
 
 /**
  * GET /api/teaching-resources/[id]
  * 获取资源详情
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export const GET = protectedRoute(async (request, { user, params }) => {
   try {
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams?.id;
+    
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: '缺少资源ID' },
+        { status: 400 }
+      );
+    }
     
     const resource = await teachingResourceService.getResource(id);
 
@@ -41,19 +46,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * PUT /api/teaching-resources/[id]
  * 更新资源
  */
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export const PUT = protectedRoute(async (request, { user, params }) => {
   try {
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams?.id;
+    
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: '缺少资源ID' },
+        { status: 400 }
+      );
+    }
+    
     const body = await request.json();
 
-    // TODO: 从认证获取教师ID
-    const teacherId = 'teacher-001';
+    // 使用认证用户 ID
+    const teacherId = user.id;
 
     const resource = await teachingResourceService.updateResource(id, teacherId, body);
 
@@ -69,22 +83,28 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * DELETE /api/teaching-resources/[id]
  * 删除资源
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export const DELETE = protectedRoute(async (request, { user, params }) => {
   try {
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams?.id;
+    
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: '缺少资源ID' },
+        { status: 400 }
+      );
+    }
 
-    // 开发环境：使用默认教师ID，不过滤权限
-    // 生产环境：TODO 从认证获取教师ID
-    const teacherId = process.env.NODE_ENV === 'production' ? 'teacher-001' : 'dev-teacher';
-    const isDev = process.env.NODE_ENV !== 'production';
+    // 使用认证用户 ID
+    const teacherId = user.id;
 
-    await teachingResourceService.deleteResource(id, teacherId, isDev);
+    await teachingResourceService.deleteResource(id, teacherId, false);
 
     return NextResponse.json({
       success: true,
@@ -97,4 +117,4 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     );
   }
-}
+});
