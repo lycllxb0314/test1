@@ -80,12 +80,17 @@ export class MathPrepService extends BaseService {
   ): Promise<EssenceAnalysis> {
     const prompt = this.buildEssencePrompt(grade, domain, contentName);
     try {
+      console.log('[MathPrepService] 开始生成本质挖掘...');
       const response = await this.llmClient.invoke(
         [{ role: 'user', content: prompt }],
         { model: 'deepseek-v3-2-251201', temperature: 0.6 }
       );
-      return this.parseEssenceAnalysis(this.extractJSON(response.content));
-    } catch {
+      console.log('[MathPrepService] 本质挖掘响应长度:', response.content?.length);
+      const json = this.extractJSON(response.content);
+      console.log('[MathPrepService] 本质挖掘JSON解析结果:', JSON.stringify(json).substring(0, 200));
+      return this.parseEssenceAnalysis(json);
+    } catch (error) {
+      console.error('[MathPrepService] 生成本质挖掘失败:', error);
       return this.getDefaultEssenceAnalysis(contentName);
     }
   }
@@ -160,16 +165,20 @@ export class MathPrepService extends BaseService {
   ): Promise<TeachingPath> {
     const prompt = this.buildTeachingPathPrompt(grade, domain, contentName);
     try {
+      console.log('[MathPrepService] 开始生成教学路径...');
       const response = await this.llmClient.invoke(
         [{ role: 'user', content: prompt }],
-        { model: 'deepseek-v3-2-251201', temperature: 0.6 }
+        { model: 'deepseek-v3-2-251201', temperature: 0.7 }
       );
-      console.log('[MathPrepService] TeachingPath response length:', response.content?.length);
-      console.log('[MathPrepService] TeachingPath response preview:', response.content?.substring(0, 500));
-      const parsed = this.parseTeachingPath(this.extractJSON(response.content));
+      console.log('[MathPrepService] 教学路径响应长度:', response.content?.length);
+      console.log('[MathPrepService] 教学路径响应预览:', response.content?.substring(0, 500));
+      const json = this.extractJSON(response.content);
+      console.log('[MathPrepService] 教学路径JSON解析结果:', JSON.stringify(json).substring(0, 300));
+      const parsed = this.parseTeachingPath(json);
+      console.log('[MathPrepService] 教学路径解析完成，phases数量:', parsed.phases?.length);
       return parsed;
     } catch (error) {
-      console.error('[MathPrepService] generateTeachingPath error:', error);
+      console.error('[MathPrepService] 生成教学路径失败:', error);
       return this.getDefaultTeachingPath();
     }
   }
@@ -185,10 +194,12 @@ export class MathPrepService extends BaseService {
 
 【核心任务】挖掘这个数学知识的本质属性，不是让学生背诵定义，而是理解"它到底是什么"。
 
-【输出JSON格式】
+【重要】必须严格输出JSON格式，不要有任何其他文字说明。
+
+【输出格式示例】
 {
   "conceptCore": {
-    "definition": "数学定义",
+    "definition": "这里写数学定义",
     "essentialAttributes": ["本质属性1", "本质属性2"],
     "nonEssentialAttributes": ["非本质属性"]
   },
@@ -207,8 +218,7 @@ export class MathPrepService extends BaseService {
     "negativeExamples": [{"content": "反例", "explanation": "说明"}],
     "distinctionPoints": ["辨析要点"]
   }
-}
-只输出JSON。`;
+}`;
   }
 
   private buildProcessPrompt(grade: number, domain: MathDomain, contentName: string): string {
@@ -301,25 +311,55 @@ export class MathPrepService extends BaseService {
   }
 
   private buildTeachingPathPrompt(grade: number, domain: MathDomain, contentName: string): string {
-    return `你是小学数学教学设计专家。为"${grade}年级《${contentName}》"设计教学方案。
+    return `你是小学数学教学设计专家。请为"${grade}年级《${contentName}》"设计完整的教学方案。
 
-领域：${domain}
+【知识领域】${domain}
 
 【教学目标撰写要求】
 - 省略主语"学生"，直接以动词开头
-- 不同维度的目标使用不同句式，避免单调
-- 知识目标：理解...、掌握...、认识...、知道...
+- 知识目标：理解...、掌握...、认识...
 - 能力目标：能够运用...、学会...的方法、提高...能力
-- 思维目标：经历...过程、体会...思想、培养...意识、发展...能力
-- 情感目标：感受...价值、体验...乐趣、养成...习惯
+- 思维目标：经历...过程、体会...思想、发展...能力
+- 情感目标：感受...价值、体验...乐趣
 
-请严格按以下JSON格式输出（不要添加任何解释）：
-{"objectives":[{"dimension":"knowledge","content":"理解亿以内数的意义，掌握亿以内数的读写方法"},{"dimension":"ability","content":"能够运用分级读数的方法正确读写亿以内的数"},{"dimension":"thinking","content":"在探究过程中体会位值思想，发展数感"},{"dimension":"emotion","content":"感受大数在生活中的应用价值，体验数学与生活的联系"}],"keyDifficulty":{"keyPoints":[{"content":"教学重点","strategy":"突破策略"}],"difficulties":[{"content":"教学难点","breakthrough":"突破方法"}]},"phases":[{"name":"导入","duration":5,"activities":["活动1","活动2"],"designIntent":"设计意图"},{"name":"探究","duration":15,"activities":["活动1","活动2"],"designIntent":"设计意图"},{"name":"归纳","duration":10,"activities":["活动1"],"designIntent":"设计意图"},{"name":"应用","duration":8,"activities":["活动1"],"designIntent":"设计意图"},{"name":"总结","duration":2,"activities":["活动1"],"designIntent":"设计意图"}],"keyQuestionDesign":[{"question":"关键问题","purpose":"提问目的"}],"studentActivityDesign":[{"activity":"学生活动","form":"individual"}]}`;
+【重要】必须严格输出JSON格式，不要有任何其他文字说明。
+
+【输出格式】
+{
+  "objectives": [
+    {"dimension": "knowledge", "content": "知识目标内容"},
+    {"dimension": "ability", "content": "能力目标内容"},
+    {"dimension": "thinking", "content": "思维目标内容"},
+    {"dimension": "emotion", "content": "情感目标内容"}
+  ],
+  "keyDifficulty": {
+    "keyPoints": [{"content": "教学重点内容", "strategy": "突破策略"}],
+    "difficulties": [{"content": "教学难点内容", "breakthrough": "突破方法"}]
+  },
+  "phases": [
+    {"name": "导入", "duration": 5, "activities": ["活动描述"], "designIntent": "设计意图"},
+    {"name": "探究", "duration": 15, "activities": ["探究活动1", "探究活动2"], "designIntent": "设计意图"},
+    {"name": "归纳", "duration": 10, "activities": ["归纳活动"], "designIntent": "设计意图"},
+    {"name": "应用", "duration": 8, "activities": ["应用练习"], "designIntent": "设计意图"},
+    {"name": "总结", "duration": 2, "activities": ["总结活动"], "designIntent": "设计意图"}
+  ],
+  "keyQuestionDesign": [
+    {"question": "关键问题内容", "purpose": "提问目的"}
+  ],
+  "studentActivityDesign": [
+    {"activity": "学生活动描述", "form": "individual"}
+  ]
+}`;
   }
 
   // ==================== 解析方法 ====================
 
   private extractJSON(content: string): Record<string, unknown> {
+    if (!content) {
+      console.error('[MathPrepService] extractJSON: 内容为空');
+      return {};
+    }
+    
     let jsonStr = content;
     
     // 尝试从代码块中提取
@@ -330,31 +370,58 @@ export class MathPrepService extends BaseService {
       // 提取第一个 { 到最后一个 } 之间的内容
       const firstBrace = content.indexOf('{');
       const lastBrace = content.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1) {
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
         jsonStr = content.slice(firstBrace, lastBrace + 1);
       }
     }
     
-    // 强力JSON修复：先处理字符串值中的中文引号
-    // 把字符串值中的中文引号替换为英文单引号
-    jsonStr = jsonStr.replace(/"([^"]*)"/g, (match, p1) => {
-      // 在字符串值内部，将中文引号替换为单引号
-      const fixed = p1.replace(/[""]/g, "'").replace(/['']/g, "'");
-      return `"${fixed}"`;
-    });
-    
-    // 其他清理
-    jsonStr = jsonStr
-      .replace(/,(\s*[}\]])/g, '$1')    // 尾随逗号
-      .replace(/\n/g, ' ')              // 移除换行
-      .replace(/\r/g, '')               // 移除回车
-      .replace(/\s+/g, ' ');            // 压缩空白
+    // 备份原始字符串用于调试
+    const originalJsonStr = jsonStr;
     
     try {
+      // 第一次尝试：直接解析
       return JSON.parse(jsonStr);
-    } catch (e) {
-      console.error('[MathPrepService] JSON parse failed:', e);
-      return {};
+    } catch (e1) {
+      console.log('[MathPrepService] 第一次JSON解析失败，尝试修复...');
+      
+      try {
+        // 修复策略1：处理中文引号和特殊字符
+        let fixed = jsonStr;
+        // 处理字符串值中的中文引号
+        fixed = fixed.replace(/"([^"]*)"/g, (match, p1) => {
+          const inner = p1
+            .replace(/[""]/g, "'")
+            .replace(/['']/g, "'")
+            .replace(/\\/g, '\\\\');
+          return `"${inner}"`;
+        });
+        
+        // 清理常见问题
+        fixed = fixed
+          .replace(/,(\s*[}\]])/g, '$1')  // 尾随逗号
+          .replace(/[\u0000-\u001F]/g, ' ') // 控制字符
+          .trim();
+        
+        return JSON.parse(fixed);
+      } catch (e2) {
+        console.log('[MathPrepService] JSON修复失败，尝试正则提取...');
+        
+        // 修复策略2：使用更宽松的解析
+        try {
+          // 移除所有换行，但保留字符串内的空格
+          let cleaned = originalJsonStr
+            .replace(/\n/g, ' ')
+            .replace(/\r/g, '')
+            .replace(/\t/g, ' ')
+            .replace(/,\s*([}\]])/g, '$1');
+          
+          return JSON.parse(cleaned);
+        } catch (e3) {
+          console.error('[MathPrepService] JSON解析最终失败:', e3);
+          console.error('[MathPrepService] 问题JSON片段:', originalJsonStr.substring(0, 500));
+          return {};
+        }
+      }
     }
   }
 
