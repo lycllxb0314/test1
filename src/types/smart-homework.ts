@@ -152,7 +152,9 @@ export type CognitiveAllocation = {
   level: CognitiveLevel;
   /** 该知识点在该层次的题数 */
   questionCount: number;
-  /** 该知识点在该层次的分值 */
+  /** 每题分值（必须为整数） */
+  scorePerQuestion: number;
+  /** 该知识点在该层次的分值 = questionCount × scorePerQuestion（必须为整数） */
   score: number;
   /** 该知识点在该层次建议使用的题型 */
   suggestedQuestionTypes: QuestionType[];
