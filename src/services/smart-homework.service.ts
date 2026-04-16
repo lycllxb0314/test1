@@ -377,6 +377,36 @@ ${subjectHint}
       //
 
       // ---- Step 0: 解析LLM输出 ----
+      // 题型值规范化映射（LLM可能返回中文、变体拼写等）
+      const normalizeQuestionType = (qt: string): QuestionType => {
+        const normalized = qt?.trim().toLowerCase().replace(/[-\s]/g, '_');
+        const mapping: Record<string, QuestionType> = {
+          'choice': 'choice', '选择题': 'choice', '单选': 'choice', '单选题': 'choice',
+          'fill': 'fill', '填空题': 'fill', '填空': 'fill',
+          'judge': 'judge', '判断题': 'judge', '判断': 'judge',
+          'short_answer': 'short_answer', '简答题': 'short_answer', '简答': 'short_answer',
+          'calculation': 'calculation', '计算题': 'calculation', '计算': 'calculation',
+          'application': 'application', '应用题': 'application', '应用': 'application',
+          'reading': 'reading', '阅读理解': 'reading', '阅读': 'reading',
+          'writing': 'writing', '写作题': 'writing', '写作': 'writing', '作文': 'writing',
+          'other': 'other', '其他': 'other',
+        };
+        return mapping[normalized] || mapping[qt] || 'other';
+      };
+
+      // 认知层次规范化映射
+      const normalizeCognitiveLevel = (level: string): CognitiveLevel => {
+        const mapping: Record<string, CognitiveLevel> = {
+          'remember': 'remember', '识记': 'remember',
+          'understand': 'understand', '理解': 'understand',
+          'apply': 'apply', '运用': 'apply', '应用': 'apply',
+          'analyze': 'analyze', '分析': 'analyze',
+          'evaluate': 'evaluate', '评价': 'evaluate',
+          'create': 'create', '创造': 'create',
+        };
+        return mapping[level?.trim().toLowerCase()] || mapping[level] || 'remember';
+      };
+
       const knowledgeContents: KnowledgeContent[] = (parsed.knowledgeContents || []).map(
         (kc: Record<string, unknown>) => {
           const allocations = ((kc.cognitiveAllocations || []) as CognitiveAllocation[]).map(
@@ -394,19 +424,20 @@ ${subjectHint}
               spq = Math.max(1, Math.round(spq));
 
               // 解析 blanksPerQuestion（填空题专用）
+              const normalizedTypes = (ca.suggestedQuestionTypes || []).map(normalizeQuestionType);
               let bpq: number | undefined;
-              if (ca.suggestedQuestionTypes?.includes('fill')) {
+              if (normalizedTypes.includes('fill')) {
                 bpq = caRaw.blanksPerQuestion as number;
                 if (!bpq || bpq <= 0) bpq = 1;
                 bpq = Math.round(bpq); // 整数
               }
 
               return {
-                level: ca.level,
+                level: normalizeCognitiveLevel(ca.level),
                 questionCount: qCount,
                 scorePerQuestion: spq,
                 score: qCount * spq, // 以 scorePerQuestion 为准重算
-                suggestedQuestionTypes: ca.suggestedQuestionTypes || [],
+                suggestedQuestionTypes: normalizedTypes,
                 questionNumbers: [] as number[],
                 blanksPerQuestion: bpq,
               };

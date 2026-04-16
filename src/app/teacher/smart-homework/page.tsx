@@ -256,7 +256,7 @@ export default function SmartHomeworkPage() {
         question: q,
         addedAt: new Date().toISOString(),
         assignedScore: q.score,
-        section: QUESTION_TYPE_LABELS[q.questionType],
+        section: QUESTION_TYPE_LABELS[q.questionType as QuestionType] || q.questionType,
       }];
     });
   }, []);
@@ -419,7 +419,7 @@ export default function SmartHomeworkPage() {
                 ) : basket.map((item, idx) => (
                   <div key={item.questionId} className="flex items-center gap-2 p-3 rounded-lg border bg-card">
                     <span className="text-xs font-bold text-muted-foreground w-5">{idx + 1}</span>
-                    <Badge variant="outline" className="text-[10px] shrink-0">{QUESTION_TYPE_LABELS[item.question.questionType]}</Badge>
+                    <Badge variant="outline" className="text-[10px] shrink-0">{QUESTION_TYPE_LABELS[item.question.questionType as QuestionType] || item.question.questionType}</Badge>
                     <p className="text-sm flex-1 truncate">{item.question.content}</p>
                     <Input
                       type="number"
@@ -605,7 +605,7 @@ export default function SmartHomeworkPage() {
                           <div>
                             <p className="text-[10px] text-muted-foreground mb-1">题型</p>
                             <div className="flex flex-wrap gap-1">
-                              {inferredReqs.questionTypes.map(qt => <Badge key={qt} variant="outline" className="text-[10px]">{QUESTION_TYPE_LABELS[qt]}</Badge>)}
+                              {inferredReqs.questionTypes.map(qt => <Badge key={qt} variant="outline" className="text-[10px]">{QUESTION_TYPE_LABELS[qt as QuestionType] || qt}</Badge>)}
                             </div>
                           </div>
                           <InfoRow label="总分" value={`${inferredReqs.totalScore}分`} />
@@ -740,7 +740,7 @@ export default function SmartHomeworkPage() {
                                           </span>
                                           {alloc.suggestedQuestionTypes?.length > 0 && (
                                             <span className="text-[9px] text-muted-foreground">
-                                              {alloc.suggestedQuestionTypes.map(qt => QUESTION_TYPE_LABELS[qt]).join('、')}
+                                              {alloc.suggestedQuestionTypes.map(qt => QUESTION_TYPE_LABELS[qt as QuestionType] || qt).join('、')}
                                             </span>
                                           )}
                                         </div>
@@ -803,7 +803,7 @@ export default function SmartHomeworkPage() {
                       {specification.questionTypePlans.map((plan, i) => (
                         <div key={i} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                           <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
-                          <Badge className="min-w-[56px] justify-center text-[10px]">{QUESTION_TYPE_LABELS[plan.questionType]}</Badge>
+                          <Badge className="min-w-[56px] justify-center text-[10px]">{QUESTION_TYPE_LABELS[plan.questionType as QuestionType] || plan.questionType}</Badge>
                           <span className="text-sm">
                             {plan.count}题 · {plan.totalScore}分
                             {plan.questionType === 'choice' && plan.scorePerQuestion > 0 && (
@@ -1072,9 +1072,9 @@ function QuestionCard({ question, index, inBasket, onToggleBasket, showSource }:
       <CardContent className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-bold text-muted-foreground">{index + 1}.</span>
-          <Badge variant="outline" className="text-[10px]">{QUESTION_TYPE_LABELS[question.questionType]}</Badge>
-          <Badge variant="secondary" className="text-[10px]">{DIFFICULTY_LABELS[question.difficulty]}</Badge>
-          <Badge variant="secondary" className="text-[10px]">{COGNITIVE_LEVEL_LABELS[question.cognitiveLevel]}</Badge>
+          <Badge variant="outline" className="text-[10px]">{QUESTION_TYPE_LABELS[question.questionType as QuestionType] || question.questionType}</Badge>
+          <Badge variant="secondary" className="text-[10px]">{DIFFICULTY_LABELS[question.difficulty as Difficulty] || question.difficulty}</Badge>
+          <Badge variant="secondary" className="text-[10px]">{COGNITIVE_LEVEL_LABELS[question.cognitiveLevel as CognitiveLevel] || question.cognitiveLevel}</Badge>
           {question.isShared && showSource && <Badge className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">已共享</Badge>}
           <span className="flex-1" />
           <span className="text-[10px] text-muted-foreground">{question.score}分</span>
