@@ -4,6 +4,11 @@
  * 使用 docx 库生成标准试卷 .docx 文件
  * 数学公式使用 docx Math 组件（OMML），支持竖式分数、上下标、根号等
  *
+ * 关键改进：
+ * 1. 集成 LaTeX 规范化，处理 LLM 不规范输出
+ * 2. 公式解析失败时自动 fallback 为 Unicode 文本
+ * 3. 段落数量上限保护，防止"几百页"问题
+ *
  * @module lib/exam-docx
  */
 
@@ -26,33 +31,65 @@ import {
   QUESTION_TYPE_LABELS,
   EXAM_TYPE_LABELS,
 } from '@/types/smart-homework';
+import { normalizeLatex } from '@/lib/latex-normalize';
+
+// ==================== 安全阈值 ====================
+
+/** 单个文档最大段落数，防止"几百页"问题 */
+const MAX_PARAGRAPHS = 600;
+
+/** 单个公式的 Math 组件最大嵌套深度 */
+const MAX_MATH_DEPTH = 10;
 
 // ==================== LaTeX → docx Math 组件转换 ====================
 
 /** Paragraph children 的类型（TextRun | Math） */
 type ParagraphChild = InstanceType<typeof TextRun> | InstanceType<typeof Math>;
 
+/** Math 子元素类型 */
+type MathChild = InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>;
+
 /**
  * 将包含 LaTeX 的文本转换为 docx Paragraph children 数组
  * - `$...$` 包裹的公式 → Math 组件（竖式分数、上下标等）
  * - 普通文本 → TextRun
+ * - 解析失败的公式 → fallback 为 Unicode 文本 TextRun
  */
 function parseLatexToDocxChildren(text: string): ParagraphChild[] {
   if (!text) return [];
 
+  // 先规范化 LaTeX
+  const normalized = normalizeLatex(text);
+
   const children: ParagraphChild[] = [];
+
   // 用正则按 $...$ 分割文本
-  const parts = text.split(/(\$[^\$]+?\$)/g);
+  const parts = normalized.split(/(\$[^$\n]+?\$)/g);
 
   for (const part of parts) {
     if (!part) continue;
 
-    if (part.startsWith('$') && part.endsWith('$')) {
+    if (part.startsWith('$') && part.endsWith('$') && part.length > 2) {
       // LaTeX 公式 → Math 组件
       const formula = part.slice(1, -1);
-      const mathChildren = parseLatexFormula(formula);
-      if (mathChildren.length > 0) {
-        children.push(new Math({ children: mathChildren }));
+      try {
+        const mathChildren = parseLatexFormula(formula, 0);
+        if (mathChildren.length > 0) {
+          children.push(new Math({ children: mathChildren }));
+        } else {
+          // 空公式 → fallback 文本
+          const fallback = latexToUnicode(formula);
+          if (fallback) {
+            children.push(new TextRun({ text: fallback, size: 24, font: 'SimSun' }));
+          }
+        }
+      } catch (e) {
+        // 解析异常 → fallback 为 Unicode 文本
+        console.warn('[exam-docx] LaTeX parse error, fallback to text:', formula, e);
+        const fallback = latexToUnicode(formula);
+        if (fallback) {
+          children.push(new TextRun({ text: fallback, size: 24, font: 'SimSun' }));
+        }
       }
     } else {
       // 普通文本 → TextRun（清理残留的 LaTeX 命令）
@@ -66,15 +103,7 @@ function parseLatexToDocxChildren(text: string): ParagraphChild[] {
   return children;
 }
 
-/**
- * 解析 LaTeX 公式为 docx Math 组件子元素数组
- * 递归处理嵌套结构（如 \frac{\sqrt{x}}{2}）
- */
-function parseLatexFormula(latex: string): InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[] {
-  const tokens = tokenizeLatex(latex);
-  const result = parseTokens(tokens, 0);
-  return result.elements;
-}
+// ==================== LaTeX tokenizer ====================
 
 /** LaTeX token 类型 */
 type LatexToken = {
@@ -101,7 +130,7 @@ function tokenizeLatex(latex: string): LatexToken[] {
     } else if (latex[i] === '{') {
       // 花括号分组
       let depth = 1;
-      let start = i + 1;
+      const start = i + 1;
       i++;
       while (i < latex.length && depth > 0) {
         if (latex[i] === '{') depth++;
@@ -132,12 +161,19 @@ function tokenizeLatex(latex: string): LatexToken[] {
   return tokens;
 }
 
+// ==================== LaTeX → Math 组件解析器 ====================
+
 /** 递归解析 token 数组为 docx Math 元素 */
-function parseTokens(tokens: LatexToken[], startIdx: number): {
-  elements: InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[];
+function parseTokens(tokens: LatexToken[], startIdx: number, depth: number): {
+  elements: MathChild[];
   nextIdx: number;
 } {
-  const elements: InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[] = [];
+  // 防止递归过深
+  if (depth > MAX_MATH_DEPTH) {
+    return { elements: [new MathRun('...')], nextIdx: tokens.length };
+  }
+
+  const elements: MathChild[] = [];
   let i = startIdx;
 
   while (i < tokens.length) {
@@ -145,19 +181,50 @@ function parseTokens(tokens: LatexToken[], startIdx: number): {
 
     if (token.type === 'command') {
       switch (token.value) {
-        case '\\frac': {
-          // \frac{num}{den}
+        case '\\frac':
+        case '\\dfrac': {
+          // \frac{num}{den} 或 \frac{num}{den}
           const numToken = tokens[i + 1];
           const denToken = tokens[i + 2];
+
           if (numToken?.type === 'group' && denToken?.type === 'group') {
-            const numElements = parseTokens(numToken.children || tokenizeLatex(numToken.value), 0).elements;
-            const denElements = parseTokens(denToken.children || tokenizeLatex(denToken.value), 0).elements;
+            // 标准 \frac{num}{den}
+            const numElements = parseTokens(
+              numToken.children || tokenizeLatex(numToken.value), 0, depth + 1
+            ).elements;
+            const denElements = parseTokens(
+              denToken.children || tokenizeLatex(denToken.value), 0, depth + 1
+            ).elements;
             elements.push(new MathFraction({
               numerator: numElements.length > 0 ? numElements : [new MathRun('1')],
               denominator: denElements.length > 0 ? denElements : [new MathRun('1')],
             }));
             i += 3;
+          } else if (numToken?.type === 'text' && denToken?.type === 'text') {
+            // \frac a b 简写（无花括号）→ \frac{a}{b}
+            elements.push(new MathFraction({
+              numerator: [new MathRun(translateSymbols(numToken.value))],
+              denominator: [new MathRun(translateSymbols(denToken.value))],
+            }));
+            i += 3;
+          } else if (numToken?.type === 'group') {
+            // \frac{num}b 只有分子有花括号
+            const numElements = parseTokens(
+              numToken.children || tokenizeLatex(numToken.value), 0, depth + 1
+            ).elements;
+            let denText = '';
+            if (denToken?.type === 'text') {
+              denText = translateSymbols(denToken.value);
+            } else {
+              denText = '1';
+            }
+            elements.push(new MathFraction({
+              numerator: numElements.length > 0 ? numElements : [new MathRun('1')],
+              denominator: [new MathRun(denText)],
+            }));
+            i += denToken ? 3 : 2;
           } else {
+            // 无法解析的 \frac，fallback
             elements.push(new MathRun('\\frac'));
             i++;
           }
@@ -167,7 +234,9 @@ function parseTokens(tokens: LatexToken[], startIdx: number): {
           // \sqrt{radicand}
           const radToken = tokens[i + 1];
           if (radToken?.type === 'group') {
-            const radElements = parseTokens(radToken.children || tokenizeLatex(radToken.value), 0).elements;
+            const radElements = parseTokens(
+              radToken.children || tokenizeLatex(radToken.value), 0, depth + 1
+            ).elements;
             elements.push(new MathRadical({
               children: radElements.length > 0 ? radElements : [new MathRun('x')],
             }));
@@ -182,10 +251,12 @@ function parseTokens(tokens: LatexToken[], startIdx: number): {
           // 上标：前一个元素 + 上标内容
           const supToken = tokens[i + 1];
           const baseElement = elements.pop() || new MathRun('x');
-          let supElements: InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[];
+          let supElements: MathChild[];
 
           if (supToken?.type === 'group') {
-            supElements = parseTokens(supToken.children || tokenizeLatex(supToken.value), 0).elements;
+            supElements = parseTokens(
+              supToken.children || tokenizeLatex(supToken.value), 0, depth + 1
+            ).elements;
           } else if (supToken?.type === 'text') {
             supElements = [new MathRun(translateSymbols(supToken.value))];
           } else {
@@ -205,10 +276,12 @@ function parseTokens(tokens: LatexToken[], startIdx: number): {
           // 下标
           const subToken = tokens[i + 1];
           const baseElement = elements.pop() || new MathRun('x');
-          let subElements: InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[];
+          let subElements: MathChild[];
 
           if (subToken?.type === 'group') {
-            subElements = parseTokens(subToken.children || tokenizeLatex(subToken.value), 0).elements;
+            subElements = parseTokens(
+              subToken.children || tokenizeLatex(subToken.value), 0, depth + 1
+            ).elements;
           } else if (subToken?.type === 'text') {
             subElements = [new MathRun(translateSymbols(subToken.value))];
           } else {
@@ -230,6 +303,7 @@ function parseTokens(tokens: LatexToken[], startIdx: number): {
           if (symbol) {
             elements.push(new MathRun(symbol));
           }
+          // 未知命令直接跳过，不生成空元素
           i++;
           break;
         }
@@ -239,7 +313,9 @@ function parseTokens(tokens: LatexToken[], startIdx: number): {
       i++;
     } else if (token.type === 'group') {
       // 裸花括号分组，递归解析
-      const subResult = parseTokens(token.children || tokenizeLatex(token.value), 0);
+      const subResult = parseTokens(
+        token.children || tokenizeLatex(token.value), 0, depth + 1
+      );
       elements.push(...subResult.elements);
       i++;
     } else {
@@ -249,6 +325,59 @@ function parseTokens(tokens: LatexToken[], startIdx: number): {
 
   return { elements, nextIdx: i };
 }
+
+/** 解析 LaTeX 公式为 docx Math 组件子元素数组 */
+function parseLatexFormula(latex: string, depth: number = 0): MathChild[] {
+  // 预处理：修复常见问题
+  let formula = latex
+    .replace(/\\dfrac/g, '\\frac')    // \dfrac → \frac
+    .replace(/\\frac\s+\{/g, '\\frac{') // \frac { → \frac{
+    .trim();
+
+  // 修复 \frac 后缺少花括号的情况：\frac12 → \frac{1}{2}
+  formula = formula.replace(/\\frac(\d)(\d)/g, '\\frac{$1}{$2}');
+  formula = formula.replace(/\\frac(\d)\{/g, '\\frac{$1}{');
+  formula = formula.replace(/\\frac\{(\d+)\}(\d)/g, '\\frac{$1}{$2}');
+
+  const tokens = tokenizeLatex(formula);
+  const result = parseTokens(tokens, 0, depth);
+  return result.elements;
+}
+
+// ==================== Fallback: LaTeX → Unicode 文本 ====================
+
+/**
+ * LaTeX 公式转为 Unicode 纯文本（fallback 用）
+ * 当 Math 组件解析失败时使用
+ */
+function latexToUnicode(latex: string): string {
+  let text = latex;
+
+  // \frac{a}{b} → a/b
+  text = text.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1/$2');
+  // \dfrac{a}{b} → a/b
+  text = text.replace(/\\dfrac\{([^}]*)\}/g, '$1');
+  // \sqrt{x} → √x
+  text = text.replace(/\\sqrt\{([^}]*)\}/g, '√$1');
+  // x^{n} → x^n
+  text = text.replace(/\^(\{[^}]*\}|.)/g, '^$1');
+  // x_{n} → x_n
+  text = text.replace(/_(\{[^}]*\}|.)/g, '_$1');
+  // \text{...} → ...
+  text = text.replace(/\\text\{([^}]*)\}/g, '$1');
+  // \mathrm{...} → ...
+  text = text.replace(/\\mathrm\{([^}]*)\}/g, '$1');
+
+  // 替换命令为 Unicode 符号
+  text = translateSymbols(text);
+  text = text.replace(/\\[a-zA-Z]+/g, ''); // 移除剩余命令
+  text = text.replace(/[{}]/g, '');         // 移除花括号
+  text = text.replace(/\s+/g, ' ').trim();
+
+  return text;
+}
+
+// ==================== 符号映射 ====================
 
 /** LaTeX 命令 → Unicode 符号映射 */
 function translateCommand(cmd: string): string {
@@ -284,6 +413,7 @@ function translateCommand(cmd: string): string {
     '\\leftarrow': '←',
     '\\Rightarrow': '⇒',
     '\\Leftarrow': '⇐',
+    '\\dfrac': '',  // 已在 parseLatexFormula 中处理
   };
   return map[cmd] || '';
 }
@@ -307,8 +437,10 @@ function translateSymbols(text: string): string {
 function cleanPlainText(text: string): string {
   return translateSymbols(text)
     .replace(/\\frac/g, '')
+    .replace(/\\dfrac/g, '')
     .replace(/\\sqrt/g, '√')
     .replace(/\\text\{([^}]*)\}/g, '$1')
+    .replace(/\\mathrm\{([^}]*)\}/g, '$1')
     .replace(/\\[a-zA-Z]+/g, '')
     .replace(/[{}]/g, '')
     .replace(/\s+/g, ' ')
@@ -410,6 +542,24 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
 
     // 每道题
     for (const q of section.questions) {
+      // 安全检查：段落数是否超限
+      if (children.length >= MAX_PARAGRAPHS) {
+        children.push(
+          new Paragraph({
+            spacing: { before: 200 },
+            children: [
+              new TextRun({
+                text: `（因篇幅限制，剩余题目已省略。共${questions.length}题，当前显示前${globalIdx - 1}题）`,
+                size: 20,
+                color: '999999',
+                font: 'SimSun',
+              }),
+            ],
+          })
+        );
+        break;
+      }
+
       // 题干：混合 TextRun 和 Math 组件
       const contentChildren: ParagraphChild[] = [
         new TextRun({ text: `${globalIdx}. `, bold: true, size: 24, font: 'SimSun' }),
@@ -486,6 +636,9 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
 
       globalIdx++;
     }
+
+    // 如果已经超限，退出外层循环
+    if (children.length >= MAX_PARAGRAPHS) break;
   }
 
   // ===== 答案部分 =====
@@ -508,6 +661,8 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
   let ansIdx = 1;
   for (const section of sections) {
     for (const q of section.questions) {
+      if (children.length >= MAX_PARAGRAPHS) break;
+
       const answerChildren: ParagraphChild[] = [
         new TextRun({ text: `${ansIdx}. `, bold: true, size: 22, font: 'SimSun' }),
         ...parseLatexToDocxChildren(q.answer),
@@ -530,6 +685,7 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
       );
       ansIdx++;
     }
+    if (children.length >= MAX_PARAGRAPHS) break;
   }
 
   // 创建文档

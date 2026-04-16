@@ -14,6 +14,7 @@
 import { BaseService, ServiceResult } from './base.service';
 import { LLMClient, Config } from 'coze-coding-dev-sdk';
 import katex from 'katex';
+import { normalizeLatex } from '@/lib/latex-normalize';
 import { examTaskRepository } from '@/repositories/exam-task.repository';
 import type { ExamTaskRow } from '@/repositories/exam-task.repository';
 import type {
@@ -414,11 +415,15 @@ export class ExamTaskService extends BaseService {
 
     const isMath = specification.subject === '数学' || specification.subject === 'math';
     const mathHint = isMath
-      ? `\n- 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹（行内公式）或 $$...$$ 包裹（行间公式）
-- 分数必须使用 $\\frac{分子}{分母}$ 格式，例如：$\\frac{1}{2}$、$\\frac{3}{4}$
-- 绝对禁止用 a/b 这种纯文本格式表示分数，必须用 $\\frac{a}{b}$
-- 上标用 $x^2$，下标用 $a_1$，根号用 $\\sqrt{x}$
-- 如题目涉及几何图形，在 imageUrl 字段填空字符串，并在 imageAlt 中描述图形内容`
+      ? `
+- ⚠️ 数学公式格式（必须严格遵守）：
+  · 所有数学公式必须用 $...$ 包裹，例如 $\\frac{1}{2}$，不要省略 $
+  · 分数必须使用 $\\frac{分子}{分母}$ 格式，例如 $\\frac{1}{2}$、$\\frac{3}{4}$
+  · 绝对禁止用 a/b 或 (a)/(b) 这种纯文本格式表示分数
+  · 上标用 $x^2$，下标用 $a_1$，根号用 $\\sqrt{x}$
+  · 不要使用 $$...$$ 行间公式，统一用 $...$ 行内公式
+  · 不要使用 \\dfrac，统一使用 \\frac
+  · 如题目涉及几何图形，在 imageUrl 字段填空字符串，并在 imageAlt 中描述图形内容`
       : '';
 
     const prompt = `你是专业的命题专家。请严格根据以下约束生成${ca.questionCount}道试题。
@@ -441,8 +446,10 @@ export class ExamTaskService extends BaseService {
 5. 填空题用"___"表示每个空，每题的空数必须为${ca.blanksPerQuestion || 1}个
 6. 附带答案解析
 ${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
-8. 分数必须使用 $\\frac{分子}{分母}$ 格式，禁止用 a/b 纯文本格式
-9. 几何图形题须标注 imageUrl 和 imageAlt 字段` : ''}
+8. 分数必须使用 $\\frac{分子}{分母}$ 格式，禁止用 a/b 或 (a)/(b) 纯文本格式
+9. 不要使用 $$...$$ 行间公式，统一用 $...$ 行内公式
+10. 不要使用 \\dfrac，统一使用 \\frac
+11. 几何图形题须标注 imageUrl 和 imageAlt 字段` : ''}
 
 ## 输出格式
 请用以下JSON格式输出（不要其他内容）：
@@ -450,11 +457,11 @@ ${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
 [
   {
     "title": "题目标题（简短）",
-    "content": "题目完整内容（数学公式用LaTeX）",
+    "content": "题目完整内容（数学公式必须用$...$包裹，分数用$\\frac{}{}$）",
     "questionType": "${ca.suggestedQuestionTypes[0]}",
-    "options": [{"label":"A","content":"选项内容（数学公式用LaTeX）","isCorrect":false}],
-    "answer": "正确答案（数学公式用LaTeX）",
-    "answerExplanation": "答案解析（数学公式用LaTeX）",
+    "options": [{"label":"A","content":"选项内容（数学公式用$...$包裹）","isCorrect":false}],
+    "answer": "正确答案（数学公式用$...$包裹）",
+    "answerExplanation": "答案解析（数学公式用$...$包裹）",
     "score": ${ca.scorePerQuestion},
     "knowledgePoints": ["${kc.name}"],
     "difficulty": "${specification.difficultyDistribution.hard > 0.25 ? 'hard' : 'medium'}",
@@ -468,7 +475,9 @@ ${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
     const messages = [
       {
         role: 'system' as const,
-        content: '你是一位严谨的教育命题专家。你必须严格围绕指定知识点出题，不得偏离。每道题都必须考查指定的知识点和认知层次。',
+        content: isMath
+          ? '你是一位严谨的教育命题专家。你必须严格围绕指定知识点出题，不得偏离。每道题都必须考查指定的知识点和认知层次。所有数学公式必须用$...$包裹，分数必须用$\\frac{}{}$格式，禁止使用纯文本分数如a/b。'
+          : '你是一位严谨的教育命题专家。你必须严格围绕指定知识点出题，不得偏离。每道题都必须考查指定的知识点和认知层次。',
       },
       { role: 'user' as const, content: prompt },
     ];
@@ -847,11 +856,13 @@ ${JSON.stringify(questionSummary, null, 2)}
   private renderLatexToHtml(text: string): string {
     if (!text) return '';
 
-    // 先提取所有公式段，用占位符替换，避免 escapeHtml 破坏公式
-    const formulas: string[] = [];
-    let result = text;
+    // 先规范化 LaTeX（处理 LLM 不规范输出）
+    let result = normalizeLatex(text);
 
-    // 提取行间公式 $$...$$
+    // 提取所有公式段，用占位符替换，避免 escapeHtml 破坏公式
+    const formulas: string[] = [];
+
+    // 提取行间公式 $$...$$（规范化后应该不存在了，但保留安全处理）
     result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
       const idx = formulas.length;
       try {
@@ -862,13 +873,19 @@ ${JSON.stringify(questionSummary, null, 2)}
       return `%%FORMULA_${idx}%%`;
     });
 
-    // 提取行内公式 $...$
-    result = result.replace(/\$([^\$\n]+?)\$/g, (_match, formula: string) => {
+    // 提取行内公式 $...$（支持公式内含 \n 以外的内容）
+    result = result.replace(/\$([^$\n]+?)\$/g, (_match, formula: string) => {
       const idx = formulas.length;
       try {
         formulas.push(katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, strict: false }));
       } catch {
-        formulas.push(`<span style="color:#d32f2f">${this.escapeHtml(formula.trim())}</span>`);
+        // KaTeX 渲染失败时，尝试修复常见问题后重试
+        const repaired = this.repairLatex(formula.trim());
+        try {
+          formulas.push(katex.renderToString(repaired, { displayMode: false, throwOnError: false, strict: false }));
+        } catch {
+          formulas.push(`<span style="color:#d32f2f">${this.escapeHtml(formula.trim())}</span>`);
+        }
       }
       return `%%FORMULA_${idx}%%`;
     });
@@ -890,6 +907,36 @@ ${JSON.stringify(questionSummary, null, 2)}
     result = result.replace(/\n/g, '<br/>');
 
     return result;
+  }
+
+  /**
+   * 修复常见的 LaTeX 语法问题
+   * 用于 KaTeX 渲染失败时的二次尝试
+   */
+  private repairLatex(formula: string): string {
+    let repaired = formula;
+
+    // \dfrac → \frac
+    repaired = repaired.replace(/\\dfrac/g, '\\frac');
+
+    // \frac 后缺少花括号：\frac12 → \frac{1}{2}
+    repaired = repaired.replace(/\\frac(\d)(\d)/g, '\\frac{$1}{$2}');
+
+    // \frac 后缺少花括号：\frac1{2} → \frac{1}{2}
+    repaired = repaired.replace(/\\frac(\d)\{/g, '\\frac{$1}{');
+    repaired = repaired.replace(/\\frac\{(\d+)\}(\d)/g, '\\frac{$1}{$2}');
+
+    // 去除多余空格
+    repaired = repaired.replace(/\\frac\s+\{/g, '\\frac{');
+
+    // 未闭合的花括号：补充
+    const openCount = (repaired.match(/\{/g) || []).length;
+    const closeCount = (repaired.match(/\}/g) || []).length;
+    if (openCount > closeCount) {
+      repaired += '}'.repeat(openCount - closeCount);
+    }
+
+    return repaired;
   }
 
   /** HTML 转义 */
