@@ -160,6 +160,13 @@ export type CognitiveAllocation = {
   suggestedQuestionTypes: QuestionType[];
   /** 全局题号列表，如 [3, 4] 表示第3题和第4题 */
   questionNumbers: number[];
+  /**
+   * 填空题每题空数（仅填空题需要）
+   * - 选择/判断/其他题型：不设置（undefined）
+   * - 填空题：必须设置，表示每道填空题包含几个空
+   * - 填空题的 scorePerQuestion = blanksPerQuestion × scorePerBlank（每空分值）
+   */
+  blanksPerQuestion?: number;
 };
 
 /** 能力层级汇总（纵向：为什么评） */
@@ -180,7 +187,7 @@ export type QuestionTypePlan = {
   questionType: QuestionType;
   /** 该题型题数 */
   count: number;
-  /** 每题分值 */
+  /** 每题分值（整数，选择题同卷统一；填空题=blanksPerQuestion×scorePerBlank） */
   scorePerQuestion: number;
   /** 该题型总分 */
   totalScore: number;
@@ -190,6 +197,21 @@ export type QuestionTypePlan = {
   cognitiveLevels: CognitiveLevel[];
   /** 难度 */
   difficulty: Difficulty;
+  /**
+   * 填空题每空分值（仅填空题有值）
+   * 同一份试卷所有填空题的每空分值统一
+   */
+  scorePerBlank?: number;
+  /**
+   * 填空题总空数（仅填空题有值）
+   * = count × 平均blanksPerQuestion
+   */
+  totalBlanks?: number;
+  /**
+   * 填空题每题空数（仅填空题有值）
+   * 同一份试卷所有填空题的每题空数统一
+   */
+  blanksPerQuestion?: number;
 };
 
 /** 细目表整体结构 */

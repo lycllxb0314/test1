@@ -333,7 +333,16 @@ ${subjectHint}
 - 运用/分析 → 适合计算/应用题 → 中高分值
 - 评价/创造 → 适合论述/写作题 → 高分值
 
-### 5. 一致性校验（硬性约束）
+### 5. 同题型统一分值（硬性约束）
+- **选择题**：同一份试卷所有选择题的每题分值必须完全相同（如都是2分或都是3分）
+- **填空题**：同一份试卷所有填空题的每空分值必须完全相同（如都是1分/空或2分/空）
+  - 填空题每题可能有1-3个空，通过blanksPerQuestion标注
+  - 每题分值 = blanksPerQuestion × 每空分值
+  - 例如：每空1分，某题2个空→该题2分；另一题3个空→该题3分
+- **判断题**：同卷所有判断题每题分值统一
+- **其他题型**（简答/计算/应用/阅读/写作）：同题型每题分值尽量统一，若因难度差异需不同分值，须确保分值为整数
+
+### 6. 一致性校验（硬性约束）
 - score = questionCount × scorePerQuestion（必须为整数）
 - 每个知识点的各认知层次分值之和 = 该知识点总分(totalScore)
 - 所有知识点总分之和 = 整卷总分(${totalScore})
@@ -358,14 +367,16 @@ ${subjectHint}
           "questionCount": 2,
           "scorePerQuestion": 2,
           "score": 4,
-          "suggestedQuestionTypes": ["fill", "choice"]
+          "suggestedQuestionTypes": ["choice"],
+          "blanksPerQuestion": null
         },
         {
-          "level": "apply",
-          "questionCount": 1,
-          "scorePerQuestion": 6,
+          "level": "understand",
+          "questionCount": 3,
+          "scorePerQuestion": 2,
           "score": 6,
-          "suggestedQuestionTypes": ["calculation"]
+          "suggestedQuestionTypes": ["fill"],
+          "blanksPerQuestion": 2
         }
       ]
     }
@@ -395,7 +406,12 @@ ${subjectHint}
     "hard": 0.2
   }
 }
-</SPECIFICATION>`;
+</SPECIFICATION>
+
+注意：
+- choice（选择题）的blanksPerQuestion必须为null或不设置
+- fill（填空题）的blanksPerQuestion必须为1-3的整数，表示该交叉格每道填空题有几个空
+- 同一题型在不同交叉格的scorePerQuestion必须统一（选择题/判断题/填空题的每空分值必须统一）`;
 
       const messages = [
         {
@@ -423,35 +439,44 @@ ${subjectHint}
       // 核心原则：
       //   交叉格 = 唯一真实分值来源
       //   score = questionCount × scorePerQuestion（必须为整数）
+      //   选择题：同卷所有选择题 scorePerQuestion 统一
+      //   填空题：同卷所有填空题 每空分值(scorePerBlank) 统一
       //   行小计、列小计、题型规划 全部从交叉格推导，不存在第二套分值
       //
 
+      // ---- Step 0: 解析LLM输出 ----
       const knowledgeContents: KnowledgeContent[] = (parsed.knowledgeContents || []).map(
         (kc: Record<string, unknown>) => {
           const allocations = ((kc.cognitiveAllocations || []) as CognitiveAllocation[]).map(
             (ca: CognitiveAllocation) => {
+              const caRaw = ca as Record<string, unknown>;
               // 从LLM输出中提取 scorePerQuestion（可能缺失或为小数）
-              let spq = (ca as Record<string, unknown>).scorePerQuestion as number;
-              let qCount = ca.questionCount || 0;
-              let rawScore = ca.score || 0;
+              let spq = caRaw.scorePerQuestion as number;
+              const qCount = ca.questionCount || 0;
+              const rawScore = ca.score || 0;
 
               // 确保 scorePerQuestion 为正整数
               if (!spq || spq <= 0) {
-                // LLM没输出scorePerQuestion，从score/questionCount推导
                 spq = qCount > 0 ? Math.round(rawScore / qCount) : 1;
               }
-              spq = Math.max(1, Math.round(spq)); // 强制正整数
+              spq = Math.max(1, Math.round(spq));
 
-              // 以 scorePerQuestion 为准，重算 score
-              const correctedScore = qCount * spq;
+              // 解析 blanksPerQuestion（填空题专用）
+              let bpq: number | undefined;
+              if (ca.suggestedQuestionTypes?.includes('fill')) {
+                bpq = caRaw.blanksPerQuestion as number;
+                if (!bpq || bpq <= 0) bpq = 1;
+                bpq = Math.round(bpq); // 整数
+              }
 
               return {
                 level: ca.level,
                 questionCount: qCount,
                 scorePerQuestion: spq,
-                score: correctedScore,
+                score: qCount * spq, // 以 scorePerQuestion 为准重算
                 suggestedQuestionTypes: ca.suggestedQuestionTypes || [],
-                questionNumbers: [] as number[], // 稍后分配
+                questionNumbers: [] as number[],
+                blanksPerQuestion: bpq,
               };
             }
           ).filter((ca) => ca.questionCount > 0);
@@ -468,22 +493,81 @@ ${subjectHint}
         }
       );
 
-      // 1. 一致性修正：确保每个知识点的认知分值之和 = 知识点总分
-      //    以交叉格 score 之和为准，修正知识点 totalScore
-      for (const kc of knowledgeContents) {
-        const allocatedScore = kc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
-        if (allocatedScore !== kc.totalScore) {
-          // 交叉格之和为准，修正知识点总分
-          kc.totalScore = allocatedScore;
+      // ---- Step 1: 统一选择题每题分值 ----
+      // 找出所有选择题交叉格，统一 scorePerQuestion 为加权众数
+      {
+        const choiceAllocations: { ca: CognitiveAllocation; kc: KnowledgeContent }[] = [];
+        for (const kc of knowledgeContents) {
+          for (const ca of kc.cognitiveAllocations) {
+            if (ca.suggestedQuestionTypes[0] === 'choice') {
+              choiceAllocations.push({ ca, kc });
+            }
+          }
+        }
+        if (choiceAllocations.length > 0) {
+          // 加权众数：按题数加权，选出现最多的 scorePerQuestion
+          const freq = new Map<number, number>();
+          for (const { ca } of choiceAllocations) {
+            freq.set(ca.scorePerQuestion, (freq.get(ca.scorePerQuestion) || 0) + ca.questionCount);
+          }
+          let unifiedSpq = 2; // 默认选择题2分
+          let maxFreq = 0;
+          for (const [spq, count] of freq) {
+            if (count > maxFreq) { maxFreq = count; unifiedSpq = spq; }
+          }
+          // 统一所有选择题交叉格
+          for (const { ca, kc } of choiceAllocations) {
+            ca.scorePerQuestion = unifiedSpq;
+            ca.score = ca.questionCount * ca.scorePerQuestion;
+          }
         }
       }
 
-      // 2. 一致性修正：确保所有知识点总分之和 = 整卷总分
-      //    差值按权重分配到各知识点，再分配到其最大交叉格
+      // ---- Step 2: 统一填空题每空分值 ----
+      // 找出所有填空题交叉格，统一 scorePerBlank = scorePerQuestion / blanksPerQuestion
+      {
+        const fillAllocations: { ca: CognitiveAllocation; kc: KnowledgeContent }[] = [];
+        for (const kc of knowledgeContents) {
+          for (const ca of kc.cognitiveAllocations) {
+            if (ca.suggestedQuestionTypes[0] === 'fill') {
+              fillAllocations.push({ ca, kc });
+            }
+          }
+        }
+        if (fillAllocations.length > 0) {
+          // 计算每个交叉格的 scorePerBlank，取加权众数统一
+          const freq = new Map<number, number>();
+          for (const { ca } of fillAllocations) {
+            const bpq = ca.blanksPerQuestion || 1;
+            const spb = Math.round(ca.scorePerQuestion / bpq);
+            freq.set(spb, (freq.get(spb) || 0) + ca.questionCount);
+          }
+          let unifiedSpb = 1; // 默认每空1分
+          let maxFreq = 0;
+          for (const [spb, count] of freq) {
+            if (count > maxFreq) { maxFreq = count; unifiedSpb = spb; }
+          }
+          // 统一所有填空题交叉格的每空分值
+          for (const { ca } of fillAllocations) {
+            const bpq = ca.blanksPerQuestion || 1;
+            ca.scorePerQuestion = bpq * unifiedSpb; // 每题分值 = 空数 × 每空分值
+            ca.score = ca.questionCount * ca.scorePerQuestion;
+          }
+        }
+      }
+
+      // ---- Step 3: 一致性修正——确保每个知识点的认知分值之和 = 知识点总分 ----
+      //    以交叉格 score 之和为准，修正知识点 totalScore
+      for (const kc of knowledgeContents) {
+        const allocatedScore = kc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
+        kc.totalScore = allocatedScore;
+      }
+
+      // ---- Step 4: 一致性修正——确保所有知识点总分之和 = 整卷总分 ----
+      //    差值分配到各知识点，再分配到其最大交叉格
       const currentTotal = knowledgeContents.reduce((s, kc) => s + kc.totalScore, 0);
       if (currentTotal !== totalScore && knowledgeContents.length > 0) {
         const diff = totalScore - currentTotal;
-        // 按权重分配差值
         const totalWeight = knowledgeContents.reduce((s, kc) => s + kc.weight, 0) || 1;
         let remaining = diff;
 
@@ -493,43 +577,62 @@ ${subjectHint}
 
           let adjust: number;
           if (i === knowledgeContents.length - 1) {
-            adjust = remaining; // 最后一个兜底
+            adjust = remaining;
           } else {
             adjust = Math.round(diff * kc.weight / totalWeight);
             remaining -= adjust;
           }
-
           if (adjust === 0) continue;
 
-          // 将差值加到该知识点分值最大的交叉格上（避免小分值交叉格出现0分）
-          const maxAlloc = kc.cognitiveAllocations.reduce((best, a) => a.score > best.score ? a : best, kc.cognitiveAllocations[0]);
-          // 拆分 adjust 到 scorePerQuestion 的调整：优先调整 scorePerQuestion，确保仍为整数
-          const newTotalScore = maxAlloc.score + adjust;
-          const newSpq = Math.max(1, Math.round(newTotalScore / maxAlloc.questionCount));
-          maxAlloc.scorePerQuestion = newSpq;
-          maxAlloc.score = maxAlloc.questionCount * newSpq;
+          // 找到非选择/填空的最大交叉格（优先调主观题），或退而求其次
+          const adjustableAllocs = kc.cognitiveAllocations.filter(
+            a => a.suggestedQuestionTypes[0] !== 'choice' && a.suggestedQuestionTypes[0] !== 'fill'
+          );
+          const targetAllocs = adjustableAllocs.length > 0 ? adjustableAllocs : kc.cognitiveAllocations;
+          const maxAlloc = targetAllocs.reduce((best, a) => a.score > best.score ? a : best, targetAllocs[0]);
 
-          // 重新计算知识点总分
+          const newTotalScore = maxAlloc.score + adjust;
+          if (maxAlloc.suggestedQuestionTypes[0] === 'fill' && maxAlloc.blanksPerQuestion) {
+            // 填空题：调整每空分值后重算
+            const bpq = maxAlloc.blanksPerQuestion;
+            const newSpb = Math.max(1, Math.round(newTotalScore / (maxAlloc.questionCount * bpq)));
+            maxAlloc.scorePerQuestion = bpq * newSpb;
+            maxAlloc.score = maxAlloc.questionCount * maxAlloc.scorePerQuestion;
+          } else if (maxAlloc.suggestedQuestionTypes[0] === 'choice') {
+            // 选择题不能单独调，跳过到下一个
+            continue;
+          } else {
+            const newSpq = Math.max(1, Math.round(newTotalScore / maxAlloc.questionCount));
+            maxAlloc.scorePerQuestion = newSpq;
+            maxAlloc.score = maxAlloc.questionCount * maxAlloc.scorePerQuestion;
+          }
+
           kc.totalScore = kc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
         }
 
-        // 最终校验：如果仍有差异，微调最后一个知识点
+        // 最终兜底：如果仍有差异，调最后一个知识点的最后一个非选择/填空交叉格
         const finalTotal = knowledgeContents.reduce((s, kc) => s + kc.totalScore, 0);
         const finalDiff = totalScore - finalTotal;
         if (finalDiff !== 0) {
-          const lastKc = knowledgeContents[knowledgeContents.length - 1];
-          if (lastKc.cognitiveAllocations.length > 0) {
-            const lastAlloc = lastKc.cognitiveAllocations[lastKc.cognitiveAllocations.length - 1];
-            lastAlloc.score += finalDiff;
-            // 修正 scorePerQuestion 保持整数：取最接近的整数
-            lastAlloc.scorePerQuestion = Math.max(1, Math.round(lastAlloc.score / lastAlloc.questionCount));
-            lastAlloc.score = lastAlloc.questionCount * lastAlloc.scorePerQuestion;
-            lastKc.totalScore = lastKc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
+          // 找到最后一个可调的交叉格
+          for (let ki = knowledgeContents.length - 1; ki >= 0; ki--) {
+            const kc = knowledgeContents[ki];
+            for (let ai = kc.cognitiveAllocations.length - 1; ai >= 0; ai--) {
+              const alloc = kc.cognitiveAllocations[ai];
+              if (alloc.suggestedQuestionTypes[0] === 'choice') continue; // 选择题不动
+              if (alloc.suggestedQuestionTypes[0] === 'fill') continue;  // 填空题不动（每空分值已统一）
+              alloc.score += finalDiff;
+              alloc.scorePerQuestion = Math.max(1, Math.round(alloc.score / alloc.questionCount));
+              alloc.score = alloc.questionCount * alloc.scorePerQuestion;
+              kc.totalScore = kc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
+              break;
+            }
+            if (finalDiff !== 0) break;
           }
         }
       }
 
-      // 3. 分配全局题号（按知识点顺序，每个交叉格内按认知层次排列）
+      // ---- Step 5: 分配全局题号 ----
       let questionNumber = 1;
       for (const kc of knowledgeContents) {
         for (const ca of kc.cognitiveAllocations) {
@@ -562,7 +665,6 @@ ${subjectHint}
       }).filter(cs => cs.totalQuestions > 0);
 
       // 5. 从交叉格推导题型规划（唯一分值来源，保证一致性）
-      //    同一题型可能在不同交叉格有不同 scorePerQuestion，题型规划取加权平均并取整
       const questionTypePlanMap = new Map<QuestionType, QuestionTypePlan>();
       for (const kc of knowledgeContents) {
         for (const ca of kc.cognitiveAllocations) {
@@ -576,6 +678,9 @@ ${subjectHint}
               knowledgePoints: [],
               cognitiveLevels: [],
               difficulty: difficultyPreference,
+              scorePerBlank: undefined,
+              totalBlanks: undefined,
+              blanksPerQuestion: undefined,
             });
           }
           const plan = questionTypePlanMap.get(primaryType)!;
@@ -587,12 +692,19 @@ ${subjectHint}
           if (!plan.cognitiveLevels.includes(ca.level)) {
             plan.cognitiveLevels.push(ca.level);
           }
+          // 填空题：收集空数信息
+          if (primaryType === 'fill' && ca.blanksPerQuestion) {
+            plan.totalBlanks = (plan.totalBlanks || 0) + ca.questionCount * ca.blanksPerQuestion;
+            plan.blanksPerQuestion = ca.blanksPerQuestion; // 同卷统一
+          }
         }
       }
-      // 题型规划的 scorePerQuestion 取加权平均取整
-      // 注意：这只是规划展示用的参考值，真实分值以交叉格的 scorePerQuestion 为准
       for (const plan of questionTypePlanMap.values()) {
         plan.scorePerQuestion = plan.count > 0 ? Math.round(plan.totalScore / plan.count) : 0;
+        // 填空题：计算每空分值
+        if (plan.questionType === 'fill' && plan.totalBlanks && plan.totalBlanks > 0) {
+          plan.scorePerBlank = Math.round(plan.totalScore / plan.totalBlanks);
+        }
       }
       const questionTypePlans = Array.from(questionTypePlanMap.values());
 
@@ -646,6 +758,7 @@ ${subjectHint}
             scorePerQuestion: ca.scorePerQuestion, // 已保证为整数
             totalScore: ca.score,
             questionNumbers: ca.questionNumbers,
+            blanksPerQuestion: ca.blanksPerQuestion, // 填空题每题空数
           };
 
           // 1. 先查校本题库
@@ -716,12 +829,17 @@ ${subjectHint}
       scorePerQuestion: number;
       totalScore: number;
       questionNumbers: number[];
+      blanksPerQuestion?: number;
     },
     count: number
   ): Promise<Question[]> {
     const qtLabel = task.questionTypes.map(qt => QT_LABELS[qt]).join('或');
     const cogLabel = COG_LABELS[task.cognitiveLevel];
     const diffLabel = specification.difficultyDistribution.hard > 0.25 ? '较难' : '中等';
+    const isFill = task.questionTypes[0] === 'fill';
+    const fillHint = isFill && task.blanksPerQuestion
+      ? `\n- 每题空数：${task.blanksPerQuestion}个空（每空${Math.round(task.scorePerQuestion / task.blanksPerQuestion)}分，共${task.scorePerQuestion}分）`
+      : '';
 
     const prompt = `你是专业的命题专家。请严格根据以下约束生成${count}道试题。
 
@@ -733,7 +851,7 @@ ${subjectHint}
 - 认知层次：${cogLabel}
   ⚠️ 题目必须考查${cogLabel}层级的能力，而非更低或更高的层级
 - 题型：${qtLabel}
-- 每题分值：${task.scorePerQuestion}分
+- 每题分值：${task.scorePerQuestion}分${fillHint}
 - 难度：${diffLabel}
 
 ## 出题要求
@@ -741,7 +859,8 @@ ${subjectHint}
 2. 题目必须符合${cogLabel}的认知要求
 3. 题目语言清晰、无歧义
 4. 选择题需提供4个选项，标明正确答案
-5. 附带答案解析
+5. 填空题用"___"表示每个空，每题的空数必须为${task.blanksPerQuestion || 1}个
+6. 附带答案解析
 
 ## 输出格式
 请用以下JSON格式输出（不要其他内容）：

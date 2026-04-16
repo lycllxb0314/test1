@@ -736,7 +736,7 @@ export default function SmartHomeworkPage() {
                                           )}
                                           <span className="text-xs font-semibold text-primary">{alloc.score}分</span>
                                           <span className="text-[9px] text-muted-foreground">
-                                            {alloc.questionCount}题×{alloc.scorePerQuestion}分
+                                            {alloc.questionCount}题×{alloc.scorePerQuestion}分{alloc.blanksPerQuestion && alloc.blanksPerQuestion > 1 ? `(${alloc.blanksPerQuestion}空×${Math.round(alloc.scorePerQuestion / alloc.blanksPerQuestion)}分/空)` : ''}
                                           </span>
                                           {alloc.suggestedQuestionTypes?.length > 0 && (
                                             <span className="text-[9px] text-muted-foreground">
@@ -804,7 +804,18 @@ export default function SmartHomeworkPage() {
                         <div key={i} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                           <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
                           <Badge className="min-w-[56px] justify-center text-[10px]">{QUESTION_TYPE_LABELS[plan.questionType]}</Badge>
-                          <span className="text-sm">{plan.count}题 · {plan.totalScore}分</span>
+                          <span className="text-sm">
+                            {plan.count}题 · {plan.totalScore}分
+                            {plan.questionType === 'choice' && plan.scorePerQuestion > 0 && (
+                              <span className="text-[10px] text-muted-foreground ml-1">(每题{plan.scorePerQuestion}分)</span>
+                            )}
+                            {plan.questionType === 'fill' && plan.scorePerBlank && (
+                              <span className="text-[10px] text-muted-foreground ml-1">(每空{plan.scorePerBlank}分{plan.blanksPerQuestion && plan.blanksPerQuestion > 1 ? `，每题${plan.blanksPerQuestion}空` : ''})</span>
+                            )}
+                            {plan.questionType !== 'choice' && plan.questionType !== 'fill' && plan.scorePerQuestion > 0 && (
+                              <span className="text-[10px] text-muted-foreground ml-1">(每题{plan.scorePerQuestion}分)</span>
+                            )}
+                          </span>
                           <Badge variant="outline" className="text-[10px]">{DIFFICULTY_LABELS[plan.difficulty]}</Badge>
                           <div className="flex gap-1">
                             {plan.cognitiveLevels.map(cl => (
