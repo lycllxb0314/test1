@@ -976,24 +976,24 @@ export default function SmartHomeworkPage() {
               </h2>
               <div className="flex gap-2">
                 <Select
-                  value={bankFilter.questionType || ''}
-                  onValueChange={v => setBankFilter(prev => ({ ...prev, questionType: v as QuestionType || undefined }))}
+                  value={bankFilter.questionType || 'all'}
+                  onValueChange={v => setBankFilter(prev => ({ ...prev, questionType: v === 'all' ? undefined : v as QuestionType }))}
                 >
                   <SelectTrigger className="w-28 h-8 text-xs"><SelectValue placeholder="题型" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部题型</SelectItem>
+                    <SelectItem value="all">全部题型</SelectItem>
                     {Object.entries(QUESTION_TYPE_LABELS).map(([k, v]) => (
                       <SelectItem key={k} value={k}>{v}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <Select
-                  value={bankFilter.difficulty || ''}
-                  onValueChange={v => setBankFilter(prev => ({ ...prev, difficulty: v as Difficulty || undefined }))}
+                  value={bankFilter.difficulty || 'all'}
+                  onValueChange={v => setBankFilter(prev => ({ ...prev, difficulty: v === 'all' ? undefined : v as Difficulty }))}
                 >
                   <SelectTrigger className="w-28 h-8 text-xs"><SelectValue placeholder="难度" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部难度</SelectItem>
+                    <SelectItem value="all">全部难度</SelectItem>
                     {Object.entries(DIFFICULTY_LABELS).map(([k, v]) => (
                       <SelectItem key={k} value={k}>{v}</SelectItem>
                     ))}
