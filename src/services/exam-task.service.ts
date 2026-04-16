@@ -135,30 +135,70 @@ export class ExamTaskService extends BaseService {
     });
   }
 
-  // ==================== 3. 重试失败任务 ====================
+  // ==================== 3. 重试失败/审阅未通过任务 ====================
 
+  /**
+   * 重试任务
+   * - 失败的任务：重新启动全流程
+   * - 审阅未通过的任务：仅重新命题审核未通过的交叉格
+   */
   async retryTask(taskId: string): Promise<ServiceResult<ExamTask>> {
     const taskResult = await this.getTask(taskId);
     if (!taskResult.success || !taskResult.data) return taskResult;
 
     const task = taskResult.data;
-    if (task.status !== 'failed') {
-      return this.fail('只能重试失败的任务', 'INVALID_STATUS');
+
+    if (task.status === 'failed') {
+      // 完全失败的任务：重置进度，重新启动全流程
+      const cellProgress = task.cellProgress.map(cp => ({
+        ...cp,
+        cellStatus: 'pending' as const,
+        reviewResult: 'pending' as const,
+        completedCount: 0,
+        retryCount: 0,
+      }));
+
+      await examTaskRepository.updateStatus(taskId, 'pending', {
+        progress: 0,
+        currentStep: '准备重试...',
+        errorMessage: undefined,
+        cellProgress,
+        questions: [],
+      });
+
+      // 异步启动工作流
+      this.executeWorkflow(taskId, task.specification).catch(err => {
+        console.error('[ExamTaskService] 重试工作流异常:', err);
+      });
+
+      return this.getTask(taskId);
     }
 
-    // 重置进度
-    await examTaskRepository.updateStatus(taskId, 'pending', {
-      progress: 0,
-      currentStep: '准备重试...',
-      errorMessage: undefined,
-    });
+    // 审阅未通过的任务：仅重新命题审核未通过的交叉格
+    const rejectedCells = task.cellProgress.filter(cp => cp.reviewResult === 'rejected');
+    if (rejectedCells.length > 0) {
+      // 重置审核未通过的交叉格
+      const cellProgress = task.cellProgress.map(cp => {
+        if (cp.reviewResult === 'rejected') {
+          return { ...cp, cellStatus: 'pending' as const, completedCount: 0 };
+        }
+        return cp;
+      });
 
-    // 异步启动工作流
-    this.executeWorkflow(taskId, task.specification).catch(err => {
-      console.error('[ExamTaskService] 重试工作流异常:', err);
-    });
+      await examTaskRepository.updateStatus(taskId, 'revision', {
+        currentStep: '正在重新命题审核未通过的板块...',
+        cellProgress,
+      });
 
-    return this.getTask(taskId);
+      // 异步重试仅审核未通过的
+      this.regenerateRejectedCells(taskId, task.specification).catch(err => {
+        console.error('[ExamTaskService] 重试审核未通过板块异常:', err);
+      });
+
+      return this.getTask(taskId);
+    }
+
+    return this.fail('该任务无需重试', 'INVALID_STATUS');
   }
 
   // ==================== 4. AI全自动工作流 ====================
@@ -166,14 +206,14 @@ export class ExamTaskService extends BaseService {
   /**
    * AI全自动命题工作流
    *
-   * 流程：命题 → 审阅 → 排版
-   * 审阅不通过时自动重新命题（最多3次）
+   * 流程：并行命题 → 审阅 → 排版
+   * 审阅不通过时仅重新命题审核未通过的交叉格（最多3次）
    */
   private async executeWorkflow(taskId: string, specification: SpecificationTable): Promise<void> {
     try {
-      // 阶段1：按交叉格逐一命题
+      // 阶段1：按交叉格并行命题
       await examTaskRepository.updateStatus(taskId, 'generating', {
-        currentStep: 'AI正在按细目表命题...',
+        currentStep: 'AI正在并行命题...',
       });
 
       const allQuestions = await this.generateAllQuestions(taskId, specification);
@@ -187,13 +227,13 @@ export class ExamTaskService extends BaseService {
       const reviewResult = await this.reviewQuestions(specification, allQuestions, taskId);
 
       if (!reviewResult.approved) {
-        // 审阅不通过，重试
+        // 审阅不通过，检查是否有交叉格超过最大重试次数
         const taskResult = await this.getTask(taskId);
         const task = taskResult.data;
         if (!task) return;
 
-        // 检查是否有交叉格超过最大重试次数
-        const hasExceeded = task.cellProgress.some(cp => cp.retryCount >= MAX_REVIEW_RETRIES);
+        // 检查审核未通过的交叉格是否超过最大重试次数
+        const hasExceeded = task.cellProgress.some(cp => cp.reviewResult === 'rejected' && cp.retryCount >= MAX_REVIEW_RETRIES);
         if (hasExceeded) {
           await examTaskRepository.updateStatus(taskId, 'failed', {
             currentStep: '审阅多次未通过',
@@ -202,14 +242,14 @@ export class ExamTaskService extends BaseService {
           return;
         }
 
-        // 标记需要修改的交叉格，重新命题
+        // 标记需要修改的交叉格，仅重新命题审核未通过的
         await examTaskRepository.updateStatus(taskId, 'revision', {
-          currentStep: '审阅发现问题，AI正在重新命题...',
+          currentStep: '审阅发现问题，AI正在重新命题审核未通过的板块...',
           cellProgress: reviewResult.updatedCellProgress,
         });
 
-        // 递归重新执行工作流
-        await this.executeWorkflow(taskId, specification);
+        // 仅重新命题审核未通过的交叉格
+        await this.regenerateRejectedCells(taskId, specification);
         return;
       }
 
@@ -239,15 +279,14 @@ export class ExamTaskService extends BaseService {
     }
   }
 
-  // ==================== 5. 按交叉格逐一命题 ====================
+  // ==================== 5. 并行命题 ====================
 
   /**
-   * 按细目矩阵的每个交叉格逐一命题
-   * 每完成一个交叉格就更新进度
+   * 按细目矩阵并行命题（每个板块同时进行）
+   * 同一交叉格内的题目仍按顺序生成（保证题号连续）
+   * 不同交叉格之间并行执行（大幅提升效率）
    */
   private async generateAllQuestions(taskId: string, specification: SpecificationTable): Promise<Question[]> {
-    const allQuestions: Question[] = [];
-
     // 收集所有交叉格并排序（按题型分组、同题型内按认知层次）
     const cells: Array<{ kc: KnowledgeContent; ca: CognitiveAllocation }> = [];
     for (const kc of specification.knowledgeContents) {
@@ -271,38 +310,25 @@ export class ExamTaskService extends BaseService {
 
     const totalCells = cells.length;
 
-    for (let i = 0; i < cells.length; i++) {
-      const { kc, ca } = cells[i];
-      const primaryType = ca.suggestedQuestionTypes[0] || 'choice' as QuestionType;
+    // 更新所有交叉格状态为 generating
+    await examTaskRepository.updateStatus(taskId, 'generating', {
+      currentStep: `AI正在并行命题（${totalCells}个板块同时进行）...`,
+      progress: 5,
+    });
 
-      // 更新当前交叉格状态为 generating
-      await this.updateCellProgress(taskId, kc.code, ca.level, {
-        cellStatus: 'generating',
-      });
+    // 并行执行：每个交叉格同时命题
+    const results = await Promise.allSettled(
+      cells.map((cell, i) => this.generateCellWithProgress(taskId, cell.kc, cell.ca, i, totalCells, specification))
+    );
 
-      // 更新整体进度
-      const progress = Math.round((i / totalCells) * 85); // 命题占85%进度
-      await examTaskRepository.updateStatus(taskId, 'generating', {
-        currentStep: `正在命题：${kc.name} - ${COG_LABELS[ca.level]}（${i + 1}/${totalCells}）`,
-        progress,
-      });
-
-      try {
-        // AI生成题目
-        const questions = await this.generateQuestionsForCell(specification, kc, ca);
-        allQuestions.push(...questions);
-
-        // 更新当前交叉格状态为 done
-        await this.updateCellProgress(taskId, kc.code, ca.level, {
-          cellStatus: 'done',
-          completedCount: questions.length,
-          reviewResult: 'approved',
-        });
-      } catch (err) {
-        console.error(`[ExamTaskService] 交叉格命题失败: ${kc.name}/${ca.level}`, err);
-        await this.updateCellProgress(taskId, kc.code, ca.level, {
-          cellStatus: 'failed',
-        });
+    // 收集成功的题目
+    const allQuestions: Question[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status === 'fulfilled') {
+        allQuestions.push(...result.value);
+      } else {
+        console.error(`[ExamTaskService] 交叉格命题失败: ${cells[i].kc.name}/${cells[i].ca.level}`, result.reason);
       }
     }
 
@@ -317,6 +343,50 @@ export class ExamTaskService extends BaseService {
     });
 
     return allQuestions;
+  }
+
+  /**
+   * 为单个交叉格生成题目（含进度更新）
+   */
+  private async generateCellWithProgress(
+    taskId: string,
+    kc: KnowledgeContent,
+    ca: CognitiveAllocation,
+    cellIndex: number,
+    totalCells: number,
+    specification: SpecificationTable,
+  ): Promise<Question[]> {
+    // 更新当前交叉格状态为 generating
+    await this.updateCellProgress(taskId, kc.code, ca.level, {
+      cellStatus: 'generating',
+    });
+
+    try {
+      // AI生成题目
+      const questions = await this.generateQuestionsForCell(specification, kc, ca);
+
+      // 更新当前交叉格状态为 done
+      await this.updateCellProgress(taskId, kc.code, ca.level, {
+        cellStatus: 'done',
+        completedCount: questions.length,
+        reviewResult: 'approved',
+      });
+
+      // 更新整体进度（取所有交叉格的完成比例）
+      const progress = Math.round(((cellIndex + 1) / totalCells) * 85);
+      await examTaskRepository.updateStatus(taskId, 'generating', {
+        currentStep: `命题进行中（${cellIndex + 1}/${totalCells}）`,
+        progress,
+      });
+
+      return questions;
+    } catch (err) {
+      console.error(`[ExamTaskService] 交叉格命题失败: ${kc.name}/${ca.level}`, err);
+      await this.updateCellProgress(taskId, kc.code, ca.level, {
+        cellStatus: 'failed',
+      });
+      throw err;
+    }
   }
 
   // ==================== 6. AI命题（单交叉格） ====================
@@ -336,6 +406,12 @@ export class ExamTaskService extends BaseService {
       ? `\n- 每题空数：${ca.blanksPerQuestion}个空（每空${Math.round(ca.scorePerQuestion / ca.blanksPerQuestion)}分，共${ca.scorePerQuestion}分）`
       : '';
 
+    const isMath = specification.subject === '数学' || specification.subject === 'math';
+    const mathHint = isMath
+      ? `\n- 数学公式使用 LaTeX 格式：行内公式用 $...$ 包裹，如 $x^2+y^2=r^2$；行间公式用 $$...$$ 包裹，如 $$\\frac{1}{2}$$
+- 如题目涉及几何图形，在 imageUrl 字段填空字符串，并在 imageAlt 中描述图形内容（系统后续补充图片）`
+      : '';
+
     const prompt = `你是专业的命题专家。请严格根据以下约束生成${ca.questionCount}道试题。
 
 ## 严格约束（必须遵守）
@@ -346,7 +422,7 @@ export class ExamTaskService extends BaseService {
 - 认知层次：${cogLabel}
   ⚠️ 题目必须考查${cogLabel}层级的能力，而非更低或更高的层级
 - 题型：${qtLabel}
-- 每题分值：${ca.scorePerQuestion}分${fillHint}
+- 每题分值：${ca.scorePerQuestion}分${fillHint}${mathHint}
 
 ## 出题要求
 1. 题目必须严格围绕"${kc.name}"，不得涉及其他知识点
@@ -355,6 +431,8 @@ export class ExamTaskService extends BaseService {
 4. 选择题需提供4个选项，标明正确答案
 5. 填空题用"___"表示每个空，每题的空数必须为${ca.blanksPerQuestion || 1}个
 6. 附带答案解析
+${isMath ? `7. 数学公式必须使用 LaTeX 格式，确保公式正确渲染
+8. 几何图形题须标注 imageUrl 和 imageAlt 字段` : ''}
 
 ## 输出格式
 请用以下JSON格式输出（不要其他内容）：
@@ -362,15 +440,17 @@ export class ExamTaskService extends BaseService {
 [
   {
     "title": "题目标题（简短）",
-    "content": "题目完整内容",
+    "content": "题目完整内容（数学公式用LaTeX）",
     "questionType": "${ca.suggestedQuestionTypes[0]}",
-    "options": [{"label":"A","content":"选项内容","isCorrect":false}],
-    "answer": "正确答案",
-    "answerExplanation": "答案解析",
+    "options": [{"label":"A","content":"选项内容（数学公式用LaTeX）","isCorrect":false}],
+    "answer": "正确答案（数学公式用LaTeX）",
+    "answerExplanation": "答案解析（数学公式用LaTeX）",
     "score": ${ca.scorePerQuestion},
     "knowledgePoints": ["${kc.name}"],
     "difficulty": "${specification.difficultyDistribution.hard > 0.25 ? 'hard' : 'medium'}",
-    "cognitiveLevel": "${ca.level}"
+    "cognitiveLevel": "${ca.level}"${isMath ? `,
+    "imageUrl": "",
+    "imageAlt": "图形描述（如涉及几何图形）"` : ''}
   }
 ]
 </QUESTIONS>`;
@@ -449,6 +529,8 @@ export class ExamTaskService extends BaseService {
         createdByName: 'AI命题',
         isShared: false,
         useCount: 0,
+        imageUrl: (q.imageUrl as string) || undefined,
+        imageAlt: (q.imageAlt as string) || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -603,6 +685,7 @@ ${JSON.stringify(questionSummary, null, 2)}
     const examTypeLabel = EXAM_TYPE_LABELS[specification.examType] || specification.examType;
     const totalScore = specification.totalScore;
     const duration = specification.duration;
+    const isMath = specification.subject === '数学' || specification.subject === 'math';
 
     // 按题型分组
     const sections = this.groupQuestionsByType(questions);
@@ -612,6 +695,7 @@ ${JSON.stringify(questionSummary, null, 2)}
 <head>
 <meta charset="UTF-8">
 <title>${specification.scope || '试卷'}</title>
+${isMath ? '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">' : ''}
 <style>
   @page { size: A4 portrait; margin: 25mm 25mm 20mm 25mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -630,6 +714,7 @@ ${JSON.stringify(questionSummary, null, 2)}
   .question-stem { font-weight: normal; margin-bottom: 6px; }
   .question-stem .q-num { font-weight: bold; }
   .question-stem .q-score { font-size: 10pt; color: #555; }
+  .question-image { max-width: 100%; max-height: 250px; margin: 8px 0; border: 1px solid #ddd; }
   .options { margin-left: 2em; margin-top: 4px; }
   .option { margin-bottom: 4px; }
   .answer-line { border-bottom: 1px solid #ccc; min-width: 80px; display: inline-block; }
@@ -641,7 +726,9 @@ ${JSON.stringify(questionSummary, null, 2)}
   .answer-item { margin-bottom: 10px; }
   .answer-item .label { font-weight: bold; }
   .divider { border-top: 1px dashed #999; margin: 10px 0; }
+  .katex-display { margin: 8px 0; }
 </style>
+${isMath ? '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>\n<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters:[{left:\'$$\',right:\'$$\',display:true},{left:\'$\',right:\'$\',display:false}]});"></script>' : ''}
 </head>
 <body>
 <div class="paper">
@@ -679,6 +766,11 @@ ${JSON.stringify(questionSummary, null, 2)}
         <span class="q-num">${globalIdx}.</span> ${q.content}
         <span class="q-score">（${q.score}分）</span>
       </div>`;
+
+        // 题目配图
+        if (q.imageUrl) {
+          html += `<img class="question-image" src="${q.imageUrl}" alt="${q.imageAlt || '题目图片'}" />`;
+        }
 
         if (section.questionType === 'choice' && q.options?.length) {
           html += `<div class="options">`;
@@ -762,6 +854,130 @@ ${JSON.stringify(questionSummary, null, 2)}
       }
     }
     return progress;
+  }
+
+  /**
+   * 仅重新命题审核未通过的交叉格
+   * 保留已通过的题目，只替换审核未通过的
+   */
+  private async regenerateRejectedCells(taskId: string, specification: SpecificationTable): Promise<void> {
+    const taskResult = await this.getTask(taskId);
+    if (!taskResult.success || !taskResult.data) return;
+
+    const task = taskResult.data;
+
+    // 收集审核未通过的交叉格
+    const rejectedCells = task.cellProgress.filter(cp => cp.reviewResult === 'rejected');
+    if (rejectedCells.length === 0) {
+      // 无需重试，直接进入排版
+      const paperHtml = await this.generatePaperHtml(specification, task.questions);
+      await examTaskRepository.updateStatus(taskId, 'completed', {
+        currentStep: '命题完成',
+        progress: 100,
+        paperHtml,
+      });
+      return;
+    }
+
+    // 更新状态为重新命题
+    await examTaskRepository.updateStatus(taskId, 'generating', {
+      currentStep: `AI正在重新命题${rejectedCells.length}个审核未通过的板块...`,
+    });
+
+    // 构建交叉格对应的细目信息
+    const cellMap = new Map<string, { kc: KnowledgeContent; ca: CognitiveAllocation }>();
+    for (const kc of specification.knowledgeContents) {
+      for (const ca of kc.cognitiveAllocations) {
+        if (ca.questionCount > 0) {
+          cellMap.set(`${kc.code}_${ca.level}`, { kc, ca });
+        }
+      }
+    }
+
+    // 并行重新命题审核未通过的交叉格
+    const regenerateResults = await Promise.allSettled(
+      rejectedCells.map(cell => {
+        const cellInfo = cellMap.get(`${cell.knowledgeCode}_${cell.cognitiveLevel}`);
+        if (!cellInfo) return Promise.reject(new Error(`找不到交叉格: ${cell.knowledgeCode}/${cell.cognitiveLevel}`));
+        return this.generateCellWithProgress(taskId, cellInfo.kc, cellInfo.ca, 0, rejectedCells.length, specification);
+      })
+    );
+
+    // 获取最新的任务数据（包含已通过的题目）
+    const updatedTaskResult = await this.getTask(taskId);
+    if (!updatedTaskResult.success || !updatedTaskResult.data) return;
+    const updatedTask = updatedTaskResult.data;
+
+    // 合并题目：保留已通过的，加入新命题的
+    const approvedKnowledgeCodes = new Set(
+      updatedTask.cellProgress
+        .filter(cp => cp.reviewResult === 'approved')
+        .map(cp => cp.knowledgeCode)
+    );
+
+    // 保留审核通过的题目
+    const keptQuestions = updatedTask.questions.filter(q =>
+      approvedKnowledgeCodes.has(q.knowledgePoints[0] || '')
+    );
+
+    // 收集新命题的题目
+    const newQuestions: Question[] = [];
+    for (let i = 0; i < regenerateResults.length; i++) {
+      const result = regenerateResults[i];
+      if (result.status === 'fulfilled') {
+        newQuestions.push(...result.value);
+      }
+    }
+
+    const allQuestions = [...keptQuestions, ...newQuestions];
+
+    // 再次审阅
+    await examTaskRepository.updateStatus(taskId, 'reviewing', {
+      currentStep: 'AI正在审阅重新命题的题目...',
+      questions: allQuestions as unknown[],
+    });
+
+    const reviewResult = await this.reviewQuestions(specification, allQuestions, taskId);
+
+    if (!reviewResult.approved) {
+      // 检查是否超过最大重试次数
+      const latestTask = (await this.getTask(taskId)).data;
+      if (!latestTask) return;
+
+      const hasExceeded = latestTask.cellProgress.some(cp => cp.reviewResult === 'rejected' && cp.retryCount >= MAX_REVIEW_RETRIES);
+      if (hasExceeded) {
+        await examTaskRepository.updateStatus(taskId, 'failed', {
+          currentStep: '审阅多次未通过',
+          errorMessage: '部分题目审阅多次仍未通过，请调整细目表后重试',
+        });
+        return;
+      }
+
+      // 继续重试仅审核未通过的
+      await examTaskRepository.updateStatus(taskId, 'revision', {
+        currentStep: '审阅发现问题，AI正在重新命题审核未通过的板块...',
+        cellProgress: reviewResult.updatedCellProgress,
+      });
+      await this.regenerateRejectedCells(taskId, specification);
+      return;
+    }
+
+    // 全部通过，排版组卷
+    await examTaskRepository.updateStatus(taskId, 'formatting', {
+      currentStep: 'AI正在排版组卷...',
+      progress: 90,
+    });
+
+    const paperHtml = await this.generatePaperHtml(specification, allQuestions);
+
+    await examTaskRepository.updateStatus(taskId, 'completed', {
+      currentStep: '命题完成',
+      progress: 100,
+      questions: allQuestions as unknown[],
+      paperHtml,
+    });
+
+    console.log(`[ExamTaskService] 任务 ${taskId} 完成，共 ${allQuestions.length} 题`);
   }
 
   /** 更新单个交叉格进度 */

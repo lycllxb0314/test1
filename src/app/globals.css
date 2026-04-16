@@ -147,6 +147,21 @@
   }
 }
 
+/* 数学公式渲染样式 */
+.math-content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+}
+
+.math-content .katex {
+  font-size: 1.05em;
+}
+
+.math-content img {
+  display: block;
+}
+
 body {
   @apply font-sans;
 }

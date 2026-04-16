@@ -46,7 +46,7 @@ export const GET = protectedRoute(async (request: NextRequest, context: Extended
 });
 
 /**
- * PATCH - 重试失败的任务
+ * PATCH - 重试任务（失败任务重跑全流程，审阅未通过仅重命题部分板块）
  */
 export const PATCH = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
   try {

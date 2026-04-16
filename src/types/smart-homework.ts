@@ -103,6 +103,10 @@ export type Question = {
   createdByName: string;
   isShared: boolean;
   useCount: number;
+  /** 题目配图URL（数学图形题等） */
+  imageUrl?: string;
+  /** 题目配图说明 */
+  imageAlt?: string;
   createdAt: string;
   updatedAt: string;
 };

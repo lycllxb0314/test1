@@ -44,6 +44,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { FilePreviewDialogWithState } from '@/components/ui/file-preview-dialog';
+import { MathContent, MathInline } from '@/components/ui/math-content';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import {
@@ -552,7 +553,7 @@ export default function SmartHomeworkPage() {
                   <div key={item.questionId} className="flex items-center gap-2 p-3 rounded-lg border bg-card">
                     <span className="text-xs font-bold text-muted-foreground w-5">{idx + 1}</span>
                     <Badge variant="outline" className="text-[10px] shrink-0">{QUESTION_TYPE_LABELS[item.question.questionType as QuestionType] || item.question.questionType}</Badge>
-                    <p className="text-sm flex-1 truncate">{item.question.content}</p>
+                    <MathInline content={item.question.content} />
                     <Input
                       type="number"
                       className="w-14 h-7 text-xs text-center"
@@ -1037,6 +1038,11 @@ export default function SmartHomeworkPage() {
                               <RefreshCw className="w-3.5 h-3.5" /> 重试
                             </Button>
                           )}
+                          {selectedTask.status === 'revision' && selectedTask.cellProgress?.some(cp => cp.reviewResult === 'rejected') && (
+                            <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => retryTask(selectedTask.id)}>
+                              <RefreshCw className="w-3.5 h-3.5" /> 重试未通过板块
+                            </Button>
+                          )}
                         </div>
                       </div>
 
@@ -1348,6 +1354,11 @@ export default function SmartHomeworkPage() {
                             <RefreshCw className="w-3 h-3" /> 重试
                           </Button>
                         )}
+                        {task.status === 'revision' && task.cellProgress?.some(cp => cp.reviewResult === 'rejected') && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); retryTask(task.id); }}>
+                            <RefreshCw className="w-3 h-3" /> 重试
+                          </Button>
+                        )}
                         <span className="text-xs text-muted-foreground">{task.progress}%</span>
                       </div>
                     </div>
@@ -1419,16 +1430,16 @@ function QuestionCard({ question, index, inBasket, onToggleBasket, showSource }:
           <span className="flex-1" />
           <span className="text-[10px] text-muted-foreground">{question.score}分</span>
         </div>
-        <p className="text-sm mb-2 leading-relaxed">{question.content}</p>
+        <MathContent content={question.content} imageUrl={question.imageUrl} imageAlt={question.imageAlt} className="text-sm mb-2 leading-relaxed" />
         {question.options?.map(opt => (
           <div key={opt.label} className="text-xs ml-4 mb-0.5 text-muted-foreground">
-            {opt.label}. {opt.content}
+            {opt.label}. <MathInline content={opt.content} />
           </div>
         ))}
         <div className="mt-2 px-2.5 py-1.5 rounded-md bg-emerald-50/80 text-[11px]">
           <span className="font-medium text-emerald-700">答案：</span>
-          <span className="text-emerald-600">{question.answer}</span>
-          {question.answerExplanation && <span className="text-muted-foreground ml-1">({question.answerExplanation})</span>}
+          <MathInline content={question.answer} />
+          {question.answerExplanation && <span className="text-muted-foreground ml-1">(<MathInline content={question.answerExplanation} />)</span>}
         </div>
         <div className="flex items-center justify-between mt-3">
           <div className="flex flex-wrap gap-1">
