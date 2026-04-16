@@ -2,9 +2,11 @@
  * 智慧作业/练习 主页面
  *
  * 页面结构：
- * - 顶级 Tab：AI智能出题 | 一键出卷 | 校本题库
- * - AI智能出题：对话→细目表→命题→组卷（步骤流，无需页面选择年级）
- * - 一键出卷：确认细目表→启动AI全自动工作流→查看进度→下载Word
+ * - 顶级 Tab：AI智能出题 | 校本题库
+ * - AI智能出题（步骤流）：
+ *   1. 需求对话 → 2. 细目表确认 → 3a. 一键出卷 / 3b. 手动命题
+ *   - 一键出卷：确认细目表→启动AI全自动工作流→查看进度→下载Word
+ *   - 手动命题：逐题AI生成/从题库选取→加入试题篮→手动组卷
  * - 校本题库：筛选+浏览+导入+加入试题篮
  * - 共享：试题篮（右侧固定抽屉）+ 组卷排版
  */
@@ -108,10 +110,10 @@ export default function SmartHomeworkPage() {
   const { user } = useAuth();
 
   // 顶级 Tab
-  const [topTab, setTopTab] = useState<'ai' | 'workflow' | 'bank'>('ai');
+  const [topTab, setTopTab] = useState<'ai' | 'bank'>('ai');
 
-  // AI出题 - 步骤流
-  const [aiStep, setAiStep] = useState<'chat' | 'spec' | 'generate'>('chat');
+  // AI出题 - 步骤流（新增 workflow 步骤：一键出卷进度追踪）
+  const [aiStep, setAiStep] = useState<'chat' | 'spec' | 'generate' | 'workflow'>('chat');
 
   // AI出题 - 对话
   const [chatMessages, setChatMessages] = useState<DialogMessage[]>([]);
@@ -133,6 +135,7 @@ export default function SmartHomeworkPage() {
   const [examTasksLoading, setExamTasksLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState<ExamTask | null>(null);
   const [taskPolling, setTaskPolling] = useState<string | null>(null);
+  const [taskCenterOpen, setTaskCenterOpen] = useState(false);
 
   // 校本题库
   const [bankSubject, setBankSubject] = useState('语文');
@@ -423,7 +426,7 @@ export default function SmartHomeworkPage() {
       });
       const data = await res.json();
       if (data.success && data.data) {
-        setTopTab('workflow');
+        setAiStep('workflow');
         setSelectedTask(data.data);
         setTaskPolling(data.data.id);
         loadExamTasks();
@@ -488,7 +491,7 @@ export default function SmartHomeworkPage() {
 
   useEffect(() => { loadPapers(); }, [loadPapers]);
   useEffect(() => { if (topTab === 'bank') loadBankQuestions(); }, [topTab, loadBankQuestions]);
-  useEffect(() => { if (topTab === 'workflow') loadExamTasks(); }, [topTab, loadExamTasks]);
+  useEffect(() => { if (topTab === 'ai' && aiStep === 'workflow') loadExamTasks(); }, [topTab, aiStep, loadExamTasks]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
 
   // ==================== 渲染 ====================
@@ -508,7 +511,18 @@ export default function SmartHomeworkPage() {
             </div>
           </div>
 
-          {/* 试题篮 */}
+          {/* 任务中心 + 试题篮 */}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => { loadExamTasks(); setTaskCenterOpen(true); }}>
+              <Zap className="w-4 h-4" />
+              任务中心
+              {examTasks.filter(t => t.status !== 'completed' && t.status !== 'failed').length > 0 && (
+                <Badge className="h-5 min-w-[20px] flex items-center justify-center p-0 text-[10px]">
+                  {examTasks.filter(t => t.status !== 'completed' && t.status !== 'failed').length}
+                </Badge>
+              )}
+            </Button>
+
           <Sheet open={basketOpen} onOpenChange={setBasketOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" className="relative gap-2">
@@ -576,6 +590,7 @@ export default function SmartHomeworkPage() {
               )}
             </SheetContent>
           </Sheet>
+          </div>
         </div>
 
         {/* ===== 顶级 Tab ===== */}
@@ -583,9 +598,6 @@ export default function SmartHomeworkPage() {
           <TabsList className="mb-6">
             <TabsTrigger value="ai" className="gap-2">
               <Sparkles className="w-4 h-4" /> AI智能出题
-            </TabsTrigger>
-            <TabsTrigger value="workflow" className="gap-2">
-              <Zap className="w-4 h-4" /> 一键出卷
             </TabsTrigger>
             <TabsTrigger value="bank" className="gap-2">
               <Library className="w-4 h-4" /> 校本题库
@@ -599,12 +611,19 @@ export default function SmartHomeworkPage() {
               {([
                 { key: 'chat', label: '需求对话', icon: MessageSquare },
                 { key: 'spec', label: '细目表确认', icon: TableIcon },
-                { key: 'generate', label: '智能命题', icon: Sparkles },
+                { key: 'workflow', label: '一键出卷', icon: Zap },
+                { key: 'generate', label: '手动命题', icon: Sparkles },
               ] as const).map((step, idx) => (
                 <React.Fragment key={step.key}>
                   {idx > 0 && <ChevronRight className="w-4 h-4 text-muted-foreground/40 mx-1" />}
                   <button
-                    onClick={() => { if (step.key === 'chat' || (step.key === 'spec' && specification) || (step.key === 'generate' && generatedQuestions.length)) setAiStep(step.key); }}
+                    onClick={() => {
+                      if (step.key === 'chat'
+                        || (step.key === 'spec' && specification)
+                        || (step.key === 'workflow' && selectedTask)
+                        || (step.key === 'generate' && generatedQuestions.length))
+                        setAiStep(step.key);
+                    }}
                     className={cn(
                       'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all',
                       aiStep === step.key
@@ -974,7 +993,138 @@ export default function SmartHomeworkPage() {
               </div>
             )}
 
-            {/* ---- 步骤3: 智能命题 ---- */}
+	            {/* ---- 步骤3: 一键出卷（AI全自动工作流） ---- */}
+            {aiStep === 'workflow' && (
+              <div className="space-y-6">
+                {/* 当前任务进度 */}
+                {selectedTask && (
+                  <Card className="border-none shadow-sm">
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <TaskStatusIcon status={selectedTask.status} />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{selectedTask.title}</span>
+                              <TaskStatusBadge status={selectedTask.status} />
+                            </div>
+                            {selectedTask.currentStep && (
+                              <p className="text-xs text-primary/70 mt-0.5">{selectedTask.currentStep}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setAiStep('spec')}>返回细目表</Button>
+                          {selectedTask.status === 'completed' && (
+                            <>
+                              <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => {
+                                if (selectedTask.paperHtml) {
+                                  const blob = new Blob([selectedTask.paperHtml], { type: 'text/html' });
+                                  const url = URL.createObjectURL(blob);
+                                  setPreviewResource({ id: selectedTask.id, title: `${selectedTask.title}.html`, fileName: `${selectedTask.title}.html`, fileUrl: url });
+                                  setPreviewOpen(true);
+                                }
+                              }}>
+                                <Eye className="w-3.5 h-3.5" /> 预览试卷
+                              </Button>
+                              <Button size="sm" className="h-8 text-xs gap-1" onClick={() => downloadDocx(selectedTask.id, selectedTask.title)}>
+                                <Download className="w-3.5 h-3.5" /> 下载Word
+                              </Button>
+                            </>
+                          )}
+                          {selectedTask.status === 'failed' && (
+                            <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => retryTask(selectedTask.id)}>
+                              <RefreshCw className="w-3.5 h-3.5" /> 重试
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 进度条 */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{selectedTask.status === 'completed' ? '命题完成' : selectedTask.status === 'failed' ? '命题失败' : '命题进行中...'}</span>
+                          <span>{selectedTask.progress}%</span>
+                        </div>
+                        <Progress value={selectedTask.progress} className="h-2" />
+                      </div>
+
+                      {/* 基本信息卡片 */}
+                      <div className="grid grid-cols-4 gap-3">
+                        <div className="p-3 rounded-lg bg-muted/30 text-center">
+                          <div className="text-lg font-bold text-primary">{selectedTask.totalScore}</div>
+                          <div className="text-xs text-muted-foreground">总分</div>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/30 text-center">
+                          <div className="text-lg font-bold text-primary">{selectedTask.duration}分钟</div>
+                          <div className="text-xs text-muted-foreground">时长</div>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/30 text-center">
+                          <div className="text-lg font-bold text-primary">{selectedTask.questions?.length || 0}</div>
+                          <div className="text-xs text-muted-foreground">已出题</div>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/30 text-center">
+                          <div className="text-lg font-bold text-primary">{selectedTask.cellProgress?.filter(c => c.cellStatus === 'done').length || 0}/{selectedTask.cellProgress?.length || 0}</div>
+                          <div className="text-xs text-muted-foreground">交叉格</div>
+                        </div>
+                      </div>
+
+                      {/* 交叉格进度 */}
+                      {selectedTask.cellProgress && selectedTask.cellProgress.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-2">各交叉格命题进度</p>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                            {selectedTask.cellProgress.map((cp, idx) => (
+                              <div key={idx} className={cn(
+                                'p-2 rounded-lg border text-xs',
+                                cp.cellStatus === 'done' && cp.reviewResult === 'approved' ? 'bg-emerald-50/50 border-emerald-200' :
+                                cp.cellStatus === 'failed' ? 'bg-destructive/5 border-destructive/20' :
+                                cp.cellStatus === 'generating' ? 'bg-primary/5 border-primary/20' :
+                                'bg-muted/30 border-border'
+                              )}>
+                                <div className="font-medium truncate">{cp.knowledgeName}</div>
+                                <div className="text-muted-foreground mt-0.5">
+                                  {COGNITIVE_LEVEL_LABELS[cp.cognitiveLevel]} · {QUESTION_TYPE_LABELS[cp.questionType]}
+                                </div>
+                                <div className="flex items-center justify-between mt-1">
+                                  <span>{cp.completedCount}/{cp.requiredCount}题</span>
+                                  <CellStatusBadge cellStatus={cp.cellStatus} reviewResult={cp.reviewResult} />
+                                </div>
+                                {cp.retryCount > 0 && (
+                                  <span className="text-destructive/70 text-[10px]">重试{cp.retryCount}次</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 错误信息 */}
+                      {selectedTask.errorMessage && (
+                        <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                          <p className="text-xs font-medium text-destructive">错误信息</p>
+                          <p className="text-xs text-destructive/80 mt-0.5">{selectedTask.errorMessage}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 无任务时的引导 */}
+                {!selectedTask && (
+                  <Card className="border-none shadow-sm p-12 text-center">
+                    <Zap className="w-12 h-12 mx-auto mb-3 text-muted-foreground/20" />
+                    <p className="text-sm text-muted-foreground mb-1">暂无进行中的命题任务</p>
+                    <p className="text-xs text-muted-foreground/60 mb-4">请先在"细目表确认"步骤中点击「一键出卷」启动</p>
+                    <Button size="sm" onClick={() => setAiStep('spec')} disabled={!specification}>
+                      <TableIcon className="w-3.5 h-3.5 mr-1.5" /> 前往细目表
+                    </Button>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* ---- 步骤4: 手动命题 ---- */}
             {aiStep === 'generate' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1005,156 +1155,6 @@ export default function SmartHomeworkPage() {
                 )}
               </div>
             )}
-          </TabsContent>
-
-          {/* ================== 一键出卷（AI全自动工作流） ================== */}
-          <TabsContent value="workflow" className="mt-0">
-            <div className="space-y-6">
-              {/* 任务列表 */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-primary" /> 命题任务
-                </h2>
-                <Button size="sm" onClick={loadExamTasks} disabled={examTasksLoading}>
-                  <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", examTasksLoading && "animate-spin")} />
-                  刷新
-                </Button>
-              </div>
-
-              {examTasks.length === 0 && !examTasksLoading ? (
-                <Card className="border-none shadow-sm p-12 text-center">
-                  <Zap className="w-12 h-12 mx-auto mb-3 text-muted-foreground/20" />
-                  <p className="text-sm text-muted-foreground mb-1">暂无命题任务</p>
-                  <p className="text-xs text-muted-foreground/60 mb-4">在AI智能出题中确认细目表后，点击「一键出卷」启动</p>
-                  <Button size="sm" onClick={() => setTopTab('ai')}>
-                    <Sparkles className="w-3.5 h-3.5 mr-1.5" /> 开始出题
-                  </Button>
-                </Card>
-              ) : (
-                <div className="space-y-3">
-                  {examTasks.map(task => (
-                    <Card
-                      key={task.id}
-                      className={cn(
-                        'border-none shadow-sm cursor-pointer transition-all hover:shadow-md',
-                        selectedTask?.id === task.id && 'ring-2 ring-primary/30'
-                      )}
-                      onClick={() => { setSelectedTask(task); if (task.status === 'generating' || task.status === 'reviewing' || task.status === 'revision' || task.status === 'formatting') setTaskPolling(task.id); }}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                          <TaskStatusIcon status={task.status} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm truncate">{task.title}</span>
-                              <TaskStatusBadge status={task.status} />
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {task.subject}{task.grade}年级{task.semester} · {EXAM_TYPE_LABELS[task.examType]} · {task.totalScore}分
-                            </p>
-                            {task.currentStep && (
-                              <p className="text-xs text-primary/70 mt-0.5">{task.currentStep}</p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {task.status === 'completed' && (
-                              <>
-                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); if (task.paperHtml) { const blob = new Blob([task.paperHtml], { type: 'text/html' }); const url = URL.createObjectURL(blob); setPreviewResource({ id: task.id, title: `${task.title}.html`, fileName: `${task.title}.html`, fileUrl: url }); setPreviewOpen(true); } }}>
-                                  <Eye className="w-3 h-3" /> 预览
-                                </Button>
-                                <Button size="sm" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); downloadDocx(task.id, task.title); }}>
-                                  <Download className="w-3 h-3" /> Word
-                                </Button>
-                              </>
-                            )}
-                            {task.status === 'failed' && (
-                              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); retryTask(task.id); }}>
-                                <RefreshCw className="w-3 h-3" /> 重试
-                              </Button>
-                            )}
-                            <span className="text-xs text-muted-foreground">{task.progress}%</span>
-                          </div>
-                        </div>
-                        {/* 进度条 */}
-                        {task.status !== 'completed' && task.status !== 'failed' && (
-                          <Progress value={task.progress} className="mt-2 h-1.5" />
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-
-              {/* 选中任务的详情 */}
-              {selectedTask && (
-                <Card className="border-none shadow-sm">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Target className="w-4 h-4 text-primary" /> 任务详情
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* 基本信息 */}
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="p-3 rounded-lg bg-muted/30 text-center">
-                        <div className="text-lg font-bold text-primary">{selectedTask.totalScore}</div>
-                        <div className="text-xs text-muted-foreground">总分</div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/30 text-center">
-                        <div className="text-lg font-bold text-primary">{selectedTask.duration}分钟</div>
-                        <div className="text-xs text-muted-foreground">时长</div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/30 text-center">
-                        <div className="text-lg font-bold text-primary">{selectedTask.questions?.length || 0}</div>
-                        <div className="text-xs text-muted-foreground">已出题</div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/30 text-center">
-                        <div className="text-lg font-bold text-primary">{selectedTask.cellProgress?.length || 0}</div>
-                        <div className="text-xs text-muted-foreground">交叉格</div>
-                      </div>
-                    </div>
-
-                    {/* 交叉格进度 */}
-                    {selectedTask.cellProgress && selectedTask.cellProgress.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">各交叉格命题进度</p>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {selectedTask.cellProgress.map((cp, idx) => (
-                            <div key={idx} className={cn(
-                              'p-2 rounded-lg border text-xs',
-                              cp.cellStatus === 'done' && cp.reviewResult === 'approved' ? 'bg-emerald-50/50 border-emerald-200' :
-                              cp.cellStatus === 'failed' ? 'bg-destructive/5 border-destructive/20' :
-                              cp.cellStatus === 'generating' ? 'bg-primary/5 border-primary/20' :
-                              'bg-muted/30 border-border'
-                            )}>
-                              <div className="font-medium truncate">{cp.knowledgeName}</div>
-                              <div className="text-muted-foreground mt-0.5">
-                                {COGNITIVE_LEVEL_LABELS[cp.cognitiveLevel]} · {QUESTION_TYPE_LABELS[cp.questionType]}
-                              </div>
-                              <div className="flex items-center justify-between mt-1">
-                                <span>{cp.completedCount}/{cp.requiredCount}题</span>
-                                <CellStatusBadge cellStatus={cp.cellStatus} reviewResult={cp.reviewResult} />
-                              </div>
-                              {cp.retryCount > 0 && (
-                                <span className="text-destructive/70 text-[10px]">重试{cp.retryCount}次</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 错误信息 */}
-                    {selectedTask.errorMessage && (
-                      <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
-                        <p className="text-xs font-medium text-destructive">错误信息</p>
-                        <p className="text-xs text-destructive/80 mt-0.5">{selectedTask.errorMessage}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </div>
           </TabsContent>
 
           {/* ================== 校本题库 ================== */}
@@ -1293,6 +1293,71 @@ export default function SmartHomeworkPage() {
                 导入
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 任务中心弹窗 */}
+        <Dialog open={taskCenterOpen} onOpenChange={setTaskCenterOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-primary" /> 命题任务中心
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto space-y-3 -mx-6 px-6">
+              {examTasks.length === 0 && !examTasksLoading ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Zap className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">暂无命题任务</p>
+                  <p className="text-xs mt-1">在AI智能出题中确认细目表后启动</p>
+                </div>
+              ) : examTasks.map(task => (
+                <Card
+                  key={task.id}
+                  className="border shadow-sm cursor-pointer transition-all hover:shadow-md"
+                  onClick={() => {
+                    setSelectedTask(task);
+                    setAiStep('workflow');
+                    setTopTab('ai');
+                    setTaskCenterOpen(false);
+                    if (task.status === 'generating' || task.status === 'reviewing' || task.status === 'revision' || task.status === 'formatting') {
+                      setTaskPolling(task.id);
+                    }
+                  }}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-3">
+                      <TaskStatusIcon status={task.status} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">{task.title}</span>
+                          <TaskStatusBadge status={task.status} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {task.subject}{task.grade}年级{task.semester} · {EXAM_TYPE_LABELS[task.examType]} · {task.totalScore}分
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {task.status === 'completed' && (
+                          <Button size="sm" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); downloadDocx(task.id, task.title); }}>
+                            <Download className="w-3 h-3" /> Word
+                          </Button>
+                        )}
+                        {task.status === 'failed' && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); retryTask(task.id); }}>
+                            <RefreshCw className="w-3 h-3" /> 重试
+                          </Button>
+                        )}
+                        <span className="text-xs text-muted-foreground">{task.progress}%</span>
+                      </div>
+                    </div>
+                    {task.status !== 'completed' && task.status !== 'failed' && (
+                      <Progress value={task.progress} className="mt-2 h-1" />
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </DialogContent>
         </Dialog>
 
