@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   try {
     const specification: SpecificationTable = await request.json();
 
-    if (!specification.questionAllocation?.length) {
+    if (!specification.questionTypePlans?.length) {
       return NextResponse.json(
         error('请先确认命题双向细目表', ErrorCode.VALIDATION_ERROR),
         { status: 400 }

@@ -630,9 +630,14 @@ export default function SmartHomeworkPage() {
             {aiStep === 'spec' && specification && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <TableIcon className="w-5 h-5 text-primary" /> 命题双向细目表
-                  </h2>
+                  <div>
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <TableIcon className="w-5 h-5 text-primary" /> 命题双向细目表
+                    </h2>
+                    {specification.scope && (
+                      <p className="text-sm text-muted-foreground mt-1">评价范围：{specification.scope}</p>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setAiStep('chat')}>返回修改</Button>
                     <Button size="sm" onClick={generateQuestions} disabled={genLoading}>
@@ -642,75 +647,179 @@ export default function SmartHomeworkPage() {
                   </div>
                 </div>
 
-                {/* 统计卡片 */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* 基本信息卡片 */}
+                <div className="grid grid-cols-5 gap-4">
                   <StatCard value={specification.totalScore} label="总分" />
                   <StatCard value={specification.duration} label="时长(分钟)" />
-                  <StatCard value={specification.questionAllocation.reduce((s, a) => s + a.count, 0)} label="总题数" />
+                  <StatCard value={specification.questionTypePlans.reduce((s, p) => s + p.count, 0)} label="总题数" />
+                  <StatCard value={Math.round(specification.difficultyDistribution.easy * 100)} label="容易题占比(%)" />
+                  <StatCard value={Math.round(specification.difficultyDistribution.hard * 100)} label="较难题占比(%)" />
                 </div>
 
-                {/* 难度分布 */}
+                {/* ============ 核心双向矩阵 ============ */}
                 <Card className="border-none shadow-sm">
-                  <CardContent className="p-5">
-                    <p className="text-sm font-medium mb-3">难度分布</p>
-                    <div className="flex gap-4">
-                      {(['easy', 'medium', 'hard'] as Difficulty[]).map(d => (
-                        <div key={d} className="flex-1 text-center">
-                          <div className="text-xl font-bold">{Math.round(specification.difficultyDistribution[d] * 100)}%</div>
-                          <div className="text-xs text-muted-foreground mt-0.5">{DIFFICULTY_LABELS[d]}</div>
+                  <CardContent className="p-0">
+                    {/* 矩阵标题栏 */}
+                    <div className="px-5 pt-5 pb-3 border-b">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold">双向细目矩阵</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            横向（评什么）：知识内容细化 &nbsp;|&nbsp; 纵向（为什么评）：认知水平
+                          </p>
                         </div>
-                      ))}
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-primary/60" /> 有分配</span>
+                          <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-muted-foreground/20" /> 未覆盖</span>
+                        </div>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* 知识点 × 认知层次矩阵 */}
-                <Card className="border-none shadow-sm">
-                  <CardContent className="p-5">
-                    <p className="text-sm font-medium mb-3">知识点 × 认知层次</p>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-sm border-collapse">
                         <thead>
-                          <tr className="border-b">
-                            <th className="p-2 text-left font-medium text-muted-foreground text-xs">知识点</th>
-                            <th className="p-2 text-center font-medium text-muted-foreground text-xs">权重</th>
-                            {(['remember', 'understand', 'apply', 'analyze'] as CognitiveLevel[]).map(cl => (
-                              <th key={cl} className="p-2 text-center font-medium text-muted-foreground text-xs">{COGNITIVE_LEVEL_LABELS[cl]}</th>
+                          {/* 纵向标题：认知层次 */}
+                          <tr className="bg-muted/30">
+                            <th className="p-3 text-left font-semibold text-xs border-b border-r min-w-[180px]" rowSpan={2}>
+                              <div className="writing-vertical text-center text-muted-foreground text-[10px]">为什么评 →</div>
+                            </th>
+                            <th className="p-3 text-left font-semibold text-xs border-b border-r min-w-[60px]" rowSpan={2}>编号</th>
+                            <th className="p-3 text-left font-semibold text-xs border-b border-r" rowSpan={2}>知识内容（评什么）</th>
+                            <th className="p-3 text-center font-semibold text-xs border-b border-r" rowSpan={2}>权重</th>
+                            {(['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'] as CognitiveLevel[]).map(cl => (
+                              <th key={cl} className="p-2 text-center font-semibold text-xs border-b min-w-[90px]">
+                                {COGNITIVE_LEVEL_LABELS[cl]}
+                              </th>
                             ))}
+                            <th className="p-3 text-center font-semibold text-xs border-b border-l min-w-[70px]" rowSpan={2}>小计</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {specification.knowledgeDimensions.map((kd, i) => (
-                            <tr key={i} className="border-b last:border-0">
-                              <td className="p-2 font-medium text-sm">{kd.name}</td>
-                              <td className="p-2 text-center text-sm">{kd.weight}%</td>
-                              {(['remember', 'understand', 'apply', 'analyze'] as CognitiveLevel[]).map(cl => {
-                                const alloc = kd.cognitiveLevels.find(c => c.level === cl);
-                                return (
-                                  <td key={cl} className="p-2 text-center">
-                                    {alloc ? <Badge variant="secondary" className="text-[10px]">{alloc.questionCount}题/{alloc.score}分</Badge> : <span className="text-muted-foreground/30">-</span>}
+                          {specification.knowledgeContents.map((kc, i) => {
+                            // 计算该知识点的行小计
+                            const rowTotal = kc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
+                            return (
+                              <React.Fragment key={i}>
+                                {/* 如果是新的单元，插入单元分隔行 */}
+                                {(i === 0 || kc.unit !== specification.knowledgeContents[i - 1]?.unit) && kc.unit && (
+                                  <tr className="bg-muted/20">
+                                    <td colSpan={3 + 1 + 6 + 1} className="px-3 py-1.5 text-xs font-semibold text-muted-foreground border-b">
+                                      {kc.unit}
+                                    </td>
+                                  </tr>
+                                )}
+                                <tr className="border-b hover:bg-muted/10 transition-colors">
+                                  <td className="px-3 py-2 text-[10px] text-muted-foreground border-r" rowSpan={1}></td>
+                                  <td className="px-3 py-2 text-xs text-muted-foreground border-r">{kc.code}</td>
+                                  <td className="px-3 py-2 text-sm border-r">
+                                    <div className="font-medium">{kc.name}</div>
+                                    {kc.lesson && <div className="text-[10px] text-muted-foreground mt-0.5">{kc.lesson}</div>}
                                   </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
+                                  <td className="px-3 py-2 text-center text-xs border-r">{kc.weight}%</td>
+                                  {(['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'] as CognitiveLevel[]).map(cl => {
+                                    const alloc = kc.cognitiveAllocations.find(a => a.level === cl);
+                                    if (!alloc || (alloc.questionCount === 0 && alloc.score === 0)) {
+                                      return (
+                                        <td key={cl} className="px-2 py-2 text-center">
+                                          <span className="text-muted-foreground/20 text-xs">—</span>
+                                        </td>
+                                      );
+                                    }
+                                    return (
+                                      <td key={cl} className="px-2 py-2 text-center">
+                                        <div className="inline-flex flex-col items-center gap-0.5 rounded-md bg-primary/8 px-2 py-1">
+                                          <span className="text-xs font-semibold text-primary">{alloc.questionCount}题 / {alloc.score}分</span>
+                                          {alloc.suggestedQuestionTypes?.length > 0 && (
+                                            <span className="text-[9px] text-muted-foreground">
+                                              {alloc.suggestedQuestionTypes.map(qt => QUESTION_TYPE_LABELS[qt]).join('、')}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="px-3 py-2 text-center border-l font-semibold text-sm">{rowTotal}</td>
+                                </tr>
+                              </React.Fragment>
+                            );
+                          })}
+                          {/* 列小计行 */}
+                          <tr className="bg-muted/30 font-semibold">
+                            <td className="px-3 py-2 border-r" colSpan={3}>合 计</td>
+                            <td className="px-3 py-2 text-center border-r">100%</td>
+                            {(['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'] as CognitiveLevel[]).map(cl => {
+                              const summary = specification.cognitiveSummary.find(s => s.level === cl);
+                              return (
+                                <td key={cl} className="px-2 py-2 text-center">
+                                  {summary ? (
+                                    <div>
+                                      <span className="text-sm">{summary.totalScore}分</span>
+                                      <span className="text-[10px] text-muted-foreground ml-1">({summary.percentage}%)</span>
+                                    </div>
+                                  ) : <span className="text-muted-foreground/30 text-xs">—</span>}
+                                </td>
+                              );
+                            })}
+                            <td className="px-3 py-2 text-center border-l text-base">{specification.totalScore}</td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* 题型分配 */}
+                {/* ============ 认知水平分布 ============ */}
+                {specification.cognitiveSummary.length > 0 && (
+                  <Card className="border-none shadow-sm">
+                    <CardContent className="p-5">
+                      <p className="text-sm font-medium mb-3">认知水平分布（为什么评）</p>
+                      <div className="flex gap-3">
+                        {specification.cognitiveSummary.map(cs => (
+                          <div key={cs.level} className="flex-1 text-center p-2 rounded-lg bg-muted/30">
+                            <div className="text-lg font-bold text-primary">{cs.percentage}%</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{COGNITIVE_LEVEL_LABELS[cs.level]}</div>
+                            <div className="text-[10px] text-muted-foreground/60">{cs.totalQuestions}题 · {cs.totalScore}分</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ============ 题型规划 ============ */}
                 <Card className="border-none shadow-sm">
                   <CardContent className="p-5">
-                    <p className="text-sm font-medium mb-3">题型分配</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {specification.questionAllocation.map((alloc, i) => (
+                    <p className="text-sm font-medium mb-3">题型规划（怎么评）</p>
+                    <div className="space-y-2">
+                      {specification.questionTypePlans.map((plan, i) => (
                         <div key={i} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                          <Badge className="min-w-[56px] justify-center text-[10px]">{QUESTION_TYPE_LABELS[alloc.questionType]}</Badge>
-                          <span className="text-sm flex-1">{alloc.count}题 × {alloc.scorePerQuestion}分 = {alloc.totalScore}分</span>
-                          <Badge variant="outline" className="text-[10px]">{DIFFICULTY_LABELS[alloc.difficulty]}</Badge>
-                          <Badge variant="outline" className="text-[10px]">{COGNITIVE_LEVEL_LABELS[alloc.cognitiveLevel]}</Badge>
+                          <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
+                          <Badge className="min-w-[56px] justify-center text-[10px]">{QUESTION_TYPE_LABELS[plan.questionType]}</Badge>
+                          <span className="text-sm">{plan.count}题 × {plan.scorePerQuestion}分 = {plan.totalScore}分</span>
+                          <Badge variant="outline" className="text-[10px]">{DIFFICULTY_LABELS[plan.difficulty]}</Badge>
+                          <div className="flex gap-1">
+                            {plan.cognitiveLevels.map(cl => (
+                              <Badge key={cl} variant="secondary" className="text-[10px]">{COGNITIVE_LEVEL_LABELS[cl]}</Badge>
+                            ))}
+                          </div>
+                          <span className="flex-1" />
+                          <span className="text-[10px] text-muted-foreground" title={plan.knowledgePoints.join('、')}>
+                            {plan.knowledgePoints.length}个知识点
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* ============ 难度分布 ============ */}
+                <Card className="border-none shadow-sm">
+                  <CardContent className="p-5">
+                    <p className="text-sm font-medium mb-3">难度分布</p>
+                    <div className="flex gap-4">
+                      {(['easy', 'medium', 'hard'] as Difficulty[]).map(d => (
+                        <div key={d} className="flex-1 text-center p-3 rounded-lg bg-muted/30">
+                          <div className="text-xl font-bold">{Math.round(specification.difficultyDistribution[d] * 100)}%</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{DIFFICULTY_LABELS[d]}</div>
                         </div>
                       ))}
                     </div>

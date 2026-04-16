@@ -49,7 +49,7 @@ export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
 export type CognitiveLevel =
   | 'remember'   // 识记
   | 'understand' // 理解
-  | 'apply'      // 应用
+  | 'apply'      // 运用
   | 'analyze'    // 分析
   | 'evaluate'   // 评价
   | 'create';    // 创造
@@ -57,7 +57,7 @@ export type CognitiveLevel =
 export const COGNITIVE_LEVEL_LABELS: Record<CognitiveLevel, string> = {
   remember: '识记',
   understand: '理解',
-  apply: '应用',
+  apply: '运用',
   analyze: '分析',
   evaluate: '评价',
   create: '创造',
@@ -115,44 +115,124 @@ export type QuestionOption = {
 
 // ==================== 命题双向细目表 ====================
 
-export type SpecificationTable = {
-  subject: string;
-  grade: number;
-  semester: string;
-  examType: ExamType;
+/**
+ * 命题双向细目表（教育测量学规范）
+ *
+ * 双向含义：
+ * - 纵向（为什么评）：能力层级 / 认知水平（识记、理解、运用、分析、评价、创造）
+ * - 横向（评什么）：具体知识内容（细化到单元-课-知识点）
+ *
+ * 细目含义：
+ * 1. 知识细化：将"本学期所学内容"细化为"第X单元-第X课-具体知识点"
+ * 2. 能力细化：将"考查学生能力"细化为"识记、理解、运用、分析、评价、创造"等层级
+ * 3. 规划与分配细化：将"出一份卷子"细化为每个知识点及素养怎么评的精确规划
+ */
+
+/** 知识内容条目（横向：评什么） */
+export type KnowledgeContent = {
+  /** 知识点编号，如 "1.1" */
+  code: string;
+  /** 知识点名称，如 "平行四边形面积公式推导" */
+  name: string;
+  /** 所属单元，如 "第六单元" */
+  unit: string;
+  /** 所属课/节，如 "第1课" */
+  lesson: string;
+  /** 该知识点在本次评价中的权重百分比 */
+  weight: number;
+  /** 该知识点的总分 */
   totalScore: number;
+  /** 该知识点在各认知层次的分配详情 */
+  cognitiveAllocations: CognitiveAllocation[];
+};
+
+/** 认知层次分配（纵向×横向交叉单元格） */
+export type CognitiveAllocation = {
+  /** 认知层次 */
+  level: CognitiveLevel;
+  /** 该知识点在该层次的题数 */
+  questionCount: number;
+  /** 该知识点在该层次的分值 */
+  score: number;
+  /** 该知识点在该层次建议使用的题型 */
+  suggestedQuestionTypes: QuestionType[];
+};
+
+/** 能力层级汇总（纵向：为什么评） */
+export type CognitiveSummary = {
+  /** 认知层次 */
+  level: CognitiveLevel;
+  /** 该层次总题数 */
+  totalQuestions: number;
+  /** 该层次总分值 */
+  totalScore: number;
+  /** 占比百分比 */
+  percentage: number;
+};
+
+/** 题型规划 */
+export type QuestionTypePlan = {
+  /** 题型 */
+  questionType: QuestionType;
+  /** 该题型题数 */
+  count: number;
+  /** 每题分值 */
+  scorePerQuestion: number;
+  /** 该题型总分 */
+  totalScore: number;
+  /** 该题型覆盖的知识点 */
+  knowledgePoints: string[];
+  /** 该题型对应的认知层次 */
+  cognitiveLevels: CognitiveLevel[];
+  /** 难度 */
+  difficulty: Difficulty;
+};
+
+/** 细目表整体结构 */
+export type SpecificationTable = {
+  /** 学科 */
+  subject: string;
+  /** 年级 */
+  grade: number;
+  /** 学期 */
+  semester: string;
+  /** 考试类型 */
+  examType: ExamType;
+  /** 总分 */
+  totalScore: number;
+  /** 时长(分钟) */
   duration: number;
-  /** 知识点维度 */
-  knowledgeDimensions: KnowledgeDimension[];
-  /** 题目分配 */
-  questionAllocation: QuestionAllocation[];
+  /** 评价范围描述，如 "人教版五年级上册 第六单元 多边形的面积" */
+  scope: string;
+  /**
+   * 横向：知识内容维度（评什么）
+   * 细化到单元-课-知识点
+   */
+  knowledgeContents: KnowledgeContent[];
+  /**
+   * 纵向：认知水平汇总（为什么评）
+   * 各认知层次的题数/分值/占比
+   */
+  cognitiveSummary: CognitiveSummary[];
+  /**
+   * 题型规划
+   * 每种题型的详细分配方案
+   */
+  questionTypePlans: QuestionTypePlan[];
   /** 难度分布 */
   difficultyDistribution: DifficultyDistribution;
   /** 教师确认状态 */
   confirmed: boolean;
 };
 
-export type KnowledgeDimension = {
-  name: string;
-  weight: number; // 权重百分比
-  cognitiveLevels: CognitiveLevelAllocation[];
-};
+/** @deprecated 旧版兼容，后续移除 */
+export type KnowledgeDimension = KnowledgeContent;
 
-export type CognitiveLevelAllocation = {
-  level: CognitiveLevel;
-  score: number;
-  questionCount: number;
-};
+/** @deprecated 旧版兼容，后续移除 */
+export type CognitiveLevelAllocation = CognitiveAllocation;
 
-export type QuestionAllocation = {
-  questionType: QuestionType;
-  count: number;
-  scorePerQuestion: number;
-  totalScore: number;
-  knowledgePoints: string[];
-  difficulty: Difficulty;
-  cognitiveLevel: CognitiveLevel;
-};
+/** @deprecated 旧版兼容，后续移除 */
+export type QuestionAllocation = QuestionTypePlan;
 
 export type DifficultyDistribution = {
   easy: number;    // 容易题占比
