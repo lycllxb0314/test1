@@ -2,6 +2,7 @@
  * 试卷 Word 文档生成
  *
  * 使用 docx 库生成标准试卷 .docx 文件
+ * 数学公式使用 docx Math 组件（OMML），支持竖式分数、上下标、根号等
  *
  * @module lib/exam-docx
  */
@@ -13,6 +14,12 @@ import {
   TextRun,
   AlignmentType,
   BorderStyle,
+  Math,
+  MathRun,
+  MathFraction,
+  MathSuperScript,
+  MathSubScript,
+  MathRadical,
 } from 'docx';
 import type { ExamTask, Question, QuestionType } from '@/types/smart-homework';
 import {
@@ -20,119 +27,295 @@ import {
   EXAM_TYPE_LABELS,
 } from '@/types/smart-homework';
 
-/**
- * 将 LaTeX 标记转换为可读的纯文本
- * - $x^2$ → x²
- * - $\frac{a}{b}$ → a/b
- * - $\sqrt{x}$ → √x
- * - 剥离所有 $ 标记
- */
-function stripLatex(text: string): string {
-  if (!text) return '';
-  let result = text;
+// ==================== LaTeX → docx Math 组件转换 ====================
 
-  // 行间公式 $$...$$
-  result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
-    return convertLatexToText(formula.trim());
-  });
-
-  // 行内公式 $...$
-  result = result.replace(/\$([^\$\n]+?)\$/g, (_match, formula: string) => {
-    return convertLatexToText(formula.trim());
-  });
-
-  return result;
-}
+/** Paragraph children 的类型（TextRun | Math） */
+type ParagraphChild = InstanceType<typeof TextRun> | InstanceType<typeof Math>;
 
 /**
- * 基础 LaTeX → 纯文本转换（不依赖任何库）
+ * 将包含 LaTeX 的文本转换为 docx Paragraph children 数组
+ * - `$...$` 包裹的公式 → Math 组件（竖式分数、上下标等）
+ * - 普通文本 → TextRun
  */
-function convertLatexToText(latex: string): string {
-  let text = latex;
+function parseLatexToDocxChildren(text: string): ParagraphChild[] {
+  if (!text) return [];
 
-  // 分数 \frac{a}{b} → a/b
-  text = text.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)');
+  const children: ParagraphChild[] = [];
+  // 用正则按 $...$ 分割文本
+  const parts = text.split(/(\$[^\$]+?\$)/g);
 
-  // 平方根 \sqrt{x} → √x
-  text = text.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
+  for (const part of parts) {
+    if (!part) continue;
 
-  // n次方根 \sqrt[n]{x} → ⁿ√x
-  text = text.replace(/\\sqrt\[(\d+)\]\{([^}]*)\}/g, '$1√($2)');
+    if (part.startsWith('$') && part.endsWith('$')) {
+      // LaTeX 公式 → Math 组件
+      const formula = part.slice(1, -1);
+      const mathChildren = parseLatexFormula(formula);
+      if (mathChildren.length > 0) {
+        children.push(new Math({ children: mathChildren }));
+      }
+    } else {
+      // 普通文本 → TextRun（清理残留的 LaTeX 命令）
+      const cleanText = cleanPlainText(part);
+      if (cleanText) {
+        children.push(new TextRun({ text: cleanText, size: 24, font: 'SimSun' }));
+      }
+    }
+  }
 
-  // 上标 x^{2} → x², x^{n} → xⁿ
-  text = text.replace(/\^{([^}]*)}/g, (_m: string, exp: string) => toSuperscript(exp));
-  text = text.replace(/\^(\d)/g, (_m: string, d: string) => toSuperscript(d));
-
-  // 下标 x_{i} → xᵢ
-  text = text.replace(/_{([^}]*)}/g, (_m: string, sub: string) => toSubscript(sub));
-  text = text.replace(/_(\d)/g, (_m: string, d: string) => toSubscript(d));
-
-  // 常见数学符号
-  text = text.replace(/\\times/g, '×');
-  text = text.replace(/\\div/g, '÷');
-  text = text.replace(/\\pm/g, '±');
-  text = text.replace(/\\neq/g, '≠');
-  text = text.replace(/\\leq/g, '≤');
-  text = text.replace(/\\geq/g, '≥');
-  text = text.replace(/\\approx/g, '≈');
-  text = text.replace(/\\equiv/g, '≡');
-  text = text.replace(/\\infty/g, '∞');
-  text = text.replace(/\\angle/g, '∠');
-  text = text.replace(/\\degree/g, '°');
-  text = text.replace(/\\circ/g, '°');
-  text = text.replace(/\\perp/g, '⊥');
-  text = text.replace(/\\parallel/g, '∥');
-  text = text.replace(/\\triangle/g, '△');
-  text = text.replace(/\\pi/g, 'π');
-  text = text.replace(/\\theta/g, 'θ');
-  text = text.replace(/\\alpha/g, 'α');
-  text = text.replace(/\\beta/g, 'β');
-  text = text.replace(/\\gamma/g, 'γ');
-  text = text.replace(/\\sum/g, '∑');
-  text = text.replace(/\\prod/g, '∏');
-  text = text.replace(/\\int/g, '∫');
-  text = text.replace(/\\cdot/g, '·');
-  text = text.replace(/\\ldots/g, '…');
-  text = text.replace(/\\cdots/g, '⋯');
-
-  // \text{...} → ...
-  text = text.replace(/\\text\{([^}]*)\}/g, '$1');
-  text = text.replace(/\\mathrm\{([^}]*)\}/g, '$1');
-  text = text.replace(/\\textbf\{([^}]*)\}/g, '$1');
-
-  // \left \right 和各种括号
-  text = text.replace(/\\left[\(\|\\{]/g, '');
-  text = text.replace(/\\right[\)\|\\}]/g, '');
-
-  // 清理剩余的 LaTeX 命令（\command → 空格）
-  text = text.replace(/\\[a-zA-Z]+/g, '');
-  // 清理多余花括号
-  text = text.replace(/[{}]/g, '');
-  // 清理多余空格
-  text = text.replace(/\s+/g, ' ').trim();
-
-  return text;
+  return children;
 }
 
-/** 数字和常见字符转上标 */
-function toSuperscript(s: string): string {
+/**
+ * 解析 LaTeX 公式为 docx Math 组件子元素数组
+ * 递归处理嵌套结构（如 \frac{\sqrt{x}}{2}）
+ */
+function parseLatexFormula(latex: string): InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[] {
+  const tokens = tokenizeLatex(latex);
+  const result = parseTokens(tokens, 0);
+  return result.elements;
+}
+
+/** LaTeX token 类型 */
+type LatexToken = {
+  type: 'text' | 'command' | 'group';
+  value: string;
+  children?: LatexToken[];
+};
+
+/** 将 LaTeX 字符串 tokenize */
+function tokenizeLatex(latex: string): LatexToken[] {
+  const tokens: LatexToken[] = [];
+  let i = 0;
+
+  while (i < latex.length) {
+    if (latex[i] === '\\') {
+      // LaTeX 命令
+      let cmd = '\\';
+      i++;
+      while (i < latex.length && /[a-zA-Z]/.test(latex[i])) {
+        cmd += latex[i];
+        i++;
+      }
+      tokens.push({ type: 'command', value: cmd });
+    } else if (latex[i] === '{') {
+      // 花括号分组
+      let depth = 1;
+      let start = i + 1;
+      i++;
+      while (i < latex.length && depth > 0) {
+        if (latex[i] === '{') depth++;
+        else if (latex[i] === '}') depth--;
+        i++;
+      }
+      const inner = latex.substring(start, i - 1);
+      tokens.push({ type: 'group', value: inner, children: tokenizeLatex(inner) });
+    } else if (latex[i] === '^') {
+      tokens.push({ type: 'command', value: '^' });
+      i++;
+    } else if (latex[i] === '_') {
+      tokens.push({ type: 'command', value: '_' });
+      i++;
+    } else if (latex[i] === ' ' || latex[i] === '\t') {
+      i++; // 跳过空格
+    } else {
+      // 普通文本
+      let text = '';
+      while (i < latex.length && !'\\{}^_ '.includes(latex[i])) {
+        text += latex[i];
+        i++;
+      }
+      if (text) tokens.push({ type: 'text', value: text });
+    }
+  }
+
+  return tokens;
+}
+
+/** 递归解析 token 数组为 docx Math 元素 */
+function parseTokens(tokens: LatexToken[], startIdx: number): {
+  elements: InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[];
+  nextIdx: number;
+} {
+  const elements: InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[] = [];
+  let i = startIdx;
+
+  while (i < tokens.length) {
+    const token = tokens[i];
+
+    if (token.type === 'command') {
+      switch (token.value) {
+        case '\\frac': {
+          // \frac{num}{den}
+          const numToken = tokens[i + 1];
+          const denToken = tokens[i + 2];
+          if (numToken?.type === 'group' && denToken?.type === 'group') {
+            const numElements = parseTokens(numToken.children || tokenizeLatex(numToken.value), 0).elements;
+            const denElements = parseTokens(denToken.children || tokenizeLatex(denToken.value), 0).elements;
+            elements.push(new MathFraction({
+              numerator: numElements.length > 0 ? numElements : [new MathRun('1')],
+              denominator: denElements.length > 0 ? denElements : [new MathRun('1')],
+            }));
+            i += 3;
+          } else {
+            elements.push(new MathRun('\\frac'));
+            i++;
+          }
+          break;
+        }
+        case '\\sqrt': {
+          // \sqrt{radicand}
+          const radToken = tokens[i + 1];
+          if (radToken?.type === 'group') {
+            const radElements = parseTokens(radToken.children || tokenizeLatex(radToken.value), 0).elements;
+            elements.push(new MathRadical({
+              children: radElements.length > 0 ? radElements : [new MathRun('x')],
+            }));
+            i += 2;
+          } else {
+            elements.push(new MathRun('√'));
+            i++;
+          }
+          break;
+        }
+        case '^': {
+          // 上标：前一个元素 + 上标内容
+          const supToken = tokens[i + 1];
+          const baseElement = elements.pop() || new MathRun('x');
+          let supElements: InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[];
+
+          if (supToken?.type === 'group') {
+            supElements = parseTokens(supToken.children || tokenizeLatex(supToken.value), 0).elements;
+          } else if (supToken?.type === 'text') {
+            supElements = [new MathRun(translateSymbols(supToken.value))];
+          } else {
+            supElements = [new MathRun('n')];
+            i++;
+            break;
+          }
+
+          elements.push(new MathSuperScript({
+            children: [baseElement],
+            superScript: supElements.length > 0 ? supElements : [new MathRun('n')],
+          }));
+          i += 2;
+          break;
+        }
+        case '_': {
+          // 下标
+          const subToken = tokens[i + 1];
+          const baseElement = elements.pop() || new MathRun('x');
+          let subElements: InstanceType<typeof MathRun | typeof MathFraction | typeof MathSuperScript | typeof MathSubScript | typeof MathRadical>[];
+
+          if (subToken?.type === 'group') {
+            subElements = parseTokens(subToken.children || tokenizeLatex(subToken.value), 0).elements;
+          } else if (subToken?.type === 'text') {
+            subElements = [new MathRun(translateSymbols(subToken.value))];
+          } else {
+            subElements = [new MathRun('i')];
+            i++;
+            break;
+          }
+
+          elements.push(new MathSubScript({
+            children: [baseElement],
+            subScript: subElements.length > 0 ? subElements : [new MathRun('i')],
+          }));
+          i += 2;
+          break;
+        }
+        default: {
+          // 其他 LaTeX 命令 → Unicode 符号
+          const symbol = translateCommand(token.value);
+          if (symbol) {
+            elements.push(new MathRun(symbol));
+          }
+          i++;
+          break;
+        }
+      }
+    } else if (token.type === 'text') {
+      elements.push(new MathRun(translateSymbols(token.value)));
+      i++;
+    } else if (token.type === 'group') {
+      // 裸花括号分组，递归解析
+      const subResult = parseTokens(token.children || tokenizeLatex(token.value), 0);
+      elements.push(...subResult.elements);
+      i++;
+    } else {
+      i++;
+    }
+  }
+
+  return { elements, nextIdx: i };
+}
+
+/** LaTeX 命令 → Unicode 符号映射 */
+function translateCommand(cmd: string): string {
   const map: Record<string, string> = {
-    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-    '+': '⁺', '-': '⁻', '=': '⁼', 'n': 'ⁿ', 'i': 'ⁱ',
+    '\\times': '×',
+    '\\div': '÷',
+    '\\pm': '±',
+    '\\mp': '∓',
+    '\\neq': '≠',
+    '\\leq': '≤',
+    '\\geq': '≥',
+    '\\approx': '≈',
+    '\\equiv': '≡',
+    '\\infty': '∞',
+    '\\angle': '∠',
+    '\\degree': '°',
+    '\\circ': '°',
+    '\\perp': '⊥',
+    '\\parallel': '∥',
+    '\\triangle': '△',
+    '\\pi': 'π',
+    '\\theta': 'θ',
+    '\\alpha': 'α',
+    '\\beta': 'β',
+    '\\gamma': 'γ',
+    '\\sum': '∑',
+    '\\prod': '∏',
+    '\\int': '∫',
+    '\\cdot': '·',
+    '\\ldots': '…',
+    '\\cdots': '⋯',
+    '\\rightarrow': '→',
+    '\\leftarrow': '←',
+    '\\Rightarrow': '⇒',
+    '\\Leftarrow': '⇐',
   };
-  return s.split('').map(c => map[c] || c).join('');
+  return map[cmd] || '';
 }
 
-/** 数字转下标 */
-function toSubscript(s: string): string {
-  const map: Record<string, string> = {
-    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
-    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
-    '+': '₊', '-': '₋', '=': '₌', 'i': 'ᵢ', 'n': 'ₙ',
-  };
-  return s.split('').map(c => map[c] || c).join('');
+/** 文本中的符号转换 */
+function translateSymbols(text: string): string {
+  return text
+    .replace(/\\times/g, '×')
+    .replace(/\\div/g, '÷')
+    .replace(/\\pm/g, '±')
+    .replace(/\\pi/g, 'π')
+    .replace(/\\angle/g, '∠')
+    .replace(/\\circ/g, '°')
+    .replace(/\\cdot/g, '·')
+    .replace(/\\neq/g, '≠')
+    .replace(/\\leq/g, '≤')
+    .replace(/\\geq/g, '≥');
 }
+
+/** 清理纯文本中的残留 LaTeX 命令 */
+function cleanPlainText(text: string): string {
+  return translateSymbols(text)
+    .replace(/\\frac/g, '')
+    .replace(/\\sqrt/g, '√')
+    .replace(/\\text\{([^}]*)\}/g, '$1')
+    .replace(/\\[a-zA-Z]+/g, '')
+    .replace(/[{}]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// ==================== 试卷文档生成 ====================
 
 /**
  * 生成试卷 Word 文档
@@ -156,7 +339,7 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
         new TextRun({
           text: task.title || spec.scope || '试卷',
           bold: true,
-          size: 44, // 22pt
+          size: 44,
           font: 'SimSun',
         }),
       ],
@@ -213,7 +396,7 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
           new TextRun({
             text: `${chineseNums[si + 1] || si + 1}、${typeLabel}`,
             bold: true,
-            size: 28, // 14pt
+            size: 28,
             font: 'SimSun',
           }),
           new TextRun({
@@ -227,49 +410,32 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
 
     // 每道题
     for (const q of section.questions) {
-      const contentText = stripLatex(q.content);
+      // 题干：混合 TextRun 和 Math 组件
+      const contentChildren: ParagraphChild[] = [
+        new TextRun({ text: `${globalIdx}. `, bold: true, size: 24, font: 'SimSun' }),
+        ...parseLatexToDocxChildren(q.content),
+        new TextRun({ text: `（${q.score}分）`, size: 20, color: '555555', font: 'SimSun' }),
+      ];
 
-      // 题干
       children.push(
         new Paragraph({
           spacing: { before: 80, after: 40 },
-          children: [
-            new TextRun({
-              text: `${globalIdx}. `,
-              bold: true,
-              size: 24,
-              font: 'SimSun',
-            }),
-            new TextRun({
-              text: contentText,
-              size: 24,
-              font: 'SimSun',
-            }),
-            new TextRun({
-              text: `（${q.score}分）`,
-              size: 20,
-              color: '555555',
-              font: 'SimSun',
-            }),
-          ],
+          children: contentChildren,
         })
       );
 
       // 选择题选项
       if (section.questionType === 'choice' && q.options?.length) {
         for (const opt of q.options) {
-          const optText = stripLatex(opt.content);
+          const optChildren: ParagraphChild[] = [
+            new TextRun({ text: `${opt.label}. `, size: 24, font: 'SimSun' }),
+            ...parseLatexToDocxChildren(opt.content),
+          ];
           children.push(
             new Paragraph({
               spacing: { after: 10 },
-              indent: { left: 480 }, // 紧凑缩进
-              children: [
-                new TextRun({
-                  text: `${opt.label}. ${optText}`,
-                  size: 24,
-                  font: 'SimSun',
-                }),
-              ],
+              indent: { left: 480 },
+              children: optChildren,
             })
           );
         }
@@ -280,49 +446,38 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
         children.push(
           new Paragraph({
             spacing: { after: 40 },
-            children: [
-              new TextRun({ text: '', size: 24 }),
-            ],
+            children: [new TextRun({ text: '', size: 24 })],
           })
         );
       }
 
-      // 主观题：少量答题线（紧凑排版，避免几百页）
+      // 主观题：少量答题线
       if (['short_answer', 'calculation', 'application'].includes(section.questionType)) {
-        // 简答/计算/应用题：2条答题线
         for (let li = 0; li < 2; li++) {
           children.push(
             new Paragraph({
               spacing: { after: 0 },
-              border: {
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
-              },
+              border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } },
               children: [new TextRun({ text: ' ', size: 24 })],
             })
           );
         }
       } else if (section.questionType === 'reading') {
-        // 阅读题：3条答题线
         for (let li = 0; li < 3; li++) {
           children.push(
             new Paragraph({
               spacing: { after: 0 },
-              border: {
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
-              },
+              border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } },
               children: [new TextRun({ text: ' ', size: 24 })],
             })
           );
         }
       } else if (section.questionType === 'writing') {
-        // 写作题：4条答题线
         for (let li = 0; li < 4; li++) {
           children.push(
             new Paragraph({
               spacing: { after: 0 },
-              border: {
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
-              },
+              border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } },
               children: [new TextRun({ text: ' ', size: 24 })],
             })
           );
@@ -353,22 +508,24 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
   let ansIdx = 1;
   for (const section of sections) {
     for (const q of section.questions) {
-      const answerText = stripLatex(q.answer);
-      const explanationText = q.answerExplanation ? stripLatex(q.answerExplanation) : '';
-      let fullAnswer = `${ansIdx}. ${answerText}`;
-      if (explanationText) {
-        fullAnswer += `（${explanationText}）`;
+      const answerChildren: ParagraphChild[] = [
+        new TextRun({ text: `${ansIdx}. `, bold: true, size: 22, font: 'SimSun' }),
+        ...parseLatexToDocxChildren(q.answer),
+      ];
+      if (q.answerExplanation) {
+        answerChildren.push(
+          new TextRun({ text: '（', size: 22, font: 'SimSun', color: '666666' }),
+        );
+        answerChildren.push(...parseLatexToDocxChildren(q.answerExplanation));
+        answerChildren.push(
+          new TextRun({ text: '）', size: 22, font: 'SimSun', color: '666666' }),
+        );
       }
+
       children.push(
         new Paragraph({
           spacing: { after: 40 },
-          children: [
-            new TextRun({
-              text: fullAnswer,
-              size: 22,
-              font: 'SimSun',
-            }),
-          ],
+          children: answerChildren,
         })
       );
       ansIdx++;
@@ -390,16 +547,8 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
     sections: [{
       properties: {
         page: {
-          size: {
-            width: 11906, // A4
-            height: 16838,
-          },
-          margin: {
-            top: 1134,   // ~20mm
-            right: 1134,
-            bottom: 850,  // ~15mm
-            left: 1134,
-          },
+          size: { width: 11906, height: 16838 },
+          margin: { top: 1134, right: 1134, bottom: 850, left: 1134 },
         },
       },
       children,

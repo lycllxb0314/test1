@@ -414,8 +414,11 @@ export class ExamTaskService extends BaseService {
 
     const isMath = specification.subject === '数学' || specification.subject === 'math';
     const mathHint = isMath
-      ? `\n- 数学公式使用 LaTeX 格式：行内公式用 $...$ 包裹，如 $x^2+y^2=r^2$；行间公式用 $$...$$ 包裹，如 $$\\frac{1}{2}$$
-- 如题目涉及几何图形，在 imageUrl 字段填空字符串，并在 imageAlt 中描述图形内容（系统后续补充图片）`
+      ? `\n- 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹（行内公式）或 $$...$$ 包裹（行间公式）
+- 分数必须使用 $\\frac{分子}{分母}$ 格式，例如：$\\frac{1}{2}$、$\\frac{3}{4}$
+- 绝对禁止用 a/b 这种纯文本格式表示分数，必须用 $\\frac{a}{b}$
+- 上标用 $x^2$，下标用 $a_1$，根号用 $\\sqrt{x}$
+- 如题目涉及几何图形，在 imageUrl 字段填空字符串，并在 imageAlt 中描述图形内容`
       : '';
 
     const prompt = `你是专业的命题专家。请严格根据以下约束生成${ca.questionCount}道试题。
@@ -437,8 +440,9 @@ export class ExamTaskService extends BaseService {
 4. 选择题需提供4个选项，标明正确答案
 5. 填空题用"___"表示每个空，每题的空数必须为${ca.blanksPerQuestion || 1}个
 6. 附带答案解析
-${isMath ? `7. 数学公式必须使用 LaTeX 格式，确保公式正确渲染
-8. 几何图形题须标注 imageUrl 和 imageAlt 字段` : ''}
+${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
+8. 分数必须使用 $\\frac{分子}{分母}$ 格式，禁止用 a/b 纯文本格式
+9. 几何图形题须标注 imageUrl 和 imageAlt 字段` : ''}
 
 ## 输出格式
 请用以下JSON格式输出（不要其他内容）：
@@ -838,27 +842,48 @@ ${JSON.stringify(questionSummary, null, 2)}
    * 将 LaTeX 公式渲染为 KaTeX HTML
    * - 行内公式：$...$
    * - 行间公式：$$...$$
+   * - 先提取公式再 escapeHtml，避免转义破坏 LaTeX 语法
    */
   private renderLatexToHtml(text: string): string {
     if (!text) return '';
-    let result = this.escapeHtml(text);
 
-    // 行间公式：$$...$$
+    // 先提取所有公式段，用占位符替换，避免 escapeHtml 破坏公式
+    const formulas: string[] = [];
+    let result = text;
+
+    // 提取行间公式 $$...$$
     result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
+      const idx = formulas.length;
       try {
-        return katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false, strict: false });
+        formulas.push(katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false, strict: false }));
       } catch {
-        return `<span style="color:#d32f2f">${formula}</span>`;
+        formulas.push(`<span style="color:#d32f2f">${this.escapeHtml(formula.trim())}</span>`);
       }
+      return `%%FORMULA_${idx}%%`;
     });
 
-    // 行内公式：$...$
+    // 提取行内公式 $...$
     result = result.replace(/\$([^\$\n]+?)\$/g, (_match, formula: string) => {
+      const idx = formulas.length;
       try {
-        return katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, strict: false });
+        formulas.push(katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, strict: false }));
       } catch {
-        return `<span style="color:#d32f2f">${formula}</span>`;
+        formulas.push(`<span style="color:#d32f2f">${this.escapeHtml(formula.trim())}</span>`);
       }
+      return `%%FORMULA_${idx}%%`;
+    });
+
+    // 对非公式部分执行 HTML 转义
+    result = this.escapeHtml(result);
+
+    // 还原公式占位符（公式 HTML 不需要再转义，KaTeX 输出已是安全的 HTML）
+    result = result.replace(/%%FORMULA_(\d+)%%/g, (_match, idx: string) => {
+      return formulas[parseInt(idx)] || '';
+    });
+
+    // 处理转义后占位符可能被 escapeHtml 修改的情况（%%不会被修改，但以防万一）
+    result = result.replace(/%%FORMULA_(\d+)%%/g, (_match, idx: string) => {
+      return formulas[parseInt(idx)] || '';
     });
 
     // 换行处理
