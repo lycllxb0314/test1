@@ -80,6 +80,12 @@ const SUBJECT_KNOWLEDGE: Record<string, Record<number, string[]>> = {
   },
 };
 
+/** 题型出场顺序：客观题在前、主观题在后 */
+const TYPE_ORDER: QuestionType[] = ['choice', 'judge', 'fill', 'short_answer', 'calculation', 'application', 'reading', 'writing', 'other'];
+
+/** 认知层次难度梯度：识记→理解→运用→分析→评价→创造 */
+const LEVEL_ORDER: CognitiveLevel[] = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'];
+
 /**
  * 智慧作业服务
  */
@@ -596,13 +602,32 @@ ${subjectHint}
       }
 
       // ---- Step 5: 分配全局题号 ----
-      let questionNumber = 1;
+      // 规则：按题型分大题，同一题型内按认知层次从低到高（易→难）排列
+      // 题型出场顺序：客观题在前、主观题在后
+      const typeOrder = TYPE_ORDER;
+      const levelOrder = LEVEL_ORDER;
+      // 收集所有交叉格，标注题型，按 题型顺序×认知层次顺序 排列
+      const allCells: Array<{ kc: KnowledgeContent; ca: CognitiveAllocation; primaryType: QuestionType; typeIdx: number; levelIdx: number }> = [];
       for (const kc of knowledgeContents) {
         for (const ca of kc.cognitiveAllocations) {
-          ca.questionNumbers = [];
-          for (let i = 0; i < ca.questionCount; i++) {
-            ca.questionNumbers.push(questionNumber++);
-          }
+          const primaryType = ca.suggestedQuestionTypes[0] || 'choice' as QuestionType;
+          const typeIdx = typeOrder.indexOf(primaryType);
+          const levelIdx = levelOrder.indexOf(ca.level);
+          allCells.push({ kc, ca, primaryType, typeIdx: typeIdx >= 0 ? typeIdx : typeOrder.length, levelIdx: levelIdx >= 0 ? levelIdx : levelOrder.length });
+        }
+      }
+      // 排序：先按题型出场顺序，同题型内按认知层次（易→难）
+      allCells.sort((a, b) => {
+        if (a.typeIdx !== b.typeIdx) return a.typeIdx - b.typeIdx;
+        return a.levelIdx - b.levelIdx;
+      });
+
+      // 分配题号
+      let questionNumber = 1;
+      for (const cell of allCells) {
+        cell.ca.questionNumbers = [];
+        for (let i = 0; i < cell.ca.questionCount; i++) {
+          cell.ca.questionNumbers.push(questionNumber++);
         }
       }
 
@@ -698,18 +723,40 @@ ${subjectHint}
   /**
    * 根据细目表智能命题
    *
-   * 核心原则：按细目矩阵的**每个交叉格**遍历命题
-   * 每个交叉格 = 一个知识点 × 一个认知层次，约束了题型、题数、分值、题号
-   * 这样生成的试题与细目表一一对应
+   * 核心原则：
+   * 1. 按细目矩阵的**每个交叉格**遍历命题（保证试题与细目表一一对应）
+   * 2. **按题型分组**遍历（同一题型放在一起）
+   * 3. 同题型内**按认知层次（易→难）**排列
    */
   async generateQuestions(specification: SpecificationTable): Promise<ServiceResult<Question[]>> {
     try {
       const allQuestions: Question[] = [];
 
+      // 按题型分组、同题型内按认知层次排序遍历
+      const typeOrder = TYPE_ORDER;
+      const levelOrder = LEVEL_ORDER;
+
+      // 收集所有交叉格并排序
+      const cells: Array<{ kc: typeof specification.knowledgeContents[0]; ca: typeof specification.knowledgeContents[0]['cognitiveAllocations'][0] }> = [];
       for (const kc of specification.knowledgeContents) {
         for (const ca of kc.cognitiveAllocations) {
-          if (ca.questionCount <= 0) continue;
+          if (ca.questionCount > 0) {
+            cells.push({ kc, ca });
+          }
+        }
+      }
+      cells.sort((a, b) => {
+        const aType = a.ca.suggestedQuestionTypes[0] || 'other';
+        const bType = b.ca.suggestedQuestionTypes[0] || 'other';
+        const aTypeIdx = typeOrder.indexOf(aType);
+        const bTypeIdx = typeOrder.indexOf(bType);
+        if (aTypeIdx !== bTypeIdx) return (aTypeIdx >= 0 ? aTypeIdx : 99) - (bTypeIdx >= 0 ? bTypeIdx : 99);
+        const aLevelIdx = levelOrder.indexOf(a.ca.level);
+        const bLevelIdx = levelOrder.indexOf(b.ca.level);
+        return (aLevelIdx >= 0 ? aLevelIdx : 99) - (bLevelIdx >= 0 ? bLevelIdx : 99);
+      });
 
+      for (const { kc, ca } of cells) {
           // 该交叉格的命题任务（直接使用交叉格的整数 scorePerQuestion）
           const task = {
             knowledgePoint: kc.name,
@@ -759,13 +806,15 @@ ${subjectHint}
             allQuestions.push(...aiQuestions);
           }
         }
-      }
 
-      // 按题号排序
+      // 按题型分组+同题型内难度递增排序
       allQuestions.sort((a, b) => {
-        const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
-        const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
-        return numA - numB;
+        const aTypeIdx = TYPE_ORDER.indexOf(a.questionType);
+        const bTypeIdx = TYPE_ORDER.indexOf(b.questionType);
+        if (aTypeIdx !== bTypeIdx) return (aTypeIdx >= 0 ? aTypeIdx : 99) - (bTypeIdx >= 0 ? bTypeIdx : 99);
+        const aLevelIdx = LEVEL_ORDER.indexOf(a.cognitiveLevel);
+        const bLevelIdx = LEVEL_ORDER.indexOf(b.cognitiveLevel);
+        return (aLevelIdx >= 0 ? aLevelIdx : 99) - (bLevelIdx >= 0 ? bLevelIdx : 99);
       });
 
       return this.ok(allQuestions);
