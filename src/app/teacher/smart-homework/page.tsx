@@ -751,6 +751,9 @@ export default function SmartHomeworkPage() {
                           </div>
                           <InfoRow label="总分" value={`${inferredReqs.totalScore}分`} />
                           <InfoRow label="时长" value={`${inferredReqs.duration}分钟`} />
+                          {inferredReqs.totalQuestionCount > 0 && (
+                            <InfoRow label="题量" value={`${inferredReqs.totalQuestionCount}题`} />
+                          )}
                           {inferredReqs.reasoning && (
                             <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/10">
                               <p className="text-[10px] font-medium text-primary mb-1">因果推理</p>

@@ -297,6 +297,8 @@ export type InferredRequirements = {
   knowledgePoints: string[];
   difficultyPreference: Difficulty;
   questionTypes: QuestionType[];
+  /** 期望总题量（AI推断或用户指定） */
+  totalQuestionCount: number;
   totalScore: number;
   duration: number;
   /** AI 因果推理说明 */

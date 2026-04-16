@@ -171,12 +171,24 @@ ${subjectHint}
   "knowledgePoints": ["知识点1", "知识点2"],
   "difficultyPreference": "easy/medium/hard",
   "questionTypes": ["choice", "fill"],
+  "totalQuestionCount": 0（推断的总题量，必须根据考试类型和时长合理估算）,
   "totalScore": 100,
   "duration": 60,
   "reasoning": "你的因果推理过程",
   "suggestions": ["建议1", "建议2"]
 }
-</INFERRED>`;
+</INFERRED>
+
+## 题量推断规则
+根据考试类型和时长合理推断总题量：
+- 随堂测验(quiz)：5-10题，15-20分钟
+- 单元测试(unit_test)：15-25题，40-50分钟
+- 期中考试(midterm)：25-35题，90分钟
+- 期末考试(final)：30-40题，90分钟
+- 模拟考试(mock)：30-40题，90分钟
+- 课后作业(homework)：10-15题，30分钟
+- 课堂练习(practice)：8-15题，20-30分钟
+如果教师明确说了题量，使用教师说的数字。如果未明确，请根据考试类型推断合理的题量。`;
 
       // 构建消息历史
       const messages = [
@@ -202,6 +214,7 @@ ${subjectHint}
         knowledgePoints: [],
         difficultyPreference: 'medium',
         questionTypes: ['choice', 'fill'],
+        totalQuestionCount: 0,
         totalScore: 100,
         duration: 60,
         reasoning: '',
@@ -252,7 +265,7 @@ ${subjectHint}
       const {
         subject, grade, semester, examType,
         knowledgePoints, difficultyPreference,
-        questionTypes, totalScore, duration,
+        questionTypes, totalQuestionCount, totalScore, duration,
       } = requirements;
 
       const examTypeLabel = EXAM_TYPE_LABELS[examType] || examType;
@@ -279,6 +292,11 @@ ${subjectHint}
       };
       const cogKey = grade <= 2 ? '1-2' : grade <= 4 ? '3-4' : '5-6';
 
+      // 题量约束提示
+      const questionCountConstraint = totalQuestionCount > 0
+        ? `\n- 总题量：${totalQuestionCount}题（硬性约束：所有交叉格的questionCount之和必须等于${totalQuestionCount}）`
+        : '';
+
       const prompt = `你是教育测量学命题专家。请根据以下需求生成命题双向细目表。
 
 ## 教师需求
@@ -286,7 +304,7 @@ ${subjectHint}
 - 考试类型：${examTypeLabel}
 - 知识点：${kpList}
 - 难度：${diffLabel}，建议分布：${diffGuide[examType] || diffGuide.practice}
-- 题型：${qtLabels || '请推荐'}，总分：${totalScore}分，时长：${duration}分钟
+- 题型：${qtLabels || '请推荐'}，总分：${totalScore}分，时长：${duration}分钟${questionCountConstraint}
 - 认知侧重：${cogGuide[cogKey]}
 
 ## 硬性规则
@@ -299,7 +317,7 @@ ${subjectHint}
 7. 客观题(选择/判断/填空)每题分值低于主观题(简答/计算/应用/写作)
 8. score/questionCount/scorePerQuestion均为正整数
 9. 各知识点cognitiveAllocations的score之和=该知识点totalScore
-10. 所有知识点totalScore之和=${totalScore}
+10. 所有知识点totalScore之和=${totalScore}${totalQuestionCount > 0 ? `\n11. 所有交叉格的questionCount之和必须等于${totalQuestionCount}（题量硬约束）` : ''}
 
 ## 输出格式
 直接输出JSON，用<SPECIFICATION>和</SPECIFICATION>包裹：
@@ -598,6 +616,91 @@ ${subjectHint}
               break;
             }
             if (finalDiff !== 0) break;
+          }
+        }
+      }
+
+      // ---- Step 4.5: 题量约束修正 ----
+      // 如果教师指定了总题量，强制调整 questionCount 使其满足约束
+      if (totalQuestionCount > 0) {
+        const currentQCount = knowledgeContents.reduce(
+          (s, kc) => s + kc.cognitiveAllocations.reduce((ss, ca) => ss + ca.questionCount, 0), 0
+        );
+
+        if (currentQCount !== totalQuestionCount) {
+          console.log(`[SmartHomework] 题量修正：当前${currentQCount}题 → 目标${totalQuestionCount}题`);
+
+          if (currentQCount > 0) {
+            const ratio = totalQuestionCount / currentQCount;
+
+            // 按比例调整每个交叉格的 questionCount
+            let assigned = 0;
+            const adjustments: Array<{ ca: CognitiveAllocation; targetCount: number }> = [];
+
+            for (const kc of knowledgeContents) {
+              for (const ca of kc.cognitiveAllocations) {
+                const target = Math.round(ca.questionCount * ratio);
+                const clamped = Math.max(1, target); // 至少1题
+                adjustments.push({ ca, targetCount: clamped });
+                assigned += clamped;
+              }
+            }
+
+            // 修正尾差：从调整结果中增减，直到等于目标
+            let diff = totalQuestionCount - assigned;
+            // 按交叉格大小排序，大的优先增减
+            const sorted = [...adjustments].sort((a, b) => b.targetCount - a.targetCount);
+            let idx = 0;
+            while (diff !== 0) {
+              const adj = sorted[idx % sorted.length];
+              if (diff > 0) {
+                adj.targetCount++;
+                diff--;
+              } else if (adj.targetCount > 1) {
+                adj.targetCount--;
+                diff++;
+              } else {
+                // 跳过只有1题的交叉格
+                idx++;
+                if (idx >= sorted.length * 2) break; // 防止死循环
+                continue;
+              }
+              idx++;
+            }
+
+            // 应用调整，重新计算 score
+            for (const { ca, targetCount } of adjustments) {
+              ca.questionCount = targetCount;
+              ca.score = ca.questionCount * ca.scorePerQuestion;
+            }
+
+            // 重新修正知识点 totalScore
+            for (const kc of knowledgeContents) {
+              kc.totalScore = kc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
+            }
+
+            // 重新修正整卷总分（题量变化可能导致总分偏离）
+            const newTotal = knowledgeContents.reduce((s, kc) => s + kc.totalScore, 0);
+            if (newTotal !== totalScore && knowledgeContents.length > 0) {
+              // 差值分配到各知识点的最大非选择/非填空交叉格
+              const totalDiff = totalScore - newTotal;
+              for (let ki = knowledgeContents.length - 1; ki >= 0; ki--) {
+                const kc = knowledgeContents[ki];
+                const adjustable = kc.cognitiveAllocations.filter(
+                  a => a.suggestedQuestionTypes[0] !== 'choice' && a.suggestedQuestionTypes[0] !== 'fill'
+                );
+                const target = adjustable.length > 0 ? adjustable : kc.cognitiveAllocations;
+                if (target.length === 0) continue;
+                const maxAlloc = target.reduce((best, a) => a.score > best.score ? a : best, target[0]);
+                const newSpq = Math.max(1, Math.round((maxAlloc.score + totalDiff) / maxAlloc.questionCount));
+                maxAlloc.scorePerQuestion = newSpq;
+                maxAlloc.score = maxAlloc.questionCount * maxAlloc.scorePerQuestion;
+                kc.totalScore = kc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
+                break;
+              }
+            }
+
+            console.log(`[SmartHomework] 题量修正完成：${adjustments.reduce((s, a) => s + a.targetCount, 0)}题`);
           }
         }
       }
