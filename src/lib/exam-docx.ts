@@ -12,25 +12,127 @@ import {
   Paragraph,
   TextRun,
   AlignmentType,
-  HeadingLevel,
   BorderStyle,
-  Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  PageBreak,
-  ShadingType,
-  TableBorders,
 } from 'docx';
 import type { ExamTask, Question, QuestionType } from '@/types/smart-homework';
 import {
   QUESTION_TYPE_LABELS,
-  COGNITIVE_LEVEL_LABELS,
   EXAM_TYPE_LABELS,
 } from '@/types/smart-homework';
 
-/** 题型出场顺序 */
-const TYPE_ORDER: QuestionType[] = ['choice', 'judge', 'fill', 'short_answer', 'calculation', 'application', 'reading', 'writing', 'other'];
+/**
+ * 将 LaTeX 标记转换为可读的纯文本
+ * - $x^2$ → x²
+ * - $\frac{a}{b}$ → a/b
+ * - $\sqrt{x}$ → √x
+ * - 剥离所有 $ 标记
+ */
+function stripLatex(text: string): string {
+  if (!text) return '';
+  let result = text;
+
+  // 行间公式 $$...$$
+  result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
+    return convertLatexToText(formula.trim());
+  });
+
+  // 行内公式 $...$
+  result = result.replace(/\$([^\$\n]+?)\$/g, (_match, formula: string) => {
+    return convertLatexToText(formula.trim());
+  });
+
+  return result;
+}
+
+/**
+ * 基础 LaTeX → 纯文本转换（不依赖任何库）
+ */
+function convertLatexToText(latex: string): string {
+  let text = latex;
+
+  // 分数 \frac{a}{b} → a/b
+  text = text.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)');
+
+  // 平方根 \sqrt{x} → √x
+  text = text.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
+
+  // n次方根 \sqrt[n]{x} → ⁿ√x
+  text = text.replace(/\\sqrt\[(\d+)\]\{([^}]*)\}/g, '$1√($2)');
+
+  // 上标 x^{2} → x², x^{n} → xⁿ
+  text = text.replace(/\^{([^}]*)}/g, (_m: string, exp: string) => toSuperscript(exp));
+  text = text.replace(/\^(\d)/g, (_m: string, d: string) => toSuperscript(d));
+
+  // 下标 x_{i} → xᵢ
+  text = text.replace(/_{([^}]*)}/g, (_m: string, sub: string) => toSubscript(sub));
+  text = text.replace(/_(\d)/g, (_m: string, d: string) => toSubscript(d));
+
+  // 常见数学符号
+  text = text.replace(/\\times/g, '×');
+  text = text.replace(/\\div/g, '÷');
+  text = text.replace(/\\pm/g, '±');
+  text = text.replace(/\\neq/g, '≠');
+  text = text.replace(/\\leq/g, '≤');
+  text = text.replace(/\\geq/g, '≥');
+  text = text.replace(/\\approx/g, '≈');
+  text = text.replace(/\\equiv/g, '≡');
+  text = text.replace(/\\infty/g, '∞');
+  text = text.replace(/\\angle/g, '∠');
+  text = text.replace(/\\degree/g, '°');
+  text = text.replace(/\\circ/g, '°');
+  text = text.replace(/\\perp/g, '⊥');
+  text = text.replace(/\\parallel/g, '∥');
+  text = text.replace(/\\triangle/g, '△');
+  text = text.replace(/\\pi/g, 'π');
+  text = text.replace(/\\theta/g, 'θ');
+  text = text.replace(/\\alpha/g, 'α');
+  text = text.replace(/\\beta/g, 'β');
+  text = text.replace(/\\gamma/g, 'γ');
+  text = text.replace(/\\sum/g, '∑');
+  text = text.replace(/\\prod/g, '∏');
+  text = text.replace(/\\int/g, '∫');
+  text = text.replace(/\\cdot/g, '·');
+  text = text.replace(/\\ldots/g, '…');
+  text = text.replace(/\\cdots/g, '⋯');
+
+  // \text{...} → ...
+  text = text.replace(/\\text\{([^}]*)\}/g, '$1');
+  text = text.replace(/\\mathrm\{([^}]*)\}/g, '$1');
+  text = text.replace(/\\textbf\{([^}]*)\}/g, '$1');
+
+  // \left \right 和各种括号
+  text = text.replace(/\\left[\(\|\\{]/g, '');
+  text = text.replace(/\\right[\)\|\\}]/g, '');
+
+  // 清理剩余的 LaTeX 命令（\command → 空格）
+  text = text.replace(/\\[a-zA-Z]+/g, '');
+  // 清理多余花括号
+  text = text.replace(/[{}]/g, '');
+  // 清理多余空格
+  text = text.replace(/\s+/g, ' ').trim();
+
+  return text;
+}
+
+/** 数字和常见字符转上标 */
+function toSuperscript(s: string): string {
+  const map: Record<string, string> = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '+': '⁺', '-': '⁻', '=': '⁼', 'n': 'ⁿ', 'i': 'ⁱ',
+  };
+  return s.split('').map(c => map[c] || c).join('');
+}
+
+/** 数字转下标 */
+function toSubscript(s: string): string {
+  const map: Record<string, string> = {
+    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+    '+': '₊', '-': '₋', '=': '₌', 'i': 'ᵢ', 'n': 'ₙ',
+  };
+  return s.split('').map(c => map[c] || c).join('');
+}
 
 /**
  * 生成试卷 Word 文档
@@ -49,7 +151,7 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
+      spacing: { after: 120 },
       children: [
         new TextRun({
           text: task.title || spec.scope || '试卷',
@@ -64,11 +166,11 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 400 },
+      spacing: { after: 200 },
       children: [
         new TextRun({
           text: `考试时间：${spec.duration}分钟    满分：${spec.totalScore}分    试卷类型：${examTypeLabel}`,
-          size: 22, // 11pt
+          size: 22,
           font: 'SimSun',
         }),
       ],
@@ -78,7 +180,7 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
   // 学生信息栏
   children.push(
     new Paragraph({
-      spacing: { after: 400 },
+      spacing: { after: 200 },
       border: {
         top: { style: BorderStyle.SINGLE, size: 1, color: '000000' },
         bottom: { style: BorderStyle.SINGLE, size: 1, color: '000000' },
@@ -103,7 +205,7 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
     // 大题标题
     children.push(
       new Paragraph({
-        spacing: { before: 300, after: 200 },
+        spacing: { before: 200, after: 120 },
         border: {
           bottom: { style: BorderStyle.SINGLE, size: 1, color: '333333' },
         },
@@ -125,25 +227,27 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
 
     // 每道题
     for (const q of section.questions) {
+      const contentText = stripLatex(q.content);
+
       // 题干
       children.push(
         new Paragraph({
-          spacing: { before: 100, after: 60 },
+          spacing: { before: 80, after: 40 },
           children: [
             new TextRun({
               text: `${globalIdx}. `,
               bold: true,
-              size: 24, // 12pt
+              size: 24,
               font: 'SimSun',
             }),
             new TextRun({
-              text: q.content,
+              text: contentText,
               size: 24,
               font: 'SimSun',
             }),
             new TextRun({
               text: `（${q.score}分）`,
-              size: 20, // 10pt
+              size: 20,
               color: '555555',
               font: 'SimSun',
             }),
@@ -154,13 +258,14 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
       // 选择题选项
       if (section.questionType === 'choice' && q.options?.length) {
         for (const opt of q.options) {
+          const optText = stripLatex(opt.content);
           children.push(
             new Paragraph({
-              spacing: { after: 20 },
-              indent: { left: 720 }, // 2em
+              spacing: { after: 10 },
+              indent: { left: 480 }, // 紧凑缩进
               children: [
                 new TextRun({
-                  text: `${opt.label}. ${opt.content}`,
+                  text: `${opt.label}. ${optText}`,
                   size: 24,
                   font: 'SimSun',
                 }),
@@ -170,11 +275,11 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
         }
       }
 
-      // 填空题/主观题：留空
+      // 填空题：1行空
       if (section.questionType === 'fill') {
         children.push(
           new Paragraph({
-            spacing: { after: 100 },
+            spacing: { after: 40 },
             children: [
               new TextRun({ text: '', size: 24 }),
             ],
@@ -182,9 +287,36 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
         );
       }
 
-      if (['short_answer', 'calculation', 'application', 'reading', 'writing'].includes(section.questionType)) {
-        const lineCount = section.questionType === 'writing' ? 8 : section.questionType === 'reading' ? 6 : 3;
-        for (let li = 0; li < lineCount; li++) {
+      // 主观题：少量答题线（紧凑排版，避免几百页）
+      if (['short_answer', 'calculation', 'application'].includes(section.questionType)) {
+        // 简答/计算/应用题：2条答题线
+        for (let li = 0; li < 2; li++) {
+          children.push(
+            new Paragraph({
+              spacing: { after: 0 },
+              border: {
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+              },
+              children: [new TextRun({ text: ' ', size: 24 })],
+            })
+          );
+        }
+      } else if (section.questionType === 'reading') {
+        // 阅读题：3条答题线
+        for (let li = 0; li < 3; li++) {
+          children.push(
+            new Paragraph({
+              spacing: { after: 0 },
+              border: {
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+              },
+              children: [new TextRun({ text: ' ', size: 24 })],
+            })
+          );
+        }
+      } else if (section.questionType === 'writing') {
+        // 写作题：4条答题线
+        for (let li = 0; li < 4; li++) {
           children.push(
             new Paragraph({
               spacing: { after: 0 },
@@ -204,14 +336,14 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
   // ===== 答案部分 =====
   children.push(
     new Paragraph({
-      spacing: { before: 400 },
+      spacing: { before: 300 },
       pageBreakBefore: true,
       alignment: AlignmentType.CENTER,
       children: [
         new TextRun({
           text: '参考答案',
           bold: true,
-          size: 32, // 16pt
+          size: 32,
           font: 'SimSun',
         }),
       ],
@@ -221,16 +353,18 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
   let ansIdx = 1;
   for (const section of sections) {
     for (const q of section.questions) {
-      let answerText = `${ansIdx}. ${q.answer}`;
-      if (q.answerExplanation) {
-        answerText += `（${q.answerExplanation}）`;
+      const answerText = stripLatex(q.answer);
+      const explanationText = q.answerExplanation ? stripLatex(q.answerExplanation) : '';
+      let fullAnswer = `${ansIdx}. ${answerText}`;
+      if (explanationText) {
+        fullAnswer += `（${explanationText}）`;
       }
       children.push(
         new Paragraph({
-          spacing: { after: 60 },
+          spacing: { after: 40 },
           children: [
             new TextRun({
-              text: answerText,
+              text: fullAnswer,
               size: 22,
               font: 'SimSun',
             }),
@@ -261,10 +395,10 @@ export async function generateExamDocx(task: ExamTask): Promise<Buffer> {
             height: 16838,
           },
           margin: {
-            top: 1440,   // 25mm ~ 1440 twips
-            right: 1440,
-            bottom: 1152, // 20mm
-            left: 1440,
+            top: 1134,   // ~20mm
+            right: 1134,
+            bottom: 850,  // ~15mm
+            left: 1134,
           },
         },
       },

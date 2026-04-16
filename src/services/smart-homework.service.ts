@@ -292,10 +292,11 @@ ${subjectHint}
       };
       const cogKey = grade <= 2 ? '1-2' : grade <= 4 ? '3-4' : '5-6';
 
-      // 题量约束提示
-      const questionCountConstraint = totalQuestionCount > 0
-        ? `\n- 总题量：${totalQuestionCount}题（硬性约束：所有交叉格的questionCount之和必须等于${totalQuestionCount}）`
-        : '';
+      // 题量约束提示（即使 totalQuestionCount 为 0，后端也会自动推算并硬约束）
+      const inferredQCount = totalQuestionCount > 0
+        ? totalQuestionCount
+        : this.inferQuestionCount(examType, totalScore, duration);
+      const questionCountConstraint = `\n- 总题量：${inferredQCount}题（硬性约束：所有交叉格的questionCount之和必须等于${inferredQCount}，这是不可违反的规则）`;
 
       const prompt = `你是教育测量学命题专家。请根据以下需求生成命题双向细目表。
 
@@ -622,16 +623,21 @@ ${subjectHint}
 
       // ---- Step 4.5: 题量约束修正 ----
       // 如果教师指定了总题量，强制调整 questionCount 使其满足约束
-      if (totalQuestionCount > 0) {
+      // 若未指定，根据考试类型和时长推算合理题量
+      const targetQuestionCount = totalQuestionCount > 0
+        ? totalQuestionCount
+        : this.inferQuestionCount(examType, totalScore, duration);
+
+      if (targetQuestionCount > 0) {
         const currentQCount = knowledgeContents.reduce(
           (s, kc) => s + kc.cognitiveAllocations.reduce((ss, ca) => ss + ca.questionCount, 0), 0
         );
 
-        if (currentQCount !== totalQuestionCount) {
-          console.log(`[SmartHomework] 题量修正：当前${currentQCount}题 → 目标${totalQuestionCount}题`);
+        if (currentQCount !== targetQuestionCount) {
+          console.log(`[SmartHomework] 题量修正：当前${currentQCount}题 → 目标${targetQuestionCount}题`);
 
           if (currentQCount > 0) {
-            const ratio = totalQuestionCount / currentQCount;
+            const ratio = targetQuestionCount / currentQCount;
 
             // 按比例调整每个交叉格的 questionCount
             let assigned = 0;
@@ -647,7 +653,7 @@ ${subjectHint}
             }
 
             // 修正尾差：从调整结果中增减，直到等于目标
-            let diff = totalQuestionCount - assigned;
+            let diff = targetQuestionCount - assigned;
             // 按交叉格大小排序，大的优先增减
             const sorted = [...adjustments].sort((a, b) => b.targetCount - a.targetCount);
             let idx = 0;
@@ -1325,6 +1331,25 @@ ${subjectHint}
   private get client() {
     const { getSupabaseClient } = require('@/storage/database/supabase-client');
     return getSupabaseClient();
+  }
+
+  /**
+   * 根据考试类型和时长推算合理题量
+   */
+  private inferQuestionCount(examType: ExamType, totalScore: number, duration: number): number {
+    const guide: Record<ExamType, { base: number; perMinute: number }> = {
+      quiz: { base: 3, perMinute: 0.35 },
+      unit_test: { base: 8, perMinute: 0.35 },
+      midterm: { base: 12, perMinute: 0.2 },
+      final: { base: 12, perMinute: 0.2 },
+      mock: { base: 15, perMinute: 0.2 },
+      homework: { base: 5, perMinute: 0.33 },
+      practice: { base: 5, perMinute: 0.4 },
+    };
+    const g = guide[examType] || guide.practice;
+    const fromDuration = Math.round(g.base + duration * g.perMinute);
+    const fromScore = Math.round(totalScore / 4);
+    return Math.min(fromDuration, fromScore);
   }
 
   /** 计算难度分布 */

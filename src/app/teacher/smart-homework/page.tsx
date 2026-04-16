@@ -43,7 +43,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { FilePreviewDialogWithState } from '@/components/ui/file-preview-dialog';
 import { MathContent, MathInline } from '@/components/ui/math-content';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -175,12 +174,7 @@ export default function SmartHomeworkPage() {
 
   // 预览
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewResource, setPreviewResource] = useState<{
-    id: string;
-    title: string;
-    fileName: string;
-    fileUrl: string;
-  } | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string>('');
 
   // ==================== 对话逻辑 ====================
 
@@ -325,9 +319,7 @@ export default function SmartHomeworkPage() {
       const data = await res.json();
       if (data.success && data.data) {
         if (data.data.paperHtml) {
-          const blob = new Blob([data.data.paperHtml], { type: 'text/html' });
-          const url = URL.createObjectURL(blob);
-          setPreviewResource({ id: data.data.id, title: `${title}.html`, fileName: `${title}.html`, fileUrl: url });
+          setPreviewHtml(data.data.paperHtml);
           setPreviewOpen(true);
         }
         loadPapers();
@@ -1023,9 +1015,7 @@ export default function SmartHomeworkPage() {
                             <>
                               <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => {
                                 if (selectedTask.paperHtml) {
-                                  const blob = new Blob([selectedTask.paperHtml], { type: 'text/html' });
-                                  const url = URL.createObjectURL(blob);
-                                  setPreviewResource({ id: selectedTask.id, title: `${selectedTask.title}.html`, fileName: `${selectedTask.title}.html`, fileUrl: url });
+                                  setPreviewHtml(selectedTask.paperHtml);
                                   setPreviewOpen(true);
                                 }
                               }}>
@@ -1375,18 +1365,24 @@ export default function SmartHomeworkPage() {
           </DialogContent>
         </Dialog>
 
-        {/* 全局预览弹窗 */}
-        <FilePreviewDialogWithState
-          open={previewOpen}
-          onOpenChange={setPreviewOpen}
-          resource={previewResource ? {
-            id: previewResource.id,
-            title: previewResource.title,
-            fileName: previewResource.fileName,
-            fileUrl: previewResource.fileUrl,
-            fileSize: 0,
-          } : null}
-        />
+        {/* 试卷预览弹窗 */}
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-4 pb-2">
+              <DialogTitle>试卷预览</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 px-4 pb-4 min-h-0">
+              {previewHtml && (
+                <iframe
+                  srcDoc={previewHtml}
+                  className="w-full h-full border rounded-md"
+                  title="试卷预览"
+                  sandbox="allow-same-origin"
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
