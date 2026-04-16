@@ -13,6 +13,7 @@
 
 import { BaseService, ServiceResult } from './base.service';
 import { LLMClient, Config } from 'coze-coding-dev-sdk';
+import katex from 'katex';
 import { examTaskRepository } from '@/repositories/exam-task.repository';
 import type { ExamTaskRow } from '@/repositories/exam-task.repository';
 import type {
@@ -279,15 +280,15 @@ export class ExamTaskService extends BaseService {
     }
   }
 
-  // ==================== 5. 并行命题 ====================
+  // ==================== 5. 按题型板块并行命题 ====================
 
   /**
-   * 按细目矩阵并行命题（每个板块同时进行）
-   * 同一交叉格内的题目仍按顺序生成（保证题号连续）
-   * 不同交叉格之间并行执行（大幅提升效率）
+   * 按题型板块并行命题
+   * - 不同题型板块同时进行（如选择题板块、填空题板块同时命题）
+   * - 同一板块内的交叉格按顺序命题（保证题号连续）
    */
   private async generateAllQuestions(taskId: string, specification: SpecificationTable): Promise<Question[]> {
-    // 收集所有交叉格并排序（按题型分组、同题型内按认知层次）
+    // 收集所有交叉格
     const cells: Array<{ kc: KnowledgeContent; ca: CognitiveAllocation }> = [];
     for (const kc of specification.knowledgeContents) {
       for (const ca of kc.cognitiveAllocations) {
@@ -297,42 +298,91 @@ export class ExamTaskService extends BaseService {
       }
     }
 
-    cells.sort((a, b) => {
-      const aType = a.ca.suggestedQuestionTypes[0] || 'other';
-      const bType = b.ca.suggestedQuestionTypes[0] || 'other';
-      const aTypeIdx = TYPE_ORDER.indexOf(aType);
-      const bTypeIdx = TYPE_ORDER.indexOf(bType);
-      if (aTypeIdx !== bTypeIdx) return (aTypeIdx >= 0 ? aTypeIdx : 99) - (bTypeIdx >= 0 ? bTypeIdx : 99);
-      const aLevelIdx = LEVEL_ORDER.indexOf(a.ca.level);
-      const bLevelIdx = LEVEL_ORDER.indexOf(b.ca.level);
-      return (aLevelIdx >= 0 ? aLevelIdx : 99) - (bLevelIdx >= 0 ? bLevelIdx : 99);
+    // 按题型分组（板块）
+    const sectionMap = new Map<QuestionType, Array<{ kc: KnowledgeContent; ca: CognitiveAllocation }>>();
+    for (const cell of cells) {
+      const qt = cell.ca.suggestedQuestionTypes[0] || 'other' as QuestionType;
+      if (!sectionMap.has(qt)) sectionMap.set(qt, []);
+      sectionMap.get(qt)!.push(cell);
+    }
+
+    // 每个板块内按认知层次排序
+    for (const [, sectionCells] of sectionMap) {
+      sectionCells.sort((a, b) => {
+        const aLevelIdx = LEVEL_ORDER.indexOf(a.ca.level);
+        const bLevelIdx = LEVEL_ORDER.indexOf(b.ca.level);
+        return (aLevelIdx >= 0 ? aLevelIdx : 99) - (bLevelIdx >= 0 ? bLevelIdx : 99);
+      });
+    }
+
+    // 按题型出场顺序排序板块
+    const sections = Array.from(sectionMap.entries()).sort((a, b) => {
+      const aIdx = TYPE_ORDER.indexOf(a[0]);
+      const bIdx = TYPE_ORDER.indexOf(b[0]);
+      return (aIdx >= 0 ? aIdx : 99) - (bIdx >= 0 ? bIdx : 99);
     });
 
     const totalCells = cells.length;
+    let completedCells = 0;
 
-    // 更新所有交叉格状态为 generating
+    // 更新状态
     await examTaskRepository.updateStatus(taskId, 'generating', {
-      currentStep: `AI正在并行命题（${totalCells}个板块同时进行）...`,
+      currentStep: `AI正在按题型板块并行命题（${sections.length}个板块）...`,
       progress: 5,
     });
 
-    // 并行执行：每个交叉格同时命题
-    const results = await Promise.allSettled(
-      cells.map((cell, i) => this.generateCellWithProgress(taskId, cell.kc, cell.ca, i, totalCells, specification))
+    // 标记所有交叉格为 generating
+    const allCellProgress = (await this.getTask(taskId)).data?.cellProgress || [];
+    for (const cp of allCellProgress) {
+      await this.updateCellProgress(taskId, cp.knowledgeCode, cp.cognitiveLevel, {
+        cellStatus: 'generating',
+      });
+    }
+
+    // 每个板块并行执行，板块内串行
+    const sectionResults = await Promise.allSettled(
+      sections.map(async ([questionType, sectionCells]) => {
+        const sectionQuestions: Question[] = [];
+        for (const cell of sectionCells) {
+          try {
+            const questions = await this.generateQuestionsForCell(specification, cell.kc, cell.ca);
+            sectionQuestions.push(...questions);
+
+            // 更新交叉格状态为 done
+            completedCells++;
+            await this.updateCellProgress(taskId, cell.kc.code, cell.ca.level, {
+              cellStatus: 'done',
+              completedCount: questions.length,
+              reviewResult: 'approved',
+            });
+
+            // 更新整体进度
+            const progress = Math.round((completedCells / totalCells) * 85);
+            await examTaskRepository.updateStatus(taskId, 'generating', {
+              currentStep: `命题进行中（${questionType === 'other' ? '其他' : QT_LABELS[questionType]}板块 ${completedCells}/${totalCells}）`,
+              progress,
+            });
+          } catch (err) {
+            completedCells++;
+            console.error(`[ExamTaskService] 交叉格命题失败: ${cell.kc.name}/${cell.ca.level}`, err);
+            await this.updateCellProgress(taskId, cell.kc.code, cell.ca.level, {
+              cellStatus: 'failed',
+            });
+          }
+        }
+        return sectionQuestions;
+      })
     );
 
-    // 收集成功的题目
+    // 收集所有题目
     const allQuestions: Question[] = [];
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
+    for (const result of sectionResults) {
       if (result.status === 'fulfilled') {
         allQuestions.push(...result.value);
-      } else {
-        console.error(`[ExamTaskService] 交叉格命题失败: ${cells[i].kc.name}/${cells[i].ca.level}`, result.reason);
       }
     }
 
-    // 按题型分组+同题型内难度递增排序
+    // 最终排序：按题型分组 + 同题型内按认知层次递增
     allQuestions.sort((a, b) => {
       const aTypeIdx = TYPE_ORDER.indexOf(a.questionType);
       const bTypeIdx = TYPE_ORDER.indexOf(b.questionType);
@@ -343,50 +393,6 @@ export class ExamTaskService extends BaseService {
     });
 
     return allQuestions;
-  }
-
-  /**
-   * 为单个交叉格生成题目（含进度更新）
-   */
-  private async generateCellWithProgress(
-    taskId: string,
-    kc: KnowledgeContent,
-    ca: CognitiveAllocation,
-    cellIndex: number,
-    totalCells: number,
-    specification: SpecificationTable,
-  ): Promise<Question[]> {
-    // 更新当前交叉格状态为 generating
-    await this.updateCellProgress(taskId, kc.code, ca.level, {
-      cellStatus: 'generating',
-    });
-
-    try {
-      // AI生成题目
-      const questions = await this.generateQuestionsForCell(specification, kc, ca);
-
-      // 更新当前交叉格状态为 done
-      await this.updateCellProgress(taskId, kc.code, ca.level, {
-        cellStatus: 'done',
-        completedCount: questions.length,
-        reviewResult: 'approved',
-      });
-
-      // 更新整体进度（取所有交叉格的完成比例）
-      const progress = Math.round(((cellIndex + 1) / totalCells) * 85);
-      await examTaskRepository.updateStatus(taskId, 'generating', {
-        currentStep: `命题进行中（${cellIndex + 1}/${totalCells}）`,
-        progress,
-      });
-
-      return questions;
-    } catch (err) {
-      console.error(`[ExamTaskService] 交叉格命题失败: ${kc.name}/${ca.level}`, err);
-      await this.updateCellProgress(taskId, kc.code, ca.level, {
-        cellStatus: 'failed',
-      });
-      throw err;
-    }
   }
 
   // ==================== 6. AI命题（单交叉格） ====================
@@ -680,12 +686,12 @@ ${JSON.stringify(questionSummary, null, 2)}
 
   /**
    * 生成试卷HTML
+   * 服务端用 KaTeX 渲染数学公式为静态 HTML，确保公式正确显示
    */
   private async generatePaperHtml(specification: SpecificationTable, questions: Question[]): Promise<string> {
     const examTypeLabel = EXAM_TYPE_LABELS[specification.examType] || specification.examType;
     const totalScore = specification.totalScore;
     const duration = specification.duration;
-    const isMath = specification.subject === '数学' || specification.subject === 'math';
 
     // 按题型分组
     const sections = this.groupQuestionsByType(questions);
@@ -695,45 +701,45 @@ ${JSON.stringify(questionSummary, null, 2)}
 <head>
 <meta charset="UTF-8">
 <title>${specification.scope || '试卷'}</title>
-${isMath ? '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">' : ''}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <style>
-  @page { size: A4 portrait; margin: 25mm 25mm 20mm 25mm; }
+  @page { size: A4 portrait; margin: 20mm 20mm 15mm 20mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: "SimSun", "宋体", serif; font-size: 12pt; line-height: 1.8; color: #000; }
+  body { font-family: "SimSun", "宋体", serif; font-size: 12pt; line-height: 2; color: #000; }
   .paper { max-width: 100%; padding: 0; }
-  .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 15px; }
-  .header h1 { font-size: 22pt; font-weight: bold; margin-bottom: 8px; letter-spacing: 4px; }
-  .header .info { font-size: 11pt; display: flex; justify-content: space-between; margin-top: 8px; }
-  .header .info span { display: inline-block; min-width: 150px; }
-  .student-info { display: flex; justify-content: space-between; border: 1px solid #000; padding: 8px 12px; margin-bottom: 15px; font-size: 11pt; }
-  .student-info span { display: inline-block; border-bottom: 1px solid #000; min-width: 120px; }
-  .section { margin-bottom: 20px; }
-  .section-title { font-size: 14pt; font-weight: bold; margin-bottom: 10px; padding: 4px 0; border-bottom: 1px solid #333; }
+  .header { text-align: center; margin-bottom: 16px; border-bottom: 2px solid #000; padding-bottom: 12px; }
+  .header h1 { font-size: 20pt; font-weight: bold; margin-bottom: 6px; letter-spacing: 4px; }
+  .header .info { font-size: 11pt; display: flex; justify-content: space-between; margin-top: 6px; }
+  .header .info span { display: inline-block; min-width: 120px; }
+  .student-info { display: flex; justify-content: space-between; border: 1px solid #000; padding: 6px 12px; margin-bottom: 12px; font-size: 11pt; }
+  .student-info span { display: inline-block; border-bottom: 1px solid #000; min-width: 100px; }
+  .section { margin-bottom: 14px; }
+  .section-title { font-size: 13pt; font-weight: bold; margin-bottom: 8px; padding: 3px 0; border-bottom: 1px solid #333; }
   .section-title .score-info { font-size: 11pt; font-weight: normal; float: right; }
-  .question { margin-bottom: 16px; page-break-inside: avoid; }
-  .question-stem { font-weight: normal; margin-bottom: 6px; }
+  .question { margin-bottom: 12px; page-break-inside: avoid; }
+  .question-stem { font-weight: normal; margin-bottom: 4px; }
   .question-stem .q-num { font-weight: bold; }
   .question-stem .q-score { font-size: 10pt; color: #555; }
-  .question-image { max-width: 100%; max-height: 250px; margin: 8px 0; border: 1px solid #ddd; }
-  .options { margin-left: 2em; margin-top: 4px; }
-  .option { margin-bottom: 4px; }
-  .answer-line { border-bottom: 1px solid #ccc; min-width: 80px; display: inline-block; }
-  .blank { display: inline-block; min-width: 60px; border-bottom: 1px solid #000; margin: 0 4px; }
-  .answer-area { margin-top: 6px; border: 1px solid #ddd; min-height: 60px; padding: 4px; }
-  .answer-sheet { margin-top: 20px; page-break-before: always; }
-  .answer-sheet h2 { text-align: center; margin-bottom: 10px; }
-  .answer-content { margin-top: 10px; }
-  .answer-item { margin-bottom: 10px; }
+  .question-image { max-width: 80%; max-height: 180px; margin: 6px 0; border: 1px solid #ddd; }
+  .options { margin-left: 2em; margin-top: 2px; }
+  .option { margin-bottom: 2px; }
+  .blank { display: inline-block; min-width: 50px; border-bottom: 1px solid #000; margin: 0 4px; }
+  .answer-space { margin-top: 4px; }
+  .answer-line { border-bottom: 1px solid #ccc; min-width: 60px; display: inline-block; margin-right: 20px; }
+  .answer-sheet { margin-top: 16px; page-break-before: always; }
+  .answer-sheet h2 { text-align: center; margin-bottom: 8px; }
+  .answer-content { margin-top: 8px; }
+  .answer-item { margin-bottom: 6px; }
   .answer-item .label { font-weight: bold; }
-  .divider { border-top: 1px dashed #999; margin: 10px 0; }
-  .katex-display { margin: 8px 0; }
+  .divider { border-top: 1px dashed #999; margin: 8px 0; }
+  .katex { font-size: 1.05em; }
+  .katex-display { margin: 4px 0; }
 </style>
-${isMath ? '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>\n<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters:[{left:\'$$\',right:\'$$\',display:true},{left:\'$\',right:\'$\',display:false}]});"></script>' : ''}
 </head>
 <body>
 <div class="paper">
   <div class="header">
-    <h1>${specification.scope || '试卷'}</h1>
+    <h1>${this.escapeHtml(specification.scope || '试卷')}</h1>
     <div class="info">
       <span>考试时间：${duration}分钟</span>
       <span>满分：${totalScore}分</span>
@@ -755,38 +761,40 @@ ${isMath ? '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/k
       html += `
   <div class="section">
     <div class="section-title">
-      ${this.numberToChinese(section.order)}、${typeLabel}
+      ${this.numberToChinese(section.order)}、${this.escapeHtml(typeLabel)}
       <span class="score-info">（共${section.questions.length}题，共${sectionScore}分）</span>
     </div>`;
 
       for (const q of section.questions) {
+        const contentHtml = this.renderLatexToHtml(q.content);
+
         html += `
     <div class="question">
       <div class="question-stem">
-        <span class="q-num">${globalIdx}.</span> ${q.content}
+        <span class="q-num">${globalIdx}.</span> ${contentHtml}
         <span class="q-score">（${q.score}分）</span>
       </div>`;
 
         // 题目配图
         if (q.imageUrl) {
-          html += `<img class="question-image" src="${q.imageUrl}" alt="${q.imageAlt || '题目图片'}" />`;
+          html += `<img class="question-image" src="${this.escapeHtml(q.imageUrl)}" alt="${this.escapeHtml(q.imageAlt || '题目图片')}" />`;
         }
 
         if (section.questionType === 'choice' && q.options?.length) {
           html += `<div class="options">`;
           for (const opt of q.options) {
-            html += `<div class="option">${opt.label}. ${opt.content}</div>`;
+            html += `<div class="option">${opt.label}. ${this.renderLatexToHtml(opt.content)}</div>`;
           }
           html += `</div>`;
         }
 
         if (section.questionType === 'fill') {
-          html += `<div class="answer-area" style="min-height:30px"></div>`;
+          html += `<div class="answer-space"></div>`;
         }
 
         if (['short_answer', 'calculation', 'application', 'reading', 'writing'].includes(section.questionType)) {
-          const height = section.questionType === 'writing' ? 200 : section.questionType === 'reading' ? 150 : 80;
-          html += `<div class="answer-area" style="min-height:${height}px"></div>`;
+          const lines = section.questionType === 'writing' ? 8 : section.questionType === 'reading' ? 5 : 3;
+          html += `<div class="answer-space">${Array(lines).fill('<div class="answer-line"></div>').join('')}</div>`;
         }
 
         html += `</div>`;
@@ -806,9 +814,10 @@ ${isMath ? '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/k
     let ansIdx = 1;
     for (const section of sections) {
       for (const q of section.questions) {
-        html += `<div class="answer-item"><span class="label">${ansIdx}.</span> ${q.answer}`;
+        const answerHtml = this.renderLatexToHtml(q.answer);
+        html += `<div class="answer-item"><span class="label">${ansIdx}.</span> ${answerHtml}`;
         if (q.answerExplanation) {
-          html += `<span style="color:#666;font-size:10pt">（${q.answerExplanation}）</span>`;
+          html += `<span style="color:#666;font-size:10pt">（${this.renderLatexToHtml(q.answerExplanation)}）</span>`;
         }
         html += `</div>`;
         ansIdx++;
@@ -823,6 +832,48 @@ ${isMath ? '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/k
 </html>`;
 
     return html;
+  }
+
+  /**
+   * 将 LaTeX 公式渲染为 KaTeX HTML
+   * - 行内公式：$...$
+   * - 行间公式：$$...$$
+   */
+  private renderLatexToHtml(text: string): string {
+    if (!text) return '';
+    let result = this.escapeHtml(text);
+
+    // 行间公式：$$...$$
+    result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
+      try {
+        return katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false, strict: false });
+      } catch {
+        return `<span style="color:#d32f2f">${formula}</span>`;
+      }
+    });
+
+    // 行内公式：$...$
+    result = result.replace(/\$([^\$\n]+?)\$/g, (_match, formula: string) => {
+      try {
+        return katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, strict: false });
+      } catch {
+        return `<span style="color:#d32f2f">${formula}</span>`;
+      }
+    });
+
+    // 换行处理
+    result = result.replace(/\n/g, '<br/>');
+
+    return result;
+  }
+
+  /** HTML 转义 */
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   // ==================== 辅助方法 ====================
@@ -859,6 +910,7 @@ ${isMath ? '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/k
   /**
    * 仅重新命题审核未通过的交叉格
    * 保留已通过的题目，只替换审核未通过的
+   * 审阅时只审阅新命题的题目，已通过的不重复审阅
    */
   private async regenerateRejectedCells(taskId: string, specification: SpecificationTable): Promise<void> {
     const taskResult = await this.getTask(taskId);
@@ -894,72 +946,110 @@ ${isMath ? '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/k
       }
     }
 
-    // 并行重新命题审核未通过的交叉格
-    const regenerateResults = await Promise.allSettled(
-      rejectedCells.map(cell => {
-        const cellInfo = cellMap.get(`${cell.knowledgeCode}_${cell.cognitiveLevel}`);
-        if (!cellInfo) return Promise.reject(new Error(`找不到交叉格: ${cell.knowledgeCode}/${cell.cognitiveLevel}`));
-        return this.generateCellWithProgress(taskId, cellInfo.kc, cellInfo.ca, 0, rejectedCells.length, specification);
+    // 按题型板块分组，板块内串行，板块间并行
+    const rejectedByType = new Map<QuestionType, Array<{ cell: CellProgress; kc: KnowledgeContent; ca: CognitiveAllocation }>>();
+    for (const cell of rejectedCells) {
+      const cellInfo = cellMap.get(`${cell.knowledgeCode}_${cell.cognitiveLevel}`);
+      if (!cellInfo) continue;
+      const qt = cell.questionType || cellInfo.ca.suggestedQuestionTypes[0] || 'other' as QuestionType;
+      if (!rejectedByType.has(qt)) rejectedByType.set(qt, []);
+      rejectedByType.get(qt)!.push({ cell, ...cellInfo });
+    }
+
+    // 标记审核未通过的交叉格为 generating
+    for (const cell of rejectedCells) {
+      await this.updateCellProgress(taskId, cell.knowledgeCode, cell.cognitiveLevel, {
+        cellStatus: 'generating',
+      });
+    }
+
+    // 按题型板块并行重新命题
+    const sectionResults = await Promise.allSettled(
+      Array.from(rejectedByType.entries()).map(async ([, sectionCells]) => {
+        const sectionQuestions: Question[] = [];
+        for (const { cell, kc, ca } of sectionCells) {
+          try {
+            const questions = await this.generateQuestionsForCell(specification, kc, ca);
+            sectionQuestions.push(...questions);
+
+            // 更新交叉格状态
+            await this.updateCellProgress(taskId, cell.knowledgeCode, cell.cognitiveLevel, {
+              cellStatus: 'done',
+              completedCount: questions.length,
+              reviewResult: 'approved',
+              retryCount: cell.retryCount, // 保持重试计数不变（审阅通过后不再增加）
+            });
+          } catch (err) {
+            console.error(`[ExamTaskService] 重新命题失败: ${kc.name}/${ca.level}`, err);
+            await this.updateCellProgress(taskId, cell.knowledgeCode, cell.cognitiveLevel, {
+              cellStatus: 'failed',
+              retryCount: cell.retryCount + 1,
+            });
+          }
+        }
+        return sectionQuestions;
       })
-    );
-
-    // 获取最新的任务数据（包含已通过的题目）
-    const updatedTaskResult = await this.getTask(taskId);
-    if (!updatedTaskResult.success || !updatedTaskResult.data) return;
-    const updatedTask = updatedTaskResult.data;
-
-    // 合并题目：保留已通过的，加入新命题的
-    const approvedKnowledgeCodes = new Set(
-      updatedTask.cellProgress
-        .filter(cp => cp.reviewResult === 'approved')
-        .map(cp => cp.knowledgeCode)
-    );
-
-    // 保留审核通过的题目
-    const keptQuestions = updatedTask.questions.filter(q =>
-      approvedKnowledgeCodes.has(q.knowledgePoints[0] || '')
     );
 
     // 收集新命题的题目
     const newQuestions: Question[] = [];
-    for (let i = 0; i < regenerateResults.length; i++) {
-      const result = regenerateResults[i];
+    for (const result of sectionResults) {
       if (result.status === 'fulfilled') {
         newQuestions.push(...result.value);
       }
     }
 
+    // 获取最新的任务数据
+    const updatedTaskResult = await this.getTask(taskId);
+    if (!updatedTaskResult.success || !updatedTaskResult.data) return;
+    const updatedTask = updatedTaskResult.data;
+
+    // 只保留已通过审阅的旧题目（排除之前被rejected的）
+    const approvedKnowledgeCodes = new Set(
+      updatedTask.cellProgress
+        .filter(cp => cp.reviewResult === 'approved' && cp.cellStatus === 'done')
+        .map(cp => cp.knowledgeCode)
+    );
+
+    const keptQuestions = updatedTask.questions.filter(q =>
+      approvedKnowledgeCodes.has(q.knowledgePoints[0] || '')
+    );
+
+    // 合并：已通过的旧题 + 新命题的题
     const allQuestions = [...keptQuestions, ...newQuestions];
 
-    // 再次审阅
-    await examTaskRepository.updateStatus(taskId, 'reviewing', {
-      currentStep: 'AI正在审阅重新命题的题目...',
-      questions: allQuestions as unknown[],
-    });
+    // 只审阅新命题的题目，已通过的不重复审阅
+    if (newQuestions.length > 0) {
+      await examTaskRepository.updateStatus(taskId, 'reviewing', {
+        currentStep: 'AI正在审阅重新命题的题目...',
+        questions: allQuestions as unknown[],
+      });
 
-    const reviewResult = await this.reviewQuestions(specification, allQuestions, taskId);
+      // 只审阅新命题的题目
+      const newReviewResult = await this.reviewNewQuestions(specification, newQuestions, taskId);
 
-    if (!reviewResult.approved) {
-      // 检查是否超过最大重试次数
-      const latestTask = (await this.getTask(taskId)).data;
-      if (!latestTask) return;
+      if (!newReviewResult.approved) {
+        // 检查是否超过最大重试次数
+        const latestTask = (await this.getTask(taskId)).data;
+        if (!latestTask) return;
 
-      const hasExceeded = latestTask.cellProgress.some(cp => cp.reviewResult === 'rejected' && cp.retryCount >= MAX_REVIEW_RETRIES);
-      if (hasExceeded) {
-        await examTaskRepository.updateStatus(taskId, 'failed', {
-          currentStep: '审阅多次未通过',
-          errorMessage: '部分题目审阅多次仍未通过，请调整细目表后重试',
+        const hasExceeded = latestTask.cellProgress.some(cp => cp.reviewResult === 'rejected' && cp.retryCount >= MAX_REVIEW_RETRIES);
+        if (hasExceeded) {
+          await examTaskRepository.updateStatus(taskId, 'failed', {
+            currentStep: '审阅多次未通过',
+            errorMessage: '部分题目审阅多次仍未通过，请调整细目表后重试',
+          });
+          return;
+        }
+
+        // 继续重试仅审核未通过的
+        await examTaskRepository.updateStatus(taskId, 'revision', {
+          currentStep: '审阅发现问题，AI正在重新命题审核未通过的板块...',
+          cellProgress: newReviewResult.updatedCellProgress,
         });
+        await this.regenerateRejectedCells(taskId, specification);
         return;
       }
-
-      // 继续重试仅审核未通过的
-      await examTaskRepository.updateStatus(taskId, 'revision', {
-        currentStep: '审阅发现问题，AI正在重新命题审核未通过的板块...',
-        cellProgress: reviewResult.updatedCellProgress,
-      });
-      await this.regenerateRejectedCells(taskId, specification);
-      return;
     }
 
     // 全部通过，排版组卷
@@ -978,6 +1068,140 @@ ${isMath ? '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/k
     });
 
     console.log(`[ExamTaskService] 任务 ${taskId} 完成，共 ${allQuestions.length} 题`);
+  }
+
+  /**
+   * 只审阅新命题的题目（不审阅已通过的）
+   * 只会标记新题目对应的交叉格
+   */
+  private async reviewNewQuestions(
+    specification: SpecificationTable,
+    newQuestions: Question[],
+    taskId: string
+  ): Promise<{ approved: boolean; updatedCellProgress: CellProgress[] }> {
+    const taskResult = await this.getTask(taskId);
+    if (!taskResult.success || !taskResult.data) {
+      return { approved: true, updatedCellProgress: [] };
+    }
+    const cellProgress = [...taskResult.data.cellProgress];
+
+    // 只审阅新题目
+    const questionSummary = newQuestions.map((q, i) => ({
+      index: i + 1,
+      content: q.content.substring(0, 100),
+      knowledgePoints: q.knowledgePoints,
+      cognitiveLevel: q.cognitiveLevel,
+      questionType: q.questionType,
+      score: q.score,
+      answer: q.answer.substring(0, 50),
+    }));
+
+    const specSummary = specification.knowledgeContents.map(kc => ({
+      name: kc.name,
+      code: kc.code,
+      allocations: kc.cognitiveAllocations.map(ca => ({
+        level: ca.level,
+        questionCount: ca.questionCount,
+        score: ca.score,
+        scorePerQuestion: ca.scorePerQuestion,
+        types: ca.suggestedQuestionTypes,
+      })),
+    }));
+
+    const prompt = `你是教育测量学审题专家。请审阅以下重新命题的试题是否符合要求。
+
+## 细目表摘要
+${JSON.stringify(specSummary, null, 2)}
+
+## 重新命题的试题摘要
+${JSON.stringify(questionSummary, null, 2)}
+
+## 审阅要点
+1. 每道题的知识点是否正确
+2. 认知层次是否符合要求
+3. 分值是否正确
+4. 题型是否正确
+5. 答案是否合理
+6. 选项是否有4个（选择题）
+
+## 输出格式
+直接输出JSON：
+<REVIEW>
+{
+  "approved": true或false,
+  "issues": [
+    {"questionIndex": 1, "knowledgeCode": "1.1", "cognitiveLevel": "remember", "issue": "问题描述"}
+  ]
+}
+</REVIEW>
+
+如果所有题目都符合要求，approved为true。只有存在严重问题时才为false。`;
+
+    try {
+      const messages = [
+        { role: 'system' as const, content: '你是严谨的审题专家。只检查严重问题，轻微表述差异不算问题。已通过审阅的题目不再重复审阅。' },
+        { role: 'user' as const, content: prompt },
+      ];
+
+      const response = await this.llmClient.invoke(messages, {
+        model: 'deepseek-v3-2-251201',
+        temperature: 0.3,
+      });
+
+      const content = response.content || '';
+      const match = content.match(/<REVIEW>([\s\S]*?)<\/REVIEW>/);
+      if (!match) {
+        // 无法解析，默认通过
+        return { approved: true, updatedCellProgress: cellProgress };
+      }
+
+      const parsed = JSON.parse(match[1].trim());
+
+      if (parsed.approved) {
+        // 新题目全部通过
+        return { approved: true, updatedCellProgress: cellProgress };
+      }
+
+      // 标记有问题的交叉格（只标记新题目对应的）
+      const issues = parsed.issues || [];
+      const failedCodes = new Set<string>();
+      for (const issue of issues) {
+        if (issue.knowledgeCode) {
+          failedCodes.add(issue.knowledgeCode);
+        }
+      }
+
+      for (const cp of cellProgress) {
+        // 只修改之前被rejected后重新命题的交叉格
+        if (cp.cellStatus === 'done' && cp.reviewResult === 'approved') {
+          // 已通过的不动
+          continue;
+        }
+        if (failedCodes.has(cp.knowledgeCode)) {
+          cp.reviewResult = 'rejected';
+          cp.retryCount += 1;
+          cp.cellStatus = 'pending';
+        } else {
+          cp.reviewResult = 'approved';
+        }
+      }
+
+      // 宽松策略：问题不超过20%直接通过
+      const failRatio = issues.length / Math.max(newQuestions.length, 1);
+      if (failRatio <= 0.2) {
+        for (const cp of cellProgress) {
+          if (cp.cellStatus !== 'done' || cp.reviewResult !== 'approved') {
+            cp.reviewResult = 'approved';
+          }
+        }
+        return { approved: true, updatedCellProgress: cellProgress };
+      }
+
+      return { approved: false, updatedCellProgress: cellProgress };
+    } catch (err) {
+      console.error('[ExamTaskService] 审阅异常，默认通过:', err);
+      return { approved: true, updatedCellProgress: cellProgress };
+    }
   }
 
   /** 更新单个交叉格进度 */

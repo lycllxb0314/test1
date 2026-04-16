@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   
   // 外部包配置 - 跳过 Babel 编译以避免兼容性问题（docx ESM与Next 16 Babel常量折叠冲突）
-  serverExternalPackages: ['docx'],
+  serverExternalPackages: ['docx', 'katex'],
   
   // 编译优化
   compiler: {
