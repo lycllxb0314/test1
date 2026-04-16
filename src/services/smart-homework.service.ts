@@ -390,25 +390,140 @@ ${subjectHint}
 
       const parsed = JSON.parse(match[1].trim());
 
-      // 一致性校验
-      const knowledgeTotalScore = (parsed.knowledgeContents as KnowledgeContent[]).reduce(
-        (sum, kc) => sum + kc.totalScore, 0
+      // ==================== 后处理：一致性修正 + 分配题号 + 推导题型规划 ====================
+
+      const knowledgeContents: KnowledgeContent[] = (parsed.knowledgeContents || []).map(
+        (kc: Record<string, unknown>) => ({
+          code: (kc.code as string) || '',
+          name: (kc.name as string) || '',
+          unit: (kc.unit as string) || '',
+          lesson: (kc.lesson as string) || '',
+          weight: (kc.weight as number) || 0,
+          totalScore: (kc.totalScore as number) || 0,
+          cognitiveAllocations: ((kc.cognitiveAllocations || []) as CognitiveAllocation[]).map(
+            (ca: CognitiveAllocation) => ({
+              level: ca.level,
+              questionCount: ca.questionCount || 0,
+              score: ca.score || 0,
+              suggestedQuestionTypes: ca.suggestedQuestionTypes || [],
+              questionNumbers: [], // 稍后分配
+            })
+          ).filter((ca: CognitiveAllocation) => ca.questionCount > 0 && ca.score > 0),
+        })
       );
-      if (Math.abs(knowledgeTotalScore - totalScore) > 2) {
-        console.warn(`[SmartHomework] 细目表分值不一致: 知识点总分=${knowledgeTotalScore}, 要求总分=${totalScore}`);
+
+      // 1. 一致性修正：确保每个知识点的认知分值之和 = 知识点总分
+      for (const kc of knowledgeContents) {
+        const allocatedScore = kc.cognitiveAllocations.reduce((s, a) => s + a.score, 0);
+        if (allocatedScore !== kc.totalScore && kc.cognitiveAllocations.length > 0) {
+          // 将差值加到最后一个分配项上
+          const diff = kc.totalScore - allocatedScore;
+          kc.cognitiveAllocations[kc.cognitiveAllocations.length - 1].score += diff;
+        }
       }
+
+      // 2. 一致性修正：确保所有知识点总分之和 = 整卷总分
+      const currentTotal = knowledgeContents.reduce((s, kc) => s + kc.totalScore, 0);
+      if (currentTotal !== totalScore && knowledgeContents.length > 0) {
+        const diff = totalScore - currentTotal;
+        const totalWeight = knowledgeContents.reduce((s, kc) => s + kc.weight, 0) || 1;
+        let remaining = diff;
+        for (let i = 0; i < knowledgeContents.length; i++) {
+          const kc = knowledgeContents[i];
+          const lastAlloc = kc.cognitiveAllocations;
+          if (i === knowledgeContents.length - 1) {
+            kc.totalScore += remaining;
+            if (lastAlloc.length > 0) {
+              lastAlloc[lastAlloc.length - 1].score += remaining;
+            }
+          } else {
+            const adjust = Math.round(diff * kc.weight / totalWeight);
+            kc.totalScore += adjust;
+            remaining -= adjust;
+            if (lastAlloc.length > 0) {
+              lastAlloc[lastAlloc.length - 1].score += adjust;
+            }
+          }
+        }
+      }
+
+      // 3. 分配全局题号（按知识点顺序，每个交叉格内按认知层次排列）
+      let questionNumber = 1;
+      for (const kc of knowledgeContents) {
+        for (const ca of kc.cognitiveAllocations) {
+          ca.questionNumbers = [];
+          for (let i = 0; i < ca.questionCount; i++) {
+            ca.questionNumbers.push(questionNumber++);
+          }
+        }
+      }
+
+      // 4. 从交叉格推导认知层次汇总（不再依赖LLM输出）
+      const allLevels: CognitiveLevel[] = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'];
+      const cognitiveSummary: CognitiveSummary[] = allLevels.map(level => {
+        let totalQuestions = 0;
+        let totalScoreForLevel = 0;
+        for (const kc of knowledgeContents) {
+          for (const ca of kc.cognitiveAllocations) {
+            if (ca.level === level) {
+              totalQuestions += ca.questionCount;
+              totalScoreForLevel += ca.score;
+            }
+          }
+        }
+        return {
+          level,
+          totalQuestions,
+          totalScore: totalScoreForLevel,
+          percentage: totalScore > 0 ? Math.round(totalScoreForLevel / totalScore * 100) : 0,
+        };
+      }).filter(cs => cs.totalQuestions > 0);
+
+      // 5. 从交叉格推导题型规划（不再依赖LLM输出，保证一致性）
+      // 每个交叉格只选第一个建议题型作为主题型，保证题型规划总分=整卷总分
+      const questionTypePlanMap = new Map<QuestionType, QuestionTypePlan>();
+      for (const kc of knowledgeContents) {
+        for (const ca of kc.cognitiveAllocations) {
+          const primaryType = ca.suggestedQuestionTypes[0] || 'choice' as QuestionType;
+          if (!questionTypePlanMap.has(primaryType)) {
+            questionTypePlanMap.set(primaryType, {
+              questionType: primaryType,
+              count: 0,
+              scorePerQuestion: 0,
+              totalScore: 0,
+              knowledgePoints: [],
+              cognitiveLevels: [],
+              difficulty: difficultyPreference,
+            });
+          }
+          const plan = questionTypePlanMap.get(primaryType)!;
+          plan.count += ca.questionCount;
+          plan.totalScore += ca.score;
+          if (!plan.knowledgePoints.includes(kc.name)) {
+            plan.knowledgePoints.push(kc.name);
+          }
+          if (!plan.cognitiveLevels.includes(ca.level)) {
+            plan.cognitiveLevels.push(ca.level);
+          }
+        }
+      }
+      // 修正每题分值
+      for (const plan of questionTypePlanMap.values()) {
+        plan.scorePerQuestion = plan.count > 0 ? Math.round(plan.totalScore / plan.count * 10) / 10 : 0;
+      }
+      const questionTypePlans = Array.from(questionTypePlanMap.values());
 
       const specification: SpecificationTable = {
         subject,
         grade,
-        semester: semester || parsed.scope?.match(/(上册|下册)/)?.[1] || '上册',
+        semester: semester || parsed.scope?.match?.(/(上册|下册)/)?.[1] || '上册',
         examType,
         totalScore,
         duration,
         scope: parsed.scope || `${subject}${grade}年级${semester}`,
-        knowledgeContents: parsed.knowledgeContents || [],
-        cognitiveSummary: parsed.cognitiveSummary || [],
-        questionTypePlans: parsed.questionTypePlans || [],
+        knowledgeContents,
+        cognitiveSummary,
+        questionTypePlans,
         difficultyDistribution: parsed.difficultyDistribution || this.calculateDifficultyDistribution(examType, difficultyPreference),
         confirmed: false,
       };
@@ -425,40 +540,74 @@ ${subjectHint}
   /**
    * 根据细目表智能命题
    *
-   * 策略：
-   * 1. 从细目表的 questionTypePlans 获取题型分配
-   * 2. 先从校本题库匹配
-   * 3. 题库不足的由 AI 生成
+   * 核心原则：按细目矩阵的**每个交叉格**遍历命题
+   * 每个交叉格 = 一个知识点 × 一个认知层次，约束了题型、题数、分值、题号
+   * 这样生成的试题与细目表一一对应
    */
   async generateQuestions(specification: SpecificationTable): Promise<ServiceResult<Question[]>> {
     try {
       const allQuestions: Question[] = [];
 
-      for (const plan of specification.questionTypePlans) {
-        // 1. 先查校本题库
-        const bankResult = await questionBankRepository.findByQuery({
-          subject: specification.subject,
-          grade: specification.grade,
-          questionType: plan.questionType,
-          difficulty: plan.difficulty,
-          knowledgePoint: plan.knowledgePoints[0],
-          pageSize: plan.count,
-        });
+      for (const kc of specification.knowledgeContents) {
+        for (const ca of kc.cognitiveAllocations) {
+          if (ca.questionCount <= 0) continue;
 
-        const bankQuestions = bankResult.items.map(row => this.rowToQuestion(row));
+          // 该交叉格的命题任务
+          const task = {
+            knowledgePoint: kc.name,
+            unit: kc.unit,
+            lesson: kc.lesson,
+            cognitiveLevel: ca.level,
+            questionTypes: ca.suggestedQuestionTypes,
+            count: ca.questionCount,
+            scorePerQuestion: Math.round(ca.score / ca.questionCount * 10) / 10,
+            totalScore: ca.score,
+            questionNumbers: ca.questionNumbers,
+          };
 
-        if (bankQuestions.length >= plan.count) {
-          allQuestions.push(...bankQuestions.slice(0, plan.count));
-        } else {
-          allQuestions.push(...bankQuestions);
+          // 1. 先查校本题库
+          let bankQuestions: Question[] = [];
+          for (const qt of task.questionTypes) {
+            if (bankQuestions.length >= task.count) break;
+            const result = await questionBankRepository.findByQuery({
+              subject: specification.subject,
+              grade: specification.grade,
+              questionType: qt,
+              difficulty: specification.difficultyDistribution.hard > 0.25 ? 'hard' : 'medium',
+              knowledgePoint: task.knowledgePoint,
+              pageSize: task.count - bankQuestions.length,
+            });
+            bankQuestions.push(...result.items.map(row => this.rowToQuestion(row)));
+          }
 
-          const remaining = plan.count - bankQuestions.length;
-          const aiQuestions = await this.generateAIQuestions(
-            specification, plan, remaining
-          );
-          allQuestions.push(...aiQuestions);
+          // 将题库题目调整到交叉格要求
+          const usedBankQuestions = bankQuestions.slice(0, task.count).map((q, idx) => ({
+            ...q,
+            knowledgePoints: [task.knowledgePoint],
+            cognitiveLevel: task.cognitiveLevel,
+            score: task.scorePerQuestion,
+            tags: [task.knowledgePoint, task.unit, task.lesson].filter(Boolean),
+          }));
+
+          allQuestions.push(...usedBankQuestions);
+
+          // 2. 题库不够，AI补生成
+          const remaining = task.count - usedBankQuestions.length;
+          if (remaining > 0) {
+            const aiQuestions = await this.generateAIQuestionsForCell(
+              specification, task, remaining
+            );
+            allQuestions.push(...aiQuestions);
+          }
         }
       }
+
+      // 按题号排序
+      allQuestions.sort((a, b) => {
+        const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
+        return numA - numB;
+      });
 
       return this.ok(allQuestions);
     } catch (err) {
@@ -468,31 +617,46 @@ ${subjectHint}
   }
 
   /**
-   * AI 生成题目
+   * 为单个交叉格AI生成题目
+   *
+   * 关键：prompt 严格约束知识点和认知层次
    */
-  private async generateAIQuestions(
+  private async generateAIQuestionsForCell(
     specification: SpecificationTable,
-    plan: QuestionTypePlan,
+    task: {
+      knowledgePoint: string;
+      unit: string;
+      lesson: string;
+      cognitiveLevel: CognitiveLevel;
+      questionTypes: QuestionType[];
+      count: number;
+      scorePerQuestion: number;
+      totalScore: number;
+      questionNumbers: number[];
+    },
     count: number
   ): Promise<Question[]> {
-    const questionTypeLabel = QT_LABELS[plan.questionType];
-    const difficultyLabel = DIFF_LABELS[plan.difficulty];
-    const cognitiveLabels = plan.cognitiveLevels.map(cl => COG_LABELS[cl]).join('、');
+    const qtLabel = task.questionTypes.map(qt => QT_LABELS[qt]).join('或');
+    const cogLabel = COG_LABELS[task.cognitiveLevel];
+    const diffLabel = specification.difficultyDistribution.hard > 0.25 ? '较难' : '中等';
 
-    const prompt = `你是专业的命题专家。请根据以下要求生成${count}道${questionTypeLabel}。
+    const prompt = `你是专业的命题专家。请严格根据以下约束生成${count}道试题。
 
-## 命题要求
+## 严格约束（必须遵守）
 - 学科：${specification.subject}
 - 年级：${specification.grade}年级
-- 知识点：${plan.knowledgePoints.join('、')}
-- 难度：${difficultyLabel}
-- 认知层次：${cognitiveLabels}
-- 每题分值：${plan.scorePerQuestion}分
+- 具体知识点：${task.knowledgePoint}（${task.unit} ${task.lesson}）
+  ⚠️ 题目内容必须围绕"${task.knowledgePoint}"出题，不得偏离到其他知识点
+- 认知层次：${cogLabel}
+  ⚠️ 题目必须考查${cogLabel}层级的能力，而非更低或更高的层级
+- 题型：${qtLabel}
+- 每题分值：${task.scorePerQuestion}分
+- 难度：${diffLabel}
 
 ## 出题要求
-1. 题目必须符合${specification.grade}年级学生的认知水平
-2. 题目语言清晰、无歧义
-3. 答案必须准确、唯一（选择题）
+1. 题目必须严格围绕"${task.knowledgePoint}"，不得涉及其他知识点
+2. 题目必须符合${cogLabel}的认知要求
+3. 题目语言清晰、无歧义
 4. 选择题需提供4个选项，标明正确答案
 5. 附带答案解析
 
@@ -503,14 +667,14 @@ ${subjectHint}
   {
     "title": "题目标题（简短）",
     "content": "题目完整内容",
-    "questionType": "${plan.questionType}",
+    "questionType": "${task.questionTypes[0]}",
     "options": [{"label":"A","content":"选项内容","isCorrect":false}],
     "answer": "正确答案",
     "answerExplanation": "答案解析",
-    "score": ${plan.scorePerQuestion},
-    "knowledgePoints": ${JSON.stringify(plan.knowledgePoints)},
-    "difficulty": "${plan.difficulty}",
-    "cognitiveLevel": "${plan.cognitiveLevels[0]}"
+    "score": ${task.scorePerQuestion},
+    "knowledgePoints": ["${task.knowledgePoint}"],
+    "difficulty": "${specification.difficultyDistribution.hard > 0.25 ? 'hard' : 'medium'}",
+    "cognitiveLevel": "${task.cognitiveLevel}"
   }
 ]
 </QUESTIONS>`;
@@ -519,14 +683,14 @@ ${subjectHint}
       const messages = [
         {
           role: 'system' as const,
-          content: '你是一位严谨的教育命题专家，擅长根据教学要求编制高质量试题。',
+          content: `你是一位严谨的教育命题专家。你必须严格围绕指定知识点出题，不得偏离。每道题都必须考查指定的知识点和认知层次。`,
         },
         { role: 'user' as const, content: prompt },
       ];
 
       const response = await this.llmClient.invoke(messages, {
         model: 'doubao-seed-2-0-pro-260215',
-        temperature: 0.8,
+        temperature: 0.7,
       });
 
       const match = response.content?.match(/<QUESTIONS>([\s\S]*?)<\/QUESTIONS>/);
@@ -534,23 +698,23 @@ ${subjectHint}
 
       const parsed = JSON.parse(match[1].trim());
       const questions: Question[] = (Array.isArray(parsed) ? parsed : []).map((q: Record<string, unknown>, idx: number) => ({
-        id: `ai_${Date.now()}_${idx}`,
-        title: (q.title as string) || `第${idx + 1}题`,
+        id: `ai_${task.questionNumbers[idx] || Date.now()}_${idx}`,
+        title: (q.title as string) || `${task.knowledgePoint}第${idx + 1}题`,
         content: (q.content as string) || '',
-        questionType: plan.questionType,
+        questionType: (q.questionType as QuestionType) || task.questionTypes[0],
         subject: specification.subject,
         grade: specification.grade,
         semester: specification.semester,
-        knowledgePoints: plan.knowledgePoints,
-        difficulty: plan.difficulty,
-        difficultyScore: plan.difficulty === 'easy' ? 0.3 : plan.difficulty === 'hard' ? 0.8 : 0.5,
+        knowledgePoints: [task.knowledgePoint],
+        difficulty: (q.difficulty as Difficulty) || (specification.difficultyDistribution.hard > 0.25 ? 'hard' : 'medium'),
+        difficultyScore: specification.difficultyDistribution.hard > 0.25 ? 0.7 : 0.5,
         discriminationScore: 0.4,
-        cognitiveLevel: (q.cognitiveLevel as CognitiveLevel) || plan.cognitiveLevels[0],
+        cognitiveLevel: task.cognitiveLevel,
         options: (q.options as QuestionOption[]) || undefined,
         answer: (q.answer as string) || '',
         answerExplanation: (q.answerExplanation as string) || '',
-        score: plan.scorePerQuestion,
-        tags: plan.knowledgePoints,
+        score: task.scorePerQuestion,
+        tags: [task.knowledgePoint, task.unit, task.lesson].filter(Boolean),
         source: 'ai_generated',
         sourceInfo: {},
         createdBy: 'ai',

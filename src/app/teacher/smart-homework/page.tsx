@@ -727,7 +727,14 @@ export default function SmartHomeworkPage() {
                                     return (
                                       <td key={cl} className="px-2 py-2 text-center">
                                         <div className="inline-flex flex-col items-center gap-0.5 rounded-md bg-primary/8 px-2 py-1">
-                                          <span className="text-xs font-semibold text-primary">{alloc.questionCount}题 / {alloc.score}分</span>
+                                          {alloc.questionNumbers?.length > 0 && (
+                                            <span className="text-[10px] font-bold text-primary/80">
+                                              第{alloc.questionNumbers.length === 1
+                                                ? alloc.questionNumbers[0]
+                                                : `${alloc.questionNumbers[0]}-${alloc.questionNumbers[alloc.questionNumbers.length - 1]}`}题
+                                            </span>
+                                          )}
+                                          <span className="text-xs font-semibold text-primary">{alloc.score}分</span>
                                           {alloc.suggestedQuestionTypes?.length > 0 && (
                                             <span className="text-[9px] text-muted-foreground">
                                               {alloc.suggestedQuestionTypes.map(qt => QUESTION_TYPE_LABELS[qt]).join('、')}

@@ -156,6 +156,8 @@ export type CognitiveAllocation = {
   score: number;
   /** 该知识点在该层次建议使用的题型 */
   suggestedQuestionTypes: QuestionType[];
+  /** 全局题号列表，如 [3, 4] 表示第3题和第4题 */
+  questionNumbers: number[];
 };
 
 /** 能力层级汇总（纵向：为什么评） */
