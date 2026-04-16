@@ -273,150 +273,40 @@ ${subjectHint}
       };
       const cogKey = grade <= 2 ? '1-2' : grade <= 4 ? '3-4' : '5-6';
 
-      const prompt = `你是一位精通教育测量学的命题专家。请根据以下教师需求，生成一份规范的命题双向细目表。
+      const prompt = `你是教育测量学命题专家。请根据以下需求生成命题双向细目表。
 
 ## 教师需求
-- 学科：${subject}
-- 年级：${grade}年级
-- 学期：${semester || '请根据内容推断'}
+- 学科：${subject}，年级：${grade}年级，学期：${semester || '请推断'}
 - 考试类型：${examTypeLabel}
-- 知识点范围：${kpList}
-- 难度偏好：${diffLabel}
-- 题型要求：${qtLabels || '请根据考试类型推荐合适题型'}
-- 总分：${totalScore}分
-- 时长：${duration}分钟
+- 知识点：${kpList}
+- 难度：${diffLabel}，建议分布：${diffGuide[examType] || diffGuide.practice}
+- 题型：${qtLabels || '请推荐'}，总分：${totalScore}分，时长：${duration}分钟
+- 认知侧重：${cogGuide[cogKey]}
 
-## 教育测量学指导
-- 建议难度分布：${diffGuide[examType] || diffGuide.practice}（教师偏好${diffLabel}，可适当微调）
-- 建议认知侧重：${cogGuide[cogKey]}
-
-## 细目表规范要求（严格遵守）
-
-### 1. 知识细化（横向：评什么）
-将知识点细化为"单元→课→知识点"层级结构。例如：
-- 第六单元 → 第1课 → 平行四边形面积公式推导
-- 第六单元 → 第1课 → 平行四边形面积计算与应用
-每个知识点需标注编号(code)，如 "1.1"、"1.2"、"2.1"。
-
-### 2. 能力细化（纵向：为什么评）
-认知水平分为六个层级：识记(remember)、理解(understand)、运用(apply)、分析(analyze)、评价(evaluate)、创造(create)。
-根据年级确定侧重，不是每个知识点都要覆盖所有层级。
-
-### 3. 规划与分配细化（交叉格：怎么评）
-每个知识点×认知水平的交叉格需明确：
-- 题数(questionCount)
-- 每题分值(scorePerQuestion)：必须为正整数
-- 分值(score)：= questionCount × scorePerQuestion，必须为正整数
-- 建议题型(suggestedQuestionTypes)：从 [choice, fill, judge, short_answer, calculation, application, reading, writing] 中选择
-
-### 4. 赋分因果规则（核心约束）
-赋分必须遵循教育测量的客观因果规律，而非随意分配：
-
-**因果链1：题型轻重 → 赋分高低**
-- 客观题（选择/判断/填空）是轻型题，每题分值应较低
-- 主观题（简答/计算/应用/阅读理解/写作）是重型题，每题分值应较高
-- 轻型题分值不得高于同卷重型题，这是赋分的基本公理
-
-**因果链2：学科特性 → 赋分结构**
-- 数学：计算题和应用题是考查核心，分值占比最大；选择/填空是基础
-- 语文：阅读理解和写作是考查核心，分值占比最大；选择/填空是基础
-- 英语：阅读和写作分值较高，选择/填空是基础
-- 同一题型在不同学科的分值可以不同
-
-**因果链3：年级 → 赋分范围**
-- 低年级题型简单，每题分值偏低
-- 高年级题型复杂，每题分值可适当提高
-- 同一题型在高年级的分值可以高于低年级
-
-**因果链4：认知层次 → 题型选择 → 赋分**
-- 识记/理解 → 适合客观题 → 低分值
-- 运用/分析 → 适合计算/应用题 → 中高分值
-- 评价/创造 → 适合论述/写作题 → 高分值
-
-### 5. 同题型统一分值（硬性约束）
-- **选择题**：同一份试卷所有选择题的每题分值必须完全相同（如都是2分或都是3分）
-- **填空题**：同一份试卷所有填空题的每空分值必须完全相同（如都是1分/空或2分/空）
-  - 填空题每题可能有1-3个空，通过blanksPerQuestion标注
-  - 每题分值 = blanksPerQuestion × 每空分值
-  - 例如：每空1分，某题2个空→该题2分；另一题3个空→该题3分
-- **判断题**：同卷所有判断题每题分值统一
-- **其他题型**（简答/计算/应用/阅读/写作）：同题型每题分值尽量统一，若因难度差异需不同分值，须确保分值为整数
-
-### 6. 一致性校验（硬性约束）
-- score = questionCount × scorePerQuestion（必须为整数）
-- 每个知识点的各认知层次分值之和 = 该知识点总分(totalScore)
-- 所有知识点总分之和 = 整卷总分(${totalScore})
-- 行小计 + 列小计 = 总分
+## 硬性规则
+1. 知识细化：每个知识点标注 code/name/unit/lesson/weight/totalScore
+2. 认知层次：remember/understand/apply/analyze/evaluate/create，不需每个知识点覆盖所有层次
+3. 交叉格字段：level, questionCount, scorePerQuestion(正整数), score(=questionCount×scorePerQuestion), suggestedQuestionTypes, blanksPerQuestion
+4. 选择题：同卷所有选择题scorePerQuestion必须相同
+5. 填空题：同卷所有填空题每空分值必须相同；blanksPerQuestion=每题空数(1-3)；scorePerQuestion=blanksPerQuestion×每空分值
+6. 非填空题的blanksPerQuestion不设置或为null
+7. 客观题(选择/判断/填空)每题分值低于主观题(简答/计算/应用/写作)
+8. score/questionCount/scorePerQuestion均为正整数
+9. 各知识点cognitiveAllocations的score之和=该知识点totalScore
+10. 所有知识点totalScore之和=${totalScore}
 
 ## 输出格式
-请严格按以下JSON格式输出（不要输出其他内容）：
+直接输出JSON，用<SPECIFICATION>和</SPECIFICATION>包裹：
 <SPECIFICATION>
-{
-  "scope": "评价范围描述，如：人教版五年级上册 第六单元 多边形的面积",
-  "knowledgeContents": [
-    {
-      "code": "1.1",
-      "name": "知识点名称",
-      "unit": "所属单元",
-      "lesson": "所属课",
-      "weight": 20,
-      "totalScore": 20,
-      "cognitiveAllocations": [
-        {
-          "level": "remember",
-          "questionCount": 2,
-          "scorePerQuestion": 2,
-          "score": 4,
-          "suggestedQuestionTypes": ["choice"],
-          "blanksPerQuestion": null
-        },
-        {
-          "level": "understand",
-          "questionCount": 3,
-          "scorePerQuestion": 2,
-          "score": 6,
-          "suggestedQuestionTypes": ["fill"],
-          "blanksPerQuestion": 2
-        }
-      ]
-    }
-  ],
-  "cognitiveSummary": [
-    {
-      "level": "remember",
-      "totalQuestions": 5,
-      "totalScore": 10,
-      "percentage": 10
-    }
-  ],
-  "questionTypePlans": [
-    {
-      "questionType": "choice",
-      "count": 5,
-      "scorePerQuestion": 2,
-      "totalScore": 10,
-      "knowledgePoints": ["知识点1", "知识点2"],
-      "cognitiveLevels": ["remember", "understand"],
-      "difficulty": "medium"
-    }
-  ],
-  "difficultyDistribution": {
-    "easy": 0.4,
-    "medium": 0.4,
-    "hard": 0.2
-  }
-}
+{"scope":"评价范围","knowledgeContents":[{"code":"1.1","name":"知识点","unit":"单元","lesson":"课","weight":30,"totalScore":30,"cognitiveAllocations":[{"level":"remember","questionCount":2,"scorePerQuestion":2,"score":4,"suggestedQuestionTypes":["choice"]},{"level":"apply","questionCount":2,"scorePerQuestion":5,"score":10,"suggestedQuestionTypes":["calculation"]}]}],"difficultyDistribution":{"easy":0.4,"medium":0.4,"hard":0.2}}
 </SPECIFICATION>
 
-注意：
-- choice（选择题）的blanksPerQuestion必须为null或不设置
-- fill（填空题）的blanksPerQuestion必须为1-3的整数，表示该交叉格每道填空题有几个空
-- 同一题型在不同交叉格的scorePerQuestion必须统一（选择题/判断题/填空题的每空分值必须统一）`;
+注意：只需输出knowledgeContents和difficultyDistribution，不需要cognitiveSummary和questionTypePlans`;
 
       const messages = [
         {
           role: 'system' as const,
-          content: '你是一位严谨的教育测量学专家，精通布鲁姆认知分类理论和命题双向细目表编制。你必须确保生成的细目表数据一致、权重合理、符合课标要求。',
+          content: '你是严谨的教育测量学专家，精通布鲁姆认知分类和命题双向细目表编制。确保数据一致、权重合理。选择/填空每题分值统一，客观题分值低于主观题。所有分值必须为整数。',
         },
         { role: 'user' as const, content: prompt },
       ];
@@ -426,9 +316,51 @@ ${subjectHint}
         temperature: 0.4,
       });
 
-      const match = response.content?.match(/<SPECIFICATION>([\s\S]*?)<\/SPECIFICATION>/);
+      const content = response.content || '';
+      // 尝试匹配完整的SPECIFICATION标记
+      let match = content.match(/<SPECIFICATION>([\s\S]*?)<\/SPECIFICATION>/);
+      // 如果没有闭合标签，可能是输出被截断，尝试取从开始标签到最后的JSON
       if (!match) {
-        console.error('[SmartHomework] LLM未返回SPECIFICATION标记');
+        const startIdx = content.indexOf('<SPECIFICATION>');
+        if (startIdx !== -1) {
+          const jsonPart = content.substring(startIdx + '<SPECIFICATION>'.length);
+          // 尝试找到最后一个完整的 } 来闭合JSON
+          const lastBrace = jsonPart.lastIndexOf('}');
+          if (lastBrace > 0) {
+            const candidate = jsonPart.substring(0, lastBrace + 1);
+            try {
+              JSON.parse(candidate);
+              // 解析成功，说明截断后仍可恢复
+              match = [candidate, candidate] as RegExpMatchArray;
+              console.warn('[SmartHomework] LLM输出被截断，但成功恢复JSON');
+            } catch {
+              // 无法恢复
+            }
+          }
+        }
+      }
+      if (!match) {
+        // 最后尝试：直接查找JSON对象（以 {"scope" 开头）
+        const jsonStart = content.indexOf('{');
+        if (jsonStart !== -1) {
+          const jsonPart = content.substring(jsonStart);
+          const lastBrace = jsonPart.lastIndexOf('}');
+          if (lastBrace > 0) {
+            const candidate = jsonPart.substring(0, lastBrace + 1);
+            try {
+              const test = JSON.parse(candidate);
+              if (test.knowledgeContents) {
+                match = [candidate, candidate] as RegExpMatchArray;
+                console.warn('[SmartHomework] 通过直接JSON匹配恢复输出');
+              }
+            } catch {
+              // 无法恢复
+            }
+          }
+        }
+      }
+      if (!match) {
+        console.error('[SmartHomework] LLM未返回SPECIFICATION标记，原始输出前500字:', content.substring(0, 500));
         return this.fail('生成细目表失败：AI输出格式异常', 'SPECIFICATION_ERROR');
       }
 
