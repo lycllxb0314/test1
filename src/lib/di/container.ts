@@ -183,6 +183,9 @@ export const SERVICE_IDENTIFIERS = {
   WorkloadRepository: Symbol.for('WorkloadRepository'),
   SchoolStatsRepository: Symbol.for('SchoolStatsRepository'),
   StudentHonorRepository: Symbol.for('StudentHonorRepository'),
+  // P4 智慧作业 Repositories
+  QuestionBankRepository: Symbol.for('QuestionBankRepository'),
+  ExamPaperRepository: Symbol.for('ExamPaperRepository'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -251,6 +254,8 @@ export const SERVICE_IDENTIFIERS = {
   WorkloadService: Symbol.for('WorkloadService'),
   SchoolStatsService: Symbol.for('SchoolStatsService'),
   StudentHonorService: Symbol.for('StudentHonorService'),
+  // P4 智慧作业 Services
+  SmartHomeworkService: Symbol.for('SmartHomeworkService'),
 } as const;
 
 /**
