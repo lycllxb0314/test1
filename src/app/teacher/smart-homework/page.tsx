@@ -182,8 +182,8 @@ export default function SmartHomeworkPage() {
           message: userMsg.content,
           history: chatMessages,
           currentRequirements: inferredReqs,
-          subject: inferredReqs?.subject || '语文',
-          grade: inferredReqs?.grade || 4,
+          subject: inferredReqs?.subject || '',
+          grade: inferredReqs?.grade || 0,
         }),
       });
       const data = await res.json();
@@ -274,6 +274,7 @@ export default function SmartHomeworkPage() {
     setSaving(true);
     try {
       const reqs = inferredReqs || { subject: '语文', grade: 4, semester: '上册' };
+      if (!reqs.subject || !reqs.grade) return;
       const paperQuestions: PaperQuestion[] = basket.map((item, idx) => ({
         questionId: item.questionId,
         order: idx + 1,
@@ -565,7 +566,7 @@ export default function SmartHomeworkPage() {
                             <Send className="w-4 h-4" />
                           </Button>
                         </div>
-                        {inferredReqs && inferredReqs.knowledgePoints.length > 0 && (
+                        {inferredReqs && inferredReqs.knowledgePoints.length > 0 && inferredReqs.subject ? (
                           <div className="mt-3 flex items-center justify-between">
                             <p className="text-xs text-muted-foreground">AI已理解你的需求，可以生成细目表了</p>
                             <Button size="sm" onClick={generateSpecification} disabled={specLoading}>
@@ -573,7 +574,7 @@ export default function SmartHomeworkPage() {
                               生成细目表
                             </Button>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </CardContent>
                   </Card>
@@ -591,10 +592,10 @@ export default function SmartHomeworkPage() {
                     <CardContent className="space-y-3">
                       {inferredReqs ? (
                         <>
-                          <InfoRow label="考试类型" value={<Badge variant="secondary" className="text-[10px]">{EXAM_TYPE_LABELS[inferredReqs.examType]}</Badge>} />
-                          <InfoRow label="学科" value={inferredReqs.subject} />
-                          <InfoRow label="年级" value={`${inferredReqs.grade}年级`} />
-                          <InfoRow label="难度" value={<Badge variant="outline" className="text-[10px]">{DIFFICULTY_LABELS[inferredReqs.difficultyPreference]}</Badge>} />
+                          <InfoRow label="考试类型" value={inferredReqs.examType ? <Badge variant="secondary" className="text-[10px]">{EXAM_TYPE_LABELS[inferredReqs.examType]}</Badge> : <span className="text-xs text-muted-foreground">待确认</span>} />
+                          <InfoRow label="学科" value={inferredReqs.subject || '待确认'} />
+                          <InfoRow label="年级" value={inferredReqs.grade ? `${inferredReqs.grade}年级` : '待确认'} />
+                          <InfoRow label="难度" value={inferredReqs.difficultyPreference ? <Badge variant="outline" className="text-[10px]">{DIFFICULTY_LABELS[inferredReqs.difficultyPreference]}</Badge> : <span className="text-xs text-muted-foreground">待确认</span>} />
                           <div>
                             <p className="text-[10px] text-muted-foreground mb-1">知识点</p>
                             <div className="flex flex-wrap gap-1">

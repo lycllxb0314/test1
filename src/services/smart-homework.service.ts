@@ -109,8 +109,12 @@ export class SmartHomeworkService extends BaseService {
     try {
       const { message, history, currentRequirements, subject, grade } = request;
 
-      // 获取该学科年级的知识点列表
-      const knowledgeBase = SUBJECT_KNOWLEDGE[subject]?.[grade] || [];
+      // 根据当前是否已确认学科，决定知识点提示
+      const hasSubject = !!subject;
+      const knowledgeBase = hasSubject ? (SUBJECT_KNOWLEDGE[subject]?.[grade] || []) : [];
+      const subjectHint = hasSubject
+        ? `当前已确认：\n- 学科：${subject}\n- 年级：${grade}年级\n- 可用知识点：${knowledgeBase.join('、')}`
+        : `尚未确认学科和年级，请从教师的描述中推断学科和年级。\n可用学科：语文、数学、英语\n可用年级：1-6年级`;
 
       const systemPrompt = `你是「智慧命题助手」，一位精通教育测量学和命题理论的专家。
 
@@ -120,40 +124,40 @@ export class SmartHomeworkService extends BaseService {
 
 你在对话中必须运用以下因果推理链：
 
-1. **需求→知识点推断**：教师说"考第三单元"，你要推断该单元涉及哪些知识点
-2. **考试类型→难度分布推断**：
+1. **需求→学科年级推断**：从教师的描述中推断学科和年级。例如提到"平行四边形面积"→数学、五年级；提到"古诗文鉴赏"→语文、5-6年级。如果教师没有明确说明学科和年级，必须主动询问或从内容推断。
+2. **需求→知识点推断**：教师说"考第三单元"，你要推断该单元涉及哪些知识点
+3. **考试类型→难度分布推断**：
    - 随堂测验：容易60% 中等30% 较难10%
    - 单元测试：容易40% 中等40% 较难20%
    - 期中/期末：容易30% 中等50% 较难20%
    - 模拟考试：容易20% 中等50% 较难30%
-3. **年级→认知层次推断**：
+4. **年级→认知层次推断**：
    - 低年级(1-2)侧重：识记、理解
    - 中年级(3-4)侧重：理解、应用
    - 高年级(5-6)侧重：应用、分析
-4. **题型→考查能力推断**：
+5. **题型→考查能力推断**：
    - 选择题：适合考查识记、理解
    - 填空题：适合考查识记、理解、应用
    - 计算题/应用题：适合考查应用、分析
    - 简答题/写作题：适合考查分析、评价、创造
 
 ## 当前上下文
-- 学科：${subject}
-- 年级：${grade}年级
-- 可用知识点：${knowledgeBase.join('、')}
+${subjectHint}
 
 ## 对话规则
 1. 首次对话：友好问候，引导教师描述命题需求
 2. 后续对话：基于教师输入，运用因果推理丰富需求，主动提出建议
-3. 识别矛盾：如果教师要求与教育测量学原则冲突，温和提醒
-4. 确认时机：当你认为需求已足够明确时，总结需求并询问教师是否确认
-5. 说话简明专业，避免冗长
+3. 学科推断：从教师描述的内容推断学科，不要假设是某个特定学科。如果教师描述的是数学内容（如面积、计算、方程等），应将学科推断为数学；如果是语文内容（如阅读、写作、古诗文等），推断为语文
+4. 识别矛盾：如果教师要求与教育测量学原则冲突，温和提醒
+5. 确认时机：当你认为需求已足够明确时，总结需求并询问教师是否确认
+6. 说话简明专业，避免冗长
 
 ## 输出格式
 在回复末尾，用以下JSON标记包裹你推断的需求（不要在正文中提及这个标记）：
 <INFERRED>
 {
-  "subject": "${subject}",
-  "grade": ${grade},
+  "subject": "语文/数学/英语（从对话中推断）",
+  "grade": 0（从对话中推断，1-6）,
   "semester": "上册或下册",
   "examType": "quiz/unit_test/midterm/final/mock/homework/practice",
   "knowledgePoints": ["知识点1", "知识点2"],
@@ -183,8 +187,8 @@ export class SmartHomeworkService extends BaseService {
       // 解析推断的需求
       const inferredMatch = replyText.match(/<INFERRED>([\s\S]*?)<\/INFERRED>/);
       let inferredReqs: InferredRequirements = currentRequirements || {
-        subject,
-        grade,
+        subject: subject || '',
+        grade: grade || 0,
         semester: '上册',
         examType: 'unit_test',
         knowledgePoints: [],
