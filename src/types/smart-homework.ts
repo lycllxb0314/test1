@@ -424,3 +424,116 @@ export type QuestionBankQuery = {
   page?: number;
   pageSize?: number;
 };
+
+
+/**
+ * 命题任务状态（AI全自动执行）
+ *
+ * 流转：pending → generating → reviewing → formatting → completed
+ *                ↓              ↓
+ *            failed        revision → generating（审阅不通过时AI自动重新命题）
+ */
+export type ExamTaskStatus =
+  | 'pending'      // 已创建，等待启动
+  | 'generating'   // AI正在按交叉格逐个命题
+  | 'reviewing'    // AI正在审阅题目质量
+  | 'revision'     // 审阅发现问题，AI重新命题
+  | 'formatting'   // AI正在排版组卷
+  | 'completed'    // 全部完成，可预览/下载
+  | 'failed';      // 执行失败
+
+/**
+ * 单个交叉格的命题进度
+ */
+export type CellProgress = {
+  /** 知识点编码 */
+  knowledgeCode: string;
+  /** 知识点名称 */
+  knowledgeName: string;
+  /** 认知层次 */
+  cognitiveLevel: CognitiveLevel;
+  /** 题型 */
+  questionType: QuestionType;
+  /** 要求题数 */
+  requiredCount: number;
+  /** 已完成题数 */
+  completedCount: number;
+  /** 状态：pending/generating/done/failed */
+  cellStatus: 'pending' | 'generating' | 'done' | 'failed';
+  /** 审阅结果：pending/approved/rejected */
+  reviewResult: 'pending' | 'approved' | 'rejected';
+  /** 审阅意见 */
+  reviewComment?: string;
+  /** 重试次数 */
+  retryCount: number;
+};
+
+/**
+ * 命题任务（AI全自动执行）
+ *
+ * 教师确认细目表后一键启动，AI自动完成：
+ * 1. 按交叉格逐一命题（分配→出题）
+ * 2. 自动审阅（检查知识点/认知层次/分值一致性）
+ * 3. 审阅不通过自动重新命题
+ * 4. 全部通过后自动排版组卷
+ */
+export type ExamTask = {
+  id: string;
+  /** 任务标题 */
+  title: string;
+  /** 学科 */
+  subject: string;
+  /** 年级 */
+  grade: number;
+  /** 学期 */
+  semester: string;
+  /** 考试类型 */
+  examType: ExamType;
+  /** 总分 */
+  totalScore: number;
+  /** 时长(分钟) */
+  duration: number;
+  /** 命题双向细目表 */
+  specification: SpecificationTable;
+  /** 任务状态 */
+  status: ExamTaskStatus;
+  /** 创建者ID */
+  creatorId: string;
+  /** 创建者姓名 */
+  creatorName: string;
+  /** 各交叉格命题进度 */
+  cellProgress: CellProgress[];
+  /** 最终生成的所有题目 */
+  questions: Question[];
+  /** 最终试卷HTML */
+  paperHtml?: string;
+  /** 最终Word文件URL */
+  paperDocxUrl?: string;
+  /** 最终组卷ID */
+  finalPaperId?: string;
+  /** 进度百分比(0-100) */
+  progress: number;
+  /** 当前步骤描述 */
+  currentStep?: string;
+  /** 错误信息 */
+  errorMessage?: string;
+  /** 备注 */
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * 创建命题任务请求
+ */
+export type CreateExamTaskRequest = {
+  title: string;
+  subject: string;
+  grade: number;
+  semester: string;
+  examType: ExamType;
+  totalScore: number;
+  duration: number;
+  specification: SpecificationTable;
+  notes?: string;
+};

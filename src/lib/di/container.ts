@@ -186,6 +186,7 @@ export const SERVICE_IDENTIFIERS = {
   // P4 智慧作业 Repositories
   QuestionBankRepository: Symbol.for('QuestionBankRepository'),
   ExamPaperRepository: Symbol.for('ExamPaperRepository'),
+  ExamTaskRepository: Symbol.for('ExamTaskRepository'),
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -256,6 +257,7 @@ export const SERVICE_IDENTIFIERS = {
   StudentHonorService: Symbol.for('StudentHonorService'),
   // P4 智慧作业 Services
   SmartHomeworkService: Symbol.for('SmartHomeworkService'),
+  ExamTaskService: Symbol.for('ExamTaskService'),
 } as const;
 
 /**

@@ -110,6 +110,7 @@ import {
 // P4 智慧作业 Repositories
 import { QuestionBankRepository, questionBankRepository } from '@/repositories/question-bank.repository';
 import { ExamPaperRepository, examPaperRepository } from '@/repositories/exam-paper.repository';
+import { ExamTaskRepository, examTaskRepository } from '@/repositories/exam-task.repository';
 
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
@@ -201,6 +202,7 @@ import {
 } from '@/services/misc.service';
 // P4 智慧作业 Service
 import { SmartHomeworkService, createSmartHomeworkService } from '@/services/smart-homework.service';
+import { ExamTaskService, createExamTaskService } from '@/services/exam-task.service';
 
 /**
  * 初始化 DI 容器
@@ -283,6 +285,7 @@ export function initializeDI(): void {
   // P4 智慧作业 Repositories
   container.registerSingleton(SERVICE_IDENTIFIERS.QuestionBankRepository, () => questionBankRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.ExamPaperRepository, () => examPaperRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ExamTaskRepository, () => examTaskRepository);
 
   // ========================================
   // 注册 Services（单例）
@@ -356,6 +359,7 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.StudentHonorService, () => studentHonorService);
   // P4 智慧作业 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.SmartHomeworkService, () => createSmartHomeworkService());
+  container.registerSingleton(SERVICE_IDENTIFIERS.ExamTaskService, () => createExamTaskService());
 }
 
 // 导出

@@ -2,8 +2,9 @@
  * 智慧作业/练习 主页面
  *
  * 页面结构：
- * - 顶级 Tab：AI智能出题 | 校本题库
+ * - 顶级 Tab：AI智能出题 | 一键出卷 | 校本题库
  * - AI智能出题：对话→细目表→命题→组卷（步骤流，无需页面选择年级）
+ * - 一键出卷：确认细目表→启动AI全自动工作流→查看进度→下载Word
  * - 校本题库：筛选+浏览+导入+加入试题篮
  * - 共享：试题篮（右侧固定抽屉）+ 组卷排版
  */
@@ -18,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -65,6 +67,12 @@ import {
   User,
   Check,
   PenLine,
+  Play,
+  Download,
+  RefreshCw,
+  Clock,
+  AlertTriangle,
+  Zap,
 } from 'lucide-react';
 import type {
   Question,
@@ -79,6 +87,9 @@ import type {
   BasketItem,
   ExamPaper,
   ImportQuestionRequest,
+  ExamTask,
+  ExamTaskStatus,
+  CellProgress,
 } from '@/types/smart-homework';
 import {
   QUESTION_TYPE_LABELS,
@@ -97,7 +108,7 @@ export default function SmartHomeworkPage() {
   const { user } = useAuth();
 
   // 顶级 Tab
-  const [topTab, setTopTab] = useState<'ai' | 'bank'>('ai');
+  const [topTab, setTopTab] = useState<'ai' | 'workflow' | 'bank'>('ai');
 
   // AI出题 - 步骤流
   const [aiStep, setAiStep] = useState<'chat' | 'spec' | 'generate'>('chat');
@@ -116,6 +127,12 @@ export default function SmartHomeworkPage() {
   // AI出题 - 命题
   const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
   const [genLoading, setGenLoading] = useState(false);
+
+  // 一键出卷 - 工作流
+  const [examTasks, setExamTasks] = useState<ExamTask[]>([]);
+  const [examTasksLoading, setExamTasksLoading] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<ExamTask | null>(null);
+  const [taskPolling, setTaskPolling] = useState<string | null>(null);
 
   // 校本题库
   const [bankSubject, setBankSubject] = useState('语文');
@@ -369,8 +386,109 @@ export default function SmartHomeworkPage() {
     } catch { /* ignore */ }
   }, [user]);
 
+  // ==================== 一键出卷工作流 ====================
+
+  const loadExamTasks = useCallback(async () => {
+    if (!user) return;
+    setExamTasksLoading(true);
+    try {
+      const res = await fetch('/api/exam-tasks');
+      const data = await res.json();
+      if (data.success && data.data) setExamTasks(data.data.items);
+    } catch (err) {
+      console.error('加载任务列表失败:', err);
+    } finally {
+      setExamTasksLoading(false);
+    }
+  }, [user]);
+
+  const startOneClickWorkflow = useCallback(async () => {
+    if (!specification || !user) return;
+    setSpecLoading(true);
+    try {
+      const title = `${specification.subject}${specification.grade}年级${specification.semester}${EXAM_TYPE_LABELS[specification.examType]}`;
+      const res = await fetch('/api/exam-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          specification,
+          subject: specification.subject,
+          grade: specification.grade,
+          semester: specification.semester,
+          examType: specification.examType,
+          totalScore: specification.totalScore,
+          duration: specification.duration,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setTopTab('workflow');
+        setSelectedTask(data.data);
+        setTaskPolling(data.data.id);
+        loadExamTasks();
+      }
+    } catch (err) {
+      console.error('启动工作流失败:', err);
+    } finally {
+      setSpecLoading(false);
+    }
+  }, [specification, user, loadExamTasks]);
+
+  const pollTask = useCallback(async (taskId: string) => {
+    try {
+      const res = await fetch(`/api/exam-tasks/${taskId}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setSelectedTask(data.data);
+        setExamTasks(prev => prev.map(t => t.id === taskId ? data.data : t));
+        // 如果任务完成或失败，停止轮询
+        if (data.data.status === 'completed' || data.data.status === 'failed') {
+          setTaskPolling(null);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const downloadDocx = useCallback(async (taskId: string, title: string) => {
+    try {
+      const res = await fetch(`/api/exam-tasks/${taskId}/docx`);
+      if (!res.ok) throw new Error('下载失败');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${title || '试卷'}.docx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('下载Word失败:', err);
+    }
+  }, []);
+
+  const retryTask = useCallback(async (taskId: string) => {
+    try {
+      const res = await fetch(`/api/exam-tasks/${taskId}`, { method: 'PATCH' });
+      const data = await res.json();
+      if (data.success) {
+        setTaskPolling(taskId);
+        pollTask(taskId);
+      }
+    } catch (err) {
+      console.error('重试失败:', err);
+    }
+  }, [pollTask]);
+
+  // 轮询进行中的任务
+  useEffect(() => {
+    if (!taskPolling) return;
+    const interval = setInterval(() => pollTask(taskPolling), 3000);
+    return () => clearInterval(interval);
+  }, [taskPolling, pollTask]);
+
   useEffect(() => { loadPapers(); }, [loadPapers]);
   useEffect(() => { if (topTab === 'bank') loadBankQuestions(); }, [topTab, loadBankQuestions]);
+  useEffect(() => { if (topTab === 'workflow') loadExamTasks(); }, [topTab, loadExamTasks]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
 
   // ==================== 渲染 ====================
@@ -465,6 +583,9 @@ export default function SmartHomeworkPage() {
           <TabsList className="mb-6">
             <TabsTrigger value="ai" className="gap-2">
               <Sparkles className="w-4 h-4" /> AI智能出题
+            </TabsTrigger>
+            <TabsTrigger value="workflow" className="gap-2">
+              <Zap className="w-4 h-4" /> 一键出卷
             </TabsTrigger>
             <TabsTrigger value="bank" className="gap-2">
               <Library className="w-4 h-4" /> 校本题库
@@ -642,7 +763,11 @@ export default function SmartHomeworkPage() {
                     <Button variant="outline" size="sm" onClick={() => setAiStep('chat')}>返回修改</Button>
                     <Button size="sm" onClick={generateQuestions} disabled={genLoading}>
                       {genLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1.5" />}
-                      确认并命题
+                      手动命题
+                    </Button>
+                    <Button size="sm" onClick={startOneClickWorkflow} disabled={specLoading} className="bg-primary">
+                      {specLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 mr-1.5" />}
+                      一键出卷
                     </Button>
                   </div>
                 </div>
@@ -882,6 +1007,156 @@ export default function SmartHomeworkPage() {
             )}
           </TabsContent>
 
+          {/* ================== 一键出卷（AI全自动工作流） ================== */}
+          <TabsContent value="workflow" className="mt-0">
+            <div className="space-y-6">
+              {/* 任务列表 */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-primary" /> 命题任务
+                </h2>
+                <Button size="sm" onClick={loadExamTasks} disabled={examTasksLoading}>
+                  <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", examTasksLoading && "animate-spin")} />
+                  刷新
+                </Button>
+              </div>
+
+              {examTasks.length === 0 && !examTasksLoading ? (
+                <Card className="border-none shadow-sm p-12 text-center">
+                  <Zap className="w-12 h-12 mx-auto mb-3 text-muted-foreground/20" />
+                  <p className="text-sm text-muted-foreground mb-1">暂无命题任务</p>
+                  <p className="text-xs text-muted-foreground/60 mb-4">在AI智能出题中确认细目表后，点击「一键出卷」启动</p>
+                  <Button size="sm" onClick={() => setTopTab('ai')}>
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5" /> 开始出题
+                  </Button>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {examTasks.map(task => (
+                    <Card
+                      key={task.id}
+                      className={cn(
+                        'border-none shadow-sm cursor-pointer transition-all hover:shadow-md',
+                        selectedTask?.id === task.id && 'ring-2 ring-primary/30'
+                      )}
+                      onClick={() => { setSelectedTask(task); if (task.status === 'generating' || task.status === 'reviewing' || task.status === 'revision' || task.status === 'formatting') setTaskPolling(task.id); }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <TaskStatusIcon status={task.status} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm truncate">{task.title}</span>
+                              <TaskStatusBadge status={task.status} />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {task.subject}{task.grade}年级{task.semester} · {EXAM_TYPE_LABELS[task.examType]} · {task.totalScore}分
+                            </p>
+                            {task.currentStep && (
+                              <p className="text-xs text-primary/70 mt-0.5">{task.currentStep}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {task.status === 'completed' && (
+                              <>
+                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); if (task.paperHtml) { const blob = new Blob([task.paperHtml], { type: 'text/html' }); const url = URL.createObjectURL(blob); setPreviewResource({ id: task.id, title: `${task.title}.html`, fileName: `${task.title}.html`, fileUrl: url }); setPreviewOpen(true); } }}>
+                                  <Eye className="w-3 h-3" /> 预览
+                                </Button>
+                                <Button size="sm" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); downloadDocx(task.id, task.title); }}>
+                                  <Download className="w-3 h-3" /> Word
+                                </Button>
+                              </>
+                            )}
+                            {task.status === 'failed' && (
+                              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); retryTask(task.id); }}>
+                                <RefreshCw className="w-3 h-3" /> 重试
+                              </Button>
+                            )}
+                            <span className="text-xs text-muted-foreground">{task.progress}%</span>
+                          </div>
+                        </div>
+                        {/* 进度条 */}
+                        {task.status !== 'completed' && task.status !== 'failed' && (
+                          <Progress value={task.progress} className="mt-2 h-1.5" />
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* 选中任务的详情 */}
+              {selectedTask && (
+                <Card className="border-none shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Target className="w-4 h-4 text-primary" /> 任务详情
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* 基本信息 */}
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="p-3 rounded-lg bg-muted/30 text-center">
+                        <div className="text-lg font-bold text-primary">{selectedTask.totalScore}</div>
+                        <div className="text-xs text-muted-foreground">总分</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/30 text-center">
+                        <div className="text-lg font-bold text-primary">{selectedTask.duration}分钟</div>
+                        <div className="text-xs text-muted-foreground">时长</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/30 text-center">
+                        <div className="text-lg font-bold text-primary">{selectedTask.questions?.length || 0}</div>
+                        <div className="text-xs text-muted-foreground">已出题</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/30 text-center">
+                        <div className="text-lg font-bold text-primary">{selectedTask.cellProgress?.length || 0}</div>
+                        <div className="text-xs text-muted-foreground">交叉格</div>
+                      </div>
+                    </div>
+
+                    {/* 交叉格进度 */}
+                    {selectedTask.cellProgress && selectedTask.cellProgress.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">各交叉格命题进度</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {selectedTask.cellProgress.map((cp, idx) => (
+                            <div key={idx} className={cn(
+                              'p-2 rounded-lg border text-xs',
+                              cp.cellStatus === 'done' && cp.reviewResult === 'approved' ? 'bg-emerald-50/50 border-emerald-200' :
+                              cp.cellStatus === 'failed' ? 'bg-destructive/5 border-destructive/20' :
+                              cp.cellStatus === 'generating' ? 'bg-primary/5 border-primary/20' :
+                              'bg-muted/30 border-border'
+                            )}>
+                              <div className="font-medium truncate">{cp.knowledgeName}</div>
+                              <div className="text-muted-foreground mt-0.5">
+                                {COGNITIVE_LEVEL_LABELS[cp.cognitiveLevel]} · {QUESTION_TYPE_LABELS[cp.questionType]}
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <span>{cp.completedCount}/{cp.requiredCount}题</span>
+                                <CellStatusBadge cellStatus={cp.cellStatus} reviewResult={cp.reviewResult} />
+                              </div>
+                              {cp.retryCount > 0 && (
+                                <span className="text-destructive/70 text-[10px]">重试{cp.retryCount}次</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 错误信息 */}
+                    {selectedTask.errorMessage && (
+                      <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                        <p className="text-xs font-medium text-destructive">错误信息</p>
+                        <p className="text-xs text-destructive/80 mt-0.5">{selectedTask.errorMessage}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
           {/* ================== 校本题库 ================== */}
           <TabsContent value="bank" className="mt-0">
             <div className="space-y-4">
@@ -1108,4 +1383,52 @@ function QuestionCard({ question, index, inBasket, onToggleBasket, showSource }:
       </CardContent>
     </Card>
   );
+}
+
+// ==================== 工作流辅助组件 ====================
+
+/** 任务状态图标 */
+function TaskStatusIcon({ status }: { status: ExamTaskStatus }) {
+  switch (status) {
+    case 'pending': return <Clock className="w-5 h-5 text-muted-foreground" />;
+    case 'generating': return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
+    case 'reviewing': return <Eye className="w-5 h-5 text-primary/70" />;
+    case 'revision': return <RefreshCw className="w-5 h-5 text-primary/70 animate-spin" />;
+    case 'formatting': return <PenLine className="w-5 h-5 text-primary animate-pulse" />;
+    case 'completed': return <Check className="w-5 h-5 text-emerald-500" />;
+    case 'failed': return <AlertTriangle className="w-5 h-5 text-destructive" />;
+    default: return <Clock className="w-5 h-5 text-muted-foreground" />;
+  }
+}
+
+/** 任务状态标签 */
+function TaskStatusBadge({ status }: { status: ExamTaskStatus }) {
+  const config: Record<ExamTaskStatus, { label: string; className: string }> = {
+    pending: { label: '等待中', className: 'bg-muted text-muted-foreground' },
+    generating: { label: '命题中', className: 'bg-primary/10 text-primary' },
+    reviewing: { label: '审阅中', className: 'bg-primary/10 text-primary/70' },
+    revision: { label: '修改中', className: 'bg-primary/10 text-primary/70' },
+    formatting: { label: '排版中', className: 'bg-primary/10 text-primary' },
+    completed: { label: '已完成', className: 'bg-emerald-50 text-emerald-600' },
+    failed: { label: '失败', className: 'bg-destructive/10 text-destructive' },
+  };
+  const c = config[status] || config.pending;
+  return <Badge className={cn('text-[10px]', c.className)}>{c.label}</Badge>;
+}
+
+/** 交叉格状态标签 */
+function CellStatusBadge({ cellStatus, reviewResult }: { cellStatus: CellProgress['cellStatus']; reviewResult: CellProgress['reviewResult'] }) {
+  if (cellStatus === 'done' && reviewResult === 'approved') {
+    return <Badge className="text-[9px] bg-emerald-50 text-emerald-600">通过</Badge>;
+  }
+  if (cellStatus === 'failed') {
+    return <Badge className="text-[9px] bg-destructive/10 text-destructive">失败</Badge>;
+  }
+  if (cellStatus === 'generating') {
+    return <Badge className="text-[9px] bg-primary/10 text-primary">出题中</Badge>;
+  }
+  if (reviewResult === 'rejected') {
+    return <Badge className="text-[9px] bg-primary/10 text-primary/70">待修改</Badge>;
+  }
+  return <Badge variant="outline" className="text-[9px]">待命</Badge>;
 }

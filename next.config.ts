@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
   // 优化配置
   reactStrictMode: true,
   
+  // 外部包配置 - 跳过 Babel 编译以避免兼容性问题（docx ESM与Next 16 Babel常量折叠冲突）
+  serverExternalPackages: ['docx'],
+  
   // 编译优化
   compiler: {
     // 移除 console.log (仅生产环境)
