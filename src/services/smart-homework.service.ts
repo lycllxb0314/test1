@@ -186,7 +186,7 @@ ${subjectHint}
       ];
 
       const response = await this.llmClient.invoke(messages, {
-        model: 'doubao-seed-2-0-pro-260215',
+        model: 'deepseek-v3-2-251201',
         temperature: 0.7,
       });
 
@@ -318,7 +318,7 @@ ${subjectHint}
       ];
 
       const response = await this.llmClient.invoke(messages, {
-        model: 'doubao-seed-2-0-pro-260215',
+        model: 'deepseek-v3-2-251201',
         temperature: 0.4,
       });
 
@@ -371,6 +371,7 @@ ${subjectHint}
       }
 
       const parsed = JSON.parse(match[1].trim());
+      console.log(`[SmartHomework] LLM输出解析成功: ${(parsed.knowledgeContents || []).length}个知识点, 原始长度=${content.length}`);
 
       // ==================== 后处理：唯一真实来源是交叉格 ====================
       //
@@ -903,7 +904,7 @@ ${subjectHint}
       ];
 
       const response = await this.llmClient.invoke(messages, {
-        model: 'doubao-seed-2-0-pro-260215',
+        model: 'deepseek-v3-2-251201',
         temperature: 0.7,
       });
 
