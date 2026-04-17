@@ -7,8 +7,10 @@
  *
  * 同时支持图片展示（数学图形题）
  *
- * 实现方式：直接使用 katex 包渲染，不依赖 react-markdown/remark-math/rehype-katex
- * （避免 estree-util-is-identifier-name 与 Next.js 16 SWC 编译器的兼容性问题）
+ * 实现方式：
+ * 1. 先用 normalizeLatex 规范化 LLM 不规范输出
+ * 2. 再用 KaTeX 渲染公式为 HTML
+ * 3. 通过 dangerouslySetInnerHTML 展示
  */
 
 'use client';
@@ -16,6 +18,7 @@
 import React, { useMemo } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import { normalizeLatex } from '@/lib/latex-normalize';
 
 type MathContentProps = {
   /** 题目内容（支持 LaTeX 公式） */
@@ -29,66 +32,153 @@ type MathContentProps = {
 };
 
 /**
+ * 修复常见 LaTeX 语法问题（KaTeX 渲染失败时使用）
+ */
+function repairLatex(formula: string): string {
+  let repaired = formula;
+
+  // \dfrac → \frac
+  repaired = repaired.replace(/\\dfrac/g, '\\frac');
+
+  // \frac 后缺少花括号：\frac12 → \frac{1}{2}
+  repaired = repaired.replace(/\\frac(\d)(\d)/g, '\\frac{$1}{$2}');
+
+  // \frac 后缺少花括号：\frac1{2} → \frac{1}{2}
+  repaired = repaired.replace(/\\frac(\d)\{/g, '\\frac{$1}{');
+  repaired = repaired.replace(/\\frac\{(\d+)\}(\d)/g, '\\frac{$1}{$2}');
+
+  // 去除多余空格
+  repaired = repaired.replace(/\\frac\s+\{/g, '\\frac{');
+
+  // 未闭合的花括号：补充
+  const openCount = (repaired.match(/\{/g) || []).length;
+  const closeCount = (repaired.match(/\}/g) || []).length;
+  if (openCount > closeCount) {
+    repaired += '}'.repeat(openCount - closeCount);
+  }
+
+  return repaired;
+}
+
+/**
  * 将含有 LaTeX 公式的文本转换为 HTML
- * - 行内公式：$x^2$ 或 \\(x^2\\)
- * - 行间公式：$$\frac{1}{2}$$ 或 \\[\frac{1}{2}\\]
+ *
+ * 渲染流程：
+ * 1. normalizeLatex 规范化（处理裸命令、括号分数等）
+ * 2. 提取公式占位符（避免 escapeHtml 破坏公式）
+ * 3. KaTeX 渲染（失败时自动 repairLatex 重试）
+ * 4. 非公式部分 HTML 转义
+ * 5. 还原占位符
  */
 function renderLatexToHtml(text: string): string {
   if (!text) return '';
 
-  // 先处理行间公式 $$...$$ 和 \[...\]
-  let result = text;
+  // Step 1: 规范化 LaTeX（处理 LLM 不规范输出）
+  const normalized = normalizeLatex(text);
 
-  // 行间公式：$$...$$
+  // Step 2: 提取所有公式，用占位符替换
+  const formulas: string[] = [];
+  let result = normalized;
+
+  // 提取行间公式 $$...$$（规范化后通常不存在，但保留安全处理）
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
+    const idx = formulas.length;
     try {
-      return katex.renderToString(formula.trim(), {
+      formulas.push(katex.renderToString(formula.trim(), {
         displayMode: true,
         throwOnError: false,
         strict: false,
-      });
+      }));
     } catch {
-      return `<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula)}</span>`;
+      formulas.push(`<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula.trim())}</span>`);
     }
+    return `%%FORMULA_${idx}%%`;
   });
 
-  // 行间公式：\[...\]
-  result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_match, formula: string) => {
+  // 提取行内公式 $...$
+  result = result.replace(/\$([^$\n]+?)\$/g, (_match, formula: string) => {
+    const idx = formulas.length;
     try {
-      return katex.renderToString(formula.trim(), {
-        displayMode: true,
-        throwOnError: false,
-        strict: false,
-      });
-    } catch {
-      return `<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula)}</span>`;
-    }
-  });
-
-  // 行内公式：$...$（注意不要匹配货币符号，排除 $$ 后的单个 $）
-  result = result.replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, (_match, formula: string) => {
-    try {
-      return katex.renderToString(formula.trim(), {
+      formulas.push(katex.renderToString(formula.trim(), {
         displayMode: false,
         throwOnError: false,
         strict: false,
-      });
+      }));
     } catch {
-      return `<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula)}</span>`;
+      // KaTeX 渲染失败，尝试修复后重试
+      const repaired = repairLatex(formula.trim());
+      try {
+        formulas.push(katex.renderToString(repaired, {
+          displayMode: false,
+          throwOnError: false,
+          strict: false,
+        }));
+      } catch {
+        formulas.push(`<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula.trim())}</span>`);
+      }
     }
+    return `%%FORMULA_${idx}%%`;
   });
 
-  // 行内公式：\(...\)
+  // 提取行内公式：\(...\)
   result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_match, formula: string) => {
+    const idx = formulas.length;
     try {
-      return katex.renderToString(formula.trim(), {
+      formulas.push(katex.renderToString(formula.trim(), {
         displayMode: false,
         throwOnError: false,
         strict: false,
-      });
+      }));
     } catch {
-      return `<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula)}</span>`;
+      const repaired = repairLatex(formula.trim());
+      try {
+        formulas.push(katex.renderToString(repaired, {
+          displayMode: false,
+          throwOnError: false,
+          strict: false,
+        }));
+      } catch {
+        formulas.push(`<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula.trim())}</span>`);
+      }
     }
+    return `%%FORMULA_${idx}%%`;
+  });
+
+  // 提取行间公式：\[...\]
+  result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_match, formula: string) => {
+    const idx = formulas.length;
+    try {
+      formulas.push(katex.renderToString(formula.trim(), {
+        displayMode: true,
+        throwOnError: false,
+        strict: false,
+      }));
+    } catch {
+      const repaired = repairLatex(formula.trim());
+      try {
+        formulas.push(katex.renderToString(repaired, {
+          displayMode: true,
+          throwOnError: false,
+          strict: false,
+        }));
+      } catch {
+        formulas.push(`<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula.trim())}</span>`);
+      }
+    }
+    return `%%FORMULA_${idx}%%`;
+  });
+
+  // Step 3: 对非公式部分执行 HTML 转义
+  result = escapeHtml(result);
+
+  // Step 4: 还原公式占位符
+  result = result.replace(/%%FORMULA_(\d+)%%/g, (_match, idx: string) => {
+    return formulas[parseInt(idx)] || '';
+  });
+
+  // 处理可能被 escapeHtml 修改的占位符（%% 不会被修改，但以防万一）
+  result = result.replace(/%%FORMULA_(\d+)%%/g, (_match, idx: string) => {
+    return formulas[parseInt(idx)] || '';
   });
 
   // 处理换行

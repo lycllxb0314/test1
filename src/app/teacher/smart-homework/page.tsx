@@ -1377,7 +1377,7 @@ export default function SmartHomeworkPage() {
                   srcDoc={previewHtml}
                   className="w-full h-full border rounded-md"
                   title="试卷预览"
-                  sandbox="allow-same-origin"
+                  sandbox="allow-same-origin allow-scripts"
                 />
               )}
             </div>
