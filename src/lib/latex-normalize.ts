@@ -2,12 +2,18 @@
  * LaTeX 公式规范化工具
  *
  * 处理 LLM 输出的常见不规范 LaTeX 格式，统一为标准格式后再渲染。
+ *
+ * 设计原则：
+ * - **保守转换**：只做高置信度的转换，宁可保留原文也不错误转换
+ * - **不转换纯文本分数**：3/4 等纯文本可能是日期、课时编号等，不自动转
+ *   为 $\frac{3}{4}$（如果 LLM 输出的是分数，应该用 $\frac{}{}$ 格式）
+ *
  * 主要处理：
- * 1. \dfrac → \frac
- * 2. 裸 LaTeX 命令（无 $ 包裹）→ 自动加 $ 包裹
- * 3. $$...$$ 行间公式 → $...$ 行内公式
+ * 1. $$...$$ 行间公式 → $...$
+ * 2. \dfrac → \frac
+ * 3. 裸 LaTeX 命令（无 $ 包裹）→ 自动加 $ 包裹
  * 4. (a)/(b) 括号分数 → $\frac{a}{b}$
- * 5. 多余空格、嵌套问题
+ * 5. 多余空格清理
  *
  * @module lib/latex-normalize
  */
@@ -16,7 +22,7 @@
 
 /**
  * 规范化文本中的 LaTeX 公式
- * 在 renderLatexToHtml 和 parseLatexToDocxChildren 之前调用
+ * 在 renderMathInElement / renderLatexToHtml / parseLatexToDocxChildren 之前调用
  */
 export function normalizeLatex(text: string): string {
   if (!text) return '';
@@ -29,16 +35,19 @@ export function normalizeLatex(text: string): string {
     return `$${formula.trim()}$`;
   });
 
-  // ---- Step 2: 裸 LaTeX 命令自动包裹 $...$ ----
-  // 处理没有 $ 包裹的 \frac{a}{b}、\sqrt{x} 等
-  result = wrapBareLatexCommands(result);
-
-  // ---- Step 3: \dfrac → \frac ----
+  // ---- Step 2: \dfrac → \frac ----
   // \dfrac 是 \frac 的 display 模式变体，在行内公式中等价
+  // 必须在 wrapBareLatexCommands 之前执行，否则 \dfrac 会被单独包裹
   result = result.replace(/\\dfrac/g, '\\frac');
 
+  // ---- Step 3: 裸 LaTeX 命令自动包裹 $...$ ----
+  // 处理没有 $ 包裹的 \frac{a}{b}、\sqrt{x}、\times 等
+  result = wrapBareLatexCommands(result);
+
   // ---- Step 4: 括号分数 (a)/(b) → $\frac{a}{b}$ ----
-  // 仅匹配数字或简单表达式的括号分数
+  // 仅匹配数字括号分数，这是高置信度的转换
+  // (1)/(2) → $\frac{1}{2}$ ✓
+  // (3.5)/(7) → $\frac{3.5}{7}$ ✓
   result = result.replace(
     /\((\d+(?:\.\d+)?)\)\s*\/\s*\((\d+(?:\.\d+)?)\)/g,
     (_match, num: string, den: string) => {
@@ -46,30 +55,14 @@ export function normalizeLatex(text: string): string {
     }
   );
 
-  // ---- Step 5: 纯数字分数 a/b → $\frac{a}{b}$（谨慎匹配）----
-  // 仅匹配独立的数字/数字模式，排除日期、URL等
-  result = result.replace(
-    /(?<![a-zA-Z\/\d.])(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)(?![a-zA-Z\/\d.])/g,
-    (_match, num: string, den: string) => {
-      // 排除明显不是分数的情况
-      // - 年份如 2024/3
-      // - 比分如 3/4 在某些上下文中
-      const n = parseFloat(num);
-      const d = parseFloat(den);
-      if (n > 100 || d > 100) return _match; // 大数字不太可能是分数
-      return `$\\frac{${num}}{${den}}$`;
-    }
-  );
+  // ---- Step 5: 清理多余的 $ 包裹 ----
+  // 处理连续的 $ 符号（如 $$ → $，空公式 $$ → $）
+  result = result.replace(/\$\s*\$/g, '$');
 
-  // ---- Step 6: 清理多余的 $ 包裹 ----
-  // 处理 $\frac{1}{2}$ + $\frac{1}{3}$ 中间多余的空格
-  // 处理连续的 $ 符号（如 $$ 或 $$$）
-  result = result.replace(/\$\s*\$/g, '$'); // 空公式 $$ → $
-
-  // ---- Step 7: 确保 LaTeX 命令后无多余空格 ----
+  // ---- Step 6: 确保 LaTeX 命令后无多余空格 ----
   // \frac {1} {2} → \frac{1}{2}
-  result = result.replace(/\\frac\s*\{/g, '\\frac{');
-  result = result.replace(/\\sqrt\s*\{/g, '\\sqrt{');
+  result = result.replace(/\\frac\s+\{/g, '\\frac{');
+  result = result.replace(/\\sqrt\s+\{/g, '\\sqrt{');
 
   return result;
 }
@@ -81,6 +74,8 @@ export function normalizeLatex(text: string): string {
  * - \frac{1}{2} → $\frac{1}{2}$
  * - \sqrt{x} → $\sqrt{x}$
  * - \times → $\times$
+ *
+ * 注意：不会对已在 $...$ 内的命令重复包裹
  */
 function wrapBareLatexCommands(text: string): string {
   // 先标记已有的 $...$ 区域，避免重复包裹
@@ -127,7 +122,7 @@ function wrapBareLatexCommands(text: string): string {
 
 /**
  * 从文本中提取所有 LaTeX 公式（已规范化），返回分割后的片段
- * 用于 HTML 渲染和 Word 导出
+ * 用于 Word 导出（docx Math 组件）
  */
 export function extractLatexSegments(text: string): Array<{ type: 'text' | 'formula'; content: string }> {
   const normalized = normalizeLatex(text);

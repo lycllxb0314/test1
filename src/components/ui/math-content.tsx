@@ -1,23 +1,32 @@
 /**
  * 数学公式渲染组件
  *
- * 支持在题目内容中渲染 LaTeX 数学公式：
- * - 行内公式：$E=mc^2$
- * - 行间公式：$$\frac{1}{2}$$
+ * 使用 KaTeX 官方 auto-render 扩展（renderMathInElement）渲染数学公式。
  *
- * 同时支持图片展示（数学图形题）
+ * 为什么不用自研 regex + dangerouslySetInnerHTML：
+ * 1. 自研正则无法可靠提取公式边界（嵌套花括号、转义字符等）
+ * 2. 占位符方案（%%FORMULA_N%%）在 edge case 下会被 escapeHtml 破坏
+ * 3. dangerouslySetInnerHTML 与 React 水合存在冲突
+ * 4. CSS 加载时序不可控
  *
- * 实现方式：
- * 1. 先用 normalizeLatex 规范化 LLM 不规范输出
- * 2. 再用 KaTeX 渲染公式为 HTML
- * 3. 通过 dangerouslySetInnerHTML 展示
+ * auto-render 的优势：
+ * - 字符级状态机解析公式边界（findEndOfMath），非简单正则
+ * - 正确处理嵌套花括号、转义字符
+ * - 支持 $...$、$$...$$、\(...\)、\[...\] 四种定界符
+ * - 直接操作 DOM，不经过 React virtual DOM
+ * - KaTeX 官方维护，久经考验
+ *
+ * 渲染流程：
+ * 1. normalizeLatex 规范化 LLM 不规范输出
+ * 2. 转义 HTML + 保留换行 → 设置 innerHTML
+ * 3. renderMathInElement 扫描文本节点 → KaTeX 渲染公式
  */
 
 'use client';
 
-import React, { useMemo } from 'react';
-import katex from 'katex';
+import React, { useRef, useEffect, useMemo } from 'react';
 import 'katex/dist/katex.min.css';
+import renderMathInElement from 'katex/contrib/auto-render';
 import { normalizeLatex } from '@/lib/latex-normalize';
 
 type MathContentProps = {
@@ -31,168 +40,46 @@ type MathContentProps = {
   className?: string;
 };
 
-/**
- * 修复常见 LaTeX 语法问题（KaTeX 渲染失败时使用）
- */
-function repairLatex(formula: string): string {
-  let repaired = formula;
-
-  // \dfrac → \frac
-  repaired = repaired.replace(/\\dfrac/g, '\\frac');
-
-  // \frac 后缺少花括号：\frac12 → \frac{1}{2}
-  repaired = repaired.replace(/\\frac(\d)(\d)/g, '\\frac{$1}{$2}');
-
-  // \frac 后缺少花括号：\frac1{2} → \frac{1}{2}
-  repaired = repaired.replace(/\\frac(\d)\{/g, '\\frac{$1}{');
-  repaired = repaired.replace(/\\frac\{(\d+)\}(\d)/g, '\\frac{$1}{$2}');
-
-  // 去除多余空格
-  repaired = repaired.replace(/\\frac\s+\{/g, '\\frac{');
-
-  // 未闭合的花括号：补充
-  const openCount = (repaired.match(/\{/g) || []).length;
-  const closeCount = (repaired.match(/\}/g) || []).length;
-  if (openCount > closeCount) {
-    repaired += '}'.repeat(openCount - closeCount);
-  }
-
-  return repaired;
-}
+/** KaTeX auto-render 配置 */
+const KATEX_RENDER_OPTIONS: renderMathInElement.RenderMathInElementOptions = {
+  delimiters: [
+    { left: '$$', right: '$$', display: true },
+    { left: '\\(', right: '\\)', display: false },
+    { left: '\\[', right: '\\]', display: true },
+    // $ 必须放最后，避免匹配 $$ 的前半部分
+    { left: '$', right: '$', display: false },
+  ],
+  throwOnError: false,
+  strict: false,
+  // 不忽略任何标签（我们的内容已转义，不存在 script/style 等）
+  ignoredTags: [],
+};
 
 /**
- * 将含有 LaTeX 公式的文本转换为 HTML
- *
- * 渲染流程：
- * 1. normalizeLatex 规范化（处理裸命令、括号分数等）
- * 2. 提取公式占位符（避免 escapeHtml 破坏公式）
- * 3. KaTeX 渲染（失败时自动 repairLatex 重试）
- * 4. 非公式部分 HTML 转义
- * 5. 还原占位符
+ * HTML 转义（仅转义非公式部分的安全字符）
  */
-function renderLatexToHtml(text: string): string {
-  if (!text) return '';
-
-  // Step 1: 规范化 LaTeX（处理 LLM 不规范输出）
-  const normalized = normalizeLatex(text);
-
-  // Step 2: 提取所有公式，用占位符替换
-  const formulas: string[] = [];
-  let result = normalized;
-
-  // 提取行间公式 $$...$$（规范化后通常不存在，但保留安全处理）
-  result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
-    const idx = formulas.length;
-    try {
-      formulas.push(katex.renderToString(formula.trim(), {
-        displayMode: true,
-        throwOnError: false,
-        strict: false,
-      }));
-    } catch {
-      formulas.push(`<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula.trim())}</span>`);
-    }
-    return `%%FORMULA_${idx}%%`;
-  });
-
-  // 提取行内公式 $...$
-  result = result.replace(/\$([^$\n]+?)\$/g, (_match, formula: string) => {
-    const idx = formulas.length;
-    try {
-      formulas.push(katex.renderToString(formula.trim(), {
-        displayMode: false,
-        throwOnError: false,
-        strict: false,
-      }));
-    } catch {
-      // KaTeX 渲染失败，尝试修复后重试
-      const repaired = repairLatex(formula.trim());
-      try {
-        formulas.push(katex.renderToString(repaired, {
-          displayMode: false,
-          throwOnError: false,
-          strict: false,
-        }));
-      } catch {
-        formulas.push(`<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula.trim())}</span>`);
-      }
-    }
-    return `%%FORMULA_${idx}%%`;
-  });
-
-  // 提取行内公式：\(...\)
-  result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_match, formula: string) => {
-    const idx = formulas.length;
-    try {
-      formulas.push(katex.renderToString(formula.trim(), {
-        displayMode: false,
-        throwOnError: false,
-        strict: false,
-      }));
-    } catch {
-      const repaired = repairLatex(formula.trim());
-      try {
-        formulas.push(katex.renderToString(repaired, {
-          displayMode: false,
-          throwOnError: false,
-          strict: false,
-        }));
-      } catch {
-        formulas.push(`<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula.trim())}</span>`);
-      }
-    }
-    return `%%FORMULA_${idx}%%`;
-  });
-
-  // 提取行间公式：\[...\]
-  result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_match, formula: string) => {
-    const idx = formulas.length;
-    try {
-      formulas.push(katex.renderToString(formula.trim(), {
-        displayMode: true,
-        throwOnError: false,
-        strict: false,
-      }));
-    } catch {
-      const repaired = repairLatex(formula.trim());
-      try {
-        formulas.push(katex.renderToString(repaired, {
-          displayMode: true,
-          throwOnError: false,
-          strict: false,
-        }));
-      } catch {
-        formulas.push(`<span class="katex-error" style="color:#d32f2f">${escapeHtml(formula.trim())}</span>`);
-      }
-    }
-    return `%%FORMULA_${idx}%%`;
-  });
-
-  // Step 3: 对非公式部分执行 HTML 转义
-  result = escapeHtml(result);
-
-  // Step 4: 还原公式占位符
-  result = result.replace(/%%FORMULA_(\d+)%%/g, (_match, idx: string) => {
-    return formulas[parseInt(idx)] || '';
-  });
-
-  // 处理可能被 escapeHtml 修改的占位符（%% 不会被修改，但以防万一）
-  result = result.replace(/%%FORMULA_(\d+)%%/g, (_match, idx: string) => {
-    return formulas[parseInt(idx)] || '';
-  });
-
-  // 处理换行
-  result = result.replace(/\n/g, '<br/>');
-
-  return result;
-}
-
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * 在 DOM 元素中渲染数学公式
+ *
+ * 流程：
+ * 1. 将规范化后的文本转义 HTML 并保留换行
+ * 2. 设置 innerHTML（浏览器解析为文本节点 + <br> 元素）
+ * 3. renderMathInElement 扫描所有文本节点，查找公式定界符并渲染
+ */
+function renderMath(el: HTMLElement, normalizedText: string): void {
+  // 设置 innerHTML：转义 HTML 实体，换行转 <br>
+  el.innerHTML = escapeHtml(normalizedText).replace(/\n/g, '<br>');
+
+  // KaTeX auto-render 扫描文本节点，渲染公式
+  renderMathInElement(el, KATEX_RENDER_OPTIONS);
 }
 
 /**
@@ -204,7 +91,16 @@ function escapeHtml(text: string): string {
  * - 图片：传入 imageUrl 即可显示在内容上方
  */
 export function MathContent({ content, imageUrl, imageAlt, className }: MathContentProps) {
-  const renderedHtml = useMemo(() => renderLatexToHtml(content), [content]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 预规范化 LaTeX（处理 LLM 不规范输出）
+  const normalized = useMemo(() => normalizeLatex(content), [content]);
+
+  useEffect(() => {
+    if (containerRef.current && normalized) {
+      renderMath(containerRef.current, normalized);
+    }
+  }, [normalized]);
 
   return (
     <div className={className}>
@@ -220,25 +116,33 @@ export function MathContent({ content, imageUrl, imageAlt, className }: MathCont
         </div>
       )}
 
-      {/* LaTeX 渲染内容 */}
+      {/* 数学公式渲染区域 */}
       <div
+        ref={containerRef}
         className="math-content prose prose-sm max-w-none dark:prose-invert [&_.katex-display]:my-2 [&_.katex]:text-inherit"
-        dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
     </div>
   );
 }
 
 /**
- * 纯文本数学公式渲染（轻量版，用于卡片、Badge等短文本场景）
+ * 纯文本数学公式渲染（轻量版，用于卡片、Badge 等短文本场景）
  */
 export function MathInline({ content }: { content: string }) {
-  const renderedHtml = useMemo(() => renderLatexToHtml(content), [content]);
+  const spanRef = useRef<HTMLSpanElement>(null);
+
+  const normalized = useMemo(() => normalizeLatex(content), [content]);
+
+  useEffect(() => {
+    if (spanRef.current && normalized) {
+      renderMath(spanRef.current, normalized);
+    }
+  }, [normalized]);
 
   return (
     <span
+      ref={spanRef}
       className="math-content inline [&_.katex]:text-inherit"
-      dangerouslySetInnerHTML={{ __html: renderedHtml }}
     />
   );
 }
