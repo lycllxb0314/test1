@@ -170,6 +170,9 @@ importers:
       mammoth:
         specifier: ^1.12.0
         version: 1.12.0
+      mathlive:
+        specifier: ^0.109.1
+        version: 0.109.1
       next:
         specifier: 16.1.1
         version: 16.1.1(@babel/core@7.28.6)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -609,6 +612,10 @@ packages:
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
+
+  '@cortex-js/compute-engine@0.30.2':
+    resolution: {integrity: sha512-Zx+iisk9WWdbxjm8EYsneIBszvjfUs7BHNwf1jBtSINIgfWGpHrTTq9vW0J59iGCFt6bOFxbmWyxNMRSmksHMA==}
+    engines: {node: '>=21.7.3', npm: '>=10.5.0'}
 
   '@date-fns/tz@1.4.1':
     resolution: {integrity: sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA==}
@@ -2976,6 +2983,10 @@ packages:
     resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
     engines: {node: '>= 12'}
 
+  complex-esm@2.1.1-esm1:
+    resolution: {integrity: sha512-IShBEWHILB9s7MnfyevqNGxV0A1cfcSnewL/4uPFiSxkcQL4Mm3FxJ0pXMtCXuWLjYz3lRRyk6OfkeDZcjD6nw==}
+    engines: {node: '>=16.14.2', npm: '>=8.5.0'}
+
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
@@ -3153,6 +3164,9 @@ packages:
 
   decimal.js-light@2.5.1:
     resolution: {integrity: sha512-qIMFpTMZmny+MMIitAB6D7iVPEorVw6YQRWkvarTkT4tBeSLLiHzcwj6q0MmYSFCiVpiqPJTJEYIrpcPzVEIvg==}
+
+  decimal.js@10.6.0:
+    resolution: {integrity: sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==}
 
   dedent@1.7.1:
     resolution: {integrity: sha512-9JmrhGZpOlEgOLdQgSm0zxFaYoQon408V1v49aqTWuXENVlnCuY9JBZcXZiCsZQWDjTm5Qf/nIvAy77mXDAjEg==}
@@ -4481,6 +4495,9 @@ packages:
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
+
+  mathlive@0.109.1:
+    resolution: {integrity: sha512-TXNkTzdJnk/6SFt0Oezy3bpZkH7aCDriuh2usLhVX8dMS5TMmx/rLd7+T1W2b9VCbEZcXABzhmm6ZMxYr8sFXg==}
 
   media-typer@1.1.0:
     resolution: {integrity: sha512-aisnrDP4GNe06UcKFnV5bfMNPBUw4jsLGaWwWfnH3v02GnBuXX2MCVn5RbrWo0j3pczUilYblq7fQ7Nw2t5XKw==}
@@ -6598,6 +6615,11 @@ snapshots:
       '@babel/helper-validator-identifier': 7.28.5
 
   '@cfworker/json-schema@4.1.1': {}
+
+  '@cortex-js/compute-engine@0.30.2':
+    dependencies:
+      complex-esm: 2.1.1-esm1
+      decimal.js: 10.6.0
 
   '@date-fns/tz@1.4.1': {}
 
@@ -9029,6 +9051,8 @@ snapshots:
 
   commander@8.3.0: {}
 
+  complex-esm@2.1.1-esm1: {}
+
   concat-map@0.0.1: {}
 
   console-table-printer@2.15.0:
@@ -9187,6 +9211,8 @@ snapshots:
   decamelize@1.2.0: {}
 
   decimal.js-light@2.5.1: {}
+
+  decimal.js@10.6.0: {}
 
   dedent@1.7.1: {}
 
@@ -10573,6 +10599,10 @@ snapshots:
       xmlbuilder: 10.1.1
 
   math-intrinsics@1.1.0: {}
+
+  mathlive@0.109.1:
+    dependencies:
+      '@cortex-js/compute-engine': 0.30.2
 
   media-typer@1.1.0: {}
 

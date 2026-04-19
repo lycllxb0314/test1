@@ -1,156 +1,348 @@
 /**
- * LaTeX 公式输入器组件
+ * 可视化公式编辑器组件（基于 MathLive）
  *
- * 功能：
- * - 快捷符号栏：常用数学符号一键插入
- * - 实时预览：输入 LaTeX 即时渲染预览
- * - 文本输入区：支持混排普通文本与 $...$ 公式
+ * 核心设计：
+ * - 点击编辑区域直接弹出 MathLive 可视化编辑器
+ * - 用户看到的是渲染好的数学公式，不是 LaTeX 代码
+ * - 支持虚拟键盘，触屏设备也能输入
+ * - 内部存储 LaTeX，外部接口以 $...$ 形式混排
+ *
+ * 两种使用模式：
+ * 1. FormulaInput（完整编辑器）：题目内容、答案解析等大段文本
+ *    - 普通文本 + 公式混排
+ *    - 点击"插入公式"按钮弹出 MathLive 编辑器
+ *    - 插入后公式在文本中显示为渲染好的公式块
+ *
+ * 2. FormulaField（纯公式编辑）：单行公式输入
+ *    - 点击后弹出 MathLive 编辑器
+ *    - 适合答案、选项等纯公式场景
  *
  * @module components/ui/formula-input
  */
 
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Sigma, ChevronDown, ChevronUp, FunctionSquare } from 'lucide-react';
+import { Sigma, Plus, X, Edit3 } from 'lucide-react';
 
-// ==================== 快捷符号分组 ====================
+// ==================== MathLive 动态加载 ====================
 
-type SymbolItem = {
-  /** 显示标签 */
-  label: string;
-  /** 插入的 LaTeX 代码 */
-  latex: string;
-  /** 是否为包裹型（如 \frac{}{} 需要光标移到第一个花括号内） */
-  wrap?: boolean;
-  /** 光标偏移量（从插入文本末尾往回偏移几个字符） */
-  cursorOffset?: number;
-};
+type ConvertLatexToMarkup = (text: string, options?: Record<string, unknown>) => string;
 
-type SymbolGroup = {
-  name: string;
-  items: SymbolItem[];
-};
+let mathliveLoaded = false;
+let mathliveLoadPromise: Promise<ConvertLatexToMarkup | null> | null = null;
 
-const SYMBOL_GROUPS: SymbolGroup[] = [
-  {
-    name: '分数/根号',
-    items: [
-      { label: 'a/b', latex: '\\frac{a}{b}', wrap: true, cursorOffset: 3 },
-      { label: '√', latex: '\\sqrt{}', wrap: true, cursorOffset: 1 },
-      { label: 'ⁿ√', latex: '\\sqrt[n]{}', wrap: true, cursorOffset: 1 },
-    ],
-  },
-  {
-    name: '运算',
-    items: [
-      { label: '×', latex: '\\times ' },
-      { label: '÷', latex: '\\div ' },
-      { label: '±', latex: '\\pm ' },
-      { label: '≠', latex: '\\neq ' },
-      { label: '≤', latex: '\\leq ' },
-      { label: '≥', latex: '\\geq ' },
-      { label: '≈', latex: '\\approx ' },
-      { label: '·', latex: '\\cdot ' },
-    ],
-  },
-  {
-    name: '关系',
-    items: [
-      { label: '<', latex: '< ' },
-      { label: '>', latex: '> ' },
-      { label: '=', latex: '= ' },
-      { label: '∞', latex: '\\infty ' },
-      { label: '∝', latex: '\\propto ' },
-    ],
-  },
-  {
-    name: '集合',
-    items: [
-      { label: '∈', latex: '\\in ' },
-      { label: '∉', latex: '\\notin ' },
-      { label: '⊂', latex: '\\subset ' },
-      { label: '⊃', latex: '\\supset ' },
-      { label: '∪', latex: '\\cup ' },
-      { label: '∩', latex: '\\cap ' },
-      { label: '∅', latex: '\\emptyset ' },
-    ],
-  },
-  {
-    name: '希腊',
-    items: [
-      { label: 'α', latex: '\\alpha ' },
-      { label: 'β', latex: '\\beta ' },
-      { label: 'γ', latex: '\\gamma ' },
-      { label: 'θ', latex: '\\theta ' },
-      { label: 'π', latex: '\\pi ' },
-      { label: 'ρ', latex: '\\rho ' },
-      { label: 'σ', latex: '\\sigma ' },
-      { label: 'φ', latex: '\\varphi ' },
-    ],
-  },
-  {
-    name: '上下标',
-    items: [
-      { label: 'x²', latex: '^{}', cursorOffset: 1 },
-      { label: 'xₙ', latex: '_{}', cursorOffset: 1 },
-      { label: 'xₙ²', latex: '_{}^{}', cursorOffset: 4 },
-    ],
-  },
-  {
-    name: '箭头',
-    items: [
-      { label: '→', latex: '\\rightarrow ' },
-      { label: '←', latex: '\\leftarrow ' },
-      { label: '⇒', latex: '\\Rightarrow ' },
-      { label: '⇔', latex: '\\Leftrightarrow ' },
-    ],
-  },
-  {
-    name: '其他',
-    items: [
-      { label: '∠', latex: '\\angle ' },
-      { label: '°', latex: '^\\circ ' },
-      { label: '△', latex: '\\triangle ' },
-      { label: '⊥', latex: '\\perp ' },
-      { label: '∥', latex: '\\parallel ' },
-      { label: '∑', latex: '\\sum ' },
-      { label: '∏', latex: '\\prod ' },
-      { label: '…', latex: '\\ldots ' },
-    ],
-  },
-];
-
-// ==================== 公式预览渲染 ====================
-
-function renderFormulaPreview(latex: string): string {
-  if (!latex.trim()) return '';
-  try {
-    return katex.renderToString(latex, {
-      throwOnError: false,
-      strict: false,
-      displayMode: false,
-    });
-  } catch {
-    return `<span style="color:red">公式语法错误</span>`;
+async function loadMathlive(): Promise<ConvertLatexToMarkup | null> {
+  if (mathliveLoaded && mathliveLoadPromise) {
+    return mathliveLoadPromise;
   }
+  if (mathliveLoadPromise) return mathliveLoadPromise;
+
+  mathliveLoadPromise = (async () => {
+    try {
+      const ml = await import('mathlive');
+      mathliveLoaded = true;
+      // convertLatexToMarkup 可从 mathlive 或 mathlive-ssr 获取
+      if (typeof ml.convertLatexToMarkup === 'function') {
+        return ml.convertLatexToMarkup as ConvertLatexToMarkup;
+      }
+      return null;
+    } catch (err) {
+      console.error('[FormulaInput] MathLive 加载失败:', err);
+      mathliveLoadPromise = null;
+      throw err;
+    }
+  })();
+
+  return mathliveLoadPromise;
+}
+
+// ==================== 公式块渲染（只读预览）====================
+
+type FormulaBlockProps = {
+  latex: string;
+  onRemove?: () => void;
+  onEdit?: () => void;
+};
+
+/**
+ * 只读公式块预览
+ * 优先使用 MathLive 的 convertLatexToMarkup 渲染，
+ * 回退到 KaTeX
+ */
+function FormulaBlock({ latex, onRemove, onEdit }: FormulaBlockProps) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [rendered, setRendered] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    let el = ref.current;
+    if (!el) return;
+
+    loadMathlive()
+      .then(convertFn => {
+        if (!mounted || !ref.current) return;
+        if (convertFn) {
+          try {
+            const html = convertFn(latex, { defaultMode: 'textstyle' });
+            ref.current.innerHTML = html;
+            setRendered(true);
+            return;
+          } catch {
+            // 渲染失败，回退到 KaTeX
+          }
+        }
+        // 回退：用 KaTeX
+        return import('katex').then(katex => {
+          if (!mounted || !ref.current) return;
+          const html = katex.default.renderToString(latex, {
+            throwOnError: false,
+            strict: false,
+            displayMode: false,
+          });
+          ref.current.innerHTML = html;
+          setRendered(true);
+        });
+      })
+      .catch(() => {
+        if (!ref.current) return;
+        // 最终回退：显示原始 LaTeX
+        ref.current.textContent = latex;
+        setRendered(true);
+      });
+
+    return () => { mounted = false; };
+  }, [latex]);
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 align-middle bg-primary/5 border border-primary/20 rounded px-1.5 py-0.5 mx-0.5 group relative"
+    >
+      <span ref={ref} className="text-sm leading-normal">
+        {!rendered && <span className="text-muted-foreground text-xs animate-pulse">...</span>}
+      </span>
+      {/* 编辑/删除按钮 */}
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-primary"
+          title="编辑公式"
+        >
+          <Edit3 className="w-3 h-3" />
+        </button>
+      )}
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-destructive"
+          title="删除公式"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
+    </span>
+  );
+}
+
+// ==================== MathLive 弹窗编辑器 ====================
+
+type MathLiveEditorProps = {
+  /** 初始 LaTeX */
+  initialLatex: string;
+  /** 确认回调 */
+  onConfirm: (latex: string) => void;
+  /** 取消回调 */
+  onCancel: () => void;
+  /** 标题 */
+  title?: string;
+};
+
+/**
+ * MathLive 弹窗编辑器
+ * 在模态窗口中打开 MathLive mathfield，用户编辑完点确认
+ */
+function MathLiveEditor({ initialLatex, onConfirm, onCancel, title = '编辑公式' }: MathLiveEditorProps) {
+  const mfContainerRef = useRef<HTMLDivElement>(null);
+  const [currentLatex, setCurrentLatex] = useState(initialLatex);
+  const mfRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    loadMathlive().then(() => {
+      if (!mounted || !mfContainerRef.current) return;
+
+      // MathLive import 后 customElements 已注册，可直接使用
+      const mf = document.createElement('math-field') as HTMLElement & {
+        value: string;
+        setOptions: (opts: Record<string, unknown>) => void;
+        focus: () => void;
+      };
+
+      mf.value = initialLatex;
+
+      // 配置 MathLive
+      mf.setOptions({
+        defaultMode: 'math',
+        mathVirtualKeyboardPolicy: 'auto',
+        smartFence: true,
+        smartMode: true,
+        readOnly: false,
+        placeholder: '输入公式...',
+      });
+
+      // 监听输入变化
+      mf.addEventListener('input', () => {
+        setCurrentLatex((mf as unknown as { value: string }).value);
+      });
+
+      mf.style.width = '100%';
+      mf.style.minHeight = '64px';
+      mf.style.fontSize = '18px';
+      mf.style.border = '1px solid var(--border)';
+      mf.style.borderRadius = '8px';
+      mf.style.padding = '8px 12px';
+      mf.style.background = 'var(--background)';
+
+      mfContainerRef.current.innerHTML = '';
+      mfContainerRef.current.appendChild(mf);
+      mfRef.current = mf;
+
+      // 自动聚焦
+      setTimeout(() => mf.focus(), 150);
+    });
+
+    return () => {
+      mounted = false;
+      if (mfRef.current && mfRef.current.parentNode) {
+        mfRef.current.parentNode.removeChild(mfRef.current);
+      }
+    };
+  }, [initialLatex]);
+
+  const handleConfirm = useCallback(() => {
+    onConfirm(currentLatex);
+  }, [currentLatex, onConfirm]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel();
+    }
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 animate-in fade-in duration-150"
+      onClick={onCancel}
+      onKeyDown={handleKeyDown}
+    >
+      <div
+        className="bg-background border rounded-xl shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 duration-200"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 头部 */}
+        <div className="flex items-center justify-between px-5 py-3 border-b">
+          <div className="flex items-center gap-2">
+            <Sigma className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">{title}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* 编辑区 */}
+        <div className="p-5">
+          <div ref={mfContainerRef} className="w-full">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs py-3">
+              <span className="animate-pulse">加载公式编辑器...</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            点击编辑区域后，键盘上方会弹出虚拟数学键盘。支持键盘快捷输入，如输入 &quot;sqrt&quot; 得到根号，&quot;frac&quot; 得到分数。
+          </p>
+        </div>
+
+        {/* 底部 */}
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t">
+          <Button variant="outline" size="sm" onClick={onCancel}>取消</Button>
+          <Button size="sm" onClick={handleConfirm}>
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            确认插入
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== 混排内容段 ====================
+
+type ContentSegment = {
+  type: 'text' | 'formula';
+  content: string;
+  id: string;
+};
+
+/**
+ * 将 "$...$" 混排文本拆分为段
+ */
+function parseMixedContent(value: string): ContentSegment[] {
+  if (!value) return [];
+
+  const segments: ContentSegment[] = [];
+  let counter = 0;
+  const regex = /\$([^$]+)\$/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(value)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({
+        type: 'text',
+        content: value.substring(lastIndex, match.index),
+        id: `text-${counter++}`,
+      });
+    }
+    segments.push({
+      type: 'formula',
+      content: match[1],
+      id: `formula-${counter++}`,
+    });
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < value.length) {
+    segments.push({
+      type: 'text',
+      content: value.substring(lastIndex),
+      id: `text-${counter++}`,
+    });
+  }
+
+  return segments;
 }
 
 /**
- * 从文本中提取并渲染所有 $...$ 公式，返回 HTML
+ * 从段落数组重建 $...$ 混排字符串
  */
-function renderMixedPreview(text: string): string {
-  if (!text) return '';
-  return text.replace(/\$([^$]+)\$/g, (_match, formula: string) => {
-    return renderFormulaPreview(formula);
-  });
+function buildMixedContent(segments: ContentSegment[]): string {
+  return segments.map(seg => {
+    if (seg.type === 'formula') return `$${seg.content}$`;
+    return seg.content;
+  }).join('');
 }
 
-// ==================== 组件 ====================
+// ==================== FormulaInput（完整混排编辑器）====================
 
 type FormulaInputProps = {
   /** 当前值（混排文本，如 "计算 $\\frac{1}{2}$ 的值"） */
@@ -161,165 +353,209 @@ type FormulaInputProps = {
   placeholder?: string;
   /** 最小行数 */
   minRows?: number;
-  /** 最大行数 */
-  maxRows?: number;
   /** 额外类名 */
   className?: string;
   /** 是否禁用 */
   disabled?: boolean;
 };
 
+/**
+ * 完整公式输入器
+ *
+ * 交互流程：
+ * 1. 文本区：输入普通文字
+ * 2. 点击「插入公式」→ 弹出 MathLive 可视化编辑器
+ * 3. 编辑完确认 → 公式以渲染好的视觉块插入文本中
+ * 4. 鼠标悬停公式块 → 出现编辑/删除按钮
+ * 5. 最终存储格式仍然是 $...$ 混排字符串
+ */
 export function FormulaInput({
   value,
   onChange,
-  placeholder = '输入题目内容，公式用 $...$ 包裹，如：计算 $\\frac{1}{2}$ 的值',
+  placeholder = '输入内容，点击下方「插入公式」添加数学公式',
   minRows = 3,
   className,
   disabled = false,
 }: FormulaInputProps) {
-  const [showSymbols, setShowSymbols] = useState(false);
-  const [activeGroup, setActiveGroup] = useState(0);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [previewHtml, setPreviewHtml] = useState('');
 
-  // 实时预览
-  useEffect(() => {
-    if (!value) {
-      setPreviewHtml('');
-      return;
+  // 解析当前值为段落
+  const segments = useMemo(() => parseMixedContent(value), [value]);
+
+  // 插入新公式
+  const handleInsertFormula = useCallback(() => {
+    setEditingIndex(null);
+    setEditorOpen(true);
+  }, []);
+
+  // 编辑已有公式
+  const handleEditFormula = useCallback((segIndex: number) => {
+    setEditingIndex(segIndex);
+    setEditorOpen(true);
+  }, []);
+
+  // 删除公式
+  const handleRemoveFormula = useCallback((segIndex: number) => {
+    const newSegments = segments.filter((_, i) => i !== segIndex);
+    onChange(buildMixedContent(newSegments));
+  }, [segments, onChange]);
+
+  // 确认编辑
+  const handleEditorConfirm = useCallback((latex: string) => {
+    if (editingIndex !== null) {
+      // 编辑已有公式
+      const newSegments = [...segments];
+      newSegments[editingIndex] = { ...newSegments[editingIndex], content: latex };
+      onChange(buildMixedContent(newSegments));
+    } else {
+      // 插入新公式：追加到文本末尾
+      const formula = `$${latex}$`;
+      const currentText = value || '';
+      const separator = currentText && !currentText.endsWith(' ') && !currentText.endsWith('\n') ? ' ' : '';
+      onChange(currentText + separator + formula);
     }
-    // 转义非公式部分 HTML
-    const result = value.replace(/\$([^$]+)\$/g, (_match, formula: string) => {
-      return renderFormulaPreview(formula);
-    });
-    // 转义非公式文本
-    const escaped = result.replace(/<span[^>]*>[\s\S]*?<\/span>/g, (m) => `__FORMULA_PLACEHOLDER_${Math.random()}__`);
-    let html = escaped
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    // 还原公式
-    const placeholders = result.match(/<span[^>]*>[\s\S]*?<\/span>/g) || [];
-    for (const ph of placeholders) {
-      html = html.replace(/__FORMULA_PLACEHOLDER_[\d.]+__/, ph);
-    }
-    setPreviewHtml(html);
-  }, [value]);
-
-  // 插入符号
-  const insertSymbol = useCallback((item: SymbolItem) => {
-    const textarea = textareaRef.current;
-    if (!textarea || disabled) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const before = value.substring(0, start);
-    const after = value.substring(end);
-
-    // 如果光标不在 $...$ 内，自动包裹
-    const dollarBefore = (before.match(/\$/g) || []).length;
-    const inFormula = dollarBefore % 2 === 1;
-
-    let insertText = item.latex;
-    if (!inFormula) {
-      // 不在公式内，加 $ 包裹
-      insertText = `$${item.latex.trimEnd()}$`;
-    }
-
-    const newValue = before + insertText + after;
-    onChange(newValue);
-
-    // 设置光标位置
-    requestAnimationFrame(() => {
-      const cursorPos = start + insertText.length - (item.cursorOffset || 0);
-      textarea.setSelectionRange(cursorPos, cursorPos);
-      textarea.focus();
-    });
-  }, [value, onChange, disabled]);
+    setEditorOpen(false);
+    setEditingIndex(null);
+    // 聚焦回 textarea
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  }, [editingIndex, segments, value, onChange]);
 
   return (
-    <div className={cn('space-y-1.5', className)}>
-      {/* 工具栏 */}
-      <div className="flex items-center gap-1.5">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs gap-1"
-          onClick={() => setShowSymbols(!showSymbols)}
-          disabled={disabled}
-        >
-          <Sigma className="w-3.5 h-3.5" />
-          公式符号
-          {showSymbols ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </Button>
-        <span className="text-[10px] text-muted-foreground">
-          公式用 <code className="px-1 py-0.5 bg-muted rounded text-[10px]">$...$</code> 包裹
-        </span>
-      </div>
-
-      {/* 快捷符号面板 */}
-      {showSymbols && (
-        <div className="border rounded-lg p-2 bg-muted/30 space-y-2">
-          {/* 分组 Tab */}
-          <div className="flex gap-1 flex-wrap">
-            {SYMBOL_GROUPS.map((group, idx) => (
-              <Button
-                key={group.name}
-                type="button"
-                variant={activeGroup === idx ? 'default' : 'ghost'}
-                size="sm"
-                className="h-6 text-[10px] px-2"
-                onClick={() => setActiveGroup(idx)}
-              >
-                {group.name}
-              </Button>
-            ))}
+    <div className={cn('space-y-2', className)}>
+      {/* 混排预览区：仅在有公式时显示 */}
+      {segments.length > 0 && segments.some(s => s.type === 'formula') && (
+        <div className="border rounded-lg p-3 bg-muted/20 min-h-[40px]">
+          <div className="flex items-center gap-1 mb-1.5">
+            <Sigma className="w-3 h-3 text-primary" />
+            <span className="text-[10px] text-muted-foreground font-medium">内容预览</span>
           </div>
-          {/* 符号按钮 */}
-          <div className="flex gap-1 flex-wrap">
-            {SYMBOL_GROUPS[activeGroup].items.map((item) => (
-              <Button
-                key={item.latex}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs px-2 min-w-[32px]"
-                onClick={() => insertSymbol(item)}
-                title={item.latex}
-                disabled={disabled}
-              >
-                {item.label}
-              </Button>
+          <div className="text-sm leading-relaxed flex flex-wrap items-center gap-y-1">
+            {segments.map((seg, idx) => (
+              seg.type === 'text' ? (
+                <span key={seg.id}>{seg.content}</span>
+              ) : (
+                <FormulaBlock
+                  key={seg.id}
+                  latex={seg.content}
+                  onEdit={() => handleEditFormula(idx)}
+                  onRemove={() => handleRemoveFormula(idx)}
+                />
+              )
             ))}
           </div>
         </div>
       )}
 
-      {/* 文本输入 */}
+      {/* 文本输入区（编辑原始内容） */}
       <textarea
         ref={textareaRef}
-        className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-        style={{ minHeight: `${minRows * 24}px` }}
+        className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y font-mono"
+        style={{ minHeight: `${(minRows || 3) * 24}px` }}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
       />
 
-      {/* 实时预览 */}
-      {value && (
-        <div className="border rounded-md p-2 bg-background">
-          <div className="flex items-center gap-1 mb-1">
-            <FunctionSquare className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground font-medium">预览</span>
-          </div>
-          <div
-            className="text-xs leading-relaxed prose-sm"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
-          />
-        </div>
+      {/* 插入公式按钮 */}
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs gap-1"
+          onClick={handleInsertFormula}
+          disabled={disabled}
+        >
+          <Sigma className="w-3.5 h-3.5" />
+          插入公式
+        </Button>
+        <span className="text-[10px] text-muted-foreground">
+          也可直接在文本框中输入 <code className="px-1 py-0.5 bg-muted rounded text-[10px]">$...$</code> 格式
+        </span>
+      </div>
+
+      {/* MathLive 弹窗编辑器 */}
+      {editorOpen && (
+        <MathLiveEditor
+          initialLatex={editingIndex !== null ? (segments[editingIndex]?.content || '') : ''}
+          onConfirm={handleEditorConfirm}
+          onCancel={() => { setEditorOpen(false); setEditingIndex(null); }}
+          title={editingIndex !== null ? '编辑公式' : '插入公式'}
+        />
       )}
     </div>
+  );
+}
+
+// ==================== FormulaField（纯公式编辑器）====================
+
+type FormulaFieldProps = {
+  /** 当前值（纯 LaTeX，不含 $...$ 包裹） */
+  value: string;
+  /** 值变更回调（返回纯 LaTeX） */
+  onChange: (latex: string) => void;
+  /** placeholder */
+  placeholder?: string;
+  /** 额外类名 */
+  className?: string;
+  /** 是否禁用 */
+  disabled?: boolean;
+};
+
+/**
+ * 纯公式编辑器
+ *
+ * 点击输入框 → 弹出 MathLive 编辑器编辑纯数学公式。
+ * 适合选择题选项、简短答案等纯公式场景。
+ * 非编辑状态下显示渲染好的公式预览。
+ */
+export function FormulaField({
+  value,
+  onChange,
+  placeholder = '点击输入公式',
+  className,
+  disabled = false,
+}: FormulaFieldProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  const handleConfirm = useCallback((latex: string) => {
+    onChange(latex);
+    setEditorOpen(false);
+  }, [onChange]);
+
+  return (
+    <>
+      {/* 只读预览/触发按钮 */}
+      <div
+        className={cn(
+          'border rounded-md px-3 py-2 text-sm cursor-pointer transition-colors',
+          'hover:border-primary/50 hover:bg-muted/20',
+          'flex items-center gap-2 min-h-[36px]',
+          disabled && 'opacity-50 cursor-not-allowed',
+          className,
+        )}
+        onClick={() => !disabled && setEditorOpen(true)}
+      >
+        {value ? (
+          <FormulaBlock latex={value} />
+        ) : (
+          <span className="text-muted-foreground text-xs">{placeholder}</span>
+        )}
+        <Edit3 className="w-3.5 h-3.5 text-muted-foreground ml-auto shrink-0" />
+      </div>
+
+      {/* MathLive 弹窗编辑器 */}
+      {editorOpen && (
+        <MathLiveEditor
+          initialLatex={value}
+          onConfirm={handleConfirm}
+          onCancel={() => setEditorOpen(false)}
+          title="编辑公式"
+        />
+      )}
+    </>
   );
 }

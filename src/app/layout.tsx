@@ -52,6 +52,10 @@ export default function RootLayout({
 
   return (
     <html lang="zh-CN">
+      <head>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathlive@0.109.1/mathlive-static.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathlive@0.109.1/mathlive-fonts.css" />
+      </head>
       <body className={`antialiased`}>
         <AuthProvider>
           <Providers>

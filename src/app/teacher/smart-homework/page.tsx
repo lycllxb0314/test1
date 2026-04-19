@@ -44,7 +44,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { MathContent, MathInline } from '@/components/ui/math-content';
-import { FormulaInput } from '@/components/ui/formula-input';
+import { FormulaInput, FormulaField } from '@/components/ui/formula-input';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -1283,28 +1283,28 @@ export default function SmartHomeworkPage() {
               {/* 选项（选择题时显示） */}
               {importForm.questionType === 'choice' && (
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">选项</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">选项 <span className="font-normal">（点击可输入公式）</span></label>
                   <div className="space-y-2">
                     {(['A', 'B', 'C', 'D'] as const).map(label => (
                       <div key={label} className="flex items-center gap-2">
                         <span className="text-xs font-medium w-4">{label}.</span>
-                        <Input
-                          className="h-8 text-xs flex-1"
-                          placeholder={`选项${label}内容`}
+                        <FormulaField
+                          className="flex-1"
                           value={(importForm.options || []).find(o => o.label === label)?.content || ''}
-                          onChange={e => {
+                          onChange={val => {
                             const opts = [...(importForm.options || [])];
                             const idx = opts.findIndex(o => o.label === label);
-                            const opt = { label, content: e.target.value, isCorrect: label === 'A' };
+                            const opt = { label, content: val, isCorrect: label === 'A' };
                             if (idx >= 0) opts[idx] = opt; else opts.push(opt);
                             setImportForm(prev => ({ ...prev, options: opts }));
                           }}
+                          placeholder={`选项${label}`}
                         />
                         <Button
                           type="button"
                           variant={((importForm.options || []).find(o => o.label === label)?.isCorrect) ? 'default' : 'outline'}
                           size="sm"
-                          className="h-8 text-[10px] px-2"
+                          className="h-8 text-[10px] px-2 shrink-0"
                           onClick={() => {
                             const opts = (importForm.options || []).map(o => ({
                               ...o,
