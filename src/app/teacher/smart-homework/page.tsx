@@ -44,6 +44,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { MathContent, MathInline } from '@/components/ui/math-content';
+import { FormulaInput } from '@/components/ui/formula-input';
+import { ImageUploader } from '@/components/ui/image-uploader';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import {
@@ -75,6 +77,7 @@ import {
   Clock,
   AlertTriangle,
   Zap,
+  ImagePlus,
 } from 'lucide-react';
 import type {
   Question,
@@ -363,7 +366,7 @@ export default function SmartHomeworkPage() {
       const data = await res.json();
       if (data.success) {
         setImportOpen(false);
-        setImportForm(prev => ({ ...prev, title: '', content: '', answer: '', answerExplanation: '' }));
+        setImportForm(prev => ({ ...prev, title: '', content: '', answer: '', answerExplanation: '', imageUrl: undefined, imageAlt: undefined, options: undefined }));
         loadBankQuestions();
       }
     } catch (err) {
@@ -1230,13 +1233,13 @@ export default function SmartHomeworkPage() {
 
         {/* ===== 导入题目弹窗 ===== */}
         <Dialog open={importOpen} onOpenChange={setImportOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Upload className="w-5 h-5" /> 导入题目到校本题库
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2 overflow-y-auto flex-1 -mx-6 px-6">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">题型</label>
@@ -1269,16 +1272,85 @@ export default function SmartHomeworkPage() {
                 <Input className="h-9 text-xs" placeholder="如：第三单元词语运用" value={importForm.title || ''} onChange={e => setImportForm(prev => ({ ...prev, title: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">题目内容 <span className="text-destructive">*</span></label>
-                <Textarea className="text-xs min-h-[80px]" placeholder="完整的题目描述" value={importForm.content || ''} onChange={e => setImportForm(prev => ({ ...prev, content: e.target.value }))} />
+                <label className="text-xs text-muted-foreground mb-1 block">题目内容 <span className="text-destructive">*</span> <span className="font-normal">（支持公式输入）</span></label>
+                <FormulaInput
+                  value={importForm.content || ''}
+                  onChange={v => setImportForm(prev => ({ ...prev, content: v }))}
+                  placeholder="输入题目内容，公式用 $...$ 包裹，如：计算 $\\frac{1}{2}$ 的值"
+                  minRows={3}
+                />
+              </div>
+              {/* 选项（选择题时显示） */}
+              {importForm.questionType === 'choice' && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">选项</label>
+                  <div className="space-y-2">
+                    {(['A', 'B', 'C', 'D'] as const).map(label => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className="text-xs font-medium w-4">{label}.</span>
+                        <Input
+                          className="h-8 text-xs flex-1"
+                          placeholder={`选项${label}内容`}
+                          value={(importForm.options || []).find(o => o.label === label)?.content || ''}
+                          onChange={e => {
+                            const opts = [...(importForm.options || [])];
+                            const idx = opts.findIndex(o => o.label === label);
+                            const opt = { label, content: e.target.value, isCorrect: label === 'A' };
+                            if (idx >= 0) opts[idx] = opt; else opts.push(opt);
+                            setImportForm(prev => ({ ...prev, options: opts }));
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant={((importForm.options || []).find(o => o.label === label)?.isCorrect) ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-8 text-[10px] px-2"
+                          onClick={() => {
+                            const opts = (importForm.options || []).map(o => ({
+                              ...o,
+                              isCorrect: o.label === label,
+                            }));
+                            setImportForm(prev => ({ ...prev, options: opts }));
+                          }}
+                        >
+                          正确
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">正确答案 <span className="text-destructive">*</span> <span className="font-normal">（支持公式输入）</span></label>
+                <FormulaInput
+                  value={importForm.answer || ''}
+                  onChange={v => setImportForm(prev => ({ ...prev, answer: v }))}
+                  placeholder="如：A 或 $\\frac{3}{5}$"
+                  minRows={1}
+                />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">正确答案 <span className="text-destructive">*</span></label>
-                <Input className="h-9 text-xs" placeholder="如：A 或 完整答案" value={importForm.answer || ''} onChange={e => setImportForm(prev => ({ ...prev, answer: e.target.value }))} />
+                <label className="text-xs text-muted-foreground mb-1 block">答案解析 <span className="font-normal">（支持公式输入）</span></label>
+                <FormulaInput
+                  value={importForm.answerExplanation || ''}
+                  onChange={v => setImportForm(prev => ({ ...prev, answerExplanation: v }))}
+                  placeholder="选填，解析过程"
+                  minRows={2}
+                />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">答案解析</label>
-                <Textarea className="text-xs min-h-[50px]" placeholder="选填" value={importForm.answerExplanation || ''} onChange={e => setImportForm(prev => ({ ...prev, answerExplanation: e.target.value }))} />
+                <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
+                  <ImagePlus className="w-3.5 h-3.5" />
+                  题目配图
+                  <span className="font-normal">（选填，几何图形题等）</span>
+                </label>
+                <ImageUploader
+                  value={importForm.imageUrl}
+                  alt={importForm.imageAlt}
+                  onChange={(url, altVal) => setImportForm(prev => ({ ...prev, imageUrl: url, imageAlt: altVal }))}
+                  onAltChange={altVal => setImportForm(prev => ({ ...prev, imageAlt: altVal }))}
+                  folder="question-images"
+                />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">知识点（逗号分隔）</label>

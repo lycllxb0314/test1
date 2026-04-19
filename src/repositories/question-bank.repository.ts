@@ -33,6 +33,8 @@ type QuestionRow = {
   created_by_name: string;
   is_shared: boolean;
   use_count: number;
+  image_url: string | null;
+  image_alt: string | null;
   created_at: string;
   updated_at: string;
 };

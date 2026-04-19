@@ -1241,6 +1241,8 @@ ${subjectHint}
           tags: req.tags || [],
           source: 'manual',
           source_info: {},
+          image_url: req.imageUrl || null,
+          image_alt: req.imageAlt || null,
           created_by: teacherId,
           created_by_name: teacherName,
           is_shared: true,
@@ -1404,6 +1406,8 @@ ${subjectHint}
       createdByName: (row.created_by_name as string) || '',
       isShared: (row.is_shared as boolean) || false,
       useCount: (row.use_count as number) || 0,
+      imageUrl: (row.image_url as string) || undefined,
+      imageAlt: (row.image_alt as string) || undefined,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
     };

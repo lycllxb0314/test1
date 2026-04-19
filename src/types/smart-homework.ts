@@ -404,6 +404,10 @@ export type ImportQuestionRequest = {
   answerExplanation?: string;
   score?: number;
   tags?: string[];
+  /** 题目配图URL（数学图形题等） */
+  imageUrl?: string;
+  /** 题目配图说明 */
+  imageAlt?: string;
 };
 
 export type ComposePaperRequest = {
