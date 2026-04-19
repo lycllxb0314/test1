@@ -14,7 +14,7 @@
 import { BaseService, ServiceResult } from './base.service';
 import { LLMClient, Config } from 'coze-coding-dev-sdk';
 import katex from 'katex';
-import { normalizeLatex } from '@/lib/latex-normalize';
+import { normalizeLatex, repairJsonParsedObject } from '@/lib/latex-normalize';
 import { examTaskRepository } from '@/repositories/exam-task.repository';
 import type { ExamTaskRow } from '@/repositories/exam-task.repository';
 import type {
@@ -499,7 +499,7 @@ ${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
           const candidate = jsonPart.substring(0, lastBrace + 1) + ']';
           try {
             JSON.parse(candidate);
-            const parsed = JSON.parse(candidate);
+            const parsed = repairJsonParsedObject(JSON.parse(candidate)) as unknown[];
             return this.parseAIQuestions(parsed, specification, kc, ca);
           } catch {
             // 无法恢复
@@ -509,7 +509,7 @@ ${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
       throw new Error(`AI命题输出格式异常: ${kc.name}/${ca.level}`);
     }
 
-    const parsed = JSON.parse(match[1].trim());
+    const parsed = repairJsonParsedObject(JSON.parse(match[1].trim())) as unknown[];
     return this.parseAIQuestions(parsed, specification, kc, ca);
   }
 
@@ -650,7 +650,7 @@ ${JSON.stringify(questionSummary, null, 2)}
         return { approved: true, updatedCellProgress: cellProgress };
       }
 
-      const parsed = JSON.parse(match[1].trim());
+      const parsed = repairJsonParsedObject(JSON.parse(match[1].trim())) as Record<string, unknown>;
 
       if (parsed.approved) {
         // 全部通过
@@ -661,11 +661,11 @@ ${JSON.stringify(questionSummary, null, 2)}
       }
 
       // 标记有问题的交叉格
-      const issues = parsed.issues || [];
+      const issues = (parsed.issues || []) as Array<Record<string, unknown>>;
       const failedCodes = new Set<string>();
       for (const issue of issues) {
         if (issue.knowledgeCode) {
-          failedCodes.add(issue.knowledgeCode);
+          failedCodes.add(issue.knowledgeCode as string);
         }
       }
 
@@ -1227,7 +1227,7 @@ ${JSON.stringify(questionSummary, null, 2)}
         return { approved: true, updatedCellProgress: cellProgress };
       }
 
-      const parsed = JSON.parse(match[1].trim());
+      const parsed = repairJsonParsedObject(JSON.parse(match[1].trim())) as Record<string, unknown>;
 
       if (parsed.approved) {
         // 新题目全部通过
@@ -1235,11 +1235,11 @@ ${JSON.stringify(questionSummary, null, 2)}
       }
 
       // 标记有问题的交叉格（只标记新题目对应的）
-      const issues = parsed.issues || [];
+      const issues = (parsed.issues || []) as Array<Record<string, unknown>>;
       const failedCodes = new Set<string>();
       for (const issue of issues) {
         if (issue.knowledgeCode) {
-          failedCodes.add(issue.knowledgeCode);
+          failedCodes.add(issue.knowledgeCode as string);
         }
       }
 

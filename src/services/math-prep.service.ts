@@ -9,6 +9,7 @@
 
 import { BaseService, ServiceResult } from './base.service';
 import { LLMClient, Config } from 'coze-coding-dev-sdk';
+import { repairJsonParsedObject } from '@/lib/latex-normalize';
 import type {
   MathPrepPlan,
   MathPrepRequest,
@@ -482,7 +483,7 @@ export class MathPrepService extends BaseService {
     
     try {
       // 第一次尝试：直接解析
-      return JSON.parse(jsonStr);
+      return repairJsonParsedObject(JSON.parse(jsonStr)) as Record<string, unknown>;
     } catch (e1) {
       console.log('[MathPrepService] 第一次JSON解析失败，尝试修复...');
       
@@ -504,7 +505,7 @@ export class MathPrepService extends BaseService {
           .replace(/[\u0000-\u001F]/g, ' ') // 控制字符
           .trim();
         
-        return JSON.parse(fixed);
+        return repairJsonParsedObject(JSON.parse(fixed)) as Record<string, unknown>;
       } catch (e2) {
         console.log('[MathPrepService] JSON修复失败，尝试正则提取...');
         
@@ -517,7 +518,7 @@ export class MathPrepService extends BaseService {
             .replace(/\t/g, ' ')
             .replace(/,\s*([}\]])/g, '$1');
           
-          return JSON.parse(cleaned);
+          return repairJsonParsedObject(JSON.parse(cleaned)) as Record<string, unknown>;
         } catch (e3) {
           console.error('[MathPrepService] JSON解析最终失败:', e3);
           console.error('[MathPrepService] 问题JSON片段:', originalJsonStr.substring(0, 500));
