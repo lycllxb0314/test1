@@ -13,7 +13,8 @@
  *
  * 弹窗设计：
  * - 只能通过「取消」「确认」按钮关闭
- * - 不响应背景点击（解决 MathLive 虚拟键盘冲突）
+ * - 背景遮罩 pointer-events-none，点击穿透到虚拟键盘
+ * - 虚拟键盘不会被遮挡，点击编辑区外自动关闭
  *
  * @module components/ui/formula-input
  */
@@ -24,6 +25,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Sigma, X, Check } from 'lucide-react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
 // ==================== KaTeX 渲染 ====================
 
@@ -32,15 +35,14 @@ import { Sigma, X, Check } from 'lucide-react';
  */
 function renderLatex(latex: string): string {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const katex = require('katex');
     return katex.renderToString(latex, {
       throwOnError: false,
       strict: false,
       displayMode: false,
     });
   } catch {
-    return `<span style="color:red;font-size:12px">${latex}</span>`;
+    // KaTeX 完全无法渲染时的兜底
+    return `<span style="color:var(--destructive);font-size:12px">[${latex}]</span>`;
   }
 }
 
@@ -153,12 +155,12 @@ function PopupEditor({ initialLatex, onConfirm, onCancel, title = '编辑公式'
   }, [initialLatex]);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      {/* 背景遮罩 — 不绑定关闭事件，防止虚拟键盘冲突 */}
-      <div className="absolute inset-0 bg-black/40" />
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none">
+      {/* 背景遮罩 — pointer-events-none 让点击穿透到虚拟键盘 */}
+      <div className="absolute inset-0 bg-black/40 pointer-events-none" />
 
-      {/* 弹窗主体 */}
-      <div className="relative bg-background border rounded-xl shadow-2xl w-full max-w-xl mx-4 z-10 animate-in zoom-in-95 duration-150">
+      {/* 弹窗主体 — pointer-events-auto 恢复交互 */}
+      <div className="relative bg-background border rounded-xl shadow-2xl w-full max-w-xl mx-4 z-10 animate-in zoom-in-95 duration-150 pointer-events-auto">
         {/* 头部 */}
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <span className="text-sm font-medium flex items-center gap-2">
@@ -322,7 +324,7 @@ export function FormulaInput({
     }
 
     if (editingChipRef.current) {
-      // 编辑已有公式
+      // 编辑已有公式 — 更新 data-formula 和渲染内容
       editingChipRef.current.dataset.formula = encodeURIComponent(latex);
       editingChipRef.current.innerHTML = renderLatex(latex);
     } else {
