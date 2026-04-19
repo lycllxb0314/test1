@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Providers } from '@/components/Providers';
 import { Toaster } from '@/components/ui/sonner';
+import { MathLiveStyles } from '@/components/ui/mathlive-styles';
 
 export const metadata: Metadata = {
   title: {
@@ -52,11 +53,8 @@ export default function RootLayout({
 
   return (
     <html lang="zh-CN">
-      <head>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathlive@0.109.1/mathlive-static.css" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathlive@0.109.1/mathlive-fonts.css" />
-      </head>
       <body className={`antialiased`}>
+        <MathLiveStyles />
         <AuthProvider>
           <Providers>
             <MainLayout>
