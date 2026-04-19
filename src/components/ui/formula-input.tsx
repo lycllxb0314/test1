@@ -96,6 +96,48 @@ function extractFromDOM(container: HTMLElement): string {
   return result;
 }
 
+// ==================== MathLive 输出清理 ====================
+
+/**
+ * 清理 MathLive 输出中残留的原始命令文本
+ *
+ * 当用户在 MathLive 中输入 "frac1/3" 时：
+ * - smartMode 将 "1/3" 转为 \frac{1}{3}
+ * - 但 "frac" 作为原始文本残留在前面
+ * - 输出变为 "frac\frac{1}{3}"
+ *
+ * 此函数检测并移除这种残留，让 "frac\frac{1}{3}" → "\frac{1}{3}"
+ */
+function cleanupMathLiveOutput(latex: string): string {
+  if (!latex) return latex;
+
+  let result = latex;
+
+  // 常见命令：原始文本残留在 LaTeX 命令前面时自动消去
+  const commands = [
+    'frac', 'sqrt', 'sin', 'cos', 'tan', 'log', 'ln',
+    'lim', 'sum', 'prod', 'int', 'alpha', 'beta', 'gamma',
+    'delta', 'theta', 'pi', 'infty', 'cdot', 'times',
+    'le', 'ge', 'ne', 'approx', 'pm', 'vec', 'hat', 'bar',
+    'overline', 'underline', 'overrightarrow',
+  ];
+
+  for (const cmd of commands) {
+    const escaped = cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // "frac\frac" → "\frac"  （最常见模式）
+    result = result.replace(new RegExp(escaped + '(\\\\' + escaped + ')', 'g'), '$1');
+    // "\mathrm{frac}\frac" → "\frac"
+    result = result.replace(new RegExp('\\\\mathrm\\{' + escaped + '\\}(\\\\' + escaped + ')', 'g'), '$1');
+    // "\text{frac}\frac" → "\frac"
+    result = result.replace(new RegExp('\\\\text\\{' + escaped + '\\}(\\\\' + escaped + ')', 'g'), '$1');
+    // "f\,r\,a\,c\frac" → "\frac"  （MathLive 有时在变量间插入 thin space）
+    const spaced = cmd.split('').join('\\\\,');
+    result = result.replace(new RegExp(spaced + '(\\\\' + escaped + ')', 'g'), '$1');
+  }
+
+  return result;
+}
+
 // ==================== 内联 MathLive 编辑器 ====================
 
 type InlineEditorProps = {
@@ -137,6 +179,36 @@ function InlineEditor({ initialLatex, onConfirm, onCancel, title = '编辑公式
         smartMode: true,
         readOnly: false,
         placeholder: '输入公式，如 sqrt 得根号、frac 得分数',
+        // 内联快捷方式：输入命令后自动转换为数学结构
+        inlineShortcuts: {
+          'frac': '\\frac{#?}{#?}',
+          'sqrt': '\\sqrt{#?}',
+          'sin': '\\sin',
+          'cos': '\\cos',
+          'tan': '\\tan',
+          'log': '\\log',
+          'ln': '\\ln',
+          'lim': '\\lim',
+          'sum': '\\sum',
+          'prod': '\\prod',
+          'int': '\\int',
+          'pi': '\\pi',
+          'alpha': '\\alpha',
+          'beta': '\\beta',
+          'gamma': '\\gamma',
+          'delta': '\\delta',
+          'theta': '\\theta',
+          'infty': '\\infty',
+          'cdot': '\\cdot',
+          'times': '\\times',
+          'pm': '\\pm',
+          'ne': '\\ne',
+          'le': '\\le',
+          'ge': '\\ge',
+          'approx': '\\approx',
+          'vec': '\\vec{#?}',
+          'hat': '\\hat{#?}',
+        },
       });
 
       mf.addEventListener('input', () => {
@@ -375,23 +447,25 @@ export function FormulaInput({
 
   // 内联编辑器确认
   const handleInlineConfirm = useCallback((latex: string) => {
-    if (!latex.trim()) {
+    // 清理 MathLive 残留的原始命令文本（如 frac\frac → \frac）
+    const cleaned = cleanupMathLiveOutput(latex);
+    if (!cleaned.trim()) {
       setInlineOpen(false);
       return;
     }
 
     if (editingChipRef.current) {
       // 编辑已有公式 — 更新 data-formula 和渲染内容
-      editingChipRef.current.dataset.formula = encodeURIComponent(latex);
-      editingChipRef.current.innerHTML = renderLatex(latex);
+      editingChipRef.current.dataset.formula = encodeURIComponent(cleaned);
+      editingChipRef.current.innerHTML = renderLatex(cleaned);
     } else {
       // 插入新公式
       const span = document.createElement('span');
-      span.dataset.formula = encodeURIComponent(latex);
+      span.dataset.formula = encodeURIComponent(cleaned);
       span.contentEditable = 'false';
       span.className = 'formula-chip';
       span.title = '点击编辑公式';
-      span.innerHTML = renderLatex(latex);
+      span.innerHTML = renderLatex(cleaned);
 
       // 在光标位置插入
       const sel = window.getSelection();
@@ -543,7 +617,9 @@ export function FormulaField({
   }, [value]);
 
   const handleConfirm = useCallback((latex: string) => {
-    onChange(latex);
+    // 清理 MathLive 残留的原始命令文本
+    const cleaned = cleanupMathLiveOutput(latex);
+    onChange(cleaned);
     setInlineOpen(false);
   }, [onChange]);
 
