@@ -258,3 +258,33 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 0.15;
   }
 }
+
+/* ==================== 公式编辑器公式块样式 ==================== */
+.formula-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin: 0 2px;
+  cursor: pointer;
+  vertical-align: baseline;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.formula-chip:hover {
+  background: hsl(var(--primary) / 0.15);
+  border-color: hsl(var(--primary) / 0.4);
+}
+.formula-chip:active {
+  background: hsl(var(--primary) / 0.2);
+}
+
+/* contenteditable 空内容时的 placeholder */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
