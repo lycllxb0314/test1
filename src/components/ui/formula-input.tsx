@@ -78,16 +78,16 @@ function FormulaBlock({ latex, onRemove, onEdit }: FormulaBlockProps) {
 
   useEffect(() => {
     let mounted = true;
-    let el = ref.current;
-    if (!el) return;
-
     loadMathlive()
       .then(convertFn => {
         if (!mounted || !ref.current) return;
         if (convertFn) {
           try {
             const html = convertFn(latex, { defaultMode: 'textstyle' });
-            ref.current.innerHTML = html;
+            // 使用独立容器避免与 React 节点冲突
+            const container = document.createElement('span');
+            container.innerHTML = html;
+            ref.current.replaceChildren(container);
             setRendered(true);
             return;
           } catch {
@@ -102,13 +102,14 @@ function FormulaBlock({ latex, onRemove, onEdit }: FormulaBlockProps) {
             strict: false,
             displayMode: false,
           });
-          ref.current.innerHTML = html;
+          const container = document.createElement('span');
+          container.innerHTML = html;
+          ref.current.replaceChildren(container);
           setRendered(true);
         });
       })
       .catch(() => {
-        if (!ref.current) return;
-        // 最终回退：显示原始 LaTeX
+        if (!mounted || !ref.current) return;
         ref.current.textContent = latex;
         setRendered(true);
       });
@@ -120,9 +121,12 @@ function FormulaBlock({ latex, onRemove, onEdit }: FormulaBlockProps) {
     <span
       className="inline-flex items-center gap-1 align-middle bg-primary/5 border border-primary/20 rounded px-1.5 py-0.5 mx-0.5 group relative"
     >
-      <span ref={ref} className="text-sm leading-normal">
-        {!rendered && <span className="text-muted-foreground text-xs animate-pulse">...</span>}
-      </span>
+      {/* 公式渲染容器：纯 DOM 占位，不含 React 子节点 */}
+      <span ref={ref} />
+      {/* 加载指示器：用 CSS 显示/隐藏，避免 React 管理的子节点被 innerHTML 替换 */}
+      {!rendered && (
+        <span className="text-muted-foreground text-xs animate-pulse ml-1">...</span>
+      )}
       {/* 编辑/删除按钮 */}
       {onEdit && (
         <button
@@ -167,6 +171,7 @@ type MathLiveEditorProps = {
  */
 function MathLiveEditor({ initialLatex, onConfirm, onCancel, title = '编辑公式' }: MathLiveEditorProps) {
   const mfContainerRef = useRef<HTMLDivElement>(null);
+  const [mfReady, setMfReady] = useState(false);
   const [currentLatex, setCurrentLatex] = useState(initialLatex);
   const mfRef = useRef<HTMLElement | null>(null);
 
@@ -176,7 +181,6 @@ function MathLiveEditor({ initialLatex, onConfirm, onCancel, title = '编辑公�
     loadMathlive().then(() => {
       if (!mounted || !mfContainerRef.current) return;
 
-      // MathLive import 后 customElements 已注册，可直接使用
       const mf = document.createElement('math-field') as HTMLElement & {
         value: string;
         setOptions: (opts: Record<string, unknown>) => void;
@@ -185,7 +189,6 @@ function MathLiveEditor({ initialLatex, onConfirm, onCancel, title = '编辑公�
 
       mf.value = initialLatex;
 
-      // 配置 MathLive
       mf.setOptions({
         defaultMode: 'math',
         mathVirtualKeyboardPolicy: 'auto',
@@ -195,7 +198,6 @@ function MathLiveEditor({ initialLatex, onConfirm, onCancel, title = '编辑公�
         placeholder: '输入公式...',
       });
 
-      // 监听输入变化
       mf.addEventListener('input', () => {
         setCurrentLatex((mf as unknown as { value: string }).value);
       });
@@ -208,11 +210,11 @@ function MathLiveEditor({ initialLatex, onConfirm, onCancel, title = '编辑公�
       mf.style.padding = '8px 12px';
       mf.style.background = 'var(--background)';
 
-      mfContainerRef.current.innerHTML = '';
+      // 直接 appendChild，不影响 React 管理的其他节点
       mfContainerRef.current.appendChild(mf);
       mfRef.current = mf;
+      setMfReady(true);
 
-      // 自动聚焦
       setTimeout(() => mf.focus(), 150);
     });
 
@@ -262,11 +264,13 @@ function MathLiveEditor({ initialLatex, onConfirm, onCancel, title = '编辑公�
 
         {/* 编辑区 */}
         <div className="p-5">
-          <div ref={mfContainerRef} className="w-full">
+          {/* math-field 渲染容器：纯 DOM 占位，不含 React 子节点 */}
+          <div ref={mfContainerRef} className="w-full" />
+          {!mfReady && (
             <div className="flex items-center gap-2 text-muted-foreground text-xs py-3">
               <span className="animate-pulse">加载公式编辑器...</span>
             </div>
-          </div>
+          )}
           <p className="text-[10px] text-muted-foreground mt-2">
             点击编辑区域后，键盘上方会弹出虚拟数学键盘。支持键盘快捷输入，如输入 &quot;sqrt&quot; 得到根号，&quot;frac&quot; 得到分数。
           </p>
