@@ -44,7 +44,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { MathContent, MathInline } from '@/components/ui/math-content';
-import { FormulaInput, FormulaField } from '@/components/ui/formula-input';
+import { FormulaInput, FormulaField, isFormulaEditorActive } from '@/components/ui/formula-input';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -1232,8 +1232,12 @@ export default function SmartHomeworkPage() {
         </Tabs>
 
         {/* ===== 导入题目弹窗 ===== */}
-        <Dialog open={importOpen} onOpenChange={setImportOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <Dialog open={importOpen} onOpenChange={(open) => { if (!open && isFormulaEditorActive()) return; setImportOpen(open); }}>
+          <DialogContent
+            className="max-w-2xl max-h-[90vh] flex flex-col"
+            onInteractOutside={(e) => { if (isFormulaEditorActive()) e.preventDefault(); }}
+            onPointerDownOutside={(e) => { if (isFormulaEditorActive()) e.preventDefault(); }}
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Upload className="w-5 h-5" /> 导入题目到校本题库
