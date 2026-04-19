@@ -1272,13 +1272,12 @@ export default function SmartHomeworkPage() {
                 <Input className="h-9 text-xs" placeholder="如：第三单元词语运用" value={importForm.title || ''} onChange={e => setImportForm(prev => ({ ...prev, title: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">题目内容 <span className="text-destructive">*</span> <span className="font-normal">（支持公式输入）</span></label>
-                <FormulaInput
-                  value={importForm.content || ''}
-                  onChange={v => setImportForm(prev => ({ ...prev, content: v }))}
-                  placeholder="输入题目内容，公式用 $...$ 包裹，如：计算 $\\frac{1}{2}$ 的值"
-                  minRows={3}
-                />
+                <label className="text-xs text-muted-foreground mb-1 block">题目内容 <span className="text-destructive">*</span> <span className="font-normal">（点击+公式可插入数学公式）</span></label>
+	                <FormulaInput
+	                  value={importForm.content || ''}
+	                  onChange={v => setImportForm(prev => ({ ...prev, content: v }))}
+	                  placeholder="输入题目内容"
+	                />
               </div>
               {/* 选项（选择题时显示） */}
               {importForm.questionType === 'choice' && (
@@ -1321,22 +1320,20 @@ export default function SmartHomeworkPage() {
                 </div>
               )}
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">正确答案 <span className="text-destructive">*</span> <span className="font-normal">（支持公式输入）</span></label>
-                <FormulaInput
-                  value={importForm.answer || ''}
-                  onChange={v => setImportForm(prev => ({ ...prev, answer: v }))}
-                  placeholder="如：A 或 $\\frac{3}{5}$"
-                  minRows={1}
-                />
+                <label className="text-xs text-muted-foreground mb-1 block">正确答案 <span className="text-destructive">*</span> <span className="font-normal">（点击+公式可插入数学公式）</span></label>
+	                <FormulaInput
+	                  value={importForm.answer || ''}
+	                  onChange={v => setImportForm(prev => ({ ...prev, answer: v }))}
+	                  placeholder="输入正确答案"
+	                />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">答案解析 <span className="font-normal">（支持公式输入）</span></label>
-                <FormulaInput
-                  value={importForm.answerExplanation || ''}
-                  onChange={v => setImportForm(prev => ({ ...prev, answerExplanation: v }))}
-                  placeholder="选填，解析过程"
-                  minRows={2}
-                />
+                <label className="text-xs text-muted-foreground mb-1 block">答案解析 <span className="font-normal">（点击+公式可插入数学公式）</span></label>
+	                <FormulaInput
+	                  value={importForm.answerExplanation || ''}
+	                  onChange={v => setImportForm(prev => ({ ...prev, answerExplanation: v }))}
+	                  placeholder="选填，解析过程"
+	                />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
