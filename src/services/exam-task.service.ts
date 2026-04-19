@@ -416,11 +416,22 @@ export class ExamTaskService extends BaseService {
     const isMath = specification.subject === '数学' || specification.subject === 'math';
     const mathHint = isMath
       ? `
-- ⚠️ 数学公式格式（必须严格遵守）：
-  · 所有数学公式必须用 $...$ 包裹，例如 $\\frac{1}{2}$，不要省略 $
-  · 分数必须使用 $\\frac{分子}{分母}$ 格式，例如 $\\frac{1}{2}$、$\\frac{3}{4}$
+- ⚠️ 数学公式格式（必须严格遵守，这是最高优先级规则）：
+  · 【最重要】JSON中所有LaTeX反斜杠必须写双反斜杠！例如：$\\\\frac{1}{2}$ 而不是 $\\frac{1}{2}$
+  · 原因：单个反斜杠在JSON中会被解析为转义字符导致公式损坏
+  · 正确示例：
+    - 分数：$\\\\frac{3}{5}$（双反斜杠）
+    - 乘号：$3 \\\\times 2$（双反斜杠）
+    - 不等号：$x \\\\neq 0$（双反斜杠）
+    - 希腊字母：$\\\\theta$、$\\\\beta$（双反斜杠）
+    - 箭头：$\\\\rightarrow$（双反斜杠）
+  · 错误示例（会导致公式损坏）：
+    - $\\frac{3}{5}$（单反斜杠，\f会被吞掉）
+    - $3 \\times 2$（单反斜杠，\t会被吞掉）
+  · 所有数学公式必须用 $...$ 包裹，不要省略 $
+  · 分数必须使用 $\\\\frac{分子}{分母}$ 格式，例如 $\\\\frac{1}{2}$、$\\\\frac{3}{4}$
   · 绝对禁止用 a/b 或 (a)/(b) 这种纯文本格式表示分数
-  · 上标用 $x^2$，下标用 $a_1$，根号用 $\\sqrt{x}$
+  · 上标用 $x^2$，下标用 $a_1$，根号用 $\\\\sqrt{x}$
   · 不要使用 $$...$$ 行间公式，统一用 $...$ 行内公式
   · 不要使用 \\dfrac，统一使用 \\frac
   · 如题目涉及几何图形，在 imageUrl 字段填空字符串，并在 imageAlt 中描述图形内容`
@@ -446,10 +457,11 @@ export class ExamTaskService extends BaseService {
 5. 填空题用"___"表示每个空，每题的空数必须为${ca.blanksPerQuestion || 1}个
 6. 附带答案解析
 ${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
-8. 分数必须使用 $\\frac{分子}{分母}$ 格式，禁止用 a/b 或 (a)/(b) 纯文本格式
-9. 不要使用 $$...$$ 行间公式，统一用 $...$ 行内公式
-10. 不要使用 \\dfrac，统一使用 \\frac
-11. 几何图形题须标注 imageUrl 和 imageAlt 字段` : ''}
+8. 【最重要】JSON中所有LaTeX反斜杠必须写双反斜杠！$\\\\frac{}{}$ 而不是 $\\frac{}{}$
+9. 分数必须使用 $\\\\frac{分子}{分母}$ 格式，禁止用 a/b 或 (a)/(b) 纯文本格式
+10. 不要使用 $$...$$ 行间公式，统一用 $...$ 行内公式
+11. 不要使用 \\dfrac，统一使用 \\frac
+12. 几何图形题须标注 imageUrl 和 imageAlt 字段` : ''}
 
 ## 输出格式
 请用以下JSON格式输出（不要其他内容）：
@@ -457,11 +469,11 @@ ${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
 [
   {
     "title": "题目标题（简短）",
-    "content": "题目完整内容（数学公式必须用$...$包裹，分数用$\\frac{}{}$）",
+    "content": "题目完整内容（数学公式必须用$...$包裹，分数用$\\\\frac{}{}$，注意双反斜杠）",
     "questionType": "${ca.suggestedQuestionTypes[0]}",
-    "options": [{"label":"A","content":"选项内容（数学公式用$...$包裹）","isCorrect":false}],
-    "answer": "正确答案（数学公式用$...$包裹）",
-    "answerExplanation": "答案解析（数学公式用$...$包裹）",
+    "options": [{"label":"A","content":"选项内容（数学公式用$...$包裹，双反斜杠）","isCorrect":false}],
+    "answer": "正确答案（数学公式用$...$包裹，双反斜杠）",
+    "answerExplanation": "答案解析（数学公式用$...$包裹，双反斜杠）",
     "score": ${ca.scorePerQuestion},
     "knowledgePoints": ["${kc.name}"],
     "difficulty": "${specification.difficultyDistribution.hard > 0.25 ? 'hard' : 'medium'}",
@@ -476,7 +488,7 @@ ${isMath ? `7. 数学公式必须使用 LaTeX 格式，且必须用 $...$ 包裹
       {
         role: 'system' as const,
         content: isMath
-          ? '你是一位严谨的教育命题专家。你必须严格围绕指定知识点出题，不得偏离。每道题都必须考查指定的知识点和认知层次。所有数学公式必须用$...$包裹，分数必须用$\\frac{}{}$格式，禁止使用纯文本分数如a/b。'
+          ? '你是一位严谨的教育命题专家。你必须严格围绕指定知识点出题，不得偏离。每道题都必须考查指定的知识点和认知层次。所有数学公式必须用$...$包裹，分数必须用$\\\\frac{}{}$格式（注意JSON中必须使用双反斜杠），禁止使用纯文本分数如a/b。'
           : '你是一位严谨的教育命题专家。你必须严格围绕指定知识点出题，不得偏离。每道题都必须考查指定的知识点和认知层次。',
       },
       { role: 'user' as const, content: prompt },

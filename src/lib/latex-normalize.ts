@@ -116,9 +116,15 @@ export function normalizeLatex(text: string): string {
 
   // ---- Step 0.5: JSON.parse 兜底修复（控制字符已被上面处理，这里是文本模式兜底）----
   // 对于已经被剥离控制字符的残留文本（如 "rac{" 而非 "\x0Crac{"）
+  // 这些是控制字符被完全删除后、仅剩后缀字母的残留模式
   result = result.replace(/(?<!\\)rac\{/g, '\\frac{');
+  result = result.replace(/(?<!\\)orall\b/g, '\\forall');
   result = result.replace(/(?<!\\)imes\b/g, '\\times');
   result = result.replace(/(?<!\\)heta\b/g, '\\theta');
+  result = result.replace(/(?<![a-z])eq\b/g, '\\neq');    // 独立的 "eq" 前无字母 → \neq
+  result = result.replace(/(?<!\\)abla\b/g, '\\nabla');
+  result = result.replace(/(?<![a-z])eta\b/g, '\\beta');  // 独立的 "eta" 前无字母 → \beta
+  result = result.replace(/(?<![a-z])ho\b/g, '\\rho');    // 独立的 "ho" 前无字母 → \rho
 
   // ---- Step 1: 处理 $$...$$ 行间公式 → $...$ ----
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
@@ -135,6 +141,26 @@ export function normalizeLatex(text: string): string {
   result = result.replace(
     /\((\d+(?:\.\d+)?)\)\s*\/\s*\((\d+(?:\.\d+)?)\)/g,
     (_match, num: string, den: string) => {
+      return `$\\frac{${num}}{${den}}$`;
+    }
+  );
+
+  // ---- Step 4.5: 纯文本分数 a/b → $\frac{a}{b}$ ----
+  // 匹配 数字/数字 模式（不在 $...$ 内，且不在已有 \frac 附近）
+  // 只处理简单的整数/小数分数，避免误伤日期、比例等
+  result = result.replace(
+    /(?<!\$[\s\S]*?)(?<!\\frac\{)\b(\d+)\s*\/\s*(\d+)\b(?![\s\S]*?\$)/g,
+    (_match, num: string, den: string, offset: number) => {
+      // 检查是否在 $...$ 内部
+      const before = result.substring(Math.max(0, offset - 50), offset);
+      const after = result.substring(offset, Math.min(result.length, offset + 50));
+      const dollarCount = (before.match(/\$/g) || []).length;
+      if (dollarCount % 2 === 1) return _match; // 在公式内，不处理
+      if (after.includes('\\frac')) return _match; // 已有 frac，不处理
+      // 只转换看起来像分数的（分母大于1，分子小于分母或小于100）
+      const n = parseInt(num);
+      const d = parseInt(den);
+      if (d <= 1 || n > 999 || d > 999) return _match;
       return `$\\frac{${num}}{${den}}$`;
     }
   );
