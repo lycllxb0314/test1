@@ -104,6 +104,12 @@ export function normalizeLatex(text: string): string {
 
   let result = text;
 
+  // ---- Step -1: 清理数据库中已有的双重修复残留 ----
+  // 之前版本的 Step 0 + Step 0.5 会双重修复，导致 \f\frac{ \t\times 等模式
+  // 通用模式：\<control-letter>\<same-letter-starting-command> → \<command>
+  // 例如 \f\frac → \frac, \t\times → \times, \b\beta → \beta, \n\neq → \neq, \r\rho → \rho
+  result = result.replace(/\\([fbtrn])\\(\1[a-z]+)/g, '\\$2');
+
   // ---- Step 0: 控制字符兜底修复 ----
   // 数据库中可能残留 JSON.parse 产生的控制字符，在此统一清除
   // 与 repairJsonParsedText 相同的通用策略，确保从任何来源的数据都能被修复
@@ -114,17 +120,29 @@ export function normalizeLatex(text: string): string {
     .replace(/\x0A([a-z])/g, '\\n$1')    // newline + 小写字母 → \n + 字母
     .replace(/\x0D([a-z])/g, '\\r$1');   // carriage return + 小写字母 → \r + 字母
 
-  // ---- Step 0.5: JSON.parse 兜底修复（控制字符已被上面处理，这里是文本模式兜底）----
-  // 对于已经被剥离控制字符的残留文本（如 "rac{" 而非 "\x0Crac{"）
-  // 这些是控制字符被完全删除后、仅剩后缀字母的残留模式
-  result = result.replace(/(?<!\\)rac\{/g, '\\frac{');
-  result = result.replace(/(?<!\\)orall\b/g, '\\forall');
-  result = result.replace(/(?<!\\)imes\b/g, '\\times');
-  result = result.replace(/(?<!\\)heta\b/g, '\\theta');
-  result = result.replace(/(?<![a-z])eq\b/g, '\\neq');    // 独立的 "eq" 前无字母 → \neq
-  result = result.replace(/(?<!\\)abla\b/g, '\\nabla');
-  result = result.replace(/(?<![a-z])eta\b/g, '\\beta');  // 独立的 "eta" 前无字母 → \beta
-  result = result.replace(/(?<![a-z])ho\b/g, '\\rho');    // 独立的 "ho" 前无字母 → \rho
+  // ---- Step 0.3: 清理 Step 0 可能产生的新的双重修复 ----
+  // 如果 Step 0 将 0x0C → \f，而原文已有 \frac{，会形成 \f\frac{
+  result = result.replace(/\\([fbtrn])\\(\1[a-z]+)/g, '\\$2');
+
+  // ---- Step 0.5: 孤立后缀兜底修复 ----
+  // 仅修复控制字符被完全删除后仅剩后缀的情况（如 "rac{" 而非 "\x0Crac{"）
+  // 【关键】lookbehind 必须排除 Step 0 已正确重组的命令：
+  //   \frac{ 中的 rac{ 前面是 \f，不能匹配（否则会插入多余 \f）
+  //   \times 中的 imes 前面是 \t，不能匹配
+  //   \neq   中的 eq   前面是 \n，不能匹配（且 n 是小写字母）
+  //   \beta  中的 eta  前面是 \b，不能匹配（且 b 是小写字母）
+  //   \theta 中的 heta 前面是 \t，不能匹配
+  //   \rho   中的 ho   前面是 \r，不能匹配
+  //   \forall 中的 orall 前面是 \f，不能匹配
+  //   \nabla 中的 abla 前面是 \n，不能匹配
+  result = result.replace(/(?<!\\f)rac\{/g, '\\frac{');
+  result = result.replace(/(?<!\\f)orall\b/g, '\\forall');
+  result = result.replace(/(?<!\\t)imes\b/g, '\\times');
+  result = result.replace(/(?<!\\t)heta\b/g, '\\theta');
+  result = result.replace(/(?<!\\n)(?<![a-z])eq\b/g, '\\neq');
+  result = result.replace(/(?<!\\n)abla\b/g, '\\nabla');
+  result = result.replace(/(?<!\\b)(?<!\\)(?<![a-z])eta\b/g, '\\beta');
+  result = result.replace(/(?<!\\r)(?<!\\)(?<![a-z])ho\b/g, '\\rho');
 
   // ---- Step 1: 处理 $$...$$ 行间公式 → $...$ ----
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
