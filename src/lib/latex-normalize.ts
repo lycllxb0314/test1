@@ -28,44 +28,41 @@
  *
  * 必须在 JSON.parse 后立即调用！
  *
- * 修复逻辑：
- * - 0x08 (backspace, \b) → 恢复为 \b 前缀（如 \beta → \beta）
- * - 0x0C (form feed, \f) → 恢复为 \f 前缀（如 \frac → \frac）
- * - 0x09 (tab, \t) → 恢复为 \t 前缀（如 \times → \times）
- * - 0x0A (newline, \n) → 恢复为 \n 前缀（如 \neq → \neq）
- * - 0x0D (carriage return, \r) → 恢复为 \r 前缀
+ * 【根因】JSON 标准中 \b \f \n \r \t 是合法转义序列，JSON.parse 会将它们解析为控制字符：
+ *   \frac   → \f 被解析为 0x0C (form feed)  → 变成 0x0C + "rac"
+ *   \times  → \t 被解析为 0x09 (tab)        → 变成 0x09 + "imes"
+ *   \neq    → \n 被解析为 0x0A (newline)     → 变成 0x0A + "eq"
+ *   \beta   → \b 被解析为 0x08 (backspace)   → 变成 0x08 + "eta"
+ *   \rho    → \r 被解析为 0x0D (carriage ret) → 变成 0x0D + "ho"
  *
- * 关键：这些控制字符后面通常跟着 LaTeX 命令的剩余字母，
- * 所以我们需要把控制字符替换为 "\" + 对应字母，恢复原始 LaTeX 命令。
+ * 【通用修复策略】
+ * 将控制字符替换为 "\" + 对应字母，让后跟的字母自动拼回完整 LaTeX 命令：
+ *   0x0C → \f  → \frac{1}{2}、\forall、\flat ... 全部自动恢复
+ *   0x09 → \t  → \times、\theta、\to、\therefore、\tilde、\tfrac ... 全部自动恢复
+ *   0x08 → \b  → \beta、\bar、\begin ... 全部自动恢复
+ *   0x0A → \n  → \neq、\nabla、\nu、\not ... 全部自动恢复
+ *   0x0D → \r  → \rho、\rightarrow ... 全部自动恢复
+ *
+ * 对 0x0A (newline) 和 0x0D (carriage return) 采取保守策略：
+ * 只在后面紧跟小写字母时替换（说明原本是 LaTeX 命令），否则保留原样（可能是真正的换行）。
+ * 0x08 (backspace)、0x0C (form feed)、0x09 (tab) 在数学题文本中不可能有合法用途，全部替换。
  */
 export function repairJsonParsedText(text: string): string {
   if (!text) return '';
 
   return text
-    // 0x0C (form feed, from \f) → \f
-    // \frac{1}{2} 被解析为 0x0C + "rac{1}{2}"，需要恢复为 \frac{1}{2}
-    .replace(/\x0Crac/g, '\\frac')
-    // \forall 被解析为 0x0C + "orall"，恢复为 \forall
-    .replace(/\x0Corall/g, '\\forall')
-    // 0x09 (tab, from \t) → \t
-    // \times 被解析为 0x09 + "imes"，恢复为 \times
-    .replace(/\x09imes/g, '\\times')
-    // \theta 被解析为 0x09 + "heta"，恢复为 \theta
-    .replace(/\x09heta/g, '\\theta')
-    // \to 被解析为 0x09 + "o"，恢复为 \to
-    // 注意：需要避免误替换正常的 tab + "o"，只在 LaTeX 上下文中替换
-    // 这里保守处理，只替换 $...$ 内的
-    // 0x0A (newline, from \n) → \n
-    // \neq 被解析为 0x0A + "eq"，恢复为 \neq
-    .replace(/\x0Aeq/g, '\\neq')
-    // \nabla 被解析为 0x0A + "abla"，恢复为 \nabla
-    .replace(/\x0Aabla/g, '\\nabla')
-    // 0x08 (backspace, from \b) → \b
-    // \beta 被解析为 0x08 + "eta"，恢复为 \beta
-    .replace(/\x08eta/g, '\\beta')
-    // 0x0D (carriage return, from \r) → \r
-    // \rho 被解析为 0x0D + "ho"，恢复为 \rho
-    .replace(/\x0Dho/g, '\\rho');
+    // 0x0C (form feed, from \f) → \f — 数学文本中不可能合法出现，全部替换
+    .replace(/\x0C/g, '\\f')
+    // 0x08 (backspace, from \b) → \b — 数学文本中不可能合法出现，全部替换
+    .replace(/\x08/g, '\\b')
+    // 0x09 (tab, from \t) → \t — 数学文本中极不可能作为对齐使用，全部替换
+    .replace(/\x09/g, '\\t')
+    // 0x0A (newline, from \n) → \n — 仅当后跟小写字母时替换（LaTeX 命令特征）
+    // \neq, \nabla, \nu, \not, \nearrow, \nleftarrow, \nRightarrow, \nsubseteq ...
+    .replace(/\x0A([a-z])/g, '\\n$1')
+    // 0x0D (carriage return, from \r) → \r — 仅当后跟小写字母时替换
+    // \rho, \rightarrow, \Rightarrow, \rangle, \rbrace, \rfloor ...
+    .replace(/\x0D([a-z])/g, '\\r$1');
 }
 
 /**
@@ -107,17 +104,21 @@ export function normalizeLatex(text: string): string {
 
   let result = text;
 
-  // ---- Step 0: JSON.parse 兜底修复 ----
-  // 即使 repairJsonParsedText 已经在源头修复，这里做双重保障
-  // rac{ → \frac{（最常见的残留问题）
+  // ---- Step 0: 控制字符兜底修复 ----
+  // 数据库中可能残留 JSON.parse 产生的控制字符，在此统一清除
+  // 与 repairJsonParsedText 相同的通用策略，确保从任何来源的数据都能被修复
+  result = result
+    .replace(/\x0C/g, '\\f')              // form feed → \f
+    .replace(/\x08/g, '\\b')              // backspace → \b
+    .replace(/\x09/g, '\\t')              // tab → \t
+    .replace(/\x0A([a-z])/g, '\\n$1')    // newline + 小写字母 → \n + 字母
+    .replace(/\x0D([a-z])/g, '\\r$1');   // carriage return + 小写字母 → \r + 字母
+
+  // ---- Step 0.5: JSON.parse 兜底修复（控制字符已被上面处理，这里是文本模式兜底）----
+  // 对于已经被剥离控制字符的残留文本（如 "rac{" 而非 "\x0Crac{"）
   result = result.replace(/(?<!\\)rac\{/g, '\\frac{');
-  // orall{ → \forall{
-  // imes → \times
   result = result.replace(/(?<!\\)imes\b/g, '\\times');
-  // heta → \theta
   result = result.replace(/(?<!\\)heta\b/g, '\\theta');
-  // eq → \neq（需要更谨慎，避免误伤 "eq" 单词）
-  // 暂时不处理，因为 neq 在数学题中不太常见
 
   // ---- Step 1: 处理 $$...$$ 行间公式 → $...$ ----
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula: string) => {
