@@ -258,6 +258,7 @@ export default function HomePage() {
   const [activeSection, setActiveSection] = useState(0);
   const [playingVideo, setPlayingVideo] = useState<CarouselItem | null>(null);
   const [activeNewsIndex, setActiveNewsIndex] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
   
   // 动态数据状态
   const [carouselItems, setCarouselItems] = useState<CarouselItem[]>(defaultCarouselItems);
@@ -272,6 +273,15 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // 监听滚动，控制导航栏背景
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 40);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // 获取门户数据
@@ -424,8 +434,12 @@ export default function HomePage() {
   return (
     <div className="min-h-screen pt-16" style={{ background: 'linear-gradient(180deg, #FEFCF9 0%, #FDF9F3 50%, #FBF5EE 100%)' }}>
       
-      {/* 顶部导航 - 固定 */}
-      <header className="fixed top-0 left-0 right-0 bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] text-white z-50 backdrop-blur-sm border-b border-white/10">
+      {/* 顶部导航 - 固定，滚动后显示背景色 */}
+      <header className={`fixed top-0 left-0 right-0 text-white z-50 transition-all duration-500 ${
+        scrolled 
+          ? 'bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] backdrop-blur-md border-b border-white/10 shadow-lg shadow-black/10' 
+          : 'bg-transparent border-b border-transparent'
+      }`}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-6">
