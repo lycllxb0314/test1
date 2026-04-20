@@ -422,37 +422,37 @@ export default function HomePage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen pt-14" style={{ background: 'linear-gradient(180deg, #FEFCF9 0%, #FDF9F3 50%, #FBF5EE 100%)' }}>
+    <div className="min-h-screen pt-16" style={{ background: 'linear-gradient(180deg, #FEFCF9 0%, #FDF9F3 50%, #FBF5EE 100%)' }}>
       
       {/* 顶部导航 - 固定 */}
       <header className="fixed top-0 left-0 right-0 bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] text-white z-50 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-6">
               <div className="bg-white rounded-lg p-1.5">
                 <img 
                   src="/logo-school.png" 
                   alt="福建省龙岩师范附属小学" 
-                  className="h-8 w-auto"
+                  className="h-9 w-auto"
                 />
               </div>
               <div className="hidden md:block border-l border-white/20 pl-6">
-                <span className="text-sm font-medium">福建省龙岩师范附属小学</span>
+                <span className="text-base font-medium">福建省龙岩师范附属小学</span>
               </div>
             </div>
             
             <nav className="hidden md:flex items-center gap-1">
-              <a href="#" className="px-4 py-2 text-sm bg-white/10 rounded-md">首 页</a>
-              <Link href="/philosophy" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">办学理念</Link>
-              <Link href="/leadership" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">现任领导</Link>
-              <Link href="/news" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">新闻中心</Link>
-              <Link href="/notices" className="px-4 py-2 text-sm hover:bg-white/10 rounded-md transition">校园公告</Link>
+              <a href="#" className="px-4 py-2 text-base bg-white/10 rounded-md">首 页</a>
+              <Link href="/philosophy" className="px-4 py-2 text-base hover:bg-white/10 rounded-md transition">办学理念</Link>
+              <Link href="/leadership" className="px-4 py-2 text-base hover:bg-white/10 rounded-md transition">现任领导</Link>
+              <Link href="/news" className="px-4 py-2 text-base hover:bg-white/10 rounded-md transition">新闻中心</Link>
+              <Link href="/notices" className="px-4 py-2 text-base hover:bg-white/10 rounded-md transition">校园公告</Link>
             </nav>
 
             {user ? (
               <div className="flex items-center gap-4">
                 {/* 用户信息显示 */}
-                <div className="hidden md:flex items-center gap-2 text-sm">
+                <div className="hidden md:flex items-center gap-2 text-base">
                   <span className="font-medium">{user.name}</span>
                   <span className="text-white/60">|</span>
                   <span className="text-white/90">
@@ -465,14 +465,14 @@ export default function HomePage() {
                   </span>
                 </div>
                 <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
-                  <Button className="bg-white text-[#A0785A] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
+                  <Button className="bg-white text-[#A0785A] hover:bg-white/95 rounded-lg px-5 h-10 text-base font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
                     进入工作台
                   </Button>
                 </Link>
               </div>
             ) : (
               <Link href="/login">
-                <Button className="bg-white text-[#A0785A] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
+                <Button className="bg-white text-[#A0785A] hover:bg-white/95 rounded-lg px-5 h-10 text-base font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
                   登录系统
                 </Button>
               </Link>
@@ -484,7 +484,7 @@ export default function HomePage() {
       {/* 内容区 - 基础字号放大 */}
       <div style={{ fontSize: '18px' }}>
       {/* 轮播图 */}
-      <section className="relative min-h-[500px] md:min-h-[calc(100vh-56px)] overflow-hidden">
+      <section className="relative min-h-[500px] md:min-h-[calc(100vh-64px)] overflow-hidden">
         <div className="absolute inset-0">
           {carouselItems.map((item, index) => (
             <div
