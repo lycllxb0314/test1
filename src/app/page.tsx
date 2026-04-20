@@ -490,6 +490,9 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+              <Link href="/student-showcase" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
+                scrolled ? 'hover:bg-white/10' : ''
+              }`}>附小少年</Link>
               <Link href="/news" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
                 scrolled ? 'hover:bg-white/10' : ''
               }`}>新闻中心</Link>

@@ -118,6 +118,10 @@ import {
   TeacherAwardRepository, teacherAwardRepository,
 } from '@/repositories/teacher-excellence.repository';
 
+import {
+  StudentShowcaseRepository, studentShowcaseRepository,
+} from '@/repositories/student-showcase.repository';
+
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
 import { StudentService, studentService } from '@/services/student.service';
@@ -216,6 +220,11 @@ import {
   TeacherAwardService, teacherAwardService,
 } from '@/services/teacher-excellence.service';
 
+// 附小少年 Service
+import {
+  StudentShowcaseService, studentShowcaseService,
+} from '@/services/student-showcase.service';
+
 /**
  * 初始化 DI 容器
  * 注册所有服务到容器中
@@ -302,6 +311,8 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.TeacherProfileRepository, () => teacherProfileRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.TeacherTeamRepository, () => teacherTeamRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.TeacherAwardRepository, () => teacherAwardRepository);
+  // 附小少年 Repository
+  container.registerSingleton(SERVICE_IDENTIFIERS.StudentShowcaseRepository, () => studentShowcaseRepository);
 
   // ========================================
   // 注册 Services（单例）
@@ -380,6 +391,8 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.TeacherProfileService, () => teacherProfileService);
   container.registerSingleton(SERVICE_IDENTIFIERS.TeacherTeamService, () => teacherTeamService);
   container.registerSingleton(SERVICE_IDENTIFIERS.TeacherAwardService, () => teacherAwardService);
+  // 附小少年 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.StudentShowcaseService, () => studentShowcaseService);
 }
 
 // 导出

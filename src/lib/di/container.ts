@@ -192,6 +192,9 @@ export const SERVICE_IDENTIFIERS = {
   TeacherTeamRepository: Symbol.for('TeacherTeamRepository'),
   TeacherAwardRepository: Symbol.for('TeacherAwardRepository'),
 
+  // 附小少年 Repository
+  StudentShowcaseRepository: Symbol.for('StudentShowcaseRepository'),
+
   // Services
   UserService: Symbol.for('UserService'),
   StudentService: Symbol.for('StudentService'),
@@ -266,6 +269,9 @@ export const SERVICE_IDENTIFIERS = {
   TeacherProfileService: Symbol.for('TeacherProfileService'),
   TeacherTeamService: Symbol.for('TeacherTeamService'),
   TeacherAwardService: Symbol.for('TeacherAwardService'),
+
+  // 附小少年 Service
+  StudentShowcaseService: Symbol.for('StudentShowcaseService'),
 } as const;
 
 /**
