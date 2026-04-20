@@ -935,7 +935,7 @@ export default function HomePage() {
               <span className="text-xs text-[#8B5A2B]/50 ml-auto">区域标杆，全国领先</span>
             </div>
             
-            <div className="flex justify-center gap-8">
+            <div className="flex justify-center gap-12">
               {achievementCategories.length > 0 ? (
                 achievementCategories.map((category, index) => {
                   const IconComponent = getIconComponent(category.icon);
