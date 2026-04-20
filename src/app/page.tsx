@@ -438,12 +438,14 @@ export default function HomePage() {
       <header className={`fixed top-0 left-0 right-0 text-white z-50 transition-all duration-500 ${
         scrolled 
           ? 'bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] backdrop-blur-md border-b border-white/10 shadow-lg shadow-black/10' 
-          : 'bg-transparent border-b border-transparent'
+          : 'bg-gradient-to-b from-black/30 to-transparent border-b border-transparent'
       }`}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-6">
-              <div className="bg-white rounded-lg p-1.5">
+              <div className={`rounded-lg p-1.5 transition-all duration-500 ${
+                scrolled ? 'bg-white' : 'bg-white/15 backdrop-blur-sm'
+              }`}>
                 <img 
                   src="/logo-school.png" 
                   alt="福建省龙岩师范附属小学" 
@@ -451,22 +453,35 @@ export default function HomePage() {
                 />
               </div>
               <div className="hidden md:block border-l border-white/20 pl-6">
-                <span className="text-base font-medium">福建省龙岩师范附属小学</span>
+                <span className={`text-base font-medium transition-all duration-500 ${
+                  scrolled ? '' : 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]'
+                }`}>福建省龙岩师范附属小学</span>
               </div>
             </div>
             
             <nav className="hidden md:flex items-center gap-1">
-              <a href="#" className="px-4 py-2 text-base bg-white/10 rounded-md">首 页</a>
-              <Link href="/philosophy" className="px-4 py-2 text-base hover:bg-white/10 rounded-md transition">办学理念</Link>
-              <Link href="/leadership" className="px-4 py-2 text-base hover:bg-white/10 rounded-md transition">现任领导</Link>
-              <Link href="/news" className="px-4 py-2 text-base hover:bg-white/10 rounded-md transition">新闻中心</Link>
-              <Link href="/notices" className="px-4 py-2 text-base hover:bg-white/10 rounded-md transition">校园公告</Link>
+              <a href="#" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
+                scrolled ? 'bg-white/10' : 'bg-white/10 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+              }`}>首 页</a>
+              <Link href="/philosophy" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
+                scrolled ? 'hover:bg-white/10' : 'hover:bg-white/15 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+              }`}>办学理念</Link>
+              <Link href="/leadership" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
+                scrolled ? 'hover:bg-white/10' : 'hover:bg-white/15 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+              }`}>现任领导</Link>
+              <Link href="/news" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
+                scrolled ? 'hover:bg-white/10' : 'hover:bg-white/15 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+              }`}>新闻中心</Link>
+              <Link href="/notices" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
+                scrolled ? 'hover:bg-white/10' : 'hover:bg-white/15 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+              }`}>校园公告</Link>
             </nav>
 
             {user ? (
               <div className="flex items-center gap-4">
-                {/* 用户信息显示 */}
-                <div className="hidden md:flex items-center gap-2 text-base">
+                <div className={`hidden md:flex items-center gap-2 text-base transition-all duration-500 ${
+                  scrolled ? '' : 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]'
+                }`}>
                   <span className="font-medium">{user.name}</span>
                   <span className="text-white/60">|</span>
                   <span className="text-white/90">
