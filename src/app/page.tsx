@@ -611,7 +611,7 @@ export default function HomePage() {
                   : 'h-8 w-8 opacity-50 hover:opacity-75'
               }`}
             >
-              <img src="/mascot-white.png" alt="" className="w-full h-full object-contain" />
+              <img src="/mascot-white.png?v=2" alt="" className="w-full h-full object-contain" />
             </button>
           ))}
         </div>
