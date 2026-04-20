@@ -441,8 +441,7 @@ export default function HomePage() {
           ? 'bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] backdrop-blur-md border-b border-white/10 shadow-lg shadow-black/10' 
           : 'border-b border-transparent'
       }`}>
-        {/* 未滚动时：底部渐变遮罩保证文字可读性 */}
-        {!scrolled && <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none" />}
+
         <div className="relative max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-6">
@@ -558,7 +557,7 @@ export default function HomePage() {
                 alt={item.title}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
               
               {/* B站视频可点击区域 */}
               {item.type === 'bilibili' && item.bilibiliUrl && index === currentSlide && (
@@ -575,37 +574,37 @@ export default function HomePage() {
         <div className="absolute inset-0 z-20 flex items-center pointer-events-none">
           <div className="max-w-7xl mx-auto px-4 w-full">
             <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white text-xs px-4 py-1.5 rounded-full mb-5 border border-white/20 shadow-lg shadow-black/10">
-                <Sparkles className="h-3.5 w-3.5 text-white/80" />
+              <div className="inline-flex items-center gap-2 bg-black/40 backdrop-blur-md text-white text-xs px-4 py-1.5 rounded-full mb-5 border border-white/10">
+                <Sparkles className="h-3.5 w-3.5 text-white/90" />
                 福建省示范小学 · 创建于1914年
               </div>
               <h1 
-                className="text-3xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg tracking-tight"
+                className="text-3xl md:text-5xl font-bold text-white mb-4 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] tracking-tight"
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
                 福建省龙岩师范附属小学
               </h1>
               <p 
-                className="text-lg md:text-xl text-white/90 mb-2"
+                className="text-lg md:text-xl text-white mb-2 drop-shadow-[0_1px_4px_rgba(0,0,0,0.4)]"
                 style={{ fontFamily: 'var(--font-serif)' }}
               >
                 珍视童心，张扬个性，全面发展
               </p>
-              <p className="text-white/70 text-sm mb-6">当有情怀的老师，办有温度的学校</p>
+              <p className="text-white/90 text-sm mb-6 drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]">当有情怀的老师，办有温度的学校</p>
               
               {/* 当前轮播项信息 + 视频播放按钮 */}
               <div className="flex items-center gap-4 flex-wrap pointer-events-auto">
                 {carouselItems[currentSlide] && (
                   <>
-                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 inline-flex items-center gap-3 border border-white/20 shadow-lg shadow-black/10">
+                    <div className="bg-black/40 backdrop-blur-md rounded-xl p-4 inline-flex items-center gap-3 border border-white/10">
                       {carouselItems[currentSlide].tag && (
-                        <span className="text-xs bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] text-white px-3 py-1 rounded-full font-medium shadow-sm">
+                        <span className="text-xs bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] text-white px-3 py-1 rounded-full font-medium">
                           {carouselItems[currentSlide].tag}
                         </span>
                       )}
-                      <span className="text-white font-medium">{carouselItems[currentSlide].title}</span>
+                      <span className="text-white font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">{carouselItems[currentSlide].title}</span>
                       {carouselItems[currentSlide].subtitle && (
-                        <span className="text-white/60 text-sm">· {carouselItems[currentSlide].subtitle}</span>
+                        <span className="text-white/70 text-sm">· {carouselItems[currentSlide].subtitle}</span>
                       )}
                     </div>
                     
@@ -635,11 +634,11 @@ export default function HomePage() {
                   { num: '194', label: '教师', unit: '人' },
                   { num: '112', label: '办学历史', unit: '年' },
                 ].map((item, i) => (
-                  <div key={i} className="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center text-white min-w-[90px] border border-white/20 shadow-lg shadow-black/10 hover:bg-white/15 hover:border-white/30 transition-all duration-300">
+                  <div key={i} className="bg-black/40 backdrop-blur-md rounded-xl p-4 text-center text-white min-w-[90px] border border-white/10 hover:bg-black/50 hover:border-white/20 transition-all duration-300">
                     <div className="text-2xl font-bold tracking-tight">
                       {item.num}<span className="text-sm font-normal ml-0.5">{item.unit}</span>
                     </div>
-                    <div className="text-xs text-white/80 mt-1 font-medium">{item.label}</div>
+                    <div className="text-xs text-white/90 mt-1 font-medium">{item.label}</div>
                   </div>
                 ))}
               </div>
