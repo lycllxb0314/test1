@@ -510,7 +510,7 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="relative z-20 h-full flex items-center pointer-events-none">
+        <div className="absolute inset-0 z-20 flex items-center pointer-events-none">
           <div className="max-w-7xl mx-auto px-4 w-full">
             <div className="max-w-xl">
               <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white text-xs px-4 py-1.5 rounded-full mb-5 border border-white/20 shadow-lg shadow-black/10">
@@ -935,7 +935,7 @@ export default function HomePage() {
               <span className="text-xs text-[#8B5A2B]/50 ml-auto">区域标杆，全国领先</span>
             </div>
             
-            <div className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin">
+            <div className="flex justify-center gap-8">
               {achievementCategories.length > 0 ? (
                 achievementCategories.map((category, index) => {
                   const IconComponent = getIconComponent(category.icon);
@@ -944,7 +944,7 @@ export default function HomePage() {
                   // 第一张卡片（科创教育）使用深色主题
                   if (isFirstCard) {
                     return (
-                      <div key={category.id} className="shrink-0 w-[300px] snap-start bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
+                      <div key={category.id} className="w-[320px] bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col shadow-lg">
                         <Link href={`/achievements?category=${category.slug}`} className="relative h-48 block">
                           <img
                             src={category.slug === 'science' ? '/images/campus/robot-award.jpg' : '/images/campus/school-assembly.png'}
@@ -967,13 +967,13 @@ export default function HomePage() {
                           </div>
                         </Link>
                         
-                        <div className="p-5 flex-1 flex flex-col">
+                        <div className="p-5 flex-1 flex flex-col gap-4">
                           {category.description && (
-                            <p className="text-sm text-white/70 mb-4">{category.description}</p>
+                            <p className="text-sm text-white/70">{category.description}</p>
                           )}
                           
                           {category.featuredAwardTitle && (
-                            <div className="bg-white/10 rounded-xl p-4 mb-4">
+                            <div className="bg-white/10 rounded-xl p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Award className="h-4 w-4 text-[#D4A574]" />
                                 <span className="text-sm font-medium text-[#D4A574]">{category.featuredAwardTitle}</span>
@@ -1001,7 +1001,7 @@ export default function HomePage() {
                   
                   // 其他卡片使用浅色主题
                   return (
-                    <div key={category.id} className="shrink-0 w-[300px] snap-start bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                    <div key={category.id} className="w-[320px] bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
                       <Link href={`/achievements?category=${category.slug}`} className="relative h-48 block">
                         <img
                           src={category.slug === 'moral' ? '/images/campus/teacher-day-award.png' : category.slug === 'art' ? '/images/campus/orchestra.png' : '/images/campus/school-assembly.png'}
@@ -1023,12 +1023,12 @@ export default function HomePage() {
                           )}
                         </div>
                       </Link>
-                      <div className="p-5 flex-1">
+                      <div className="p-5 flex-1 flex flex-col gap-3">
                         {category.description && (
-                          <p className="text-sm text-[#8B5A2B]/70 mb-4">{category.description}</p>
+                          <p className="text-sm text-[#8B5A2B]/70">{category.description}</p>
                         )}
                         {category.honorsList && category.honorsList.length > 0 && (
-                          <div className="space-y-3">
+                          <div className="space-y-3 mt-1">
                             {category.honorsList.map((honor, honorIdx) => (
                               <div key={honorIdx} className="flex items-start gap-3">
                                 <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -1052,7 +1052,7 @@ export default function HomePage() {
                 // 默认静态数据作为后备
                 <>
                   {/* 科创教育 - 王牌特色 */}
-                  <div className="shrink-0 w-[300px] snap-start bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
+                  <div className="w-[320px] bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col shadow-lg">
                     <Link href="/achievements?category=science" className="relative h-48 block">
                       <img
                         src="/images/campus/robot-award.jpg"
@@ -1073,12 +1073,12 @@ export default function HomePage() {
                       </div>
                     </Link>
                     
-                    <div className="p-5 flex-1 flex flex-col">
-                      <p className="text-sm text-white/70 mb-4">
+                    <div className="p-5 flex-1 flex flex-col gap-4">
+                      <p className="text-sm text-white/70">
                         2025年成立龙岩市首个小学少年科学院，中科院谢华安院士亲自指导
                       </p>
                       
-                      <div className="bg-white/10 rounded-xl p-4 mb-4">
+                      <div className="bg-white/10 rounded-xl p-4">
                         <div className="flex items-center gap-2 mb-2">
                           <Award className="h-4 w-4 text-[#D4A574]" />
                           <span className="text-sm font-medium text-[#D4A574]">2025年全国学生数字素养大赛</span>
@@ -1100,7 +1100,7 @@ export default function HomePage() {
                   </div>
                   
                   {/* 人文德育 */}
-                  <div className="shrink-0 w-[300px] snap-start bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                  <div className="w-[320px] bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
                     <Link href="/achievements?category=moral" className="relative h-48 block">
                       <img
                         src="/images/campus/teacher-day-award.png"
@@ -1119,11 +1119,11 @@ export default function HomePage() {
                         <span className="font-bold text-white">人文德育</span>
                       </div>
                     </Link>
-                    <div className="p-5 flex-1">
-                      <p className="text-sm text-[#8B5A2B]/70 mb-4">
+                    <div className="p-5 flex-1 flex flex-col gap-3">
+                      <p className="text-sm text-[#8B5A2B]/70">
                         以"小目标促成长"为载体，培养学生良好品德与行为习惯
                       </p>
-                      <div className="space-y-3">
+                      <div className="space-y-3 mt-1">
                         <div className="flex items-start gap-3">
                           <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                             <Award className="h-3.5 w-3.5 text-[#B8860B]" />
@@ -1147,7 +1147,7 @@ export default function HomePage() {
                   </div>
                   
                   {/* 艺体心理 */}
-                  <div className="shrink-0 w-[300px] snap-start bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                  <div className="w-[320px] bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
                     <Link href="/achievements?category=art" className="relative h-48 block">
                       <img
                         src="/images/campus/orchestra.png"
@@ -1166,11 +1166,11 @@ export default function HomePage() {
                         <span className="font-bold text-white">艺体心理</span>
                       </div>
                     </Link>
-                    <div className="p-5 flex-1">
-                      <p className="text-sm text-[#8B5A2B]/70 mb-4">
+                    <div className="p-5 flex-1 flex flex-col gap-3">
+                      <p className="text-sm text-[#8B5A2B]/70">
                         艺术体育与心理健康教育并重，促进学生身心全面发展
                       </p>
-                      <div className="space-y-3">
+                      <div className="space-y-3 mt-1">
                         <div className="flex items-start gap-3">
                           <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                             <Award className="h-3.5 w-3.5 text-[#B8860B]" />
