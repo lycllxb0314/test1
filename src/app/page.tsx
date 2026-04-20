@@ -471,11 +471,10 @@ export default function HomePage() {
               }`}>现任领导</Link>
               {/* 卓越教师 - 下拉菜单 */}
               <div className="relative group">
-                <Link href="/teacher-excellence" className={`px-4 py-2 text-base rounded-md transition-all duration-300 flex items-center gap-1 ${
+                <Link href="/teacher-excellence" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
                   scrolled ? 'hover:bg-white/10' : ''
                 }`}>
                   卓越教师
-                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:rotate-180" />
                 </Link>
                 <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-2 min-w-[140px]">
