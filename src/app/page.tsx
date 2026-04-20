@@ -422,10 +422,10 @@ export default function HomePage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen pt-14" style={{ background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFAF5 50%, #FDF8F3 100%)' }}>
+    <div className="min-h-screen pt-14" style={{ background: 'linear-gradient(180deg, #FEFCF9 0%, #FDF9F3 50%, #FBF5EE 100%)' }}>
       
       {/* 顶部导航 - 固定 */}
-      <header className="fixed top-0 left-0 right-0 bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white z-50 backdrop-blur-sm border-b border-white/10">
+      <header className="fixed top-0 left-0 right-0 bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] text-white z-50 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-6">
@@ -465,14 +465,14 @@ export default function HomePage() {
                   </span>
                 </div>
                 <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
-                  <Button className="bg-white text-[#8B5A2B] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
+                  <Button className="bg-white text-[#A0785A] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
                     进入工作台
                   </Button>
                 </Link>
               </div>
             ) : (
               <Link href="/login">
-                <Button className="bg-white text-[#8B5A2B] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
+                <Button className="bg-white text-[#A0785A] hover:bg-white/95 rounded-lg px-5 h-9 text-sm font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
                   登录系统
                 </Button>
               </Link>
@@ -537,7 +537,7 @@ export default function HomePage() {
                   <>
                     <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 inline-flex items-center gap-3 border border-white/20 shadow-lg shadow-black/10">
                       {carouselItems[currentSlide].tag && (
-                        <span className="text-xs bg-gradient-to-r from-[#D4A574] to-[#C4956A] text-white px-3 py-1 rounded-full font-medium shadow-sm">
+                        <span className="text-xs bg-gradient-to-r from-[#C9A96E] to-[#B89B6E] text-white px-3 py-1 rounded-full font-medium shadow-sm">
                           {carouselItems[currentSlide].tag}
                         </span>
                       )}
@@ -619,7 +619,7 @@ export default function HomePage() {
           {/* 双栏：左大图 + 右列表 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* 左侧：新闻大图轮播（带日期角标） */}
-            <div className="rounded-2xl overflow-hidden shadow-lg shadow-[#D4A574]/10 bg-white flex flex-col">
+            <div className="rounded-2xl overflow-hidden shadow-lg shadow-[#C9A96E]/10 bg-white flex flex-col">
               {newsItems.length > 0 ? (
                 <>
                   <div className="relative min-h-[340px]">
@@ -643,7 +643,7 @@ export default function HomePage() {
                       <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
                         <div className="flex items-end gap-3">
                           {newsItems[activeNewsIndex].date && (
-                            <div className="bg-[#8B5A2B] text-white px-3 py-2 rounded-lg text-center shrink-0">
+                            <div className="bg-[#A0785A] text-white px-3 py-2 rounded-lg text-center shrink-0">
                               <div className="text-2xl font-bold leading-tight">
                                 {newsItems[activeNewsIndex].date.split('-')[2] || ''}
                               </div>
@@ -682,23 +682,23 @@ export default function HomePage() {
                   </div>
                 </>
               ) : (
-                <div className="flex-1 min-h-[340px] flex items-center justify-center bg-[#FDF8F3]/50">
+                <div className="flex-1 min-h-[340px] flex items-center justify-center bg-[#FEFBF6]/50">
                   <div className="text-center py-8">
-                    <Newspaper className="w-12 h-12 text-[#D4A574]/40 mx-auto mb-3" />
-                    <p className="text-[#8B5A2B]/50 text-sm">暂无新闻内容</p>
+                    <Newspaper className="w-12 h-12 text-[#C9A96E]/40 mx-auto mb-3" />
+                    <p className="text-[#A0785A]/50 text-sm">暂无新闻内容</p>
                   </div>
                 </div>
               )}
             </div>
 
             {/* 右侧：新闻列表（日期+标题+虚线分隔） */}
-            <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm">
-              <div className="flex items-center justify-between p-4 border-b-2 border-[#8B5A2B] bg-[#FDF8F3]/50">
+            <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#C9A96E]/5 border border-[#E6DDD3]/40 overflow-hidden backdrop-blur-sm">
+              <div className="flex items-center justify-between p-4 border-b-2 border-[#A0785A] bg-[#FEFBF6]/50">
                 <div className="flex items-center gap-2">
-                  <Newspaper className="h-5 w-5 text-[#8B5A2B]" />
-                  <h2 className="font-bold text-[#3D2314]">新闻中心</h2>
+                  <Newspaper className="h-5 w-5 text-[#A0785A]" />
+                  <h2 className="font-bold text-[#5C4A3A]">新闻中心</h2>
                 </div>
-                <Link href="/news" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
+                <Link href="/news" className="text-sm text-[#A0785A]/70 hover:text-[#A0785A]">更多 &gt;&gt;</Link>
               </div>
               <div>
                 {newsItems.length > 0 ? (
@@ -707,18 +707,18 @@ export default function HomePage() {
                       key={item.id || index} 
                       href={item.id ? `/news/${item.id}` : '#'}
                       onClick={(e) => { if (!item.id) { e.preventDefault(); setActiveNewsIndex(index); } }}
-                      className="flex items-center justify-between px-4 py-3 border-b border-dashed border-[#E8DDD0]/50 hover:bg-[#FDF8F3]/50 transition group"
+                      className="flex items-center justify-between px-4 py-3 border-b border-dashed border-[#E6DDD3]/50 hover:bg-[#FEFBF6]/50 transition group"
                     >
-                      <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B] flex-1">
+                      <span className="text-sm text-[#5C4A3A] truncate group-hover:text-[#A0785A] flex-1">
                         {item.title}
                       </span>
-                      <span className="text-xs text-[#8B5A2B]/50 ml-3 whitespace-nowrap">{item.date}</span>
+                      <span className="text-xs text-[#A0785A]/50 ml-3 whitespace-nowrap">{item.date}</span>
                     </Link>
                   ))
                 ) : (
                   <div className="p-8 text-center">
-                    <Newspaper className="w-10 h-10 text-[#D4A574]/40 mx-auto mb-2" />
-                    <p className="text-[#8B5A2B]/50 text-sm">暂无新闻</p>
+                    <Newspaper className="w-10 h-10 text-[#C9A96E]/40 mx-auto mb-2" />
+                    <p className="text-[#A0785A]/50 text-sm">暂无新闻</p>
                   </div>
                 )}
               </div>
@@ -726,34 +726,34 @@ export default function HomePage() {
           </div>
 
           {/* 通知公告 - 独立板块 */}
-          <div className="mt-5 bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm">
-            <div className="flex items-center justify-between p-4 border-b-2 border-[#8B5A2B] bg-[#FDF8F3]/50">
+          <div className="mt-5 bg-white/90 rounded-2xl shadow-lg shadow-[#C9A96E]/5 border border-[#E6DDD3]/40 overflow-hidden backdrop-blur-sm">
+            <div className="flex items-center justify-between p-4 border-b-2 border-[#A0785A] bg-[#FEFBF6]/50">
               <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-[#8B5A2B]" />
-                <h2 className="font-bold text-[#3D2314]">通知公告</h2>
+                <Bell className="h-5 w-5 text-[#A0785A]" />
+                <h2 className="font-bold text-[#5C4A3A]">通知公告</h2>
               </div>
-              <Link href="/notices" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
+              <Link href="/notices" className="text-sm text-[#A0785A]/70 hover:text-[#A0785A]">更多 &gt;&gt;</Link>
             </div>
             <div>
               {notices.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x divide-[#E8DDD0]/30">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x divide-[#E6DDD3]/30">
                   {notices.slice(0, 6).map((item, index) => (
                     <Link 
                       key={item.id || index} 
                       href={item.id ? `/notices/${item.id}` : '#'}
-                      className="flex items-center justify-between px-4 py-3 border-b border-dashed border-[#E8DDD0]/50 hover:bg-[#FDF8F3]/50 transition group"
+                      className="flex items-center justify-between px-4 py-3 border-b border-dashed border-[#E6DDD3]/50 hover:bg-[#FEFBF6]/50 transition group"
                     >
-                      <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B] flex-1">
+                      <span className="text-sm text-[#5C4A3A] truncate group-hover:text-[#A0785A] flex-1">
                         {item.title}
                       </span>
-                      <span className="text-xs text-[#8B5A2B]/50 ml-3 whitespace-nowrap">{item.date}</span>
+                      <span className="text-xs text-[#A0785A]/50 ml-3 whitespace-nowrap">{item.date}</span>
                     </Link>
                   ))}
                 </div>
               ) : (
                 <div className="p-6 text-center">
-                  <Bell className="w-8 h-8 text-[#D4A574]/40 mx-auto mb-2" />
-                  <p className="text-[#8B5A2B]/50 text-sm">暂无公告</p>
+                  <Bell className="w-8 h-8 text-[#C9A96E]/40 mx-auto mb-2" />
+                  <p className="text-[#A0785A]/50 text-sm">暂无公告</p>
                 </div>
               )}
             </div>
@@ -762,19 +762,19 @@ export default function HomePage() {
       </section>
 
       {/* ==================== 核心叙事板块：百年传承 · 童心育人 ==================== */}
-      <section id="philosophy" className="py-16 bg-gradient-to-b from-[#FDF8F3] via-[#FAF6F0] to-[#F5EDE4]">
+      <section id="philosophy" className="py-16 bg-gradient-to-b from-[#FEFBF6] via-[#FDF8F2] to-[#FDF9F3]">
         <div className="max-w-7xl mx-auto px-4">
           
           {/* 板块标题 */}
           <div className="text-center mb-12">
             <h2 
-              className="text-2xl md:text-3xl font-bold text-[#3D2314] mb-3 tracking-wide"
+              className="text-2xl md:text-3xl font-bold text-[#5C4A3A] mb-3 tracking-wide"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
               百年传承 · 童心育人
             </h2>
-            <div className="w-16 h-0.5 bg-[#8B5A2B] mx-auto mb-3" />
-            <p className="text-[#8B5A2B]/70 text-sm max-w-2xl mx-auto">
+            <div className="w-16 h-0.5 bg-[#A0785A] mx-auto mb-3" />
+            <p className="text-[#A0785A]/70 text-sm max-w-2xl mx-auto">
               从1914年到今天，我们始终坚守教育的初心，用爱心浇灌每一颗童心
             </p>
           </div>
@@ -783,15 +783,15 @@ export default function HomePage() {
 
           {/* 第一篇章：源起 - 校训 */}
           <div className="mb-10">
-            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#8B5A2B] pb-2">
-              <BookOpen className="h-5 w-5 text-[#8B5A2B]" />
-              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#A0785A] pb-2">
+              <BookOpen className="h-5 w-5 text-[#A0785A]" />
+              <h3 className="text-lg font-bold text-[#5C4A3A]" style={{ fontFamily: 'var(--font-serif)' }}>
                 源起 · 百年校训
               </h3>
-              <span className="text-xs text-[#8B5A2B]/50 ml-auto">1914年建校</span>
+              <span className="text-xs text-[#A0785A]/50 ml-auto">1914年建校</span>
             </div>
             
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-[#E8DDD0]/40 shadow-lg shadow-[#D4A574]/5 overflow-hidden hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-[#E6DDD3]/40 shadow-lg shadow-[#C9A96E]/5 overflow-hidden hover:shadow-xl hover:shadow-[#C9A96E]/10 transition-shadow duration-300">
               <div className="grid md:grid-cols-5">
                 {/* 左侧图片 */}
                 <div className="relative md:col-span-2 h-56 md:h-72">
@@ -807,41 +807,41 @@ export default function HomePage() {
                 <div className="md:col-span-3 p-6 md:p-8">
                   <div className="text-center md:text-left mb-6">
                     <h4 
-                      className="text-2xl md:text-3xl font-bold text-[#8B5A2B] tracking-[0.2em] mb-2"
+                      className="text-2xl md:text-3xl font-bold text-[#A0785A] tracking-[0.2em] mb-2"
                       style={{ fontFamily: 'var(--font-serif)' }}
                     >
                       修身 · 力学 · 博雅 · 聪慧
                     </h4>
-                    <p className="text-[#8B5A2B]/60 text-sm">百年校训，代代相传</p>
+                    <p className="text-[#A0785A]/60 text-sm">百年校训，代代相传</p>
                   </div>
 
                   <div className="grid grid-cols-4 gap-3 mb-6">
                     {schoolMotto.map((item, index) => (
-                      <div key={index} className="text-center p-3 bg-[#FDF8F3] rounded-xl">
+                      <div key={index} className="text-center p-3 bg-[#FEFBF6] rounded-xl">
                         <div 
-                          className="text-2xl font-bold text-[#3D2314] mb-1" 
+                          className="text-2xl font-bold text-[#5C4A3A] mb-1" 
                           style={{ fontFamily: 'var(--font-serif)' }}
                         >
                           {item.character}
                         </div>
-                        <p className="text-xs text-[#8B5A2B]/60">{item.meaning}</p>
+                        <p className="text-xs text-[#A0785A]/60">{item.meaning}</p>
                       </div>
                     ))}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="flex items-center gap-3 p-3 bg-[#F5EDE4]/50 rounded-xl">
-                      <BookOpen className="h-5 w-5 text-[#8B5A2B]" />
+                    <div className="flex items-center gap-3 p-3 bg-[#FDF9F3]/50 rounded-xl">
+                      <BookOpen className="h-5 w-5 text-[#A0785A]" />
                       <div>
-                        <span className="text-xs text-[#8B5A2B]/60 block">教风</span>
-                        <span className="text-sm font-medium text-[#3D2314]">身正为范 博学善教</span>
+                        <span className="text-xs text-[#A0785A]/60 block">教风</span>
+                        <span className="text-sm font-medium text-[#5C4A3A]">身正为范 博学善教</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-[#F5EDE4]/50 rounded-xl">
-                      <Star className="h-5 w-5 text-[#B8860B]" />
+                    <div className="flex items-center gap-3 p-3 bg-[#FDF9F3]/50 rounded-xl">
+                      <Star className="h-5 w-5 text-[#C9A96E]" />
                       <div>
-                        <span className="text-xs text-[#8B5A2B]/60 block">学风</span>
-                        <span className="text-sm font-medium text-[#3D2314]">品行高洁 好学善思</span>
+                        <span className="text-xs text-[#A0785A]/60 block">学风</span>
+                        <span className="text-sm font-medium text-[#5C4A3A]">品行高洁 好学善思</span>
                       </div>
                     </div>
                   </div>
@@ -852,24 +852,24 @@ export default function HomePage() {
 
           {/* 第二篇章：理念 - 童心教育 */}
           <div className="mb-10">
-            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#8B5A2B] pb-2">
-              <Heart className="h-5 w-5 text-[#8B5A2B]" />
-              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#A0785A] pb-2">
+              <Heart className="h-5 w-5 text-[#A0785A]" />
+              <h3 className="text-lg font-bold text-[#5C4A3A]" style={{ fontFamily: 'var(--font-serif)' }}>
                 理念 · 童心教育
               </h3>
-              <span className="text-xs text-[#8B5A2B]/50 ml-auto">核心办学品牌</span>
+              <span className="text-xs text-[#A0785A]/50 ml-auto">核心办学品牌</span>
             </div>
             
-            <div className="bg-white/60 rounded-2xl border border-[#E8DDD0]/30 overflow-hidden">
-              <div className="bg-[#FDF8F3]/70 px-6 py-4 border-b border-[#E8DDD0]/30">
-                <p className="text-center text-[#8B5A2B]/80 text-sm">
+            <div className="bg-white/60 rounded-2xl border border-[#E6DDD3]/30 overflow-hidden">
+              <div className="bg-[#FEFBF6]/70 px-6 py-4 border-b border-[#E6DDD3]/30">
+                <p className="text-center text-[#A0785A]/80 text-sm">
                   "珍视童心，张扬个性，全面发展" —— 以六大路径践行童心教育理念
                 </p>
               </div>
               
               <div className="grid md:grid-cols-2 gap-0 items-center">
                 {/* 左侧大图 */}
-                <Link href="/philosophy" className="relative h-64 md:h-80 overflow-hidden bg-[#F5EDE4] self-center block">
+                <Link href="/philosophy" className="relative h-64 md:h-80 overflow-hidden bg-[#FDF9F3] self-center block">
                   <img
                     key={activePath}
                     src={childHeartPaths[activePath].image}
@@ -879,13 +879,13 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent">
                     {/* 右上角查看更多 */}
                     <div className="absolute top-4 right-4">
-                      <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#8B5A2B] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                      <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#A0785A] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
                         点击查看更多
                         <ChevronRight className="h-3 w-3" />
                       </span>
                     </div>
                     <div className="absolute bottom-6 left-6 right-6">
-                      <span className="inline-block text-xs bg-[#D4A574] text-[#3D2314] px-3 py-1 rounded-full mb-2">
+                      <span className="inline-block text-xs bg-[#C9A96E] text-[#5C4A3A] px-3 py-1 rounded-full mb-2">
                         {childHeartPaths[activePath].subtitle}
                       </span>
                       <p className="text-white text-lg font-medium">{childHeartPaths[activePath].title}</p>
@@ -904,19 +904,19 @@ export default function HomePage() {
                         onClick={() => setActivePath(index)}
                         className={`p-4 rounded-xl text-center transition-all cursor-pointer ${
                           isActive 
-                            ? 'bg-[#8B5A2B] text-white shadow-lg scale-105' 
-                            : 'bg-white border border-[#E8DDD0]/50 hover:border-[#D4A574] hover:shadow-md'
+                            ? 'bg-[#A0785A] text-white shadow-lg scale-105' 
+                            : 'bg-white border border-[#E6DDD3]/50 hover:border-[#C9A96E] hover:shadow-md'
                         }`}
                       >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 transition ${
-                          isActive ? 'bg-white/20' : 'bg-[#F5EDE4]'
+                          isActive ? 'bg-white/20' : 'bg-[#FDF9F3]'
                         }`}>
-                          <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-[#8B5A2B]'}`} />
+                          <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-[#A0785A]'}`} />
                         </div>
-                        <h4 className={`font-medium text-sm mb-1 ${isActive ? 'text-white' : 'text-[#3D2314]'}`}>
+                        <h4 className={`font-medium text-sm mb-1 ${isActive ? 'text-white' : 'text-[#5C4A3A]'}`}>
                           {path.title.replace('引领童心', '').replace('发展童心', '').replace('点亮童心', '').replace('呵护童心', '').replace('涵养童心', '').replace('润泽童心', '')}
                         </h4>
-                        <p className={`text-xs ${isActive ? 'text-white/80' : 'text-[#B8860B]'}`}>{path.subtitle}</p>
+                        <p className={`text-xs ${isActive ? 'text-white/80' : 'text-[#C9A96E]'}`}>{path.subtitle}</p>
                       </div>
                     );
                   })}
@@ -927,12 +927,12 @@ export default function HomePage() {
 
           {/* 第三篇章：成果 - 特色与荣誉 */}
           <div>
-            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#8B5A2B] pb-2">
-              <Award className="h-5 w-5 text-[#8B5A2B]" />
-              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#A0785A] pb-2">
+              <Award className="h-5 w-5 text-[#A0785A]" />
+              <h3 className="text-lg font-bold text-[#5C4A3A]" style={{ fontFamily: 'var(--font-serif)' }}>
                 成果 · 特色办学
               </h3>
-              <span className="text-xs text-[#8B5A2B]/50 ml-auto">区域标杆，全国领先</span>
+              <span className="text-xs text-[#A0785A]/50 ml-auto">区域标杆，全国领先</span>
             </div>
             
             <div className="flex justify-center gap-12">
@@ -944,25 +944,25 @@ export default function HomePage() {
                   // 第一张卡片（科创教育）使用深色主题
                   if (isFirstCard) {
                     return (
-                      <div key={category.id} className="w-[320px] bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col shadow-lg">
+                      <div key={category.id} className="w-[320px] bg-gradient-to-br from-[#5C4A3A] to-[#7A6352] rounded-2xl overflow-hidden text-white flex flex-col shadow-lg">
                         <Link href={`/achievements?category=${category.slug}`} className="relative h-48 block">
                           <img
                             src={category.slug === 'science' ? '/images/campus/robot-award.jpg' : '/images/campus/school-assembly.png'}
                             alt={category.name}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#3D2314] via-[#3D2314]/30 to-transparent"></div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#5C4A3A] via-[#5C4A3A]/30 to-transparent"></div>
                           <div className="absolute top-4 right-4">
-                            <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                            <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#5C4A3A] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
                               点击查看更多
                               <ChevronRight className="h-3 w-3" />
                             </span>
                           </div>
                           <div className="absolute top-4 left-4 flex items-center gap-2">
-                            <IconComponent className="h-5 w-5 text-[#D4A574]" />
+                            <IconComponent className="h-5 w-5 text-[#C9A96E]" />
                             <span className="font-bold">{category.name}</span>
                             {category.tag && (
-                              <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-1">{category.tag}</span>
+                              <span className="text-xs bg-[#C9A96E] text-[#5C4A3A] px-2 py-0.5 rounded-full ml-1">{category.tag}</span>
                             )}
                           </div>
                         </Link>
@@ -975,8 +975,8 @@ export default function HomePage() {
                           {category.featuredAwardTitle && (
                             <div className="bg-white/10 rounded-xl p-4">
                               <div className="flex items-center gap-2 mb-2">
-                                <Award className="h-4 w-4 text-[#D4A574]" />
-                                <span className="text-sm font-medium text-[#D4A574]">{category.featuredAwardTitle}</span>
+                                <Award className="h-4 w-4 text-[#C9A96E]" />
+                                <span className="text-sm font-medium text-[#C9A96E]">{category.featuredAwardTitle}</span>
                               </div>
                               {category.featuredAwardContent && (
                                 <p className="text-lg font-bold">{category.featuredAwardContent}</p>
@@ -988,7 +988,7 @@ export default function HomePage() {
                             <div className="flex gap-4 mt-auto">
                               {category.stats.map((stat, statIdx) => (
                                 <div key={statIdx} className="bg-white/10 rounded-xl p-3 text-center flex-1">
-                                  <div className="text-2xl font-bold text-[#D4A574]">{stat.value}</div>
+                                  <div className="text-2xl font-bold text-[#C9A96E]">{stat.value}</div>
                                   <div className="text-xs text-white/50">{stat.label}</div>
                                 </div>
                               ))}
@@ -1001,7 +1001,7 @@ export default function HomePage() {
                   
                   // 其他卡片使用浅色主题
                   return (
-                    <div key={category.id} className="w-[320px] bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
+                    <div key={category.id} className="w-[320px] bg-white/80 rounded-2xl border border-[#E6DDD3]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
                       <Link href={`/achievements?category=${category.slug}`} className="relative h-48 block">
                         <img
                           src={category.slug === 'moral' ? '/images/campus/teacher-day-award.png' : category.slug === 'art' ? '/images/campus/orchestra.png' : '/images/campus/school-assembly.png'}
@@ -1010,7 +1010,7 @@ export default function HomePage() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
                         <div className="absolute top-4 right-4">
-                          <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                          <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#5C4A3A] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
                             点击查看更多
                             <ChevronRight className="h-3 w-3" />
                           </span>
@@ -1019,25 +1019,25 @@ export default function HomePage() {
                           <IconComponent className="h-5 w-5 text-white" />
                           <span className="font-bold text-white">{category.name}</span>
                           {category.tag && (
-                            <span className="text-xs bg-white/90 text-[#3D2314] px-2 py-0.5 rounded-full ml-1">{category.tag}</span>
+                            <span className="text-xs bg-white/90 text-[#5C4A3A] px-2 py-0.5 rounded-full ml-1">{category.tag}</span>
                           )}
                         </div>
                       </Link>
                       <div className="p-5 flex-1 flex flex-col gap-3">
                         {category.description && (
-                          <p className="text-sm text-[#8B5A2B]/70">{category.description}</p>
+                          <p className="text-sm text-[#A0785A]/70">{category.description}</p>
                         )}
                         {category.honorsList && category.honorsList.length > 0 && (
                           <div className="space-y-3 mt-1">
                             {category.honorsList.map((honor, honorIdx) => (
                               <div key={honorIdx} className="flex items-start gap-3">
-                                <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                  <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                                <div className="w-6 h-6 bg-[#C9A96E]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  <Award className="h-3.5 w-3.5 text-[#C9A96E]" />
                                 </div>
                                 <div>
-                                  <p className="text-sm font-medium text-[#3D2314]">{honor.title}</p>
+                                  <p className="text-sm font-medium text-[#5C4A3A]">{honor.title}</p>
                                   {honor.subtitle && (
-                                    <p className="text-xs text-[#8B5A2B]/60">{honor.subtitle}</p>
+                                    <p className="text-xs text-[#A0785A]/60">{honor.subtitle}</p>
                                   )}
                                 </div>
                               </div>
@@ -1052,24 +1052,24 @@ export default function HomePage() {
                 // 默认静态数据作为后备
                 <>
                   {/* 科创教育 - 王牌特色 */}
-                  <div className="w-[320px] bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col shadow-lg">
+                  <div className="w-[320px] bg-gradient-to-br from-[#5C4A3A] to-[#7A6352] rounded-2xl overflow-hidden text-white flex flex-col shadow-lg">
                     <Link href="/achievements?category=science" className="relative h-48 block">
                       <img
                         src="/images/campus/robot-award.jpg"
                         alt="科创获奖"
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#3D2314] via-[#3D2314]/30 to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#5C4A3A] via-[#5C4A3A]/30 to-transparent"></div>
                       <div className="absolute top-4 right-4">
-                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#5C4A3A] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
                           点击查看更多
                           <ChevronRight className="h-3 w-3" />
                         </span>
                       </div>
                       <div className="absolute top-4 left-4 flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-[#D4A574]" />
+                        <Sparkles className="h-5 w-5 text-[#C9A96E]" />
                         <span className="font-bold">科创教育</span>
-                        <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-0.5 rounded-full ml-1">王牌特色</span>
+                        <span className="text-xs bg-[#C9A96E] text-[#5C4A3A] px-2 py-0.5 rounded-full ml-1">王牌特色</span>
                       </div>
                     </Link>
                     
@@ -1080,19 +1080,19 @@ export default function HomePage() {
                       
                       <div className="bg-white/10 rounded-xl p-4">
                         <div className="flex items-center gap-2 mb-2">
-                          <Award className="h-4 w-4 text-[#D4A574]" />
-                          <span className="text-sm font-medium text-[#D4A574]">2025年全国学生数字素养大赛</span>
+                          <Award className="h-4 w-4 text-[#C9A96E]" />
+                          <span className="text-sm font-medium text-[#C9A96E]">2025年全国学生数字素养大赛</span>
                         </div>
                         <p className="text-lg font-bold">斩获"创新之星"最高奖项</p>
                       </div>
                       
                       <div className="flex gap-4 mt-auto">
                         <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
-                          <div className="text-2xl font-bold text-[#D4A574]">7</div>
+                          <div className="text-2xl font-bold text-[#C9A96E]">7</div>
                           <div className="text-xs text-white/50">国家级奖项</div>
                         </div>
                         <div className="bg-white/10 rounded-xl p-3 text-center flex-1">
-                          <div className="text-2xl font-bold text-[#D4A574]">58</div>
+                          <div className="text-2xl font-bold text-[#C9A96E]">58</div>
                           <div className="text-xs text-white/50">省级奖项</div>
                         </div>
                       </div>
@@ -1100,7 +1100,7 @@ export default function HomePage() {
                   </div>
                   
                   {/* 人文德育 */}
-                  <div className="w-[320px] bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
+                  <div className="w-[320px] bg-white/80 rounded-2xl border border-[#E6DDD3]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
                     <Link href="/achievements?category=moral" className="relative h-48 block">
                       <img
                         src="/images/campus/teacher-day-award.png"
@@ -1109,7 +1109,7 @@ export default function HomePage() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
                       <div className="absolute top-4 right-4">
-                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#5C4A3A] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
                           点击查看更多
                           <ChevronRight className="h-3 w-3" />
                         </span>
@@ -1120,26 +1120,26 @@ export default function HomePage() {
                       </div>
                     </Link>
                     <div className="p-5 flex-1 flex flex-col gap-3">
-                      <p className="text-sm text-[#8B5A2B]/70">
+                      <p className="text-sm text-[#A0785A]/70">
                         以"小目标促成长"为载体，培养学生良好品德与行为习惯
                       </p>
                       <div className="space-y-3 mt-1">
                         <div className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                          <div className="w-6 h-6 bg-[#C9A96E]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Award className="h-3.5 w-3.5 text-[#C9A96E]" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-[#3D2314]">省级德育典型案例</p>
-                            <p className="text-xs text-[#8B5A2B]/60">"小目标促成长"育人模式</p>
+                            <p className="text-sm font-medium text-[#5C4A3A]">省级德育典型案例</p>
+                            <p className="text-xs text-[#A0785A]/60">"小目标促成长"育人模式</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                          <div className="w-6 h-6 bg-[#C9A96E]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Award className="h-3.5 w-3.5 text-[#C9A96E]" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-[#3D2314]">演讲征文比赛</p>
-                            <p className="text-xs text-[#8B5A2B]/60">多项一等奖</p>
+                            <p className="text-sm font-medium text-[#5C4A3A]">演讲征文比赛</p>
+                            <p className="text-xs text-[#A0785A]/60">多项一等奖</p>
                           </div>
                         </div>
                       </div>
@@ -1147,7 +1147,7 @@ export default function HomePage() {
                   </div>
                   
                   {/* 艺体心理 */}
-                  <div className="w-[320px] bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
+                  <div className="w-[320px] bg-white/80 rounded-2xl border border-[#E6DDD3]/50 overflow-hidden flex flex-col hover:shadow-lg transition shadow-md">
                     <Link href="/achievements?category=art" className="relative h-48 block">
                       <img
                         src="/images/campus/orchestra.png"
@@ -1156,7 +1156,7 @@ export default function HomePage() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
                       <div className="absolute top-4 right-4">
-                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#3D2314] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
+                        <span className="inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#5C4A3A] px-3 py-1.5 rounded-full text-xs font-medium hover:bg-white transition shadow-lg">
                           点击查看更多
                           <ChevronRight className="h-3 w-3" />
                         </span>
@@ -1167,26 +1167,26 @@ export default function HomePage() {
                       </div>
                     </Link>
                     <div className="p-5 flex-1 flex flex-col gap-3">
-                      <p className="text-sm text-[#8B5A2B]/70">
+                      <p className="text-sm text-[#A0785A]/70">
                         艺术体育与心理健康教育并重，促进学生身心全面发展
                       </p>
                       <div className="space-y-3 mt-1">
                         <div className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                          <div className="w-6 h-6 bg-[#C9A96E]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Award className="h-3.5 w-3.5 text-[#C9A96E]" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-[#3D2314]">全国艺术教育先进单位</p>
-                            <p className="text-xs text-[#8B5A2B]/60">艺术教育成果显著</p>
+                            <p className="text-sm font-medium text-[#5C4A3A]">全国艺术教育先进单位</p>
+                            <p className="text-xs text-[#A0785A]/60">艺术教育成果显著</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-[#D4A574]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Award className="h-3.5 w-3.5 text-[#B8860B]" />
+                          <div className="w-6 h-6 bg-[#C9A96E]/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Award className="h-3.5 w-3.5 text-[#C9A96E]" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-[#3D2314]">心理健康教育特色学校</p>
-                            <p className="text-xs text-[#8B5A2B]/60">全省领先</p>
+                            <p className="text-sm font-medium text-[#5C4A3A]">心理健康教育特色学校</p>
+                            <p className="text-xs text-[#A0785A]/60">全省领先</p>
                           </div>
                         </div>
                       </div>
@@ -1201,12 +1201,12 @@ export default function HomePage() {
               {honors.map((honor, index) => (
                 <div
                   key={honor.id || index}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full border border-[#E8DDD0]/50 hover:shadow-md transition"
+                  className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full border border-[#E6DDD3]/50 hover:shadow-md transition"
                 >
-                  <Award className="h-4 w-4 text-[#B8860B]" />
-                  <span className="text-sm text-[#3D2314]">{honor.title}</span>
+                  <Award className="h-4 w-4 text-[#C9A96E]" />
+                  <span className="text-sm text-[#5C4A3A]">{honor.title}</span>
                   {honor.year && (
-                    <span className="text-xs text-[#B8860B] font-medium">{honor.year}</span>
+                    <span className="text-xs text-[#C9A96E] font-medium">{honor.year}</span>
                   )}
                 </div>
               ))}
@@ -1217,15 +1217,15 @@ export default function HomePage() {
       </section>
 
       {/* 智慧校园入口 */}
-      <section id="quick-links" className="py-12 bg-gradient-to-b from-[#F5EDE4] to-[#FDF8F3]">
+      <section id="quick-links" className="py-12 bg-gradient-to-b from-[#FDF9F3] to-[#FEFBF6]">
         <div className="max-w-7xl mx-auto px-4">
           {/* 标题栏 */}
-          <div className="flex items-center gap-3 mb-8 border-b-2 border-[#8B5A2B] pb-2">
-            <Sparkles className="h-5 w-5 text-[#8B5A2B]" />
-            <h2 className="font-bold text-[#3D2314] text-lg" style={{ fontFamily: 'var(--font-serif)' }}>
+          <div className="flex items-center gap-3 mb-8 border-b-2 border-[#A0785A] pb-2">
+            <Sparkles className="h-5 w-5 text-[#A0785A]" />
+            <h2 className="font-bold text-[#5C4A3A] text-lg" style={{ fontFamily: 'var(--font-serif)' }}>
               智慧校园服务平台
             </h2>
-            <span className="text-xs text-[#8B5A2B]/50 ml-auto">数字化 · 智能化 · 一体化</span>
+            <span className="text-xs text-[#A0785A]/50 ml-auto">数字化 · 智能化 · 一体化</span>
           </div>
 
           {/* 一行横排图标入口 */}
@@ -1235,10 +1235,10 @@ export default function HomePage() {
               return (
                 <Link key={index} href="/login" className="group text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-16 h-16 bg-[#F5EDE4] rounded-2xl flex items-center justify-center group-hover:bg-[#D4A574]/20 transition-all duration-300">
-                      <Icon className="h-8 w-8 text-[#8B5A2B] group-hover:text-[#B8860B] transition" />
+                    <div className="w-16 h-16 bg-[#FDF9F3] rounded-2xl flex items-center justify-center group-hover:bg-[#C9A96E]/20 transition-all duration-300">
+                      <Icon className="h-8 w-8 text-[#A0785A] group-hover:text-[#C9A96E] transition" />
                     </div>
-                    <span className="text-sm font-medium text-[#3D2314] group-hover:text-[#8B5A2B]">{link.title}</span>
+                    <span className="text-sm font-medium text-[#5C4A3A] group-hover:text-[#A0785A]">{link.title}</span>
                   </div>
                 </Link>
               );
@@ -1246,7 +1246,7 @@ export default function HomePage() {
           </div>
 
           {/* 底部说明 */}
-          <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-[#8B5A2B]/60">
+          <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-[#A0785A]/60">
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               <span>安全认证</span>
@@ -1268,7 +1268,7 @@ export default function HomePage() {
       </section>
 
       {/* 联系方式 + 页脚 */}
-      <section className="py-10 bg-[#C4956A] text-white">
+      <section className="py-10 bg-[#B89B6E] text-white">
         <div className="max-w-7xl mx-auto px-4">
           {/* 居中 Logo */}
           <div className="text-center mb-6">
@@ -1301,7 +1301,7 @@ export default function HomePage() {
       </section>
 
       {/* 页脚 */}
-      <footer className="py-6 bg-[#A67C52] text-white/80 text-sm">
+      <footer className="py-6 bg-[#8C7A66] text-white/80 text-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
@@ -1338,7 +1338,7 @@ export default function HomePage() {
             {/* 视频标题 + B站高清链接 */}
             <div className="absolute top-4 left-4 right-16 z-10 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs bg-[#D4A574] text-[#3D2314] px-2 py-1 rounded-full">
+                <span className="text-xs bg-[#C9A96E] text-[#5C4A3A] px-2 py-1 rounded-full">
                   {playingVideo.tag}
                 </span>
                 <span className="text-white font-medium">{playingVideo.title}</span>
