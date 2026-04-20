@@ -600,17 +600,19 @@ export default function HomePage() {
           <ChevronRight className="h-5 w-5" />
         </button>
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-1.5">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-end gap-3">
           {carouselItems.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}
               className={`transition-all duration-300 ${
                 index === currentSlide 
-                  ? 'w-11 h-2.5 bg-white rounded-sm shadow-lg shadow-black/20' 
-                  : 'w-11 h-2.5 bg-white/30 rounded-sm hover:bg-white/50'
+                  ? 'h-12 w-12 drop-shadow-[0_2px_6px_rgba(0,0,0,0.4)] scale-110' 
+                  : 'h-8 w-8 opacity-50 hover:opacity-75'
               }`}
-            />
+            >
+              <img src="/mascot-white.png" alt="" className="w-full h-full object-contain" />
+            </button>
           ))}
         </div>
       </section>
