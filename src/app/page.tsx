@@ -432,7 +432,7 @@ export default function HomePage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen pt-16" style={{ background: 'linear-gradient(180deg, #FEFCF9 0%, #FDF9F3 50%, #FBF5EE 100%)' }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #FEFCF9 0%, #FDF9F3 50%, #FBF5EE 100%)' }}>
       
       {/* 顶部导航 - 固定，滚动后显示背景色 */}
       <header className={`fixed top-0 left-0 right-0 text-white z-50 transition-all duration-500 ${
@@ -513,7 +513,7 @@ export default function HomePage() {
       {/* 内容区 - 基础字号放大 */}
       <div style={{ fontSize: '18px' }}>
       {/* 轮播图 */}
-      <section className="relative min-h-[500px] md:min-h-[calc(100vh-64px)] overflow-hidden">
+      <section className="relative min-h-[500px] md:min-h-screen overflow-hidden">
         <div className="absolute inset-0">
           {carouselItems.map((item, index) => (
             <div
@@ -647,7 +647,7 @@ export default function HomePage() {
       </section>
 
       {/* 新闻中心 + 校园公告 */}
-      <section id="news" className="py-8">
+      <section id="news" className="py-8 pt-24">
         <div className="max-w-[1400px] mx-auto px-6">
           {/* 双栏：左大图 + 右列表 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
