@@ -18,6 +18,7 @@ import {
   TreePine,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Bell,
   Newspaper,
   GraduationCap,
@@ -469,6 +470,28 @@ export default function HomePage() {
               <Link href="/leadership" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
                 scrolled ? 'hover:bg-white/10' : ''
               }`}>现任领导</Link>
+              {/* 卓越教师 - 下拉菜单 */}
+              <div className="relative group">
+                <Link href="/teacher-excellence" className={`px-4 py-2 text-base rounded-md transition-all duration-300 flex items-center gap-1 ${
+                  scrolled ? 'hover:bg-white/10' : ''
+                }`}>
+                  卓越教师
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:rotate-180" />
+                </Link>
+                <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-2 min-w-[140px]">
+                    <Link href="/teacher-excellence/profiles" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-[#C9A96E]/5 hover:text-[#C9A96E] transition-colors">
+                      <Star className="h-4 w-4" /> 名师风采
+                    </Link>
+                    <Link href="/teacher-excellence/teams" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-[#C9A96E]/5 hover:text-[#C9A96E] transition-colors">
+                      <Users className="h-4 w-4" /> 教师团队
+                    </Link>
+                    <Link href="/teacher-excellence/awards" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-[#C9A96E]/5 hover:text-[#C9A96E] transition-colors">
+                      <Award className="h-4 w-4" /> 教师获奖
+                    </Link>
+                  </div>
+                </div>
+              </div>
               <Link href="/news" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
                 scrolled ? 'hover:bg-white/10' : ''
               }`}>新闻中心</Link>

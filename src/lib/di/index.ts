@@ -111,6 +111,12 @@ import {
 import { QuestionBankRepository, questionBankRepository } from '@/repositories/question-bank.repository';
 import { ExamPaperRepository, examPaperRepository } from '@/repositories/exam-paper.repository';
 import { ExamTaskRepository, examTaskRepository } from '@/repositories/exam-task.repository';
+// 卓越教师 Repositories
+import {
+  TeacherProfileRepository, teacherProfileRepository,
+  TeacherTeamRepository, teacherTeamRepository,
+  TeacherAwardRepository, teacherAwardRepository,
+} from '@/repositories/teacher-excellence.repository';
 
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
@@ -203,6 +209,12 @@ import {
 // P4 智慧作业 Service
 import { SmartHomeworkService, createSmartHomeworkService } from '@/services/smart-homework.service';
 import { ExamTaskService, createExamTaskService } from '@/services/exam-task.service';
+// 卓越教师 Service
+import {
+  TeacherProfileService, teacherProfileService,
+  TeacherTeamService, teacherTeamService,
+  TeacherAwardService, teacherAwardService,
+} from '@/services/teacher-excellence.service';
 
 /**
  * 初始化 DI 容器
@@ -286,6 +298,10 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.QuestionBankRepository, () => questionBankRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.ExamPaperRepository, () => examPaperRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.ExamTaskRepository, () => examTaskRepository);
+  // 卓越教师 Repositories
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeacherProfileRepository, () => teacherProfileRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeacherTeamRepository, () => teacherTeamRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeacherAwardRepository, () => teacherAwardRepository);
 
   // ========================================
   // 注册 Services（单例）
@@ -360,6 +376,10 @@ export function initializeDI(): void {
   // P4 智慧作业 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.SmartHomeworkService, () => createSmartHomeworkService());
   container.registerSingleton(SERVICE_IDENTIFIERS.ExamTaskService, () => createExamTaskService());
+  // 卓越教师 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeacherProfileService, () => teacherProfileService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeacherTeamService, () => teacherTeamService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.TeacherAwardService, () => teacherAwardService);
 }
 
 // 导出
