@@ -495,14 +495,22 @@ export default function HomePage() {
                   </span>
                 </div>
                 <Link href={user.role === 'parent' ? '/parent' : '/teacher'}>
-                  <Button className="bg-white text-[#A0785A] hover:bg-white/95 rounded-lg px-5 h-10 text-base font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
+                  <Button className={`rounded-lg px-5 h-10 text-base font-medium transition-all duration-300 ${
+                    scrolled
+                      ? 'bg-white text-[#A0785A] hover:bg-white/95 shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15'
+                      : 'bg-transparent text-white hover:bg-white/10'
+                  }`}>
                     进入工作台
                   </Button>
                 </Link>
               </div>
             ) : (
               <Link href="/login">
-                <Button className="bg-white text-[#A0785A] hover:bg-white/95 rounded-lg px-5 h-10 text-base font-medium shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 transition-all duration-300">
+                <Button className={`rounded-lg px-5 h-10 text-base font-medium transition-all duration-300 ${
+                  scrolled
+                    ? 'bg-white text-[#A0785A] hover:bg-white/95 shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15'
+                    : 'bg-transparent text-white hover:bg-white/10'
+                }`}>
                   登录系统
                 </Button>
               </Link>
