@@ -696,7 +696,7 @@ export default function HomePage() {
               <div className="flex items-center justify-between p-4 border-b-2 border-[#8B5A2B] bg-[#FDF8F3]/50">
                 <div className="flex items-center gap-2">
                   <Newspaper className="h-5 w-5 text-[#8B5A2B]" />
-                  <h2 className="font-bold text-[#3D2314]">学工聚焦</h2>
+                  <h2 className="font-bold text-[#3D2314]">新闻中心</h2>
                 </div>
                 <Link href="/news" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
               </div>
