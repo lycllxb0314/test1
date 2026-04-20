@@ -948,7 +948,7 @@ function TeacherExcellenceManagement() {
               <div><Label>职称</Label><Input value={profileForm.title} onChange={(e) => setProfileForm({ ...profileForm, title: e.target.value })} /></div>
               <div><Label>学科</Label><Input value={profileForm.subject} onChange={(e) => setProfileForm({ ...profileForm, subject: e.target.value })} /></div>
             </div>
-            <div><Label>照片URL</Label><Input value={profileForm.image} onChange={(e) => setProfileForm({ ...profileForm, image: e.target.value })} placeholder="/images/teachers/xxx.png" /></div>
+            <ImageUpload value={profileForm.image} onChange={(url) => setProfileForm({ ...profileForm, image: url })} label="照片" />
             <div><Label>简介</Label><Textarea value={profileForm.description} onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value })} rows={3} /></div>
             <div><Label>荣誉成就（每行一条）</Label><Textarea value={profileForm.achievements} onChange={(e) => setProfileForm({ ...profileForm, achievements: e.target.value })} rows={3} placeholder="全国优秀教师&#10;省特级教师" /></div>
             <div><Label>教育格言</Label><Input value={profileForm.motto} onChange={(e) => setProfileForm({ ...profileForm, motto: e.target.value })} /></div>
@@ -976,7 +976,7 @@ function TeacherExcellenceManagement() {
               <div><Label>团队名称</Label><Input value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} /></div>
               <div><Label>学科</Label><Input value={teamForm.subject} onChange={(e) => setTeamForm({ ...teamForm, subject: e.target.value })} /></div>
             </div>
-            <div><Label>封面图URL</Label><Input value={teamForm.image} onChange={(e) => setTeamForm({ ...teamForm, image: e.target.value })} placeholder="/images/campus/xxx.jpg" /></div>
+            <ImageUpload value={teamForm.image} onChange={(url) => setTeamForm({ ...teamForm, image: url })} label="封面图" />
             <div><Label>团队介绍</Label><Textarea value={teamForm.description} onChange={(e) => setTeamForm({ ...teamForm, description: e.target.value })} rows={3} /></div>
             <div><Label>成员（JSON格式）</Label><Textarea value={teamForm.members} onChange={(e) => setTeamForm({ ...teamForm, members: e.target.value })} rows={4} placeholder='[{"name":"张老师","role":"组长","title":"高级教师"}]' /></div>
             <div><Label>团队荣誉（每行一条）</Label><Textarea value={teamForm.achievements} onChange={(e) => setTeamForm({ ...teamForm, achievements: e.target.value })} rows={3} placeholder="省优秀教研组&#10;市教学研究基地" /></div>
@@ -1021,7 +1021,7 @@ function TeacherExcellenceManagement() {
               <div><Label>获奖时间</Label><Input value={awardForm.awardDate} onChange={(e) => setAwardForm({ ...awardForm, awardDate: e.target.value })} placeholder="2024-09" /></div>
             </div>
             <div><Label>详细描述</Label><Textarea value={awardForm.description} onChange={(e) => setAwardForm({ ...awardForm, description: e.target.value })} rows={3} /></div>
-            <div><Label>证书图片URL</Label><Input value={awardForm.certificateUrl} onChange={(e) => setAwardForm({ ...awardForm, certificateUrl: e.target.value })} placeholder="/images/certificates/xxx.png" /></div>
+            <ImageUpload value={awardForm.certificateUrl} onChange={(url) => setAwardForm({ ...awardForm, certificateUrl: url })} label="荣誉证书" />
             <div className="grid grid-cols-2 gap-4">
               <div><Label>排序</Label><Input type="number" value={awardForm.sortOrder} onChange={(e) => setAwardForm({ ...awardForm, sortOrder: parseInt(e.target.value) || 0 })} /></div>
               <div className="flex items-center gap-2 pt-6"><Switch checked={awardForm.isActive} onCheckedChange={(v) => setAwardForm({ ...awardForm, isActive: v })} /><Label>启用</Label></div>
