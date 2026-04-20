@@ -459,25 +459,25 @@ export default function HomePage() {
               </div>
             </div>
             
-            <nav className={`hidden md:flex items-center gap-1 transition-all duration-500 ${scrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <nav className={`hidden md:flex items-center gap-1 transition-all duration-500 ${!scrolled ? 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]' : ''}`}>
               <a href="#" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
-                scrolled ? 'bg-white/10' : 'bg-white/10 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+                scrolled ? 'bg-white/10' : ''
               }`}>首 页</a>
               <Link href="/philosophy" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
-                scrolled ? 'hover:bg-white/10' : 'hover:bg-white/15 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+                scrolled ? 'hover:bg-white/10' : ''
               }`}>办学理念</Link>
               <Link href="/leadership" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
-                scrolled ? 'hover:bg-white/10' : 'hover:bg-white/15 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+                scrolled ? 'hover:bg-white/10' : ''
               }`}>现任领导</Link>
               <Link href="/news" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
-                scrolled ? 'hover:bg-white/10' : 'hover:bg-white/15 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+                scrolled ? 'hover:bg-white/10' : ''
               }`}>新闻中心</Link>
               <Link href="/notices" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
-                scrolled ? 'hover:bg-white/10' : 'hover:bg-white/15 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+                scrolled ? 'hover:bg-white/10' : ''
               }`}>校园公告</Link>
             </nav>
 
-            <div className={`flex items-center gap-4 transition-all duration-500 ${scrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <div className={`flex items-center gap-4 transition-all duration-500 ${!scrolled ? 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]' : ''}`}>
             {user ? (
               <div className="flex items-center gap-4">
                 <div className={`hidden md:flex items-center gap-2 text-base transition-all duration-500 ${
