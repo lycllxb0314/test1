@@ -28,6 +28,8 @@ import {
   Play,
   X,
   ExternalLink,
+  Sun,
+  Sprout,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -490,9 +492,32 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-              <Link href="/student-showcase" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
-                scrolled ? 'hover:bg-white/10' : ''
-              }`}>附小少年</Link>
+              <div className="relative group">
+                <Link href="/student-showcase" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
+                  scrolled ? 'hover:bg-white/10' : ''
+                }`}>
+                  附小少年
+                </Link>
+                <div className="absolute top-full left-0 pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-2 min-w-[140px]">
+                    <Link href="/student-showcase/virtue" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-[#C9A96E]/5 hover:text-[#C9A96E] transition-colors">
+                      <Heart className="h-4 w-4" /> 善行少年
+                    </Link>
+                    <Link href="/student-showcase/wisdom" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-[#C9A96E]/5 hover:text-[#C9A96E] transition-colors">
+                      <Lightbulb className="h-4 w-4" /> 求知少年
+                    </Link>
+                    <Link href="/student-showcase/vitality" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-[#C9A96E]/5 hover:text-[#C9A96E] transition-colors">
+                      <Sun className="h-4 w-4" /> 阳光少年
+                    </Link>
+                    <Link href="/student-showcase/art" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-[#C9A96E]/5 hover:text-[#C9A96E] transition-colors">
+                      <Palette className="h-4 w-4" /> 艺韵少年
+                    </Link>
+                    <Link href="/student-showcase/practice" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-[#C9A96E]/5 hover:text-[#C9A96E] transition-colors">
+                      <Sprout className="h-4 w-4" /> 躬行少年
+                    </Link>
+                  </div>
+                </div>
+              </div>
               <Link href="/news" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
                 scrolled ? 'hover:bg-white/10' : ''
               }`}>新闻中心</Link>
