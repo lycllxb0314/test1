@@ -481,6 +481,8 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* 内容区 - 基础字号放大 */}
+      <div style={{ fontSize: '18px' }}>
       {/* 轮播图 */}
       <section className="relative min-h-[500px] md:min-h-[calc(100vh-56px)] overflow-hidden">
         <div className="absolute inset-0">
@@ -1386,6 +1388,7 @@ export default function HomePage() {
           </div>
         </div>
       )}
+      </div>{/* 内容区字号放大结束 */}
     </div>
   );
 }
