@@ -47,14 +47,8 @@ export default function StudentShowcasePage() {
         </div>
       </section>
 
-      {/* 五育分类入口 + 理念说明 合并 */}
+      {/* 五育分类入口 */}
       <section className="max-w-7xl mx-auto px-6 -mt-12 relative z-10">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl font-bold text-[#5C4A3A] mb-3">五育并举，童心绽放</h2>
-          <p className="text-[#8B7355] max-w-2xl mx-auto leading-relaxed">
-            学校秉持"珍视童心、张扬个性、全面发展"的办学理念，以德智体美劳五育为径，让每一个孩子都能在童心的田野上自由奔跑、拔节生长。
-          </p>
-        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {CATEGORY_CONFIGS.map((cat: CategoryConfig) => {
             const Icon = categoryIcons[cat.key] || Heart;
@@ -82,6 +76,16 @@ export default function StudentShowcasePage() {
               </Link>
             );
           })}
+        </div>
+      </section>
+
+      {/* 理念说明 */}
+      <section className="max-w-5xl mx-auto px-6 mt-16 mb-12">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-[#5C4A3A] mb-3">五育并举，童心绽放</h2>
+          <p className="text-[#8B7355] max-w-2xl mx-auto leading-relaxed">
+            学校秉持"珍视童心、张扬个性、全面发展"的办学理念，以德智体美劳五育为径，让每一个孩子都能在童心的田野上自由奔跑、拔节生长。
+          </p>
         </div>
       </section>
 
