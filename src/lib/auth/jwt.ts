@@ -9,7 +9,6 @@ import { SignJWT, jwtVerify, decodeJwt } from 'jose';
 import { User } from '@/types';
 
 // JWT 配置
-const JWT_SECRET = process.env.JWT_SECRET || 'smart-campus-jwt-secret-key-2024';
 const JWT_ISSUER = 'smart-campus';
 const JWT_AUDIENCE = 'smart-campus-users';
 
@@ -22,9 +21,38 @@ export const ACCESS_TOKEN_COOKIE = 'smart_campus_access_token';
 export const REFRESH_TOKEN_COOKIE = 'smart_campus_refresh_token';
 export const USER_ID_COOKIE = 'smart_campus_user_id';
 
-// 将密钥转换为 Uint8Array
+// 将密钥转换为 Uint8Array（惰性获取，确保运行时已注入环境变量）
+let _cachedSecretKey: Uint8Array | null = null;
 function getSecretKey(): Uint8Array {
-  return new TextEncoder().encode(JWT_SECRET);
+  if (_cachedSecretKey) return _cachedSecretKey;
+
+  const secret = process.env.JWT_SECRET;
+
+  if (process.env.NODE_ENV === 'production') {
+    // 生产环境：强制要求配置 JWT_SECRET，否则拒绝启动
+    if (!secret) {
+      throw new Error(
+        '[JWT] 生产环境必须配置 JWT_SECRET 环境变量。生成方式: openssl rand -base64 48'
+      );
+    }
+  } else {
+    // 开发环境：未配置时使用随机临时密钥（每次重启后旧 token 自动失效，安全可控）
+    if (!secret) {
+      const devSecret = `dev-only-${crypto.randomUUID()}`;
+      console.warn(
+        '[JWT] JWT_SECRET 未配置，已生成临时开发密钥（重启后旧 token 将失效）。生产环境请务必配置！'
+      );
+      _cachedSecretKey = new TextEncoder().encode(devSecret);
+      return _cachedSecretKey;
+    }
+  }
+
+  if (secret.length < 32) {
+    console.warn('[JWT] JWT_SECRET 长度不足 32 字符，建议使用更长的密钥以提升安全性');
+  }
+
+  _cachedSecretKey = new TextEncoder().encode(secret);
+  return _cachedSecretKey;
 }
 
 /**
