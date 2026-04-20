@@ -482,7 +482,7 @@ export default function HomePage() {
       </header>
 
       {/* 轮播图 */}
-      <section className="relative h-[400px] md:h-[500px] overflow-hidden">
+      <section className="relative min-h-[500px] md:min-h-[calc(100vh-56px)] overflow-hidden">
         <div className="absolute inset-0">
           {carouselItems.map((item, index) => (
             <div
@@ -496,7 +496,7 @@ export default function HomePage() {
                 alt={item.title}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               
               {/* B站视频可点击区域 */}
               {item.type === 'bilibili' && item.bilibiliUrl && index === currentSlide && (
@@ -598,15 +598,15 @@ export default function HomePage() {
           <ChevronRight className="h-5 w-5" />
         </button>
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-1.5">
           {carouselItems.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}
-              className={`transition-all duration-300 rounded-full ${
+              className={`transition-all duration-300 ${
                 index === currentSlide 
-                  ? 'w-8 h-2 bg-white shadow-lg shadow-black/20' 
-                  : 'w-2 h-2 bg-white/40 hover:bg-white/60 border border-white/30'
+                  ? 'w-11 h-2.5 bg-white rounded-sm shadow-lg shadow-black/20' 
+                  : 'w-11 h-2.5 bg-white/30 rounded-sm hover:bg-white/50'
               }`}
             />
           ))}
@@ -616,45 +616,13 @@ export default function HomePage() {
       {/* 新闻中心 + 校园公告 */}
       <section id="news" className="py-8">
         <div className="max-w-[1400px] mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-[300px_1fr_320px] gap-5">
-            {/* 左侧：校园公告 */}
-            <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
-              <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
-                <div className="flex items-center gap-2">
-                  <Bell className="h-5 w-5 text-[#8B5A2B]" />
-                  <h2 className="font-bold text-[#3D2314]">校园公告</h2>
-                </div>
-                <Link href="/notices" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
-              </div>
-              <div className="divide-y divide-[#E8DDD0]/30">
-                {notices.length > 0 ? (
-                  notices.map((item, index) => (
-                    <Link 
-                      key={item.id || index} 
-                      href={item.id ? `/notices/${item.id}` : '#'}
-                      className="flex items-center justify-between p-4 hover:bg-[#FDF8F3]/50 transition group"
-                    >
-                      <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B]">
-                        {item.title}
-                      </span>
-                      <span className="text-xs text-[#8B5A2B]/50 ml-2 whitespace-nowrap">{item.date}</span>
-                    </Link>
-                  ))
-                ) : (
-                  <div className="p-8 text-center">
-                    <Bell className="w-10 h-10 text-[#D4A574]/40 mx-auto mb-2" />
-                    <p className="text-[#8B5A2B]/50 text-sm">暂无公告</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 中间：新闻大图轮播 */}
+          {/* 双栏：左大图 + 右列表 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* 左侧：新闻大图轮播（带日期角标） */}
             <div className="rounded-2xl overflow-hidden shadow-lg shadow-[#D4A574]/10 bg-white flex flex-col">
               {newsItems.length > 0 ? (
                 <>
-                  {/* 图片区域 */}
-                  <div className="relative flex-1 min-h-[200px]">
+                  <div className="relative min-h-[340px]">
                     {newsItems.map((item, index) => (
                       <div
                         key={index}
@@ -667,11 +635,38 @@ export default function HomePage() {
                           alt={item.title}
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                       </div>
                     ))}
+                    {/* 日期角标 + 标题 */}
+                    {newsItems[activeNewsIndex] && (
+                      <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
+                        <div className="flex items-end gap-3">
+                          {newsItems[activeNewsIndex].date && (
+                            <div className="bg-[#8B5A2B] text-white px-3 py-2 rounded-lg text-center shrink-0">
+                              <div className="text-2xl font-bold leading-tight">
+                                {newsItems[activeNewsIndex].date.split('-')[2] || ''}
+                              </div>
+                              <div className="text-xs text-white/80">
+                                {newsItems[activeNewsIndex].date.split('-')[0]}-{newsItems[activeNewsIndex].date.split('-')[1]}
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-bold text-lg leading-tight line-clamp-2 hover:underline cursor-pointer">
+                              {newsItems[activeNewsIndex].title}
+                            </h3>
+                            {newsItems[activeNewsIndex].summary && (
+                              <p className="text-white/70 text-sm mt-1 line-clamp-1">
+                                {newsItems[activeNewsIndex].summary}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {/* 轮播指示器 */}
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
+                    <div className="absolute bottom-2 right-4 z-20 flex gap-1.5">
                       {newsItems.map((_, index) => (
                         <button
                           key={index}
@@ -685,31 +680,9 @@ export default function HomePage() {
                       ))}
                     </div>
                   </div>
-                  {/* 标题+摘要区域 */}
-                  <div className="p-4 bg-white">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        newsItems[activeNewsIndex]?.category === '媒体附小' 
-                          ? 'bg-[#D4A574] text-white' 
-                          : 'bg-[#8B5A2B] text-white'
-                      }`}>
-                        {newsItems[activeNewsIndex]?.category === '媒体附小' 
-                          ? newsItems[activeNewsIndex]?.level 
-                          : newsItems[activeNewsIndex]?.category}
-                      </span>
-                      <span className="text-xs text-[#8B5A2B]/50">{newsItems[activeNewsIndex]?.date}</span>
-                    </div>
-                    <h3 className="font-bold text-[#3D2314] text-base leading-snug mb-1.5 hover:text-[#8B5A2B] cursor-pointer transition line-clamp-1">
-                      {newsItems[activeNewsIndex]?.title}
-                    </h3>
-                    <p className="text-sm text-[#8B5A2B]/60 leading-relaxed line-clamp-2">
-                      {newsItems[activeNewsIndex]?.summary}
-                    </p>
-                  </div>
                 </>
               ) : (
-                /* 空状态 */
-                <div className="flex-1 min-h-[280px] flex items-center justify-center bg-[#FDF8F3]/50">
+                <div className="flex-1 min-h-[340px] flex items-center justify-center bg-[#FDF8F3]/50">
                   <div className="text-center py-8">
                     <Newspaper className="w-12 h-12 text-[#D4A574]/40 mx-auto mb-3" />
                     <p className="text-[#8B5A2B]/50 text-sm">暂无新闻内容</p>
@@ -718,44 +691,28 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* 右侧：新闻中心 */}
-            <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
-              <div className="flex items-center justify-between p-4 border-b border-[#E8DDD0]/50 bg-[#FDF8F3]/50">
+            {/* 右侧：新闻列表（日期+标题+虚线分隔） */}
+            <div className="bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm">
+              <div className="flex items-center justify-between p-4 border-b-2 border-[#8B5A2B] bg-[#FDF8F3]/50">
                 <div className="flex items-center gap-2">
                   <Newspaper className="h-5 w-5 text-[#8B5A2B]" />
-                  <h2 className="font-bold text-[#3D2314]">新闻中心</h2>
+                  <h2 className="font-bold text-[#3D2314]">学工聚焦</h2>
                 </div>
                 <Link href="/news" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
               </div>
-              <div className="divide-y divide-[#E8DDD0]/30">
+              <div>
                 {newsItems.length > 0 ? (
-                  newsItems.slice(0, 5).map((item, index) => (
+                  newsItems.slice(0, 7).map((item, index) => (
                     <Link 
                       key={item.id || index} 
                       href={item.id ? `/news/${item.id}` : '#'}
                       onClick={(e) => { if (!item.id) { e.preventDefault(); setActiveNewsIndex(index); } }}
-                      className={`flex items-start gap-3 p-4 transition group ${
-                        index === activeNewsIndex ? 'bg-[#D4A574]/10' : 'hover:bg-[#FDF8F3]/50'
-                      }`}
+                      className="flex items-center justify-between px-4 py-3 border-b border-dashed border-[#E8DDD0]/50 hover:bg-[#FDF8F3]/50 transition group"
                     >
-                      <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 border border-[#E8DDD0]/50">
-                        <img src={item.image} alt="" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                            item.category === '媒体附小' 
-                              ? 'bg-[#D4A574]/20 text-[#8B5A2B]' 
-                              : 'bg-[#F5EDE4] text-[#8B5A2B]'
-                          }`}>
-                            {item.category === '媒体附小' ? item.level : item.category}
-                          </span>
-                        </div>
-                        <p className="text-sm text-[#3D2314] line-clamp-2 group-hover:text-[#8B5A2B]">
-                          {item.title}
-                        </p>
-                        <span className="text-xs text-[#8B5A2B]/50">{item.date}</span>
-                      </div>
+                      <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B] flex-1">
+                        {item.title}
+                      </span>
+                      <span className="text-xs text-[#8B5A2B]/50 ml-3 whitespace-nowrap">{item.date}</span>
                     </Link>
                   ))
                 ) : (
@@ -767,29 +724,56 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+
+          {/* 通知公告 - 独立板块 */}
+          <div className="mt-5 bg-white/90 rounded-2xl shadow-lg shadow-[#D4A574]/5 border border-[#E8DDD0]/40 overflow-hidden backdrop-blur-sm">
+            <div className="flex items-center justify-between p-4 border-b-2 border-[#8B5A2B] bg-[#FDF8F3]/50">
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-[#8B5A2B]" />
+                <h2 className="font-bold text-[#3D2314]">通知公告</h2>
+              </div>
+              <Link href="/notices" className="text-sm text-[#8B5A2B]/70 hover:text-[#8B5A2B]">更多 &gt;&gt;</Link>
+            </div>
+            <div>
+              {notices.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x divide-[#E8DDD0]/30">
+                  {notices.slice(0, 6).map((item, index) => (
+                    <Link 
+                      key={item.id || index} 
+                      href={item.id ? `/notices/${item.id}` : '#'}
+                      className="flex items-center justify-between px-4 py-3 border-b border-dashed border-[#E8DDD0]/50 hover:bg-[#FDF8F3]/50 transition group"
+                    >
+                      <span className="text-sm text-[#3D2314] truncate group-hover:text-[#8B5A2B] flex-1">
+                        {item.title}
+                      </span>
+                      <span className="text-xs text-[#8B5A2B]/50 ml-3 whitespace-nowrap">{item.date}</span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center">
+                  <Bell className="w-8 h-8 text-[#D4A574]/40 mx-auto mb-2" />
+                  <p className="text-[#8B5A2B]/50 text-sm">暂无公告</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ==================== 核心叙事板块：百年传承 · 童心育人 ==================== */}
-      <section id="philosophy" className="py-16 bg-gradient-to-b from-[#FDF8F3] via-[#FAF6F0] to-[#F5EDE4] relative overflow-hidden">
-        {/* 装饰元素 */}
-        <div className="absolute top-0 left-0 w-96 h-96 bg-[#D4A574]/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-        <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#8B5A2B]/5 rounded-full blur-3xl translate-x-1/3 translate-y-1/3" />
-        <div className="max-w-7xl mx-auto px-4 relative z-10">
+      <section id="philosophy" className="py-16 bg-gradient-to-b from-[#FDF8F3] via-[#FAF6F0] to-[#F5EDE4]">
+        <div className="max-w-7xl mx-auto px-4">
           
           {/* 板块标题 */}
           <div className="text-center mb-12">
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <div className="w-12 h-px bg-gradient-to-r from-transparent to-[#D4A574]" />
-              <div className="w-2 h-2 bg-[#D4A574] rounded-full" />
-              <div className="w-12 h-px bg-gradient-to-l from-transparent to-[#D4A574]" />
-            </div>
             <h2 
               className="text-2xl md:text-3xl font-bold text-[#3D2314] mb-3 tracking-wide"
               style={{ fontFamily: 'var(--font-serif)' }}
             >
               百年传承 · 童心育人
             </h2>
+            <div className="w-16 h-0.5 bg-[#8B5A2B] mx-auto mb-3" />
             <p className="text-[#8B5A2B]/70 text-sm max-w-2xl mx-auto">
               从1914年到今天，我们始终坚守教育的初心，用爱心浇灌每一颗童心
             </p>
@@ -799,20 +783,12 @@ export default function HomePage() {
 
           {/* 第一篇章：源起 - 校训 */}
           <div className="mb-10">
-            <div className="flex items-center gap-4 mb-5">
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-[#D4A574] tracking-widest">CHAPTER</span>
-                <span className="text-3xl font-bold text-[#8B5A2B]" style={{ fontFamily: 'var(--font-serif)' }}>壹</span>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
-                    源起 · 百年校训
-                  </h3>
-                  <div className="h-px flex-1 bg-gradient-to-r from-[#D4A574] to-transparent"></div>
-                </div>
-                <span className="text-xs text-[#8B5A2B]/50 mt-1 block">1914年建校</span>
-              </div>
+            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#8B5A2B] pb-2">
+              <BookOpen className="h-5 w-5 text-[#8B5A2B]" />
+              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                源起 · 百年校训
+              </h3>
+              <span className="text-xs text-[#8B5A2B]/50 ml-auto">1914年建校</span>
             </div>
             
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-[#E8DDD0]/40 shadow-lg shadow-[#D4A574]/5 overflow-hidden hover:shadow-xl hover:shadow-[#D4A574]/10 transition-shadow duration-300">
@@ -876,20 +852,12 @@ export default function HomePage() {
 
           {/* 第二篇章：理念 - 童心教育 */}
           <div className="mb-10">
-            <div className="flex items-center gap-4 mb-5">
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-[#D4A574] tracking-widest">CHAPTER</span>
-                <span className="text-3xl font-bold text-[#8B5A2B]" style={{ fontFamily: 'var(--font-serif)' }}>贰</span>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
-                    理念 · 童心教育
-                  </h3>
-                  <div className="h-px flex-1 bg-gradient-to-r from-[#D4A574] to-transparent"></div>
-                </div>
-                <span className="text-xs text-[#8B5A2B]/50 mt-1 block">核心办学品牌</span>
-              </div>
+            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#8B5A2B] pb-2">
+              <Heart className="h-5 w-5 text-[#8B5A2B]" />
+              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                理念 · 童心教育
+              </h3>
+              <span className="text-xs text-[#8B5A2B]/50 ml-auto">核心办学品牌</span>
             </div>
             
             <div className="bg-white/60 rounded-2xl border border-[#E8DDD0]/30 overflow-hidden">
@@ -959,23 +927,15 @@ export default function HomePage() {
 
           {/* 第三篇章：成果 - 特色与荣誉 */}
           <div>
-            <div className="flex items-center gap-4 mb-5">
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-[#D4A574] tracking-widest">CHAPTER</span>
-                <span className="text-3xl font-bold text-[#8B5A2B]" style={{ fontFamily: 'var(--font-serif)' }}>叁</span>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
-                    成果 · 特色办学
-                  </h3>
-                  <div className="h-px flex-1 bg-gradient-to-r from-[#D4A574] to-transparent"></div>
-                </div>
-                <span className="text-xs text-[#8B5A2B]/50 mt-1 block">区域标杆，全国领先</span>
-              </div>
+            <div className="flex items-center gap-3 mb-5 border-b-2 border-[#8B5A2B] pb-2">
+              <Award className="h-5 w-5 text-[#8B5A2B]" />
+              <h3 className="text-lg font-bold text-[#3D2314]" style={{ fontFamily: 'var(--font-serif)' }}>
+                成果 · 特色办学
+              </h3>
+              <span className="text-xs text-[#8B5A2B]/50 ml-auto">区域标杆，全国领先</span>
             </div>
             
-            <div className="grid md:grid-cols-3 gap-5">
+            <div className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin">
               {achievementCategories.length > 0 ? (
                 achievementCategories.map((category, index) => {
                   const IconComponent = getIconComponent(category.icon);
@@ -984,7 +944,7 @@ export default function HomePage() {
                   // 第一张卡片（科创教育）使用深色主题
                   if (isFirstCard) {
                     return (
-                      <div key={category.id} className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
+                      <div key={category.id} className="shrink-0 w-[300px] snap-start bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
                         <Link href={`/achievements?category=${category.slug}`} className="relative h-48 block">
                           <img
                             src={category.slug === 'science' ? '/images/campus/robot-award.jpg' : '/images/campus/school-assembly.png'}
@@ -1041,7 +1001,7 @@ export default function HomePage() {
                   
                   // 其他卡片使用浅色主题
                   return (
-                    <div key={category.id} className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                    <div key={category.id} className="shrink-0 w-[300px] snap-start bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
                       <Link href={`/achievements?category=${category.slug}`} className="relative h-48 block">
                         <img
                           src={category.slug === 'moral' ? '/images/campus/teacher-day-award.png' : category.slug === 'art' ? '/images/campus/orchestra.png' : '/images/campus/school-assembly.png'}
@@ -1092,7 +1052,7 @@ export default function HomePage() {
                 // 默认静态数据作为后备
                 <>
                   {/* 科创教育 - 王牌特色 */}
-                  <div className="bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
+                  <div className="shrink-0 w-[300px] snap-start bg-gradient-to-br from-[#3D2314] to-[#5D3A1A] rounded-2xl overflow-hidden text-white flex flex-col">
                     <Link href="/achievements?category=science" className="relative h-48 block">
                       <img
                         src="/images/campus/robot-award.jpg"
@@ -1140,7 +1100,7 @@ export default function HomePage() {
                   </div>
                   
                   {/* 人文德育 */}
-                  <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                  <div className="shrink-0 w-[300px] snap-start bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
                     <Link href="/achievements?category=moral" className="relative h-48 block">
                       <img
                         src="/images/campus/teacher-day-award.png"
@@ -1187,7 +1147,7 @@ export default function HomePage() {
                   </div>
                   
                   {/* 艺体心理 */}
-                  <div className="bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
+                  <div className="shrink-0 w-[300px] snap-start bg-white/80 rounded-2xl border border-[#E8DDD0]/50 overflow-hidden flex flex-col hover:shadow-lg transition">
                     <Link href="/achievements?category=art" className="relative h-48 block">
                       <img
                         src="/images/campus/orchestra.png"
@@ -1259,38 +1219,26 @@ export default function HomePage() {
       {/* 智慧校园入口 */}
       <section id="quick-links" className="py-12 bg-gradient-to-b from-[#F5EDE4] to-[#FDF8F3]">
         <div className="max-w-7xl mx-auto px-4">
-          {/* 标题区域 */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 bg-[#8B5A2B]/10 px-4 py-1.5 rounded-full mb-3">
-              <Sparkles className="h-4 w-4 text-[#B8860B]" />
-              <span className="text-sm font-medium text-[#8B5A2B]">数字化 · 智能化 · 一体化</span>
-            </div>
-            <h2 className="text-2xl font-bold text-[#3D2314] mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+          {/* 标题栏 */}
+          <div className="flex items-center gap-3 mb-8 border-b-2 border-[#8B5A2B] pb-2">
+            <Sparkles className="h-5 w-5 text-[#8B5A2B]" />
+            <h2 className="font-bold text-[#3D2314] text-lg" style={{ fontFamily: 'var(--font-serif)' }}>
               智慧校园服务平台
             </h2>
-            <p className="text-[#8B5A2B]/70 text-sm max-w-xl mx-auto">
-              统一门户、统一身份认证、统一数据管理，为教师、家长提供一站式智慧服务
-            </p>
+            <span className="text-xs text-[#8B5A2B]/50 ml-auto">数字化 · 智能化 · 一体化</span>
           </div>
 
-          {/* 入口卡片 */}
-          <div className="grid md:grid-cols-4 gap-5">
+          {/* 一行横排图标入口 */}
+          <div className="flex justify-center gap-8 md:gap-16">
             {quickLinks.map((link, index) => {
               const Icon = link.icon;
               return (
-                <Link key={index} href="/login">
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 hover:shadow-xl hover:shadow-[#D4A574]/10 transition-all duration-300 cursor-pointer group border border-[#E8DDD0]/40 hover:border-[#D4A574]/60 hover:-translate-y-1">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-14 h-14 bg-gradient-to-br from-[#F5EDE4] to-[#E8DDD0] rounded-2xl flex items-center justify-center mb-4 group-hover:from-[#D4A574]/20 group-hover:to-[#D4A574]/10 transition-all duration-300 shadow-sm">
-                        <Icon className="h-7 w-7 text-[#8B5A2B] group-hover:text-[#B8860B] transition" />
-                      </div>
-                      <h3 className="font-bold text-[#3D2314] mb-1">{link.title}</h3>
-                      <p className="text-sm text-[#8B5A2B]/60 mb-3">{link.desc}</p>
-                      <div className="flex items-center gap-1 text-[#D4A574] text-sm font-medium opacity-0 group-hover:opacity-100 transition">
-                        <span>进入系统</span>
-                        <ChevronRight className="h-4 w-4" />
-                      </div>
+                <Link key={index} href="/login" className="group text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-16 h-16 bg-[#F5EDE4] rounded-2xl flex items-center justify-center group-hover:bg-[#D4A574]/20 transition-all duration-300">
+                      <Icon className="h-8 w-8 text-[#8B5A2B] group-hover:text-[#B8860B] transition" />
                     </div>
+                    <span className="text-sm font-medium text-[#3D2314] group-hover:text-[#8B5A2B]">{link.title}</span>
                   </div>
                 </Link>
               );
@@ -1319,51 +1267,45 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 联系方式 */}
+      {/* 联系方式 + 页脚 */}
       <section className="py-10 bg-[#C4956A] text-white">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8">
-            <div>
-              <h3 className="font-bold mb-4 text-white">联系我们</h3>
-              <div className="space-y-3 text-sm text-white/85">
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-4 w-4 text-white/60" />
-                  <span>福建省龙岩市新罗区龙川东路11号</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-white/60" />
-                  <span>0597-2135008</span>
-                </div>
-              </div>
+          {/* 居中 Logo */}
+          <div className="text-center mb-6">
+            <div className="bg-white rounded-lg p-2 inline-block">
+              <img src="/logo-school.png" alt="福建省龙岩师范附属小学" className="h-12 w-auto" />
             </div>
-            <div>
-              <h3 className="font-bold mb-4 text-white">办学理念</h3>
-              <p className="text-sm text-white/85 leading-relaxed">
-                珍视童心，张扬个性，全面发展<br/>
-                当有情怀的老师，办有温度的学校
-              </p>
+          </div>
+          {/* 分隔线 */}
+          <div className="border-t border-white/30 mb-6" />
+          {/* 居中内容 */}
+          <div className="text-center space-y-3 text-sm text-white/85">
+            <div className="flex items-center justify-center gap-3">
+              <MapPin className="h-4 w-4 text-white/60" />
+              <span>福建省龙岩市新罗区龙川东路11号</span>
             </div>
-            <div>
-              <h3 className="font-bold mb-4 text-white">关注我们</h3>
-              <div className="w-28 h-28 bg-white rounded-lg p-1 shadow-lg">
+            <div className="flex items-center justify-center gap-3">
+              <Phone className="h-4 w-4 text-white/60" />
+              <span>0597-2135008</span>
+            </div>
+            <p className="text-white/70 pt-2">珍视童心，张扬个性，全面发展 · 当有情怀的老师，办有温度的学校</p>
+            {/* 二维码 */}
+            <div className="pt-2">
+              <div className="w-24 h-24 bg-white rounded-lg p-1 shadow-lg inline-block">
                 <img src="/qrcode.png" alt="公众号二维码" className="w-full h-full object-contain" />
               </div>
+              <p className="text-xs text-white/60 mt-1">关注我们</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* 页脚 */}
-      <footer className="py-8 bg-gradient-to-r from-[#A67C52] via-[#9B7530] to-[#8B6914] text-white/80 text-sm relative overflow-hidden">
-        {/* 装饰光效 */}
-        <div className="absolute top-0 left-1/4 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
-        <div className="max-w-7xl mx-auto px-4 relative z-10">
+      <footer className="py-6 bg-[#A67C52] text-white/80 text-sm">
+        <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center">
-                <GraduationCap className="h-4 w-4 text-white" />
-              </div>
+              <GraduationCap className="h-4 w-4 text-white" />
               <span>© 2026 福建省龙岩师范附属小学 版权所有</span>
             </div>
             <div className="flex gap-6">
