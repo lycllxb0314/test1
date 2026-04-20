@@ -459,7 +459,7 @@ export default function HomePage() {
               </div>
             </div>
             
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className={`hidden md:flex items-center gap-1 transition-all duration-500 ${scrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <a href="#" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
                 scrolled ? 'bg-white/10' : 'bg-white/10 backdrop-blur-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
               }`}>首 页</a>
@@ -477,6 +477,7 @@ export default function HomePage() {
               }`}>校园公告</Link>
             </nav>
 
+            <div className={`flex items-center gap-4 transition-all duration-500 ${scrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             {user ? (
               <div className="flex items-center gap-4">
                 <div className={`hidden md:flex items-center gap-2 text-base transition-all duration-500 ${
@@ -506,6 +507,7 @@ export default function HomePage() {
                 </Button>
               </Link>
             )}
+            </div>
           </div>
         </div>
       </header>
