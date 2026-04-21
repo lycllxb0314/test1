@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MapPin, Phone, GraduationCap } from 'lucide-react';
+import { MapPin, Phone, GraduationCap, ExternalLink } from 'lucide-react';
 
 /**
  * SiteFooter — 联系方式 + 页脚
@@ -33,6 +33,35 @@ export function SiteFooter() {
                 <img src="/qrcode.png" alt="公众号二维码" className="w-full h-full object-contain" />
               </div>
               <p className="text-xs text-white/60 mt-1">关注我们</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 友情链接 */}
+      <section className="py-6 bg-[#A08B72] text-white/90">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col items-center gap-4">
+            <h3 className="text-sm font-medium text-white/70 tracking-wider">友情链接</h3>
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+              {[
+                { href: 'https://basic.smartedu.cn', label: '国家中小学智慧教育平台' },
+                { href: 'https://jyt.fujian.gov.cn', label: '福建省教育厅' },
+                { href: 'https://www.fetv.cn', label: '福建教育网' },
+                { href: 'https://jyj.longyan.gov.cn', label: '龙岩市教育局' },
+                { href: 'https://www.pep.com.cn', label: '人民教育出版社' },
+              ].map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-white/75 hover:text-white transition-colors duration-200"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {link.label}
+                </a>
+              ))}
             </div>
           </div>
         </div>
