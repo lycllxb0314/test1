@@ -119,6 +119,10 @@ export async function authenticateRequest(
 ): Promise<AuthResult> {
   const { required = true, cacheUser = true } = options;
   
+  // 判断认证来源：Bearer header 还是 Cookie
+  const authHeader = request.headers.get('Authorization');
+  const isBearerAuth = !!authHeader?.startsWith('Bearer ');
+
   // 提取 Token
   const { accessToken, refreshToken } = extractTokens(request);
   
@@ -143,9 +147,21 @@ export async function authenticateRequest(
       }
       return { success: true, user: sessionResult.user };
     }
+    
+    // Bearer Token 认证失败：直接返回 401，不降级到 Cookie
+    // 原因：小程序/H5 代理场景下 Cookie 不可靠，降级会导致"时好时坏"的玄学问题
+    // 前端应有 401 自动刷新 token 逻辑来处理此情况
+    if (isBearerAuth) {
+      return {
+        success: false,
+        error: '登录已过期，请重新登录',
+        code: 'TOKEN_EXPIRED',
+        statusCode: 401,
+      };
+    }
   }
   
-  // 降级到传统认证方式（向后兼容）
+  // Cookie JWT 认证失败，降级到传统认证方式（向后兼容 Web 浏览器）
   const userId = extractUserIdLegacy(request);
   if (userId) {
     const legacyResult = await validateSessionLegacy(userId);

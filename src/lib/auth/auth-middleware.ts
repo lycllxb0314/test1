@@ -31,8 +31,19 @@ export interface AuthResult {
 /**
  * 认证中间件
  * 验证请求中的用户身份（支持 JWT 和传统方式）
+ * 
+ * 认证优先级：
+ * 1. JWT Bearer Token（Authorization header）—— 小程序端和现代客户端
+ *    - Bearer Token 验证失败直接返回 401，不降级，避免跨域 Cookie 玄学问题
+ * 2. Cookie 中的 JWT Token —— Web 浏览器端
+ *    - Cookie JWT 验证失败可降级到传统认证（向后兼容）
+ * 3. 传统认证（x-user-id / Cookie userId）—— 遗留系统
  */
 export async function authenticateRequest(request: NextRequest): Promise<AuthResult> {
+  // 判断认证来源：Bearer header 还是 Cookie
+  const authHeader = request.headers.get('Authorization');
+  const isBearerAuth = !!authHeader?.startsWith('Bearer ');
+
   // 1. 优先尝试 JWT 认证
   const { accessToken, refreshToken } = extractTokens(request);
   
@@ -51,7 +62,18 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
       };
     }
     
-    // JWT 认证失败，不直接返回错误，而是尝试降级到传统认证
+    // Bearer Token 认证失败：直接返回 401，不降级到 Cookie
+    // 原因：小程序/H5 代理场景下 Cookie 不可靠，降级会导致"时好时坏"的玄学问题
+    // 前端应有 401 自动刷新 token 逻辑来处理此情况
+    if (isBearerAuth) {
+      return {
+        success: false,
+        error: '登录已过期，请重新登录',
+        statusCode: 401,
+      };
+    }
+    
+    // Cookie JWT 认证失败，降级到传统认证（向后兼容 Web 浏览器）
   }
 
   // 2. 降级到传统认证方式（向后兼容）
