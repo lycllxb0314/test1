@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Heart,
   BookOpen,
@@ -274,6 +275,9 @@ export default function HomePage() {
   // 成果特色办学分类数据
   const [achievementCategories, setAchievementCategories] = useState<AchievementCategoryState[]>([]);
 
+  // AbortController 引用，用于取消未完成的请求
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -288,14 +292,24 @@ export default function HomePage() {
   }, []);
 
   // 获取门户数据
-  const fetchPortalData = async () => {
+  const fetchPortalData = useCallback(async () => {
+    // 取消上一次未完成的请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const { signal } = controller;
+
     try {
-      // 并行获取所有数据
-      const [announcementsRes, carouselRes, philosophyRes, honorsRes] = await Promise.all([
-        fetch('/api/portal/announcements?limit=10'),
-        fetch('/api/portal/carousel?limit=10'),
-        fetch('/api/portal/philosophy?limit=10'),
-        fetch('/api/portal/honors?limit=10'),
+      setDataLoading(true);
+      // 并行获取所有数据（含成果特色办学分类）
+      const [announcementsRes, carouselRes, philosophyRes, honorsRes, achievementsRes] = await Promise.all([
+        fetch('/api/portal/announcements?limit=10', { signal }),
+        fetch('/api/portal/carousel?limit=10', { signal }),
+        fetch('/api/portal/philosophy?limit=10', { signal }),
+        fetch('/api/portal/honors?limit=10', { signal }),
+        fetch('/api/portal/achievements/categories', { signal }),
       ]);
 
       // 处理公告和新闻数据
@@ -360,8 +374,7 @@ export default function HomePage() {
         })));
       }
       
-      // 获取成果特色办学分类数据
-      const achievementsRes = await fetch('/api/portal/achievements/categories');
+      // 处理成果特色办学分类数据
       const achievementsResult = await achievementsRes.json();
       if (achievementsResult.success && achievementsResult.data && achievementsResult.data.length > 0) {
         setAchievementCategories(achievementsResult.data.map((item: AchievementCategoryData) => ({
@@ -378,16 +391,26 @@ export default function HomePage() {
         } as AchievementCategoryState)));
       }
     } catch (error) {
+      // 忽略 AbortError（用户主动取消）
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       console.error('Failed to fetch portal data:', error);
     } finally {
-      setDataLoading(false);
+      // 仅在当前 controller 未被取代时才更新 loading 状态
+      if (abortControllerRef.current === controller) {
+        setDataLoading(false);
+      }
     }
-  };
+  }, []);
 
-  // 初始加载门户数据
+  // 初始加载门户数据，组件卸载时取消请求
   useEffect(() => {
     fetchPortalData();
-  }, []);
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchPortalData]);
 
   // 自动轮播
   useEffect(() => {
@@ -710,7 +733,20 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* 左侧：新闻大图轮播（带日期角标） */}
             <div className="rounded-2xl overflow-hidden shadow-lg shadow-[#C9A96E]/10 bg-white flex flex-col">
-              {newsItems.length > 0 ? (
+              {dataLoading ? (
+                <div className="min-h-[340px] flex items-center justify-center p-6">
+                  <div className="w-full space-y-4">
+                    <Skeleton className="w-full h-[240px] rounded-xl" />
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-14 w-14 rounded-lg" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-3/4 rounded" />
+                        <Skeleton className="h-4 w-1/2 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : newsItems.length > 0 ? (
                 <>
                   <div className="relative min-h-[340px]">
                     {newsItems.map((item, index) => (
@@ -791,7 +827,16 @@ export default function HomePage() {
                 <Link href="/news" className="text-sm text-[#A0785A]/70 hover:text-[#A0785A]">更多 &gt;&gt;</Link>
               </div>
               <div>
-                {newsItems.length > 0 ? (
+                {dataLoading ? (
+                  <div className="p-4 space-y-0">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-between py-3 border-b border-dashed border-[#E6DDD3]/50">
+                        <Skeleton className="h-4 w-48 rounded" />
+                        <Skeleton className="h-3 w-16 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : newsItems.length > 0 ? (
                   newsItems.slice(0, 7).map((item, index) => (
                     <Link 
                       key={item.id || index} 
@@ -825,7 +870,16 @@ export default function HomePage() {
               <Link href="/notices" className="text-sm text-[#A0785A]/70 hover:text-[#A0785A]">更多 &gt;&gt;</Link>
             </div>
             <div>
-              {notices.length > 0 ? (
+              {dataLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x divide-[#E6DDD3]/30">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-dashed border-[#E6DDD3]/50">
+                      <Skeleton className="h-4 w-40 rounded" />
+                      <Skeleton className="h-3 w-16 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : notices.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x divide-[#E6DDD3]/30">
                   {notices.slice(0, 6).map((item, index) => (
                     <Link 
@@ -1026,7 +1080,23 @@ export default function HomePage() {
             </div>
             
             <div className="flex justify-center gap-12">
-              {achievementCategories.length > 0 ? (
+              {dataLoading ? (
+                <div className="flex justify-center gap-12 w-full">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="w-[320px] bg-white/80 rounded-2xl overflow-hidden shadow-lg">
+                      <Skeleton className="w-full h-48" />
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-8 w-8 rounded-full" />
+                          <Skeleton className="h-5 w-24 rounded" />
+                        </div>
+                        <Skeleton className="h-3 w-full rounded" />
+                        <Skeleton className="h-3 w-2/3 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : achievementCategories.length > 0 ? (
                 achievementCategories.map((category, index) => {
                   const IconComponent = getIconComponent(category.icon);
                   const isFirstCard = index === 0;
@@ -1288,7 +1358,11 @@ export default function HomePage() {
             
             {/* 办学荣誉 */}
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              {honors.map((honor, index) => (
+              {dataLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-9 w-32 rounded-full" />
+                ))
+              ) : honors.map((honor, index) => (
                 <div
                   key={honor.id || index}
                   className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full border border-[#E6DDD3]/50 hover:shadow-md transition"
