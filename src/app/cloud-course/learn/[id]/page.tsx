@@ -1,29 +1,21 @@
 'use client';
 
-/**
- * 课程学习页面
- * 
- * 录播课程：视频播放器 + 章节导航 + 进度追踪
- * 直播课程：跳转到在线云课堂
- * 
- * 路由参数：/cloud-course/learn/[id]
- */
-
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/services/api-client';
-import { VideoPlayer, parseVideoUrl } from '@/components/cloud-course/VideoPlayer';
-import { Card, CardContent } from '@/components/ui/card';
+import { VideoPlayer } from '@/components/cloud-course/VideoPlayer';
+import { CourseComments } from '@/components/cloud-course/CourseComments';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  ChevronLeft, Play, CheckCircle2, Clock, FileText,
-  Video, Radio, BookOpen, Loader2,
+  BookOpen, ChevronLeft, Clock, CheckCircle2, Play,
+  FileText, Radio, Video, Loader2, List, MessageSquare,
 } from 'lucide-react';
-import type { CloudCourse, CloudCourseChapter, CloudCourseEnrollment } from '@/types/cloud-course';
+import { parseVideoUrl } from '@/components/cloud-course/VideoPlayer';
+import type { CloudCourse, CloudCourseEnrollment } from '@/types/cloud-course';
 
 type ChapterProgress = {
   chapterId: string;
@@ -43,19 +35,17 @@ export default function CourseLearnPage() {
   const [chapterProgressMap, setChapterProgressMap] = useState<Record<string, ChapterProgress>>({});
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showChapters, setShowChapters] = useState(false);
 
   // 加载课程详情和选课信息
   useEffect(() => {
     if (!courseId) return;
     const load = async () => {
       try {
-        // 获取课程详情（含章节）
         const courseRes = await apiClient.get<CloudCourse>(`/cloud-course/courses/${courseId}`);
         if (courseRes.success && courseRes.data) {
           const c = courseRes.data;
           setCourse(c);
-          // 默认选第一个有视频的章节
           const firstVideoChapter = c.chapters?.find(ch => ch.videoUrl);
           if (firstVideoChapter) {
             setActiveChapterId(firstVideoChapter.id);
@@ -64,7 +54,6 @@ export default function CourseLearnPage() {
           }
         }
 
-        // 获取选课记录
         if (user?.id) {
           const enrollRes = await apiClient.get<CloudCourseEnrollment[]>(
             `/cloud-course/enrollments?userId=${user.id}&courseId=${courseId}`
@@ -117,7 +106,6 @@ export default function CourseLearnPage() {
       },
     }));
 
-    // 调用后端API保存
     try {
       await apiClient.put('/cloud-course/learning', {
         action: 'progress',
@@ -149,6 +137,8 @@ export default function CourseLearnPage() {
   // 切换章节
   const handleChapterChange = useCallback((chapterId: string) => {
     setActiveChapterId(chapterId);
+    setShowChapters(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   // 格式化时长
@@ -188,14 +178,14 @@ export default function CourseLearnPage() {
     return (
       <div className="min-h-screen bg-background">
         <div className="bg-primary text-primary-foreground px-6 py-4">
-          <div className="max-w-6xl mx-auto flex items-center gap-4">
+          <div className="max-w-4xl mx-auto flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => router.back()} className="text-primary-foreground hover:bg-primary-foreground/10">
               <ChevronLeft className="h-4 w-4 mr-1" />返回
             </Button>
             <h1 className="text-lg font-bold">{course.title}</h1>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-6 py-12 text-center">
+        <div className="max-w-4xl mx-auto px-6 py-12 text-center">
           <Radio className="h-16 w-16 text-primary mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
           <p className="text-muted-foreground mb-6">这是一门直播课程，点击下方按钮进入在线云课堂</p>
@@ -207,49 +197,106 @@ export default function CourseLearnPage() {
     );
   }
 
-  // 录播课程学习页面
+  // 录播课程学习页面 — 滚动布局
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       {/* 顶部导航栏 */}
-      <header className="bg-card border-b border-border px-4 py-3 flex items-center gap-4 shrink-0">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          <ChevronLeft className="h-4 w-4 mr-1" />返回
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-medium truncate">{course.title}</h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <Progress value={overallProgress} className="w-20 h-1.5" />
-            <span className="text-xs text-muted-foreground">{overallProgress}%</span>
+      <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+            <ChevronLeft className="h-4 w-4 mr-1" />返回
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-sm font-medium truncate">{course.title}</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Progress value={overallProgress} className="w-20 h-1.5" />
+              <span className="text-xs text-muted-foreground">{overallProgress}%</span>
+            </div>
           </div>
+          {course.chapters && course.chapters.length > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowChapters(prev => !prev)}
+            >
+              <List className="h-4 w-4 mr-1" />
+              {showChapters ? '收起' : '章节'}
+            </Button>
+          )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setSidebarOpen(prev => !prev)}
-        >
-          {sidebarOpen ? '收起章节' : '展开章节'}
-        </Button>
       </header>
 
-      {/* 主体区域：视频 + 章节侧栏 */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 视频区域 */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {activeChapter?.videoUrl ? (
-            <div className="flex-1 bg-black flex items-center justify-center">
-              <div className="w-full max-h-[calc(100vh-120px)]">
-                <VideoPlayer
-                  src={activeChapter.videoUrl}
-                  initialTime={chapterProgressMap[activeChapter.id]?.currentTime || 0}
-                  duration={activeChapter.duration}
-                  onProgressSave={saveProgress}
-                  onComplete={onChapterComplete}
-                  className="w-full aspect-video"
-                />
+      {/* 章节选择面板（可折叠） */}
+      {showChapters && course.chapters && (
+        <div className="bg-card border-b border-border sticky top-[57px] z-20">
+          <div className="max-w-4xl mx-auto">
+            <ScrollArea className="max-h-72">
+              <div className="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {course.chapters.map((chapter, index) => {
+                  const isActive = chapter.id === activeChapterId;
+                  const isCompleted = chapterProgressMap[chapter.id]?.completed;
+
+                  return (
+                    <button
+                      key={chapter.id}
+                      onClick={() => handleChapterChange(chapter.id)}
+                      className={`text-left px-3 py-2.5 rounded-lg border transition-colors ${
+                        isActive
+                          ? 'border-primary bg-primary/5'
+                          : isCompleted
+                            ? 'border-[#5C7A72]/30 bg-[#5C7A72]/5'
+                            : 'border-border hover:border-muted-foreground/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-medium ${
+                          isCompleted
+                            ? 'bg-[#5C7A72]/20 text-[#5C7A72]'
+                            : isActive
+                              ? 'bg-primary/20 text-primary'
+                              : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {isCompleted ? <CheckCircle2 className="h-3 w-3" /> : index + 1}
+                        </div>
+                        <span className={`text-xs font-medium truncate ${isActive ? 'text-primary' : ''}`}>
+                          {chapter.title}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 ml-7 text-[10px] text-muted-foreground">
+                        {chapter.videoUrl && (
+                          <span className="flex items-center gap-0.5">
+                            <Play className="h-2.5 w-2.5" />
+                            {(() => { const info = parseVideoUrl(chapter.videoUrl); return info.platform || '视频'; })()}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="h-2.5 w-2.5" />{formatDuration(chapter.duration)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
+            </ScrollArea>
+          </div>
+        </div>
+      )}
+
+      {/* 主内容区 — 可滚动 */}
+      <main className="max-w-4xl mx-auto">
+        {/* 视频播放器 */}
+        <div className="bg-black">
+          {activeChapter?.videoUrl ? (
+            <VideoPlayer
+              src={activeChapter.videoUrl}
+              initialTime={chapterProgressMap[activeChapter.id]?.currentTime || 0}
+              duration={activeChapter.duration}
+              onProgressSave={saveProgress}
+              onComplete={onChapterComplete}
+              className="w-full aspect-video"
+            />
           ) : (
-            <div className="flex-1 bg-muted/30 flex items-center justify-center">
+            <div className="w-full aspect-video bg-muted/30 flex items-center justify-center">
               <div className="text-center">
                 <FileText className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
                 <p className="text-muted-foreground text-sm">本章节暂无视频内容</p>
@@ -262,110 +309,96 @@ export default function CourseLearnPage() {
               </div>
             </div>
           )}
+        </div>
 
-          {/* 当前章节信息 */}
-          {activeChapter && (
-            <div className="px-6 py-4 border-t border-border bg-card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="font-medium">{activeChapter.title}</h2>
+        {/* 章节信息 + 快速导航 */}
+        <div className="px-6 py-4 border-b border-border bg-card">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              {activeChapter && (
+                <>
+                  <h2 className="font-medium text-foreground">{activeChapter.title}</h2>
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    <Badge variant="outline" className="text-[10px] h-4">
+                      第 {(course.chapters?.findIndex(ch => ch.id === activeChapter.id) || 0) + 1} / {course.chapters?.length || 0} 章
+                    </Badge>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatDuration(activeChapter.duration)}
                     </span>
                     {chapterProgressMap[activeChapter.id]?.completed && (
-                      <span className="flex items-center gap-1 text-emerald-600">
+                      <span className="flex items-center gap-1 text-[#5C7A72]">
                         <CheckCircle2 className="h-3 w-3" />已完成
                       </span>
                     )}
                   </div>
-                </div>
-                {activeChapter.documentUrl && (
-                  <Button variant="outline" size="sm"
-                    onClick={() => window.open(activeChapter.documentUrl!, '_blank')}>
-                    <FileText className="h-4 w-4 mr-1" />课件资料
-                  </Button>
-                )}
-              </div>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {activeChapter?.documentUrl && (
+                <Button variant="outline" size="sm"
+                  onClick={() => window.open(activeChapter.documentUrl!, '_blank')}>
+                  <FileText className="h-4 w-4 mr-1" />课件资料
+                </Button>
+              )}
+              {/* 上一章/下一章 */}
+              {course.chapters && course.chapters.length > 1 && activeChapterId && (() => {
+                const idx = course.chapters.findIndex(ch => ch.id === activeChapterId);
+                const prev = idx > 0 ? course.chapters[idx - 1] : null;
+                const next = idx < course.chapters.length - 1 ? course.chapters[idx + 1] : null;
+                return (
+                  <>
+                    {prev && (
+                      <Button variant="outline" size="sm" onClick={() => handleChapterChange(prev.id)}>
+                        上一章
+                      </Button>
+                    )}
+                    {next && (
+                      <Button size="sm" onClick={() => handleChapterChange(next.id)}>
+                        下一章
+                      </Button>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* 章节横向快速导航 */}
+          {course.chapters && course.chapters.length > 1 && (
+            <div className="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1">
+              {course.chapters.map((chapter, idx) => {
+                const isActive = chapter.id === activeChapterId;
+                const isCompleted = chapterProgressMap[chapter.id]?.completed;
+                return (
+                  <button
+                    key={chapter.id}
+                    onClick={() => handleChapterChange(chapter.id)}
+                    className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : isCompleted
+                          ? 'bg-[#5C7A72]/10 text-[#5C7A72]'
+                          : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* 章节侧栏 */}
-        {sidebarOpen && (
-          <aside className="w-72 border-l border-border bg-card flex flex-col shrink-0">
-            <div className="px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-medium">课程章节</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <Progress value={overallProgress} className="flex-1 h-1.5" />
-                <span className="text-xs text-muted-foreground">{overallProgress}%</span>
-              </div>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="p-2">
-                {course.chapters?.map((chapter, index) => {
-                  const isActive = chapter.id === activeChapterId;
-                  const isCompleted = chapterProgressMap[chapter.id]?.completed;
-                  const hasVideo = !!chapter.videoUrl;
+        {/* 评论区 */}
+        <div className="px-6 py-6">
+          <CourseComments courseId={courseId} chapterId={activeChapterId} />
+        </div>
 
-                  return (
-                    <button
-                      key={chapter.id}
-                      onClick={() => handleChapterChange(chapter.id)}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg mb-1 transition-colors ${
-                        isActive
-                          ? 'bg-primary/10 text-primary'
-                          : 'hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-medium ${
-                          isCompleted
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : isActive
-                              ? 'bg-primary/20 text-primary'
-                              : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {isCompleted ? (
-                            <CheckCircle2 className="h-4 w-4" />
-                          ) : (
-                            index + 1
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className={`text-sm font-medium truncate ${isActive ? 'text-primary' : ''}`}>
-                            {chapter.title}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                            {hasVideo && (
-                              <span className="flex items-center gap-0.5">
-                                <Play className="h-2.5 w-2.5" />
-                                {(() => {
-                                  const info = parseVideoUrl(chapter.videoUrl || '');
-                                  return info.platform || '视频';
-                                })()}
-                              </span>
-                            )}
-                            {chapter.documentUrl && (
-                              <span className="flex items-center gap-0.5">
-                                <FileText className="h-2.5 w-2.5" />课件
-                              </span>
-                            )}
-                            <span className="flex items-center gap-0.5">
-                              <Clock className="h-2.5 w-2.5" />{formatDuration(chapter.duration)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </aside>
-        )}
-      </div>
+        {/* 底部间距 */}
+        <div className="h-12" />
+      </main>
     </div>
   );
 }

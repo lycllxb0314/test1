@@ -34,6 +34,32 @@ type LiveSessionStatus = 'scheduled' | 'live' | 'ended' | 'cancelled';
 /** 推送目标类型 */
 type PushTargetType = 'class' | 'grade';
 
+/** 评论类型 */
+type CloudCourseComment = {
+  id: string;
+  courseId: string;
+  chapterId: string | null;
+  parentId: string | null;
+  userId: string;
+  userName: string;
+  userRole: string;
+  content: string;
+  likesCount: number;
+  likedBy: string[];
+  isPinned: boolean;
+  replies?: CloudCourseComment[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** 创建评论请求 */
+type CreateCommentDTO = {
+  courseId: string;
+  chapterId?: string | null;
+  parentId?: string | null;
+  content: string;
+};
+
 // ============================================
 // 数据库行类型 (下划线命名，对应 Supabase 表)
 // ============================================
@@ -436,6 +462,8 @@ export {
   type LearningRecordType,
   type LiveSessionStatus,
   type PushTargetType,
+  type CloudCourseComment,
+  type CreateCommentDTO,
   type CloudCourseRow,
   type CloudCourseChapterRow,
   type CloudCourseEnrollmentRow,
