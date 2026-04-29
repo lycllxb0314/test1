@@ -11,6 +11,10 @@ import type { CreateFitnessAssessmentDTO } from '@/types/health-management';
 import { getService } from '@/lib/di';
 import { SERVICE_IDENTIFIERS } from '@/lib/di/container';
 import type { StudentRepository } from '@/repositories/student.repository';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+import type { FitnessAssessment } from '@/types/health-management';
+
+type StudentInfo = { id: string; name: string; student_no: string; class_name: string };
 
 export const GET = protectedRoute(async (request) => {
   const { searchParams } = new URL(request.url);
@@ -28,7 +32,8 @@ export const GET = protectedRoute(async (request) => {
 
   if (studentId) {
     const result = await healthManagementService.getFitnessByStudentId(studentId);
-    return NextResponse.json({ success: result.success, data: result.data });
+    const data = (await enrichWithStudentInfo(result.data || [])) as FitnessAssessment[];
+    return NextResponse.json({ success: result.success, data });
   }
 
   if (academicYear && semester) {
@@ -36,7 +41,7 @@ export const GET = protectedRoute(async (request) => {
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
-    const allData = result.data || [];
+    const allData = (await enrichWithStudentInfo(result.data || [])) as FitnessAssessment[];
     // 分页
     const total = allData.length;
     const start = (page - 1) * pageSize;
@@ -50,6 +55,38 @@ export const GET = protectedRoute(async (request) => {
 
   return NextResponse.json({ success: false, error: '需要 studentId 或 academicYear+semester 参数' }, { status: 400 });
 });
+
+/**
+ * 给体质记录批量补充 studentName / className
+ */
+async function enrichWithStudentInfo(records: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  if (records.length === 0) return records;
+
+  const uniqueIds = [...new Set(records.map(r => r.studentId as string).filter(Boolean))];
+  if (uniqueIds.length === 0) return records;
+
+  const client = getSupabaseClient();
+  const { data: students } = await client
+    .from('students')
+    .select('id, name, student_no, class_name')
+    .in('id', uniqueIds);
+
+  const studentMap = new Map<string, StudentInfo>();
+  (students || []).forEach((s: unknown) => {
+    const row = s as StudentInfo;
+    studentMap.set(row.id, row);
+  });
+
+  return records.map(r => {
+    const info = studentMap.get(r.studentId as string);
+    return {
+      ...r,
+      studentName: info?.name || (r.studentName as string) || '-',
+      studentNo: info?.student_no || '',
+      className: info?.class_name || (r.className as string) || '',
+    };
+  });
+}
 
 export const POST = protectedRoute(async (request, { user }) => {
   const body = await request.json();

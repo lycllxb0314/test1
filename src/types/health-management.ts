@@ -26,6 +26,7 @@ type FitnessAssessment = {
   id: string;
   studentId: string;
   studentName?: string;
+  studentNo?: string;
   className?: string;
   academicYear: string;
   semester: string;

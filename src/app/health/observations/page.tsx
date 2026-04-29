@@ -82,20 +82,14 @@ export default function ObservationsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get<{
-        data: ObservationRecord[];
-        pagination: { total: number };
-        statistics: ObservationStats;
-      }>(`/health/observations?mode=admin&startDate=${startDate}&endDate=${endDate}&page=${page}&pageSize=${pageSize}`);
+      const res = await apiClient.get<ObservationRecord[]>(
+        `/health/observations?mode=admin&startDate=${startDate}&endDate=${endDate}&page=${page}&pageSize=${pageSize}`
+      );
       if (res.success && res.data) {
-        const d = res.data as unknown as {
-          data: ObservationRecord[];
-          pagination: { total: number };
-          statistics: ObservationStats;
-        };
-        setRecords(d.data || []);
-        setTotal(d.pagination?.total || 0);
-        setStats(d.statistics || null);
+        setRecords(res.data);
+        setTotal(res.pagination?.total || 0);
+        const rawStats = (res as unknown as { statistics?: ObservationStats }).statistics;
+        setStats(rawStats || null);
       }
     } catch {
       setRecords([]);

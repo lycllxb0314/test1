@@ -42,14 +42,12 @@ export default function FitnessDataPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get<{
-        data: FitnessAssessment[];
-        pagination?: { total: number; page: number; pageSize: number; totalPages: number };
-      }>(`/health/fitness?academicYear=${academicYear}&semester=${semester}&page=${page}&pageSize=${pageSize}`);
+      const res = await apiClient.get<FitnessAssessment[]>(
+        `/health/fitness?academicYear=${academicYear}&semester=${semester}&page=${page}&pageSize=${pageSize}`
+      );
       if (res.success && res.data) {
-        const d = res.data as unknown as { data: FitnessAssessment[]; pagination?: { total: number } };
-        setData(d.data || []);
-        setTotal(d.pagination?.total || 0);
+        setData(res.data);
+        setTotal(res.pagination?.total || 0);
       }
     } catch {
       setData([]);
@@ -126,7 +124,13 @@ export default function FitnessDataPage() {
           dto.sitUps1min = toNum(rec['1分钟仰卧起坐(次)']);
           dto.ropeJump1min = toNum(rec['1分钟跳绳(次)']);
           dto.totalScore = toNum(rec['总分']);
-          dto.gradeLevel = toString(rec['等级']);
+          // 根据总分自动计算等级，避免手填错误
+          {
+            const s = dto.totalScore as number | undefined;
+            dto.gradeLevel = s !== undefined && s !== null
+              ? (s >= 86 ? '优秀' : s >= 76 ? '良好' : s >= 60 ? '及格' : '不及格')
+              : toString(rec['等级']) || undefined;
+          }
         } else {
           dto.visionLeft = toNum(rec['左眼视力']);
           dto.visionRight = toNum(rec['右眼视力']);
@@ -167,7 +171,7 @@ export default function FitnessDataPage() {
 
   // 过滤
   const filtered = searchQuery
-    ? data.filter(d => (d.studentName || '').includes(searchQuery) || d.studentId.includes(searchQuery))
+    ? data.filter(d => (d.studentName || '').includes(searchQuery) || (d.studentNo || d.studentId || '').includes(searchQuery))
     : data;
 
   return (
@@ -341,7 +345,7 @@ export default function FitnessDataPage() {
                       <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-medium text-foreground whitespace-nowrap">
                         {row.studentName || '-'}
                       </td>
-                      <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{row.studentId}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{row.studentNo || row.studentId}</td>
                       {tab === 'fitness' ? (
                         <>
                           <td className="px-4 py-2.5 text-center">{row.heightCm ?? '-'}</td>

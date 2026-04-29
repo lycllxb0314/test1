@@ -64,20 +64,15 @@ export default function ExercisePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get<{
-        data: ExerciseRecord[];
-        pagination: { total: number };
-        statistics: ExerciseStats;
-      }>(`/health/exercise?startDate=${startDate}&endDate=${endDate}&page=${page}&pageSize=${pageSize}`);
+      const res = await apiClient.get<ExerciseRecord[]>(
+        `/health/exercise?startDate=${startDate}&endDate=${endDate}&page=${page}&pageSize=${pageSize}`
+      );
       if (res.success && res.data) {
-        const d = res.data as unknown as {
-          data: ExerciseRecord[];
-          pagination: { total: number };
-          statistics: ExerciseStats;
-        };
-        setRecords(d.data || []);
-        setTotal(d.pagination?.total || 0);
-        setStats(d.statistics || null);
+        setRecords(res.data);
+        setTotal(res.pagination?.total || 0);
+        // statistics 不在 ApiResponse 泛型中，从原始响应取
+        const rawStats = (res as unknown as { statistics?: ExerciseStats }).statistics;
+        setStats(rawStats || null);
       }
     } catch {
       setRecords([]);

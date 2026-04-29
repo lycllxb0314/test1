@@ -59,6 +59,10 @@ export class HealthManagementService extends BaseService {
   }
 
   async createFitnessAssessment(dto: CreateFitnessAssessmentDTO & { importedBy?: string }) {
+    // 根据总分自动修正等级
+    const autoGrade = computeGradeLevel(dto.totalScore);
+    const gradeLevel = autoGrade || dto.gradeLevel;
+
     const row: Partial<FitnessAssessmentRow> = {
       student_id: dto.studentId,
       academic_year: dto.academicYear,
@@ -74,7 +78,7 @@ export class HealthManagementService extends BaseService {
       sit_ups_1min: dto.sitUps1min ?? null,
       rope_jump_1min: dto.ropeJump1min ?? null,
       total_score: dto.totalScore ?? null,
-      grade_level: dto.gradeLevel ?? null,
+      grade_level: gradeLevel ?? null,
       vision_left: dto.visionLeft ?? null,
       vision_right: dto.visionRight ?? null,
       // 体检字段
@@ -119,7 +123,7 @@ export class HealthManagementService extends BaseService {
       sit_ups_1min: dto.sitUps1min ?? null,
       rope_jump_1min: dto.ropeJump1min ?? null,
       total_score: dto.totalScore ?? null,
-      grade_level: dto.gradeLevel ?? null,
+      grade_level: (computeGradeLevel(dto.totalScore) || dto.gradeLevel) ?? null,
       vision_left: dto.visionLeft ?? null,
       vision_right: dto.visionRight ?? null,
       // 体检字段
@@ -458,6 +462,18 @@ function mapGradeLevel(level: string): 'excellent' | 'good' | 'pass' | 'fail' {
   if (level === '良好') return 'good';
   if (level === '及格') return 'pass';
   return 'fail';
+}
+
+/**
+ * 根据总分自动计算体质等级（国标）
+ * 优秀: >=86  良好: >=76  及格: >=60  不及格: <60
+ */
+function computeGradeLevel(totalScore: number | undefined | null): string | undefined {
+  if (totalScore === undefined || totalScore === null) return undefined;
+  if (totalScore >= 86) return '优秀';
+  if (totalScore >= 76) return '良好';
+  if (totalScore >= 60) return '及格';
+  return '不及格';
 }
 
 function generateSummary(
