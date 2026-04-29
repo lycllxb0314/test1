@@ -209,10 +209,13 @@ export default function ParentHealthPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 先获取家长信息以确定关联学生
-      const parentRes = await apiClient.get<Record<string, unknown>>(`/parent/my-info`);
-      const sid = (parentRes.data as Record<string, unknown>)?.studentId as string;
-      if (sid) {
+      // 获取家长关联的子女信息
+      const childrenRes = await apiClient.get<{ id: string; name: string; classId: string; className: string }[]>(`/parent/children`);
+      const children = childrenRes.data || [];
+      if (children.length > 0) {
+        // 取第一个子女（如果有多个子女需要切换功能可以后续扩展）
+        const child = children[0];
+        const sid = child.id;
         setStudentId(sid);
         // 并行加载数据
         const [portraitRes, obsRes, prescRes] = await Promise.all([
@@ -257,9 +260,8 @@ export default function ParentHealthPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* 头部 */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-teal-500 via-emerald-500 to-teal-600 pb-20 pt-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.1),transparent)] pointer-events-none" />
-        <div className="relative mx-auto max-w-lg px-5">
+      <div className="bg-gradient-to-br from-teal-500 via-emerald-500 to-teal-600 pb-6 pt-6">
+        <div className="mx-auto max-w-lg px-5">
           <div className="flex items-center gap-3 text-white">
             <div className="rounded-xl bg-white/20 p-2.5 backdrop-blur-sm">
               <Heart className="h-6 w-6" />
@@ -270,50 +272,48 @@ export default function ParentHealthPage() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* 综合健康分 - 浮动卡片 */}
-        <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-[90%] max-w-md">
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-xl">
-            <div className="flex items-center gap-5">
-              <ScoreRing
-                score={overallScore}
-                size={90}
-                label="综合健康分"
-                icon={<Heart className="h-4 w-4" />}
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-foreground">
-                    {currentStatus.label}
-                  </span>
-                  <TrendBadge trend={portrait?.bmiTrend} />
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">{currentStatus.desc}</p>
-                {portrait?.aiSummary && (
-                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-                    {portrait.aiSummary}
-                  </p>
-                )}
+      <div className="mx-auto max-w-lg px-5 py-4">
+        {/* 综合健康分卡片 */}
+        <div className="-mt-2 rounded-2xl border border-border bg-card p-5 shadow-lg">
+          <div className="flex items-center gap-5">
+            <ScoreRing
+              score={overallScore}
+              size={90}
+              label="综合健康分"
+              icon={<Heart className="h-4 w-4" />}
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-foreground">
+                  {currentStatus.label}
+                </span>
+                <TrendBadge trend={portrait?.bmiTrend} />
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">{currentStatus.desc}</p>
+              {portrait?.aiSummary && (
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                  {portrait.aiSummary}
+                </p>
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-lg px-5 pt-20 pb-8">
         {/* 维度评分 */}
-        <div className="mt-6 grid grid-cols-3 gap-4">
-          <div className="flex flex-col items-center rounded-xl border border-border bg-card p-4">
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="flex flex-col items-center rounded-xl border border-border bg-card p-3">
             <Moon className="mb-1 h-4 w-4 text-indigo-500" />
             <span className="text-lg font-bold text-foreground">{portrait?.sleepScore ?? '-'}</span>
             <span className="text-[10px] text-muted-foreground">睡眠评分</span>
           </div>
-          <div className="flex flex-col items-center rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-col items-center rounded-xl border border-border bg-card p-3">
             <Apple className="mb-1 h-4 w-4 text-emerald-500" />
             <span className="text-lg font-bold text-foreground">{portrait?.dietScore ?? '-'}</span>
             <span className="text-[10px] text-muted-foreground">饮食评分</span>
           </div>
-          <div className="flex flex-col items-center rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-col items-center rounded-xl border border-border bg-card p-3">
             <Dumbbell className="mb-1 h-4 w-4 text-amber-500" />
             <span className="text-lg font-bold text-foreground">{portrait?.exerciseHabitScore ?? '-'}</span>
             <span className="text-[10px] text-muted-foreground">运动评分</span>
