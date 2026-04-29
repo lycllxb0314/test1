@@ -132,7 +132,8 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
 
   // ── 优酷 ──
   // https://v.youku.com/v_show/id_Xxxxxx.html
-  if (lower.includes('youku.com')) {
+  const youkuHostname = getHostname(url);
+  if (youkuHostname === 'youku.com' || youkuHostname.endsWith('.youku.com')) {
     const idMatch = url.match(/id_([a-zA-Z0-9=]+)/);
     const embedSrc = idMatch
       ? `https://player.youku.com/embed/${idMatch[1]}`
