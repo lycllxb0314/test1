@@ -1,41 +1,58 @@
 /**
  * 审批操作 API
- *
- * POST - 审批操作（通过/拒绝）
+ * 
+ * PUT: 执行审批操作（通过/驳回/退回/撤回）
  */
 
-import { withRoute } from '@/lib/api';
-import { approvalService } from '@/services/approval.service';
-import { ApiError } from '@/lib/api-error';
+import { NextRequest, NextResponse } from 'next/server';
+import { getUserFromSession } from '@/lib/auth/session';
+import { ok, fail, serverError, unauthorized } from '@/lib/api';
+import { ApprovalActionRequest } from '@/types/approval';
+import { getService } from '@/lib/di';
+import { SERVICE_IDENTIFIERS } from '@/lib/di/container';
+import type { ApprovalService } from '@/services/approval.service';
 
-export const POST = withRoute(
-  async (req, _ctx, user) => {
-    if (!user) throw ApiError.Unauthorized();
-
-    const body = await req.json();
-    const { approvalId, action, comment } = body;
-
-    if (!approvalId || !action) {
-      throw ApiError.BadRequest('缺少必填字段');
+/**
+ * 执行审批操作
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const user = await getUserFromSession(request);
+    if (!user) {
+      return unauthorized('未登录，请先登录');
     }
 
-    if (!['approve', 'reject'].includes(action)) {
-      throw ApiError.BadRequest('无效的审批操作');
+    const body: ApprovalActionRequest = await request.json();
+    const { instanceId, action, comment } = body;
+    
+    if (!instanceId) {
+      return NextResponse.json(fail('缺少审批实例ID'), { status: 400 });
     }
+    
+    console.log('[Approval Action] Request:', { instanceId, action, comment, userId: user.id });
 
-    const result = await approvalService.processApproval({
-      approvalId,
+    // 通过 DI 获取 Service
+    const approvalService = getService<ApprovalService>(SERVICE_IDENTIFIERS.ApprovalService);
+
+    const result = await approvalService.executeAction({
+      instanceId,
       action,
-      comment,
-      processorId: user.id,
-      processorName: user.name,
+      comment: comment || undefined,
+      userId: user.id,
+      userName: user.name || '',
     });
 
     if (!result.success) {
-      throw ApiError.BadRequest(result.error || '审批操作失败');
+      const statusCode = result.code === 'NOT_FOUND' ? 404 :
+                         result.code === 'FORBIDDEN' ? 403 :
+                         result.code === 'VALIDATION_ERROR' ? 400 : 500;
+      return NextResponse.json(fail(result.error || '操作失败'), { status: statusCode });
     }
 
-    return result.data;
-  },
-  { requireAuth: true }
-);
+    return ok(result.data);
+
+  } catch (error) {
+    console.error('Approval action error:', error);
+    return serverError(error instanceof Error ? error.message : '审批操作失败');
+  }
+}

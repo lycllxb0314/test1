@@ -1,35 +1,45 @@
 /**
  * 批量删除学生 API
- *
- * POST - 批量删除学生
+ * 
+ * 架构：API Route → Service → Repository
  */
 
-import { withRoute } from '@/lib/api';
+import { NextRequest, NextResponse } from 'next/server';
 import { studentService } from '@/services/student.service';
-import { ApiError } from '@/lib/api-error';
+import { error, ErrorCode } from '@/lib/api';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
-export const POST = withRoute(
-  async (req) => {
-    const body = await req.json();
+/**
+ * POST - 批量删除学生
+ */
+export const POST = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
+  try {
+    const body = await request.json();
     const { ids } = body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      throw ApiError.BadRequest('请选择要删除的数据');
+      return NextResponse.json(error('请选择要删除的数据', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
 
     // 限制单次删除数量
     if (ids.length > 100) {
-      throw ApiError.BadRequest('单次最多删除100条数据');
+      return NextResponse.json(error('单次最多删除100条数据', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
 
     // 批量删除
     const result = await studentService.batchDelete(ids);
 
     if (!result.success) {
-      throw ApiError.Internal(result.error || '删除失败');
+      return NextResponse.json(error(result.error || '删除失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
     }
 
-    return { ...result.data, message: `成功删除 ${result.data?.success || 0} 条数据` };
-  },
-  { requireAuth: true }
-);
+    return NextResponse.json({
+      success: true,
+      data: result.data,
+      message: `成功删除 ${result.data?.success || 0} 条数据`,
+    });
+  } catch (err) {
+    console.error('批量删除学生API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});

@@ -1,32 +1,37 @@
 /**
  * 学生列表 API
- *
+ * 
  * GET /api/students - 获取学生列表（支持分页、筛选）
+ * 
+ * ⚠️ 架构原则：
+ * - 通过 Service 层访问数据，禁止直接操作数据库
+ * - 使用统一认证中间件
  */
 
-import { withRoute } from '@/lib/api';
+import { NextRequest } from 'next/server';
 import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
-import { ApiError } from '@/lib/api-error';
+import { withAuth } from '@/lib/auth/middleware';
+import { paginated, fail, serverError } from '@/lib/api';
 import type { StudentService } from '@/services/student.service';
 
 // 年级名称映射
 const GRADE_NAMES = ['', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级'];
 
-export const GET = withRoute(
-  async (req) => {
+export const GET = withAuth(async (request: NextRequest) => {
+  try {
     const studentService = getService<StudentService>(SERVICE_IDENTIFIERS.StudentService);
-    const { searchParams } = new URL(req.url);
-
+    const { searchParams } = new URL(request.url);
+    
     // 分页参数
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '500');
-
+    
     // 筛选参数
     const search = searchParams.get('search') || undefined;
     const grade = searchParams.get('grade') || undefined;
     const classId = searchParams.get('classId') || undefined;
     const status = searchParams.get('status') || undefined;
-
+    
     // 调用 Service 层
     const result = await studentService.listStudents({
       classId,
@@ -36,11 +41,11 @@ export const GET = withRoute(
       page,
       pageSize,
     });
-
+    
     if (!result.success) {
-      throw ApiError.BadRequest(result.error || '获取学生列表失败');
+      return fail(result.error || '获取学生列表失败');
     }
-
+    
     // 转换数据格式
     const formattedData = result.data?.map(s => {
       const item = s as unknown as Record<string, unknown>;
@@ -76,7 +81,7 @@ export const GET = withRoute(
         updatedAt: item.updatedAt,
       };
     }) || [];
-
+    
     // 计算统计数据
     const statistics = {
       total: result.pagination?.total || 0,
@@ -84,17 +89,16 @@ export const GET = withRoute(
       femaleCount: formattedData.filter(s => s.gender === 'female').length,
       classCount: new Set(formattedData.map(s => s.classId)).size,
     };
-
-    return {
-      data: formattedData,
-      pagination: {
-        total: result.pagination?.total || 0,
-        page: result.pagination?.page || 1,
-        pageSize: result.pagination?.pageSize || 20,
-        totalPages: Math.ceil((result.pagination?.total || 0) / (result.pagination?.pageSize || 20)),
-      },
-      statistics,
-    };
-  },
-  { requireAuth: true }
-);
+    
+    return paginated(
+      formattedData,
+      result.pagination?.total || 0,
+      result.pagination?.page || 1,
+      result.pagination?.pageSize || 20,
+      { statistics }
+    );
+  } catch (error) {
+    console.error('Failed to fetch students:', error);
+    return serverError('获取学生列表失败');
+  }
+});

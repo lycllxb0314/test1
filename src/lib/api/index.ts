@@ -43,17 +43,6 @@ export {
   createDeleteRoute,
 } from './decorators';
 
-// ==================== 路由包装器 ====================
-
-export {
-  withRoute,
-  type RouteConfig,
-  type RouteContext,
-  type PaginatedResult,
-} from './route-wrapper';
-
-export { ApiError } from '@/lib/api-error';
-
 // ==================== 响应缓存 ====================
 
 export {

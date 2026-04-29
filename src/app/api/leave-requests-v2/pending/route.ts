@@ -1,15 +1,54 @@
 /**
  * 待审批请假列表 API
- *
- * GET - 获取当前用户需要审批的请假申请
+ * 
+ * 获取当前用户需要审批的请假申请
  */
 
-import { withRoute } from '@/lib/api';
-import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
-import { ApiError } from '@/lib/api-error';
+import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
+import { success, error, ErrorCode } from '@/lib/api';
+import { getService } from '@/lib/di';
+import { SERVICE_IDENTIFIERS } from '@/lib/di/container';
 import type { LeaveRequestService } from '@/services/leave-request.service';
 import type { LeaveRequestRow } from '@/repositories/leave.repository';
 
+/**
+ * GET - 获取待审批请假列表
+ */
+export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
+  try {
+    const { searchParams } = new URL(request.url);
+    const status = (searchParams.get('status') || 'pending') as 'pending' | 'approved' | 'my';
+
+    // 通过 DI 获取 Service
+    const leaveRequestService = getService<LeaveRequestService>(SERVICE_IDENTIFIERS.LeaveRequestService);
+
+    const result = await leaveRequestService.getPendingList({
+      employeeId: user.employeeId || '',
+      status,
+    });
+
+    if (!result.success) {
+      return NextResponse.json(error(result.error || '获取请假列表失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+    }
+
+    // 转换数据格式
+    const leaveRequests = (result.data || []).map(mapLeaveRequest);
+
+    return NextResponse.json({
+      success: true,
+      data: leaveRequests,
+      total: leaveRequests.length,
+    });
+  } catch (err) {
+    console.error('获取请假列表失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});
+
+/**
+ * 辅助函数：转换数据格式
+ */
 function mapLeaveRequest(data: LeaveRequestRow) {
   return {
     id: data.id,
@@ -38,29 +77,3 @@ function mapLeaveRequest(data: LeaveRequestRow) {
     submittedAt: data.submitted_at,
   };
 }
-
-export const GET = withRoute(
-  async (req, _ctx, user) => {
-    const { searchParams } = new URL(req.url);
-    const status = (searchParams.get('status') || 'pending') as 'pending' | 'approved' | 'my';
-
-    const leaveRequestService = getService<LeaveRequestService>(SERVICE_IDENTIFIERS.LeaveRequestService);
-
-    const result = await leaveRequestService.getPendingList({
-      employeeId: user.employeeId || '',
-      status,
-    });
-
-    if (!result.success) {
-      throw ApiError.Internal(result.error || '获取请假列表失败');
-    }
-
-    const leaveRequests = (result.data || []).map(mapLeaveRequest);
-
-    return {
-      data: leaveRequests,
-      total: leaveRequests.length,
-    };
-  },
-  { requireAuth: true }
-);

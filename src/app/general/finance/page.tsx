@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -67,69 +67,26 @@ const expenseCategories: { id: string; name: string }[] = [
   { id: 'other', name: '其他' },
 ];
 
-// 状态徽章配置
-const STATUS_BADGE_CONFIG = {
-  draft: { variant: 'outline' as const, className: 'text-gray-600', label: '草稿' },
-  pending: { variant: 'default' as const, className: 'bg-yellow-100 text-yellow-700', label: '待审批' },
-  approved: { variant: 'default' as const, className: 'bg-blue-100 text-blue-700', label: '已批准' },
-  rejected: { variant: 'default' as const, className: 'bg-red-100 text-red-700', label: '已拒绝' },
-  processing: { variant: 'default' as const, className: 'bg-purple-100 text-purple-700', label: '处理中' },
-  completed: { variant: 'default' as const, className: 'bg-green-100 text-green-700', label: '已完成' },
-  cancelled: { variant: 'default' as const, className: 'bg-gray-100 text-gray-600', label: '已取消' },
-} as const;
-
 // 状态徽章
 const getStatusBadge = (status: string) => {
-  const config = STATUS_BADGE_CONFIG[status as keyof typeof STATUS_BADGE_CONFIG];
-  if (!config) {
-    return <Badge variant="outline">{status}</Badge>;
+  switch (status) {
+    case 'draft':
+      return <Badge variant="outline" className="text-gray-600">草稿</Badge>;
+    case 'pending':
+      return <Badge className="bg-yellow-100 text-yellow-700">待审批</Badge>;
+    case 'approved':
+      return <Badge className="bg-blue-100 text-blue-700">已批准</Badge>;
+    case 'rejected':
+      return <Badge className="bg-red-100 text-red-700">已拒绝</Badge>;
+    case 'processing':
+      return <Badge className="bg-purple-100 text-purple-700">处理中</Badge>;
+    case 'completed':
+      return <Badge className="bg-green-100 text-green-700">已完成</Badge>;
+    case 'cancelled':
+      return <Badge className="bg-gray-100 text-gray-600">已取消</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
   }
-  return <Badge variant={config.variant} className={config.className}>{config.label}</Badge>;
-};
-
-const ALLOWED_VOUCHER_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-]);
-
-const isAllowedVoucherFile = (file: File) => {
-  const hasAllowedMime = ALLOWED_VOUCHER_MIME_TYPES.has(file.type);
-  const hasAllowedExt = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
-  return hasAllowedMime || hasAllowedExt;
-};
-
-const isSafePreviewUrl = (url: string) => {
-  try {
-    const parsed = new URL(url, window.location.origin);
-    return parsed.protocol === 'blob:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
-
-// 图片预览组件
-const ImagePreview: React.FC<{
-  src: string;
-  alt: string;
-  hoverColor: 'blue' | 'green';
-}> = ({ src, alt, hoverColor }) => {
-  const borderColor = hoverColor === 'blue' ? 'group-hover:border-blue-400' : 'group-hover:border-green-400';
-  return (
-    <a href={src} target="_blank" rel="noopener noreferrer" className="group">
-      <div className="relative">
-        <img
-          src={src}
-          alt={alt}
-          className={`w-16 h-16 object-cover rounded-lg border-2 border-transparent ${borderColor} transition-all`}
-        />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-all flex items-center justify-center">
-          <Eye className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-      </div>
-    </a>
-  );
 };
 
 // 附件预览组件
@@ -142,31 +99,28 @@ const AttachmentPreview: React.FC<{
 
   return (
     <div className="flex flex-wrap gap-2">
-      {files.map((file, index) => {
-        if (!isSafePreviewUrl(file)) return null;
-        return (
-          <div key={index} className="relative group">
-            <a href={file} target="_blank" rel="noopener noreferrer">
-              <div className="w-20 h-20 border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center hover:opacity-80 transition-opacity">
-                {file.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                  <img src={file} alt={`附件${index + 1}`} className="w-full h-full object-cover" />
-                ) : (
-                  <Paperclip className="h-6 w-6 text-gray-400" />
-                )}
-              </div>
-            </a>
-            {!readonly && onRemove && (
-              <button
-                type="button"
-                onClick={() => onRemove(index)}
-                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-        );
-      })}
+      {files.map((file, index) => (
+        <div key={index} className="relative group">
+          <a href={file} target="_blank" rel="noopener noreferrer">
+            <div className="w-20 h-20 border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center hover:opacity-80 transition-opacity">
+              {file.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                <img src={file} alt={`附件${index + 1}`} className="w-full h-full object-cover" />
+              ) : (
+                <Paperclip className="h-6 w-6 text-gray-400" />
+              )}
+            </div>
+          </a>
+          {!readonly && onRemove && (
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 };
@@ -182,7 +136,7 @@ export default function FinancePage() {
   const [bankTransactionNo, setBankTransactionNo] = useState('');
   const [financeRemark, setFinanceRemark] = useState('');
   const [paymentVouchers, setPaymentVouchers] = useState<string[]>([]);
-
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 使用统一Hooks获取数据
@@ -201,53 +155,44 @@ export default function FinancePage() {
   });
 
   // 模拟文件上传
-  const handleFileUpload = useCallback(async (files: FileList) => {
+  const handleFileUpload = async (files: FileList) => {
     const newFiles: string[] = [];
-
+    
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!isAllowedVoucherFile(file)) {
-        toast.warning(`文件 "${file.name}" 格式不受支持，已跳过`);
-        continue;
-      }
       const url = URL.createObjectURL(file);
       newFiles.push(url);
     }
 
     setPaymentVouchers(prev => [...prev, ...newFiles]);
-  }, []);
+  };
 
   // 移除支付凭证
-  const handleRemoveVoucher = useCallback((index: number) => {
+  const handleRemoveVoucher = (index: number) => {
     setPaymentVouchers(prev => prev.filter((_, i) => i !== index));
-  }, []);
+  };
 
   // 查看详情
-  const handleViewDetail = useCallback((expense: ExpenseReimbursement) => {
+  const handleViewDetail = (expense: ExpenseReimbursement) => {
     setSelectedExpense(expense);
     setShowDetailDialog(true);
-  }, []);
+  };
 
-  // 重置表单
-  const resetProcessForm = useCallback(() => {
+  // 打开处理对话框
+  const handleOpenProcess = (expense: ExpenseReimbursement, action: 'process' | 'complete') => {
+    setSelectedExpense(expense);
+    setProcessAction(action);
     setPaymentNo('');
     setBankTransactionNo('');
     setFinanceRemark('');
     setPaymentVouchers([]);
-  }, []);
-
-  // 打开处理对话框
-  const handleOpenProcess = useCallback((expense: ExpenseReimbursement, action: 'process' | 'complete') => {
-    setSelectedExpense(expense);
-    setProcessAction(action);
-    resetProcessForm();
     setShowProcessDialog(true);
-  }, [resetProcessForm]);
+  };
 
   // 提交处理
-  const handleSubmitProcess = useCallback(async () => {
+  const handleSubmitProcess = async () => {
     if (!selectedExpense) return;
-
+    
     if (processAction === 'complete') {
       if (!paymentNo) {
         toast.error('请填写支付单号');
@@ -269,7 +214,7 @@ export default function FinancePage() {
         action: processAction,
         paymentNo: processAction === 'complete' ? paymentNo : undefined,
       });
-
+      
       toast.success(processAction === 'process' ? '已开始处理' : '已标记完成');
       setShowProcessDialog(false);
       setShowDetailDialog(false);
@@ -277,7 +222,7 @@ export default function FinancePage() {
     } catch (error) {
       toast.error('操作失败，请重试');
     }
-  }, [selectedExpense, processAction, paymentNo, bankTransactionNo, paymentVouchers, processMutation, refetch]);
+  };
 
   return (
     <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-orange-50/30 via-white to-amber-50/30 min-h-screen">
@@ -446,9 +391,9 @@ export default function FinancePage() {
                             <FileText className="h-4 w-4" />
                           </Button>
                           {expense.status === 'approved' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
                               onClick={() => handleOpenProcess(expense, 'process')}
                               className="text-purple-600 hover:text-purple-700"
                             >
@@ -456,9 +401,9 @@ export default function FinancePage() {
                             </Button>
                           )}
                           {expense.status === 'processing' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
                               onClick={() => handleOpenProcess(expense, 'complete')}
                               className="text-green-600 hover:text-green-700"
                             >
@@ -501,7 +446,7 @@ export default function FinancePage() {
               </div>
             </div>
           </DialogHeader>
-
+          
           {selectedExpense && (
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* 第一行：申请信息卡片 - 大卡片 */}
@@ -589,12 +534,14 @@ export default function FinancePage() {
                             {item.invoiceImages && item.invoiceImages.length > 0 ? (
                               <div className="flex gap-2">
                                 {item.invoiceImages.map((img, i) => (
-                                  <ImagePreview
-                                    key={i}
-                                    src={img}
-                                    alt={`发票${i + 1}`}
-                                    hoverColor="blue"
-                                  />
+                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="group">
+                                    <div className="relative">
+                                      <img src={img} alt={`发票${i+1}`} className="w-16 h-16 object-cover rounded-lg border-2 border-transparent group-hover:border-blue-400 transition-all cursor-pointer" />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-all flex items-center justify-center">
+                                        <Eye className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </div>
+                                    </div>
+                                  </a>
                                 ))}
                               </div>
                             ) : <span className="text-gray-400">无</span>}
@@ -603,12 +550,14 @@ export default function FinancePage() {
                             {item.paymentProofs && item.paymentProofs.length > 0 ? (
                               <div className="flex gap-2">
                                 {item.paymentProofs.map((img, i) => (
-                                  <ImagePreview
-                                    key={i}
-                                    src={img}
-                                    alt={`支付凭证${i + 1}`}
-                                    hoverColor="green"
-                                  />
+                                  <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="group">
+                                    <div className="relative">
+                                      <img src={img} alt={`支付凭证${i+1}`} className="w-16 h-16 object-cover rounded-lg border-2 border-transparent group-hover:border-green-400 transition-all cursor-pointer" />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-all flex items-center justify-center">
+                                        <Eye className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </div>
+                                    </div>
+                                  </a>
                                 ))}
                               </div>
                             ) : <span className="text-gray-400">无</span>}
@@ -625,14 +574,14 @@ export default function FinancePage() {
                   </Table>
                 </CardContent>
               </Card>
-
+              
               {selectedExpense.description && (
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <Label className="text-gray-500 text-xs">报销说明</Label>
                   <p className="mt-1 text-gray-700">{selectedExpense.description}</p>
                 </div>
               )}
-
+              
               {/* 支付信息 */}
               {selectedExpense.status === 'completed' && (
                 <Card className="shadow-md border-green-200 bg-green-50">
@@ -665,7 +614,7 @@ export default function FinancePage() {
                         <div className="flex gap-3 mt-2">
                           {selectedExpense.paymentVouchers.map((v, i) => (
                             <a key={i} href={v} target="_blank" rel="noopener noreferrer" className="group">
-                              <img src={v} alt={`凭证${i + 1}`} className="w-24 h-24 object-cover rounded-lg border-2 border-transparent group-hover:border-green-400 transition-all" />
+                              <img src={v} alt={`凭证${i+1}`} className="w-24 h-24 object-cover rounded-lg border-2 border-transparent group-hover:border-green-400 transition-all" />
                             </a>
                           ))}
                         </div>
@@ -676,11 +625,11 @@ export default function FinancePage() {
               )}
             </div>
           )}
-
+          
           <DialogFooter className="px-6 py-4 border-t bg-gray-50 shrink-0">
             {selectedExpense?.status === 'approved' && (
-              <Button
-                onClick={() => selectedExpense && handleOpenProcess(selectedExpense, 'process')}
+              <Button 
+                onClick={() => handleOpenProcess(selectedExpense, 'process')}
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 <Wallet className="h-4 w-4 mr-2" />
@@ -688,8 +637,8 @@ export default function FinancePage() {
               </Button>
             )}
             {selectedExpense?.status === 'processing' && (
-              <Button
-                onClick={() => selectedExpense && handleOpenProcess(selectedExpense, 'complete')}
+              <Button 
+                onClick={() => handleOpenProcess(selectedExpense, 'complete')}
                 className="bg-green-600 hover:bg-green-700"
               >
                 <CheckSquare className="h-4 w-4 mr-2" />
@@ -714,7 +663,7 @@ export default function FinancePage() {
               {selectedExpense?.title} - ¥{selectedExpense?.totalAmount.toLocaleString()}
             </DialogDescription>
           </DialogHeader>
-
+          
           <div className="space-y-4">
             {processAction === 'complete' && (
               <>
@@ -758,8 +707,8 @@ export default function FinancePage() {
                     className="hidden"
                     onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
                   />
-                  <AttachmentPreview
-                    files={paymentVouchers}
+                  <AttachmentPreview 
+                    files={paymentVouchers} 
                     onRemove={handleRemoveVoucher}
                   />
                   <p className="text-xs text-gray-400">请上传银行转账凭证、回单等</p>
@@ -775,7 +724,7 @@ export default function FinancePage() {
                 </div>
               </>
             )}
-
+            
             {processAction === 'process' && (
               <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                 <p className="text-amber-700 text-sm">
@@ -784,12 +733,12 @@ export default function FinancePage() {
               </div>
             )}
           </div>
-
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowProcessDialog(false)}>
               取消
             </Button>
-            <Button
+            <Button 
               onClick={handleSubmitProcess}
               className={processAction === 'process' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'}
               disabled={processMutation.loading}

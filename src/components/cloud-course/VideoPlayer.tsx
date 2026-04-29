@@ -23,22 +23,6 @@ import { CheckCircle2, ExternalLink, AlertCircle } from 'lucide-react';
 
 /* ─── 视频类型检测 ─── */
 
-const getHostname = (input: string): string => {
-  try {
-    return new URL(input).hostname.toLowerCase();
-  } catch {
-    try {
-      return new URL(`https://${input}`).hostname.toLowerCase();
-    } catch {
-      return '';
-    }
-  }
-};
-
-const isHost = (hostname: string, baseDomain: string): boolean => {
-  return hostname === baseDomain || hostname.endsWith(`.${baseDomain}`);
-};
-
 export type VideoType = 'native' | 'hls' | 'bilibili' | 'youtube' | 'youku' | 'qq' | 'iframe';
 
 type ParsedVideoInfo = {
@@ -52,7 +36,6 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
   if (!url) return { type: 'native', src: '', originalUrl: '' };
 
   const lower = url.toLowerCase();
-  const hostname = getHostname(url);
 
   // ── Bilibili ──
   // https://www.bilibili.com/video/BV1xxxxx
@@ -103,7 +86,7 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
   // https://www.youtube.com/watch?v=xxxxx
   // https://youtu.be/xxxxx
   // https://www.youtube.com/embed/xxxxx
-  if (isHost(hostname, 'youtube.com') || isHost(hostname, 'youtu.be')) {
+  if (lower.includes('youtube.com') || lower.includes('youtu.be')) {
     let videoId = '';
 
     const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
@@ -133,8 +116,7 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
 
   // ── 优酷 ──
   // https://v.youku.com/v_show/id_Xxxxxx.html
-  const youkuHostname = getHostname(url);
-  if (youkuHostname === 'youku.com' || youkuHostname.endsWith('.youku.com')) {
+  if (lower.includes('youku.com')) {
     const idMatch = url.match(/id_([a-zA-Z0-9=]+)/);
     const embedSrc = idMatch
       ? `https://player.youku.com/embed/${idMatch[1]}`
@@ -151,8 +133,7 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
   // ── 腾讯视频 ──
   // https://v.qq.com/x/page/xxxxx.html
   // https://v.qq.com/x/cover/xxxxx/xxxxx.html
-  const qqHostname = getHostname(url);
-  if (isHost(qqHostname, 'v.qq.com')) {
+  if (lower.includes('v.qq.com')) {
     const vidMatch = url.match(/\/([a-zA-Z0-9]+)\.html/);
     const vid = vidMatch ? vidMatch[1] : '';
     const embedSrc = vid

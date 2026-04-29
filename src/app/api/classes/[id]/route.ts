@@ -1,72 +1,91 @@
 /**
  * 单个班级 API
- *
- * GET - 获取班级详情
- * PUT - 更新班级信息
- * DELETE - 删除班级
+ * 
+ * 架构：API Route → Service → Repository
  */
 
-import { withRoute } from '@/lib/api';
+import { NextRequest, NextResponse } from 'next/server';
 import { classService } from '@/services/class.service';
-import { ApiError } from '@/lib/api-error';
+import { error, ErrorCode } from '@/lib/api';
+import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
 
 /**
  * GET - 获取班级详情
  */
-export const GET = withRoute(
-  async (req, ctx) => {
-    const { id } = ctx.params;
-    if (!id) throw ApiError.BadRequest('缺少班级ID');
-
-    const result = await classService.getClass(id as string);
-
-    if (!result.success || !result.data) {
-      throw ApiError.NotFound('班级');
+export const GET = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
+  try {
+    const params = await context.params;
+    const id = params?.id;
+    
+    if (!id) {
+      return NextResponse.json(error('缺少班级ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
-
-    return result.data;
-  },
-  { requireAuth: true }
-);
+    
+    const result = await classService.getClass(id);
+    
+    if (!result.success || !result.data) {
+      return NextResponse.json(error('班级不存在', ErrorCode.NOT_FOUND), { status: 404 });
+    }
+    
+    const data = result.data as unknown as Record<string, unknown>;
+    
+    return NextResponse.json({ success: true, data });
+  } catch (err) {
+    console.error('获取班级详情失败:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});
 
 /**
  * PUT - 更新班级信息
  */
-export const PUT = withRoute(
-  async (req, ctx) => {
-    const { id } = ctx.params;
-    if (!id) throw ApiError.BadRequest('缺少班级ID');
-
-    const body = await req.json();
-    const result = await classService.updateClass(id as string, body);
-
-    if (!result.success) {
-      if (result.code === 'NOT_FOUND') throw ApiError.NotFound('班级');
-      throw ApiError.Internal(result.error || '更新失败');
+export const PUT = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
+  try {
+    const params = await context.params;
+    const id = params?.id;
+    
+    if (!id) {
+      return NextResponse.json(error('缺少班级ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
-
-    return result.data;
-  },
-  { requireAuth: true }
-);
+    
+    const body = await request.json();
+    const result = await classService.updateClass(id, body);
+    
+    if (!result.success) {
+      const statusCode = result.code === 'NOT_FOUND' ? 404 : 500;
+      return NextResponse.json(error(result.error || '更新失败', result.code as ErrorCode), { status: statusCode });
+    }
+    
+    return NextResponse.json({ success: true, data: result.data });
+  } catch (err) {
+    console.error('更新班级API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});
 
 /**
  * DELETE - 删除班级
  */
-export const DELETE = withRoute(
-  async (req, ctx) => {
-    const { id } = ctx.params;
-    if (!id) throw ApiError.BadRequest('缺少班级ID');
-
-    const result = await classService.deleteClass(id as string);
-
-    if (!result.success) {
-      if (result.code === 'NOT_FOUND') throw ApiError.NotFound('班级');
-      if (result.code === 'HAS_STUDENTS') throw ApiError.BadRequest('班级内还有学生，无法删除');
-      throw ApiError.Internal(result.error || '删除失败');
+export const DELETE = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
+  try {
+    const params = await context.params;
+    const id = params?.id;
+    
+    if (!id) {
+      return NextResponse.json(error('缺少班级ID', ErrorCode.VALIDATION_ERROR), { status: 400 });
     }
-
-    return { message: '删除成功' };
-  },
-  { requireAuth: true }
-);
+    
+    const result = await classService.deleteClass(id);
+    
+    if (!result.success) {
+      const statusCode = result.code === 'NOT_FOUND' ? 404 : 
+                        result.code === 'HAS_STUDENTS' ? 400 : 500;
+      return NextResponse.json(error(result.error || '删除失败', result.code as ErrorCode), { status: statusCode });
+    }
+    
+    return NextResponse.json({ success: true, message: '删除成功' });
+  } catch (err) {
+    console.error('删除班级API错误:', err);
+    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});
