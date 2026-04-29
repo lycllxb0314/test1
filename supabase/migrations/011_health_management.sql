@@ -54,13 +54,8 @@ CREATE TABLE IF NOT EXISTS fitness_assessments (
   vision_right DECIMAL(3,1),              -- 右眼视力
 
   -- 体检扩展字段
-  dental_caries_left INTEGER,              -- 龋齿(左)
-  dental_caries_right INTEGER,             -- 龋齿(右)
-  dental_filling_left INTEGER,             -- 已补(左)
-  dental_filling_right INTEGER,            -- 已补(右)
-  dental_missing_left INTEGER,             -- 缺失(左)
-  dental_missing_right INTEGER,            -- 缺失(右)
-  spine_normal BOOLEAN,                    -- 脊柱是否正常
+  dental_caries INTEGER,                    -- 龋齿(颗)
+  spine_normal BOOLEAN,                     -- 脊柱是否正常
   systolic_bp INTEGER,                     -- 收缩压
   diastolic_bp INTEGER,                    -- 舒张压
   heart_rate INTEGER,                      -- 心率

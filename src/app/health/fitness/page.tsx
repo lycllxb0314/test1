@@ -130,13 +130,8 @@ export default function FitnessDataPage() {
         } else {
           dto.visionLeft = toNum(rec['左眼视力']);
           dto.visionRight = toNum(rec['右眼视力']);
-          dto.dentalCariesLeft = toNum(rec['龋齿(左)']);
-          dto.dentalCariesRight = toNum(rec['龋齿(右)']);
-          dto.dentalFillingLeft = toNum(rec['已补(左)']);
-          dto.dentalFillingRight = toNum(rec['已补(右)']);
-          dto.dentalMissingLeft = toNum(rec['缺失(左)']);
-          dto.dentalMissingRight = toNum(rec['缺失(右)']);
-          dto.spineNormal = rec['脊柱正常'] === '是' || rec['脊柱正常'] === '1' ? true : rec['脊柱正常'] === '否' || rec['脊柱正常'] === '0' ? false : undefined;
+          dto.dentalCaries = toNum(rec['龋齿(颗)']);
+          dto.spineNormal = rec['脊柱'] === '正常' || rec['脊柱'] === '是' ? true : rec['脊柱'] === '异常' || rec['脊柱'] === '否' ? false : undefined;
           dto.systolicBp = toNum(rec['收缩压']);
           dto.diastolicBp = toNum(rec['舒张压']);
           dto.heartRate = toNum(rec['心率']);
@@ -329,8 +324,7 @@ export default function FitnessDataPage() {
                       <>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">左眼视力</th>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">右眼视力</th>
-                        <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">龋齿(左/右)</th>
-                        <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">已补(左/右)</th>
+                        <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">龋齿(颗)</th>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">脊柱</th>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">血压</th>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">心率</th>
@@ -368,8 +362,7 @@ export default function FitnessDataPage() {
                         <>
                           <td className="px-4 py-2.5 text-center">{row.visionLeft ?? '-'}</td>
                           <td className="px-4 py-2.5 text-center">{row.visionRight ?? '-'}</td>
-                          <td className="px-4 py-2.5 text-center">{row.dentalCariesLeft ?? '-'}/{row.dentalCariesRight ?? '-'}</td>
-                          <td className="px-4 py-2.5 text-center">{row.dentalFillingLeft ?? '-'}/{row.dentalFillingRight ?? '-'}</td>
+                          <td className="px-4 py-2.5 text-center">{row.dentalCaries ?? '-'}</td>
                           <td className="px-4 py-2.5 text-center">
                             {row.spineNormal === true ? '正常' : row.spineNormal === false ? '异常' : '-'}
                           </td>

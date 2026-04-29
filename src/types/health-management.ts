@@ -55,12 +55,7 @@ type FitnessAssessment = {
   visionRight?: number;
 
   // 体检扩展字段
-  dentalCariesLeft?: number;
-  dentalCariesRight?: number;
-  dentalFillingLeft?: number;
-  dentalFillingRight?: number;
-  dentalMissingLeft?: number;
-  dentalMissingRight?: number;
+  dentalCaries?: number;
   spineNormal?: boolean;
   systolicBp?: number;
   diastolicBp?: number;
@@ -98,12 +93,7 @@ type FitnessAssessmentRow = {
   grade_level: string | null;
   vision_left: number | null;
   vision_right: number | null;
-  dental_caries_left: number | null;
-  dental_caries_right: number | null;
-  dental_filling_left: number | null;
-  dental_filling_right: number | null;
-  dental_missing_left: number | null;
-  dental_missing_right: number | null;
+  dental_caries: number | null;
   spine_normal: boolean | null;
   systolic_bp: number | null;
   diastolic_bp: number | null;
