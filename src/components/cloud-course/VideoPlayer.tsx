@@ -23,6 +23,22 @@ import { CheckCircle2, ExternalLink, AlertCircle } from 'lucide-react';
 
 /* ─── 视频类型检测 ─── */
 
+const getHostname = (input: string): string => {
+  try {
+    return new URL(input).hostname.toLowerCase();
+  } catch {
+    try {
+      return new URL(`https://${input}`).hostname.toLowerCase();
+    } catch {
+      return '';
+    }
+  }
+};
+
+const isHost = (hostname: string, baseDomain: string): boolean => {
+  return hostname === baseDomain || hostname.endsWith(`.${baseDomain}`);
+};
+
 export type VideoType = 'native' | 'hls' | 'bilibili' | 'youtube' | 'youku' | 'qq' | 'iframe';
 
 type ParsedVideoInfo = {
@@ -133,7 +149,8 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
   // ── 腾讯视频 ──
   // https://v.qq.com/x/page/xxxxx.html
   // https://v.qq.com/x/cover/xxxxx/xxxxx.html
-  if (lower.includes('v.qq.com')) {
+  const hostname = getHostname(url);
+  if (isHost(hostname, 'v.qq.com')) {
     const vidMatch = url.match(/\/([a-zA-Z0-9]+)\.html/);
     const vid = vidMatch ? vidMatch[1] : '';
     const embedSrc = vid
