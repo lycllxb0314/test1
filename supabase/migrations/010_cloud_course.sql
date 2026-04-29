@@ -70,7 +70,8 @@ CREATE TABLE IF NOT EXISTS cloud_learning_records (
   watch_duration INTEGER NOT NULL DEFAULT 0,  -- 观看时长(秒)
   quiz_score DECIMAL(5,2),
   notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 5. 直播会话表
