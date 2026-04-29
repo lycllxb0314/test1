@@ -322,6 +322,7 @@ type IframePlayerProps = {
   src: string;
   platform?: string;
   originalUrl: string;
+  initialCompleted?: boolean;
   onComplete?: () => void;
   className?: string;
 };
@@ -330,13 +331,19 @@ function IframeVideoPlayer({
   src,
   platform,
   originalUrl,
+  initialCompleted = false,
   onComplete,
   className = '',
 }: IframePlayerProps) {
   const [watchStarted, setWatchStarted] = useState(false);
   const [watchTimer, setWatchTimer] = useState(0);
-  const [completed, setCompleted] = useState(false);
+  const [completed, setCompleted] = useState(initialCompleted);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 当外部 initialCompleted 变化（如切换回已完成章节）时同步状态
+  useEffect(() => {
+    setCompleted(initialCompleted);
+  }, [initialCompleted]);
 
   // 监听 B站播放器的 postMessage
   useEffect(() => {
@@ -352,8 +359,9 @@ function IframeVideoPlayer({
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // 简易计时器：iframe 加载后开始计时，模拟观看进度
+  // 简易计时器：iframe 加载后开始计时，模拟观看进度（已完成章节不启动计时器）
   useEffect(() => {
+    if (initialCompleted) return;
     timerRef.current = setInterval(() => {
       setWatchTimer(prev => prev + 1);
     }, 1000);
@@ -361,7 +369,7 @@ function IframeVideoPlayer({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [initialCompleted]);
 
   // 自动标记完成（观看 5 分钟以上）
   useEffect(() => {
@@ -452,6 +460,8 @@ type VideoPlayerProps = {
   initialTime?: number;
   /** 视频总时长（秒），用于进度计算（仅直链视频） */
   duration?: number;
+  /** 章节是否已完成（用于 iframe 视频 显示已完成标识） */
+  initialCompleted?: boolean;
   /** 进度保存回调 */
   onProgressSave?: (data: { currentTime: number; watchDuration: number; progress: number }) => void;
   /** 观看完成回调 */
@@ -466,6 +476,7 @@ export function VideoPlayer({
   src,
   initialTime = 0,
   duration,
+  initialCompleted = false,
   onProgressSave,
   onComplete,
   autoPlay = false,
@@ -488,6 +499,7 @@ export function VideoPlayer({
         src={videoInfo.src}
         platform={videoInfo.platform}
         originalUrl={videoInfo.originalUrl}
+        initialCompleted={initialCompleted}
         onComplete={onComplete}
         className={className}
       />

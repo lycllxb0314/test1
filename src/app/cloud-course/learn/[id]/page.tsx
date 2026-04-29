@@ -15,7 +15,7 @@ import {
   FileText, Radio, Video, Loader2, List, MessageSquare,
 } from 'lucide-react';
 import { parseVideoUrl } from '@/components/cloud-course/VideoPlayer';
-import type { CloudCourse, CloudCourseEnrollment } from '@/types/cloud-course';
+import type { CloudCourse, CloudCourseEnrollment, CloudLearningRecord } from '@/types/cloud-course';
 
 type ChapterProgress = {
   chapterId: string;
@@ -46,6 +46,7 @@ export default function CourseLearnPage() {
         if (courseRes.success && courseRes.data) {
           const c = courseRes.data;
           setCourse(c);
+          // 先默认定位到第一个视频章节，后续如果有 enrollment.lastChapterId 则覆盖
           const firstVideoChapter = c.chapters?.find(ch => ch.videoUrl);
           if (firstVideoChapter) {
             setActiveChapterId(firstVideoChapter.id);
@@ -56,10 +57,40 @@ export default function CourseLearnPage() {
 
         if (user?.id) {
           const enrollRes = await apiClient.get<CloudCourseEnrollment[]>(
-            `/cloud-course/enrollments?userId=${user.id}&courseId=${courseId}`
+            `/cloud-course/enrollments?userId=${user.id}`
           );
-          if (enrollRes.success && enrollRes.data?.length) {
-            setEnrollment(enrollRes.data[0]);
+          if (enrollRes.success && enrollRes.data) {
+            // 找到当前课程的 enrollment
+            const enrollmentData = enrollRes.data.find(e => e.courseId === courseId);
+            if (enrollmentData) {
+              setEnrollment(enrollmentData);
+
+              // 如果有上次观看的章节，定位到该章节
+              if (enrollmentData.lastChapterId) {
+                setActiveChapterId(enrollmentData.lastChapterId);
+              }
+
+              // 加载已有的学习记录，恢复章节完成状态
+              try {
+                const recordsRes = await apiClient.get<CloudLearningRecord[]>(
+                  `/cloud-course/learning?enrollmentId=${enrollmentData.id}`
+                );
+                if (recordsRes.success && recordsRes.data) {
+                  const progressMap: Record<string, ChapterProgress> = {};
+                  for (const record of recordsRes.data) {
+                    progressMap[record.chapterId] = {
+                      chapterId: record.chapterId,
+                      completed: !!record.completedAt,
+                      currentTime: 0,
+                      watchDuration: record.watchDuration || 0,
+                    };
+                  }
+                  setChapterProgressMap(progressMap);
+                }
+              } catch (recordErr) {
+                console.error('[CourseLearnPage] load learning records error:', recordErr);
+              }
+            }
           }
         }
       } catch (err) {
@@ -306,6 +337,7 @@ export default function CourseLearnPage() {
             <VideoPlayer
               src={activeChapter.videoUrl}
               initialTime={chapterProgressMap[activeChapter.id]?.currentTime || 0}
+              initialCompleted={chapterProgressMap[activeChapter.id]?.completed || false}
               duration={activeChapter.duration}
               onProgressSave={saveProgress}
               onComplete={onChapterComplete}
