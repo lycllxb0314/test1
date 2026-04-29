@@ -20,10 +20,14 @@ type PortraitInput = {
   studentName?: string;
   age?: number;
   gender?: string;
+  // 身体发育数据
+  heightCm?: number;
+  weightKg?: number;
   bmi?: number;
   bmiStatus?: string;
   fitnessLevel?: string;
   fitnessScore?: number;
+  gradeLevel?: string;
   sleepScore?: number;
   sleepPattern?: string;
   dietScore?: number;
@@ -47,9 +51,13 @@ type PortraitInput = {
   diastolicBp?: number;
   heartRate?: number;
   colorBlindness?: string;
+  hearingLeft?: string;
+  hearingRight?: string;
+  checkupNotes?: string;
   // 体质测试详细数据
   lungCapacity?: number;
   run50m?: number;
+  run50x8?: number;
   sitReach?: number;
   ropeJump?: number;
   sitUp?: number;
@@ -75,6 +83,8 @@ type PrescriptionInput = {
   studentName?: string;
   age?: number;
   gender?: string;
+  heightCm?: number;
+  weightKg?: number;
   bmi?: number;
   bmiStatus?: string;
   fitnessLevel?: string;
@@ -85,8 +95,20 @@ type PrescriptionInput = {
   sleepPattern?: string;
   dietPattern?: string;
   dentalCaries?: number;
+  spineNormal?: boolean;
   visionLeft?: number;
   visionRight?: number;
+  systolicBp?: number;
+  diastolicBp?: number;
+  heartRate?: number;
+  hearingLeft?: string;
+  hearingRight?: string;
+  lungCapacity?: number;
+  run50m?: number;
+  run50x8?: number;
+  sitReach?: number;
+  ropeJump?: number;
+  sitUp?: number;
   detailedAnalysis?: PortraitAIResult['detailedAnalysis'] | import('@/types/health-management').PortraitDetailedAnalysis;
 };
 
@@ -154,8 +176,11 @@ export async function generatePortraitAI(input: PortraitInput): Promise<Portrait
 - 学生: ${input.studentName || input.studentId}
 - 年龄: ${input.age ?? 10}岁
 - 性别: ${input.gender ?? '未知'}
+- 年级: ${input.gradeLevel ?? '未知'}
 
 ## 身体发育数据
+- 身高: ${input.heightCm ?? '未知'} cm
+- 体重: ${input.weightKg ?? '未知'} kg
 - BMI: ${input.bmi ?? '未知'} (${formatBmiStatus(input.bmiStatus)})
 - 体质等级: ${formatFitnessLevel(input.fitnessLevel)}
 - 体质总分: ${input.fitnessScore ?? '未知'}/100
@@ -178,12 +203,16 @@ export async function generatePortraitAI(input: PortraitInput): Promise<Portrait
 - 龋齿数: ${input.dentalCaries ?? '未知'}颗
 - 脊柱正常: ${input.spineNormal === true ? '正常' : input.spineNormal === false ? '异常' : '未检查'}
 - 视力: 左${input.visionLeft ?? '?'} / 右${input.visionRight ?? '?'}
+- 听力: 左${input.hearingLeft ?? '?'} / 右${input.hearingRight ?? '?'}
 - 血压: ${input.systolicBp ?? '?'}/${input.diastolicBp ?? '?'} mmHg
 - 心率: ${input.heartRate ?? '未知'}次/分
+- 色觉: ${input.colorBlindness ?? '未知'}
+- 体检备注: ${input.checkupNotes ?? '无'}
 
 ## 体质测试详细数据
 - 肺活量: ${input.lungCapacity ?? '未知'} ml
 - 50米跑: ${input.run50m ?? '未知'} 秒
+- 50米×8往返跑: ${input.run50x8 ?? '未知'} 秒
 - 坐位体前屈: ${input.sitReach ?? '未知'} cm
 - 跳绳: ${input.ropeJump ?? '未知'} 次/分钟
 - 仰卧起坐: ${input.sitUp ?? '未知'} 次/分钟
@@ -286,6 +315,8 @@ export async function generatePrescriptionAI(input: PrescriptionInput): Promise<
 - 学生: ${input.studentName || input.studentId}
 - 年龄: ${input.age ?? 10}岁
 - 性别: ${input.gender ?? '未知'}
+- 身高: ${input.heightCm ?? '未知'} cm
+- 体重: ${input.weightKg ?? '未知'} kg
 
 ## 身体健康数据
 - BMI: ${input.bmi ?? '未知'} (${formatBmiStatus(input.bmiStatus)})
@@ -299,9 +330,21 @@ export async function generatePrescriptionAI(input: PrescriptionInput): Promise<
 - 睡眠模式: ${formatPattern(input.sleepPattern)}
 - 饮食模式: ${formatPattern(input.dietPattern)}
 
-## 体检关注
+## 体检数据
 - 龋齿数: ${input.dentalCaries ?? '未知'}颗
+- 脊柱正常: ${input.spineNormal === true ? '正常' : input.spineNormal === false ? '异常' : '未检查'}
 - 视力: 左${input.visionLeft ?? '?'} / 右${input.visionRight ?? '?'}
+- 听力: 左${input.hearingLeft ?? '?'} / 右${input.hearingRight ?? '?'}
+- 血压: ${input.systolicBp ?? '?'}/${input.diastolicBp ?? '?'} mmHg
+- 心率: ${input.heartRate ?? '未知'}次/分
+
+## 体质测试详细数据
+- 肺活量: ${input.lungCapacity ?? '未知'} ml
+- 50米跑: ${input.run50m ?? '未知'} 秒
+- 50米×8往返跑: ${input.run50x8 ?? '未知'} 秒
+- 坐位体前屈: ${input.sitReach ?? '未知'} cm
+- 跳绳: ${input.ropeJump ?? '未知'} 次/分钟
+- 仰卧起坐: ${input.sitUp ?? '未知'} 次/分钟
 ${detailedAnalysisText}
 
 请输出以下JSON格式：

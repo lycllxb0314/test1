@@ -406,14 +406,21 @@ export default function PrescriptionsPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     setRefreshResult(null);
+    // 超时保护：最长等待5分钟后自动重置状态
+    const timeoutId = setTimeout(() => {
+      setRefreshing(false);
+      setRefreshResult({ total: 0, success: 0, fail: 0 });
+    }, 5 * 60 * 1000);
     try {
       const params = new URLSearchParams({ mode: 'regenerate' });
       if (classId && classId !== 'all') params.set('classId', classId);
 
       const res = await apiClient.post<{ total: number; success: number; fail: number }>(`/api/health/prescriptions?${params}`, {});
+      clearTimeout(timeoutId);
       setRefreshResult(res.data ?? null);
       await loadPrescriptions();
     } catch (err) {
+      clearTimeout(timeoutId);
       console.error('Failed to refresh prescriptions:', err);
     } finally {
       setRefreshing(false);

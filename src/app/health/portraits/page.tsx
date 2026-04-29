@@ -467,14 +467,21 @@ export default function PortraitsPage() {
   const handleRefresh = async () => {
     setComputing(true);
     setComputeResult(null);
+    // 超时保护：最长等待5分钟后自动重置状态
+    const timeoutId = setTimeout(() => {
+      setComputing(false);
+      setComputeResult({ total: 0, success: 0, fail: 0 });
+    }, 5 * 60 * 1000);
     try {
       const params = new URLSearchParams({ mode: 'batch' });
       if (classId && classId !== 'all') params.set('classId', classId);
 
       const res = await apiClient.post<{ total: number; success: number; fail: number }>(`/health/portraits?${params.toString()}`, {});
+      clearTimeout(timeoutId);
       setComputeResult(res.data ?? null);
       await loadPortraits();
     } catch (err) {
+      clearTimeout(timeoutId);
       console.error('[PortraitsPage] batch compute error:', err);
     } finally {
       setComputing(false);
