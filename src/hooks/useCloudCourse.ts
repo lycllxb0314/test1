@@ -239,7 +239,7 @@ function useCloudCourseActions() {
     return res.data;
   }, []);
 
-  const updateCourse = useCallback(async (id: string, data: Partial<CloudCourse>) => {
+  const updateCourse = useCallback(async (id: string, data: Record<string, unknown>) => {
     const res = await apiClient.put<CloudCourse>(`/cloud-course/courses/${id}`, data);
     return res.data;
   }, []);

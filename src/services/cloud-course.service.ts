@@ -142,6 +142,41 @@ class CloudCourseService extends BaseService {
     return row ? mapCourseFromRow(row as CloudCourseRow) : null;
   }
 
+  /** 更新课程（含章节同步：先删旧章节再创建新章节） */
+  async updateCourseWithChapters(
+    courseId: string,
+    data: Partial<CloudCourse>,
+    chapters?: CreateCloudCourseChapterDTO[],
+  ): Promise<CloudCourse | null> {
+    // 1. 更新课程主表
+    const courseData = { ...data };
+    if (chapters) {
+      courseData.totalChapters = chapters.length;
+      courseData.totalDuration = chapters.reduce((sum, c) => sum + (c.duration || 0), 0);
+    }
+    const rowData = mapCourseToRow(courseData);
+    const row = await cloudCourseRepository.update(courseId, rowData);
+    if (!row) return null;
+
+    // 2. 同步章节（如果有传 chapters）
+    if (chapters) {
+      await cloudCourseChapterRepository.deleteByCourseId(courseId);
+      for (const ch of chapters) {
+        await cloudCourseChapterRepository.create({
+          course_id: courseId,
+          title: ch.title,
+          sort_order: ch.sortOrder,
+          video_url: ch.videoUrl || null,
+          document_url: ch.documentUrl || null,
+          duration: ch.duration || 0,
+        });
+      }
+    }
+
+    // 3. 返回完整课程详情
+    return this.getCourseDetail(courseId);
+  }
+
   /** 发布课程 */
   async publishCourse(courseId: string): Promise<CloudCourse | null> {
     return this.updateCourse(courseId, {

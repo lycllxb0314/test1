@@ -1,7 +1,7 @@
 /**
  * 云教学课程详情 API
  * GET    - 获取课程详情
- * PUT    - 更新课程
+ * PUT    - 更新课程（支持含章节同步更新）
  * DELETE - 删除课程
  */
 
@@ -10,6 +10,7 @@ import { success, error, ErrorCode } from '@/lib/api';
 import { getService } from '@/lib/di';
 import type { CloudCourseService } from '@/services/cloud-course.service';
 import { SERVICE_IDENTIFIERS } from '@/lib/di/container';
+import type { CreateCloudCourseChapterDTO } from '@/types/cloud-course';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +43,15 @@ export async function PUT(
     const body = await request.json();
 
     const courseService = getService<CloudCourseService>(SERVICE_IDENTIFIERS.CloudCourseService);
-    const course = await courseService.updateCourse(id, body);
+
+    // 如果传了 chapters，使用含章节同步的更新方法
+    const chapters: CreateCloudCourseChapterDTO[] | undefined = body.chapters;
+    const courseData = { ...body };
+    delete courseData.chapters; // 章节单独处理
+
+    const course = chapters
+      ? await courseService.updateCourseWithChapters(id, courseData, chapters)
+      : await courseService.updateCourse(id, courseData);
 
     if (!course) {
       return NextResponse.json(error('更新课程失败', ErrorCode.NOT_FOUND), { status: 404 });

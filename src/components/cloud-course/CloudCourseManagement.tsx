@@ -32,10 +32,11 @@ import { FileUploadField } from '@/components/cloud-course/FileUploadField';
 import {
   BookOpen, Plus, Send, Users, GraduationCap, Star,
   Play, Radio, Clock, Trash2, Eye, ExternalLink,
-  Search, TrendingUp,
+  Search, TrendingUp, Edit3,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { CourseDomain, CloudCourse } from '@/types/cloud-course';
+import { apiClient } from '@/services/api-client';
+import type { CourseDomain, CloudCourse, CloudCourseChapter } from '@/types/cloud-course';
 
 // ============================================
 // 类型
@@ -100,11 +101,13 @@ function CourseCard({
   domainConfig,
   onPublish,
   onDelete,
+  onEdit,
 }: {
   course: CloudCourse;
   domainConfig: DomainConfig;
   onPublish: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (course: CloudCourse) => void;
 }) {
   const isLive = course.format === 'live';
   const learnPath = isLive ? `/cloud-course/live/${course.id}` : `/cloud-course/learn/${course.id}`;
@@ -161,6 +164,9 @@ function CourseCard({
               发布
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => onEdit(course)} className="flex-1">
+            <Edit3 className="h-3 w-3 mr-1" />编辑
+          </Button>
           <Link href={learnPath} className="flex-1">
             <Button size="sm" variant="outline" className="w-full">
               <Eye className="h-3 w-3 mr-1" />预览
@@ -184,11 +190,13 @@ function DomainCourseSection({
   domainConfig,
   includeDraft = false,
   onMutation,
+  onEdit,
 }: {
   domain: CourseDomain;
   domainConfig: DomainConfig;
   includeDraft?: boolean;
   onMutation?: () => void;
+  onEdit: (course: CloudCourse) => void;
 }) {
   const { courses, refresh } = useCloudCourses(domain, undefined, includeDraft || undefined);
   const { publishCourse, deleteCourse } = useCloudCourseActions();
@@ -257,6 +265,7 @@ function DomainCourseSection({
               domainConfig={domainConfig}
               onPublish={handlePublish}
               onDelete={handleDelete}
+              onEdit={onEdit}
             />
           ))}
         </div>
@@ -282,7 +291,7 @@ export function CloudCourseManagement({
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(mode === 'class' ? 'push' : 'courses');
   const { stats } = useCloudCourseStats();
-  const { createCourse, publishCourse, deleteCourse } = useCloudCourseActions();
+  const { createCourse, updateCourse, publishCourse, deleteCourse } = useCloudCourseActions();
   const [refreshCounter, setRefreshCounter] = useState(0);
   const triggerRefresh = useCallback(() => setRefreshCounter(c => c + 1), []);
 
@@ -364,6 +373,101 @@ export function CloudCourseManagement({
       triggerRefresh();
     }
   }, [newCourse, chapters, createCourse, user, defaultDomain, effectiveCreatableDomains]);
+
+  // ===== 编辑课程 =====
+  const [showEdit, setShowEdit] = useState(false);
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    domain: 'research' as CourseDomain,
+    format: 'recorded' as 'live' | 'recorded',
+    category: '',
+    targetAudience: '',
+    coverImage: '',
+  });
+  const [editChapters, setEditChapters] = useState<Array<{
+    title: string; videoUrl: string; documentUrl: string; duration: number;
+  }>>([]);
+
+  const handleEditCourse = useCallback(async (course: CloudCourse) => {
+    setEditingCourseId(course.id);
+    setEditForm({
+      title: course.title || '',
+      description: course.description || '',
+      domain: course.domain || 'research',
+      format: course.format || 'recorded',
+      category: course.category || '',
+      targetAudience: course.targetAudience || '',
+      coverImage: course.coverImage || '',
+    });
+    // 加载章节
+    if (course.chapters && course.chapters.length > 0) {
+      setEditChapters(course.chapters.map(ch => ({
+        title: ch.title || '',
+        videoUrl: ch.videoUrl || '',
+        documentUrl: ch.documentUrl || '',
+        duration: ch.duration || 0,
+      })));
+    } else {
+      // 尝试从 API 加载课程详情
+      try {
+        const res = await apiClient.get<CloudCourse>(`/cloud-course/courses/${course.id}`);
+        if (res.success && res.data?.chapters) {
+          setEditChapters(res.data.chapters.map((ch: CloudCourseChapter) => ({
+            title: ch.title || '',
+            videoUrl: ch.videoUrl || '',
+            documentUrl: ch.documentUrl || '',
+            duration: ch.duration || 0,
+          })));
+        } else {
+          setEditChapters([]);
+        }
+      } catch {
+        setEditChapters([]);
+      }
+    }
+    setShowEdit(true);
+  }, []);
+
+  const addEditChapter = () => {
+    setEditChapters(prev => [...prev, { title: '', videoUrl: '', documentUrl: '', duration: 0 }]);
+  };
+
+  const updateEditChapter = (index: number, field: string, value: string | number) => {
+    setEditChapters(prev => prev.map((ch, i) => i === index ? { ...ch, [field]: value } : ch));
+  };
+
+  const removeEditChapter = (index: number) => {
+    setEditChapters(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEditSave = useCallback(async () => {
+    if (!editingCourseId || !editForm.title) return;
+    const result = await updateCourse(editingCourseId, {
+      title: editForm.title,
+      description: editForm.description,
+      domain: editForm.domain,
+      format: editForm.format,
+      category: editForm.category,
+      targetAudience: editForm.targetAudience,
+      coverImage: editForm.coverImage,
+      chapters: editForm.format === 'recorded'
+        ? editChapters.filter(ch => ch.title).map((ch, i) => ({
+            title: ch.title,
+            sortOrder: i + 1,
+            videoUrl: ch.videoUrl || null,
+            documentUrl: ch.documentUrl || null,
+            duration: ch.duration || 0,
+          }))
+        : undefined,
+    });
+    if (result) {
+      setShowEdit(false);
+      setEditingCourseId(null);
+      triggerRefresh();
+    }
+  }, [editingCourseId, editForm, editChapters, updateCourse, triggerRefresh]);
 
   // ===== 推送 =====
   const [pushData, setPushData] = useState({
@@ -512,6 +616,102 @@ export function CloudCourseManagement({
                 </DialogContent>
               </Dialog>
             )}
+
+            {/* 编辑课程弹窗 */}
+            <Dialog open={showEdit} onOpenChange={setShowEdit}>
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>编辑课程</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-5 mt-4">
+                  {/* 基本信息 */}
+                  <div className="space-y-3">
+                    <Input placeholder="课程标题" value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} />
+                    <Textarea placeholder="课程描述" value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">课程域</label>
+                        <select className="w-full border rounded-md p-2 text-sm" value={editForm.domain} onChange={e => setEditForm(p => ({ ...p, domain: e.target.value as CourseDomain }))}>
+                          {effectiveCreatableDomains.map(dc => <option key={dc.domain} value={dc.domain}>{dc.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">课程形态</label>
+                        <select className="w-full border rounded-md p-2 text-sm" value={editForm.format} onChange={e => setEditForm(p => ({ ...p, format: e.target.value as 'live' | 'recorded' }))}>
+                          <option value="recorded">录播(慕课)</option>
+                          <option value="live">直播</option>
+                        </select>
+                      </div>
+                    </div>
+                    <ImageUploader
+                      value={editForm.coverImage || undefined}
+                      onChange={(url) => setEditForm(p => ({ ...p, coverImage: url || '' }))}
+                      folder="cloud-course/covers"
+                      className="w-full"
+                    />
+                    <Input placeholder="分类（如：语文教研、安全教育）" value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))} />
+                    <Input placeholder="目标受众（如：全校教师、一年级家长）" value={editForm.targetAudience} onChange={e => setEditForm(p => ({ ...p, targetAudience: e.target.value }))} />
+                  </div>
+
+                  {/* 章节管理（录播） */}
+                  {editForm.format === 'recorded' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">课程章节</label>
+                        <Button size="sm" variant="outline" onClick={addEditChapter}>
+                          <Plus className="h-3 w-3 mr-1" />添加章节
+                        </Button>
+                      </div>
+                      {editChapters.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-3 text-center border border-dashed rounded-lg">
+                          点击"添加章节"创建课程内容，视频支持B站/YouTube等平台链接或MP4直链
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {editChapters.map((ch, i) => (
+                            <div key={i} className="border rounded-lg p-3 space-y-2 relative">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-muted-foreground">第 {i + 1} 章</span>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => removeEditChapter(i)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <Input placeholder="章节标题" value={ch.title} onChange={e => updateEditChapter(i, 'title', e.target.value)} className="h-8 text-sm" />
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <FileUploadField
+                                    value={ch.videoUrl}
+                                    onChange={(url) => updateEditChapter(i, 'videoUrl', url)}
+                                    category="video"
+                                    folder="cloud-course/videos"
+                                    placeholder="支持B站/YouTube/优酷链接 或 MP4直链"
+                                    iconType="video"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <FileUploadField
+                                    value={ch.documentUrl}
+                                    onChange={(url) => updateEditChapter(i, 'documentUrl', url)}
+                                    category="document"
+                                    folder="cloud-course/courseware"
+                                    placeholder="课件链接（可选）"
+                                    iconType="document"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <Button onClick={handleEditSave} className="w-full" disabled={!editForm.title}>
+                    保存修改
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
@@ -577,7 +777,7 @@ export function CloudCourseManagement({
           {mode === 'department' && (
             <TabsContent value="courses">
               {domains.map(dc => (
-                <DomainCourseSection key={`${dc.domain}-${refreshCounter}`} domain={dc.domain} domainConfig={dc} includeDraft onMutation={triggerRefresh} />
+                <DomainCourseSection key={`${dc.domain}-${refreshCounter}`} domain={dc.domain} domainConfig={dc} includeDraft onMutation={triggerRefresh} onEdit={handleEditCourse} />
               ))}
             </TabsContent>
           )}
