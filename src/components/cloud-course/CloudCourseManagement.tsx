@@ -35,9 +35,9 @@ import type { CourseDomain, CloudCourse, CloudCourseChapter } from '@/types/clou
 type DomainConfig = { domain: CourseDomain; label: string; color: string; bg: string; icon: React.ReactNode; gradient: string };
 
 export const DOMAIN_CONFIGS: Record<string, DomainConfig> = {
-  research: { domain: 'research', label: '教师研修', color: 'text-blue-600', bg: 'bg-blue-50', icon: <GraduationCap className="h-5 w-5" />, gradient: 'from-blue-500 to-cyan-500' },
-  parent:   { domain: 'parent',   label: '家长课程', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: <Users className="h-5 w-5" />, gradient: 'from-emerald-500 to-teal-500' },
-  student:  { domain: 'student',  label: '学生课程', color: 'text-amber-600', bg: 'bg-amber-50', icon: <BookOpen className="h-5 w-5" />, gradient: 'from-amber-500 to-orange-500' },
+  research: { domain: 'research', label: '教师研修', color: 'text-[#A0785A]', bg: 'bg-[#FBF7F2]', icon: <GraduationCap className="h-5 w-5" />, gradient: 'from-[#A0785A] to-[#C9A96E]' },
+  parent:   { domain: 'parent',   label: '家长课程', color: 'text-[#5C7A72]', bg: 'bg-[#F0F5F3]', icon: <Users className="h-5 w-5" />, gradient: 'from-[#5C7A72] to-[#7DB5A8]' },
+  student:  { domain: 'student',  label: '学生课程', color: 'text-[#C8956C]', bg: 'bg-[#FBF3ED]', icon: <BookOpen className="h-5 w-5" />, gradient: 'from-[#C8956C] to-[#C9A96E]' },
 };
 
 type ModeConfig = {
@@ -70,44 +70,42 @@ const CourseCard = memo(function CourseCard({ course, domainConfig, onPublish, o
     : `/cloud-course/learn/${course.id}`;
 
   return (
-    <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm">
+    <Card className="group overflow-hidden border-border/60 hover:border-primary/40 hover:shadow-md transition-all duration-200">
       {/* 封面 */}
       <div className="relative aspect-video bg-muted">
         {course.coverImage ? (
           <img src={course.coverImage} alt={course.title} className="w-full h-full object-cover" />
         ) : (
-          <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${domainConfig.gradient} opacity-10`}>
-            <div className={`p-4 rounded-2xl ${domainConfig.bg}`}>
-              {domainConfig.icon}
-            </div>
+          <div className={`w-full h-full flex items-center justify-center ${domainConfig.bg}`}>
+            <div className="opacity-40">{domainConfig.icon}</div>
           </div>
         )}
         <div className="absolute top-2 left-2 flex gap-1">
-          <Badge variant="secondary" className="text-[10px] h-5 bg-white/90 backdrop-blur-sm shadow-sm">
+          <Badge variant="secondary" className="text-[10px] h-5 bg-background/90 backdrop-blur-sm">
             {course.format === 'live' ? <><Radio className="h-2.5 w-2.5 mr-0.5" />直播</> : <><Play className="h-2.5 w-2.5 mr-0.5" />录播</>}
           </Badge>
-          <Badge variant="outline" className={`text-[10px] h-5 backdrop-blur-sm ${course.status === 'published' ? 'bg-emerald-50/90 text-emerald-700 border-emerald-200' : 'bg-amber-50/90 text-amber-700 border-amber-200'}`}>
+          <Badge variant="outline" className={`text-[10px] h-5 ${course.status === 'published' ? 'bg-[#5C7A72]/10 text-[#5C7A72] border-[#5C7A72]/30' : 'bg-[#C9A96E]/10 text-[#C8956C] border-[#C8956C]/30'}`}>
             {course.status === 'published' ? '已发布' : '草稿'}
           </Badge>
         </div>
         {course.totalDuration > 0 && (
-          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
+          <div className="absolute bottom-2 right-2 bg-foreground/70 text-background text-[10px] px-1.5 py-0.5 rounded">
             <Clock className="h-2.5 w-2.5 inline mr-0.5" />{Math.round(course.totalDuration / 60)}分钟
           </div>
         )}
       </div>
 
       {/* 信息 */}
-      <div className="p-4 space-y-2.5">
-        <h3 className="text-sm font-semibold leading-tight line-clamp-2 text-foreground">{course.title}</h3>
+      <div className="p-3.5 space-y-2">
+        <h3 className="text-sm font-medium leading-tight line-clamp-2 text-foreground">{course.title}</h3>
         {course.description && <p className="text-xs text-muted-foreground line-clamp-2">{course.description}</p>}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {course.totalChapters > 0 && <span className="flex items-center gap-1"><Layers className="h-3 w-3" />{course.totalChapters}章节</span>}
           {course.enrolledCount > 0 && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{course.enrolledCount}人</span>}
-          {course.rating > 0 && <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" />{course.rating.toFixed(1)}</span>}
+          {course.rating > 0 && <span className="flex items-center gap-1"><Star className="h-3 w-3 text-[#C9A96E]" />{course.rating.toFixed(1)}</span>}
         </div>
         {/* 操作 */}
-        <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+        <div className="flex items-center gap-2 pt-2.5 border-t border-border/60">
           {course.status === 'draft' && (
             <Button size="sm" variant="outline" onClick={() => onPublish(course.id)} className="flex-1 h-7 text-xs">发布</Button>
           )}
@@ -183,8 +181,8 @@ const DomainCourseSection = memo(function DomainCourseSection({
         </div>
       </div>
       {filtered.length === 0 ? (
-        <div className="py-16 text-center text-muted-foreground bg-muted/30 rounded-xl border border-dashed">
-          <div className={`w-14 h-14 rounded-2xl ${domainConfig.bg} flex items-center justify-center mx-auto mb-3 opacity-50`}>
+        <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-xl border border-dashed border-border">
+          <div className={`w-12 h-12 rounded-xl ${domainConfig.bg} flex items-center justify-center mx-auto mb-3 opacity-50`}>
             {domainConfig.icon}
           </div>
           <p className="text-sm">暂无课程</p>
@@ -367,10 +365,10 @@ const PushTab = memo(function PushTab({ mode, domains, classId, className, onPus
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* 推送表单 */}
-      <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
+      <Card className="border-border/60">
         <div className="p-6 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#A0785A] to-[#C9A96E] flex items-center justify-center shadow-sm">
               <Send className="h-4 w-4 text-white" />
             </div>
             <div>
@@ -400,7 +398,7 @@ const PushTab = memo(function PushTab({ mode, domains, classId, className, onPus
             {/* 选中课程预览 */}
             {selectedPushCourse && (
               <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/40">
-                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${DOMAIN_CONFIGS[selectedPushCourse.domain]?.gradient || 'from-gray-400 to-gray-500'} flex items-center justify-center shrink-0 shadow-sm`}>
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${DOMAIN_CONFIGS[selectedPushCourse.domain]?.gradient || 'from-[#A0785A] to-[#C9A96E]'} flex items-center justify-center shrink-0 shadow-sm`}>
                   <div className="text-white">{DOMAIN_CONFIGS[selectedPushCourse.domain]?.icon || <BookOpen className="h-5 w-5" />}</div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -496,9 +494,9 @@ const PushTab = memo(function PushTab({ mode, domains, classId, className, onPus
 
             {/* 班主任模式：显示目标 */}
             {mode === 'class' && className && (
-              <div className="text-sm bg-emerald-50/80 rounded-lg p-3 flex items-center gap-2 border border-emerald-200/50">
-                <Users className="h-4 w-4 text-emerald-600" />
-                <span>推送给 <span className="font-semibold text-emerald-700">{className}</span> 全体学生家长</span>
+              <div className="text-sm bg-[#5C7A72]/5 rounded-lg p-3 flex items-center gap-2 border border-[#5C7A72]/20">
+                <Users className="h-4 w-4 text-[#5C7A72]" />
+                <span>推送给 <span className="font-semibold text-[#5C7A72]">{className}</span> 全体学生家长</span>
               </div>
             )}
 
@@ -511,10 +509,10 @@ const PushTab = memo(function PushTab({ mode, domains, classId, className, onPus
       </Card>
 
       {/* 推送概览 */}
-      <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
+      <Card className="border-border/60">
         <div className="p-6 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#5C7A72] to-[#7DB5A8] flex items-center justify-center shadow-sm">
               <TrendingUp className="h-4 w-4 text-white" />
             </div>
             <div>
@@ -527,7 +525,7 @@ const PushTab = memo(function PushTab({ mode, domains, classId, className, onPus
             {domains.map(dc => {
               const domainCourses = publishedCourses.filter(c => c.domain === dc.domain);
               return (
-                <div key={dc.domain} className="flex items-center gap-3 p-3.5 rounded-xl border border-border/40 hover:border-border/80 transition-colors">
+                <div key={dc.domain} className="flex items-center gap-3 p-3.5 rounded-xl border border-border/40 hover:border-border transition-colors">
                   <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${dc.gradient} flex items-center justify-center shrink-0 shadow-sm`}>
                     <div className="text-white">{dc.icon}</div>
                   </div>
@@ -536,7 +534,7 @@ const PushTab = memo(function PushTab({ mode, domains, classId, className, onPus
                     <p className="text-xs text-muted-foreground">{domainCourses.length} 门已发布</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold">{domainCourses.reduce((s, c) => s + c.enrolledCount, 0)}</div>
+                    <div className="text-lg font-bold text-primary">{domainCourses.reduce((s, c) => s + c.enrolledCount, 0)}</div>
                     <div className="text-xs text-muted-foreground">总选课</div>
                   </div>
                 </div>
@@ -567,10 +565,10 @@ const ProgressTab = memo(function ProgressTab({ classId }: ProgressTabProps) {
   }, [enrollments]);
 
   const statCards = [
-    { label: '总推送', value: stats.total, gradient: 'from-slate-500 to-slate-600', icon: <Send className="h-4 w-4 text-white" /> },
-    { label: '已完成', value: stats.completed, gradient: 'from-emerald-500 to-teal-500', icon: <Star className="h-4 w-4 text-white" /> },
-    { label: '学习中', value: stats.learning, gradient: 'from-blue-500 to-cyan-500', icon: <Play className="h-4 w-4 text-white" /> },
-    { label: '待安排', value: stats.pending, gradient: 'from-amber-500 to-orange-500', icon: <Clock className="h-4 w-4 text-white" /> },
+    { label: '总推送', value: stats.total, gradient: 'from-[#A0785A] to-[#C9A96E]', icon: <Send className="h-4 w-4 text-white" /> },
+    { label: '已完成', value: stats.completed, gradient: 'from-[#5C7A72] to-[#7DB5A8]', icon: <Star className="h-4 w-4 text-white" /> },
+    { label: '学习中', value: stats.learning, gradient: 'from-[#C9A96E] to-[#D4B87A]', icon: <Play className="h-4 w-4 text-white" /> },
+    { label: '待安排', value: stats.pending, gradient: 'from-[#C8956C] to-[#D4A07A]', icon: <Clock className="h-4 w-4 text-white" /> },
   ];
 
   return (
@@ -578,8 +576,8 @@ const ProgressTab = memo(function ProgressTab({ classId }: ProgressTabProps) {
       {/* 统计卡片 */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {statCards.map(s => (
-          <Card key={s.label} className="relative overflow-hidden border-0 shadow-sm">
-            <div className={`absolute inset-0 bg-gradient-to-br ${s.gradient} opacity-5`} />
+          <Card key={s.label} className="relative overflow-hidden border-border/60">
+            <div className={`absolute inset-0 bg-gradient-to-br ${s.gradient} opacity-[0.06]`} />
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg bg-gradient-to-br ${s.gradient} shadow-sm`}>{s.icon}</div>
@@ -593,7 +591,7 @@ const ProgressTab = memo(function ProgressTab({ classId }: ProgressTabProps) {
         ))}
       </div>
 
-      <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
+      <Card className="border-border/60">
         <div className="px-6 py-4 border-b border-border"><h2 className="font-semibold">本班课程学习进度</h2></div>
         {loading ? (
           <div className="p-12 text-center text-muted-foreground"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" /><p className="text-sm">加载中...</p></div>
@@ -613,7 +611,7 @@ const ProgressTab = memo(function ProgressTab({ classId }: ProgressTabProps) {
                 const domainConfig = enrollment.course?.domain ? DOMAIN_CONFIGS[enrollment.course.domain] : null;
                 return (
                   <div key={enrollment.id} className="px-6 py-4 flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${domainConfig?.gradient || 'from-gray-400 to-gray-500'} flex items-center justify-center shrink-0 shadow-sm`}>
+                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${domainConfig?.gradient || 'from-[#A0785A] to-[#C9A96E]'} flex items-center justify-center shrink-0 shadow-sm`}>
                       <div className="text-white">{isLive ? <Radio className="h-4 w-4" /> : <Play className="h-4 w-4" />}</div>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -774,7 +772,7 @@ export function CloudCourseManagement({ mode, classId, className, defaultDomain 
   });
   const [editChapters, setEditChapters] = useState<Array<{ title: string; videoUrl: string; documentUrl: string; duration: number }>>([]);
 
-  // 课程列表刷新（用 ref 标记，避免 key 重挂载）
+  // 课程列表刷新
   const [refreshTick, setRefreshTick] = useState(0);
   const triggerRefresh = useCallback(() => setRefreshTick(c => c + 1), []);
 
@@ -856,19 +854,19 @@ export function CloudCourseManagement({ mode, classId, className, defaultDomain 
   }, [editingCourseId, editForm, editChapters, updateCourse, triggerRefresh]);
 
   // 页面标题/副标题
-  const pageTitle = mode === 'class' ? '云教学管理' : '云教学管理';
+  const pageTitle = '云教学管理';
   const pageSubtitle = mode === 'class'
     ? '推送课程给家长 · 跟踪学习进度'
     : '教师研修 · 家长课堂 · 学生拓展';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-background">
       {/* 页面头部 */}
-      <div className="bg-white border-b border-slate-200/80">
+      <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-500/20">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#A0785A] to-[#C9A96E] shadow-md">
                 <Cloud className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -876,7 +874,7 @@ export function CloudCourseManagement({ mode, classId, className, defaultDomain 
                 <p className="text-sm text-muted-foreground mt-0.5">{pageSubtitle}</p>
               </div>
             </div>
-            <Button onClick={() => setShowCreate(true)} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 shadow-md shadow-blue-500/20">
+            <Button onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4 mr-1.5" />新建课程
             </Button>
           </div>
@@ -888,11 +886,11 @@ export function CloudCourseManagement({ mode, classId, className, defaultDomain 
         {/* 统计概览 */}
         {stats && (
           <div className="grid grid-cols-3 gap-4">
-            <Card className="relative overflow-hidden border-0 shadow-sm">
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-500 to-slate-600 opacity-5" />
+            <Card className="relative overflow-hidden border-border/60">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#A0785A] to-[#C9A96E] opacity-[0.06]" />
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 shadow-sm">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-[#A0785A] to-[#C9A96E] shadow-sm">
                     <BookOpen className="h-4 w-4 text-white" />
                   </div>
                   <div>
@@ -902,29 +900,29 @@ export function CloudCourseManagement({ mode, classId, className, defaultDomain 
                 </div>
               </CardContent>
             </Card>
-            <Card className="relative overflow-hidden border-0 shadow-sm">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 opacity-5" />
+            <Card className="relative overflow-hidden border-border/60">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#5C7A72] to-[#7DB5A8] opacity-[0.06]" />
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 shadow-sm">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-[#5C7A72] to-[#7DB5A8] shadow-sm">
                     <Users className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">{stats.totalEnrollments}</div>
+                    <div className="text-2xl font-bold text-[#5C7A72]">{stats.totalEnrollments}</div>
                     <div className="text-xs text-muted-foreground">总选课</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="relative overflow-hidden border-0 shadow-sm">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-500 opacity-5" />
+            <Card className="relative overflow-hidden border-border/60">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#C8956C] to-[#D4A07A] opacity-[0.06]" />
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 shadow-sm">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-[#C8956C] to-[#D4A07A] shadow-sm">
                     <Star className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-emerald-600">{stats.totalCompletions}</div>
+                    <div className="text-2xl font-bold text-[#C8956C]">{stats.totalCompletions}</div>
                     <div className="text-xs text-muted-foreground">总完成</div>
                   </div>
                 </div>
