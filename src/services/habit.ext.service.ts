@@ -56,6 +56,10 @@ export interface HabitDailyRecord {
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+  // 运动维度扩展字段
+  exerciseType?: string;
+  durationMin?: number;
+  intensity?: string;  // low/medium/high
   studentGoal?: {
     id: string;
     month: string;

@@ -77,6 +77,7 @@ import {
   Apple,
   TrendingUp,
   Pill,
+  Dumbbell,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs, administrativeRoleConfigs } from '@/config/roles';
@@ -150,6 +151,7 @@ const moralNav: NavItem[] = [
 const healthNav: NavItem[] = [
   { name: '健康概览', href: '/health', icon: LayoutDashboard, description: '体育健康管理看板', badge: 'AI' },
   { name: '体质与体检', href: '/health/fitness', icon: Activity, description: '体质测试与体检数据管理' },
+  { name: '锻炼打卡', href: '/health/exercise', icon: Dumbbell, description: '学生锻炼打卡数据' },
   { name: '健康画像', href: '/health/portraits', icon: TrendingUp, description: '学生综合健康画像', badge: 'AI' },
   { name: '健康处方', href: '/health/prescriptions', icon: Pill, description: '膳食建议与运动处方', badge: 'AI' },
   { name: '家长观察', href: '/health/observations', icon: Apple, description: '家长每日观察数据查看' },
