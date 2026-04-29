@@ -463,7 +463,7 @@ export function CloudCourseManagement({
                         </div>
                         {chapters.length === 0 ? (
                           <p className="text-xs text-muted-foreground py-3 text-center border border-dashed rounded-lg">
-                            点击"添加章节"创建课程内容，每个章节可关联视频链接
+                            点击"添加章节"创建课程内容，视频支持B站/YouTube等平台链接或MP4直链
                           </p>
                         ) : (
                           <div className="space-y-3">
@@ -483,7 +483,7 @@ export function CloudCourseManagement({
                                       onChange={(url) => updateChapter(i, 'videoUrl', url)}
                                       category="video"
                                       folder="cloud-course/videos"
-                                      placeholder="视频链接（MP4/HLS）"
+                                      placeholder="支持B站/YouTube/优酷链接 或 MP4直链"
                                       iconType="video"
                                     />
                                   </div>

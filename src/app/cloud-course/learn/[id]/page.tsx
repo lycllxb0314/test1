@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/services/api-client';
-import { VideoPlayer } from '@/components/cloud-course/VideoPlayer';
+import { VideoPlayer, parseVideoUrl } from '@/components/cloud-course/VideoPlayer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -340,7 +340,11 @@ export default function CourseLearnPage() {
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                             {hasVideo && (
                               <span className="flex items-center gap-0.5">
-                                <Play className="h-2.5 w-2.5" />视频
+                                <Play className="h-2.5 w-2.5" />
+                                {(() => {
+                                  const info = parseVideoUrl(chapter.videoUrl || '');
+                                  return info.platform || '视频';
+                                })()}
                               </span>
                             )}
                             {chapter.documentUrl && (

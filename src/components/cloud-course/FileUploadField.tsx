@@ -210,7 +210,7 @@ export function FileUploadField({
         <div className="relative">
           <IconComponent className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder={placeholder || '输入链接地址'}
+            placeholder={placeholder || '输入链接（支持B站/YouTube等平台链接）'}
             value={value}
             onChange={e => onChange(e.target.value)}
             className="pl-8 pr-8 h-8 text-sm"
