@@ -487,46 +487,24 @@ export function CloudCourseManagement({
 
   // 加载年级班级数据
   useEffect(() => {
-    const fetchClasses = async () => {
+    const fetchTargets = async () => {
       if (activeTab !== 'push') return;
       setGradesLoading(true);
       try {
         const res = await apiClient.get<Array<{
-          id: string; name: string; grade: number; gradeName: string;
-          studentCount: number; parentCount: number;
-        }>>('/classes?pageSize=200');
+          grade: number; gradeName: string;
+          classes: Array<{ id: string; name: string; studentCount: number; parentCount: number }>;
+        }>>('/cloud-course/push-targets');
         if (res.success && res.data) {
-          // 按年级分组
-          const gradeMap = new Map<number, {
-            grade: number; gradeName: string;
-            classes: Array<{ id: string; name: string; studentCount: number; parentCount: number }>;
-          }>();
-          for (const cls of res.data) {
-            if (!gradeMap.has(cls.grade)) {
-              gradeMap.set(cls.grade, {
-                grade: cls.grade,
-                gradeName: cls.gradeName || `${cls.grade}年级`,
-                classes: [],
-              });
-            }
-            gradeMap.get(cls.grade)!.classes.push({
-              id: cls.id,
-              name: cls.name,
-              studentCount: cls.studentCount || 0,
-              parentCount: cls.parentCount || 0,
-            });
-          }
-          // 按年级排序
-          const sorted = Array.from(gradeMap.values()).sort((a, b) => a.grade - b.grade);
-          setGradesData(sorted);
+          setGradesData(res.data);
         }
       } catch (err) {
-        console.error('[CloudCourseManagement] fetch classes error:', err);
+        console.error('[CloudCourseManagement] fetch push targets error:', err);
       } finally {
         setGradesLoading(false);
       }
     };
-    fetchClasses();
+    fetchTargets();
   }, [activeTab]);
 
   // 推送目标统计

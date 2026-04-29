@@ -47,8 +47,8 @@ import {
   mapPushFromRow,
 } from '@/types/cloud-course';
 import { getService } from '@/lib/di';
-import type { StudentRepository } from '@/repositories/student.repository';
 import type { ClassRepository } from '@/repositories/class.repository';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 // ============================================
 // CloudCourseService
@@ -357,7 +357,7 @@ class CloudCourseEnrollmentService extends BaseService {
     return row ? mapEnrollmentFromRow(row as CloudCourseEnrollmentRow) : null;
   }
 
-  /** 推送课程给学生家长 */
+  /** 推送课程给家长（所有课程都推给家长端） */
   async pushCourse(pushedBy: string, pusherName: string, dto: PushCloudCourseDTO): Promise<CloudCoursePush | null> {
     // 创建推送记录
     const pushRow = await cloudCoursePushRepository.create({
@@ -372,60 +372,71 @@ class CloudCourseEnrollmentService extends BaseService {
 
     if (!pushRow) return null;
 
-    // 根据目标类型，为每个目标创建选课记录
-    const parentIds = await this.resolveTargetParentIds(dto.targetType, dto.targetIds);
+    // 解析目标 → 获取家长用户 ID 列表，为每个家长创建选课记录
+    const parentUserIds = await this.resolveTargetParentIds(dto.targetType, dto.targetIds);
 
-    for (const parentId of parentIds) {
+    for (const userId of parentUserIds) {
       try {
         await cloudCourseEnrollmentRepository.create({
           course_id: dto.courseId,
-          user_id: parentId,
-          role: 'manager',
+          user_id: userId,
+          role: 'learner',
           source: 'pushed',
           status: 'pushed',
         });
       } catch (e) {
-        console.error('[CloudCourseEnrollmentService] pushCourse enrollment error:', e);
+        console.error('[CloudCourseService] pushCourse enrollment error:', e);
       }
     }
 
     return mapPushFromRow(pushRow as CloudCoursePushRow);
   }
 
-  /** 解析推送目标的学生家长ID列表 */
+  /**
+   * 解析推送目标 → 返回家长用户 ID 列表
+   *
+   * 所有课程（不管域是 parent 还是 student）都推送给家长端
+   * 直接从 parents 表按 class_id 查询家长账号
+   */
   private async resolveTargetParentIds(targetType: string, targetIds: string[]): Promise<string[]> {
-    const studentRepo = getService<StudentRepository>('StudentRepository');
-    const classRepo = getService<ClassRepository>('ClassRepository');
-    const parentIds = new Set<string>();
+    const client = getSupabaseClient();
+    const parentUserIds = new Set<string>();
 
-    for (const targetId of targetIds) {
-      let students: Array<{ parents?: Array<{ id?: string }> }> = [];
+    let classIds: string[] = [];
 
-      if (targetType === 'grade') {
-        // 按年级：先获取该年级所有班级，再获取所有学生
-        const gradeNum = parseInt(targetId, 10);
-        if (!isNaN(gradeNum)) {
-          const classes = await classRepo.findByGrade(gradeNum);
-          for (const cls of classes) {
-            const classStudents = await studentRepo.findByClass(cls.id) as Array<{ parents?: Array<{ id?: string }> }> || [];
-            students = students.concat(classStudents);
-          }
-        }
-      } else {
-        // 按班级：直接获取班级学生
-        students = await studentRepo.findByClass(targetId) as Array<{ parents?: Array<{ id?: string }> }> || [];
+    if (targetType === 'grade') {
+      // 按年级：先获取该年级所有班级 ID
+      const classRepo = getService<ClassRepository>('ClassRepository');
+      const gradeNum = parseInt(targetIds[0], 10);
+      if (!isNaN(gradeNum)) {
+        const classes = await classRepo.findByGrade(gradeNum);
+        classIds = classes.map(c => c.id);
       }
-
-      for (const student of students) {
-        if (student.parents) {
-          for (const p of student.parents) {
-            if (p.id) parentIds.add(p.id);
-          }
-        }
-      }
+    } else {
+      // 按班级：直接使用班级 ID
+      classIds = targetIds;
     }
 
-    return Array.from(parentIds);
+    if (classIds.length === 0) return [];
+
+    // 从 parents 表按 class_id 批量查询家长账号
+    const { data: parents, error } = await client
+      .from('parents')
+      .select('account_id')
+      .in('class_id', classIds)
+      .neq('status', '停用')
+      .not('account_id', 'is', null);
+
+    if (error) {
+      console.error('[CloudCourseService] resolveTargetParentIds error:', error.message);
+      return [];
+    }
+
+    for (const p of (parents || [])) {
+      if (p.account_id) parentUserIds.add(p.account_id);
+    }
+
+    return Array.from(parentUserIds);
   }
 }
 
