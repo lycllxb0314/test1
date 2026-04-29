@@ -52,6 +52,7 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
   if (!url) return { type: 'native', src: '', originalUrl: '' };
 
   const lower = url.toLowerCase();
+  const hostname = getHostname(url);
 
   // ── Bilibili ──
   // https://www.bilibili.com/video/BV1xxxxx
@@ -102,7 +103,7 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
   // https://www.youtube.com/watch?v=xxxxx
   // https://youtu.be/xxxxx
   // https://www.youtube.com/embed/xxxxx
-  if (lower.includes('youtube.com') || lower.includes('youtu.be')) {
+  if (isHost(hostname, 'youtube.com') || isHost(hostname, 'youtu.be')) {
     let videoId = '';
 
     const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
