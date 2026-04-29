@@ -55,7 +55,7 @@ export default function ManualSchedulePage() {
   const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/academic/schedule/grade?grade=${grade}`);
+      const res = await fetch(`/api/academic/manual-schedule/grade?grade=${grade}`);
       const data = await res.json();
       if (data.success && data.data?.scheduleData) {
         const map = new Map<string, SlotData[]>();
@@ -75,7 +75,7 @@ export default function ManualSchedulePage() {
   // 获取教师数据
   const fetchTeachers = useCallback(async () => {
     try {
-      const res = await fetch(`/api/academic/schedule/teachers?grade=${grade}`);
+      const res = await fetch(`/api/academic/manual-schedule/teachers?grade=${grade}`);
       const data = await res.json();
       if (data.success) {
         setTeachers(data.data.subjects || data.data || []);

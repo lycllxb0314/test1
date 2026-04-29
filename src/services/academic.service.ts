@@ -840,6 +840,7 @@ export const manualScheduleService = {
   /**
    * 获取可用教师
    * 使用 employee_id 作为唯一标识（工号格式，如 ly0006）
+   * 支持按 primary_subject、subjects、teachable_subjects 匹配
    */
   async getAvailableTeachers(params: {
     subject?: string;
@@ -849,17 +850,11 @@ export const manualScheduleService = {
     try {
       const client = getSupabaseClient();
       
-      // 查询 teachers 表，返回 employee_id 作为 id
-      let query = client
+      // 查询所有在职教师，包含 subjects 和 teachable_subjects 字段
+      const { data, error } = await client
         .from('teachers')
-        .select('id, employee_id, name, primary_subject, total_weekly_hours')
+        .select('id, employee_id, name, primary_subject, subjects, teachable_subjects, total_weekly_hours')
         .eq('status', 'active');
-      
-      if (params.subject) {
-        query = query.eq('primary_subject', params.subject);
-      }
-      
-      const { data, error } = await query;
       
       if (error) {
         console.error('[ManualScheduleService] getAvailableTeachers error:', error.message);
@@ -867,12 +862,27 @@ export const manualScheduleService = {
       }
       
       // 转换数据格式：使用 employee_id 作为 id
-      const teachers = (data || []).map(t => ({
-        id: t.employee_id || t.id, // 优先使用工号
+      let teachers = (data || []).map(t => ({
+        id: t.employee_id || t.id,
         name: t.name,
         primary_subject: t.primary_subject,
         total_weekly_hours: t.total_weekly_hours || 20,
+        subjects: t.subjects as string[] | null,
+        teachable_subjects: t.teachable_subjects as string[] | null,
       }));
+      
+      // 如果指定了科目，按 primary_subject / subjects / teachable_subjects 过滤
+      if (params.subject) {
+        const targetSubject = params.subject;
+        teachers = teachers.filter(t => 
+          t.primary_subject === targetSubject ||
+          (t.subjects && t.subjects.includes(targetSubject)) ||
+          (t.teachable_subjects && t.teachable_subjects.includes(targetSubject))
+        );
+      }
+      
+      // 清理辅助字段
+      const result = teachers.map(({ subjects: _s, teachable_subjects: _ts, ...rest }) => rest);
       
       // 如果指定了时间，过滤掉已有课的教师
       if (params.weekDay !== undefined && params.periodIndex !== undefined) {
@@ -882,14 +892,13 @@ export const manualScheduleService = {
           draftId: null,
         });
         
-        // 使用工号格式过滤
         const busyIds = new Set(busySlots.map(s => s.teacher_id).filter(Boolean) || []);
-        const available = teachers.filter(t => !busyIds.has(t.id));
+        const available = result.filter(t => !busyIds.has(t.id));
         
         return { success: true, data: available };
       }
       
-      return { success: true, data: teachers };
+      return { success: true, data: result };
     } catch (err) {
       console.error('[ManualScheduleService] getAvailableTeachers error:', err);
       return { success: false, error: '服务器错误', code: 'INTERNAL_ERROR' };

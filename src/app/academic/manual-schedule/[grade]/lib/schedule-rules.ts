@@ -9,6 +9,17 @@ export const SUBJECT_ORDER = [
   '音乐', '美术', '体育', '信息技术', '书法', '劳动', '综合实践', '校本', '班会'
 ];
 
+/**
+ * 无专属教师的科目降级映射
+ * 当某科目没有对应的教师分组时，降级到映射的源科目组找老师
+ */
+export const SUBJECT_FALLBACK: Record<string, string[]> = {
+  '书法': ['语文'],       // 书法通常由语文老师兼任
+  '劳动': ['数学', '语文'], // 劳动由语数老师兼任
+  '校本': ['语文', '数学'], // 校本课程由语数老师兼任
+  '班会': [],              // 班会由班主任负责（走 head_teacher_only 规则）
+};
+
 export type SubjectRule = 'chinese_only' | 'math_only' | 'head_teacher_only' | 'all_chinese' | 'science_rule' | 'all_chinese_math' | 'all_subject';
 
 export const SUBJECT_RULES: Record<string, SubjectRule> = {
@@ -98,16 +109,36 @@ export function getFilteredTeachers(
       });
     }
     default: {
+      // 先精确匹配科目分组
       const subjectGroup = teachers.find(g => g.subject === selectedSubject);
-      const filtered = (subjectGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
-      const classTeachersForSubject = selectedSlot?.classTeacherBySubject?.[selectedSubject] || [];
-      const classTeacherIds = new Set(classTeachersForSubject.map(t => t.id));
-      return filtered.sort((a, b) => {
-        const aIsClassTeacher = classTeacherIds.has(a.id) ? 0 : 1;
-        const bIsClassTeacher = classTeacherIds.has(b.id) ? 0 : 1;
-        if (aIsClassTeacher !== bIsClassTeacher) return aIsClassTeacher - bIsClassTeacher;
-        return a.remainingHours - b.remainingHours;
-      });
+      if (subjectGroup && subjectGroup.teachers.length > 0) {
+        const filtered = subjectGroup.teachers.filter(t => !searchQuery || t.name.includes(searchQuery));
+        const classTeachersForSubject = selectedSlot?.classTeacherBySubject?.[selectedSubject] || [];
+        const classTeacherIds = new Set(classTeachersForSubject.map(t => t.id));
+        return filtered.sort((a, b) => {
+          const aIsClassTeacher = classTeacherIds.has(a.id) ? 0 : 1;
+          const bIsClassTeacher = classTeacherIds.has(b.id) ? 0 : 1;
+          if (aIsClassTeacher !== bIsClassTeacher) return aIsClassTeacher - bIsClassTeacher;
+          return a.remainingHours - b.remainingHours;
+        });
+      }
+
+      // 降级匹配：从 SUBJECT_FALLBACK 映射的源科目组中找老师
+      const fallbackSubjects = SUBJECT_FALLBACK[selectedSubject];
+      if (fallbackSubjects && fallbackSubjects.length > 0) {
+        const fallbackTeachers = fallbackSubjects
+          .flatMap(srcSubject => teachers.find(g => g.subject === srcSubject)?.teachers || [])
+          .filter(t => !searchQuery || t.name.includes(searchQuery));
+        const priorityIds = new Set([selectedSlot?.headTeacherId, selectedSlot?.chineseTeacherId, selectedSlot?.mathTeacherId].filter(Boolean) as string[]);
+        return fallbackTeachers.sort((a, b) => {
+          const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
+          const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
+          if (aIsPriority !== bIsPriority) return aIsPriority - bIsPriority;
+          return a.remainingHours - b.remainingHours;
+        });
+      }
+
+      return [];
     }
   }
 }
