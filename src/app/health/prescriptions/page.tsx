@@ -364,6 +364,7 @@ export default function PrescriptionsPage() {
 
   const [prescriptions, setPrescriptions] = useState<PrescriptionWithInfo[]>([]);
   const [total, setTotal] = useState(0);
+  const [activeCount, setActiveCount] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(false);
@@ -390,6 +391,7 @@ export default function PrescriptionsPage() {
       const res = await apiClient.get<PrescriptionWithInfo[]>(`/health/prescriptions?${params}`);
       setPrescriptions(res.data || []);
       setTotal(res.pagination?.total ?? 0);
+      setActiveCount((res as unknown as { stats?: { active: number } }).stats?.active ?? 0);
     } catch (err) {
       console.error('Failed to load prescriptions:', err);
     } finally {
@@ -488,7 +490,7 @@ export default function PrescriptionsPage() {
 
         <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
           <span>共 <strong className="text-foreground">{total}</strong> 条处方</span>
-          <span>生效中 <strong className="text-primary">{prescriptions.filter(p => p.status === 'active').length}</strong></span>
+          <span>生效中 <strong className="text-primary">{activeCount}</strong></span>
         </div>
 
         {loading ? (

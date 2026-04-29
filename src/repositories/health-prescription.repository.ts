@@ -103,7 +103,7 @@ export class HealthPrescriptionRepository extends BaseRepository<HealthPrescript
     pageSize = 20,
     filterStudentIds?: string[] | null,
     status?: string | null,
-  ): Promise<{ prescriptions: (HealthPrescription & { studentName?: string; className?: string })[]; total: number }> {
+  ): Promise<{ prescriptions: (HealthPrescription & { studentName?: string; className?: string })[]; total: number; activeCount: number }> {
     let query = this.client
       .from(this.tableName)
       .select('*, students!inner(id, name, class_id, class_name)', { count: 'exact' });
@@ -122,7 +122,7 @@ export class HealthPrescriptionRepository extends BaseRepository<HealthPrescript
 
     if (error) {
       console.error('[HealthPrescriptionRepository] findAllWithStudentInfo error:', error.message);
-      return { prescriptions: [], total: 0 };
+      return { prescriptions: [], total: 0, activeCount: 0 };
     }
 
     const prescriptions = (data || []).map(row => ({
@@ -131,7 +131,19 @@ export class HealthPrescriptionRepository extends BaseRepository<HealthPrescript
       className: ((row.students as Record<string, unknown>)?.class_name || (row.students as Record<string, unknown>)?.class_id) as string,
     }));
 
-    return { prescriptions, total: count || 0 };
+    // 统计当前筛选条件下的 active 数量
+    let activeQuery = this.client
+      .from(this.tableName)
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active');
+
+    if (Array.isArray(filterStudentIds) && filterStudentIds.length > 0) {
+      activeQuery = activeQuery.in('student_id', filterStudentIds);
+    }
+
+    const { count: activeCount } = await activeQuery;
+
+    return { prescriptions, total: count || 0, activeCount: activeCount || 0 };
   }
 
   /** 将旧处方置为已替代 */

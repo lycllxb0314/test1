@@ -35,11 +35,12 @@ export const GET = protectedRoute(async (request) => {
     }
 
     const result = await healthManagementService.getAllPrescriptions(page, pageSize, filterStudentIds, status || null);
-    const pResult = result.data as { prescriptions: (HealthPrescription & { studentName?: string; className?: string })[]; total: number } | undefined;
+    const pResult = result.data as { prescriptions: (HealthPrescription & { studentName?: string; className?: string })[]; total: number; activeCount: number } | undefined;
     return NextResponse.json({
       success: result.success,
       data: pResult?.prescriptions || [],
       pagination: pResult ? { page, pageSize, total: pResult.total, totalPages: Math.ceil(pResult.total / pageSize) } : undefined,
+      stats: { active: pResult?.activeCount ?? 0 },
     });
   }
 
