@@ -1,38 +1,380 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Pill, Sparkles, RefreshCw, ChevronDown, ChevronUp, Utensils, Dumbbell, AlertTriangle, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import {
+  Pill, Sparkles, RefreshCw, ChevronRight, Utensils, Dumbbell, AlertTriangle,
+  CheckCircle2, Loader2, Moon, Sun, Activity, Target, Flame, Apple, Heart, TrendingUp, Lightbulb
+} from 'lucide-react';
 import { apiClient } from '@/services/api-client';
 import { GradeClassFilter, PaginationControl, useClassesData } from '@/components/health/HealthFilters';
-import type { HealthPrescription, NutritionAdvice, MealSuggestion, ExerciseIntensity } from '@/types/health-management';
+import type { HealthPrescription, StudentHealthPortrait, ExerciseIntensity } from '@/types/health-management';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type PrescriptionWithInfo = HealthPrescription & {
   studentName?: string;
   className?: string;
 };
 
+type PortraitWithInfo = StudentHealthPortrait & {
+  studentName?: string;
+  className?: string;
+};
+
+// ==================== 可视化组件 ====================
+
+function NutrientBar({ label, value, max, color, unit, reason }: { label: string; value: number; max: number; color: string; unit: string; reason?: string }) {
+  const percent = Math.min((value / max) * 100, 100);
+  const colorClass: Record<string, string> = {
+    amber: 'bg-amber-500',
+    blue: 'bg-blue-500',
+    rose: 'bg-rose-500',
+    green: 'bg-emerald-500',
+  };
+  return (
+    <div className="rounded-lg bg-muted/30 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-sm"><strong>{value}</strong>{unit}</span>
+      </div>
+      <div className="h-2 rounded-full bg-muted/30 overflow-hidden">
+        <div className={`h-full rounded-full ${colorClass[color] || 'bg-gray-500'} transition-all duration-500`} style={{ width: `${percent}%` }} />
+      </div>
+      {reason && <p className="mt-1 text-xs text-muted-foreground">{reason}</p>}
+    </div>
+  );
+}
+
+function ExerciseRing({ frequency, duration, intensity }: { frequency: number; duration: number; intensity: string }) {
+  const intensityScore = intensity === 'high' ? 90 : intensity === 'medium' ? 70 : 50;
+  const score = Math.round((frequency / 7) * 50 + (duration / 60) * 20 + (intensityScore / 100) * 30);
+  const size = 120;
+  const radius = (size - 12) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = score / 100;
+  const strokeDash = circumference * progress;
+  const color = score >= 80 ? '#10b981' : score >= 60 ? '#3b82f6' : score >= 40 ? '#f59e0b' : '#ef4444';
+
+  return (
+    <div className="relative flex flex-col items-center">
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeWidth={6} className="text-muted/20" />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={6} strokeDasharray={`${strokeDash} ${circumference}`} strokeLinecap="round" />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-bold" style={{ color }}>{score}</div>
+          <div className="text-[10px] text-muted-foreground">运动指数</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClockIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12,6 12,12 16,14" />
+    </svg>
+  );
+}
+
+// ==================== 处方详情弹窗 ====================
+
+function PrescriptionDetailDialog({
+  prescription,
+  portrait,
+  open,
+  onClose,
+}: {
+  prescription: PrescriptionWithInfo | null;
+  portrait: PortraitWithInfo | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!prescription) return null;
+
+  const statusColor = prescription.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' : 'bg-muted text-muted-foreground';
+  const statusLabel = prescription.status === 'active' ? '生效中' : prescription.status === 'superseded' ? '已替代' : '已完成';
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pill className="h-5 w-5 text-amber-500" />
+            AI健康处方报告
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* 学生信息头部 */}
+        <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/30">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+            <Pill className="h-6 w-6" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">{prescription.studentName || prescription.studentId}</h2>
+            <p className="text-sm text-muted-foreground">{prescription.className} · {statusLabel}</p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-amber-600">{prescription.dailyCaloriesTarget ?? '--'}</div>
+            <div className="text-xs text-muted-foreground">每日目标热量(kcal)</div>
+          </div>
+        </div>
+
+        {/* AI 处方摘要 */}
+        {prescription.aiSummary && (
+          <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
+            <div className="flex items-center gap-2 text-primary mb-2">
+              <Sparkles className="h-4 w-4" />
+              <span className="font-medium text-sm">AI 处方摘要</span>
+            </div>
+            <p className="text-sm leading-relaxed">{prescription.aiSummary}</p>
+          </div>
+        )}
+
+        {/* 健康画像概览 */}
+        {portrait && (
+          <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/30">
+            <div className="flex items-center gap-2 text-emerald-700 mb-3">
+              <TrendingUp className="h-4 w-4" />
+              <span className="font-medium text-sm">关联健康画像</span>
+            </div>
+            <div className="grid grid-cols-5 gap-2 text-center">
+              {[
+                { label: '综合', value: portrait.overallHealthScore, icon: Heart },
+                { label: '睡眠', value: portrait.sleepScore, icon: Moon },
+                { label: '饮食', value: portrait.dietScore, icon: Utensils },
+                { label: '运动', value: portrait.exerciseHabitScore, icon: Dumbbell },
+                { label: '体质', value: portrait.fitnessLevel === 'excellent' ? 95 : portrait.fitnessLevel === 'good' ? 80 : portrait.fitnessLevel === 'pass' ? 60 : 40, icon: Activity },
+              ].map(item => (
+                <div key={item.label} className="rounded-lg bg-white/50 p-2">
+                  <item.icon className="h-4 w-4 mx-auto text-muted-foreground" />
+                  <div className="text-lg font-bold text-foreground">{item.value ?? '--'}</div>
+                  <div className="text-[10px] text-muted-foreground">{item.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 饮食禁忌 */}
+        {prescription.dietTaboos && prescription.dietTaboos.length > 0 && (
+          <div className="p-4 rounded-lg border border-rose-200 bg-rose-50/30">
+            <div className="flex items-center gap-2 text-rose-700 mb-3">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="font-medium text-sm">饮食禁忌</span>
+            </div>
+            <div className="space-y-2">
+              {prescription.dietTaboos.map((taboo, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
+                  <div>
+                    <span className="text-rose-600 font-medium">{taboo}</span>
+                    {prescription.dietTabooReasons?.[i] && (
+                      <span className="text-muted-foreground ml-1">— {prescription.dietTabooReasons[i]}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 营养目标可视化 */}
+        {prescription.nutritionAdvice && (
+          <div className="p-4 rounded-lg border border-border">
+            <div className="flex items-center gap-2 text-sm font-medium mb-4">
+              <Target className="h-4 w-4 text-amber-500" />
+              <span>每日营养目标</span>
+            </div>
+            <div className="grid md:grid-cols-3 gap-3">
+              {prescription.nutritionAdvice.carbs && (
+                <NutrientBar label="碳水化合物" value={prescription.nutritionAdvice.carbs.target} max={350} color="amber" unit="g" reason={prescription.nutritionAdvice.carbs.reason} />
+              )}
+              {prescription.nutritionAdvice.protein && (
+                <NutrientBar label="蛋白质" value={prescription.nutritionAdvice.protein.target} max={120} color="blue" unit="g" reason={prescription.nutritionAdvice.protein.reason} />
+              )}
+              {prescription.nutritionAdvice.fat && (
+                <NutrientBar label="脂肪" value={prescription.nutritionAdvice.fat.target} max={80} color="rose" unit="g" reason={prescription.nutritionAdvice.fat.reason} />
+              )}
+            </div>
+            {(prescription.nutritionAdvice.vitamins?.length || prescription.nutritionAdvice.minerals?.length) ? (
+              <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                {prescription.nutritionAdvice.vitamins && prescription.nutritionAdvice.vitamins.length > 0 && (
+                  <div className="rounded bg-amber-50 p-2">
+                    <span className="text-amber-700 font-medium">推荐维生素：</span>
+                    <span>{prescription.nutritionAdvice.vitamins.join('、')}</span>
+                  </div>
+                )}
+                {prescription.nutritionAdvice.minerals && prescription.nutritionAdvice.minerals.length > 0 && (
+                  <div className="rounded bg-blue-50 p-2">
+                    <span className="text-blue-700 font-medium">推荐矿物质：</span>
+                    <span>{prescription.nutritionAdvice.minerals.join('、')}</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
+            {prescription.nutritionAdvice.hydrationAdvice && (
+              <div className="mt-3 p-2 rounded bg-cyan-50 text-xs text-cyan-700">
+                <span className="font-medium">饮水建议：</span>{prescription.nutritionAdvice.hydrationAdvice}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 膳食建议 */}
+        {prescription.mealSuggestions && (
+          <div className="p-4 rounded-lg border border-border">
+            <div className="flex items-center gap-2 text-sm font-medium mb-4">
+              <Apple className="h-4 w-4 text-emerald-500" />
+              <span>每日膳食建议</span>
+            </div>
+            <div className="grid md:grid-cols-2 gap-3">
+              {[
+                { label: '早餐', value: prescription.mealSuggestions.breakfast, icon: Sun, time: '7:00-8:00', color: 'bg-amber-50' },
+                { label: '午餐', value: prescription.mealSuggestions.lunch, icon: Utensils, time: '11:30-12:30', color: 'bg-emerald-50' },
+                { label: '晚餐', value: prescription.mealSuggestions.dinner, icon: Moon, time: '17:30-18:30', color: 'bg-blue-50' },
+                { label: '加餐', value: prescription.mealSuggestions.snacks, icon: Apple, time: '15:00', color: 'bg-rose-50' },
+              ].filter(item => item.value).map(item => (
+                <div key={item.label} className={`rounded-lg ${item.color} p-3`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <item.icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">{item.label}</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{item.time}</span>
+                  </div>
+                  <p className="text-xs text-foreground">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            {prescription.mealSuggestions.cookingTips && (
+              <div className="mt-3 p-2 rounded bg-muted/30 text-xs">
+                <Lightbulb className="inline h-3 w-3 text-amber-500 mr-1" />
+                <span className="text-muted-foreground">烹饪建议：</span>{prescription.mealSuggestions.cookingTips}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 运动处方可视化 */}
+        <div className="p-4 rounded-lg border border-border">
+          <div className="flex items-center gap-2 text-sm font-medium mb-4">
+            <Dumbbell className="h-4 w-4 text-blue-500" />
+            <span>运动处方</span>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* 运动指数环 */}
+            <div className="flex flex-col items-center justify-center">
+              <ExerciseRing
+                frequency={prescription.exerciseFrequency ?? 3}
+                duration={prescription.exerciseDurationMin ?? 30}
+                intensity={prescription.exerciseIntensity ?? 'medium'}
+              />
+            </div>
+            {/* 运动参数 */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-blue-500/10 p-3 text-center">
+                  <Flame className="h-5 w-5 mx-auto text-blue-500 mb-1" />
+                  <div className="text-sm font-medium">{prescription.exerciseType || '有氧运动'}</div>
+                  <div className="text-[10px] text-muted-foreground">运动类型</div>
+                </div>
+                <div className="rounded-lg bg-blue-500/10 p-3 text-center">
+                  <Activity className="h-5 w-5 mx-auto text-blue-500 mb-1" />
+                  <div className="text-sm font-medium">{prescription.exerciseFrequency ?? '-'} 次/周</div>
+                  <div className="text-[10px] text-muted-foreground">运动频率</div>
+                </div>
+                <div className="rounded-lg bg-blue-500/10 p-3 text-center">
+                  <ClockIcon className="h-5 w-5 mx-auto text-blue-500 mb-1" />
+                  <div className="text-sm font-medium">{prescription.exerciseDurationMin ?? '-'} 分钟</div>
+                  <div className="text-[10px] text-muted-foreground">每次时长</div>
+                </div>
+                <div className="rounded-lg bg-blue-500/10 p-3 text-center">
+                  <Target className="h-5 w-5 mx-auto text-blue-500 mb-1" />
+                  <div className="text-sm font-medium">{formatIntensity(prescription.exerciseIntensity)}</div>
+                  <div className="text-[10px] text-muted-foreground">运动强度</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 运动计划详情 */}
+          {prescription.exercisePlan && (
+            <div className="mt-4 rounded-lg bg-blue-50/50 p-4">
+              <h4 className="text-sm font-medium text-blue-700 mb-3">详细运动计划</h4>
+              <div className="grid md:grid-cols-3 gap-3 text-sm">
+                <div className="rounded bg-white/50 p-2">
+                  <span className="text-blue-600 font-medium">热身：</span>
+                  <span className="text-foreground">{prescription.exercisePlan.warmUp}</span>
+                </div>
+                <div className="rounded bg-white/50 p-2">
+                  <span className="text-blue-600 font-medium">主要内容：</span>
+                  <span className="text-foreground">{prescription.exercisePlan.mainExercise}</span>
+                </div>
+                <div className="rounded bg-white/50 p-2">
+                  <span className="text-blue-600 font-medium">放松：</span>
+                  <span className="text-foreground">{prescription.exercisePlan.coolDown}</span>
+                </div>
+              </div>
+              {prescription.exercisePlan.weeklySchedule && (
+                <div className="mt-2 p-2 rounded bg-white/50 text-sm">
+                  <span className="text-blue-600 font-medium">一周安排：</span>
+                  <span className="text-foreground">{prescription.exercisePlan.weeklySchedule}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {prescription.exerciseNotes && (
+            <div className="mt-3 p-2 rounded bg-amber-50 text-xs text-amber-700">
+              <AlertTriangle className="inline h-3 w-3 mr-1" />
+              <span className="font-medium">注意事项：</span>{prescription.exerciseNotes}
+            </div>
+          )}
+        </div>
+
+        {/* 预期效果 */}
+        {prescription.expectedOutcomes && (
+          <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/30">
+            <div className="flex items-center gap-2 text-emerald-700 mb-2">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="font-medium text-sm">预期改善效果</span>
+            </div>
+            <p className="text-sm text-foreground">{prescription.expectedOutcomes}</p>
+          </div>
+        )}
+
+        {/* 底部时间信息 */}
+        <div className="pt-4 border-t border-border text-xs text-muted-foreground flex justify-between">
+          <span>处方周期：{prescription.periodStart} ~ {prescription.periodEnd}</span>
+          <span>更新时间：{prescription.updatedAt ? new Date(prescription.updatedAt).toLocaleString() : '--'}</span>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ==================== 主页面 ====================
+
 export default function PrescriptionsPage() {
   const { gradeOptions, classesByGrade, loading: classesLoading } = useClassesData();
 
-  // 筛选状态
   const [grade, setGrade] = useState('all');
   const [classId, setClassId] = useState('all');
 
-  // 数据状态
   const [prescriptions, setPrescriptions] = useState<PrescriptionWithInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(false);
 
-  // 刷新状态
   const [refreshing, setRefreshing] = useState(false);
   const [refreshResult, setRefreshResult] = useState<{ total: number; success: number; fail: number } | null>(null);
 
-  // 展开的处方
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedPrescription, setSelectedPrescription] = useState<PrescriptionWithInfo | null>(null);
+  const [selectedPortrait, setSelectedPortrait] = useState<PortraitWithInfo | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
-  // 计时器：刷新结果3秒后消失
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const loadPrescriptions = useCallback(async () => {
@@ -58,18 +400,9 @@ export default function PrescriptionsPage() {
 
   useEffect(() => { loadPrescriptions(); }, [loadPrescriptions]);
 
-  // 年级变化时重置班级和页码
-  const handleGradeChange = (newGrade: string) => {
-    setGrade(newGrade);
-    setClassId('all');
-    setPage(1);
-  };
-  const handleClassChange = (newClassId: string) => {
-    setClassId(newClassId);
-    setPage(1);
-  };
+  const handleGradeChange = (newGrade: string) => { setGrade(newGrade); setClassId('all'); setPage(1); };
+  const handleClassChange = (newClassId: string) => { setClassId(newClassId); setPage(1); };
 
-  // 刷新处方
   const handleRefresh = async () => {
     setRefreshing(true);
     setRefreshResult(null);
@@ -79,19 +412,32 @@ export default function PrescriptionsPage() {
 
       const res = await apiClient.post<{ total: number; success: number; fail: number }>(`/api/health/prescriptions?${params}`, {});
       setRefreshResult(res.data ?? null);
-      // 刷新后重新加载
       await loadPrescriptions();
     } catch (err) {
       console.error('Failed to refresh prescriptions:', err);
     } finally {
       setRefreshing(false);
-      // 3秒后消失
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = setTimeout(() => setRefreshResult(null), 3000);
+      refreshTimerRef.current = setTimeout(() => setRefreshResult(null), 5000);
     }
   };
 
-  // 年级对应班级列表
+  const handleCardClick = async (rx: PrescriptionWithInfo) => {
+    setSelectedPrescription(rx);
+    setDetailOpen(true);
+
+    try {
+      const res = await apiClient.get<PortraitWithInfo>(`/health/portraits?studentId=${rx.studentId}`);
+      if (res.success && res.data) {
+        setSelectedPortrait(res.data);
+      } else {
+        setSelectedPortrait(null);
+      }
+    } catch {
+      setSelectedPortrait(null);
+    }
+  };
+
   const classOptions = useMemo(() => {
     if (grade === 'all') return classesByGrade;
     return { [grade]: classesByGrade[grade] || [] };
@@ -101,7 +447,6 @@ export default function PrescriptionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* 页头 */}
       <div className="border-b border-border bg-card">
         <div className="mx-auto max-w-7xl px-6 py-5">
           <div className="flex items-center gap-3">
@@ -116,17 +461,12 @@ export default function PrescriptionsPage() {
               <div className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                 <Sparkles className="h-3.5 w-3.5" /> AI生成
               </div>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
+              <button onClick={handleRefresh} disabled={refreshing} className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
                 <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
                 {refreshing ? '生成中...' : '刷新处方'}
               </button>
             </div>
           </div>
-          {/* 刷新结果提示 */}
           {refreshResult && (
             <div className="mt-2 rounded-md bg-primary/10 px-3 py-1.5 text-xs text-primary">
               处方生成完成：共 {refreshResult.total} 人，成功 {refreshResult.success} 人，失败 {refreshResult.fail} 人
@@ -136,26 +476,15 @@ export default function PrescriptionsPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-4">
-        {/* 筛选器 */}
         <div className="mb-4">
-          <GradeClassFilter
-            grade={grade}
-            classId={classId}
-            gradeOptions={gradeOptions}
-            classOptions={classOptions}
-            onGradeChange={handleGradeChange}
-            onClassChange={handleClassChange}
-            loading={classesLoading}
-          />
+          <GradeClassFilter grade={grade} onGradeChange={handleGradeChange} classId={classId} onClassChange={handleClassChange} gradeOptions={gradeOptions} classOptions={classOptions} loading={classesLoading} />
         </div>
 
-        {/* 统计栏 */}
         <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
           <span>共 <strong className="text-foreground">{total}</strong> 条处方</span>
           <span>生效中 <strong className="text-primary">{prescriptions.filter(p => p.status === 'active').length}</strong></span>
         </div>
 
-        {/* 处方列表 */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -168,208 +497,56 @@ export default function PrescriptionsPage() {
             <p className="mt-1 text-xs text-muted-foreground/70">点击「刷新处方」按钮生成AI处方</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {prescriptions.map((rx) => (
-              <PrescriptionCard
-                key={rx.id}
-                prescription={rx}
-                expanded={expandedId === rx.id}
-                onToggle={() => setExpandedId(expandedId === rx.id ? null : rx.id)}
-              />
-            ))}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {prescriptions.map((rx) => <PrescriptionCard key={rx.id} prescription={rx} onClick={() => handleCardClick(rx)} />)}
           </div>
         )}
 
-        {/* 分页 */}
         {total > pageSize && (
           <div className="mt-4">
-            <PaginationControl
-              page={page}
-              pageSize={pageSize}
-              total={total}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
-            />
+            <PaginationControl page={page} pageSize={pageSize} total={total} totalPages={totalPages} onPageChange={setPage} onPageSizeChange={s => { setPageSize(s); setPage(1); }} />
           </div>
         )}
       </div>
+
+      <PrescriptionDetailDialog prescription={selectedPrescription} portrait={selectedPortrait} open={detailOpen} onClose={() => { setDetailOpen(false); setSelectedPrescription(null); setSelectedPortrait(null); }} />
     </div>
   );
 }
 
-// ==================== 处方卡片组件 ====================
+// ==================== 处方卡片 ====================
 
-function PrescriptionCard({
-  prescription,
-  expanded,
-  onToggle,
-}: {
-  prescription: PrescriptionWithInfo;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const statusColor = prescription.status === 'active'
-    ? 'bg-emerald-500/10 text-emerald-600'
-    : prescription.status === 'superseded'
-      ? 'bg-muted text-muted-foreground'
-      : 'bg-muted text-muted-foreground';
-  const statusLabel = prescription.status === 'active' ? '生效中'
-    : prescription.status === 'superseded' ? '已替代'
-    : '已完成';
+function PrescriptionCard({ prescription, onClick }: { prescription: PrescriptionWithInfo; onClick: () => void }) {
+  const statusColor = prescription.status === 'active' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground';
+  const statusLabel = prescription.status === 'active' ? '生效中' : prescription.status === 'superseded' ? '已替代' : '已完成';
 
   return (
-    <div className="rounded-lg border border-border bg-card shadow-sm">
-      {/* 卡片头部 */}
-      <div
-        className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-muted/30"
-        onClick={onToggle}
-      >
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
-          <Pill className="h-4 w-4" />
+    <div className="group rounded-lg border border-border bg-card p-4 transition-all hover:shadow-md hover:border-primary/30 cursor-pointer" onClick={onClick}>
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+          <Pill className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-foreground truncate">{prescription.studentName || prescription.studentId}</span>
-            <span className="text-xs text-muted-foreground">{prescription.className || ''}</span>
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor}`}>{statusLabel}</span>
           </div>
-          <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><Utensils className="h-3 w-3" />{prescription.dailyCaloriesTarget ?? '-'} kcal/日</span>
-            <span className="flex items-center gap-1"><Dumbbell className="h-3 w-3" />{prescription.exerciseType || '-'} {prescription.exerciseFrequency ?? '-'}次/周</span>
-            <span>{prescription.periodStart} ~ {prescription.periodEnd}</span>
-          </div>
+          <p className="text-xs text-muted-foreground truncate">{prescription.className}</p>
         </div>
-        {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary transition-colors" />
       </div>
 
-      {/* 展开详情 */}
-      {expanded && (
-        <div className="border-t border-border px-4 py-4 space-y-4">
-          {/* 风险提示 */}
-          {prescription.dietTaboos && prescription.dietTaboos.length > 0 && (
-            <div>
-              <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <AlertTriangle className="h-4 w-4 text-amber-500" /> 饮食禁忌
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {prescription.dietTaboos.map((taboo, i) => (
-                  <span key={i} className="rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs text-red-600">{taboo}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 营养建议 */}
-          {prescription.nutritionAdvice && (
-            <NutritionSection advice={prescription.nutritionAdvice} />
-          )}
-
-          {/* 膳食建议 */}
-          {prescription.mealSuggestions && (
-            <MealSection meals={prescription.mealSuggestions} />
-          )}
-
-          {/* 运动处方 */}
-          <div>
-            <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
-              <Dumbbell className="h-4 w-4 text-blue-500" /> 运动处方
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <InfoTile label="运动类型" value={prescription.exerciseType || '-'} />
-              <InfoTile label="频率" value={`${prescription.exerciseFrequency ?? '-'}次/周`} />
-              <InfoTile label="时长" value={`${prescription.exerciseDurationMin ?? '-'}分钟/次`} />
-              <InfoTile label="强度" value={formatIntensity(prescription.exerciseIntensity)} />
-            </div>
-            {prescription.exerciseNotes && (
-              <p className="mt-2 text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">{prescription.exerciseNotes}</p>
-            )}
-          </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded bg-muted/30 px-2 py-1.5">
+          <Utensils className="inline h-3 w-3 text-muted-foreground mr-1" />
+          <span className="font-medium">{prescription.dailyCaloriesTarget ?? '-'}</span>
+          <span className="text-muted-foreground"> kcal/日</span>
         </div>
-      )}
-    </div>
-  );
-}
-
-// ==================== 营养建议 ====================
-
-function NutritionSection({ advice }: { advice: NutritionAdvice }) {
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
-        <CheckCircle2 className="h-4 w-4 text-emerald-500" /> 营养建议
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        {advice.carbs && <NutrientCard label="碳水" target={advice.carbs.target} unit={advice.carbs.unit} desc={advice.carbs.description} color="amber" />}
-        {advice.protein && <NutrientCard label="蛋白质" target={advice.protein.target} unit={advice.protein.unit} desc={advice.protein.description} color="blue" />}
-        {advice.fat && <NutrientCard label="脂肪" target={advice.fat.target} unit={advice.fat.unit} desc={advice.fat.description} color="rose" />}
-      </div>
-      {(advice.vitamins && advice.vitamins.length > 0) && (
-        <div className="mt-2 text-xs text-muted-foreground">
-          推荐维生素：{advice.vitamins.join('、')}
+        <div className="rounded bg-muted/30 px-2 py-1.5">
+          <Dumbbell className="inline h-3 w-3 text-muted-foreground mr-1" />
+          <span className="font-medium">{prescription.exerciseFrequency ?? '-'}次/周</span>
         </div>
-      )}
-      {(advice.minerals && advice.minerals.length > 0) && (
-        <div className="mt-1 text-xs text-muted-foreground">
-          推荐矿物质：{advice.minerals.join('、')}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NutrientCard({ label, target, unit, desc, color }: { label: string; target: number; unit: string; desc: string; color: string }) {
-  const colorClasses: Record<string, string> = {
-    amber: 'bg-amber-500/10 text-amber-600',
-    blue: 'bg-blue-500/10 text-blue-600',
-    rose: 'bg-rose-500/10 text-rose-600',
-  };
-  return (
-    <div className="rounded-md bg-muted/30 px-3 py-2">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-0.5 flex items-baseline gap-1">
-        <span className={`text-lg font-bold ${colorClasses[color] || ''}`}>{target}</span>
-        <span className="text-xs text-muted-foreground">{unit}/日</span>
       </div>
-      <div className="mt-0.5 text-xs text-muted-foreground">{desc}</div>
-    </div>
-  );
-}
-
-// ==================== 膳食建议 ====================
-
-function MealSection({ meals }: { meals: MealSuggestion }) {
-  const items = [
-    { label: '早餐', value: meals.breakfast, icon: '🌅' },
-    { label: '午餐', value: meals.lunch, icon: '☀️' },
-    { label: '晚餐', value: meals.dinner, icon: '🌙' },
-    { label: '加餐', value: meals.snacks, icon: '🍎' },
-  ].filter(item => item.value);
-
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
-        <Utensils className="h-4 w-4 text-emerald-500" /> 膳食建议
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {items.map(item => (
-          <div key={item.label} className="rounded-md bg-muted/30 px-3 py-2">
-            <div className="text-xs text-muted-foreground">{item.icon} {item.label}</div>
-            <div className="mt-0.5 text-sm text-foreground">{item.value}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ==================== 辅助组件 ====================
-
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-muted/30 px-3 py-2">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-sm font-medium text-foreground">{value}</div>
     </div>
   );
 }

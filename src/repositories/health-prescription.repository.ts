@@ -15,14 +15,18 @@ type HealthPrescriptionRow = {
   daily_calories_target: number | null;
   nutrition_advice: Record<string, unknown> | null;
   diet_taboos: string[] | null;
+  diet_taboo_reasons: string[] | null;
   meal_suggestions: Record<string, unknown> | null;
   exercise_type: string | null;
   exercise_frequency: number | null;
   exercise_duration_min: number | null;
   exercise_intensity: string | null;
+  exercise_plan: Record<string, unknown> | null;
   exercise_notes: string | null;
   ai_model: string | null;
   ai_prompt_version: string | null;
+  ai_summary: string | null;
+  expected_outcomes: string | null;
   status: string;
   confirmed_by: string | null;
   confirmed_at: string | null;
@@ -158,14 +162,18 @@ export class HealthPrescriptionRepository extends BaseRepository<HealthPrescript
       dailyCaloriesTarget: row.daily_calories_target ?? undefined,
       nutritionAdvice: (row.nutrition_advice as HealthPrescription['nutritionAdvice']) ?? undefined,
       dietTaboos: row.diet_taboos ?? undefined,
+      dietTabooReasons: row.diet_taboo_reasons ?? undefined,
       mealSuggestions: (row.meal_suggestions as HealthPrescription['mealSuggestions']) ?? undefined,
       exerciseType: row.exercise_type ?? undefined,
       exerciseFrequency: row.exercise_frequency ?? undefined,
       exerciseDurationMin: row.exercise_duration_min ?? undefined,
       exerciseIntensity: (row.exercise_intensity as HealthPrescription['exerciseIntensity']) ?? undefined,
+      exercisePlan: (row.exercise_plan as HealthPrescription['exercisePlan']) ?? undefined,
       exerciseNotes: row.exercise_notes ?? undefined,
       aiModel: row.ai_model ?? undefined,
       aiPromptVersion: row.ai_prompt_version ?? undefined,
+      aiSummary: row.ai_summary ?? undefined,
+      expectedOutcomes: row.expected_outcomes ?? undefined,
       status: row.status as HealthPrescription['status'],
       confirmedBy: row.confirmed_by ?? undefined,
       confirmedAt: row.confirmed_at ?? undefined,

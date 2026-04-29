@@ -159,6 +159,23 @@ type FitnessLevel = 'excellent' | 'good' | 'pass' | 'fail';
 type ExerciseFrequency = 'daily' | 'often' | 'sometimes' | 'rarely';
 type OverallStatus = 'excellent' | 'good' | 'attention' | 'warning';
 
+// 健康画像详细分析
+type PortraitDimensionAnalysis = {
+  status?: string;
+  level?: string;
+  pattern?: string;
+  analysis: string;
+  suggestion: string;
+};
+
+type PortraitDetailedAnalysis = {
+  bmi?: PortraitDimensionAnalysis;
+  fitness?: PortraitDimensionAnalysis;
+  sleep?: PortraitDimensionAnalysis;
+  diet?: PortraitDimensionAnalysis;
+  exercise?: PortraitDimensionAnalysis;
+};
+
 type StudentHealthPortrait = {
   id: string;
   studentId: string;
@@ -175,8 +192,10 @@ type StudentHealthPortrait = {
   overallHealthScore?: number;
   overallStatus?: OverallStatus;
   aiSummary?: string;
+  detailedAnalysis?: PortraitDetailedAnalysis;
   riskFactors?: string[];
   strengths?: string[];
+  improvementSuggestions?: string[];
   lastAssessmentDate?: string;
   lastObservationDate?: string;
   dataSources?: string[];
@@ -191,11 +210,12 @@ type PeriodType = 'weekly' | 'monthly' | 'quarterly';
 type ExerciseIntensity = 'low' | 'medium' | 'high';
 
 type NutritionAdvice = {
-  carbs?: { target: number; unit: string; description: string };
-  protein?: { target: number; unit: string; description: string };
-  fat?: { target: number; unit: string; description: string };
+  carbs?: { target: number; unit: string; description: string; reason?: string };
+  protein?: { target: number; unit: string; description: string; reason?: string };
+  fat?: { target: number; unit: string; description: string; reason?: string };
   vitamins?: string[];
   minerals?: string[];
+  hydrationAdvice?: string;
 };
 
 type MealSuggestion = {
@@ -203,6 +223,14 @@ type MealSuggestion = {
   lunch?: string;
   dinner?: string;
   snacks?: string;
+  cookingTips?: string;
+};
+
+type ExercisePlan = {
+  warmUp: string;
+  mainExercise: string;
+  coolDown: string;
+  weeklySchedule: string;
 };
 
 type HealthPrescription = {
@@ -218,6 +246,7 @@ type HealthPrescription = {
   dailyCaloriesTarget?: number;
   nutritionAdvice?: NutritionAdvice;
   dietTaboos?: string[];
+  dietTabooReasons?: string[];
   mealSuggestions?: MealSuggestion;
 
   // 运动处方
@@ -225,11 +254,14 @@ type HealthPrescription = {
   exerciseFrequency?: number;
   exerciseDurationMin?: number;
   exerciseIntensity?: ExerciseIntensity;
+  exercisePlan?: ExercisePlan;
   exerciseNotes?: string;
 
   // AI 信息
   aiModel?: string;
   aiPromptVersion?: string;
+  aiSummary?: string;
+  expectedOutcomes?: string;
 
   // 状态
   status: 'active' | 'completed' | 'superseded';
@@ -308,12 +340,16 @@ type CreateHealthPrescriptionDTO = {
   dailyCaloriesTarget?: number;
   nutritionAdvice?: NutritionAdvice;
   dietTaboos?: string[];
+  dietTabooReasons?: string[];
   mealSuggestions?: MealSuggestion;
   exerciseType?: string;
   exerciseFrequency?: number;
   exerciseDurationMin?: number;
   exerciseIntensity?: ExerciseIntensity;
+  exercisePlan?: ExercisePlan;
   exerciseNotes?: string;
+  aiSummary?: string;
+  expectedOutcomes?: string;
 };
 
 export type {
@@ -327,6 +363,8 @@ export type {
   DietQuality,
   EnergyLevel,
   StudentHealthPortrait,
+  PortraitDimensionAnalysis,
+  PortraitDetailedAnalysis,
   BmiStatus,
   TrendType,
   FitnessLevel,
@@ -335,6 +373,7 @@ export type {
   PrescriptionType,
   PeriodType,
   ExerciseIntensity,
+  ExercisePlan,
   NutritionAdvice,
   MealSuggestion,
   HealthCycleReport,

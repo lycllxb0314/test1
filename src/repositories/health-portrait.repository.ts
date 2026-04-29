@@ -20,8 +20,10 @@ type HealthPortraitRow = {
   overall_health_score: number | null;
   overall_status: string | null;
   ai_summary: string | null;
+  detailed_analysis: Record<string, unknown> | null;
   risk_factors: string[] | null;
   strengths: string[] | null;
+  improvement_suggestions: string[] | null;
   last_assessment_date: string | null;
   last_observation_date: string | null;
   data_sources: string[] | null;
@@ -118,8 +120,10 @@ export class HealthPortraitRepository extends BaseRepository<HealthPortraitRow> 
       overallHealthScore: row.overall_health_score ?? undefined,
       overallStatus: (row.overall_status as StudentHealthPortrait['overallStatus']) ?? undefined,
       aiSummary: row.ai_summary ?? undefined,
+      detailedAnalysis: row.detailed_analysis as StudentHealthPortrait['detailedAnalysis'] ?? undefined,
       riskFactors: row.risk_factors ?? undefined,
       strengths: row.strengths ?? undefined,
+      improvementSuggestions: row.improvement_suggestions ?? undefined,
       lastAssessmentDate: row.last_assessment_date ?? undefined,
       lastObservationDate: row.last_observation_date ?? undefined,
       dataSources: row.data_sources ?? undefined,
@@ -143,8 +147,10 @@ export class HealthPortraitRepository extends BaseRepository<HealthPortraitRow> 
     if (portrait.overallHealthScore !== undefined) row.overall_health_score = portrait.overallHealthScore;
     if (portrait.overallStatus !== undefined) row.overall_status = portrait.overallStatus;
     if (portrait.aiSummary !== undefined) row.ai_summary = portrait.aiSummary;
+    if (portrait.detailedAnalysis !== undefined) row.detailed_analysis = portrait.detailedAnalysis;
     if (portrait.riskFactors !== undefined) row.risk_factors = portrait.riskFactors;
     if (portrait.strengths !== undefined) row.strengths = portrait.strengths;
+    if (portrait.improvementSuggestions !== undefined) row.improvement_suggestions = portrait.improvementSuggestions;
     if (portrait.lastAssessmentDate !== undefined) row.last_assessment_date = portrait.lastAssessmentDate;
     if (portrait.lastObservationDate !== undefined) row.last_observation_date = portrait.lastObservationDate;
     if (portrait.dataSources !== undefined) row.data_sources = portrait.dataSources;

@@ -230,6 +230,11 @@ export class HealthManagementService extends BaseService {
     // 2. 获取家长观察统计（近30天）
     const obsStats = await parentObservationRepository.getStudentObservationStats(studentId, 30);
 
+    // 前置检查：必须有体质测评或观察数据，否则无法生成有效画像
+    if (!latestAssessment && obsStats.total === 0) {
+      return this.fail('该学生无体质测评和家长观察数据，无法生成画像', 'NO_DATA');
+    }
+
     // 3. 规则引擎计算基础评分
     const portrait: Partial<StudentHealthPortrait> = {};
     const dataSources: string[] = [];
@@ -298,7 +303,11 @@ export class HealthManagementService extends BaseService {
     portrait.dataSources = dataSources;
 
     // 4. 调用 LLM 生成 AI 摘要、风险标签、优势标签
-    try {
+    //    仅在有足够数据时调用 LLM（至少有BMI或体质等级）
+    const hasRichData = !!(latestAssessment?.bmi || latestAssessment?.grade_level || obsStats.total > 0);
+    
+    if (hasRichData) {
+      try {
       const aiResult = await generatePortraitAI({
         studentId,
         bmi: latestAssessment?.bmi ?? undefined,
@@ -328,8 +337,10 @@ export class HealthManagementService extends BaseService {
       });
 
       portrait.aiSummary = aiResult.aiSummary;
+      portrait.detailedAnalysis = aiResult.detailedAnalysis;
       portrait.riskFactors = aiResult.riskFactors.length > 0 ? aiResult.riskFactors : undefined;
       portrait.strengths = aiResult.strengths.length > 0 ? aiResult.strengths : undefined;
+      portrait.improvementSuggestions = aiResult.improvementSuggestions?.length > 0 ? aiResult.improvementSuggestions : undefined;
       if (aiResult.exerciseHabitScore) portrait.exerciseHabitScore = aiResult.exerciseHabitScore;
     } catch (err) {
       console.error('[HealthManagementService] LLM portrait generation failed, using fallback:', err);
@@ -343,6 +354,17 @@ export class HealthManagementService extends BaseService {
       if (portrait.fitnessLevel === 'fail') riskFactors.push('体质不及格');
       if (obsStats.total > 0 && obsStats.sleepInsufficient / obsStats.total >= 0.3) riskFactors.push('睡眠不足');
       if (obsStats.total > 0 && obsStats.sleepSufficient / obsStats.total >= 0.7) strengths.push('睡眠充足');
+      portrait.riskFactors = riskFactors.length > 0 ? riskFactors : undefined;
+      portrait.strengths = strengths.length > 0 ? strengths : undefined;
+      portrait.aiSummary = generateFallbackSummary(portrait, riskFactors, strengths);
+    }
+    } else {
+      // 数据不足，使用兜底逻辑
+      const riskFactors: string[] = [];
+      const strengths: string[] = [];
+      if (portrait.bmiStatus === 'normal') strengths.push('BMI正常');
+      else if (portrait.bmiStatus) riskFactors.push(`BMI${portrait.bmiStatus === 'underweight' ? '偏瘦' : portrait.bmiStatus === 'overweight' ? '偏胖' : '肥胖'}`);
+      if (portrait.fitnessLevel === 'fail') riskFactors.push('体质不及格');
       portrait.riskFactors = riskFactors.length > 0 ? riskFactors : undefined;
       portrait.strengths = strengths.length > 0 ? strengths : undefined;
       portrait.aiSummary = generateFallbackSummary(portrait, riskFactors, strengths);
@@ -401,6 +423,11 @@ export class HealthManagementService extends BaseService {
     const portrait = await healthPortraitRepository.findByStudentId(studentId);
     if (!portrait) return this.fail('无画像数据，无法生成处方', 'NO_PORTRAIT');
 
+    // 检查画像数据是否足够（至少有综合健康分或BMI状态）
+    if (portrait.overallHealthScore === undefined && !portrait.bmiStatus) {
+      return this.fail('画像数据不足，无法生成有效处方', 'INSUFFICIENT_DATA');
+    }
+
     // 检查是否已有生效处方（避免重复生成）
     const existingActive = await healthPrescriptionRepository.findActiveByStudentId(studentId);
     if (existingActive) {
@@ -430,6 +457,7 @@ export class HealthManagementService extends BaseService {
         bmi: latest?.bmi ?? undefined,
         bmiStatus: portrait.bmiStatus,
         fitnessLevel: portrait.fitnessLevel,
+        fitnessScore: portrait.fitnessLevel === 'excellent' ? 95 : portrait.fitnessLevel === 'good' ? 80 : portrait.fitnessLevel === 'pass' ? 60 : 40,
         overallHealthScore: portrait.overallHealthScore,
         riskFactors: portrait.riskFactors,
         strengths: portrait.strengths,
@@ -438,6 +466,7 @@ export class HealthManagementService extends BaseService {
         dentalCaries: latest?.dental_caries ?? undefined,
         visionLeft: latest?.vision_left ?? undefined,
         visionRight: latest?.vision_right ?? undefined,
+        detailedAnalysis: portrait.detailedAnalysis,
       });
 
       const dto: CreateHealthPrescriptionDTO = {
@@ -449,12 +478,16 @@ export class HealthManagementService extends BaseService {
         dailyCaloriesTarget: aiResult.dailyCaloriesTarget,
         nutritionAdvice: aiResult.nutritionAdvice,
         dietTaboos: aiResult.dietTaboos,
+        dietTabooReasons: aiResult.dietTabooReasons,
         mealSuggestions: aiResult.mealSuggestions,
         exerciseType: aiResult.exerciseType,
         exerciseFrequency: aiResult.exerciseFrequency,
         exerciseDurationMin: aiResult.exerciseDurationMin,
         exerciseIntensity: aiResult.exerciseIntensity,
+        exercisePlan: aiResult.exercisePlan,
         exerciseNotes: aiResult.exerciseNotes,
+        aiSummary: aiResult.aiSummary,
+        expectedOutcomes: aiResult.expectedOutcomes,
       };
 
       const result = await this.createPrescription(dto);
@@ -493,30 +526,45 @@ export class HealthManagementService extends BaseService {
   }
 
   /** 批量刷新处方（对所有有画像的学生重新生成处方） */
-  /** 批量刷新画像+处方（从学生表取学生列表，并发控制） */
+  /** 批量刷新画像+处方（只处理有数据的学生，并发控制） */
   async batchRegeneratePrescriptions(filterStudentIds?: string[] | null) {
-    // 获取学生ID列表：优先用传入的筛选列表，否则从画像表取
     let studentIds: string[] = [];
 
     if (filterStudentIds && filterStudentIds.length > 0) {
-      studentIds = filterStudentIds;
-    } else {
-      // 没有筛选条件时，从画像表取已有画像的学生
-      const allPortraits = await healthPortraitRepository.findAllWithStudentInfo(1, 1000, null);
-      studentIds = allPortraits.portraits.map(p => p.studentId);
-    }
-
-    // 如果画像表也为空，则从学生表取（首次生成场景）
-    if (studentIds.length === 0) {
+      // 外部传入的筛选列表，还需过滤出有数据的
       const { getSupabaseClient } = await import('@/storage/database/supabase-client');
       const client = getSupabaseClient();
-      const { data, error } = await client
-        .from('students')
-        .select('id')
-        .limit(500);
-      if (!error && data) {
-        studentIds = data.map((s: Record<string, unknown>) => s.id as string);
-      }
+      // 有体质测评或观察数据的学生
+      const { data: fitStudents } = await client
+        .from('fitness_assessments')
+        .select('student_id')
+        .in('student_id', filterStudentIds);
+      const { data: obsStudents } = await client
+        .from('parent_daily_observations')
+        .select('student_id')
+        .in('student_id', filterStudentIds);
+      const idSet = new Set<string>();
+      for (const s of (fitStudents || [])) idSet.add(s.student_id as string);
+      for (const s of (obsStudents || [])) idSet.add(s.student_id as string);
+      studentIds = [...idSet];
+    } else {
+      // 没有筛选条件时，取所有有数据的学生
+      const { getSupabaseClient } = await import('@/storage/database/supabase-client');
+      const client = getSupabaseClient();
+      const { data: fitStudents } = await client
+        .from('fitness_assessments')
+        .select('student_id');
+      const { data: obsStudents } = await client
+        .from('parent_daily_observations')
+        .select('student_id');
+      const idSet = new Set<string>();
+      for (const s of (fitStudents || [])) idSet.add(s.student_id as string);
+      for (const s of (obsStudents || [])) idSet.add(s.student_id as string);
+      studentIds = [...idSet];
+    }
+
+    if (studentIds.length === 0) {
+      return this.ok({ total: 0, success: 0, fail: 0 });
     }
 
     let successCount = 0;
@@ -560,12 +608,16 @@ export class HealthManagementService extends BaseService {
       daily_calories_target: dto.dailyCaloriesTarget ?? null,
       nutrition_advice: dto.nutritionAdvice ?? null,
       diet_taboos: dto.dietTaboos ?? null,
+      diet_taboo_reasons: dto.dietTabooReasons ?? null,
       meal_suggestions: dto.mealSuggestions ?? null,
       exercise_type: dto.exerciseType ?? null,
       exercise_frequency: dto.exerciseFrequency ?? null,
       exercise_duration_min: dto.exerciseDurationMin ?? null,
       exercise_intensity: dto.exerciseIntensity ?? null,
+      exercise_plan: dto.exercisePlan ?? null,
       exercise_notes: dto.exerciseNotes ?? null,
+      ai_summary: dto.aiSummary ?? null,
+      expected_outcomes: dto.expectedOutcomes ?? null,
       status: 'active',
     };
 
