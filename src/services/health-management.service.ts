@@ -485,6 +485,9 @@ export class HealthManagementService extends BaseService {
     return this.ok(result);
   }
 
+  /** 处方生成锁，防止并发重复生成 */
+  private prescriptionLocks = new Set<string>();
+
   // ==================== 健康处方 ====================
 
   async getPrescriptionsByStudentId(studentId: string, status?: string) {
@@ -518,6 +521,13 @@ export class HealthManagementService extends BaseService {
 
   /** 根据画像用 LLM 自动生成健康处方 */
   async generatePrescriptionFromPortrait(studentId: string) {
+    // 防止并发重复生成
+    if (this.prescriptionLocks.has(studentId)) {
+      return this.ok(null);
+    }
+    this.prescriptionLocks.add(studentId);
+
+    try {
     // 获取画像
     const portrait = await healthPortraitRepository.findByStudentId(studentId);
     if (!portrait) return this.fail('无画像数据，无法生成处方', 'NO_PORTRAIT');
@@ -648,9 +658,10 @@ export class HealthManagementService extends BaseService {
       this.invalidatePrescriptionCache();
       return result;
     }
+    } finally {
+      this.prescriptionLocks.delete(studentId);
+    }
   }
-
-  /** 批量刷新处方（对所有有画像的学生重新生成处方） */
   /** 批量刷新画像+处方（只处理有数据的学生，并发控制） */
   async batchRegeneratePrescriptions(filterStudentIds?: string[] | null) {
     let studentIds: string[] = [];
