@@ -24,7 +24,7 @@ import { FileUploadField } from '@/components/cloud-course/FileUploadField';
 import {
   BookOpen, Plus, Send, Users, GraduationCap, Star,
   Play, Radio, Clock, Trash2, Eye, ExternalLink,
-  Search, TrendingUp, Edit3,
+  Search, TrendingUp, Edit3, Cloud, Layers,
 } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/services/api-client';
@@ -32,12 +32,12 @@ import type { CourseDomain, CloudCourse, CloudCourseChapter } from '@/types/clou
 
 /* ─── 常量配置 ─── */
 
-type DomainConfig = { domain: CourseDomain; label: string; color: string; icon: React.ReactNode };
+type DomainConfig = { domain: CourseDomain; label: string; color: string; bg: string; icon: React.ReactNode; gradient: string };
 
 export const DOMAIN_CONFIGS: Record<string, DomainConfig> = {
-  research: { domain: 'research', label: '教师研修', color: 'bg-blue-100 text-blue-700', icon: <GraduationCap className="h-5 w-5" /> },
-  parent:   { domain: 'parent',   label: '家长课程', color: 'bg-emerald-100 text-emerald-700', icon: <Users className="h-5 w-5" /> },
-  student:  { domain: 'student',  label: '学生课程', color: 'bg-amber-100 text-amber-700', icon: <BookOpen className="h-5 w-5" /> },
+  research: { domain: 'research', label: '教师研修', color: 'text-blue-600', bg: 'bg-blue-50', icon: <GraduationCap className="h-5 w-5" />, gradient: 'from-blue-500 to-cyan-500' },
+  parent:   { domain: 'parent',   label: '家长课程', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: <Users className="h-5 w-5" />, gradient: 'from-emerald-500 to-teal-500' },
+  student:  { domain: 'student',  label: '学生课程', color: 'text-amber-600', bg: 'bg-amber-50', icon: <BookOpen className="h-5 w-5" />, gradient: 'from-amber-500 to-orange-500' },
 };
 
 type ModeConfig = {
@@ -70,21 +70,23 @@ const CourseCard = memo(function CourseCard({ course, domainConfig, onPublish, o
     : `/cloud-course/learn/${course.id}`;
 
   return (
-    <Card className="group overflow-hidden border-border/60 hover:border-border transition-colors">
+    <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm">
       {/* 封面 */}
       <div className="relative aspect-video bg-muted">
         {course.coverImage ? (
           <img src={course.coverImage} alt={course.title} className="w-full h-full object-cover" />
         ) : (
-          <div className={`w-full h-full flex items-center justify-center ${domainConfig.color}`}>
-            {domainConfig.icon}
+          <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${domainConfig.gradient} opacity-10`}>
+            <div className={`p-4 rounded-2xl ${domainConfig.bg}`}>
+              {domainConfig.icon}
+            </div>
           </div>
         )}
         <div className="absolute top-2 left-2 flex gap-1">
-          <Badge variant="secondary" className="text-[10px] h-5 bg-background/90 backdrop-blur-sm">
+          <Badge variant="secondary" className="text-[10px] h-5 bg-white/90 backdrop-blur-sm shadow-sm">
             {course.format === 'live' ? <><Radio className="h-2.5 w-2.5 mr-0.5" />直播</> : <><Play className="h-2.5 w-2.5 mr-0.5" />录播</>}
           </Badge>
-          <Badge variant="outline" className={`text-[10px] h-5 ${course.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+          <Badge variant="outline" className={`text-[10px] h-5 backdrop-blur-sm ${course.status === 'published' ? 'bg-emerald-50/90 text-emerald-700 border-emerald-200' : 'bg-amber-50/90 text-amber-700 border-amber-200'}`}>
             {course.status === 'published' ? '已发布' : '草稿'}
           </Badge>
         </div>
@@ -96,26 +98,26 @@ const CourseCard = memo(function CourseCard({ course, domainConfig, onPublish, o
       </div>
 
       {/* 信息 */}
-      <div className="p-3 space-y-2">
-        <h3 className="text-sm font-medium leading-tight line-clamp-2">{course.title}</h3>
+      <div className="p-4 space-y-2.5">
+        <h3 className="text-sm font-semibold leading-tight line-clamp-2 text-foreground">{course.title}</h3>
         {course.description && <p className="text-xs text-muted-foreground line-clamp-2">{course.description}</p>}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {course.totalChapters > 0 && <span>{course.totalChapters}章节</span>}
-          {course.enrolledCount > 0 && <span><Users className="h-2.5 w-2.5 inline" />{course.enrolledCount}人</span>}
-          {course.rating > 0 && <span><Star className="h-2.5 w-2.5 inline text-amber-500" />{course.rating.toFixed(1)}</span>}
+          {course.totalChapters > 0 && <span className="flex items-center gap-1"><Layers className="h-3 w-3" />{course.totalChapters}章节</span>}
+          {course.enrolledCount > 0 && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{course.enrolledCount}人</span>}
+          {course.rating > 0 && <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" />{course.rating.toFixed(1)}</span>}
         </div>
         {/* 操作 */}
         <div className="flex items-center gap-2 pt-3 border-t border-border/60">
           {course.status === 'draft' && (
-            <Button size="sm" variant="outline" onClick={() => onPublish(course.id)} className="flex-1">发布</Button>
+            <Button size="sm" variant="outline" onClick={() => onPublish(course.id)} className="flex-1 h-7 text-xs">发布</Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => onEdit(course)} className="flex-1">
+          <Button size="sm" variant="outline" onClick={() => onEdit(course)} className="flex-1 h-7 text-xs">
             <Edit3 className="h-3 w-3 mr-1" />编辑
           </Button>
           <Link href={learnPath} className="flex-1">
-            <Button size="sm" variant="outline" className="w-full"><Eye className="h-3 w-3 mr-1" />预览</Button>
+            <Button size="sm" variant="outline" className="w-full h-7 text-xs"><Eye className="h-3 w-3 mr-1" />预览</Button>
           </Link>
-          <Button size="sm" variant="ghost" onClick={() => onDelete(course.id)} className="text-destructive hover:text-destructive">
+          <Button size="sm" variant="ghost" onClick={() => onDelete(course.id)} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -166,12 +168,12 @@ const DomainCourseSection = memo(function DomainCourseSection({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-lg ${domainConfig.color} flex items-center justify-center`}>
-            {domainConfig.icon}
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${domainConfig.gradient} flex items-center justify-center shadow-sm`}>
+            <div className="text-white">{domainConfig.icon}</div>
           </div>
           <div>
-            <h2 className="text-base font-semibold">{domainConfig.label}</h2>
+            <h2 className="text-base font-semibold text-foreground">{domainConfig.label}</h2>
             <p className="text-xs text-muted-foreground">{filtered.length} 门课程</p>
           </div>
         </div>
@@ -181,9 +183,12 @@ const DomainCourseSection = memo(function DomainCourseSection({
         </div>
       </div>
       {filtered.length === 0 ? (
-        <div className="py-12 text-center text-muted-foreground">
-          <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
+        <div className="py-16 text-center text-muted-foreground bg-muted/30 rounded-xl border border-dashed">
+          <div className={`w-14 h-14 rounded-2xl ${domainConfig.bg} flex items-center justify-center mx-auto mb-3 opacity-50`}>
+            {domainConfig.icon}
+          </div>
           <p className="text-sm">暂无课程</p>
+          <p className="text-xs mt-1">点击右上角"新建课程"创建</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -269,13 +274,6 @@ const PushTab = memo(function PushTab({ mode, domains, classId, className, onPus
   }, []);
 
   // 可推送课程
-  const pushableCourses = useMemo(() => {
-    const domainSet = new Set(domains.map(d => d.domain));
-    const allCourses: CloudCourse[] = [];
-    // 不在组件顶层调 hooks，用 API 拉已发布课程
-    return allCourses; // 占位，下面用 useEffect 拉取
-  }, [domains]);
-
   const [publishedCourses, setPublishedCourses] = useState<CloudCourse[]>([]);
   const coursesLoadedRef = useRef(false);
 
@@ -369,157 +367,182 @@ const PushTab = memo(function PushTab({ mode, domains, classId, className, onPus
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* 推送表单 */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">
-          推送课程{mode === 'class' ? '给本班家长' : '给目标群体'}
-        </h2>
-        <div className="space-y-4">
-          {/* 课程选择 */}
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">选择课程</label>
-            {publishedCourses.length > 0 ? (
-              <select className="w-full border rounded-lg p-2.5 text-sm" value={pushData.courseId} onChange={e => setPushData(p => ({ ...p, courseId: e.target.value }))}>
-                <option value="">-- 请选择课程 --</option>
-                {publishedCourses.map(c => (
-                  <option key={c.id} value={c.id}>[{DOMAIN_CONFIGS[c.domain]?.label}] {c.title}</option>
-                ))}
-              </select>
-            ) : (
-              <div className="text-sm text-muted-foreground py-6 text-center border border-dashed rounded-lg">
-                暂无已发布课程可推送，请先创建并发布课程
-              </div>
-            )}
+      <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
+        <div className="p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-sm">
+              <Send className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">推送课程</h2>
+              <p className="text-xs text-muted-foreground">{mode === 'class' ? '推送给本班家长' : '推送给目标群体'}</p>
+            </div>
           </div>
 
-          {/* 选中课程预览 */}
-          {selectedPushCourse && (
-            <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg">
-              <div className={`w-10 h-10 rounded-lg ${DOMAIN_CONFIGS[selectedPushCourse.domain]?.color || 'bg-muted'} flex items-center justify-center shrink-0`}>
-                {DOMAIN_CONFIGS[selectedPushCourse.domain]?.icon || <BookOpen className="h-5 w-5" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-medium truncate">{selectedPushCourse.title}</h4>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                  <Badge variant="outline" className="text-xs h-5">{selectedPushCourse.format === 'live' ? '直播' : '录播'}</Badge>
-                  <span><Users className="h-3 w-3 inline mr-0.5" />{selectedPushCourse.enrolledCount}人已选</span>
-                </div>
-              </div>
-              <Link href={selectedPushCourse.format === 'live' ? `/cloud-course/live/${selectedPushCourse.id}` : `/cloud-course/learn/${selectedPushCourse.id}`} target="_blank">
-                <Button size="sm" variant="ghost"><ExternalLink className="h-3.5 w-3.5" /></Button>
-              </Link>
-            </div>
-          )}
-
-          {/* 推送目标（部门模式） */}
-          {mode === 'department' && (
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">推送方式</label>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setPushData(p => ({ ...p, targetType: 'grade' }))} className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${pushData.targetType === 'grade' ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-muted-foreground/40'}`}>按年级</button>
-                  <button type="button" onClick={() => setPushData(p => ({ ...p, targetType: 'class' }))} className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${pushData.targetType === 'class' ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-muted-foreground/40'}`}>按班级</button>
-                </div>
-              </div>
-
-              {gradesLoading ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">加载年级班级数据...</div>
-              ) : gradesData.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">暂无班级数据</div>
-              ) : pushData.targetType === 'grade' ? (
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">选择年级（勾选后自动包含该年级所有班级）</label>
-                  <div className="space-y-1.5">
-                    {gradesData.map(g => {
-                      const isSelected = pushData.selectedGrades.includes(g.grade);
-                      const studentCount = g.classes.reduce((s, c) => s + c.studentCount, 0);
-                      return (
-                        <button key={g.grade} type="button" onClick={() => toggleGrade(g.grade)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'}`}>
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
-                            {isSelected && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                          </div>
-                          <div className="flex-1"><span className="text-sm font-medium">{g.gradeName}</span><span className="text-xs text-muted-foreground ml-2">{g.classes.length}个班</span></div>
-                          <span className="text-xs text-muted-foreground">{studentCount}名学生</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+          <div className="space-y-4">
+            {/* 课程选择 */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">选择课程</label>
+              {publishedCourses.length > 0 ? (
+                <select className="w-full border rounded-lg p-2.5 text-sm bg-background focus:ring-1 focus:ring-primary focus:border-primary" value={pushData.courseId} onChange={e => setPushData(p => ({ ...p, courseId: e.target.value }))}>
+                  <option value="">-- 请选择课程 --</option>
+                  {publishedCourses.map(c => (
+                    <option key={c.id} value={c.id}>[{DOMAIN_CONFIGS[c.domain]?.label}] {c.title}</option>
+                  ))}
+                </select>
               ) : (
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">选择班级</label>
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                    {gradesData.map(g => (
-                      <div key={g.grade}>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <button type="button" onClick={() => toggleGrade(g.grade)} className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">{g.gradeName}</button>
-                          <span className="text-xs text-muted-foreground/50">全选</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {g.classes.map(cls => {
-                            const isSelected = pushData.selectedClassIds.includes(cls.id);
-                            return (
-                              <button key={cls.id} type="button" onClick={() => toggleClass(cls.id)} className={`flex items-center gap-2 px-2.5 py-2 rounded-md border text-left text-sm transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'}`}>
-                                <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
-                                  {isSelected && <svg className="w-2.5 h-2.5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                                </div>
-                                <span className="text-sm truncate flex-1">{cls.name}</span>
-                                <span className="text-[10px] text-muted-foreground shrink-0">{cls.studentCount}人</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                <div className="text-sm text-muted-foreground py-8 text-center border border-dashed rounded-lg bg-muted/30">
+                  暂无已发布课程可推送，请先创建并发布课程
+                </div>
+              )}
+            </div>
+
+            {/* 选中课程预览 */}
+            {selectedPushCourse && (
+              <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/40">
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${DOMAIN_CONFIGS[selectedPushCourse.domain]?.gradient || 'from-gray-400 to-gray-500'} flex items-center justify-center shrink-0 shadow-sm`}>
+                  <div className="text-white">{DOMAIN_CONFIGS[selectedPushCourse.domain]?.icon || <BookOpen className="h-5 w-5" />}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-medium truncate">{selectedPushCourse.title}</h4>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <Badge variant="outline" className="text-[10px] h-4">{selectedPushCourse.format === 'live' ? '直播' : '录播'}</Badge>
+                    <span><Users className="h-3 w-3 inline mr-0.5" />{selectedPushCourse.enrolledCount}人已选</span>
                   </div>
                 </div>
-              )}
+                <Link href={selectedPushCourse.format === 'live' ? `/cloud-course/live/${selectedPushCourse.id}` : `/cloud-course/learn/${selectedPushCourse.id}`} target="_blank">
+                  <Button size="sm" variant="ghost"><ExternalLink className="h-3.5 w-3.5" /></Button>
+                </Link>
+              </div>
+            )}
 
-              {pushTargetStats.classCount > 0 && (
-                <div className="bg-muted/40 rounded-lg p-3 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>已选 <span className="font-medium text-foreground">{pushData.targetType === 'grade' ? `${pushTargetStats.gradeCount}个年级` : `${pushTargetStats.classCount}个班级`}</span></span>
-                  <span>覆盖 <span className="font-medium text-foreground">{pushTargetStats.classCount}</span> 个班</span>
-                  <span><span className="font-medium text-foreground">{pushTargetStats.studentCount}</span> 名学生</span>
-                  <span><span className="font-medium text-foreground">{pushTargetStats.parentCount}</span> 位家长</span>
+            {/* 推送目标（部门模式） */}
+            {mode === 'department' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">推送方式</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setPushData(p => ({ ...p, targetType: 'grade' }))} className={`flex-1 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${pushData.targetType === 'grade' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-muted-foreground/40'}`}>按年级</button>
+                    <button type="button" onClick={() => setPushData(p => ({ ...p, targetType: 'class' }))} className={`flex-1 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${pushData.targetType === 'class' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-muted-foreground/40'}`}>按班级</button>
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* 班主任模式：显示目标 */}
-          {mode === 'class' && className && (
-            <div className="text-sm bg-muted/40 rounded-lg p-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span>推送给 <span className="font-medium">{className}</span> 全体学生家长</span>
-            </div>
-          )}
+                {gradesLoading ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    加载年级班级数据...
+                  </div>
+                ) : gradesData.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">暂无班级数据</div>
+                ) : pushData.targetType === 'grade' ? (
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">选择年级（勾选后自动包含该年级所有班级）</label>
+                    <div className="space-y-1.5">
+                      {gradesData.map(g => {
+                        const isSelected = pushData.selectedGrades.includes(g.grade);
+                        const studentCount = g.classes.reduce((s, c) => s + c.studentCount, 0);
+                        return (
+                          <button key={g.grade} type="button" onClick={() => toggleGrade(g.grade)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all ${isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'}`}>
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                              {isSelected && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                            </div>
+                            <div className="flex-1"><span className="text-sm font-medium">{g.gradeName}</span><span className="text-xs text-muted-foreground ml-2">{g.classes.length}个班</span></div>
+                            <span className="text-xs text-muted-foreground">{studentCount}名学生</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">选择班级</label>
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                      {gradesData.map(g => (
+                        <div key={g.grade}>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <button type="button" onClick={() => toggleGrade(g.grade)} className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">{g.gradeName}</button>
+                            <span className="text-xs text-muted-foreground/50">全选</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {g.classes.map(cls => {
+                              const isSelected = pushData.selectedClassIds.includes(cls.id);
+                              return (
+                                <button key={cls.id} type="button" onClick={() => toggleClass(cls.id)} className={`flex items-center gap-2 px-2.5 py-2 rounded-md border text-left text-sm transition-all ${isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'}`}>
+                                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                                    {isSelected && <svg className="w-2.5 h-2.5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                  </div>
+                                  <span className="text-sm truncate flex-1">{cls.name}</span>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">{cls.studentCount}人</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-          <Textarea placeholder="推送说明（可选，如：请在本周内完成学习）" value={pushData.message} onChange={e => setPushData(p => ({ ...p, message: e.target.value }))} rows={3} />
-          <Button className="w-full" onClick={handlePush} disabled={!pushData.courseId || (mode === 'department' && pushData.selectedGrades.length === 0 && pushData.selectedClassIds.length === 0)}>
-            <Send className="h-4 w-4 mr-1.5" />{mode === 'class' ? '推送给我班' : '推送'}
-          </Button>
+                {pushTargetStats.classCount > 0 && (
+                  <div className="bg-primary/5 rounded-lg p-3 flex items-center gap-4 text-xs text-muted-foreground border border-primary/10">
+                    <span>已选 <span className="font-semibold text-foreground">{pushData.targetType === 'grade' ? `${pushTargetStats.gradeCount}个年级` : `${pushTargetStats.classCount}个班级`}</span></span>
+                    <span>覆盖 <span className="font-semibold text-foreground">{pushTargetStats.classCount}</span> 个班</span>
+                    <span><span className="font-semibold text-foreground">{pushTargetStats.studentCount}</span> 名学生</span>
+                    <span><span className="font-semibold text-foreground">{pushTargetStats.parentCount}</span> 位家长</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 班主任模式：显示目标 */}
+            {mode === 'class' && className && (
+              <div className="text-sm bg-emerald-50/80 rounded-lg p-3 flex items-center gap-2 border border-emerald-200/50">
+                <Users className="h-4 w-4 text-emerald-600" />
+                <span>推送给 <span className="font-semibold text-emerald-700">{className}</span> 全体学生家长</span>
+              </div>
+            )}
+
+            <Textarea placeholder="推送说明（可选，如：请在本周内完成学习）" value={pushData.message} onChange={e => setPushData(p => ({ ...p, message: e.target.value }))} rows={3} className="resize-none" />
+            <Button className="w-full" onClick={handlePush} disabled={!pushData.courseId || (mode === 'department' && pushData.selectedGrades.length === 0 && pushData.selectedClassIds.length === 0)}>
+              <Send className="h-4 w-4 mr-1.5" />{mode === 'class' ? '推送给我班' : '推送课程'}
+            </Button>
+          </div>
         </div>
       </Card>
 
       {/* 推送概览 */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">推送概览</h2>
-        <div className="space-y-4">
-          {domains.map(dc => {
-            const domainCourses = publishedCourses.filter(c => c.domain === dc.domain);
-            return (
-              <div key={dc.domain} className="flex items-center gap-3 p-3 rounded-lg border border-border/40">
-                <div className={`w-9 h-9 rounded-lg ${dc.color} flex items-center justify-center shrink-0`}>{dc.icon}</div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-medium">{dc.label}</h4>
-                  <p className="text-xs text-muted-foreground">{domainCourses.length} 门已发布</p>
+      <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
+        <div className="p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-sm">
+              <TrendingUp className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">推送概览</h2>
+              <p className="text-xs text-muted-foreground">各域课程推送与选课情况</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {domains.map(dc => {
+              const domainCourses = publishedCourses.filter(c => c.domain === dc.domain);
+              return (
+                <div key={dc.domain} className="flex items-center gap-3 p-3.5 rounded-xl border border-border/40 hover:border-border/80 transition-colors">
+                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${dc.gradient} flex items-center justify-center shrink-0 shadow-sm`}>
+                    <div className="text-white">{dc.icon}</div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium">{dc.label}</h4>
+                    <p className="text-xs text-muted-foreground">{domainCourses.length} 门已发布</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold">{domainCourses.reduce((s, c) => s + c.enrolledCount, 0)}</div>
+                    <div className="text-xs text-muted-foreground">总选课</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold">{domainCourses.reduce((s, c) => s + c.enrolledCount, 0)}</div>
-                  <div className="text-xs text-muted-foreground">总选课</div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </Card>
     </div>
@@ -543,18 +566,35 @@ const ProgressTab = memo(function ProgressTab({ classId }: ProgressTabProps) {
     return { total, completed, learning, pending };
   }, [enrollments]);
 
+  const statCards = [
+    { label: '总推送', value: stats.total, gradient: 'from-slate-500 to-slate-600', icon: <Send className="h-4 w-4 text-white" /> },
+    { label: '已完成', value: stats.completed, gradient: 'from-emerald-500 to-teal-500', icon: <Star className="h-4 w-4 text-white" /> },
+    { label: '学习中', value: stats.learning, gradient: 'from-blue-500 to-cyan-500', icon: <Play className="h-4 w-4 text-white" /> },
+    { label: '待安排', value: stats.pending, gradient: 'from-amber-500 to-orange-500', icon: <Clock className="h-4 w-4 text-white" /> },
+  ];
+
   return (
     <div>
       {/* 统计卡片 */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <Card className="border-border/40"><CardContent className="p-4 text-center"><div className="text-2xl font-bold">{stats.total}</div><div className="text-xs text-muted-foreground">总推送</div></CardContent></Card>
-        <Card className="border-emerald-200/40"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-emerald-600">{stats.completed}</div><div className="text-xs text-muted-foreground">已完成</div></CardContent></Card>
-        <Card className="border-primary/20"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-primary">{stats.learning}</div><div className="text-xs text-muted-foreground">学习中</div></CardContent></Card>
-        <Card className="border-amber-200/40"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-amber-600">{stats.pending}</div><div className="text-xs text-muted-foreground">待安排</div></CardContent></Card>
+        {statCards.map(s => (
+          <Card key={s.label} className="relative overflow-hidden border-0 shadow-sm">
+            <div className={`absolute inset-0 bg-gradient-to-br ${s.gradient} opacity-5`} />
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg bg-gradient-to-br ${s.gradient} shadow-sm`}>{s.icon}</div>
+                <div>
+                  <div className="text-2xl font-bold">{s.value}</div>
+                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <Card>
-        <div className="px-6 py-4 border-b border-border"><h2 className="font-medium">本班课程学习进度</h2></div>
+      <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
+        <div className="px-6 py-4 border-b border-border"><h2 className="font-semibold">本班课程学习进度</h2></div>
         {loading ? (
           <div className="p-12 text-center text-muted-foreground"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" /><p className="text-sm">加载中...</p></div>
         ) : enrollments.length === 0 ? (
@@ -570,10 +610,11 @@ const ProgressTab = memo(function ProgressTab({ classId }: ProgressTabProps) {
                 const isLive = enrollment.course?.format === 'live';
                 const learnPath = isLive ? `/cloud-course/live/${enrollment.courseId}` : `/cloud-course/learn/${enrollment.courseId}`;
                 const progressPct = Math.round(enrollment.progress * 100);
+                const domainConfig = enrollment.course?.domain ? DOMAIN_CONFIGS[enrollment.course.domain] : null;
                 return (
                   <div key={enrollment.id} className="px-6 py-4 flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-lg ${enrollment.course?.domain === 'parent' ? 'bg-emerald-100 text-emerald-700' : enrollment.course?.domain === 'student' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'} flex items-center justify-center shrink-0`}>
-                      {isLive ? <Radio className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${domainConfig?.gradient || 'from-gray-400 to-gray-500'} flex items-center justify-center shrink-0 shadow-sm`}>
+                      <div className="text-white">{isLive ? <Radio className="h-4 w-4" /> : <Play className="h-4 w-4" />}</div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -632,14 +673,14 @@ const CourseFormDialog = memo(function CourseFormDialog({
           <Textarea placeholder="课程描述" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} />
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">课程域</label>
-              <select className="w-full border rounded-md p-2 text-sm" value={form.domain} onChange={e => setForm(p => ({ ...p, domain: e.target.value as CourseDomain }))}>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">课程域</label>
+              <select className="w-full border rounded-md p-2 text-sm bg-background focus:ring-1 focus:ring-primary" value={form.domain} onChange={e => setForm(p => ({ ...p, domain: e.target.value as CourseDomain }))}>
                 {creatableDomains.map(dc => <option key={dc.domain} value={dc.domain}>{dc.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">课程形态</label>
-              <select className="w-full border rounded-md p-2 text-sm" value={form.format} onChange={e => setForm(p => ({ ...p, format: e.target.value as 'live' | 'recorded' }))}>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">课程形态</label>
+              <select className="w-full border rounded-md p-2 text-sm bg-background focus:ring-1 focus:ring-primary" value={form.format} onChange={e => setForm(p => ({ ...p, format: e.target.value as 'live' | 'recorded' }))}>
                 <option value="recorded">录播(慕课)</option>
                 <option value="live">直播</option>
               </select>
@@ -814,46 +855,123 @@ export function CloudCourseManagement({ mode, classId, className, defaultDomain 
     }
   }, [editingCourseId, editForm, editChapters, updateCourse, triggerRefresh]);
 
+  // 页面标题/副标题
+  const pageTitle = mode === 'class' ? '云教学管理' : '云教学管理';
+  const pageSubtitle = mode === 'class'
+    ? '推送课程给家长 · 跟踪学习进度'
+    : '教师研修 · 家长课堂 · 学生拓展';
+
   return (
-    <div className="space-y-6">
-      {/* 统计概览 */}
-      {stats && (
-        <div className="grid grid-cols-3 gap-4">
-          <Card className="border-border/40"><CardContent className="p-4 text-center"><div className="text-2xl font-bold">{stats.totalCourses}</div><div className="text-xs text-muted-foreground">总课程</div></CardContent></Card>
-          <Card className="border-primary/20"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-primary">{stats.totalEnrollments}</div><div className="text-xs text-muted-foreground">总选课</div></CardContent></Card>
-          <Card className="border-emerald-200/40"><CardContent className="p-4 text-center"><div className="text-2xl font-bold text-emerald-600">{stats.totalCompletions}</div><div className="text-xs text-muted-foreground">总完成</div></CardContent></Card>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      {/* 页面头部 */}
+      <div className="bg-white border-b border-slate-200/80">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-500/20">
+                <Cloud className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">{pageSubtitle}</p>
+              </div>
+            </div>
+            <Button onClick={() => setShowCreate(true)} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 shadow-md shadow-blue-500/20">
+              <Plus className="h-4 w-4 mr-1.5" />新建课程
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex items-center justify-between">
-          <TabsList>
-            {mode === 'department' && <TabsTrigger value="courses">课程管理</TabsTrigger>}
-            <TabsTrigger value="push">推送管理</TabsTrigger>
-            {mode === 'class' && <TabsTrigger value="progress">学习进度</TabsTrigger>}
-          </TabsList>
-          <Button size="sm" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1.5" />新建课程</Button>
-        </div>
-
-        {/* 课程管理 */}
-        {mode === 'department' && (
-          <TabsContent value="courses">
-            <CoursesTab key={refreshTick} domains={domains} includeDraft onMutation={triggerRefresh} onEdit={handleEditCourse} />
-          </TabsContent>
+      {/* 主内容区 */}
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {/* 统计概览 */}
+        {stats && (
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="relative overflow-hidden border-0 shadow-sm">
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-500 to-slate-600 opacity-5" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 shadow-sm">
+                    <BookOpen className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{stats.totalCourses}</div>
+                    <div className="text-xs text-muted-foreground">总课程</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="relative overflow-hidden border-0 shadow-sm">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 opacity-5" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 shadow-sm">
+                    <Users className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{stats.totalEnrollments}</div>
+                    <div className="text-xs text-muted-foreground">总选课</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="relative overflow-hidden border-0 shadow-sm">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-500 opacity-5" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 shadow-sm">
+                    <Star className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-emerald-600">{stats.totalCompletions}</div>
+                    <div className="text-xs text-muted-foreground">总完成</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
-        {/* 推送管理 */}
-        <TabsContent value="push">
-          <PushTab mode={mode} domains={domains} classId={classId} className={className} onPushed={triggerRefresh} />
-        </TabsContent>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="flex items-center justify-between border-b border-border pb-0">
+            <TabsList className="bg-transparent p-0 h-auto border-0">
+              {mode === 'department' && (
+                <TabsTrigger value="courses" className="relative px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors">
+                  课程管理
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="push" className="relative px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors">
+                推送管理
+              </TabsTrigger>
+              {mode === 'class' && (
+                <TabsTrigger value="progress" className="relative px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent rounded-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors">
+                  学习进度
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </div>
 
-        {/* 学习进度 */}
-        {mode === 'class' && (
-          <TabsContent value="progress">
-            <ProgressTab classId={classId!} />
+          {/* 课程管理 */}
+          {mode === 'department' && (
+            <TabsContent value="courses" className="mt-6">
+              <CoursesTab key={refreshTick} domains={domains} includeDraft onMutation={triggerRefresh} onEdit={handleEditCourse} />
+            </TabsContent>
+          )}
+
+          {/* 推送管理 */}
+          <TabsContent value="push" className="mt-6">
+            <PushTab mode={mode} domains={domains} classId={classId} className={className} onPushed={triggerRefresh} />
           </TabsContent>
-        )}
-      </Tabs>
+
+          {/* 学习进度 */}
+          {mode === 'class' && (
+            <TabsContent value="progress" className="mt-6">
+              <ProgressTab classId={classId!} />
+            </TabsContent>
+          )}
+        </Tabs>
+      </div>
 
       {/* 新建课程弹窗 */}
       <CourseFormDialog
