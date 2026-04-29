@@ -8,7 +8,7 @@
  * - class: 班主任级管理，推送 + 查看本班学习情况
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useCloudCourseStats,
@@ -472,23 +472,127 @@ export function CloudCourseManagement({
   // ===== 推送 =====
   const [pushData, setPushData] = useState({
     courseId: '',
-    targetType: 'class' as 'class' | 'grade' | 'individual',
-    targetIds: '',
+    targetType: 'grade' as 'class' | 'grade',
+    selectedGrades: [] as number[],
+    selectedClassIds: [] as string[],
     message: '',
   });
 
+  // 获取年级和班级数据
+  const [gradesData, setGradesData] = useState<Array<{
+    grade: number; gradeName: string;
+    classes: Array<{ id: string; name: string; studentCount: number; parentCount: number }>;
+  }>>([]);
+  const [gradesLoading, setGradesLoading] = useState(false);
+
+  // 加载年级班级数据
+  useEffect(() => {
+    const fetchClasses = async () => {
+      if (activeTab !== 'push') return;
+      setGradesLoading(true);
+      try {
+        const res = await apiClient.get<Array<{
+          id: string; name: string; grade: number; gradeName: string;
+          studentCount: number; parentCount: number;
+        }>>('/classes?pageSize=200');
+        if (res.success && res.data) {
+          // 按年级分组
+          const gradeMap = new Map<number, {
+            grade: number; gradeName: string;
+            classes: Array<{ id: string; name: string; studentCount: number; parentCount: number }>;
+          }>();
+          for (const cls of res.data) {
+            if (!gradeMap.has(cls.grade)) {
+              gradeMap.set(cls.grade, {
+                grade: cls.grade,
+                gradeName: cls.gradeName || `${cls.grade}年级`,
+                classes: [],
+              });
+            }
+            gradeMap.get(cls.grade)!.classes.push({
+              id: cls.id,
+              name: cls.name,
+              studentCount: cls.studentCount || 0,
+              parentCount: cls.parentCount || 0,
+            });
+          }
+          // 按年级排序
+          const sorted = Array.from(gradeMap.values()).sort((a, b) => a.grade - b.grade);
+          setGradesData(sorted);
+        }
+      } catch (err) {
+        console.error('[CloudCourseManagement] fetch classes error:', err);
+      } finally {
+        setGradesLoading(false);
+      }
+    };
+    fetchClasses();
+  }, [activeTab]);
+
+  // 推送目标统计
+  const pushTargetStats = useMemo(() => {
+    if (pushData.targetType === 'grade') {
+      const selected = gradesData.filter(g => pushData.selectedGrades.includes(g.grade));
+      const classes = selected.flatMap(g => g.classes);
+      return { gradeCount: selected.length, classCount: classes.length, studentCount: classes.reduce((s, c) => s + c.studentCount, 0), parentCount: classes.reduce((s, c) => s + c.parentCount, 0) };
+    }
+    const selectedClasses = gradesData.flatMap(g => g.classes).filter(c => pushData.selectedClassIds.includes(c.id));
+    return { gradeCount: 0, classCount: selectedClasses.length, studentCount: selectedClasses.reduce((s, c) => s + c.studentCount, 0), parentCount: selectedClasses.reduce((s, c) => s + c.parentCount, 0) };
+  }, [pushData.targetType, pushData.selectedGrades, pushData.selectedClassIds, gradesData]);
+
+  // 选中年级时自动全选该年级班级
+  const toggleGrade = (grade: number) => {
+    setPushData(prev => {
+      const isSelected = prev.selectedGrades.includes(grade);
+      const newGrades = isSelected ? prev.selectedGrades.filter(g => g !== grade) : [...prev.selectedGrades, grade];
+      // 自动同步班级选择
+      const gradeClasses = gradesData.find(g => g.grade === grade)?.classes.map(c => c.id) || [];
+      const newClassIds = isSelected
+        ? prev.selectedClassIds.filter(id => !gradeClasses.includes(id))
+        : [...new Set([...prev.selectedClassIds, ...gradeClasses])];
+      return { ...prev, selectedGrades: newGrades, selectedClassIds: newClassIds };
+    });
+  };
+
+  const toggleClass = (classId: string) => {
+    setPushData(prev => ({
+      ...prev,
+      selectedClassIds: prev.selectedClassIds.includes(classId)
+        ? prev.selectedClassIds.filter(id => id !== classId)
+        : [...prev.selectedClassIds, classId],
+    }));
+  };
+
   const handlePush = useCallback(async () => {
     if (!pushData.courseId) return;
+
+    let targetType: 'class' | 'grade';
+    let targetIds: string[];
+
+    if (mode === 'class') {
+      targetType = 'class';
+      targetIds = classId ? [classId] : [];
+    } else if (pushData.targetType === 'grade') {
+      targetType = 'grade';
+      targetIds = pushData.selectedGrades.map(String);
+    } else {
+      targetType = 'class';
+      targetIds = pushData.selectedClassIds;
+    }
+
+    if (targetIds.length === 0) return;
+
     await pushCourse({
       courseId: pushData.courseId,
-      targetType: mode === 'class' ? 'class' : pushData.targetType,
-      targetIds: mode === 'class' && classId ? [classId] : pushData.targetIds.split(',').map(s => s.trim()).filter(Boolean),
+      targetType,
+      targetIds,
       message: pushData.message,
       pushedBy: user?.id || '',
       pusherName: user?.name || '',
     });
-    setPushData({ courseId: '', targetType: 'class', targetIds: '', message: '' });
-  }, [pushData, pushCourse, mode, classId, user]);
+    setPushData({ courseId: '', targetType: 'grade', selectedGrades: [], selectedClassIds: [], message: '' });
+    triggerRefresh();
+  }, [pushData, pushCourse, mode, classId, user, triggerRefresh]);
 
   // 选中的推送课程详情
   const selectedPushCourse = useMemo(() => {
@@ -837,25 +941,132 @@ export function CloudCourseManagement({
 
                   {/* 推送目标 */}
                   {mode === 'department' && (
-                    <>
+                    <div className="space-y-3">
+                      {/* 目标类型切换 */}
                       <div>
-                        <label className="text-xs text-muted-foreground mb-1.5 block">推送目标类型</label>
-                        <select
-                          className="w-full border rounded-lg p-2.5 text-sm"
-                          value={pushData.targetType}
-                          onChange={e => setPushData(p => ({ ...p, targetType: e.target.value as 'class' | 'grade' | 'individual' }))}
-                        >
-                          <option value="class">按班级</option>
-                          <option value="grade">按年级</option>
-                          <option value="individual">按个人</option>
-                        </select>
+                        <label className="text-xs text-muted-foreground mb-1.5 block">推送方式</label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPushData(p => ({ ...p, targetType: 'grade' }))}
+                            className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                              pushData.targetType === 'grade'
+                                ? 'border-primary bg-primary/10 text-primary font-medium'
+                                : 'border-border text-muted-foreground hover:border-muted-foreground/40'
+                            }`}
+                          >
+                            按年级
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPushData(p => ({ ...p, targetType: 'class' }))}
+                            className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                              pushData.targetType === 'class'
+                                ? 'border-primary bg-primary/10 text-primary font-medium'
+                                : 'border-border text-muted-foreground hover:border-muted-foreground/40'
+                            }`}
+                          >
+                            按班级
+                          </button>
+                        </div>
                       </div>
-                      <Input
-                        placeholder="目标ID（多个用逗号分隔）"
-                        value={pushData.targetIds}
-                        onChange={e => setPushData(p => ({ ...p, targetIds: e.target.value }))}
-                      />
-                    </>
+
+                      {/* 年级/班级选择器 */}
+                      {gradesLoading ? (
+                        <div className="py-6 text-center text-sm text-muted-foreground">加载年级班级数据...</div>
+                      ) : gradesData.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-muted-foreground">暂无班级数据</div>
+                      ) : pushData.targetType === 'grade' ? (
+                        /* 按年级选择 */
+                        <div className="space-y-2">
+                          <label className="text-xs text-muted-foreground">选择年级（勾选后自动包含该年级所有班级）</label>
+                          <div className="space-y-1.5">
+                            {gradesData.map(g => {
+                              const isSelected = pushData.selectedGrades.includes(g.grade);
+                              const classCount = g.classes.length;
+                              const studentCount = g.classes.reduce((s, c) => s + c.studentCount, 0);
+                              return (
+                                <button
+                                  key={g.grade}
+                                  type="button"
+                                  onClick={() => toggleGrade(g.grade)}
+                                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                                    isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'
+                                  }`}
+                                >
+                                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                    isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                                  }`}>
+                                    {isSelected && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                  </div>
+                                  <div className="flex-1">
+                                    <span className="text-sm font-medium">{g.gradeName}</span>
+                                    <span className="text-xs text-muted-foreground ml-2">{classCount}个班</span>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">{studentCount}名学生</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        /* 按班级选择 */
+                        <div className="space-y-2">
+                          <label className="text-xs text-muted-foreground">选择班级</label>
+                          <div className="space-y-3">
+                            {gradesData.map(g => (
+                              <div key={g.grade}>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleGrade(g.grade)}
+                                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                  >
+                                    {g.gradeName}
+                                  </button>
+                                  <span className="text-xs text-muted-foreground/50">全选</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  {g.classes.map(cls => {
+                                    const isSelected = pushData.selectedClassIds.includes(cls.id);
+                                    return (
+                                      <button
+                                        key={cls.id}
+                                        type="button"
+                                        onClick={() => toggleClass(cls.id)}
+                                        className={`flex items-center gap-2 px-2.5 py-2 rounded-md border text-left text-sm transition-colors ${
+                                          isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'
+                                        }`}
+                                      >
+                                        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                                          isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                                        }`}>
+                                          {isSelected && <svg className="w-2.5 h-2.5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <span className="text-sm truncate">{cls.name}</span>
+                                        </div>
+                                        <span className="text-[10px] text-muted-foreground shrink-0">{cls.studentCount}人</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 目标统计 */}
+                      {pushTargetStats.classCount > 0 && (
+                        <div className="bg-muted/40 rounded-lg p-3 flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>已选 <span className="font-medium text-foreground">{pushData.targetType === 'grade' ? `${pushTargetStats.gradeCount}个年级` : `${pushTargetStats.classCount}个班级`}</span></span>
+                          <span>覆盖 <span className="font-medium text-foreground">{pushTargetStats.classCount}</span> 个班</span>
+                          <span><span className="font-medium text-foreground">{pushTargetStats.studentCount}</span> 名学生</span>
+                          <span><span className="font-medium text-foreground">{pushTargetStats.parentCount}</span> 位家长</span>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {mode === 'class' && className && (
@@ -871,7 +1082,7 @@ export function CloudCourseManagement({
                     onChange={e => setPushData(p => ({ ...p, message: e.target.value }))}
                     rows={3}
                   />
-                  <Button className="w-full" onClick={handlePush} disabled={!pushData.courseId}>
+                  <Button className="w-full" onClick={handlePush} disabled={!pushData.courseId || (mode === 'department' && pushData.selectedGrades.length === 0 && pushData.selectedClassIds.length === 0)}>
                     <Send className="h-4 w-4 mr-1.5" />
                     {mode === 'class' ? '推送给我班' : '推送'}
                   </Button>

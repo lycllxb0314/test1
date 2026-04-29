@@ -48,6 +48,7 @@ import {
 } from '@/types/cloud-course';
 import { getService } from '@/lib/di';
 import type { StudentRepository } from '@/repositories/student.repository';
+import type { ClassRepository } from '@/repositories/class.repository';
 
 // ============================================
 // CloudCourseService
@@ -394,29 +395,31 @@ class CloudCourseEnrollmentService extends BaseService {
   /** 解析推送目标的学生家长ID列表 */
   private async resolveTargetParentIds(targetType: string, targetIds: string[]): Promise<string[]> {
     const studentRepo = getService<StudentRepository>('StudentRepository');
+    const classRepo = getService<ClassRepository>('ClassRepository');
     const parentIds = new Set<string>();
 
-    if (targetType === 'individual') {
-      for (const studentId of targetIds) {
-        const student = await studentRepo.findById(studentId);
-        if (student?.parents) {
-          for (const p of student.parents) {
-            if (p.id) parentIds.add(p.id);
+    for (const targetId of targetIds) {
+      let students: Array<{ parents?: Array<{ id?: string }> }> = [];
+
+      if (targetType === 'grade') {
+        // 按年级：先获取该年级所有班级，再获取所有学生
+        const gradeNum = parseInt(targetId, 10);
+        if (!isNaN(gradeNum)) {
+          const classes = await classRepo.findByGrade(gradeNum);
+          for (const cls of classes) {
+            const classStudents = await studentRepo.findByClass(cls.id) as Array<{ parents?: Array<{ id?: string }> }> || [];
+            students = students.concat(classStudents);
           }
         }
+      } else {
+        // 按班级：直接获取班级学生
+        students = await studentRepo.findByClass(targetId) as Array<{ parents?: Array<{ id?: string }> }> || [];
       }
-    } else {
-      // class / grade: 获取该班级/年级所有学生的家长
-      for (const targetId of targetIds) {
-        let students: Array<{ parents?: Array<{ id?: string }> }> = [];
-        if (targetType === 'class') {
-          students = await studentRepo.findByClass(targetId) as Array<{ parents?: Array<{ id?: string }> }> || [];
-        }
-        for (const student of students) {
-          if (student.parents) {
-            for (const p of student.parents) {
-              if (p.id) parentIds.add(p.id);
-            }
+
+      for (const student of students) {
+        if (student.parents) {
+          for (const p of student.parents) {
+            if (p.id) parentIds.add(p.id);
           }
         }
       }

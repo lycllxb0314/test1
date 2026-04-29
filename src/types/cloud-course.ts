@@ -32,7 +32,7 @@ type LearningRecordType = 'video' | 'live' | 'quiz' | 'document';
 type LiveSessionStatus = 'scheduled' | 'live' | 'ended' | 'cancelled';
 
 /** 推送目标类型 */
-type PushTargetType = 'class' | 'grade' | 'individual';
+type PushTargetType = 'class' | 'grade';
 
 // ============================================
 // 数据库行类型 (下划线命名，对应 Supabase 表)
