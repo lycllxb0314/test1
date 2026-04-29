@@ -165,7 +165,7 @@ const headTeacherNav: NavItem[] = [
   { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', badge: '新' },
   { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新' },
   { name: 'SOP台账', href: '/teacher/class-sop', icon: ClipboardCheck, description: '标准化操作流程与台账管理', badge: '新' },
-  { name: '云教学管理', href: '/teacher/cloud-course-manage', icon: GraduationCap, description: '推送学生课程·查看本班学习进度', badge: '新' },
+  { name: '云教学管理', href: '/teacher/cloud-course-manage', icon: GraduationCap, description: '推送家长/学生课程·查看本班学习进度', badge: '新' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能（待重建）

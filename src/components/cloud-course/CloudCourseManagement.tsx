@@ -166,11 +166,12 @@ export function CloudCourseManagement({
     mode === 'class' ? user?.id || null : null,
   );
 
-  // 班主任模式 - 筛选学生课程相关选课
+  // 班主任模式 - 筛选本班家长和学生课程相关选课
   const classEnrollments = useMemo(() => {
     if (mode !== 'class') return [];
-    return enrollments.filter(e => e.course?.domain === 'student');
-  }, [mode, enrollments]);
+    const domainSet = new Set(domains.map(d => d.domain));
+    return enrollments.filter(e => e.course?.domain && domainSet.has(e.course.domain));
+  }, [mode, enrollments, domains]);
 
   // 新建课程表单
   const effectiveCreatableDomains = creatableDomains || domains;
