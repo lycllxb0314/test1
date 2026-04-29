@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
+import { GradeClassFilter, PaginationControl } from '@/components/health/HealthFilters';
 import {
   Dumbbell,
   Calendar,
@@ -10,8 +11,6 @@ import {
   TrendingUp,
   Search,
   X,
-  ChevronLeft,
-  ChevronRight,
   Zap,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -55,22 +54,31 @@ export default function ExercisePage() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // 年级班级筛选
+  const [grade, setGrade] = useState('all');
+  const [classId, setClassId] = useState('all');
+
   // 分页
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const params = new URLSearchParams({
+        startDate, endDate,
+        page: String(page), pageSize: String(pageSize),
+      });
+      if (classId && classId !== 'all') params.set('classId', classId);
+
       const res = await apiClient.get<ExerciseRecord[]>(
-        `/health/exercise?startDate=${startDate}&endDate=${endDate}&page=${page}&pageSize=${pageSize}`
+        `/health/exercise?${params.toString()}`
       );
       if (res.success && res.data) {
         setRecords(res.data);
         setTotal(res.pagination?.total || 0);
-        // statistics 不在 ApiResponse 泛型中，从原始响应取
         const rawStats = (res as unknown as { statistics?: ExerciseStats }).statistics;
         setStats(rawStats || null);
       }
@@ -79,16 +87,15 @@ export default function ExercisePage() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, page, pageSize]);
+  }, [startDate, endDate, page, pageSize, classId]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => { setPage(1); }, [startDate, endDate]);
+  useEffect(() => { setPage(1); }, [startDate, endDate, grade, classId]);
 
   const filtered = searchQuery
     ? records.filter(r => r.studentName.includes(searchQuery) || r.studentNo.includes(searchQuery) || r.className.includes(searchQuery))
     : records;
 
-  // 统计卡片数据
   const topExercise = stats?.exerciseTypes
     ? Object.entries(stats.exerciseTypes).sort((a, b) => b[1] - a[1])[0]
     : null;
@@ -131,6 +138,15 @@ export default function ExercisePage() {
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
           />
 
+          <div className="h-6 w-px bg-border" />
+
+          <GradeClassFilter
+            grade={grade}
+            onGradeChange={setGrade}
+            classId={classId}
+            onClassIdChange={setClassId}
+          />
+
           <div className="relative ml-auto w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -150,35 +166,10 @@ export default function ExercisePage() {
         {/* 统计卡片 */}
         {stats && stats.totalRecords > 0 && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard
-              icon={<Calendar className="h-5 w-5" />}
-              label="打卡总次数"
-              value={stats.totalRecords}
-              unit="次"
-              gradient="from-teal-500 to-emerald-500"
-            />
-            <StatCard
-              icon={<Clock className="h-5 w-5" />}
-              label="累计运动时长"
-              value={stats.totalDurationMin}
-              unit="分钟"
-              gradient="from-blue-500 to-cyan-500"
-            />
-            <StatCard
-              icon={<Flame className="h-5 w-5" />}
-              label="平均每次时长"
-              value={avgDuration}
-              unit="分钟"
-              gradient="from-orange-500 to-amber-500"
-            />
-            <StatCard
-              icon={<TrendingUp className="h-5 w-5" />}
-              label="最热门运动"
-              value={topExercise ? topExercise[0] : '-'}
-              unit={topExercise ? `${topExercise[1]}次` : ''}
-              gradient="from-rose-500 to-pink-500"
-              isText
-            />
+            <StatCard icon={<Calendar className="h-5 w-5" />} label="打卡总次数" value={stats.totalRecords} unit="次" gradient="from-teal-500 to-emerald-500" />
+            <StatCard icon={<Clock className="h-5 w-5" />} label="累计运动时长" value={stats.totalDurationMin} unit="分钟" gradient="from-blue-500 to-cyan-500" />
+            <StatCard icon={<Flame className="h-5 w-5" />} label="平均每次时长" value={avgDuration} unit="分钟" gradient="from-orange-500 to-amber-500" />
+            <StatCard icon={<TrendingUp className="h-5 w-5" />} label="最热门运动" value={topExercise ? topExercise[0] : '-'} unit={topExercise ? `${topExercise[1]}次` : ''} gradient="from-rose-500 to-pink-500" isText />
           </div>
         )}
 
@@ -240,9 +231,7 @@ export default function ExercisePage() {
                 <tbody>
                   {filtered.map(row => (
                     <tr key={row.id} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
-                      <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-medium text-foreground whitespace-nowrap">
-                        {row.studentName}
-                      </td>
+                      <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-medium text-foreground whitespace-nowrap">{row.studentName}</td>
                       <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{row.studentNo}</td>
                       <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{row.className}</td>
                       <td className="px-4 py-2.5 text-center whitespace-nowrap">{row.checkDate}</td>
@@ -273,36 +262,20 @@ export default function ExercisePage() {
             </div>
           )}
 
-          {/* 分页 */}
-          {total > pageSize && (
-            <div className="flex items-center justify-between border-t border-border px-4 py-3">
-              <span className="text-xs text-muted-foreground">共 {total} 条，第 {page}/{totalPages} 页</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(p => p - 1)}
-                  disabled={page <= 1}
-                  className="rounded-md border border-border px-2 py-1 text-sm disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="px-3 text-sm text-muted-foreground">{page} / {totalPages}</span>
-                <button
-                  onClick={() => setPage(p => p + 1)}
-                  disabled={page >= totalPages}
-                  className="rounded-md border border-border px-2 py-1 text-sm disabled:opacity-40"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          {/* 统一分页 */}
+          <PaginationControl
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={s => { setPageSize(s); setPage(1); }}
+          />
         </div>
       </div>
     </div>
   );
 }
-
-// ==================== 统计卡片 ====================
 
 function StatCard({ icon, label, value, unit, gradient, isText }: {
   icon: React.ReactNode; label: string; value: string | number; unit: string; gradient: string; isText?: boolean;

@@ -81,19 +81,25 @@ export class FitnessAssessmentRepository extends BaseRepository<FitnessAssessmen
     return { academicYear: data.academic_year, semester: data.semester };
   }
 
-  /** 获取年级统计 */
-  async getGradeStats(academicYear: string, semester: string): Promise<{
+  /** 获取年级统计（可按学生ID列表筛选） */
+  async getGradeStats(academicYear: string, semester: string, filterStudentIds?: string[] | null): Promise<{
     total: number;
     excellent: number;
     good: number;
     pass: number;
     fail: number;
   }> {
-    const { data, error } = await this.client
+    let query = this.client
       .from(this.tableName)
       .select('grade_level')
       .eq('academic_year', academicYear)
       .eq('semester', semester);
+
+    if (filterStudentIds && filterStudentIds.length > 0) {
+      query = query.in('student_id', filterStudentIds);
+    }
+
+    const { data, error } = await query;
 
     if (error || !data) return { total: 0, excellent: 0, good: 0, pass: 0, fail: 0 };
 

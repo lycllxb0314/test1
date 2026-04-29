@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
+import { GradeClassFilter, PaginationControl } from '@/components/health/HealthFilters';
 import {
   Apple,
   Calendar,
@@ -10,8 +11,6 @@ import {
   Sun,
   Search,
   X,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -74,16 +73,28 @@ export default function ObservationsPage() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // 年级班级筛选
+  const [grade, setGrade] = useState('all');
+  const [classId, setClassId] = useState('all');
+
+  // 分页
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const params = new URLSearchParams({
+        mode: 'admin',
+        startDate, endDate,
+        page: String(page), pageSize: String(pageSize),
+      });
+      if (classId && classId !== 'all') params.set('classId', classId);
+
       const res = await apiClient.get<ObservationRecord[]>(
-        `/health/observations?mode=admin&startDate=${startDate}&endDate=${endDate}&page=${page}&pageSize=${pageSize}`
+        `/health/observations?${params.toString()}`
       );
       if (res.success && res.data) {
         setRecords(res.data);
@@ -96,10 +107,10 @@ export default function ObservationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, page, pageSize]);
+  }, [startDate, endDate, page, pageSize, classId]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => { setPage(1); }, [startDate, endDate]);
+  useEffect(() => { setPage(1); }, [startDate, endDate, grade, classId]);
 
   const filtered = searchQuery
     ? records.filter(r => r.studentName.includes(searchQuery) || r.studentNo.includes(searchQuery) || r.className.includes(searchQuery))
@@ -142,6 +153,15 @@ export default function ObservationsPage() {
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
           />
 
+          <div className="h-6 w-px bg-border" />
+
+          <GradeClassFilter
+            grade={grade}
+            onGradeChange={setGrade}
+            classId={classId}
+            onClassIdChange={setClassId}
+          />
+
           <div className="relative ml-auto w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -161,33 +181,9 @@ export default function ObservationsPage() {
         {/* 统计卡片 */}
         {stats && stats.totalRecords > 0 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* 睡眠统计 */}
-            <DistCard
-              icon={<Moon className="h-5 w-5" />}
-              title="睡眠质量"
-              total={stats.totalRecords}
-              dist={stats.sleepDist}
-              styles={SLEEP_STYLES}
-              gradient="from-indigo-500 to-blue-500"
-            />
-            {/* 饮食统计 */}
-            <DistCard
-              icon={<Utensils className="h-5 w-5" />}
-              title="饮食状况"
-              total={stats.totalRecords}
-              dist={stats.dietDist}
-              styles={DIET_STYLES}
-              gradient="from-emerald-500 to-teal-500"
-            />
-            {/* 精神统计 */}
-            <DistCard
-              icon={<Sun className="h-5 w-5" />}
-              title="精神状态"
-              total={stats.totalRecords}
-              dist={stats.energyDist}
-              styles={ENERGY_STYLES}
-              gradient="from-amber-500 to-orange-500"
-            />
+            <DistCard icon={<Moon className="h-5 w-5" />} title="睡眠质量" total={stats.totalRecords} dist={stats.sleepDist} styles={SLEEP_STYLES} gradient="from-indigo-500 to-blue-500" />
+            <DistCard icon={<Utensils className="h-5 w-5" />} title="饮食状况" total={stats.totalRecords} dist={stats.dietDist} styles={DIET_STYLES} gradient="from-emerald-500 to-teal-500" />
+            <DistCard icon={<Sun className="h-5 w-5" />} title="精神状态" total={stats.totalRecords} dist={stats.energyDist} styles={ENERGY_STYLES} gradient="from-amber-500 to-orange-500" />
           </div>
         )}
 
@@ -221,21 +217,13 @@ export default function ObservationsPage() {
                 <tbody>
                   {filtered.map(row => (
                     <tr key={row.id} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
-                      <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-medium text-foreground whitespace-nowrap">
-                        {row.studentName}
-                      </td>
+                      <td className="sticky left-0 z-10 bg-card px-4 py-2.5 font-medium text-foreground whitespace-nowrap">{row.studentName}</td>
                       <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{row.studentNo}</td>
                       <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{row.className}</td>
                       <td className="px-4 py-2.5 text-center whitespace-nowrap">{row.observationDate}</td>
-                      <td className="px-4 py-2.5 text-center">
-                        <QualityBadge quality={row.sleepQuality} styles={SLEEP_STYLES} />
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <QualityBadge quality={row.dietQuality} styles={DIET_STYLES} />
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <QualityBadge quality={row.energyLevel} styles={ENERGY_STYLES} />
-                      </td>
+                      <td className="px-4 py-2.5 text-center"><QualityBadge quality={row.sleepQuality} styles={SLEEP_STYLES} /></td>
+                      <td className="px-4 py-2.5 text-center"><QualityBadge quality={row.dietQuality} styles={DIET_STYLES} /></td>
+                      <td className="px-4 py-2.5 text-center"><QualityBadge quality={row.energyLevel} styles={ENERGY_STYLES} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -243,36 +231,20 @@ export default function ObservationsPage() {
             </div>
           )}
 
-          {/* 分页 */}
-          {total > pageSize && (
-            <div className="flex items-center justify-between border-t border-border px-4 py-3">
-              <span className="text-xs text-muted-foreground">共 {total} 条，第 {page}/{totalPages} 页</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(p => p - 1)}
-                  disabled={page <= 1}
-                  className="rounded-md border border-border px-2 py-1 text-sm disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="px-3 text-sm text-muted-foreground">{page} / {totalPages}</span>
-                <button
-                  onClick={() => setPage(p => p + 1)}
-                  disabled={page >= totalPages}
-                  className="rounded-md border border-border px-2 py-1 text-sm disabled:opacity-40"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          {/* 统一分页 */}
+          <PaginationControl
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={s => { setPageSize(s); setPage(1); }}
+          />
         </div>
       </div>
     </div>
   );
 }
-
-// ==================== 质量徽章 ====================
 
 function QualityBadge({ quality, styles }: { quality: string; styles: Record<string, { label: string; color: string }> }) {
   const s = styles[quality];
@@ -284,14 +256,9 @@ function QualityBadge({ quality, styles }: { quality: string; styles: Record<str
   );
 }
 
-// ==================== 分布统计卡片 ====================
-
 function DistCard({ icon, title, total, dist, styles, gradient }: {
-  icon: React.ReactNode;
-  title: string;
-  total: number;
-  dist: Record<string, number>;
-  styles: Record<string, { label: string; color: string }>;
+  icon: React.ReactNode; title: string; total: number;
+  dist: Record<string, number>; styles: Record<string, { label: string; color: string }>;
   gradient: string;
 }) {
   const entries = Object.entries(dist).sort((a, b) => b[1] - a[1]);

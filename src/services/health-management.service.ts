@@ -195,8 +195,8 @@ export class HealthManagementService extends BaseService {
     return this.ok(portrait);
   }
 
-  async getAllPortraits(page = 1, pageSize = 20, status?: string) {
-    const result = await healthPortraitRepository.findAllWithStudentInfo(page, pageSize, status);
+  async getAllPortraits(page = 1, pageSize = 20, statusOrStudentIds?: string | string[] | null) {
+    const result = await healthPortraitRepository.findAllWithStudentInfo(page, pageSize, statusOrStudentIds);
     return this.ok(result);
   }
 
@@ -348,18 +348,20 @@ export class HealthManagementService extends BaseService {
 
   // ==================== 统计概览 ====================
 
-  async getStatsOverview(): Promise<ServiceResult<HealthStatsOverview>> {
+  async getStatsOverview(filterStudentIds?: string[] | null): Promise<ServiceResult<HealthStatsOverview>> {
     try {
       const latestSemester = await fitnessAssessmentRepository.getLatestSemester();
       let gradeStats = { total: 0, excellent: 0, good: 0, pass: 0, fail: 0 };
       if (latestSemester) {
-        gradeStats = await fitnessAssessmentRepository.getGradeStats(latestSemester.academicYear, latestSemester.semester);
+        gradeStats = await fitnessAssessmentRepository.getGradeStats(latestSemester.academicYear, latestSemester.semester, filterStudentIds);
       }
 
-      const activePrescriptions = await healthPrescriptionRepository.countActive();
+      const activePrescriptions = filterStudentIds
+        ? await healthPrescriptionRepository.countByStudentIds(filterStudentIds)
+        : await healthPrescriptionRepository.countActive();
 
       // 画像状态分布
-      const allPortraits = await healthPortraitRepository.findAllWithStudentInfo(1, 1000);
+      const allPortraits = await healthPortraitRepository.findAllWithStudentInfo(1, 1000, filterStudentIds);
       let excellentCount = 0, goodCount = 0, attentionCount = 0, warningCount = 0;
       for (const p of allPortraits.portraits) {
         if (p.overallStatus === 'excellent') excellentCount++;

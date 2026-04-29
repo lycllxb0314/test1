@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
 import type { FitnessAssessment } from '@/types/health-management';
+import { GradeClassFilter, PaginationControl, useClassesData } from '@/components/health/HealthFilters';
 import {
   Upload,
   Download,
@@ -10,8 +11,6 @@ import {
   CheckCircle2,
   Search,
   X,
-  ChevronLeft,
-  ChevronRight,
   FileSpreadsheet,
   Stethoscope,
   Dumbbell,
@@ -31,22 +30,42 @@ export default function FitnessDataPage() {
   const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // 年级班级筛选
+  const [grade, setGrade] = useState('all');
+  const [classId, setClassId] = useState('all');
+
   // 分页
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { classes } = useClassesData();
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const params = new URLSearchParams({
+        academicYear, semester,
+        page: String(page), pageSize: String(pageSize),
+      });
+      if (classId && classId !== 'all') params.set('classId', classId);
+
       const res = await apiClient.get<FitnessAssessment[]>(
-        `/health/fitness?academicYear=${academicYear}&semester=${semester}&page=${page}&pageSize=${pageSize}`
+        `/health/fitness?${params.toString()}`
       );
       if (res.success && res.data) {
-        setData(res.data);
+        let records = res.data;
+        // 年级筛选（前端过滤，因API不直接支持年级参数）
+        if (grade !== 'all') {
+          const gradeNum = Number(grade);
+          const gradeClassIds = new Set(
+            classes.filter(c => c.gradeNumber === gradeNum).map(c => c.id)
+          );
+          records = records.filter(r => gradeClassIds.has((r as Record<string, unknown>).classId as string));
+        }
+        setData(records);
         setTotal(res.pagination?.total || 0);
       }
     } catch {
@@ -54,15 +73,17 @@ export default function FitnessDataPage() {
     } finally {
       setLoading(false);
     }
-  }, [academicYear, semester, page, pageSize]);
+  }, [academicYear, semester, page, pageSize, classId, grade, classes]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => { setPage(1); }, [academicYear, semester]);
+  useEffect(() => { setPage(1); }, [academicYear, semester, grade, classId]);
 
   // 下载模板
   const downloadTemplate = async (type: DataTab) => {
     try {
-      const res = await fetch(`/api/health/fitness?template=${type}&academicYear=${academicYear}&semester=${semester}`);
+      const params = new URLSearchParams({ template: type, academicYear, semester });
+      if (classId !== 'all') params.set('classId', classId);
+      const res = await fetch(`/api/health/fitness?${params.toString()}`);
       if (!res.ok) throw new Error('下载失败');
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -96,16 +117,13 @@ export default function FitnessDataPage() {
       const records: Record<string, unknown>[] = [];
 
       for (let i = 1; i < lines.length; i++) {
-        // 处理CSV中的逗号（简易方式，不考虑引号内逗号）
         const values = lines[i].split(',').map(v => v.trim());
         const record: Record<string, unknown> = {};
         headers.forEach((h, idx) => { record[h] = values[idx] || ''; });
 
         const rec = record as Record<string, string>;
-        // 跳过空行
         if (!rec['学号'] && !rec['姓名']) continue;
 
-        // 转换为DTO格式
         const dto: Record<string, unknown> = {
           studentNo: rec['学号'],
           studentName: rec['姓名'],
@@ -124,7 +142,6 @@ export default function FitnessDataPage() {
           dto.sitUps1min = toNum(rec['1分钟仰卧起坐(次)']);
           dto.ropeJump1min = toNum(rec['1分钟跳绳(次)']);
           dto.totalScore = toNum(rec['总分']);
-          // 根据总分自动计算等级，避免手填错误
           {
             const s = dto.totalScore as number | undefined;
             dto.gradeLevel = s !== undefined && s !== null
@@ -192,7 +209,7 @@ export default function FitnessDataPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-5 space-y-5">
-        {/* Tab切换 + 筛选 */}
+        {/* Tab切换 + 筛选器 */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex rounded-lg border border-border bg-muted/30 p-0.5">
             <button
@@ -232,6 +249,15 @@ export default function FitnessDataPage() {
             <option value="下学期">下学期</option>
           </select>
 
+          <div className="h-6 w-px bg-border" />
+
+          <GradeClassFilter
+            grade={grade}
+            onGradeChange={setGrade}
+            classId={classId}
+            onClassIdChange={setClassId}
+          />
+
           <div className="relative ml-auto w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -254,31 +280,17 @@ export default function FitnessDataPage() {
             <Upload className="h-4 w-4" />
             {tab === 'fitness' ? '体质测试' : '体检数据'}导入：
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => downloadTemplate(tab)}
-          >
+          <Button variant="outline" size="sm" onClick={() => downloadTemplate(tab)}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> 下载模板
           </Button>
-          <Button
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-          >
+          <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
             {importing ? (
               <><span className="mr-1.5 h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> 导入中...</>
             ) : (
               <><Upload className="mr-1.5 h-3.5 w-3.5" /> 导入数据</>
             )}
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={handleImport}
-          />
+          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
           <span className="text-xs text-muted-foreground">模板已预填学生姓名，按模板填写后导入</span>
 
           {importResult && (
@@ -310,6 +322,7 @@ export default function FitnessDataPage() {
                   <tr className="border-b border-border bg-muted/30">
                     <th className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">姓名</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">学号</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">班级</th>
                     {tab === 'fitness' ? (
                       <>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground whitespace-nowrap">身高(cm)</th>
@@ -346,6 +359,7 @@ export default function FitnessDataPage() {
                         {row.studentName || '-'}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{row.studentNo || row.studentId}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{row.className || '-'}</td>
                       {tab === 'fitness' ? (
                         <>
                           <td className="px-4 py-2.5 text-center">{row.heightCm ?? '-'}</td>
@@ -358,9 +372,7 @@ export default function FitnessDataPage() {
                           <td className="px-4 py-2.5 text-center">{row.sitUps1min ?? '-'}</td>
                           <td className="px-4 py-2.5 text-center">{row.ropeJump1min ?? '-'}</td>
                           <td className="px-4 py-2.5 text-center font-medium">{row.totalScore ?? '-'}</td>
-                          <td className="px-4 py-2.5 text-center">
-                            <GradeBadge level={row.gradeLevel} />
-                          </td>
+                          <td className="px-4 py-2.5 text-center"><GradeBadge level={row.gradeLevel} /></td>
                         </>
                       ) : (
                         <>
@@ -392,54 +404,20 @@ export default function FitnessDataPage() {
             </div>
           )}
 
-          {/* 分页 */}
-          {total > pageSize && (
-            <div className="flex items-center justify-between border-t border-border px-4 py-3">
-              <span className="text-xs text-muted-foreground">
-                共 {total} 条，第 {page}/{totalPages} 页
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => p - 1)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                {getPageNumbers(page, totalPages).map((p, i) =>
-                  p === '...' ? (
-                    <span key={`dot-${i}`} className="px-1 text-muted-foreground">...</span>
-                  ) : (
-                    <Button
-                      key={p}
-                      variant={p === page ? 'default' : 'outline'}
-                      size="sm"
-                      className="min-w-[32px]"
-                      onClick={() => setPage(p as number)}
-                    >
-                      {p}
-                    </Button>
-                  )
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage(p => p + 1)}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* 统一分页 */}
+          <PaginationControl
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={s => { setPageSize(s); setPage(1); }}
+          />
         </div>
       </div>
     </div>
   );
 }
-
-// ==================== 辅助组件 ====================
 
 function GradeBadge({ level }: { level?: string }) {
   if (!level) return <span className="text-muted-foreground">-</span>;
@@ -456,8 +434,6 @@ function GradeBadge({ level }: { level?: string }) {
   );
 }
 
-// ==================== 工具函数 ====================
-
 function toNum(v: string | undefined): number | undefined {
   if (!v || v === '' || v === '-') return undefined;
   const n = Number(v);
@@ -467,16 +443,4 @@ function toNum(v: string | undefined): number | undefined {
 function toString(v: string | undefined): string | undefined {
   if (!v || v === '' || v === '-') return undefined;
   return v;
-}
-
-function getPageNumbers(current: number, total: number): (number | '...')[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | '...')[] = [1];
-  if (current > 3) pages.push('...');
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-    pages.push(i);
-  }
-  if (current < total - 2) pages.push('...');
-  pages.push(total);
-  return pages;
 }

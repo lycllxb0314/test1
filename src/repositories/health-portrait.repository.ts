@@ -68,14 +68,17 @@ export class HealthPortraitRepository extends BaseRepository<HealthPortraitRow> 
     return data ? this.mapFromRow(data) : null;
   }
 
-  /** 获取所有画像概览（分页） */
-  async findAllWithStudentInfo(page = 1, pageSize = 20, status?: string): Promise<{ portraits: (StudentHealthPortrait & { studentName?: string; className?: string })[]; total: number }> {
+  /** 获取所有画像概览（分页，可按学生ID列表筛选） */
+  async findAllWithStudentInfo(page = 1, pageSize = 20, statusOrStudentIds?: string | string[] | null): Promise<{ portraits: (StudentHealthPortrait & { studentName?: string; className?: string; classId?: string })[]; total: number }> {
     let query = this.client
       .from(this.tableName)
-      .select('*, students!inner(id, name, class_id)', { count: 'exact' });
+      .select('*, students!inner(id, name, class_id, class_name)', { count: 'exact' });
 
-    if (status) {
-      query = query.eq('overall_status', status);
+    // 参数重载：string 为 status 筛选，string[] 为学生ID筛选
+    if (typeof statusOrStudentIds === 'string' && statusOrStudentIds) {
+      query = query.eq('overall_status', statusOrStudentIds);
+    } else if (Array.isArray(statusOrStudentIds) && statusOrStudentIds.length > 0) {
+      query = query.in('student_id', statusOrStudentIds);
     }
 
     const from = (page - 1) * pageSize;
@@ -91,7 +94,8 @@ export class HealthPortraitRepository extends BaseRepository<HealthPortraitRow> 
     const portraits = (data || []).map(row => ({
       ...this.mapFromRow(row),
       studentName: (row.students as Record<string, unknown>)?.name as string,
-      className: (row.students as Record<string, unknown>)?.class_id as string,
+      className: ((row.students as Record<string, unknown>)?.class_name || (row.students as Record<string, unknown>)?.class_id) as string,
+      classId: (row.students as Record<string, unknown>)?.class_id as string,
     }));
 
     return { portraits, total: count || 0 };

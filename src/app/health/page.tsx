@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
 import type { HealthStatsOverview } from '@/types/health-management';
+import { GradeClassFilter } from '@/components/health/HealthFilters';
 import {
   Activity,
   TrendingUp,
@@ -115,21 +116,31 @@ export default function HealthDashboardPage() {
   const [stats, setStats] = useState<HealthStatsOverview | null>(null);
   const [_loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await apiClient.get<HealthStatsOverview>('/health/stats');
-        if (res.success && res.data) {
-          setStats(res.data);
-        }
-      } catch (err) {
-        console.error('[HealthDashboard] load error:', err);
-      } finally {
-        setLoading(false);
+  // 年级班级筛选
+  const [grade, setGrade] = useState('all');
+  const [classId, setClassId] = useState('all');
+
+  const loadStats = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (classId && classId !== 'all') params.set('classId', classId);
+      if (grade && grade !== 'all') params.set('grade', grade);
+
+      const res = await apiClient.get<HealthStatsOverview>(
+        `/health/stats?${params.toString()}`
+      );
+      if (res.success && res.data) {
+        setStats(res.data);
       }
-    };
-    load();
-  }, []);
+    } catch (err) {
+      console.error('[HealthDashboard] load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [grade, classId]);
+
+  useEffect(() => { loadStats(); }, [loadStats]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -155,6 +166,20 @@ export default function HealthDashboardPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-6">
+        {/* 筛选栏 */}
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <span className="text-sm font-medium text-muted-foreground">数据范围</span>
+          <GradeClassFilter
+            grade={grade}
+            onGradeChange={setGrade}
+            classId={classId}
+            onClassIdChange={setClassId}
+          />
+          <span className="ml-auto text-xs text-muted-foreground">
+            {grade !== 'all' || classId !== 'all' ? '已筛选' : '全校数据'}
+          </span>
+        </div>
+
         {/* 统计卡片 */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard

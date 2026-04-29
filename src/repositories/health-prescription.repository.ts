@@ -81,6 +81,18 @@ export class HealthPrescriptionRepository extends BaseRepository<HealthPrescript
     return count || 0;
   }
 
+  /** 按学生ID列表统计处方数 */
+  async countByStudentIds(studentIds: string[]): Promise<number> {
+    if (studentIds.length === 0) return 0;
+    const { count, error } = await this.client
+      .from(this.tableName)
+      .select('*', { count: 'exact', head: true })
+      .in('student_id', studentIds);
+
+    if (error) return 0;
+    return count || 0;
+  }
+
   private mapFromRow(row: HealthPrescriptionRow): HealthPrescription {
     return {
       id: row.id,

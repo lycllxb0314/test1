@@ -14,7 +14,10 @@ import type { StudentRepository } from '@/repositories/student.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import type { FitnessAssessment } from '@/types/health-management';
 
-type StudentInfo = { id: string; name: string; student_no: string; class_name: string };
+type StudentInfo = { id: string; name: string; student_no: string; class_name: string; class_id: string };
+
+// 缓存学生信息，供 classId 筛选复用
+const studentInfoMapCache = new Map<string, StudentInfo>();
 
 export const GET = protectedRoute(async (request) => {
   const { searchParams } = new URL(request.url);
@@ -37,11 +40,21 @@ export const GET = protectedRoute(async (request) => {
   }
 
   if (academicYear && semester) {
+    const classIdFilter = searchParams.get('classId');
     const result = await healthManagementService.getFitnessByYearSemester(academicYear, semester);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
-    const allData = (await enrichWithStudentInfo(result.data || [])) as FitnessAssessment[];
+    let allData = (await enrichWithStudentInfo(result.data || [])) as FitnessAssessment[];
+    // 按 classId 筛选
+    if (classIdFilter && classIdFilter !== 'all') {
+      allData = allData.filter(r => {
+        const sid = r.studentId as string;
+        // 从 studentMap 中查 class_id
+        const info = studentInfoMapCache.get(sid);
+        return info?.class_id === classIdFilter;
+      });
+    }
     // 分页
     const total = allData.length;
     const start = (page - 1) * pageSize;
@@ -65,20 +78,22 @@ async function enrichWithStudentInfo(records: Record<string, unknown>[]): Promis
   const uniqueIds = [...new Set(records.map(r => r.studentId as string).filter(Boolean))];
   if (uniqueIds.length === 0) return records;
 
-  const client = getSupabaseClient();
-  const { data: students } = await client
-    .from('students')
-    .select('id, name, student_no, class_name')
-    .in('id', uniqueIds);
-
-  const studentMap = new Map<string, StudentInfo>();
-  (students || []).forEach((s: unknown) => {
-    const row = s as StudentInfo;
-    studentMap.set(row.id, row);
-  });
+  // 如果缓存为空或缺少某些学生，重新加载
+  const missingIds = uniqueIds.filter(id => !studentInfoMapCache.has(id));
+  if (missingIds.length > 0) {
+    const client = getSupabaseClient();
+    const { data: students } = await client
+      .from('students')
+      .select('id, name, student_no, class_name, class_id')
+      .in('id', missingIds);
+    (students || []).forEach((s: unknown) => {
+      const row = s as StudentInfo;
+      studentInfoMapCache.set(row.id, row);
+    });
+  }
 
   return records.map(r => {
-    const info = studentMap.get(r.studentId as string);
+    const info = studentInfoMapCache.get(r.studentId as string);
     return {
       ...r,
       studentName: info?.name || (r.studentName as string) || '-',

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
 import type { StudentHealthPortrait } from '@/types/health-management';
+import { GradeClassFilter, useClassesData } from '@/components/health/HealthFilters';
 import {
   TrendingUp,
   AlertTriangle,
@@ -18,6 +19,7 @@ import { Input } from '@/components/ui/input';
 type PortraitWithInfo = StudentHealthPortrait & {
   studentName?: string;
   className?: string;
+  classId?: string;
 };
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -125,27 +127,41 @@ export default function PortraitsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [computing, setComputing] = useState(false);
 
-  useEffect(() => {
-    loadPortraits();
-  }, [statusFilter]);
+  // 年级班级筛选
+  const [grade, setGrade] = useState('all');
+  const [classId, setClassId] = useState('all');
+  const { classes } = useClassesData();
 
-  const loadPortraits = async () => {
+  const loadPortraits = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (statusFilter) params.set('status', statusFilter);
+      if (classId && classId !== 'all') params.set('classId', classId);
+
       const res = await apiClient.get<{ portraits: PortraitWithInfo[]; total: number }>(
         `/health/portraits?${params.toString()}`
       );
       if (res.success && res.data) {
-        setPortraits(res.data.portraits || []);
+        let list = res.data.portraits || [];
+        // 年级前端筛选
+        if (grade !== 'all') {
+          const gradeNum = Number(grade);
+          const gradeClassIds = new Set(
+            classes.filter(c => c.gradeNumber === gradeNum).map(c => c.id)
+          );
+          list = list.filter(p => gradeClassIds.has(p.classId || ''));
+        }
+        setPortraits(list);
       }
     } catch (err) {
       console.error('[PortraitsPage] load error:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, classId, grade, classes]);
+
+  useEffect(() => { loadPortraits(); }, [loadPortraits]);
 
   const computeAll = async () => {
     setComputing(true);
@@ -216,6 +232,13 @@ export default function PortraitsPage() {
               </button>
             ))}
           </div>
+
+          <GradeClassFilter
+            grade={grade}
+            onGradeChange={setGrade}
+            classId={classId}
+            onClassIdChange={setClassId}
+          />
 
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
