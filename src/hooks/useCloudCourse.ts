@@ -256,7 +256,23 @@ function useCloudCourseActions() {
     return res.success;
   }, []);
 
-  return { createCourse, updateCourse, publishCourse, deleteCourse };
+  const pushCourse = useCallback(async (data: {
+    courseId: string; targetType: string; targetIds: string[];
+    message: string; pushedBy: string; pusherName: string;
+  }) => {
+    const res = await apiClient.post('/cloud-course/enrollments', {
+      action: 'push',
+      courseId: data.courseId,
+      targetType: data.targetType,
+      targetIds: data.targetIds,
+      message: data.message,
+      pushedBy: data.pushedBy,
+      pusherName: data.pusherName,
+    });
+    return res.success;
+  }, []);
+
+  return { createCourse, updateCourse, publishCourse, deleteCourse, pushCourse };
 }
 
 export {
