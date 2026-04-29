@@ -17,7 +17,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { FileUploadField } from '@/components/cloud-course/FileUploadField';
@@ -832,9 +832,7 @@ export function CloudCourseManagement({ mode, classId, className, defaultDomain 
             <TabsTrigger value="push">推送管理</TabsTrigger>
             {mode === 'class' && <TabsTrigger value="progress">学习进度</TabsTrigger>}
           </TabsList>
-          <DialogTrigger asChild>
-            <Button size="sm" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1.5" />新建课程</Button>
-          </DialogTrigger>
+          <Button size="sm" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1.5" />新建课程</Button>
         </div>
 
         {/* 课程管理 */}
