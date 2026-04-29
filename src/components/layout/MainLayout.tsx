@@ -130,6 +130,7 @@ const academicNav: NavItem[] = [
   { name: '教室管理', href: '/academic/rooms', icon: DoorOpen, description: '教室资源与预约' },
   { name: '教研活动', href: '/academic/research', icon: Target, description: '集体备课与听课评课', badge: '智慧' },
   { name: '教师考勤', href: '/academic/attendance', icon: CheckSquare, description: '教师考勤管理' },
+  { name: '云教学管理', href: '/academic/cloud-course', icon: GraduationCap, description: '教师研修·家长课程·学生课程管理', badge: '新' },
 ];
 
 // 德育管理导航
@@ -139,6 +140,7 @@ const moralNav: NavItem[] = [
   { name: '德育活动', href: '/moral/activities', icon: Calendar, description: '发布管理德育活动', badge: '新' },
   { name: '学生荣誉', href: '/moral/honors', icon: Award, description: '学生荣誉管理与可视化', badge: '新' },
   { name: '班级常规', href: '/moral/routine', icon: ClipboardCheck, description: '班级常规评比与值日管理', badge: '新' },
+  { name: '云教学管理', href: '/moral/cloud-course', icon: GraduationCap, description: '家长课程·学生课程管理', badge: '新' },
 ];
 
 // 教师空间导航 - 基础功能（所有教师可见，待重建）
@@ -163,6 +165,7 @@ const headTeacherNav: NavItem[] = [
   { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', badge: '新' },
   { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新' },
   { name: 'SOP台账', href: '/teacher/class-sop', icon: ClipboardCheck, description: '标准化操作流程与台账管理', badge: '新' },
+  { name: '云教学管理', href: '/teacher/cloud-course-manage', icon: GraduationCap, description: '推送学生课程·查看本班学习进度', badge: '新' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能（待重建）
