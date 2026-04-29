@@ -11,6 +11,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCloudCourses, useCloudCourseEnrollments } from '@/hooks/useCloudCourse';
+import type { CloudCourse } from '@/types/cloud-course';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,14 +31,31 @@ export default function ParentCloudCoursePage() {
   const { courses, loading } = useCloudCourses('parent', keyword || undefined);
   const { enrollments, loading: enrollLoading, enroll } = useCloudCourseEnrollments(user?.id || null);
 
+  // 构建课程信息缓存，用于补充 enrollment 中缺失的 course 字段
+  const courseMap = useMemo(() => {
+    const map = new Map<string, CloudCourse>();
+    courses.forEach(c => map.set(c.id, c));
+    enrollments.forEach(e => { if (e.course) map.set(e.courseId, e.course); });
+    return map;
+  }, [courses, enrollments]);
+
+  // 为 enrollment 补充 course 信息
+  const enrichedEnrollments = useMemo(() =>
+    enrollments.map(e => ({
+      ...e,
+      course: e.course || courseMap.get(e.courseId),
+    })),
+    [enrollments, courseMap]
+  );
+
   const parentEnrollments = useMemo(() =>
-    enrollments.filter(e => e.role === 'learner'),
-    [enrollments]
+    enrichedEnrollments.filter(e => e.role === 'learner'),
+    [enrichedEnrollments]
   );
 
   const studentEnrollments = useMemo(() =>
-    enrollments.filter(e => e.role === 'manager'),
-    [enrollments]
+    enrichedEnrollments.filter(e => e.role === 'manager'),
+    [enrichedEnrollments]
   );
 
   const pendingEnrollments = useMemo(() =>
@@ -171,26 +189,40 @@ export default function ParentCloudCoursePage() {
             ) : (
               <div className="space-y-3">
                 {pendingEnrollments.map(enrollment => {
-                  const isLive = enrollment.course?.format === 'live';
+                  const course = enrollment.course;
+                  const isLive = course?.format === 'live';
 
                   return (
-                    <Card key={enrollment.id} className="p-4">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
-                          isLive ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'
-                        }`}>
-                          {isLive ? <Radio className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm truncate">{enrollment.course?.title || '课程'}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">{isLive ? '直播' : '录播'}</Badge>
-                            {enrollment.studentName && <span className="text-xs text-muted-foreground">学生: {enrollment.studentName}</span>}
+                    <Card key={enrollment.id} className="overflow-hidden border-border/60 hover:border-border transition-colors">
+                      <div className="flex">
+                        <div className="w-28 h-20 shrink-0 relative overflow-hidden bg-muted">
+                          {course?.coverImage ? (
+                            <img src={course.coverImage} alt={course.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                              {isLive ? <Radio className="h-5 w-5 text-primary/30" /> : <Play className="h-5 w-5 text-primary/30" />}
+                            </div>
+                          )}
+                          <div className="absolute top-1 left-1">
+                            <Badge className="text-[9px] h-4 px-1" variant={isLive ? 'destructive' : 'secondary'}>
+                              {isLive ? '直播' : '录播'}
+                            </Badge>
                           </div>
                         </div>
-                        <Button onClick={() => handleScheduleForStudent(enrollment.id)}>
-                          安排学习
-                        </Button>
+                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm truncate">{course?.title || '课程'}</h3>
+                            {course?.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{course.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              {enrollment.studentName && <span className="text-xs text-muted-foreground">学生: {enrollment.studentName}</span>}
+                            </div>
+                          </div>
+                          <Button size="sm" onClick={() => handleScheduleForStudent(enrollment.id)}>
+                            安排学习
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   );
@@ -210,34 +242,44 @@ export default function ParentCloudCoursePage() {
             ) : (
               <div className="space-y-3">
                 {activeEnrollments.map(enrollment => {
-                  const isLive = enrollment.course?.format === 'live';
+                  const course = enrollment.course;
+                  const isLive = course?.format === 'live';
                   const learnPath = isLive
                     ? `/cloud-course/live/${enrollment.courseId}`
                     : `/cloud-course/learn/${enrollment.courseId}`;
 
                   return (
-                    <Card key={enrollment.id} className="p-4">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
-                          isLive ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'
-                        }`}>
-                          {isLive ? <Radio className="h-5 w-5" /> : <GraduationCap className="h-5 w-5" />}
+                    <Card key={enrollment.id} className="overflow-hidden border-border/60 hover:border-border transition-colors">
+                      <div className="flex">
+                        <div className="w-28 h-20 shrink-0 relative overflow-hidden bg-muted">
+                          {course?.coverImage ? (
+                            <img src={course.coverImage} alt={course.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-[#5C7A72]/5">
+                              <GraduationCap className="h-5 w-5 text-[#5C7A72]/30" />
+                            </div>
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm truncate">{enrollment.course?.title || '课程'}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge className="text-xs">{enrollment.status === 'learning' ? '学习中' : '已安排'}</Badge>
-                            {enrollment.studentName && <span className="text-xs text-muted-foreground">{enrollment.studentName}</span>}
+                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm truncate">{course?.title || '课程'}</h3>
+                            {course?.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{course.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <Badge variant="secondary" className="text-[10px] h-4">{enrollment.status === 'learning' ? '学习中' : '已安排'}</Badge>
+                              {enrollment.studentName && <span className="text-xs text-muted-foreground">{enrollment.studentName}</span>}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                          <div className="text-right">
-                            <div className="text-sm font-medium">{Math.round(enrollment.progress)}%</div>
-                            <Progress value={enrollment.progress} className="w-20 h-1.5 mt-1" />
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <div className="text-sm font-medium">{Math.round(enrollment.progress)}%</div>
+                              <Progress value={enrollment.progress} className="w-16 h-1.5 mt-1" />
+                            </div>
+                            <Link href={learnPath}>
+                              <Button size="sm">{isLive ? '进入课堂' : '查看'}</Button>
+                            </Link>
                           </div>
-                          <Link href={learnPath}>
-                            <Button size="sm">{isLive ? '进入课堂' : '查看'}</Button>
-                          </Link>
                         </div>
                       </div>
                     </Card>
@@ -258,33 +300,55 @@ export default function ParentCloudCoursePage() {
             ) : (
               <div className="space-y-3">
                 {parentEnrollments.map(enrollment => {
-                  const isLive = enrollment.course?.format === 'live';
+                  const course = enrollment.course;
+                  const isLive = course?.format === 'live';
                   const learnPath = isLive
                     ? `/cloud-course/live/${enrollment.courseId}`
                     : `/cloud-course/learn/${enrollment.courseId}`;
 
                   return (
-                    <Card key={enrollment.id} className="p-4">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
-                          isLive ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'
-                        }`}>
-                          {isLive ? <Radio className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm truncate">{enrollment.course?.title || '课程'}</h3>
-                          <Badge variant={enrollment.status === 'completed' ? 'default' : 'secondary'} className="mt-1 text-xs">
-                            {enrollment.status === 'completed' ? '已完成' : '学习中'}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                          <div className="text-right">
-                            <div className="text-sm font-medium">{Math.round(enrollment.progress)}%</div>
-                            <Progress value={enrollment.progress} className="w-20 h-1.5 mt-1" />
+                    <Card key={enrollment.id} className="overflow-hidden border-border/60 hover:border-border transition-colors">
+                      <div className="flex">
+                        {/* 封面缩略图 */}
+                        <div className="w-32 h-24 shrink-0 relative overflow-hidden bg-muted">
+                          {course?.coverImage ? (
+                            <img src={course.coverImage} alt={course.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                              {isLive ? <Radio className="h-6 w-6 text-primary/30" /> : <Play className="h-6 w-6 text-primary/30" />}
+                            </div>
+                          )}
+                          <div className="absolute top-1 left-1">
+                            <Badge className="text-[9px] h-4 px-1" variant={isLive ? 'destructive' : 'secondary'}>
+                              {isLive ? '直播' : '录播'}
+                            </Badge>
                           </div>
-                          <Link href={learnPath}>
-                            <Button size="sm">{enrollment.status === 'completed' ? '回顾' : isLive ? '进入课堂' : '继续学习'}</Button>
-                          </Link>
+                        </div>
+                        {/* 课程信息 */}
+                        <div className="flex-1 min-w-0 p-3 flex items-center justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm truncate">{course?.title || '课程'}</h3>
+                            {course?.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{course.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <Badge variant={enrollment.status === 'completed' ? 'default' : 'secondary'} className="text-[10px] h-4">
+                                {enrollment.status === 'completed' ? '已完成' : '学习中'}
+                              </Badge>
+                              {course?.category && (
+                                <span className="text-[10px] text-muted-foreground">{course.category}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <div className="text-sm font-medium">{Math.round(enrollment.progress)}%</div>
+                              <Progress value={enrollment.progress} className="w-16 h-1.5 mt-1" />
+                            </div>
+                            <Link href={learnPath}>
+                              <Button size="sm">{enrollment.status === 'completed' ? '回顾' : isLive ? '进入课堂' : '继续学习'}</Button>
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     </Card>
