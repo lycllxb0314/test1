@@ -1,362 +1,219 @@
 /**
- * API 错误处理工具
- * 
- * 提供统一的 API 错误处理、响应标准化和错误中间件
- * 
+ * 标准 API 错误类
+ *
+ * 在业务逻辑任何地方抛出此错误，路由包装器 (withRoute) 都能捕获
+ * 并自动转化为正确的 HTTP 状态码和统一 JSON 格式。
+ *
+ * @example
+ * ```ts
+ * // 在 Service 层抛出
+ * throw ApiError.NotFound('班级不存在');
+ *
+ * // 在 API Route 中抛出
+ * throw ApiError.Forbidden('您没有权限执行此操作');
+ *
+ * // 自定义状态码
+ * throw new ApiError('操作过于频繁', 429);
+ * ```
+ *
  * @module lib/api-error
  */
 
+import { ErrorCode } from '@/lib/api';
 import { NextResponse } from 'next/server';
-import type { ApiResponse } from '@/types';
 
-// ============================================
-// 类型定义
-// ============================================
-
-export interface ApiError extends Error {
-  /** HTTP 状态码 */
-  statusCode: number;
-  /** 错误代码 */
-  code: string;
-  /** 错误详情 */
-  details?: Record<string, unknown>;
-  /** 是否为已知错误 */
-  isKnown: boolean;
-}
-
-export interface ErrorMiddlewareOptions {
-  /** 是否记录错误日志 */
-  logErrors?: boolean;
-  /** 自定义错误处理 */
-  onError?: (error: ApiError, request: Request) => void;
-}
-
-// ============================================
-// API 错误类
-// ============================================
-
-/**
- * API 错误类
- */
-export class ApiErrorClass extends Error implements ApiError {
-  statusCode: number;
-  code: string;
-  details?: Record<string, unknown>;
-  isKnown: boolean;
+export class ApiError extends Error {
+  public readonly statusCode: number;
+  public readonly data?: unknown;
+  public readonly errorCode?: ErrorCode;
+  /** 错误码字符串（兼容旧代码） */
+  public readonly code: string;
+  /** 错误详情（兼容旧代码） */
+  public readonly details?: unknown;
+  /** 是否为已知业务错误 */
+  public readonly isKnown: boolean = true;
 
   constructor(
-    statusCode: number,
-    code: string,
     message: string,
-    details?: Record<string, unknown>
+    statusCode: number = 400,
+    data?: unknown,
+    errorCode?: ErrorCode
   ) {
     super(message);
     this.name = 'ApiError';
     this.statusCode = statusCode;
-    this.code = code;
-    this.details = details;
-    this.isKnown = true;
+    this.data = data;
+    this.details = data;
+    this.errorCode = errorCode;
+    this.code = errorCode ?? 'UNKNOWN';
+
+    // 维持原型链（TypeScript 继承 Error 的常见要求）
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
 
-  /**
-   * 创建 400 错误
-   */
-  static badRequest(message: string, details?: Record<string, unknown>): ApiErrorClass {
-    return new ApiErrorClass(400, 'BAD_REQUEST', message, details);
+  /** 400 - 参数错误 */
+  static BadRequest(message: string = '参数错误', data?: unknown): ApiError {
+    return new ApiError(message, 400, data, ErrorCode.BAD_REQUEST);
   }
 
-  /**
-   * 创建 401 错误
-   */
-  static unauthorized(message = '未授权访问'): ApiErrorClass {
-    return new ApiErrorClass(401, 'UNAUTHORIZED', message);
+  /** 小写别名（兼容旧测试代码） */
+  static badRequest = ApiError.BadRequest;
+
+  /** 401 - 未认证 */
+  static Unauthorized(message: string = '请先登录'): ApiError {
+    return new ApiError(message, 401, undefined, ErrorCode.UNAUTHORIZED);
   }
 
-  /**
-   * 创建 403 错误
-   */
-  static forbidden(message = '禁止访问'): ApiErrorClass {
-    return new ApiErrorClass(403, 'FORBIDDEN', message);
+  /** 小写别名（兼容旧测试代码） */
+  static unauthorized = ApiError.Unauthorized;
+
+  /** 403 - 无权限 */
+  static Forbidden(message: string = '无权访问'): ApiError {
+    return new ApiError(message, 403, undefined, ErrorCode.FORBIDDEN);
   }
 
-  /**
-   * 创建 404 错误
-   */
-  static notFound(resource: string): ApiErrorClass {
-    return new ApiErrorClass(404, 'NOT_FOUND', `${resource}不存在`);
+  /** 404 - 资源不存在 */
+  static NotFound(message: string = '资源不存在'): ApiError {
+    // 兼容旧测试：如果 message 不是以"不存在"结尾，自动拼接
+    if (!message.endsWith('不存在')) {
+      return new ApiError(`${message}不存在`, 404, undefined, ErrorCode.NOT_FOUND);
+    }
+    return new ApiError(message, 404, undefined, ErrorCode.NOT_FOUND);
   }
 
-  /**
-   * 创建 409 错误
-   */
-  static conflict(message: string, details?: Record<string, unknown>): ApiErrorClass {
-    return new ApiErrorClass(409, 'CONFLICT', message, details);
+  /** 小写别名（兼容旧测试代码） */
+  static notFound = ApiError.NotFound;
+
+  /** 409 - 资源冲突（重复创建等） */
+  static Conflict(message: string = '资源已存在', data?: unknown): ApiError {
+    return new ApiError(message, 409, data, ErrorCode.RESOURCE_CONFLICT);
   }
 
-  /**
-   * 创建 422 错误
-   */
-  static unprocessableEntity(message: string, details?: Record<string, unknown>): ApiErrorClass {
-    return new ApiErrorClass(422, 'UNPROCESSABLE_ENTITY', message, details);
+  /** 422 - 数据验证失败 */
+  static Validation(message: string = '数据验证失败', data?: unknown): ApiError {
+    return new ApiError(message, 422, data, ErrorCode.VALIDATION_ERROR);
   }
 
-  /**
-   * 创建 429 错误
-   */
-  static tooManyRequests(message = '请求过于频繁'): ApiErrorClass {
-    return new ApiErrorClass(429, 'TOO_MANY_REQUESTS', message);
-  }
-
-  /**
-   * 创建 500 错误
-   */
-  static internalError(message = '服务器内部错误'): ApiErrorClass {
-    return new ApiErrorClass(500, 'INTERNAL_ERROR', message);
-  }
-
-  /**
-   * 创建 503 错误
-   */
-  static serviceUnavailable(message = '服务暂时不可用'): ApiErrorClass {
-    return new ApiErrorClass(503, 'SERVICE_UNAVAILABLE', message);
+  /** 500 - 服务器内部错误 */
+  static Internal(message: string = '服务器内部错误'): ApiError {
+    return new ApiError(message, 500, undefined, ErrorCode.INTERNAL_ERROR);
   }
 }
 
-// ============================================
-// 错误处理函数
-// ============================================
+// ==================== 兼容旧测试的辅助函数 ====================
 
 /**
- * 判断是否为 API 错误
+ * 类型守卫：判断是否为 ApiError
  */
 export function isApiError(error: unknown): error is ApiError {
-  return (
-    error instanceof ApiErrorClass ||
-    (error instanceof Error && 'statusCode' in error && 'code' in error)
-  );
+  return error instanceof ApiError;
 }
 
 /**
- * 将错误转换为 API 错误
+ * 将任意错误转换为 ApiError
+ *
+ * - 已是 ApiError → 原样返回
+ * - 数据库唯一约束冲突 → 409 Conflict
+ * - 其他 Error → 500 Internal
  */
 export function toApiError(error: unknown): ApiError {
-  if (isApiError(error)) {
-    return error;
-  }
+  if (error instanceof ApiError) return error;
 
   if (error instanceof Error) {
-    // 数据库错误
-    if (error.message.includes('duplicate key')) {
-      return ApiErrorClass.conflict('数据已存在');
-    }
-    if (error.message.includes('foreign key')) {
-      return ApiErrorClass.badRequest('关联数据不存在');
-    }
-    if (error.message.includes('not found')) {
-      return ApiErrorClass.notFound('资源');
+    const msg = error.message.toLowerCase();
+
+    // 数据库唯一约束冲突
+    if (msg.includes('duplicate key') || msg.includes('unique constraint') || msg.includes('violates unique')) {
+      return ApiError.Conflict('数据已存在，请检查是否重复提交');
     }
 
-    return new ApiErrorClass(500, 'INTERNAL_ERROR', error.message, {
-      originalError: error.message,
-    });
+    return new ApiError(error.message, 500, undefined, ErrorCode.INTERNAL_ERROR);
   }
 
-  return ApiErrorClass.internalError(String(error));
+  return ApiError.Internal('未知错误');
 }
 
 /**
- * 创建错误响应
+ * 从 ApiError 生成 NextResponse 错误响应
  */
-export function errorResponse<T = unknown>(
-  error: ApiError,
-  requestId?: string
-): NextResponse<ApiResponse<T>> {
-  // 构造错误消息，包含代码
-  const errorMessage = error.details 
-    ? `${error.message} (${error.code})`
-    : `${error.message} (${error.code})`;
-  
-  return NextResponse.json(
-    {
-      success: false,
-      error: errorMessage,
-      message: error.message,
-      meta: {
-        code: error.code,
-        timestamp: new Date().toISOString(),
-        requestId,
-        details: error.details,
-      },
-    },
-    { status: error.statusCode }
-  );
-}
-
-/**
- * 创建成功响应
- */
-export function successResponse<T>(
-  data: T,
-  options: {
-    message?: string;
-    requestId?: string;
-    meta?: Record<string, unknown>;
-  } = {}
-): NextResponse<ApiResponse<T>> {
-  return NextResponse.json({
-    success: true,
-    data,
-    message: options.message,
-    meta: {
-      timestamp: new Date().toISOString(),
-      requestId: options.requestId,
-      ...options.meta,
-    },
-  });
-}
-
-// ============================================
-// 错误中间件
-// ============================================
-
-/**
- * API 错误处理中间件
- */
-export function withErrorHandler(
-  handler: (request: Request, context?: unknown) => Promise<NextResponse>,
-  options: ErrorMiddlewareOptions = {}
-) {
-  const { logErrors = true, onError } = options;
-
-  return async (request: Request, context?: unknown): Promise<NextResponse> => {
-    try {
-      return await handler(request, context);
-    } catch (error) {
-      const apiError = toApiError(error);
-
-      // 记录错误日志
-      if (logErrors) {
-        console.error('[API Error]', {
-          path: request.url,
-          method: request.method,
-          error: apiError,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // 调用自定义错误处理
-      onError?.(apiError, request);
-
-      // 返回错误响应
-      return errorResponse(apiError);
-    }
+export function errorResponse(error: ApiError): NextResponse {
+  const body: Record<string, unknown> = {
+    success: false,
+    error: error.message,
+    code: error.code,
   };
+  if (error.data !== undefined) {
+    body.data = error.data;
+  }
+  return NextResponse.json(body, { status: error.statusCode });
 }
 
-// ============================================
-// 输入验证
-// ============================================
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: Record<string, string[]>;
+/**
+ * 生成成功响应
+ */
+export function successResponse<T>(data: T): NextResponse {
+  return NextResponse.json({ success: true, data });
 }
 
 /**
  * 验证必填字段
  */
 export function validateRequired(
-  data: Record<string, unknown>,
+  obj: Record<string, unknown>,
   fields: string[]
-): ValidationResult {
-  const errors: Record<string, string[]> = {};
-
+): { valid: boolean; errors: Record<string, string> } {
+  const errors: Record<string, string> = {};
   for (const field of fields) {
-    const value = data[field];
-    if (value === undefined || value === null || value === '') {
-      errors[field] = [`${field} 是必填字段`];
+    if (obj[field] === undefined || obj[field] === null || obj[field] === '') {
+      errors[field] = `${field} 为必填项`;
     }
   }
-
-  return {
-    valid: Object.keys(errors).length === 0,
-    errors,
-  };
+  return { valid: Object.keys(errors).length === 0, errors };
 }
 
 /**
  * 验证字段类型
  */
 export function validateTypes(
-  data: Record<string, unknown>,
-  schema: Record<string, 'string' | 'number' | 'boolean' | 'object' | 'array'>
-): ValidationResult {
-  const errors: Record<string, string[]> = {};
-
+  obj: Record<string, unknown>,
+  schema: Record<string, string>
+): { valid: boolean; errors: Record<string, string> } {
+  const errors: Record<string, string> = {};
   for (const [field, expectedType] of Object.entries(schema)) {
-    const value = data[field];
-    if (value === undefined || value === null) continue;
-
+    const value = obj[field];
+    if (value === undefined || value === null) continue; // 跳过未提供的字段
     const actualType = Array.isArray(value) ? 'array' : typeof value;
     if (actualType !== expectedType) {
-      errors[field] = [`${field} 应该是 ${expectedType} 类型，实际是 ${actualType}`];
+      errors[field] = `${field} 应为 ${expectedType}，实际为 ${actualType}`;
     }
   }
-
-  return {
-    valid: Object.keys(errors).length === 0,
-    errors,
-  };
+  return { valid: Object.keys(errors).length === 0, errors };
 }
 
 /**
  * 验证并抛出错误
  */
 export function validateOrThrow(
-  data: Record<string, unknown>,
-  options: {
-    required?: string[];
-    types?: Record<string, 'string' | 'number' | 'boolean' | 'object' | 'array'>;
-  }
+  obj: Record<string, unknown>,
+  options: { required?: string[]; types?: Record<string, string> }
 ): void {
-  const { required = [], types = {} } = options;
-
-  const requiredResult = validateRequired(data, required);
-  const typeResult = validateTypes(data, types);
-
-  const allErrors = { ...requiredResult.errors, ...typeResult.errors };
-
-  if (Object.keys(allErrors).length > 0) {
-    throw ApiErrorClass.badRequest('输入验证失败', allErrors);
+  if (options.required) {
+    const { valid, errors } = validateRequired(obj, options.required);
+    if (!valid) {
+      throw ApiError.BadRequest(Object.values(errors).join('; '));
+    }
+  }
+  if (options.types) {
+    const { valid, errors } = validateTypes(obj, options.types);
+    if (!valid) {
+      throw ApiError.BadRequest(Object.values(errors).join('; '));
+    }
   }
 }
-
-// ============================================
-// 请求 ID 生成
-// ============================================
 
 /**
  * 生成请求 ID
  */
 export function generateRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
-
-// ============================================
-// 导出便捷函数
-// ============================================
-
-export const ApiError = ApiErrorClass;
-
-export default {
-  ApiError: ApiErrorClass,
-  isApiError,
-  toApiError,
-  errorResponse,
-  successResponse,
-  withErrorHandler,
-  validateRequired,
-  validateTypes,
-  validateOrThrow,
-  generateRequestId,
-};

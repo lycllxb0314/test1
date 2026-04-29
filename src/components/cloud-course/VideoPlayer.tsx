@@ -151,8 +151,8 @@ function parseVideoUrl(url: string): ParsedVideoInfo {
   // ── 腾讯视频 ──
   // https://v.qq.com/x/page/xxxxx.html
   // https://v.qq.com/x/cover/xxxxx/xxxxx.html
-  const hostname = getHostname(url);
-  if (isHost(hostname, 'v.qq.com')) {
+  const qqHostname = getHostname(url);
+  if (isHost(qqHostname, 'v.qq.com')) {
     const vidMatch = url.match(/\/([a-zA-Z0-9]+)\.html/);
     const vid = vidMatch ? vidMatch[1] : '';
     const embedSrc = vid
