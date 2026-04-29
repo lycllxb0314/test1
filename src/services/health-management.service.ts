@@ -36,6 +36,52 @@ export class HealthManagementService extends BaseService {
   /** 内存缓存：处方列表查询（5分钟有效） */
   private prescriptionListCache: { key: string; data: { prescriptions: (HealthPrescription & { studentName?: string; className?: string })[]; total: number }; ts: number } | null = null;
 
+  /** 获取学生近一周运动习惯数据 */
+  private async getWeeklyExerciseStats(studentId: string) {
+    const { getSupabaseClient } = await import('@/storage/database/supabase-client');
+    const client = getSupabaseClient();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const dateStr = sevenDaysAgo.toISOString().split('T')[0];
+
+    const { data, error } = await client
+      .from('habit_daily_records')
+      .select('exercise_type, duration_min, intensity, check_date')
+      .eq('student_id', studentId)
+      .eq('status', 'completed')
+      .gte('check_date', dateStr);
+
+    if (error || !data || data.length === 0) {
+      return { totalDays: 0, exerciseDays: 0, exerciseTypes: [] as string[], avgDuration: 0, maxDuration: 0, highIntensityRate: 0, mediumIntensityRate: 0, lowIntensityRate: 0, dailyDetails: [] as { date: string; type: string; duration: number; intensity: string }[] };
+    }
+
+    const exerciseRecords = data.filter((r: Record<string, unknown>) => r.exercise_type != null);
+    const totalDuration = exerciseRecords.reduce((sum: number, r: Record<string, unknown>) => sum + ((r.duration_min as number) || 0), 0);
+    const types = [...new Set(exerciseRecords.map((r: Record<string, unknown>) => String(r.exercise_type)))];
+    const highCount = exerciseRecords.filter((r: Record<string, unknown>) => r.intensity === 'high').length;
+    const mediumCount = exerciseRecords.filter((r: Record<string, unknown>) => r.intensity === 'medium').length;
+    const lowCount = exerciseRecords.filter((r: Record<string, unknown>) => r.intensity === 'low').length;
+
+    const dailyDetails = exerciseRecords.map((r: Record<string, unknown>) => ({
+      date: r.check_date as string,
+      type: r.exercise_type as string,
+      duration: (r.duration_min as number) || 0,
+      intensity: (r.intensity as string) || 'unknown',
+    }));
+
+    return {
+      totalDays: data.length,
+      exerciseDays: exerciseRecords.length,
+      exerciseTypes: types,
+      avgDuration: exerciseRecords.length > 0 ? Math.round(totalDuration / exerciseRecords.length) : 0,
+      maxDuration: Math.max(...exerciseRecords.map((r: Record<string, unknown>) => (r.duration_min as number) || 0), 0),
+      highIntensityRate: exerciseRecords.length > 0 ? highCount / exerciseRecords.length : 0,
+      mediumIntensityRate: exerciseRecords.length > 0 ? mediumCount / exerciseRecords.length : 0,
+      lowIntensityRate: exerciseRecords.length > 0 ? lowCount / exerciseRecords.length : 0,
+      dailyDetails,
+    };
+  }
+
   // ==================== 健康档案 ====================
 
   async getProfileByStudentId(studentId: string) {
@@ -235,17 +281,21 @@ export class HealthManagementService extends BaseService {
       return this.fail('该学生无体质测评和家长观察数据，无法生成画像', 'NO_DATA');
     }
 
+    // 2.5 获取运动习惯数据（近7天习惯打卡）
+    const exerciseWeekly = await this.getWeeklyExerciseStats(studentId);
+
     // 3. 规则引擎计算基础评分
     const portrait: Partial<StudentHealthPortrait> = {};
     const dataSources: string[] = [];
 
-    // BMI 评估
+    // BMI 评估（儿童标准，更宽松）
     if (latestAssessment?.bmi) {
       dataSources.push('fitness_assessment');
       const bmi = latestAssessment.bmi;
-      if (bmi < 14) { portrait.bmiStatus = 'underweight'; }
-      else if (bmi < 18) { portrait.bmiStatus = 'normal'; }
-      else if (bmi < 20) { portrait.bmiStatus = 'overweight'; }
+      // 小学生BMI标准：偏瘦<13.5, 正常13.5-19, 偏胖19-21, 肥胖>21
+      if (bmi < 13.5) { portrait.bmiStatus = 'underweight'; }
+      else if (bmi < 19) { portrait.bmiStatus = 'normal'; }
+      else if (bmi < 21) { portrait.bmiStatus = 'overweight'; }
       else { portrait.bmiStatus = 'obese'; }
     }
 
@@ -254,45 +304,70 @@ export class HealthManagementService extends BaseService {
       portrait.fitnessLevel = mapGradeLevel(latestAssessment.grade_level);
     }
 
-    // 睡眠评估
+    // 睡眠评估（更客观：基于观察数据，基准分60）
     if (obsStats.total > 0) {
       dataSources.push('parent_observation');
       const sleepGoodRate = obsStats.sleepSufficient / obsStats.total;
       const sleepBadRate = obsStats.sleepInsufficient / obsStats.total;
-      portrait.sleepScore = Math.round(sleepGoodRate * 100);
-      portrait.sleepPattern = sleepGoodRate >= 0.7 ? 'good' : sleepBadRate >= 0.3 ? 'poor' : 'normal';
+      // 基准60分 + 充足率贡献（最高40分），不足扣分（最多扣20分）
+      portrait.sleepScore = Math.round(60 + sleepGoodRate * 40 - sleepBadRate * 20);
+      portrait.sleepScore = Math.max(30, Math.min(100, portrait.sleepScore));
+      portrait.sleepPattern = sleepGoodRate >= 0.6 ? 'good' : sleepBadRate >= 0.4 ? 'poor' : 'normal';
     }
 
-    // 饮食评估
+    // 饮食评估（基准60分）
     if (obsStats.total > 0) {
       const dietGoodRate = obsStats.dietBalanced / obsStats.total;
-      portrait.dietScore = Math.round(dietGoodRate * 100);
-      portrait.dietPattern = dietGoodRate >= 0.7 ? 'balanced' : dietGoodRate < 0.3 ? 'poor' : 'normal';
+      const dietBadRate = obsStats.dietOvereating / obsStats.total;
+      portrait.dietScore = Math.round(60 + dietGoodRate * 40 - dietBadRate * 20);
+      portrait.dietScore = Math.max(30, Math.min(100, portrait.dietScore));
+      portrait.dietPattern = dietGoodRate >= 0.6 ? 'balanced' : dietGoodRate < 0.3 ? 'poor' : 'normal';
     }
 
-    // 精神状态评估
-    if (obsStats.total > 0) {
+    // 运动习惯评分（基于真实运动打卡数据）
+    if (exerciseWeekly.totalDays > 0) {
+      dataSources.push('habit_record');
+      // 运动天数占比（0-40分）+ 平均时长达标（0-30分）+ 运动强度（0-30分）
+      const daysScore = Math.min(exerciseWeekly.exerciseDays / 5, 1) * 40; // 每周5天运动满分
+      const durationScore = Math.min((exerciseWeekly.avgDuration || 0) / 40, 1) * 30; // 40分钟满分
+      const intensityScore = exerciseWeekly.highIntensityRate >= 0.2 ? 30 
+        : exerciseWeekly.mediumIntensityRate >= 0.3 ? 25 
+        : exerciseWeekly.lowIntensityRate >= 0.5 ? 15 : 20;
+      portrait.exerciseHabitScore = Math.round(60 + daysScore + durationScore + intensityScore - 30);
+      portrait.exerciseHabitScore = Math.max(40, Math.min(100, portrait.exerciseHabitScore));
+    } else if (obsStats.total > 0) {
+      // 没有打卡数据，从精力充沛率推算
       const energyGoodRate = obsStats.energyEnergetic / obsStats.total;
-      // 运动习惯评分：基于精力充沛率和运动频率
-      portrait.exerciseHabitScore = Math.round(
-        (energyGoodRate * 0.5 + (portrait.sleepScore ?? 50) / 100 * 0.3 + 0.2) * 100
-      );
+      portrait.exerciseHabitScore = Math.round(60 + energyGoodRate * 25);
+      portrait.exerciseHabitScore = Math.max(50, Math.min(85, portrait.exerciseHabitScore));
     }
 
-    // 综合健康分计算
-    const scores: number[] = [];
-    if (portrait.sleepScore !== undefined) scores.push(portrait.sleepScore);
-    if (portrait.dietScore !== undefined) scores.push(portrait.dietScore);
-    if (latestAssessment?.total_score) scores.push(latestAssessment.total_score);
-    
-    if (scores.length > 0) {
-      portrait.overallHealthScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    // 综合健康分计算（加权平均，更客观）
+    const bmiScore = portrait.bmiStatus === 'normal' ? 85 
+      : portrait.bmiStatus === 'overweight' ? 65 
+      : portrait.bmiStatus === 'underweight' ? 70 
+      : portrait.bmiStatus === 'obese' ? 50 : 75;
+    const fitnessScore = portrait.fitnessLevel === 'excellent' ? 90 
+      : portrait.fitnessLevel === 'good' ? 78 
+      : portrait.fitnessLevel === 'pass' ? 65 
+      : portrait.fitnessLevel === 'fail' ? 50 : 70;
+
+    const weights: { score: number; weight: number }[] = [];
+    if (portrait.sleepScore !== undefined) weights.push({ score: portrait.sleepScore, weight: 0.15 });
+    if (portrait.dietScore !== undefined) weights.push({ score: portrait.dietScore, weight: 0.15 });
+    if (portrait.exerciseHabitScore !== undefined) weights.push({ score: portrait.exerciseHabitScore, weight: 0.2 });
+    weights.push({ score: bmiScore, weight: 0.25 });
+    weights.push({ score: fitnessScore, weight: 0.25 });
+
+    if (weights.length > 0) {
+      const totalWeight = weights.reduce((a, b) => a + b.weight, 0);
+      portrait.overallHealthScore = Math.round(weights.reduce((a, b) => a + b.score * b.weight, 0) / totalWeight);
     }
 
-    // 综合状态
+    // 综合状态（门槛更宽松）
     if (portrait.overallHealthScore !== undefined) {
-      if (portrait.overallHealthScore >= 85) portrait.overallStatus = 'excellent';
-      else if (portrait.overallHealthScore >= 70) portrait.overallStatus = 'good';
+      if (portrait.overallHealthScore >= 80) portrait.overallStatus = 'excellent';
+      else if (portrait.overallHealthScore >= 65) portrait.overallStatus = 'good';
       else if (portrait.overallHealthScore >= 50) portrait.overallStatus = 'attention';
       else portrait.overallStatus = 'warning';
     }
@@ -327,6 +402,15 @@ export class HealthManagementService extends BaseService {
         dietBalancedRate: obsStats.total > 0 ? obsStats.dietBalanced / obsStats.total : undefined,
         energyEnergeticRate: obsStats.total > 0 ? obsStats.energyEnergetic / obsStats.total : undefined,
         energyTiredRate: obsStats.total > 0 ? obsStats.energyTired / obsStats.total : undefined,
+        // 运动习惯周数据
+        exerciseWeeklyDays: exerciseWeekly.exerciseDays,
+        exerciseWeeklyTypes: exerciseWeekly.exerciseTypes,
+        exerciseWeeklyAvgDuration: exerciseWeekly.avgDuration,
+        exerciseWeeklyMaxDuration: exerciseWeekly.maxDuration,
+        exerciseHighIntensityRate: exerciseWeekly.highIntensityRate,
+        exerciseMediumIntensityRate: exerciseWeekly.mediumIntensityRate,
+        exerciseLowIntensityRate: exerciseWeekly.lowIntensityRate,
+        exerciseDailyDetails: exerciseWeekly.dailyDetails,
         // 身体发育
         heightCm: latestAssessment?.height_cm ?? undefined,
         weightKg: latestAssessment?.weight_kg ?? undefined,
@@ -467,6 +551,9 @@ export class HealthManagementService extends BaseService {
       const assessments = await fitnessAssessmentRepository.findByStudentId(studentId);
       const latest = assessments[0] ?? null;
 
+      // 获取运动习惯周数据
+      const exerciseWeekly = await this.getWeeklyExerciseStats(studentId);
+
       const aiResult = await generatePrescriptionAI({
         studentId,
         heightCm: latest?.height_cm ?? undefined,
@@ -496,6 +583,15 @@ export class HealthManagementService extends BaseService {
         ropeJump: latest?.rope_jump_1min ?? undefined,
         sitUp: latest?.sit_ups_1min ?? undefined,
         detailedAnalysis: portrait.detailedAnalysis,
+        // 运动习惯周数据
+        exerciseWeeklyDays: exerciseWeekly.exerciseDays,
+        exerciseWeeklyTypes: exerciseWeekly.exerciseTypes,
+        exerciseWeeklyAvgDuration: exerciseWeekly.avgDuration,
+        exerciseWeeklyMaxDuration: exerciseWeekly.maxDuration,
+        exerciseHighIntensityRate: exerciseWeekly.highIntensityRate,
+        exerciseMediumIntensityRate: exerciseWeekly.mediumIntensityRate,
+        exerciseLowIntensityRate: exerciseWeekly.lowIntensityRate,
+        exerciseDailyDetails: exerciseWeekly.dailyDetails,
       });
 
       const dto: CreateHealthPrescriptionDTO = {

@@ -42,6 +42,15 @@ type PortraitInput = {
   dietOvereatingRate?: number;
   energyEnergeticRate?: number;
   energyTiredRate?: number;
+  // 运动习惯周数据
+  exerciseWeeklyDays?: number;
+  exerciseWeeklyTypes?: string[];
+  exerciseWeeklyAvgDuration?: number;
+  exerciseWeeklyMaxDuration?: number;
+  exerciseHighIntensityRate?: number;
+  exerciseMediumIntensityRate?: number;
+  exerciseLowIntensityRate?: number;
+  exerciseDailyDetails?: { date: string; type: string; duration: number; intensity: string }[];
   // 体检数据
   dentalCaries?: number;
   spineNormal?: boolean;
@@ -110,6 +119,15 @@ type PrescriptionInput = {
   ropeJump?: number;
   sitUp?: number;
   detailedAnalysis?: PortraitAIResult['detailedAnalysis'] | import('@/types/health-management').PortraitDetailedAnalysis;
+  // 运动习惯周数据
+  exerciseWeeklyDays?: number;
+  exerciseWeeklyTypes?: string[];
+  exerciseWeeklyAvgDuration?: number;
+  exerciseWeeklyMaxDuration?: number;
+  exerciseHighIntensityRate?: number;
+  exerciseMediumIntensityRate?: number;
+  exerciseLowIntensityRate?: number;
+  exerciseDailyDetails?: { date: string; type: string; duration: number; intensity: string }[];
 };
 
 type PrescriptionAIResult = {
@@ -189,6 +207,16 @@ export async function generatePortraitAI(input: PortraitInput): Promise<Portrait
 - 睡眠评分: ${input.sleepScore ?? '未知'}/100 (模式: ${formatPattern(input.sleepPattern)})
 - 饮食评分: ${input.dietScore ?? '未知'}/100 (模式: ${formatPattern(input.dietPattern)})
 - 运动习惯分: ${input.exerciseHabitScore ?? '未知'}/100
+
+## 运动习惯数据（近一周打卡记录）
+- 本周运动天数: ${input.exerciseWeeklyDays ?? 0}天/7天
+- 运动类型: ${(input.exerciseWeeklyTypes || []).join('、') || '未知'}
+- 平均每次时长: ${input.exerciseWeeklyAvgDuration ?? '未知'}分钟
+- 最长单次时长: ${input.exerciseWeeklyMaxDuration ?? '未知'}分钟
+- 高强度运动占比: ${input.exerciseHighIntensityRate != null ? Math.round(input.exerciseHighIntensityRate * 100) + '%' : '未知'}
+- 中等强度运动占比: ${input.exerciseMediumIntensityRate != null ? Math.round(input.exerciseMediumIntensityRate * 100) + '%' : '未知'}
+- 低强度运动占比: ${input.exerciseLowIntensityRate != null ? Math.round(input.exerciseLowIntensityRate * 100) + '%' : '未知'}
+${(input.exerciseDailyDetails || []).length > 0 ? `- 每日运动明细:\n${input.exerciseDailyDetails!.map(d => `  ${d.date}: ${d.type} ${d.duration}分钟 (${formatIntensityCN(d.intensity)})`).join('\n')}` : '- 每日运动明细: 暂无打卡记录'}
 
 ## 家长观察数据（近30天）
 - 观察天数: ${input.observationDays ?? 0}天
@@ -345,6 +373,16 @@ export async function generatePrescriptionAI(input: PrescriptionInput): Promise<
 - 坐位体前屈: ${input.sitReach ?? '未知'} cm
 - 跳绳: ${input.ropeJump ?? '未知'} 次/分钟
 - 仰卧起坐: ${input.sitUp ?? '未知'} 次/分钟
+
+## 近一周运动习惯数据
+${input.exerciseWeeklyDays != null ? `- 运动天数: ${input.exerciseWeeklyDays}天/7天
+- 运动类型: ${(input.exerciseWeeklyTypes || []).join('、') || '无记录'}
+- 平均运动时长: ${input.exerciseWeeklyAvgDuration ?? 0}分钟/次
+- 最长运动时长: ${input.exerciseWeeklyMaxDuration ?? 0}分钟
+- 高强度运动占比: ${Math.round((input.exerciseHighIntensityRate ?? 0) * 100)}%
+- 中等强度运动占比: ${Math.round((input.exerciseMediumIntensityRate ?? 0) * 100)}%
+- 低强度运动占比: ${Math.round((input.exerciseLowIntensityRate ?? 0) * 100)}%
+- 每日明细: ${(input.exerciseDailyDetails || []).map(d => `${d.date}: ${d.type} ${d.duration}分钟(${formatIntensityCN(d.intensity)})`).join('；') || '无记录'}` : '- 暂无运动打卡记录'}
 ${detailedAnalysisText}
 
 请输出以下JSON格式：
@@ -557,6 +595,11 @@ function formatFitnessLevel(level?: string): string {
 function formatPattern(pattern?: string): string {
   const map: Record<string, string> = { good: '良好', normal: '一般', poor: '较差', balanced: '均衡' };
   return map[pattern || ''] || pattern || '未知';
+}
+
+function formatIntensityCN(intensity?: string): string {
+  const map: Record<string, string> = { high: '高强度', medium: '中等', low: '低强度', unknown: '未知' };
+  return map[intensity || ''] || intensity || '未知';
 }
 
 /** 画像兜底逻辑 */

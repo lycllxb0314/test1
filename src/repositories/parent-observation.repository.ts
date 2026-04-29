@@ -68,6 +68,7 @@ export class ParentObservationRepository extends BaseRepository<ParentDailyObser
     sleepSufficient: number;
     sleepInsufficient: number;
     dietBalanced: number;
+    dietOvereating: number;
     energyEnergetic: number;
     energyTired: number;
   }> {
@@ -77,6 +78,7 @@ export class ParentObservationRepository extends BaseRepository<ParentDailyObser
       sleepSufficient: 0,
       sleepInsufficient: 0,
       dietBalanced: 0,
+      dietOvereating: 0,
       energyEnergetic: 0,
       energyTired: 0,
     };
@@ -84,6 +86,7 @@ export class ParentObservationRepository extends BaseRepository<ParentDailyObser
       if (r.sleep_quality === 'sufficient') stats.sleepSufficient++;
       if (r.sleep_quality === 'insufficient') stats.sleepInsufficient++;
       if (r.diet_quality === 'balanced') stats.dietBalanced++;
+      if (r.diet_quality === 'overeating') stats.dietOvereating++;
       if (r.energy_level === 'energetic') stats.energyEnergetic++;
       if (r.energy_level === 'tired') stats.energyTired++;
     }
