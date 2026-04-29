@@ -27,10 +27,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
+import { ImageUploader } from '@/components/ui/image-uploader';
+import { FileUploadField } from '@/components/cloud-course/FileUploadField';
 import {
   BookOpen, Plus, Send, Users, GraduationCap, Star,
-  Play, Radio, Clock, Trash2, Edit, Eye, ExternalLink,
-  Video, FileText, Search, TrendingUp,
+  Play, Radio, Clock, Trash2, Eye, ExternalLink,
+  Search, TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { CourseDomain, CloudCourse } from '@/types/cloud-course';
@@ -421,7 +423,12 @@ export function CloudCourseManagement({
                           </select>
                         </div>
                       </div>
-                      <Input placeholder="封面图链接（可选）" value={newCourse.coverImage} onChange={e => setNewCourse(p => ({ ...p, coverImage: e.target.value }))} />
+                      <ImageUploader
+                        value={newCourse.coverImage || undefined}
+                        onChange={(url) => setNewCourse(p => ({ ...p, coverImage: url || '' }))}
+                        folder="cloud-course/covers"
+                        className="w-full"
+                      />
                       <Input placeholder="分类（如：语文教研、安全教育）" value={newCourse.category} onChange={e => setNewCourse(p => ({ ...p, category: e.target.value }))} />
                       <Input placeholder="目标受众（如：全校教师、一年级家长）" value={newCourse.targetAudience} onChange={e => setNewCourse(p => ({ ...p, targetAudience: e.target.value }))} />
                     </div>
@@ -451,13 +458,25 @@ export function CloudCourseManagement({
                                 </div>
                                 <Input placeholder="章节标题" value={ch.title} onChange={e => updateChapter(i, 'title', e.target.value)} className="h-8 text-sm" />
                                 <div className="flex gap-2">
-                                  <div className="flex-1 relative">
-                                    <Video className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                    <Input placeholder="视频链接（MP4/HLS）" value={ch.videoUrl} onChange={e => updateChapter(i, 'videoUrl', e.target.value)} className="pl-8 h-8 text-sm" />
+                                  <div className="flex-1">
+                                    <FileUploadField
+                                      value={ch.videoUrl}
+                                      onChange={(url) => updateChapter(i, 'videoUrl', url)}
+                                      category="video"
+                                      folder="cloud-course/videos"
+                                      placeholder="视频链接（MP4/HLS）"
+                                      iconType="video"
+                                    />
                                   </div>
-                                  <div className="flex-1 relative">
-                                    <FileText className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                    <Input placeholder="课件链接（可选）" value={ch.documentUrl} onChange={e => updateChapter(i, 'documentUrl', e.target.value)} className="pl-8 h-8 text-sm" />
+                                  <div className="flex-1">
+                                    <FileUploadField
+                                      value={ch.documentUrl}
+                                      onChange={(url) => updateChapter(i, 'documentUrl', url)}
+                                      category="document"
+                                      folder="cloud-course/courseware"
+                                      placeholder="课件链接（可选）"
+                                      iconType="document"
+                                    />
                                   </div>
                                 </div>
                               </div>
