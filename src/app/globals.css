@@ -1,7 +1,10 @@
-@import url('https://fonts.googleapis.cn/css2?family=Noto+Serif+SC:wght@200..900&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700;900&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
 
+@custom-variant dark (&:is(.dark *));
+
+/* 龙岩师范附属小学 - 百年名校典雅主题 */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -41,97 +44,247 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.00);
-  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.00);
-  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.00), 0 1px 2px -1px hsl(0 0% 0% / 0.00);
-  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.00), 0 2px 4px -1px hsl(0 0% 0% / 0.00);
-  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.00), 0 4px 6px -1px hsl(0 0% 0% / 0.00);
-  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.00), 0 8px 10px -1px hsl(0 0% 0% / 0.00);
-  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.00);
+  
+  /* 衬线字体用于标题 - 典雅文化感 */
+  --font-serif: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+  /* 无衬线字体用于正文 - 清晰易读 */
+  --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  
+  /* 学校特色色彩 - 百年名校温润金棕色系 */
+  --color-school-primary: #A0785A;      /* 赤金棕 - 主色 */
+  --color-school-secondary: #5C7A72;    /* 松石绿 - 辅色 */
+  --color-school-accent: #C9A96E;       /* 香槟金 - 点缀 */
+  --color-school-warm: #C8956C;         /* 琥珀棕 */
+  --color-school-cream: #FDF9F3;        /* 象牙白 */
 }
 
 :root {
-  --background: oklch(0.99 0.008 190);
-  --foreground: oklch(0.18 0.04 195);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.04 195);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.04 195);
-  --primary: oklch(0.60 0.14 185);
-  --primary-foreground: oklch(0.99 0.02 185);
-  --secondary: oklch(0.94 0.03 190);
-  --secondary-foreground: oklch(0.35 0.10 190);
-  --muted: oklch(0.95 0.015 195);
-  --muted-foreground: oklch(0.50 0.05 195);
-  --accent: oklch(0.91 0.04 190);
-  --accent-foreground: oklch(0.25 0.12 185);
-  --destructive: oklch(0.60 0.18 28);
-  --border: oklch(0.90 0.02 195);
-  --input: oklch(0.88 0.025 195);
-  --ring: oklch(0.60 0.14 185 / 35%);
-  --chart-1: oklch(0.60 0.14 185);
-  --chart-2: oklch(0.75 0.12 170);
-  --chart-3: oklch(0.50 0.15 200);
-  --chart-4: oklch(0.85 0.10 180);
-  --chart-5: oklch(0.40 0.12 195);
-  --sidebar: oklch(0.98 0.01 190);
-  --sidebar-foreground: oklch(0.25 0.06 190);
-  --sidebar-primary: oklch(0.60 0.14 185);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.94 0.03 190);
-  --sidebar-accent-foreground: oklch(0.60 0.14 185);
-  --sidebar-border: oklch(0.91 0.015 190);
-  --sidebar-ring: oklch(0.60 0.14 185 / 25%);
-  --radius: 0.65rem;
+  --radius: 0.5rem;
+  /* 清透暖白背景 */
+  --background: #FEFBF6;
+  --foreground: #4A3F35;
+  /* 卡片 */
+  --card: #FFFFFF;
+  --card-foreground: #4A3F35;
+  /* 弹出层 */
+  --popover: #FFFFFF;
+  --popover-foreground: #4A3F35;
+  /* 主色 - 赤金棕，温润有光泽 */
+  --primary: #A0785A;
+  --primary-foreground: #FFFFFF;
+  /* 次要色 */
+  --secondary: #FBF7F2;
+  --secondary-foreground: #A0785A;
+  /* 柔和暖灰 */
+  --muted: #F3EDE6;
+  --muted-foreground: #8C7E72;
+  /* 强调色 - 香槟金 */
+  --accent: #C9A96E;
+  --accent-foreground: #FFFFFF;
+  /* 警告色 */
+  --destructive: #C41E3A;
+  /* 边框 */
+  --border: #E6DDD3;
+  --input: #E6DDD3;
+  --ring: #A0785A;
+  /* 图表颜色 */
+  --chart-1: #A0785A;
+  --chart-2: #5C7A72;
+  --chart-3: #C9A96E;
+  --chart-4: #C8956C;
+  --chart-5: #6B8E6B;
+  /* 侧边栏 */
+  --sidebar: #FEFBF6;
+  --sidebar-foreground: #4A3F35;
+  --sidebar-primary: #A0785A;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #FBF7F2;
+  --sidebar-accent-foreground: #A0785A;
+  --sidebar-border: #E6DDD3;
+  --sidebar-ring: #A0785A;
 }
 
 .dark {
-  --background: oklch(0.13 0.028 261.692);
-  --foreground: oklch(0.985 0.002 247.839);
-  --card: oklch(0.21 0.034 264.665);
-  --card-foreground: oklch(0.985 0.002 247.839);
-  --popover: oklch(0.21 0.034 264.665);
-  --popover-foreground: oklch(0.985 0.002 247.839);
-  --primary: oklch(0.70 0.12 183);
-  --primary-foreground: oklch(0.28 0.04 193);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.278 0.033 256.848);
-  --muted-foreground: oklch(0.707 0.022 261.325);
-  --accent: oklch(0.278 0.033 256.848);
-  --accent-foreground: oklch(0.985 0.002 247.839);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.85 0.13 181);
-  --chart-2: oklch(0.78 0.13 182);
-  --chart-3: oklch(0.70 0.12 183);
-  --chart-4: oklch(0.60 0.10 185);
-  --chart-5: oklch(0.51 0.09 186);
-  --sidebar: oklch(0.21 0.034 264.665);
-  --sidebar-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-primary: oklch(0.78 0.13 182);
-  --sidebar-primary-foreground: oklch(0.28 0.04 193);
-  --sidebar-accent: oklch(0.278 0.033 256.848);
-  --sidebar-accent-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --background: #1C1916;
+  --foreground: #F3EDE6;
+  --card: #262220;
+  --card-foreground: #F3EDE6;
+  --popover: #262220;
+  --popover-foreground: #F3EDE6;
+  --primary: #C9A96E;
+  --primary-foreground: #1C1916;
+  --secondary: #352F2A;
+  --secondary-foreground: #F3EDE6;
+  --muted: #2C2722;
+  --muted-foreground: #A89888;
+  --accent: #C9A96E;
+  --accent-foreground: #1C1916;
+  --destructive: #E57373;
+  --border: #352F2A;
+  --input: #352F2A;
+  --ring: #C9A96E;
+  --chart-1: #C9A96E;
+  --chart-2: #7DB5A8;
+  --chart-3: #D4B87A;
+  --chart-4: #D4A07A;
+  --chart-5: #8BB88B;
+  --sidebar: #1C1916;
+  --sidebar-foreground: #F3EDE6;
+  --sidebar-primary: #C9A96E;
+  --sidebar-primary-foreground: #1C1916;
+  --sidebar-accent: #352F2A;
+  --sidebar-accent-foreground: #F3EDE6;
+  --sidebar-border: #352F2A;
+  --sidebar-ring: #C9A96E;
 }
-
-@custom-variant dark (&:is(.dark *));
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-
   }
   body {
-    @apply bg-background text-foreground font-serif;
-
+    @apply bg-background text-foreground;
   }
 }
 
+/* 数学公式渲染样式 */
+.math-content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+}
+
+.math-content .katex {
+  font-size: 1.05em;
+}
+
+.math-content img {
+  display: block;
+}
+
+body {
+  @apply font-sans;
+}
+
+/* 标题使用衬线字体 */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5EDE4;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C4A77D;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8B4513;
+}
+
+/* 装饰性边框 */
+.decorative-border {
+  border: 2px solid transparent;
+  background: linear-gradient(#FFFAF0, #FFFAF0) padding-box,
+              linear-gradient(135deg, #8B4513, #B8860B, #8B4513) border-box;
+}
+
+/* 古典分隔线 */
+.classical-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #B8860B, transparent);
+}
+
+/* 浮动动画 */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.float-animation {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ==================== 打印样式 ==================== */
+@media print {
+  /* 隐藏非打印内容 */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* 只显示打印区域及其子元素 */
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  
+  /* 打印区域定位 */
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  
+  /* 申报表打印样式 */
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* 打印时显示水印 */
+  .print-watermark {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    pointer-events: none;
+    background-repeat: repeat;
+    opacity: 0.15;
+  }
+}
+
+/* ==================== 公式编辑器公式块样式 ==================== */
+.formula-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin: 0 2px;
+  cursor: pointer;
+  vertical-align: baseline;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.formula-chip:hover {
+  background: hsl(var(--primary) / 0.15);
+  border-color: hsl(var(--primary) / 0.4);
+}
+.formula-chip:active {
+  background: hsl(var(--primary) / 0.2);
+}
+
+/* contenteditable 空内容时的 placeholder */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}

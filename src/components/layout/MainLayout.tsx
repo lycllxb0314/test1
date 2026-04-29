@@ -75,7 +75,6 @@ import {
   Key,
   Brain,
   Apple,
-  Stethoscope,
   TrendingUp,
   Pill,
 } from 'lucide-react';
@@ -150,11 +149,10 @@ const moralNav: NavItem[] = [
 // 学生体育健康管理导航
 const healthNav: NavItem[] = [
   { name: '健康概览', href: '/health', icon: LayoutDashboard, description: '体育健康管理看板', badge: 'AI' },
-  { name: '体质数据', href: '/health/fitness', icon: Activity, description: '体质测评数据导入与管理' },
+  { name: '体质与体检', href: '/health/fitness', icon: Activity, description: '体质测试与体检数据管理' },
   { name: '健康画像', href: '/health/portraits', icon: TrendingUp, description: '学生综合健康画像', badge: 'AI' },
   { name: '健康处方', href: '/health/prescriptions', icon: Pill, description: '膳食建议与运动处方', badge: 'AI' },
   { name: '家长观察', href: '/health/observations', icon: Apple, description: '家长每日观察数据查看' },
-  { name: '体检管理', href: '/health/checkup', icon: Stethoscope, description: '学生体检数据管理' },
   { name: '周期报告', href: '/health/reports', icon: BarChart3, description: '周/月/学期健康报告', badge: 'AI' },
 ];
 
@@ -735,6 +733,7 @@ export function AppSidebar() {
                 {activeModule === 'moral' && '德育管理'}
                 {activeModule === 'teacher' && '教师空间'}
                 {activeModule === 'parent' && '家长端'}
+                {activeModule === 'health' && '体育健康'}
               </span>
               <button
                 onClick={() => setActiveModule(null)}

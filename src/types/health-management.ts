@@ -54,6 +54,22 @@ type FitnessAssessment = {
   visionLeft?: number;
   visionRight?: number;
 
+  // 体检扩展字段
+  dentalCariesLeft?: number;
+  dentalCariesRight?: number;
+  dentalFillingLeft?: number;
+  dentalFillingRight?: number;
+  dentalMissingLeft?: number;
+  dentalMissingRight?: number;
+  spineNormal?: boolean;
+  systolicBp?: number;
+  diastolicBp?: number;
+  heartRate?: number;
+  colorBlindness?: string;
+  hearingLeft?: string;
+  hearingRight?: string;
+  checkupNotes?: string;
+
   // 数据来源
   source: string;
   importedBy?: string;
@@ -82,6 +98,20 @@ type FitnessAssessmentRow = {
   grade_level: string | null;
   vision_left: number | null;
   vision_right: number | null;
+  dental_caries_left: number | null;
+  dental_caries_right: number | null;
+  dental_filling_left: number | null;
+  dental_filling_right: number | null;
+  dental_missing_left: number | null;
+  dental_missing_right: number | null;
+  spine_normal: boolean | null;
+  systolic_bp: number | null;
+  diastolic_bp: number | null;
+  heart_rate: number | null;
+  color_blindness: string | null;
+  hearing_left: string | null;
+  hearing_right: string | null;
+  checkup_notes: string | null;
   source: string;
   imported_by: string | null;
   imported_at: string | null;

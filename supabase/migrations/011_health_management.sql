@@ -52,7 +52,23 @@ CREATE TABLE IF NOT EXISTS fitness_assessments (
   -- 视力（体检数据合并至此）
   vision_left DECIMAL(3,1),               -- 左眼视力
   vision_right DECIMAL(3,1),              -- 右眼视力
-  
+
+  -- 体检扩展字段
+  dental_caries_left INTEGER,              -- 龋齿(左)
+  dental_caries_right INTEGER,             -- 龋齿(右)
+  dental_filling_left INTEGER,             -- 已补(左)
+  dental_filling_right INTEGER,            -- 已补(右)
+  dental_missing_left INTEGER,             -- 缺失(左)
+  dental_missing_right INTEGER,            -- 缺失(右)
+  spine_normal BOOLEAN,                    -- 脊柱是否正常
+  systolic_bp INTEGER,                     -- 收缩压
+  diastolic_bp INTEGER,                    -- 舒张压
+  heart_rate INTEGER,                      -- 心率
+  color_blindness VARCHAR(10),             -- 色觉
+  hearing_left VARCHAR(10),               -- 左耳听力
+  hearing_right VARCHAR(10),              -- 右耳听力
+  checkup_notes TEXT,                      -- 体检备注
+
   -- 数据来源
   source VARCHAR(20) NOT NULL DEFAULT 'import',  -- import/excel/manual
   imported_by VARCHAR(20),                 -- 导入人工号
