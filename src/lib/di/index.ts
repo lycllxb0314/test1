@@ -132,6 +132,13 @@ import {
   cloudCoursePushRepository, CloudCoursePushRepository,
 } from '@/repositories/cloud-course.repository';
 
+// 体育健康 Repositories
+import { HealthProfileRepository, healthProfileRepository } from '@/repositories/health-profile.repository';
+import { FitnessAssessmentRepository, fitnessAssessmentRepository } from '@/repositories/fitness-assessment.repository';
+import { ParentObservationRepository, parentObservationRepository } from '@/repositories/parent-observation.repository';
+import { HealthPortraitRepository, healthPortraitRepository } from '@/repositories/health-portrait.repository';
+import { HealthPrescriptionRepository, healthPrescriptionRepository } from '@/repositories/health-prescription.repository';
+
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
 import { StudentService, studentService } from '@/services/student.service';
@@ -243,6 +250,9 @@ import {
   CloudLiveSessionService, cloudLiveSessionService,
 } from '@/services/cloud-course.service';
 
+// 体育健康 Services
+import { HealthManagementService, healthManagementService } from '@/services/health-management.service';
+
 /**
  * 初始化 DI 容器
  * 注册所有服务到容器中
@@ -340,6 +350,13 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.CloudLiveSessionRepository, () => cloudLiveSessionRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.CloudCoursePushRepository, () => cloudCoursePushRepository);
 
+  // 体育健康 Repositories
+  container.registerSingleton(SERVICE_IDENTIFIERS.HealthProfileRepository, () => healthProfileRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.FitnessAssessmentRepository, () => fitnessAssessmentRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.ParentObservationRepository, () => parentObservationRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.HealthPortraitRepository, () => healthPortraitRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.HealthPrescriptionRepository, () => healthPrescriptionRepository);
+
   // ========================================
   // 注册 Services（单例）
   // ========================================
@@ -425,6 +442,9 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.CloudCourseEnrollmentService, () => cloudCourseEnrollmentService);
   container.registerSingleton(SERVICE_IDENTIFIERS.CloudLearningRecordService, () => cloudLearningRecordService);
   container.registerSingleton(SERVICE_IDENTIFIERS.CloudLiveSessionService, () => cloudLiveSessionService);
+
+  // 体育健康 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.HealthManagementService, () => healthManagementService);
 }
 
 // 导出

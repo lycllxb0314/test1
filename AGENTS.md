@@ -78,6 +78,7 @@
 - **新增**: SeatingPlanRepository, ClassSOPRepository, ClassRoutineRepository
 - **新增**: ConversationRepository, SharedResourceRepository, TeachingResourceRepository
 - **新增**: LessonPrepRepository, DutyTeacherRepository, WeeklyEvaluationRepository
+- **新增**: HealthProfileRepository, FitnessAssessmentRepository, ParentObservationRepository, HealthPortraitRepository, HealthPrescriptionRepository
 
 **Services (24个)：**
 - UserService, StudentService, TeacherService, ClassService
@@ -91,6 +92,7 @@
 - **新增**: ConversationService, MessageService, SharedResourceService, TeachingResourceService
 - **新增**: LessonPrepService, MathPrepService, ReadingTeachingService, WritingTeachingService
 - **新增**: TextbookService
+- **新增**: HealthManagementService
 
 ```typescript
 // 注册服务
@@ -408,6 +410,12 @@ export class StudentRepository extends BaseRepository<Student> {
 5. **家长门户** (`/parent/*`)
    - 子女信息、成绩查询
    - 习惯打卡、信息采集
+   - **体育健康** (`/parent/health`) - 健康画像查看、每日观察提交
+
+6. **体育健康管理** (`/health/*`)
+   - 健康概览仪表盘、体质数据管理
+   - 健康画像(AI)、健康处方(AI)
+   - 家长观察记录、体检管理、周期报告
 
 ---
 
@@ -500,6 +508,106 @@ await updateStep(executionId, stepOrder, 'complete', {
 
 // 完成执行
 await completeExecution(executionId, summary, signatures);
+```
+
+---
+
+## 体育健康管理模块
+
+### 模块概述
+
+整合体质监测、运动记录和健康档案的独立模块，AI赋能膳食建议和运动处方。数据共享至教务、班主任、家长端。
+
+### 核心功能
+
+1. **健康概览仪表盘** (`/health`)
+   - 学生健康统计（总人数、健康率、预警数、处方数）
+   - BMI/体质等级分布可视化
+   - 快速入口
+
+2. **体质数据管理** (`/health/fitness`)
+   - CSV模板下载、批量导入
+   - 按学年学期查询
+   - 身高、体重、BMI、肺活量、50米跑等12项指标
+
+3. **健康画像** (`/health/portraits`)
+   - AI综合评分（BMI/体质/睡眠/饮食/精神五维度）
+   - 风险因素标签、优势标签
+   - 支持手动触发画像计算
+
+4. **健康处方** (`/health/prescriptions`)
+   - AI生成膳食建议和运动处方
+   - 热量目标、推荐运动、频率时长
+   - 家长确认机制
+
+5. **家长观察** (`/health/observations`)
+   - 家长每日3选1极简表单（睡眠/饮食/精神）
+   - 数据自动汇入健康画像
+
+6. **家长端** (`/parent/health`)
+   - 综合健康分环形图
+   - 维度评分卡片
+   - AI健康处方展示
+   - 每日观察提交
+
+### 文件结构
+
+```
+src/
+├── types/health-management.ts              # 类型定义（20+类型）
+├── repositories/
+│   ├── health-profile.repository.ts        # 健康档案
+│   ├── fitness-assessment.repository.ts     # 体质测评
+│   ├── parent-observation.repository.ts     # 家长观察
+│   ├── health-portrait.repository.ts        # 健康画像
+│   └── health-prescription.repository.ts    # 健康处方
+├── services/health-management.service.ts    # 统一业务逻辑
+├── app/
+│   ├── api/health/                          # API 路由
+│   │   ├── stats/route.ts                   # 统计概览
+│   │   ├── fitness/route.ts                 # 体质数据
+│   │   ├── observations/route.ts            # 家长观察
+│   │   ├── portraits/route.ts               # 健康画像
+│   │   └── prescriptions/route.ts           # 健康处方
+│   ├── health/                              # 管理端页面
+│   │   ├── page.tsx                         # 概览仪表盘
+│   │   ├── fitness/page.tsx                 # 体质数据
+│   │   ├── portraits/page.tsx               # 健康画像
+│   │   ├── prescriptions/page.tsx           # 健康处方
+│   │   ├── observations/page.tsx            # 家长观察
+│   │   ├── checkup/page.tsx                 # 体检管理
+│   │   └── reports/page.tsx                 # 周期报告
+│   └── parent/health/page.tsx               # 家长端页面
+└── supabase/migrations/011_health_management.sql  # 数据库迁移
+```
+
+### 数据库表
+
+| 表名 | 说明 |
+|------|------|
+| `health_profiles` | 健康档案（过敏、慢性病、紧急联系人） |
+| `fitness_assessments` | 体质测评数据（12项指标+等级） |
+| `parent_daily_observations` | 家长每日观察（睡眠/饮食/精神） |
+| `student_health_portraits` | 健康画像（五维评分+风险/优势标签） |
+| `health_prescriptions` | 健康处方（膳食+运动建议） |
+| `health_cycle_reports` | 周期报告 |
+
+### 新增角色/部门
+
+| 标识 | 名称 | 说明 |
+|------|------|------|
+| `clinic_office` | 医务室 | GroupType新增，拥有health模块权限 |
+| `health` | 体育健康 | ModuleType新增，独立模块 |
+
+### 画像计算规则
+
+```typescript
+// BMI评分：标准(18.5-24)=100, 偏瘦/超重=60, 肥胖=30
+// 体质评分：优秀=100, 良好=80, 及格=60, 不及格=30
+// 睡眠评分：充足=100, 一般=70, 不足=40
+// 饮食评分：均衡=100, 一般=70, 暴食=40
+// 精神评分：充沛=100, 正常=70, 疲惫=40
+// 综合 = (BMI*0.25 + 体质*0.3 + 睡眠*0.15 + 饮食*0.15 + 精神*0.15)
 ```
 
 ---
@@ -685,6 +793,18 @@ const safeHtml = DOMPurify.sanitize(userInput);
 ---
 
 ## 更新日志
+
+- 2026-04-29: 新增体育健康管理模块
+  - 新增6张数据库表：health_profiles, fitness_assessments, parent_daily_observations, student_health_portraits, health_prescriptions, health_cycle_reports
+  - 扩展现有表：habit_daily_records 添加运动维度字段，moral_activities 添加健康维度
+  - 新增5个 Repository：HealthProfile, FitnessAssessment, ParentObservation, HealthPortrait, HealthPrescription
+  - 新增1个统一 Service：HealthManagementService（画像计算、处方生成、统计等）
+  - 新增5个 API 路由：stats, fitness, observations, portraits, prescriptions
+  - 新增管理端7个页面（仪表盘、体质、画像、处方、观察、体检、报告）
+  - 新增家长端健康页面（画像查看+每日观察提交）
+  - 新增 ModuleType 'health' 和 GroupType 'clinic_office'
+  - DI 容器注册所有新服务
+  - 修复多个类型错误：employee_id→employeeId, ServiceResult导入, undefined→null
 
 - 2026-04-06: 修复公告新闻发布状态和数据加载问题
   - **问题1: 发布后状态永远是"待发布"**

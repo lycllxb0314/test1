@@ -46,6 +46,7 @@ export type ModuleType =
   | 'general'      // 总务后勤
   | 'academic'     // 教务教研
   | 'moral'        // 德育管理
+  | 'health'       // 学生体育健康管理
   | 'teacher'      // 教师空间
   | 'parent';      // 家长端
 
@@ -131,7 +132,8 @@ export type GroupType =
   | 'principal_office'    // 校长室
   | 'academic_office'     // 教务处
   | 'moral_office'        // 德育处
-  | 'general_office';     // 总务处
+  | 'general_office'      // 总务处
+  | 'clinic_office';      // 医务室
 
 /** 群组配置 */
 export interface GroupConfig {
@@ -207,6 +209,7 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
       academic: ['view', 'edit', 'admin'],
       moral: ['view', 'edit', 'admin'],
       general: ['view', 'edit', 'admin'],
+      health: ['view', 'edit', 'admin'],
       teacher: ['view', 'edit', 'admin'],
     },
     autoIncludeRoles: ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'],
@@ -218,6 +221,7 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
     description: '负责教学管理、课程安排、教师培训等',
     modulePermissions: {
       academic: ['view', 'edit', 'admin'],
+      health: ['view'],  // 教务处可查看健康画像数据
     },
     autoIncludeRoles: [],
     directorRole: 'academic_director',
@@ -228,6 +232,7 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
     description: '负责学生德育、班级管理、少先队等',
     modulePermissions: {
       moral: ['view', 'edit', 'admin'],
+      health: ['view', 'edit', 'admin'],  // 德育处主管健康管理模块
     },
     autoIncludeRoles: [],
     directorRole: 'moral_director',
@@ -241,5 +246,15 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
     },
     autoIncludeRoles: [],
     directorRole: 'general_director',
+  },
+  clinic_office: {
+    id: 'clinic_office',
+    name: '医务室',
+    description: '负责学生体质健康监测、体检数据管理、健康档案维护',
+    modulePermissions: {
+      health: ['view', 'edit', 'admin'],  // 医务室专注于健康管理
+    },
+    autoIncludeRoles: [],
+    directorRole: undefined,
   },
 };

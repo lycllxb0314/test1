@@ -124,6 +124,34 @@ export {
   GROUP_CONFIGS,
 } from './user';
 
+// ==================== 学生体育健康管理 ====================
+export type {
+  HealthProfile,
+  FitnessAssessment,
+  FitnessAssessmentRow,
+  ParentDailyObservation,
+  ParentDailyObservationRow,
+  CreateObservationDTO,
+  SleepQuality,
+  DietQuality,
+  EnergyLevel,
+  StudentHealthPortrait,
+  BmiStatus,
+  TrendType,
+  FitnessLevel,
+  OverallStatus,
+  HealthPrescription,
+  PrescriptionType,
+  PeriodType,
+  ExerciseIntensity,
+  NutritionAdvice,
+  MealSuggestion,
+  HealthCycleReport,
+  HealthStatsOverview,
+  CreateFitnessAssessmentDTO,
+  CreateHealthPrescriptionDTO,
+} from './health-management';
+
 // ==================== 教师管理 ====================
 export type {
   Teacher,

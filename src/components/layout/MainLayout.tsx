@@ -74,6 +74,10 @@ import {
   Edit3,
   Key,
   Brain,
+  Apple,
+  Stethoscope,
+  TrendingUp,
+  Pill,
 } from 'lucide-react';
 import { roleOptions } from '@/contexts/AuthContext';
 import { moduleNames, roleConfigs, administrativeRoleConfigs } from '@/config/roles';
@@ -143,6 +147,17 @@ const moralNav: NavItem[] = [
   { name: '云教学管理', href: '/moral/cloud-course', icon: GraduationCap, description: '家长课程·学生课程管理', badge: '新' },
 ];
 
+// 学生体育健康管理导航
+const healthNav: NavItem[] = [
+  { name: '健康概览', href: '/health', icon: LayoutDashboard, description: '体育健康管理看板', badge: 'AI' },
+  { name: '体质数据', href: '/health/fitness', icon: Activity, description: '体质测评数据导入与管理' },
+  { name: '健康画像', href: '/health/portraits', icon: TrendingUp, description: '学生综合健康画像', badge: 'AI' },
+  { name: '健康处方', href: '/health/prescriptions', icon: Pill, description: '膳食建议与运动处方', badge: 'AI' },
+  { name: '家长观察', href: '/health/observations', icon: Apple, description: '家长每日观察数据查看' },
+  { name: '体检管理', href: '/health/checkup', icon: Stethoscope, description: '学生体检数据管理' },
+  { name: '周期报告', href: '/health/reports', icon: BarChart3, description: '周/月/学期健康报告', badge: 'AI' },
+];
+
 // 教师空间导航 - 基础功能（所有教师可见，待重建）
 const teacherBaseNav: NavItem[] = [
   { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台' },
@@ -185,6 +200,7 @@ const gradeLeaderNav: NavItem[] = [
 // 家长端导航
 const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
+  { name: '体育健康', href: '/parent/health', icon: Heart, description: '孩子体育健康数据与建议', badge: 'AI' },
   { name: '云教学', href: '/parent/cloud-course', icon: GraduationCap, description: '家长课程·子女学习', badge: '新' },
   { name: '荣誉申报', href: '/parent/honor-application', icon: Trophy, description: '为孩子申报学校荣誉', badge: '新' },
   { name: '信息收集', href: '/parent/collection', icon: ClipboardList, description: '填写信息收集表', badge: '新' },
@@ -251,6 +267,8 @@ export function AppSidebar() {
       setActiveModule('academic');
     } else if (pathname.startsWith('/moral')) {
       setActiveModule('moral');
+    } else if (pathname.startsWith('/health')) {
+      setActiveModule('health');
     } else if (pathname.startsWith('/teacher')) {
       setActiveModule('teacher');
     } else if (pathname.startsWith('/parent')) {
@@ -301,6 +319,8 @@ export function AppSidebar() {
         return academicNav;
       case 'moral':
         return moralNav;
+      case 'health':
+        return healthNav;
       case 'teacher':
         // 值日工作导航项
         const dutyNavItem: NavItem = { 
@@ -502,6 +522,35 @@ export function AppSidebar() {
                   </button>
                 </TooltipTrigger>
                 {collapsed && <TooltipContent side="right">德育管理</TooltipContent>}
+              </Tooltip>
+            )}
+
+            {/* 学生体育健康管理 */}
+            {accessibleModules.has('health') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setActiveModule(activeModule === 'health' ? null : 'health')}
+                    className={cn(
+                      'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                      activeModule === 'health'
+                        ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/25'
+                        : 'text-gray-700 hover:bg-teal-50 hover:text-teal-600'
+                    )}
+                  >
+                    <Activity className="h-5 w-5" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left">体育健康</span>
+                        <ChevronRight className={cn(
+                          'h-4 w-4 transition-transform',
+                          activeModule === 'health' && 'rotate-90'
+                        )} />
+                      </>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                {collapsed && <TooltipContent side="right">体育健康管理</TooltipContent>}
               </Tooltip>
             )}
 
