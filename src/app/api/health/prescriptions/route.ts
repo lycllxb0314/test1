@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { protectedRoute } from '@/lib/auth';
 import { healthManagementService } from '@/services/health-management.service';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { CreateHealthPrescriptionDTO } from '@/types/health-management';
+import type { CreateHealthPrescriptionDTO, HealthPrescription } from '@/types/health-management';
 
 export const GET = protectedRoute(async (request) => {
   const { searchParams } = new URL(request.url);
@@ -35,7 +35,12 @@ export const GET = protectedRoute(async (request) => {
     }
 
     const result = await healthManagementService.getAllPrescriptions(page, pageSize, filterStudentIds, status || null);
-    return NextResponse.json({ success: result.success, data: result.data });
+    const pResult = result.data as { prescriptions: (HealthPrescription & { studentName?: string; className?: string })[]; total: number } | undefined;
+    return NextResponse.json({
+      success: result.success,
+      data: pResult?.prescriptions || [],
+      pagination: pResult ? { page, pageSize, total: pResult.total, totalPages: Math.ceil(pResult.total / pageSize) } : undefined,
+    });
   }
 
   if (!studentId) {

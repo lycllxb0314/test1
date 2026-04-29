@@ -387,10 +387,9 @@ export default function PrescriptionsPage() {
       });
       if (classId && classId !== 'all') params.set('classId', classId);
 
-      const res = await apiClient.get<PrescriptionWithInfo[]>(`/api/health/prescriptions?${params}`);
+      const res = await apiClient.get<PrescriptionWithInfo[]>(`/health/prescriptions?${params}`);
       setPrescriptions(res.data || []);
-      const pg = (res as unknown as { pagination?: { total: number } }).pagination;
-      setTotal(pg?.total ?? 0);
+      setTotal(res.pagination?.total ?? 0);
     } catch (err) {
       console.error('Failed to load prescriptions:', err);
     } finally {
@@ -415,7 +414,7 @@ export default function PrescriptionsPage() {
       const params = new URLSearchParams({ mode: 'regenerate' });
       if (classId && classId !== 'all') params.set('classId', classId);
 
-      const res = await apiClient.post<{ total: number; success: number; fail: number }>(`/api/health/prescriptions?${params}`, {});
+      const res = await apiClient.post<{ total: number; success: number; fail: number }>(`/health/prescriptions?${params}`, {});
       clearTimeout(timeoutId);
       setRefreshResult(res.data ?? null);
       await loadPrescriptions();

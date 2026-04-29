@@ -446,10 +446,10 @@ export default function PortraitsPage() {
       if (statusFilter) params.set('status', statusFilter);
       if (classId && classId !== 'all') params.set('classId', classId);
 
-      const res = await apiClient.get<{ portraits: PortraitWithInfo[]; total: number }>(`/health/portraits?${params.toString()}`);
-      if (res.success && res.data) {
-        setPortraits(res.data.portraits || []);
-        setTotal(res.data.total || 0);
+      const res = await apiClient.get<PortraitWithInfo[]>(`/health/portraits?${params.toString()}`);
+      if (res.success) {
+        setPortraits(res.data || []);
+        setTotal(res.pagination?.total ?? 0);
       }
     } catch (err) {
       console.error('[PortraitsPage] load error:', err);

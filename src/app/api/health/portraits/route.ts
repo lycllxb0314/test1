@@ -39,7 +39,12 @@ export const GET = protectedRoute(async (request) => {
     : status || null;
 
   const result = await healthManagementService.getAllPortraits(page, pageSize, filterParam);
-  return NextResponse.json({ success: result.success, data: result.data });
+  const pResult = result.data as { portraits: (import('@/types/health-management').StudentHealthPortrait & { studentName?: string; className?: string; classId?: string })[]; total: number } | undefined;
+  return NextResponse.json({
+    success: result.success,
+    data: pResult?.portraits || [],
+    pagination: pResult ? { page, pageSize, total: pResult.total, totalPages: Math.ceil(pResult.total / pageSize) } : undefined,
+  });
 });
 
 export const POST = protectedRoute(async (request) => {
