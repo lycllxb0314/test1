@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { apiClient } from '@/services/api-client';
-import { GradeClassFilter, PaginationControl } from '@/components/health/HealthFilters';
+import { GradeClassFilter, PaginationControl, useClassesData } from '@/components/health/HealthFilters';
+import { LazyChart } from '@/components/health/HealthPerformance';
 import {
   Dumbbell,
   Calendar,
@@ -12,6 +13,7 @@ import {
   Search,
   X,
   Zap,
+  Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -57,6 +59,7 @@ export default function ExercisePage() {
   // 年级班级筛选
   const [grade, setGrade] = useState('all');
   const [classId, setClassId] = useState('all');
+  const { gradeOptions, classesByGrade, loading: classesLoading } = useClassesData();
 
   // 分页
   const [page, setPage] = useState(1);
@@ -92,9 +95,12 @@ export default function ExercisePage() {
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { setPage(1); }, [startDate, endDate, grade, classId]);
 
-  const filtered = searchQuery
-    ? records.filter(r => r.studentName.includes(searchQuery) || r.studentNo.includes(searchQuery) || r.className.includes(searchQuery))
-    : records;
+  const filtered = useMemo(
+    () => searchQuery
+      ? records.filter(r => r.studentName.includes(searchQuery) || r.studentNo.includes(searchQuery) || r.className.includes(searchQuery))
+      : records,
+    [records, searchQuery]
+  );
 
   const topExercise = stats?.exerciseTypes
     ? Object.entries(stats.exerciseTypes).sort((a, b) => b[1] - a[1])[0]
@@ -144,7 +150,10 @@ export default function ExercisePage() {
             grade={grade}
             onGradeChange={setGrade}
             classId={classId}
-            onClassIdChange={setClassId}
+            onClassChange={setClassId}
+            gradeOptions={gradeOptions}
+            classOptions={classesByGrade}
+            loading={classesLoading}
           />
 
           <div className="relative ml-auto w-56">
@@ -175,8 +184,9 @@ export default function ExercisePage() {
 
         {/* 运动类型分布条 */}
         {stats && Object.keys(stats.exerciseTypes).length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">运动类型分布</h3>
+          <LazyChart height={200}>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">运动类型分布</h3>
             <div className="space-y-2">
               {Object.entries(stats.exerciseTypes)
                 .sort((a, b) => b[1] - a[1])
@@ -197,7 +207,8 @@ export default function ExercisePage() {
                   );
                 })}
             </div>
-          </div>
+            </div>
+          </LazyChart>
         )}
 
         {/* 数据表格 */}

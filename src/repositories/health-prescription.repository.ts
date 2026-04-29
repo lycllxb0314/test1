@@ -93,6 +93,59 @@ export class HealthPrescriptionRepository extends BaseRepository<HealthPrescript
     return count || 0;
   }
 
+  /** 获取所有处方（管理端分页，含学生信息，可按学生ID列表筛选） */
+  async findAllWithStudentInfo(
+    page = 1,
+    pageSize = 20,
+    filterStudentIds?: string[] | null,
+    status?: string | null,
+  ): Promise<{ prescriptions: (HealthPrescription & { studentName?: string; className?: string })[]; total: number }> {
+    let query = this.client
+      .from(this.tableName)
+      .select('*, students!inner(id, name, class_id, class_name)', { count: 'exact' });
+
+    if (Array.isArray(filterStudentIds) && filterStudentIds.length > 0) {
+      query = query.in('student_id', filterStudentIds);
+    }
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const from = (page - 1) * pageSize;
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error('[HealthPrescriptionRepository] findAllWithStudentInfo error:', error.message);
+      return { prescriptions: [], total: 0 };
+    }
+
+    const prescriptions = (data || []).map(row => ({
+      ...this.mapFromRow(row),
+      studentName: (row.students as Record<string, unknown>)?.name as string,
+      className: ((row.students as Record<string, unknown>)?.class_name || (row.students as Record<string, unknown>)?.class_id) as string,
+    }));
+
+    return { prescriptions, total: count || 0 };
+  }
+
+  /** 将旧处方置为已替代 */
+  async supersedeByStudentId(studentId: string): Promise<number> {
+    const { data, error } = await this.client
+      .from(this.tableName)
+      .update({ status: 'superseded', updated_at: new Date().toISOString() })
+      .eq('student_id', studentId)
+      .eq('status', 'active')
+      .select();
+
+    if (error) {
+      console.error('[HealthPrescriptionRepository] supersedeByStudentId error:', error.message);
+      return 0;
+    }
+    return (data || []).length;
+  }
+
   private mapFromRow(row: HealthPrescriptionRow): HealthPrescription {
     return {
       id: row.id,

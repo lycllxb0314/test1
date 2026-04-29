@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
 import type { HealthStatsOverview } from '@/types/health-management';
-import { GradeClassFilter } from '@/components/health/HealthFilters';
+import { GradeClassFilter, useClassesData } from '@/components/health/HealthFilters';
+import { LazyChart } from '@/components/health/HealthPerformance';
 import {
   Activity,
   TrendingUp,
@@ -119,6 +120,7 @@ export default function HealthDashboardPage() {
   // 年级班级筛选
   const [grade, setGrade] = useState('all');
   const [classId, setClassId] = useState('all');
+  const { gradeOptions, classesByGrade, loading: classesLoading } = useClassesData();
 
   const loadStats = useCallback(async () => {
     setLoading(true);
@@ -173,7 +175,10 @@ export default function HealthDashboardPage() {
             grade={grade}
             onGradeChange={setGrade}
             classId={classId}
-            onClassIdChange={setClassId}
+            onClassChange={setClassId}
+            gradeOptions={gradeOptions}
+            classOptions={classesByGrade}
+            loading={classesLoading}
           />
           <span className="ml-auto text-xs text-muted-foreground">
             {grade !== 'all' || classId !== 'all' ? '已筛选' : '全校数据'}
@@ -223,26 +228,30 @@ export default function HealthDashboardPage() {
         {/* 分布图 + 快捷入口 */}
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           {/* 体质等级分布 */}
-          <DistributionBar
-            title="体质等级分布"
-            items={[
-              { label: '优秀', count: stats?.fitnessDistribution?.[0]?.count ?? 0, color: 'bg-emerald-500' },
-              { label: '良好', count: stats?.fitnessDistribution?.[1]?.count ?? 0, color: 'bg-teal-400' },
-              { label: '及格', count: stats?.fitnessDistribution?.[2]?.count ?? 0, color: 'bg-amber-400' },
-              { label: '不及格', count: stats?.fitnessDistribution?.[3]?.count ?? 0, color: 'bg-rose-400' },
-            ]}
-          />
+          <LazyChart height={140}>
+            <DistributionBar
+              title="体质等级分布"
+              items={[
+                { label: '优秀', count: stats?.fitnessDistribution?.[0]?.count ?? 0, color: 'bg-emerald-500' },
+                { label: '良好', count: stats?.fitnessDistribution?.[1]?.count ?? 0, color: 'bg-teal-400' },
+                { label: '及格', count: stats?.fitnessDistribution?.[2]?.count ?? 0, color: 'bg-amber-400' },
+                { label: '不及格', count: stats?.fitnessDistribution?.[3]?.count ?? 0, color: 'bg-rose-400' },
+              ]}
+            />
+          </LazyChart>
 
           {/* BMI 分布 */}
-          <DistributionBar
-            title="BMI 体型分布"
-            items={[
-              { label: '偏瘦', count: stats?.bmiDistribution?.[0]?.count ?? 0, color: 'bg-sky-400' },
-              { label: '正常', count: stats?.bmiDistribution?.[1]?.count ?? 0, color: 'bg-emerald-500' },
-              { label: '偏胖', count: stats?.bmiDistribution?.[2]?.count ?? 0, color: 'bg-amber-400' },
-              { label: '肥胖', count: stats?.bmiDistribution?.[3]?.count ?? 0, color: 'bg-rose-400' },
-            ]}
-          />
+          <LazyChart height={140}>
+            <DistributionBar
+              title="BMI 体型分布"
+              items={[
+                { label: '偏瘦', count: stats?.bmiDistribution?.[0]?.count ?? 0, color: 'bg-sky-400' },
+                { label: '正常', count: stats?.bmiDistribution?.[1]?.count ?? 0, color: 'bg-emerald-500' },
+                { label: '偏胖', count: stats?.bmiDistribution?.[2]?.count ?? 0, color: 'bg-amber-400' },
+                { label: '肥胖', count: stats?.bmiDistribution?.[3]?.count ?? 0, color: 'bg-rose-400' },
+              ]}
+            />
+          </LazyChart>
         </div>
 
         {/* 快捷入口 */}

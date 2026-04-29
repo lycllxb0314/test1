@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { apiClient } from '@/services/api-client';
-import { GradeClassFilter, PaginationControl } from '@/components/health/HealthFilters';
+import { GradeClassFilter, PaginationControl, useClassesData } from '@/components/health/HealthFilters';
+import { LazyChart } from '@/components/health/HealthPerformance';
 import {
   Apple,
   Calendar,
@@ -11,6 +12,7 @@ import {
   Sun,
   Search,
   X,
+  Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -76,6 +78,7 @@ export default function ObservationsPage() {
   // 年级班级筛选
   const [grade, setGrade] = useState('all');
   const [classId, setClassId] = useState('all');
+  const { gradeOptions, classesByGrade, loading: classesLoading } = useClassesData();
 
   // 分页
   const [page, setPage] = useState(1);
@@ -159,7 +162,10 @@ export default function ObservationsPage() {
             grade={grade}
             onGradeChange={setGrade}
             classId={classId}
-            onClassIdChange={setClassId}
+            onClassChange={setClassId}
+            gradeOptions={gradeOptions}
+            classOptions={classesByGrade}
+            loading={classesLoading}
           />
 
           <div className="relative ml-auto w-56">
@@ -180,11 +186,13 @@ export default function ObservationsPage() {
 
         {/* 统计卡片 */}
         {stats && stats.totalRecords > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <DistCard icon={<Moon className="h-5 w-5" />} title="睡眠质量" total={stats.totalRecords} dist={stats.sleepDist} styles={SLEEP_STYLES} gradient="from-indigo-500 to-blue-500" />
-            <DistCard icon={<Utensils className="h-5 w-5" />} title="饮食状况" total={stats.totalRecords} dist={stats.dietDist} styles={DIET_STYLES} gradient="from-emerald-500 to-teal-500" />
-            <DistCard icon={<Sun className="h-5 w-5" />} title="精神状态" total={stats.totalRecords} dist={stats.energyDist} styles={ENERGY_STYLES} gradient="from-amber-500 to-orange-500" />
-          </div>
+          <LazyChart height={160}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <DistCard icon={<Moon className="h-5 w-5" />} title="睡眠质量" total={stats.totalRecords} dist={stats.sleepDist} styles={SLEEP_STYLES} gradient="from-indigo-500 to-blue-500" />
+              <DistCard icon={<Utensils className="h-5 w-5" />} title="饮食状况" total={stats.totalRecords} dist={stats.dietDist} styles={DIET_STYLES} gradient="from-emerald-500 to-teal-500" />
+              <DistCard icon={<Sun className="h-5 w-5" />} title="精神状态" total={stats.totalRecords} dist={stats.energyDist} styles={ENERGY_STYLES} gradient="from-amber-500 to-orange-500" />
+            </div>
+          </LazyChart>
         )}
 
         {/* 数据表格 */}

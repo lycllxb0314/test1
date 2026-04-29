@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { apiClient } from '@/services/api-client';
 import type { StudentHealthPortrait } from '@/types/health-management';
 import { GradeClassFilter, useClassesData } from '@/components/health/HealthFilters';
@@ -13,6 +13,8 @@ import {
   Shield,
   Eye,
   Heart,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -53,7 +55,7 @@ function ScoreRing({ score, size = 64, label }: { score: number; size?: number; 
   );
 }
 
-function PortraitCard({ portrait }: { portrait: PortraitWithInfo }) {
+const PortraitCard = React.memo(function PortraitCard({ portrait }: { portrait: PortraitWithInfo }) {
   const config = statusConfig[portrait.overallStatus || 'good'] || statusConfig.good;
   const score = portrait.overallHealthScore ?? 0;
 
@@ -76,9 +78,12 @@ function PortraitCard({ portrait }: { portrait: PortraitWithInfo }) {
 
       {/* AI 摘要 */}
       {portrait.aiSummary && (
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-          {portrait.aiSummary}
-        </p>
+        <div className="mt-3 flex items-start gap-1.5">
+          <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
+          <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
+            {portrait.aiSummary}
+          </p>
+        </div>
       )}
 
       {/* 评分环 */}
@@ -92,12 +97,12 @@ function PortraitCard({ portrait }: { portrait: PortraitWithInfo }) {
       {/* 风险/优势标签 */}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {(portrait.riskFactors || []).map(r => (
-          <span key={r} className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-600">
+          <span key={r} className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600">
             {r}
           </span>
         ))}
         {(portrait.strengths || []).map(s => (
-          <span key={s} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+          <span key={s} className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
             {s}
           </span>
         ))}
@@ -118,7 +123,9 @@ function PortraitCard({ portrait }: { portrait: PortraitWithInfo }) {
       </div>
     </div>
   );
-}
+});
+
+import React from 'react';
 
 export default function PortraitsPage() {
   const [portraits, setPortraits] = useState<PortraitWithInfo[]>([]);
@@ -126,11 +133,20 @@ export default function PortraitsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [computing, setComputing] = useState(false);
+  const [computeResult, setComputeResult] = useState<{ total: number; success: number; fail: number } | null>(null);
 
   // 年级班级筛选
   const [grade, setGrade] = useState('all');
   const [classId, setClassId] = useState('all');
-  const { classes } = useClassesData();
+  const { gradeOptions, classesByGrade, loading: classesLoading } = useClassesData();
+
+  const computeTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  // 年级对应班级列表
+  const classOptions = useMemo(() => {
+    if (grade === 'all') return classesByGrade;
+    return { [grade]: classesByGrade[grade] || [] };
+  }, [grade, classesByGrade]);
 
   const loadPortraits = useCallback(async () => {
     setLoading(true);
@@ -144,14 +160,6 @@ export default function PortraitsPage() {
       );
       if (res.success && res.data) {
         let list = res.data.portraits || [];
-        // 年级前端筛选
-        if (grade !== 'all') {
-          const gradeNum = Number(grade);
-          const gradeClassIds = new Set(
-            classes.filter(c => c.gradeNumber === gradeNum).map(c => c.id)
-          );
-          list = list.filter(p => gradeClassIds.has(p.classId || ''));
-        }
         setPortraits(list);
       }
     } catch (err) {
@@ -159,25 +167,37 @@ export default function PortraitsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, classId, grade, classes]);
+  }, [statusFilter, classId]);
 
   useEffect(() => { loadPortraits(); }, [loadPortraits]);
 
-  const computeAll = async () => {
+  // 批量刷新画像（后端批量计算）
+  const handleRefresh = async () => {
     setComputing(true);
+    setComputeResult(null);
     try {
-      // 对每个学生触发画像计算
-      for (const p of portraits) {
-        await apiClient.post(`/health/portraits?studentId=${p.studentId}`);
-      }
+      const params = new URLSearchParams({ mode: 'batch' });
+      if (classId && classId !== 'all') params.set('classId', classId);
+
+      const res = await apiClient.post<{ total: number; success: number; fail: number }>(
+        `/health/portraits?${params.toString()}`, {}
+      );
+      setComputeResult(res.data ?? null);
       await loadPortraits();
+    } catch (err) {
+      console.error('[PortraitsPage] batch compute error:', err);
     } finally {
       setComputing(false);
+      if (computeTimerRef.current) clearTimeout(computeTimerRef.current);
+      computeTimerRef.current = setTimeout(() => setComputeResult(null), 3000);
     }
   };
 
-  const filtered = portraits.filter(p =>
-    !searchQuery || p.studentName?.includes(searchQuery) || p.studentId.includes(searchQuery)
+  const filtered = useMemo(
+    () => portraits.filter(p =>
+      !searchQuery || p.studentName?.includes(searchQuery) || p.studentId.includes(searchQuery)
+    ),
+    [portraits, searchQuery]
   );
 
   const filterTabs = [
@@ -200,17 +220,26 @@ export default function PortraitsPage() {
               <h1 className="text-lg font-bold text-foreground">学生健康画像</h1>
               <p className="text-xs text-muted-foreground">基于多数据源的AI综合健康分析与画像</p>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                <Sparkles className="h-3.5 w-3.5" /> AI生成
+              </div>
               <button
-                onClick={computeAll}
+                onClick={handleRefresh}
                 disabled={computing}
-                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
-                <RefreshCw className={`h-4 w-4 ${computing ? 'animate-spin' : ''}`} />
-                {computing ? '计算中...' : '刷新画像'}
+                <RefreshCw className={`h-3.5 w-3.5 ${computing ? 'animate-spin' : ''}`} />
+                {computing ? '生成中...' : '刷新画像'}
               </button>
             </div>
           </div>
+          {/* 刷新结果提示 */}
+          {computeResult && (
+            <div className="mt-2 rounded-md bg-primary/10 px-3 py-1.5 text-xs text-primary">
+              画像生成完成：共 {computeResult.total} 人，成功 {computeResult.success} 人，失败 {computeResult.fail} 人
+            </div>
+          )}
         </div>
       </div>
 
@@ -221,7 +250,7 @@ export default function PortraitsPage() {
             {filterTabs.map(tab => (
               <button
                 key={tab.key}
-                onClick={() => setStatusFilter(tab.key)}
+                onClick={() => { setStatusFilter(tab.key); }}
                 className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
                   statusFilter === tab.key
                     ? 'bg-primary text-primary-foreground'
@@ -235,9 +264,12 @@ export default function PortraitsPage() {
 
           <GradeClassFilter
             grade={grade}
-            onGradeChange={setGrade}
             classId={classId}
-            onClassIdChange={setClassId}
+            gradeOptions={gradeOptions}
+            classOptions={classOptions}
+            onGradeChange={(g) => { setGrade(g); setClassId('all'); }}
+            onClassChange={setClassId}
+            loading={classesLoading}
           />
 
           <div className="relative flex-1 max-w-xs">
@@ -257,12 +289,15 @@ export default function PortraitsPage() {
 
         {/* 画像卡片网格 */}
         {loading ? (
-          <div className="py-20 text-center text-muted-foreground">加载中...</div>
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <span className="ml-2 text-sm text-muted-foreground">加载中...</span>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center">
             <Shield className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
             <p className="text-muted-foreground">暂无画像数据</p>
-            <p className="mt-1 text-xs text-muted-foreground/70">请先导入体质数据或等待家长提交观察数据</p>
+            <p className="mt-1 text-xs text-muted-foreground/70">点击「刷新画像」按钮生成AI画像</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

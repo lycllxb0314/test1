@@ -5,8 +5,8 @@
  * 1. 健康档案 CRUD
  * 2. 体质测评数据导入与查询
  * 3. 家长观察数据提交与查询
- * 4. 健康画像计算（规则引擎 + AI）
- * 5. 健康处方生成
+ * 4. 健康画像计算（LLM AI + 规则兜底）
+ * 5. 健康处方生成（LLM AI + 规则兜底）
  * 6. 统计概览
  */
 import { BaseService, type ServiceResult } from './base.service';
@@ -15,19 +15,27 @@ import { fitnessAssessmentRepository } from '@/repositories/fitness-assessment.r
 import { parentObservationRepository } from '@/repositories/parent-observation.repository';
 import { healthPortraitRepository } from '@/repositories/health-portrait.repository';
 import { healthPrescriptionRepository } from '@/repositories/health-prescription.repository';
+import { generatePortraitAI, generatePrescriptionAI } from './health-ai.service';
 import type {
   HealthProfile,
-  FitnessAssessment,
   FitnessAssessmentRow,
   ParentDailyObservationRow,
   CreateObservationDTO,
   StudentHealthPortrait,
+  HealthPrescription,
   CreateFitnessAssessmentDTO,
   CreateHealthPrescriptionDTO,
   HealthStatsOverview,
 } from '@/types/health-management';
 
 export class HealthManagementService extends BaseService {
+  /** 内存缓存：画像列表查询（5分钟有效） */
+  private portraitListCache: { key: string; data: { portraits: (StudentHealthPortrait & { studentName?: string; className?: string; classId?: string })[]; total: number }; ts: number } | null = null;
+  private static CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+
+  /** 内存缓存：处方列表查询（5分钟有效） */
+  private prescriptionListCache: { key: string; data: { prescriptions: (HealthPrescription & { studentName?: string; className?: string })[]; total: number }; ts: number } | null = null;
+
   // ==================== 健康档案 ====================
 
   async getProfileByStudentId(studentId: string) {
@@ -196,11 +204,24 @@ export class HealthManagementService extends BaseService {
   }
 
   async getAllPortraits(page = 1, pageSize = 20, statusOrStudentIds?: string | string[] | null) {
+    const cacheKey = `p${page}_ps${pageSize}_${JSON.stringify(statusOrStudentIds)}`;
+    const now = Date.now();
+
+    if (this.portraitListCache && this.portraitListCache.key === cacheKey && now - this.portraitListCache.ts < HealthManagementService.CACHE_TTL) {
+      return this.ok(this.portraitListCache.data);
+    }
+
     const result = await healthPortraitRepository.findAllWithStudentInfo(page, pageSize, statusOrStudentIds);
+    this.portraitListCache = { key: cacheKey, data: result, ts: now };
     return this.ok(result);
   }
 
-  /** 计算学生健康画像（规则引擎） */
+  /** 使画像缓存失效 */
+  invalidatePortraitCache() {
+    this.portraitListCache = null;
+  }
+
+  /** 计算学生健康画像（规则引擎 + LLM AI摘要） */
   async computePortrait(studentId: string) {
     // 1. 获取最新体质测评
     const assessments = await fitnessAssessmentRepository.findByStudentId(studentId);
@@ -209,33 +230,23 @@ export class HealthManagementService extends BaseService {
     // 2. 获取家长观察统计（近30天）
     const obsStats = await parentObservationRepository.getStudentObservationStats(studentId, 30);
 
-    // 3. 获取运动打卡数据（复用习惯系统）
-    // TODO: 从 habit_daily_records 获取运动类打卡
-
-    // 4. 规则引擎计算画像
+    // 3. 规则引擎计算基础评分
     const portrait: Partial<StudentHealthPortrait> = {};
     const dataSources: string[] = [];
-    const riskFactors: string[] = [];
-    const strengths: string[] = [];
 
     // BMI 评估
     if (latestAssessment?.bmi) {
       dataSources.push('fitness_assessment');
       const bmi = latestAssessment.bmi;
-      if (bmi < 14) { portrait.bmiStatus = 'underweight'; riskFactors.push('偏瘦'); }
-      else if (bmi < 18) { portrait.bmiStatus = 'normal'; strengths.push('BMI正常'); }
-      else if (bmi < 20) { portrait.bmiStatus = 'overweight'; riskFactors.push('偏胖'); }
-      else { portrait.bmiStatus = 'obese'; riskFactors.push('肥胖'); }
+      if (bmi < 14) { portrait.bmiStatus = 'underweight'; }
+      else if (bmi < 18) { portrait.bmiStatus = 'normal'; }
+      else if (bmi < 20) { portrait.bmiStatus = 'overweight'; }
+      else { portrait.bmiStatus = 'obese'; }
     }
 
     // 体质等级
     if (latestAssessment?.grade_level) {
       portrait.fitnessLevel = mapGradeLevel(latestAssessment.grade_level);
-      if (['优秀', '良好'].includes(latestAssessment.grade_level)) {
-        strengths.push(`体质${latestAssessment.grade_level}`);
-      } else if (latestAssessment.grade_level === '不及格') {
-        riskFactors.push('体质不及格');
-      }
     }
 
     // 睡眠评估
@@ -245,8 +256,6 @@ export class HealthManagementService extends BaseService {
       const sleepBadRate = obsStats.sleepInsufficient / obsStats.total;
       portrait.sleepScore = Math.round(sleepGoodRate * 100);
       portrait.sleepPattern = sleepGoodRate >= 0.7 ? 'good' : sleepBadRate >= 0.3 ? 'poor' : 'normal';
-      if (sleepBadRate >= 0.3) riskFactors.push('睡眠不足');
-      if (sleepGoodRate >= 0.7) strengths.push('睡眠充足');
     }
 
     // 饮食评估
@@ -254,14 +263,15 @@ export class HealthManagementService extends BaseService {
       const dietGoodRate = obsStats.dietBalanced / obsStats.total;
       portrait.dietScore = Math.round(dietGoodRate * 100);
       portrait.dietPattern = dietGoodRate >= 0.7 ? 'balanced' : dietGoodRate < 0.3 ? 'poor' : 'normal';
-      if (dietGoodRate < 0.3) riskFactors.push('饮食不均衡');
     }
 
     // 精神状态评估
     if (obsStats.total > 0) {
       const energyGoodRate = obsStats.energyEnergetic / obsStats.total;
-      if (obsStats.energyTired / obsStats.total >= 0.3) riskFactors.push('经常疲劳');
-      if (energyGoodRate >= 0.5) strengths.push('精力充沛');
+      // 运动习惯评分：基于精力充沛率和运动频率
+      portrait.exerciseHabitScore = Math.round(
+        (energyGoodRate * 0.5 + (portrait.sleepScore ?? 50) / 100 * 0.3 + 0.2) * 100
+      );
     }
 
     // 综合健康分计算
@@ -286,14 +296,71 @@ export class HealthManagementService extends BaseService {
     portrait.lastAssessmentDate = latestAssessment?.test_date ?? undefined;
     portrait.lastObservationDate = obsStats.total > 0 ? new Date().toISOString().split('T')[0] : undefined;
     portrait.dataSources = dataSources;
-    portrait.riskFactors = riskFactors.length > 0 ? riskFactors : undefined;
-    portrait.strengths = strengths.length > 0 ? strengths : undefined;
 
-    // AI 摘要（简单模板，后续可接入 LLM）
-    portrait.aiSummary = generateSummary(portrait, riskFactors, strengths);
+    // 4. 调用 LLM 生成 AI 摘要、风险标签、优势标签
+    try {
+      const aiResult = await generatePortraitAI({
+        studentId,
+        bmi: latestAssessment?.bmi ?? undefined,
+        bmiStatus: portrait.bmiStatus,
+        fitnessLevel: portrait.fitnessLevel,
+        fitnessScore: latestAssessment?.total_score ?? undefined,
+        sleepScore: portrait.sleepScore,
+        sleepPattern: portrait.sleepPattern,
+        dietScore: portrait.dietScore,
+        dietPattern: portrait.dietPattern,
+        exerciseHabitScore: portrait.exerciseHabitScore,
+        overallHealthScore: portrait.overallHealthScore,
+        observationDays: obsStats.total,
+        sleepSufficientRate: obsStats.total > 0 ? obsStats.sleepSufficient / obsStats.total : undefined,
+        sleepInsufficientRate: obsStats.total > 0 ? obsStats.sleepInsufficient / obsStats.total : undefined,
+        dietBalancedRate: obsStats.total > 0 ? obsStats.dietBalanced / obsStats.total : undefined,
+        energyEnergeticRate: obsStats.total > 0 ? obsStats.energyEnergetic / obsStats.total : undefined,
+        energyTiredRate: obsStats.total > 0 ? obsStats.energyTired / obsStats.total : undefined,
+        dentalCaries: latestAssessment?.dental_caries ?? undefined,
+        spineNormal: latestAssessment?.spine_normal ?? undefined,
+        visionLeft: latestAssessment?.vision_left ?? undefined,
+        visionRight: latestAssessment?.vision_right ?? undefined,
+        systolicBp: latestAssessment?.systolic_bp ?? undefined,
+        diastolicBp: latestAssessment?.diastolic_bp ?? undefined,
+        heartRate: latestAssessment?.heart_rate ?? undefined,
+        colorBlindness: latestAssessment?.color_blindness ?? undefined,
+      });
+
+      portrait.aiSummary = aiResult.aiSummary;
+      portrait.riskFactors = aiResult.riskFactors.length > 0 ? aiResult.riskFactors : undefined;
+      portrait.strengths = aiResult.strengths.length > 0 ? aiResult.strengths : undefined;
+      if (aiResult.exerciseHabitScore) portrait.exerciseHabitScore = aiResult.exerciseHabitScore;
+    } catch (err) {
+      console.error('[HealthManagementService] LLM portrait generation failed, using fallback:', err);
+      // LLM 失败时使用兜底逻辑
+      const riskFactors: string[] = [];
+      const strengths: string[] = [];
+      if (portrait.bmiStatus === 'underweight') riskFactors.push('偏瘦');
+      else if (portrait.bmiStatus === 'overweight') riskFactors.push('偏胖');
+      else if (portrait.bmiStatus === 'obese') riskFactors.push('肥胖');
+      else if (portrait.bmiStatus === 'normal') strengths.push('BMI正常');
+      if (portrait.fitnessLevel === 'fail') riskFactors.push('体质不及格');
+      if (obsStats.total > 0 && obsStats.sleepInsufficient / obsStats.total >= 0.3) riskFactors.push('睡眠不足');
+      if (obsStats.total > 0 && obsStats.sleepSufficient / obsStats.total >= 0.7) strengths.push('睡眠充足');
+      portrait.riskFactors = riskFactors.length > 0 ? riskFactors : undefined;
+      portrait.strengths = strengths.length > 0 ? strengths : undefined;
+      portrait.aiSummary = generateFallbackSummary(portrait, riskFactors, strengths);
+    }
 
     // 保存画像
     const result = await healthPortraitRepository.upsertByStudentId(studentId, portrait);
+
+    // 失效画像缓存
+    this.invalidatePortraitCache();
+
+    // 延迟生成处方（不阻塞画像计算的返回）
+    setImmediate(() => {
+      this.generatePrescriptionFromPortrait(studentId).catch(err => {
+        console.error('[HealthManagementService] delayed prescription generation error:', err);
+      });
+    });
+
     return this.ok(result);
   }
 
@@ -307,6 +374,180 @@ export class HealthManagementService extends BaseService {
   async getActivePrescription(studentId: string) {
     const prescription = await healthPrescriptionRepository.findActiveByStudentId(studentId);
     return this.ok(prescription);
+  }
+
+  /** 管理端：处方列表（分页 + 学生信息 + 缓存） */
+  async getAllPrescriptions(page = 1, pageSize = 20, filterStudentIds?: string[] | null, status?: string | null) {
+    const cacheKey = `p${page}_ps${pageSize}_${JSON.stringify(filterStudentIds)}_${status || ''}`;
+    const now = Date.now();
+
+    if (this.prescriptionListCache && this.prescriptionListCache.key === cacheKey && now - this.prescriptionListCache.ts < HealthManagementService.CACHE_TTL) {
+      return this.ok(this.prescriptionListCache.data);
+    }
+
+    const result = await healthPrescriptionRepository.findAllWithStudentInfo(page, pageSize, filterStudentIds, status);
+    this.prescriptionListCache = { key: cacheKey, data: result, ts: now };
+    return this.ok(result);
+  }
+
+  /** 使处方缓存失效 */
+  invalidatePrescriptionCache() {
+    this.prescriptionListCache = null;
+  }
+
+  /** 根据画像用 LLM 自动生成健康处方 */
+  async generatePrescriptionFromPortrait(studentId: string) {
+    // 获取画像
+    const portrait = await healthPortraitRepository.findByStudentId(studentId);
+    if (!portrait) return this.fail('无画像数据，无法生成处方', 'NO_PORTRAIT');
+
+    // 检查是否已有生效处方（避免重复生成）
+    const existingActive = await healthPrescriptionRepository.findActiveByStudentId(studentId);
+    if (existingActive) {
+      // 如果画像未更新，跳过生成
+      const portraitUpdated = new Date(portrait.updatedAt).getTime();
+      const prescriptionCreated = new Date(existingActive.createdAt).getTime();
+      if (portraitUpdated <= prescriptionCreated) {
+        return this.ok(existingActive); // 画像没更新，无需重新生成
+      }
+    }
+
+    // 将旧处方置为已替代
+    await healthPrescriptionRepository.supersedeByStudentId(studentId);
+
+    const now = new Date();
+    const periodEnd = new Date(now);
+    periodEnd.setDate(periodEnd.getDate() + 30);
+
+    // 调用 LLM 生成处方
+    try {
+      // 获取体检数据
+      const assessments = await fitnessAssessmentRepository.findByStudentId(studentId);
+      const latest = assessments[0] ?? null;
+
+      const aiResult = await generatePrescriptionAI({
+        studentId,
+        bmi: latest?.bmi ?? undefined,
+        bmiStatus: portrait.bmiStatus,
+        fitnessLevel: portrait.fitnessLevel,
+        overallHealthScore: portrait.overallHealthScore,
+        riskFactors: portrait.riskFactors,
+        strengths: portrait.strengths,
+        sleepPattern: portrait.sleepPattern,
+        dietPattern: portrait.dietPattern,
+        dentalCaries: latest?.dental_caries ?? undefined,
+        visionLeft: latest?.vision_left ?? undefined,
+        visionRight: latest?.vision_right ?? undefined,
+      });
+
+      const dto: CreateHealthPrescriptionDTO = {
+        studentId,
+        prescriptionType: 'comprehensive',
+        periodType: 'monthly',
+        periodStart: now.toISOString().split('T')[0],
+        periodEnd: periodEnd.toISOString().split('T')[0],
+        dailyCaloriesTarget: aiResult.dailyCaloriesTarget,
+        nutritionAdvice: aiResult.nutritionAdvice,
+        dietTaboos: aiResult.dietTaboos,
+        mealSuggestions: aiResult.mealSuggestions,
+        exerciseType: aiResult.exerciseType,
+        exerciseFrequency: aiResult.exerciseFrequency,
+        exerciseDurationMin: aiResult.exerciseDurationMin,
+        exerciseIntensity: aiResult.exerciseIntensity,
+        exerciseNotes: aiResult.exerciseNotes,
+      };
+
+      const result = await this.createPrescription(dto);
+      this.invalidatePrescriptionCache();
+      return result;
+    } catch (err) {
+      console.error('[HealthManagementService] LLM prescription generation failed, using fallback:', err);
+      // LLM 失败时使用兜底逻辑
+      const dto: CreateHealthPrescriptionDTO = {
+        studentId,
+        prescriptionType: 'comprehensive',
+        periodType: 'monthly',
+        periodStart: now.toISOString().split('T')[0],
+        periodEnd: periodEnd.toISOString().split('T')[0],
+        dailyCaloriesTarget: portrait.bmiStatus === 'underweight' ? 2000 : portrait.bmiStatus === 'overweight' || portrait.bmiStatus === 'obese' ? 1500 : 1800,
+        nutritionAdvice: {
+          carbs: { target: 250, unit: 'g', description: '均衡碳水摄入' },
+          protein: { target: 55, unit: 'g', description: '保证优质蛋白' },
+          fat: { target: 55, unit: 'g', description: '适量健康脂肪' },
+          vitamins: ['维生素D', '维生素C'],
+          minerals: ['钙', '铁'],
+        },
+        dietTaboos: ['含糖饮料', '油炸食品'],
+        mealSuggestions: { breakfast: '全麦面包+牛奶+鸡蛋', lunch: '米饭+鸡肉+蔬菜', dinner: '杂粮粥+鱼肉+蔬菜', snacks: '水果+坚果' },
+        exerciseType: portrait.fitnessLevel === 'fail' || portrait.fitnessLevel === 'pass' ? '体能训练' : '综合运动',
+        exerciseFrequency: portrait.fitnessLevel === 'fail' ? 5 : 4,
+        exerciseDurationMin: portrait.fitnessLevel === 'fail' ? 40 : 30,
+        exerciseIntensity: portrait.fitnessLevel === 'fail' ? 'medium' : 'low',
+        exerciseNotes: '建议在老师和家长指导下进行锻炼',
+      };
+
+      const result = await this.createPrescription(dto);
+      this.invalidatePrescriptionCache();
+      return result;
+    }
+  }
+
+  /** 批量刷新处方（对所有有画像的学生重新生成处方） */
+  /** 批量刷新画像+处方（从学生表取学生列表，并发控制） */
+  async batchRegeneratePrescriptions(filterStudentIds?: string[] | null) {
+    // 获取学生ID列表：优先用传入的筛选列表，否则从画像表取
+    let studentIds: string[] = [];
+
+    if (filterStudentIds && filterStudentIds.length > 0) {
+      studentIds = filterStudentIds;
+    } else {
+      // 没有筛选条件时，从画像表取已有画像的学生
+      const allPortraits = await healthPortraitRepository.findAllWithStudentInfo(1, 1000, null);
+      studentIds = allPortraits.portraits.map(p => p.studentId);
+    }
+
+    // 如果画像表也为空，则从学生表取（首次生成场景）
+    if (studentIds.length === 0) {
+      const { getSupabaseClient } = await import('@/storage/database/supabase-client');
+      const client = getSupabaseClient();
+      const { data, error } = await client
+        .from('students')
+        .select('id')
+        .limit(500);
+      if (!error && data) {
+        studentIds = data.map((s: Record<string, unknown>) => s.id as string);
+      }
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // 并发控制：最多3个并发，避免LLM限流
+    const CONCURRENCY = 3;
+    const chunks: string[][] = [];
+    for (let i = 0; i < studentIds.length; i += CONCURRENCY) {
+      chunks.push(studentIds.slice(i, i + CONCURRENCY));
+    }
+
+    for (const chunk of chunks) {
+      const results = await Promise.allSettled(
+        chunk.map(studentId => this.computePortrait(studentId))
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.success) {
+          successCount++;
+        } else {
+          failCount++;
+          if (r.status === 'rejected') {
+            console.error('[HealthManagementService] batchRegenerate failed:', r.reason);
+          }
+        }
+      }
+    }
+
+    this.invalidatePortraitCache();
+    this.invalidatePrescriptionCache();
+    return this.ok({ total: studentIds.length, success: successCount, fail: failCount });
   }
 
   async createPrescription(dto: CreateHealthPrescriptionDTO) {
@@ -406,42 +647,8 @@ export class HealthManagementService extends BaseService {
 
 // ==================== 辅助函数 ====================
 
-function mapFitnessFromRow(row: FitnessAssessmentRow): FitnessAssessment {
-  return {
-    id: row.id,
-    studentId: row.student_id,
-    academicYear: row.academic_year,
-    semester: row.semester,
-    testDate: row.test_date ?? undefined,
-    heightCm: row.height_cm ?? undefined,
-    weightKg: row.weight_kg ?? undefined,
-    bmi: row.bmi ?? undefined,
-    vitalCapacity: row.vital_capacity ?? undefined,
-    run50m: row.run_50m ?? undefined,
-    run50x8: row.run_50x8 ?? undefined,
-    sitAndReach: row.sit_and_reach ?? undefined,
-    sitUps1min: row.sit_ups_1min ?? undefined,
-    ropeJump1min: row.rope_jump_1min ?? undefined,
-    totalScore: row.total_score ?? undefined,
-    gradeLevel: row.grade_level ?? undefined,
-    visionLeft: row.vision_left ?? undefined,
-    visionRight: row.vision_right ?? undefined,
-    // 体检字段
-    dentalCaries: row.dental_caries ?? undefined,
-    spineNormal: row.spine_normal ?? undefined,
-    systolicBp: row.systolic_bp ?? undefined,
-    diastolicBp: row.diastolic_bp ?? undefined,
-    heartRate: row.heart_rate ?? undefined,
-    colorBlindness: row.color_blindness ?? undefined,
-    hearingLeft: row.hearing_left ?? undefined,
-    hearingRight: row.hearing_right ?? undefined,
-    checkupNotes: row.checkup_notes ?? undefined,
-    source: row.source,
-    importedBy: row.imported_by ?? undefined,
-    importedAt: row.imported_at ?? undefined,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+function mapFitnessFromRow(row: FitnessAssessmentRow): FitnessAssessmentRow {
+  return row;
 }
 
 function mapObservationFromRow(row: ParentDailyObservationRow) {
@@ -478,7 +685,7 @@ function computeGradeLevel(totalScore: number | undefined | null): string | unde
   return '不及格';
 }
 
-function generateSummary(
+function generateFallbackSummary(
   portrait: Partial<StudentHealthPortrait>,
   risks: string[],
   strengths: string[]

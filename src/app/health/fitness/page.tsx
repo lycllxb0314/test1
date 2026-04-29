@@ -255,7 +255,7 @@ export default function FitnessDataPage() {
             grade={grade}
             onGradeChange={setGrade}
             classId={classId}
-            onClassIdChange={setClassId}
+            onClassChange={setClassId}
           />
 
           <div className="relative ml-auto w-56">

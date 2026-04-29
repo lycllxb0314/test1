@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Select,
   SelectContent,
@@ -27,7 +27,13 @@ type GradeClassFilterProps = {
   onGradeChange: (grade: string) => void;
   /** 选中的班级 id，'all' 为全部 */
   classId: string;
-  onClassIdChange: (classId: string) => void;
+  onClassChange: (classId: string) => void;
+  /** 可选：外部传入的年级选项 */
+  gradeOptions?: number[];
+  /** 可选：外部传入的班级列表（按年级分组的函数） */
+  classOptions?: Record<string, ClassInfo[]> | ((grade: string) => ClassInfo[]);
+  /** 加载状态 */
+  loading?: boolean;
 };
 
 type PaginationControlProps = {
@@ -67,15 +73,20 @@ export function useClassesData() {
 
   useEffect(() => { load(); }, [load]);
 
-  // 按年级分组
-  const gradeOptions = [...new Set(classes.map(c => c.gradeNumber))]
-    .filter(Boolean)
-    .sort((a, b) => a - b);
+  const gradeOptions = useMemo(
+    () => [...new Set(classes.map(c => c.gradeNumber))].filter(Boolean).sort((a, b) => a - b),
+    [classes]
+  );
 
-  const classesByGrade = (grade: number | string) =>
-    grade === 'all'
-      ? classes
-      : classes.filter(c => String(c.gradeNumber) === String(grade));
+  const classesByGrade = useMemo(() => {
+    const map: Record<string, ClassInfo[]> = {};
+    for (const c of classes) {
+      const key = String(c.gradeNumber);
+      if (!map[key]) map[key] = [];
+      map[key].push(c);
+    }
+    return map;
+  }, [classes]);
 
   return { classes, loading, gradeOptions, classesByGrade };
 }
@@ -87,14 +98,36 @@ const GRADE_LABELS: Record<string, string> = {
   '4': '四年级', '5': '五年级', '6': '六年级',
 };
 
-export function GradeClassFilter({ grade, onGradeChange, classId, onClassIdChange }: GradeClassFilterProps) {
-  const { gradeOptions, classesByGrade } = useClassesData();
+export function GradeClassFilter({
+  grade,
+  onGradeChange,
+  classId,
+  onClassChange,
+  gradeOptions: externalGradeOptions,
+  classOptions: externalClassOptions,
+  loading,
+}: GradeClassFilterProps) {
+  // 如果外部没传，使用自己的 useClassesData
+  const internalData = useClassesData();
 
-  const filteredClasses = classesByGrade(grade);
+  const gradeOptions = externalGradeOptions || internalData.gradeOptions;
+  const classesByGrade = externalClassOptions || internalData.classesByGrade;
+
+  // 获取当前年级下的班级
+  const filteredClasses = useMemo(() => {
+    if (typeof classesByGrade === 'function') {
+      return classesByGrade(grade);
+    }
+    if (grade === 'all') {
+      // 全部班级
+      return Object.values(classesByGrade).flat();
+    }
+    return classesByGrade[grade] || [];
+  }, [classesByGrade, grade]);
 
   return (
     <>
-      <Select value={grade} onValueChange={v => { onGradeChange(v); onClassIdChange('all'); }}>
+      <Select value={grade} onValueChange={v => { onGradeChange(v); onClassChange('all'); }}>
         <SelectTrigger className="w-[130px]">
           <SelectValue placeholder="全部年级" />
         </SelectTrigger>
@@ -106,7 +139,7 @@ export function GradeClassFilter({ grade, onGradeChange, classId, onClassIdChang
         </SelectContent>
       </Select>
 
-      <Select value={classId} onValueChange={onClassIdChange}>
+      <Select value={classId} onValueChange={onClassChange}>
         <SelectTrigger className="w-[160px]">
           <SelectValue placeholder="全部班级" />
         </SelectTrigger>
