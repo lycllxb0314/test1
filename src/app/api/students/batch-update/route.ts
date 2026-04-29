@@ -1,33 +1,29 @@
 /**
  * 批量更新学生 API
- * 
- * 架构：API Route → Service → Repository
- */
-
-import { NextRequest, NextResponse } from 'next/server';
-import { studentService } from '@/services/student.service';
-import { error, ErrorCode } from '@/lib/api';
-import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-
-/**
+ *
  * POST - 批量更新学生
  */
-export const POST = protectedRoute(async (request: NextRequest, context: ExtendedRouteContext) => {
-  try {
-    const body = await request.json();
+
+import { withRoute } from '@/lib/api';
+import { studentService } from '@/services/student.service';
+import { ApiError, validateOrThrow } from '@/lib/api-error';
+
+export const POST = withRoute(
+  async (req) => {
+    const body = await req.json();
     const { ids, updates } = body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json(error('请选择要更新的数据', ErrorCode.VALIDATION_ERROR), { status: 400 });
+      throw ApiError.BadRequest('请选择要更新的数据');
     }
 
     if (!updates || Object.keys(updates).length === 0) {
-      return NextResponse.json(error('请提供更新内容', ErrorCode.VALIDATION_ERROR), { status: 400 });
+      throw ApiError.BadRequest('请提供更新内容');
     }
 
     // 限制单次更新数量
     if (ids.length > 100) {
-      return NextResponse.json(error('单次最多更新100条数据', ErrorCode.VALIDATION_ERROR), { status: 400 });
+      throw ApiError.BadRequest('单次最多更新100条数据');
     }
 
     // 过滤不允许批量更新的字段
@@ -40,7 +36,7 @@ export const POST = protectedRoute(async (request: NextRequest, context: Extende
     }
 
     if (Object.keys(filteredUpdates).length === 0) {
-      return NextResponse.json(error('没有可更新的字段', ErrorCode.VALIDATION_ERROR), { status: 400 });
+      throw ApiError.BadRequest('没有可更新的字段');
     }
 
     // 批量更新
@@ -52,13 +48,7 @@ export const POST = protectedRoute(async (request: NextRequest, context: Extende
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: { count: successCount },
-      message: `成功更新 ${successCount} 条数据`,
-    });
-  } catch (err) {
-    console.error('批量更新学生API错误:', err);
-    return NextResponse.json(error('服务器错误', ErrorCode.INTERNAL_ERROR), { status: 500 });
-  }
-});
+    return { count: successCount, message: `成功更新 ${successCount} 条数据` };
+  },
+  { requireAuth: true }
+);

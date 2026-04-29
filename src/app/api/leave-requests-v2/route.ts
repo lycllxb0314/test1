@@ -1,61 +1,57 @@
 /**
  * 请假申请 API v2
- * 
- * 功能：
- * - 提交请假申请（含调课信息、审批人选择）
- * - 获取请假列表
- * - 取消请假申请
- * - 审批请假申请
- * 
- * ⚠️ 架构原则：
- * - 通过 Service 层访问数据，禁止直接操作数据库
+ *
+ * GET  - 获取请假列表
+ * POST - 提交请假申请
+ * PUT  - 审批请假申请
  */
 
-import { NextRequest } from 'next/server';
+import { withRoute } from '@/lib/api';
 import { leaveRequestService } from '@/services/leave-request.service';
-import { protectedRoute, type ExtendedRouteContext } from '@/lib/auth';
-import { ok, fail, serverError } from '@/lib/api';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { ApiError } from '@/lib/api-error';
 
-// ==================== GET - 获取请假列表 ====================
+/**
+ * GET - 获取请假列表
+ */
+export const GET = withRoute(
+  async (req, _ctx, user) => {
+    if (!user) throw ApiError.Unauthorized();
 
-export const GET = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
-  try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
     const employeeId = searchParams.get('employeeId');
-    
+
     const client = getSupabaseClient();
     let query = client.from('leave_requests').select('*').order('created_at', { ascending: false });
-    
+
     if (status === 'pending' && employeeId) {
-      // 获取待审批列表
       query = query.contains('approver_selection', [{ employeeId }]);
     } else {
-      // 获取我的请假列表 - 使用 employeeId 匹配（applicant_id 存储的是工号）
       const applicantId = user.employeeId || user.id;
       query = query.eq('applicant_id', applicantId);
     }
-    
+
     const { data, error: dbError } = await query;
-    
+
     if (dbError) {
-      return fail('获取请假列表失败');
+      throw ApiError.Internal('获取请假列表失败');
     }
 
-    return ok(data || []);
-  } catch (err) {
-    console.error('获取请假列表失败:', err);
-    return serverError('获取请假列表失败');
-  }
-});
+    return data || [];
+  },
+  { requireAuth: true }
+);
 
-// ==================== POST - 提交请假申请 ====================
+/**
+ * POST - 提交请假申请
+ */
+export const POST = withRoute(
+  async (req, _ctx, user) => {
+    if (!user) throw ApiError.Unauthorized();
 
-export const POST = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
-  try {
-    const body = await request.json();
-    
+    const body = await req.json();
+
     const result = await leaveRequestService.submitLeaveRequest({
       applicantId: user.employeeId || user.id,
       applicantName: body.applicantName || user.name,
@@ -71,25 +67,26 @@ export const POST = protectedRoute(async (request: NextRequest, { user }: Extend
     });
 
     if (!result.success) {
-      return fail(result.error || '提交请假申请失败');
+      throw ApiError.BadRequest(result.error || '提交请假申请失败');
     }
 
-    return ok(result.data);
-  } catch (err) {
-    console.error('提交请假申请失败:', err);
-    return serverError('提交请假申请失败');
-  }
-});
+    return result.data;
+  },
+  { requireAuth: true }
+);
 
-// ==================== PUT - 审批请假申请 ====================
+/**
+ * PUT - 审批请假申请
+ */
+export const PUT = withRoute(
+  async (req, _ctx, user) => {
+    if (!user) throw ApiError.Unauthorized();
 
-export const PUT = protectedRoute(async (request: NextRequest, { user }: ExtendedRouteContext) => {
-  try {
-    const body = await request.json();
+    const body = await req.json();
     const { id, action, rejectReason } = body;
 
     if (!id) {
-      return fail('缺少请假申请ID');
+      throw ApiError.BadRequest('缺少请假申请ID');
     }
 
     const result = await leaveRequestService.approve({
@@ -100,12 +97,13 @@ export const PUT = protectedRoute(async (request: NextRequest, { user }: Extende
     });
 
     if (!result.success) {
-      return fail(result.error || '审批失败');
+      const code = result.code;
+      if (code === 'NOT_FOUND') throw ApiError.NotFound(result.error || '请假申请不存在');
+      if (code === 'FORBIDDEN') throw ApiError.Forbidden(result.error || '无权操作');
+      throw ApiError.BadRequest(result.error || '审批失败');
     }
 
-    return ok(result.data);
-  } catch (err) {
-    console.error('审批请假申请失败:', err);
-    return serverError('审批请假申请失败');
-  }
-});
+    return result.data;
+  },
+  { requireAuth: true }
+);
