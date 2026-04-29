@@ -1,305 +1,123 @@
 'use client';
 
-import { useState, useEffect, useCallback, use } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, X, Clock, User, Sparkles, RefreshCw, Save, FileText, Database, Copy, Clipboard, Trash2 } from 'lucide-react';
+import { RefreshCw, Save, FileText, Database } from 'lucide-react';
 import { toast } from 'sonner';
-import { useClasses } from '@/hooks/useClasses';
-import type { ClassContainer } from '@/hooks/useClasses';
-import { SubjectHoursPanel } from '@/components/schedule/subject-hours-panel';
-import { SUBJECT_COLORS, getSubjectColor } from '@/lib/subject-colors';
+
+import { getSubjectColor } from '@/lib/subject-colors';
 import { getGradeSubjectHours } from '@/lib/schedule-config';
+import { useClasses } from '@/hooks/useClasses';
+import { SubjectHoursPanel } from '@/components/schedule/subject-hours-panel';
 
-const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五'];
-const MORNING_PERIODS = ['第1节', '第2节', '第3节'];
-const AFTERNOON_PERIODS = ['第4节', '第5节', '第6节'];
+import type { SlotData, ClassInfo, TeacherInfo, SubjectGroup, ScheduleStatus, SelectedSlot } from './lib/types';
+import { WEEKDAYS } from './lib/schedule-rules';
+import { ScheduleClassCard } from './components/ScheduleClassCard';
+import { SlotPickerDialog } from './components/SlotPickerDialog';
+import { ScheduleContextMenu } from './components/ContextMenu';
 
-// 科目显示顺序（语文数学优先）
-const SUBJECT_ORDER = [
-  '语文', '数学',
-  '英语', '科学', '道德与法治',
-  '音乐', '美术', '体育',
-  '信息技术', '书法', '劳动', '综合实践', '校本',
-  '班会'
-];
+export type { SlotData, ClassInfo, TeacherInfo, SubjectGroup } from './lib/types';
 
-// 科目特殊规则类型
-type SubjectRule = 
-  | 'chinese_only'      // 只能选本班语文老师（语文、书法）
-  | 'math_only'         // 只能选本班数学老师（数学）
-  | 'head_teacher_only' // 只能选本班班主任（班会）
-  | 'all_chinese'       // 可选全校语文老师（道德与法治）
-  | 'science_rule'      // 科学课：本班数学老师 > 专职科学老师 > 其他数学老师
-  | 'all_chinese_math'  // 可选全校语数老师（校本、综合实践、劳动）
-  | 'all_subject';      // 可选该学科全校老师（其他学科）
+export default function ManualSchedulePage() {
+  const params = useParams();
+  const grade = Number(params.grade);
 
-// 科目规则映射
-const SUBJECT_RULES: Record<string, SubjectRule> = {
-  '语文': 'chinese_only',
-  '数学': 'math_only',
-  '书法': 'chinese_only',           // 书法只能选本班语文老师
-  '班会': 'head_teacher_only',      // 班会只能选本班班主任
-  '道德与法治': 'all_chinese',      // 道德与法治可选全校语文老师
-  '科学': 'science_rule',           // 科学：本班数学老师优先，其次专职科学老师
-  '校本': 'all_chinese_math',       // 校本可选全校语数老师
-  '综合实践': 'all_chinese_math',   // 综合实践可选全校语数老师
-  '劳动': 'all_chinese_math',       // 劳动可选全校语数老师
-};
-
-interface TeacherInfo {
-  id: string;
-  name: string;
-  subject: string;
-  maxHours: number;
-  usedHours: number;
-  remainingHours: number;
-  isClassHeadTeacher?: boolean;
-  isClassSubTeacher?: boolean;
-  // 跨年级任职信息
-  gradeAssignments?: {
-    grade: number;
-    gradeName: string;
-    classes: string[];
-    subjects: string[];
-  }[];
-  // 时段冲突信息
-  hasSlotConflict?: boolean;
-  slotConflict?: {
-    className: string;
-    subject: string;
-    grade: number;
-    gradeName: string;
-  } | null;
-}
-
-interface SubjectGroup {
-  subject: string;
-  teachers: TeacherInfo[];
-}
-
-interface SlotData {
-  id: string;
-  class_id: string;
-  subject: string;
-  teacher_id: string | null;
-  teacher_name: string | null;
-  week_day: number;
-  period_index: number;
-}
-
-interface ScheduleStatus {
-  hasDraft: boolean;
-  draftUpdatedAt: string | null;
-  draftSlotsCount: number;
-  hasOfficial: boolean;
-  officialSlotsCount: number;
-}
-
-export default function GradeSchedulePage({ params }: { params: Promise<{ grade: string }> }) {
-  const { grade: gradeParam } = use(params);
-  const grade = parseInt(gradeParam);
-  const { classes, loading: classesLoading, getClassesByGrade, refetch: refetchClasses } = useClasses();
-  const [gradeClasses, setGradeClasses] = useState<ClassContainer[]>([]);
+  // 基础状态
+  const { classes: rawClasses, loading: classesLoading } = useClasses({ grade });
   const [schedulesMap, setSchedulesMap] = useState<Map<string, SlotData[]>>(new Map());
+  const [teachers, setTeachers] = useState<SubjectGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<ScheduleStatus | null>(null);
   const [saving, setSaving] = useState(false);
-  
+  const [status, setStatus] = useState<ScheduleStatus | null>(null);
+
   // 弹窗状态
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{
-    classId: string;
-    className: string;
-    weekDay: number;
-    periodIndex: number;
-    currentSubject?: string;
-    currentTeacherId?: string;
-    currentTeacherName?: string;
-    // 班级语数老师信息
-    chineseTeacherId?: string;
-    chineseTeacherName?: string;
-    mathTeacherId?: string;
-    mathTeacherName?: string;
-    // 班主任信息（用于班会课）
-    headTeacherId?: string;
-    headTeacherName?: string;
-    // 本班已安排的教师（按科目分组）用于优先推荐
+    classId: string; className: string; weekDay: number; periodIndex: number;
+    currentSubject?: string; currentTeacherId?: string; currentTeacherName?: string;
+    headTeacherId?: string; headTeacherName?: string;
+    chineseTeacherId?: string; chineseTeacherName?: string;
+    mathTeacherId?: string; mathTeacherName?: string;
     classTeacherBySubject?: Record<string, { id: string; name: string }[]>;
   } | null>(null);
-  
-  // 教师搜索
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('');
-  const [teachers, setTeachers] = useState<SubjectGroup[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
-  const [classInfo, setClassInfo] = useState<{
-    headTeacherId: string | null;
-    subTeacherId: string | null;
-    headTeacherSubject: string | null;
-    subTeacherSubject: string | null;
-  } | null>(null);
 
-  // 剪贴板（用于复制粘贴）
-  const [clipboard, setClipboard] = useState<{
-    subject: string;
-    teacherId: string | null;
-    teacherName: string | null;
-  } | null>(null);
-
-  // 右键菜单
+  // 右键菜单状态
   const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    classId: string;
-    className: string;
-    weekDay: number;
-    periodIndex: number;
-    hasSlot: boolean;
+    x: number; y: number; classId: string; weekDay: number; periodIndex: number; hasSlot: boolean;
   } | null>(null);
 
-  // 获取年级班级
-  useEffect(() => {
-    if (!classesLoading) {
-      const gradeCls = getClassesByGrade(grade);
-      setGradeClasses(gradeCls);
-    }
-  }, [classesLoading, classes, grade, getClassesByGrade]);
+  // 剪贴板
+  const [clipboard, setClipboard] = useState<{ subject: string; teacherId: string | null; teacherName: string | null } | null>(null);
 
-  // 加载状态
-  const loadStatus = async () => {
+  // 获取课表数据
+  const fetchSchedules = useCallback(async () => {
     try {
-      const res = await fetch(`/api/academic/manual-schedule/status?grade=${grade}`);
+      setLoading(true);
+      const res = await fetch(`/api/academic/schedule/grade?grade=${grade}`);
       const data = await res.json();
-      if (data.success) {
-        setStatus(data.data);
-      }
-    } catch (err) {
-      console.error('加载状态失败:', err);
-    }
-  };
-
-  // 加载年级课表
-  const loadGradeSchedule = useCallback(async () => {
-    if (gradeClasses.length === 0) return;
-    
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/academic/manual-schedule/grade?grade=${grade}`);
-      const data = await res.json();
-      
-      if (data.success) {
+      if (data.success && data.data?.scheduleData) {
         const map = new Map<string, SlotData[]>();
-        for (const item of data.data.scheduleData || []) {
-          map.set(item.classId, item.slots || []);
-        }
+        data.data.scheduleData.forEach((item: { classId: string; slots: SlotData[] }) => {
+          map.set(item.classId, item.slots);
+        });
         setSchedulesMap(map);
       }
+      if (data.data?.status) setStatus(data.data.status);
     } catch (err) {
-      console.error('加载课表失败:', err);
+      console.error('获取课表失败:', err);
     } finally {
       setLoading(false);
     }
-  }, [gradeClasses, grade]);
+  }, [grade]);
 
-  useEffect(() => {
-    // 首次加载时先清理重复数据
-    fetch('/api/academic/manual-schedule/cleanup', { method: 'POST' })
-      .then(() => {
-        loadGradeSchedule();
-        loadStatus();
-      })
-      .catch(() => {
-        loadGradeSchedule();
-        loadStatus();
-      });
-  }, [loadGradeSchedule]);
-
-  // 加载教师列表（带时段冲突检测）
-  const loadTeachers = async (weekDay?: number, periodIndex?: number, classId?: string) => {
-    setLoadingTeachers(true);
+  // 获取教师数据
+  const fetchTeachers = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ grade: String(grade) });
-      if (weekDay !== undefined) params.append('weekDay', String(weekDay));
-      if (periodIndex !== undefined) params.append('periodIndex', String(periodIndex));
-      if (classId) params.append('classId', classId);
-      
-      const res = await fetch(`/api/academic/manual-schedule/teachers?${params.toString()}`);
+      const res = await fetch(`/api/academic/schedule/teachers?grade=${grade}`);
       const data = await res.json();
-      
       if (data.success) {
-        setTeachers(data.data.subjects || []);
+        setTeachers(data.data.subjects || data.data || []);
       }
     } catch (err) {
-      console.error('加载教师失败:', err);
-    } finally {
-      setLoadingTeachers(false);
+      console.error('获取教师失败:', err);
     }
-  };
+  }, [grade]);
 
-  // 获取某个班级某个时段的课程
-  const getSlot = (classId: string, weekDay: number, periodIndex: number): SlotData | null => {
+  useEffect(() => {
+    fetchSchedules();
+    fetchTeachers();
+  }, [fetchSchedules, fetchTeachers]);
+
+  // 获取某个班级某个时间节的课程
+  const getSlot = useCallback((classId: string, weekDay: number, periodIndex: number) => {
     const slots = schedulesMap.get(classId) || [];
     return slots.find(s => s.week_day === weekDay + 1 && s.period_index === periodIndex) || null;
-  };
+  }, [schedulesMap]);
 
-  // 点击格子
-  const handleSlotClick = (cls: ClassContainer, weekDay: number, periodIndex: number) => {
+  // 判断是否可选时段
+  const isSlotAvailable = useCallback((weekDay: number, periodIndex: number) => {
+    if (grade <= 2 && weekDay < 4 && periodIndex >= 5) return false;
+    return true;
+  }, [grade]);
+
+  // 点击空格子弹窗
+  const handleSlotClick = useCallback((cls: ClassInfo, weekDay: number, periodIndex: number) => {
     const slot = getSlot(cls.id, weekDay, periodIndex);
-    
-    // 确定本班的语文老师和数学老师
-    const headSubject = cls.headTeacher?.primarySubject;
-    const subSubject = cls.subTeacher?.primarySubject;
-    
-    let chineseTeacherId: string | undefined;
-    let chineseTeacherName: string | undefined;
-    let mathTeacherId: string | undefined;
-    let mathTeacherName: string | undefined;
-    
-    // 班主任是语文老师
-    if (headSubject === '语文') {
-      chineseTeacherId = cls.headTeacherId;
-      chineseTeacherName = cls.headTeacherName;
-    }
-    // 副班主任是语文老师
-    if (subSubject === '语文') {
-      chineseTeacherId = cls.subTeacherId;
-      chineseTeacherName = cls.subTeacherName;
-    }
-    // 班主任是数学老师
-    if (headSubject === '数学') {
-      mathTeacherId = cls.headTeacherId;
-      mathTeacherName = cls.headTeacherName;
-    }
-    // 副班主任是数学老师
-    if (subSubject === '数学') {
-      mathTeacherId = cls.subTeacherId;
-      mathTeacherName = cls.subTeacherName;
-    }
-    
-    // 获取该班级已安排的教师（按科目分组）用于优先推荐
     const classSlots = schedulesMap.get(cls.id) || [];
+
+    // 计算本班各科目已排教师
     const classTeacherBySubject: Record<string, { id: string; name: string }[]> = {};
     classSlots.forEach(s => {
       if (s.teacher_id && s.teacher_name) {
-        if (!classTeacherBySubject[s.subject]) {
-          classTeacherBySubject[s.subject] = [];
-        }
-        // 避免重复
-        if (!classTeacherBySubject[s.subject].find(t => t.id === s.teacher_id)) {
+        if (!classTeacherBySubject[s.subject]) classTeacherBySubject[s.subject] = [];
+        if (!classTeacherBySubject[s.subject].some(t => t.id === s.teacher_id)) {
           classTeacherBySubject[s.subject].push({ id: s.teacher_id, name: s.teacher_name });
         }
       }
     });
-    
+
     setSelectedSlot({
       classId: cls.id,
       className: cls.name,
@@ -308,444 +126,132 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       currentSubject: slot?.subject || undefined,
       currentTeacherId: slot?.teacher_id || undefined,
       currentTeacherName: slot?.teacher_name || undefined,
-      chineseTeacherId,
-      chineseTeacherName,
-      mathTeacherId,
-      mathTeacherName,
-      headTeacherId: cls.headTeacherId,
-      headTeacherName: cls.headTeacherName,
-      classTeacherBySubject,  // 本班已安排的教师（按科目分组）
+      headTeacherId: cls.headTeacherId || (cls.headTeacher as any)?.id || undefined,
+      headTeacherName: cls.headTeacherName || (cls.headTeacher as any)?.name || undefined,
+      chineseTeacherId: cls.headTeacherId || undefined,
+      chineseTeacherName: cls.headTeacherName || undefined,
+      mathTeacherId: cls.subTeacherId || undefined,
+      mathTeacherName: cls.subTeacherName || undefined,
+      classTeacherBySubject,
     });
-    setSearchQuery('');
-    setSelectedSubject(slot?.subject || '');
     setDialogOpen(true);
-    // 传递时段参数进行冲突检测
-    loadTeachers(weekDay + 1, periodIndex, cls.id);  // weekDay + 1 因为前端从0开始，后端从1开始
-  };
+  }, [getSlot, schedulesMap]);
 
-  // 选择教师
-  const handleSelectTeacher = async (teacher: TeacherInfo | null) => {
-    if (!selectedSlot) return;
-    
-    const subjectToUse = selectedSubject || selectedSlot.currentSubject;
-    if (!subjectToUse) {
-      toast.error('请先选择科目');
-      return;
-    }
-    
-    try {
-      const res = await fetch('/api/academic/manual-schedule/slot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId: selectedSlot.classId,
-          className: selectedSlot.className,
-          grade,
-          weekDay: selectedSlot.weekDay + 1,
-          periodIndex: selectedSlot.periodIndex,
-          subject: subjectToUse,
-          teacherId: teacher?.id || null,
-          teacherName: teacher?.name || null,
-        }),
-      });
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success('保存成功');
-        setDialogOpen(false);
-        loadGradeSchedule();
-        loadTeachers();
-        loadStatus();
-      } else {
-        toast.error(data.error || '保存失败');
-      }
-    } catch (err) {
-      console.error('保存失败:', err);
-      toast.error('保存失败');
-    }
-  };
-
-  // 清除格子
-  const handleClearSlot = async () => {
-    if (!selectedSlot) return;
-    
-    try {
-      const res = await fetch(
-        `/api/academic/manual-schedule/slot?classId=${selectedSlot.classId}&weekDay=${selectedSlot.weekDay + 1}&periodIndex=${selectedSlot.periodIndex}`,
-        { method: 'DELETE' }
-      );
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success('已清除');
-        setDialogOpen(false);
-        loadGradeSchedule();
-        loadTeachers();
-        loadStatus();
-      }
-    } catch (err) {
-      console.error('清除失败:', err);
-      toast.error('清除失败');
-    }
-  };
-
-  // 构建草稿数据
-  const buildScheduleData = () => {
-    return gradeClasses.map(cls => {
-      const slots = schedulesMap.get(cls.id) || [];
-      return {
-        classId: cls.id,
-        className: cls.name,
-        slots: slots.map(s => ({
-          subject: s.subject,
-          teacher_id: s.teacher_id,
-          teacher_name: s.teacher_name,
-          week_day: s.week_day,
-          period_index: s.period_index,
-        })),
-      };
+  // 右键菜单
+  const handleContextMenu = useCallback((e: React.MouseEvent, cls: ClassInfo, weekDay: number, periodIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const slot = getSlot(cls.id, weekDay, periodIndex);
+    setContextMenu({
+      x: e.clientX, y: e.clientY,
+      classId: cls.id, weekDay, periodIndex,
+      hasSlot: !!slot,
     });
-  };
+  }, [getSlot]);
 
-  // 清理重复数据
-  const cleanupDuplicates = async () => {
-    try {
-      const res = await fetch('/api/academic/manual-schedule/cleanup', { method: 'POST' });
-      const data = await res.json();
-      if (data.success && data.data.deletedCount > 0) {
-        console.log(`已清理 ${data.data.deletedCount} 条重复记录`);
-      }
-    } catch (err) {
-      console.error('清理失败:', err);
+  const handleCopySlot = useCallback((classId: string, weekDay: number, periodIndex: number) => {
+    const slot = getSlot(classId, weekDay, periodIndex);
+    if (slot) {
+      setClipboard({ subject: slot.subject, teacherId: slot.teacher_id, teacherName: slot.teacher_name });
     }
-  };
+    setContextMenu(null);
+  }, [getSlot]);
 
-  // 刷新
-  const handleRefresh = async () => {
-    setLoading(true);
-    await cleanupDuplicates();
-    // 同时刷新班级数据和课表数据
-    await Promise.all([refetchClasses(), loadGradeSchedule(), loadStatus()]);
-    toast.success('已刷新');
-  };
+  const handlePasteSlot = useCallback((classId: string, weekDay: number, periodIndex: number) => {
+    if (!clipboard) return;
+    const newSlot: SlotData = {
+      id: crypto.randomUUID(),
+      class_id: classId,
+      subject: clipboard.subject,
+      teacher_id: clipboard.teacherId,
+      teacher_name: clipboard.teacherName,
+      week_day: weekDay + 1,
+      period_index: periodIndex,
+    };
+    setSchedulesMap(prev => {
+      const map = new Map(prev);
+      const slots = [...(map.get(classId) || [])];
+      const idx = slots.findIndex(s => s.week_day === weekDay + 1 && s.period_index === periodIndex);
+      if (idx >= 0) slots[idx] = newSlot;
+      else slots.push(newSlot);
+      map.set(classId, slots);
+      return map;
+    });
+    setContextMenu(null);
+  }, [clipboard]);
+
+  const handleContextMenuClear = useCallback((classId: string, weekDay: number, periodIndex: number) => {
+    setSchedulesMap(prev => {
+      const map = new Map(prev);
+      const slots = (map.get(classId) || []).filter(
+        s => !(s.week_day === weekDay + 1 && s.period_index === periodIndex)
+      );
+      map.set(classId, slots);
+      return map;
+    });
+    setContextMenu(null);
+  }, []);
 
   // 保存草稿
-  const handleSaveDraft = async () => {
+  const handleSaveDraft = useCallback(async () => {
     setSaving(true);
     try {
-      const scheduleData = buildScheduleData();
-      const res = await fetch('/api/academic/manual-schedule/draft', {
+      const allSlots = Array.from(schedulesMap.values()).flat();
+      const res = await fetch(`/api/academic/schedule/grade?grade=${grade}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grade, scheduleData }),
+        body: JSON.stringify({ slots: allSlots, status: 'draft' }),
       });
-      
       const data = await res.json();
-      
       if (data.success) {
         toast.success('草稿保存成功');
-        loadStatus();
+        fetchSchedules();
       } else {
         toast.error(data.error || '保存失败');
       }
     } catch (err) {
-      console.error('保存草稿失败:', err);
-      toast.error('保存草稿失败');
+      toast.error('保存失败');
     } finally {
       setSaving(false);
     }
-  };
+  }, [schedulesMap, grade, fetchSchedules]);
 
-  // 右键菜单处理
-  const handleContextMenu = (e: React.MouseEvent, cls: ClassContainer, weekDay: number, periodIndex: number) => {
-    e.preventDefault();
-    const slot = getSlot(cls.id, weekDay, periodIndex);
-    const available = isSlotAvailable(weekDay, periodIndex);
-    
-    if (!available) return;
-    
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      classId: cls.id,
-      className: cls.name,
-      weekDay,
-      periodIndex,
-      hasSlot: !!slot,
-    });
-  };
+  // 刷新
+  const handleRefresh = useCallback(() => {
+    fetchSchedules();
+    fetchTeachers();
+  }, [fetchSchedules, fetchTeachers]);
 
-  // 关闭右键菜单
-  const closeContextMenu = () => {
-    setContextMenu(null);
-  };
-
-  // 复制格子
-  const handleCopySlot = () => {
-    if (!contextMenu) return;
-    const slot = getSlot(contextMenu.classId, contextMenu.weekDay, contextMenu.periodIndex);
-    
-    if (slot) {
-      setClipboard({
-        subject: slot.subject,
-        teacherId: slot.teacher_id,
-        teacherName: slot.teacher_name,
-      });
-      toast.success(`已复制: ${slot.subject}${slot.teacher_name ? ' - ' + slot.teacher_name : ''}`);
-    }
-    closeContextMenu();
-  };
-
-  // 粘贴格子
-  const handlePasteSlot = async () => {
-    if (!contextMenu || !clipboard) return;
-    
-    try {
-      const res = await fetch('/api/academic/manual-schedule/slot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId: contextMenu.classId,
-          className: contextMenu.className,
-          grade,
-          weekDay: contextMenu.weekDay + 1,
-          periodIndex: contextMenu.periodIndex,
-          subject: clipboard.subject,
-          teacherId: clipboard.teacherId,
-          teacherName: clipboard.teacherName,
-        }),
-      });
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success(`已粘贴: ${clipboard.subject}`);
-        loadGradeSchedule();
-        loadTeachers();
-        loadStatus();
-      } else {
-        toast.error(data.error || '粘贴失败');
-      }
-    } catch (err) {
-      console.error('粘贴失败:', err);
-      toast.error('粘贴失败');
-    }
-    closeContextMenu();
-  };
-
-  // 右键清除格子
-  const handleContextMenuClear = async () => {
-    if (!contextMenu) return;
-    
-    try {
-      const res = await fetch(
-        `/api/academic/manual-schedule/slot?classId=${contextMenu.classId}&weekDay=${contextMenu.weekDay + 1}&periodIndex=${contextMenu.periodIndex}`,
-        { method: 'DELETE' }
-      );
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success('已清除');
-        loadGradeSchedule();
-        loadTeachers();
-        loadStatus();
-      }
-    } catch (err) {
-      console.error('清除失败:', err);
-      toast.error('清除失败');
-    }
-    closeContextMenu();
-  };
-
-  // 点击其他地方关闭右键菜单
+  // 点击空白关闭右键菜单
   useEffect(() => {
-    const handleClick = () => closeContextMenu();
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeContextMenu();
-    };
-    
-    document.addEventListener('click', handleClick);
-    document.addEventListener('keydown', handleKeyDown);
-    
-    return () => {
-      document.removeEventListener('click', handleClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+    const handler = () => setContextMenu(null);
+    if (contextMenu) document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [contextMenu]);
 
-  // 筛选教师（根据科目规则）
-  const filteredTeachers = (() => {
-    if (!selectedSubject) return [];
-    
-    const rule = SUBJECT_RULES[selectedSubject] || 'all_subject';
-    
-    // 获取本班语数老师信息
-    const getClassTeacher = (type: 'chinese' | 'math') => {
-      const teacherId = type === 'chinese' ? selectedSlot?.chineseTeacherId : selectedSlot?.mathTeacherId;
-      const teacherName = type === 'chinese' ? selectedSlot?.chineseTeacherName : selectedSlot?.mathTeacherName;
-      const subject = type === 'chinese' ? '语文' : '数学';
-      const subjectGroup = teachers.find(g => g.subject === subject);
-      const teacherInfo = subjectGroup?.teachers.find(t => t.id === teacherId);
-      
-      if (teacherInfo) return teacherInfo;
-      if (teacherId) {
-        return {
-          id: teacherId,
-          name: teacherName || '未知',
-          subject,
-          maxHours: 16,
-          usedHours: 0,
-          remainingHours: 16,
-        };
-      }
-      return null;
-    };
-    
-    // 根据规则筛选教师
-    switch (rule) {
-      // 只能选本班语文老师（语文、书法）
-      case 'chinese_only': {
-        const teacher = getClassTeacher('chinese');
-        return teacher ? [teacher] : [];
-      }
-      
-      // 只能选本班数学老师（数学）
-      case 'math_only': {
-        const teacher = getClassTeacher('math');
-        return teacher ? [teacher] : [];
-      }
-      
-      // 只能选本班班主任（班会）
-      case 'head_teacher_only': {
-        if (!selectedSlot?.headTeacherId) return [];
-        // 在所有教师中查找班主任
-        const allTeachers = teachers.flatMap(g => g.teachers);
-        const headTeacher = allTeachers.find(t => t.id === selectedSlot.headTeacherId);
-        if (headTeacher) return [headTeacher];
-        // 如果找不到，返回基本信息
-        return [{
-          id: selectedSlot.headTeacherId,
-          name: selectedSlot.headTeacherName || '未知',
-          subject: '班主任',
-          maxHours: 16,
-          usedHours: 0,
-          remainingHours: 16,
-        }];
-      }
-      
-      // 可选全校语文老师（道德与法治）- 本班老师优先，其次课时快要满足的
-      case 'all_chinese': {
-        const chineseGroup = teachers.find(g => g.subject === '语文');
-        const filtered = (chineseGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
-        // 本班老师ID（班主任、语文老师、数学老师）
-        const priorityIds = new Set([
-          selectedSlot?.headTeacherId,
-          selectedSlot?.chineseTeacherId,
-          selectedSlot?.mathTeacherId
-        ].filter(Boolean));
-        // 排序：1.本班老师在前 2.剩余课时少的优先（快要满足课时）
-        return filtered.sort((a, b) => {
-          const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
-          const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
-          if (aIsPriority !== bIsPriority) return aIsPriority - bIsPriority;
-          // 都是本班老师或都不是，按剩余课时升序（少的在前）
-          return a.remainingHours - b.remainingHours;
-        });
-      }
-      
-      // 科学课：本班数学老师 > 专职科学老师 > 其他数学老师
-      case 'science_rule': {
-        const mathGroup = teachers.find(g => g.subject === '数学');
-        const scienceGroup = teachers.find(g => g.subject === '科学');
-        
-        // 合并数学老师和科学老师
-        const allTeachers = [
-          ...(mathGroup?.teachers || []),
-          ...(scienceGroup?.teachers || [])
-        ];
-        const filtered = allTeachers.filter(t => !searchQuery || t.name.includes(searchQuery));
-        
-        // 本班数学老师ID（第一优先）
-        const classMathTeacherId = selectedSlot?.mathTeacherId;
-        
-        // 排序优先级：1.本班数学老师 2.专职科学老师 3.其他数学老师 4.剩余课时少的优先
-        return filtered.sort((a, b) => {
-          // 判断是否是本班数学老师
-          const aIsClassMath = a.id === classMathTeacherId ? 0 : 1;
-          const bIsClassMath = b.id === classMathTeacherId ? 0 : 1;
-          if (aIsClassMath !== bIsClassMath) return aIsClassMath - bIsClassMath;
-          
-          // 判断是否是专职科学老师
-          const aIsScience = a.subject === '科学' ? 0 : 1;
-          const bIsScience = b.subject === '科学' ? 0 : 1;
-          if (aIsScience !== bIsScience) return aIsScience - bIsScience;
-          
-          // 同级别按剩余课时升序（少的在前，快要满足课时的优先）
-          return a.remainingHours - b.remainingHours;
-        });
-      }
-      
-      // 可选全校语数老师（校本、综合实践、劳动）- 本班老师优先，其次课时快要满足的
-      case 'all_chinese_math': {
-        const chineseGroup = teachers.find(g => g.subject === '语文');
-        const mathGroup = teachers.find(g => g.subject === '数学');
-        const allTeachers = [...(chineseGroup?.teachers || []), ...(mathGroup?.teachers || [])];
-        const filtered = allTeachers.filter(t => !searchQuery || t.name.includes(searchQuery));
-        // 本班老师ID
-        const priorityIds = new Set([
-          selectedSlot?.headTeacherId,
-          selectedSlot?.chineseTeacherId,
-          selectedSlot?.mathTeacherId
-        ].filter(Boolean));
-        // 排序：1.本班老师在前 2.剩余课时少的优先
-        return filtered.sort((a, b) => {
-          const aIsPriority = priorityIds.has(a.id) ? 0 : 1;
-          const bIsPriority = priorityIds.has(b.id) ? 0 : 1;
-          if (aIsPriority !== bIsPriority) return aIsPriority - bIsPriority;
-          return a.remainingHours - b.remainingHours;
-        });
-      }
-      
-      // 默认：显示该学科所有教师 - 本班已排老师优先，其次课时快要满足的
-      case 'all_subject':
-      default: {
-        const subjectGroup = teachers.find(g => g.subject === selectedSubject);
-        const filtered = (subjectGroup?.teachers || []).filter(t => !searchQuery || t.name.includes(searchQuery));
-        
-        // 获取本班已安排过该科目的教师ID
-        const classTeachersForSubject = selectedSlot?.classTeacherBySubject?.[selectedSubject] || [];
-        const classTeacherIds = new Set(classTeachersForSubject.map(t => t.id));
-        
-        // 排序：1.本班已排该科目的老师优先 2.剩余课时少的优先
-        return filtered.sort((a, b) => {
-          const aIsClassTeacher = classTeacherIds.has(a.id) ? 0 : 1;
-          const bIsClassTeacher = classTeacherIds.has(b.id) ? 0 : 1;
-          if (aIsClassTeacher !== bIsClassTeacher) return aIsClassTeacher - bIsClassTeacher;
-          return a.remainingHours - b.remainingHours;
-        });
-      }
+  // 加载教师数据（弹窗打开时）
+  useEffect(() => {
+    if (dialogOpen && teachers.length === 0) {
+      setLoadingTeachers(true);
+      fetchTeachers().finally(() => setLoadingTeachers(false));
     }
-  })();
+  }, [dialogOpen, teachers.length, fetchTeachers]);
 
-  // 获取时段显示名称
-  const getPeriodDisplay = (index: number) => {
-    if (index < 3) return MORNING_PERIODS[index];
-    return AFTERNOON_PERIODS[index - 3];
-  };
+  // 将 ClassContainer 映射为 ClassInfo
+  const gradeClasses: ClassInfo[] = rawClasses.map(cls => ({
+    id: cls.id,
+    name: cls.name,
+    grade: cls.grade,
+    headTeacherId: cls.headTeacherId,
+    headTeacherName: cls.headTeacherName,
+    headTeacher: cls.headTeacher ? { id: cls.headTeacher.id, name: cls.headTeacher.name, primarySubject: cls.headTeacher.primarySubject || '' } : undefined,
+    subTeacherId: cls.subTeacherId,
+    subTeacherName: cls.subTeacherName,
+    subTeacher: cls.subTeacher ? { id: cls.subTeacher.id, name: cls.subTeacher.name, primarySubject: cls.subTeacher.primarySubject || '' } : undefined,
+  }));
 
-  // 判断是否可选时段
-  const isSlotAvailable = (weekDay: number, periodIndex: number) => {
-    if (grade <= 2 && weekDay < 4 && periodIndex >= 5) return false;
-    return true;
-  };
-
-  // 计算已安排课程数
+  // 计算统计
   const totalSlots = Array.from(schedulesMap.values()).reduce((acc, slots) => acc + slots.length, 0);
-
-  // 获取年级中文数字
   const gradeChinese = ['一', '二', '三', '四', '五', '六'][grade - 1];
 
   return (
@@ -760,15 +266,10 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
               </div>
               <div>
                 <h1 className="text-xl font-bold text-stone-900 tracking-tight">{gradeChinese}年级课程表</h1>
-                <p className="text-sm text-stone-500">
-                  共 {gradeClasses.length} 个班级 · 已安排 {totalSlots} 节课
-                </p>
+                <p className="text-sm text-stone-500">共 {gradeClasses.length} 个班级 · 已安排 {totalSlots} 节课</p>
               </div>
             </div>
-            
-            {/* 操作按钮 */}
             <div className="flex items-center gap-3">
-              {/* 状态指示 */}
               {status && (
                 <div className="flex items-center gap-4 text-sm mr-4">
                   {status.hasDraft && (
@@ -785,27 +286,11 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
                   )}
                 </div>
               )}
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={loading}
-                className="gap-1.5"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                刷新
+              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="gap-1.5">
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />刷新
               </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSaveDraft}
-                disabled={saving || totalSlots === 0}
-                className="gap-1.5 border-amber-200 text-amber-700 hover:bg-amber-50"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? '保存中...' : '保存草稿'}
+              <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving || totalSlots === 0} className="gap-1.5 border-amber-200 text-amber-700 hover:bg-amber-50">
+                <Save className="w-4 h-4" />{saving ? '保存中...' : '保存草稿'}
               </Button>
             </div>
           </div>
@@ -813,7 +298,6 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* 课时参考面板 - 可拖动悬浮窗 */}
         <SubjectHoursPanel grade={grade} />
 
         {(classesLoading || loading) ? (
@@ -823,523 +307,73 @@ export default function GradeSchedulePage({ params }: { params: Promise<{ grade:
           </div>
         ) : (
           <div className="space-y-4">
-            {gradeClasses.map((cls, classIndex) => {
-              // 计算该班级各学科已排课时
-              const classSlots = schedulesMap.get(cls.id) || [];
-              const subjectCount: Record<string, number> = {};
-              classSlots.forEach(s => {
-                subjectCount[s.subject] = (subjectCount[s.subject] || 0) + 1;
-              });
-              // 使用与参考栏相同的科目顺序（按课时降序）
-              const gradeSubjectHours = getGradeSubjectHours(grade);
-              const allSubjectsCount = gradeSubjectHours.map(({ subject }) => ({
-                subject,
-                count: subjectCount[subject] || 0,
-              }));
-              const totalClassSlots = classSlots.length;
-              
-              return (
-              <div 
-                key={cls.id} 
-                className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md hover:border-stone-200 transition-all duration-300"
-                style={{ animationDelay: `${classIndex * 50}ms` }}
-              >
-                {/* 班级标题栏 */}
-                <div className="px-4 py-2 bg-gradient-to-r from-stone-50 to-white border-b border-stone-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-bold text-stone-800">{cls.name}</span>
-                    <span className="text-xs text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded-full">
-                      {classIndex + 1}/{gradeClasses.length}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs">
-                    {cls.headTeacher && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-stone-400">班主任</span>
-                        <span className="font-medium text-stone-700">{cls.headTeacherName}</span>
-                        <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                          {cls.headTeacher?.primarySubject || '语文'}
-                        </span>
-                      </div>
-                    )}
-                    {cls.subTeacher && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-stone-400">副班</span>
-                        <span className="font-medium text-stone-700">{cls.subTeacherName}</span>
-                        <span className="text-xs text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
-                          {cls.subTeacher?.primarySubject || '数学'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* 科目课时统计栏 */}
-                <div className="px-4 py-1.5 bg-stone-50/50 border-b border-stone-100 flex items-center gap-2 overflow-x-auto">
-                  <span className="text-xs text-stone-500 shrink-0">课时</span>
-                  <div className="flex items-center gap-1">
-                    {allSubjectsCount.map(({ subject, count }) => {
-                      const colors = getSubjectColor(subject);
-                      return (
-                        <span 
-                          key={subject}
-                          className={`text-xs px-1 py-0.5 rounded shrink-0 ${count > 0 ? colors.bg : 'bg-white border border-stone-200'} ${count > 0 ? colors.text : 'text-stone-400'}`}
-                        >
-                          {subject}{count}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <span className="text-xs text-stone-500 ml-auto shrink-0 font-medium">共{totalClassSlots}节</span>
-                </div>
-                
-                {/* 课表网格 */}
-                <div className="p-3">
-                  <div className="grid grid-cols-6 gap-1.5">
-                    {/* 表头 */}
-                    <div className="h-8"></div>
-                    {WEEKDAYS.map((day) => (
-                      <div key={day} className="h-8 flex items-center justify-center text-sm font-bold text-stone-600 bg-stone-100 rounded-lg">
-                        {day}
-                      </div>
-                    ))}
-                    
-                    {/* 上午课程 */}
-                    {[0, 1, 2].map((periodIdx) => (
-                      <div key={`row-${periodIdx}`} className="contents">
-                        <div className="h-14 flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="text-[10px] text-stone-400 leading-none">上午</div>
-                            <div className="text-base font-bold text-stone-700">{periodIdx + 1}</div>
-                          </div>
-                        </div>
-                        {WEEKDAYS.map((_, dayIdx) => {
-                          const slot = getSlot(cls.id, dayIdx, periodIdx);
-                          const available = isSlotAvailable(dayIdx, periodIdx);
-                          const colors = slot ? getSubjectColor(slot.subject) : null;
-                          
-                          return (
-                            <div
-                              key={`${dayIdx}-${periodIdx}`}
-                              className={`h-14 rounded-xl transition-all duration-200 ${
-                                available 
-                                  ? 'cursor-pointer hover:scale-[1.02] hover:z-10' 
-                                  : 'bg-stone-50/50'
-                              } ${
-                                slot 
-                                  ? `${colors?.bg} ${colors?.border} border shadow-sm hover:shadow-md` 
-                                  : available 
-                                    ? 'bg-stone-50 hover:bg-amber-50 border border-dashed border-stone-200 hover:border-amber-300' 
-                                    : ''
-                              }`}
-                              onClick={() => available && handleSlotClick(cls, dayIdx, periodIdx)}
-                              onContextMenu={(e) => handleContextMenu(e, cls, dayIdx, periodIdx)}
-                            >
-                              {available && (
-                                <div className="h-full flex flex-col items-center justify-center px-1">
-                                  {slot ? (
-                                    <>
-                                      <span className={`text-sm font-bold ${colors?.text} truncate max-w-full`}>
-                                        {slot.subject}
-                                      </span>
-                                      {slot.teacher_name && (
-                                        <span className="text-xs text-stone-500 truncate max-w-full">
-                                          {slot.teacher_name}
-                                        </span>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <div className="w-6 h-6 rounded-full border border-dashed border-stone-300 flex items-center justify-center text-stone-400 text-sm font-light hover:border-amber-400 hover:text-amber-500 transition-colors">
-                                      +
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                    
-                    {/* 午休分隔 */}
-                    <div className="col-span-6 h-6 flex items-center justify-center">
-                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent"></div>
-                      <span className="px-3 text-xs text-stone-400 mx-2">午休</span>
-                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent"></div>
-                    </div>
-                    
-                    {/* 下午课程 */}
-                    {[3, 4, 5].map((periodIdx) => (
-                      <div key={`row-${periodIdx}`} className="contents">
-                        <div className="h-14 flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="text-[10px] text-stone-400 leading-none">下午</div>
-                            <div className="text-base font-bold text-stone-700">{periodIdx + 1}</div>
-                          </div>
-                        </div>
-                        {WEEKDAYS.map((_, dayIdx) => {
-                          const slot = getSlot(cls.id, dayIdx, periodIdx);
-                          const available = isSlotAvailable(dayIdx, periodIdx);
-                          const colors = slot ? getSubjectColor(slot.subject) : null;
-                          
-                          return (
-                            <div
-                              key={`${dayIdx}-${periodIdx}`}
-                              className={`h-14 rounded-xl transition-all duration-200 ${
-                                available 
-                                  ? 'cursor-pointer hover:scale-[1.02] hover:z-10' 
-                                  : 'bg-stone-50/50'
-                              } ${
-                                slot 
-                                  ? `${colors?.bg} ${colors?.border} border shadow-sm hover:shadow-md` 
-                                  : available 
-                                    ? 'bg-stone-50 hover:bg-amber-50 border border-dashed border-stone-200 hover:border-amber-300' 
-                                    : ''
-                              }`}
-                              onClick={() => available && handleSlotClick(cls, dayIdx, periodIdx)}
-                              onContextMenu={(e) => handleContextMenu(e, cls, dayIdx, periodIdx)}
-                            >
-                              {available && (
-                                <div className="h-full flex flex-col items-center justify-center px-1">
-                                  {slot ? (
-                                    <>
-                                      <span className={`text-sm font-bold ${colors?.text} truncate max-w-full`}>
-                                        {slot.subject}
-                                      </span>
-                                      {slot.teacher_name && (
-                                        <span className="text-xs text-stone-500 truncate max-w-full">
-                                          {slot.teacher_name}
-                                        </span>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <div className="w-6 h-6 rounded-full border border-dashed border-stone-300 flex items-center justify-center text-stone-400 text-sm font-light hover:border-amber-400 hover:text-amber-500 transition-colors">
-                                      +
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              );
-            })}
+            {gradeClasses.map((cls, classIndex) => (
+              <ScheduleClassCard
+                key={cls.id}
+                cls={cls}
+                classIndex={classIndex}
+                totalInGrade={gradeClasses.length}
+                grade={grade}
+                slots={schedulesMap.get(cls.id) || []}
+                onSlotClick={handleSlotClick}
+                onContextMenu={handleContextMenu}
+              />
+            ))}
           </div>
         )}
       </div>
 
-      {/* 选课弹窗 - 横向大屏布局 */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-6xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
-          {/* 弹窗头部 */}
-          <div className="bg-gradient-to-r from-amber-100 via-orange-50 to-amber-50 px-8 py-5 relative overflow-hidden border-b border-amber-200/50">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-amber-200/40 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-1/4 w-24 h-24 bg-gradient-to-tr from-orange-200/30 to-transparent rounded-full translate-y-1/2" />
-            <div className="relative flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-2xl font-bold text-stone-800 tracking-tight">
-                  {selectedSlot?.className}
-                </DialogTitle>
-                <DialogDescription className="text-base text-stone-500 mt-1 font-medium">
-                  {selectedSlot && WEEKDAYS[selectedSlot.weekDay]} · {selectedSlot && getPeriodDisplay(selectedSlot.periodIndex)}
-                </DialogDescription>
-              </div>
-              {/* 当前状态 */}
-              {selectedSlot?.currentSubject && (
-                <div className="flex items-center gap-4 px-5 py-3 bg-white/80 backdrop-blur-sm rounded-xl border border-stone-200 shadow-sm">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm ${getSubjectColor(selectedSlot.currentSubject).bg} ${getSubjectColor(selectedSlot.currentSubject).text}`}>
-                    {selectedSlot.currentSubject.slice(0, 1)}
-                  </div>
-                  <div>
-                    <div className="text-base font-bold text-stone-800">{selectedSlot.currentSubject}</div>
-                    {selectedSlot.currentTeacherName && (
-                      <div className="text-sm text-stone-500 flex items-center gap-1">
-                        <User className="w-3.5 h-3.5" />
-                        {selectedSlot.currentTeacherName}
-                      </div>
-                    )}
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={handleClearSlot} 
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50 gap-1.5 ml-2"
-                  >
-                    <X className="w-4 h-4" />
-                    清除
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* 横向布局主体 */}
-          <div className="flex flex-1 h-[calc(85vh-88px)]">
-            {/* 左侧 - 科目选择 */}
-            <div className="w-72 border-r border-stone-200 bg-stone-50/50 p-4 flex flex-col">
-              <label className="text-sm font-bold text-stone-800 mb-3 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                选择科目
-              </label>
-              <div className="grid grid-cols-3 gap-2 flex-1 overflow-y-auto content-start">
-                {/* 按顺序显示科目 */}
-                {SUBJECT_ORDER.map(subject => {
-                  const colors = getSubjectColor(subject);
-                  const isSelected = selectedSubject === subject;
-                  const rule = SUBJECT_RULES[subject];
-                  // 标记需要特殊处理的科目
-                  const isRestricted = rule === 'chinese_only' || rule === 'math_only' || rule === 'head_teacher_only';
-                  
-                  return (
-                    <button
-                      key={subject}
-                      onClick={() => setSelectedSubject(isSelected ? '' : subject)}
-                      className={`px-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border relative ${
-                        isSelected
-                          ? `${colors.bg} ${colors.text} ${colors.border} shadow-md`
-                          : 'bg-white text-stone-600 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                      }`}
-                    >
-                      <span className="truncate block">{subject}</span>
-                      {isRestricted && (
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white shadow" title="限本班教师" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              {/* 提示信息 */}
-              {selectedSubject && SUBJECT_RULES[selectedSubject] === 'chinese_only' && selectedSlot?.chineseTeacherName && (
-                <div className="mt-3 p-2.5 bg-amber-50 rounded-lg border border-amber-200 flex items-center gap-2 text-amber-700 text-xs">
-                  <User className="w-3.5 h-3.5" />
-                  <span>本班老师：<strong>{selectedSlot.chineseTeacherName}</strong></span>
-                </div>
-              )}
-              {selectedSubject && SUBJECT_RULES[selectedSubject] === 'math_only' && selectedSlot?.mathTeacherName && (
-                <div className="mt-3 p-2.5 bg-sky-50 rounded-lg border border-sky-200 flex items-center gap-2 text-sky-700 text-xs">
-                  <User className="w-3.5 h-3.5" />
-                  <span>本班老师：<strong>{selectedSlot.mathTeacherName}</strong></span>
-                </div>
-              )}
-              {selectedSubject && SUBJECT_RULES[selectedSubject] === 'head_teacher_only' && selectedSlot?.headTeacherName && (
-                <div className="mt-3 p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center gap-2 text-emerald-700 text-xs">
-                  <User className="w-3.5 h-3.5" />
-                  <span>本班班主任：<strong>{selectedSlot.headTeacherName}</strong></span>
-                </div>
-              )}
-              {selectedSubject && (SUBJECT_RULES[selectedSubject] === 'all_chinese' || SUBJECT_RULES[selectedSubject] === 'science_rule' || SUBJECT_RULES[selectedSubject] === 'all_chinese_math') && (
-                <div className="mt-3 p-2.5 bg-stone-100 rounded-lg border border-stone-200 flex items-center gap-2 text-stone-600 text-xs">
-                  <User className="w-3.5 h-3.5" />
-                  <span>
-                    {SUBJECT_RULES[selectedSubject] === 'all_chinese' && '可选全校语文老师'}
-                    {SUBJECT_RULES[selectedSubject] === 'science_rule' && '本班数学老师优先，其次专职科学老师'}
-                    {SUBJECT_RULES[selectedSubject] === 'all_chinese_math' && '可选全校语数老师'}
-                  </span>
-                </div>
-              )}
-            </div>
-            
-            {/* 右侧 - 教师选择 */}
-            <div className="flex-1 flex flex-col bg-white min-h-0">
-              {/* 搜索栏 - 非限制科目才显示 */}
-              {selectedSubject && !['chinese_only', 'math_only', 'head_teacher_only'].includes(SUBJECT_RULES[selectedSubject] || '') && (
-                <div className="p-4 border-b border-stone-200 shrink-0">
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
-                    <Input
-                      placeholder="搜索教师姓名..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-12 h-12 text-base bg-stone-50 border-stone-200 focus:border-amber-400 focus:ring-amber-200 rounded-xl"
-                    />
-                  </div>
-                </div>
-              )}
-              
-              {/* 教师列表 - 使用原生滚动 */}
-              {selectedSubject ? (
-                <div className="flex-1 overflow-y-auto min-h-0">
-                  {loadingTeachers ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-stone-400">
-                      <div className="w-10 h-10 border-3 border-stone-200 border-t-amber-500 rounded-full animate-spin mb-3" />
-                      <span className="text-base">加载教师数据...</span>
-                    </div>
-                  ) : filteredTeachers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-stone-400">
-                      <User className="w-12 h-12 mb-3 opacity-50" />
-                      <span className="text-base">
-                        {selectedSubject === '语文' && !selectedSlot?.chineseTeacherId 
-                          ? '该班级尚未配置语文老师' 
-                          : selectedSubject === '数学' && !selectedSlot?.mathTeacherId
-                          ? '该班级尚未配置数学老师'
-                          : '未找到匹配的教师'}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="p-4 space-y-2">
-                      {filteredTeachers.map((teacher) => {
-                        const colors = getSubjectColor(teacher.subject);
-                        const isDisabled = teacher.remainingHours <= 0;
-                        // 判断是否显示"本班"标记
-                        const rule = SUBJECT_RULES[selectedSubject];
-                        const isClassTeacher = rule === 'chinese_only' || rule === 'math_only';
-                        // 判断是否是本班的班主任/副班主任
-                        const isThisClassTeacher = teacher.id === selectedSlot?.chineseTeacherId || teacher.id === selectedSlot?.mathTeacherId || teacher.id === selectedSlot?.headTeacherId;
-                        // 判断是否是本班已排过该科目的老师（用于技能科优先推荐）
-                        const classTeachersForSubject = selectedSlot?.classTeacherBySubject?.[selectedSubject] || [];
-                        const isClassSubjectTeacher = classTeachersForSubject.some(t => t.id === teacher.id);
-                        // 获取跨年级任职信息（排除当前年级）
-                        const otherGradeAssignments = (teacher.gradeAssignments || []).filter(g => g.grade !== grade);
-                        // 时段冲突
-                        const hasConflict = teacher.hasSlotConflict;
-                        
-                        return (
-                          <button
-                            key={teacher.id}
-                            onClick={() => handleSelectTeacher(teacher)}
-                            disabled={isDisabled}
-                            className={`w-full p-4 text-left transition-all duration-200 rounded-xl flex flex-col gap-3 ${
-                              isDisabled 
-                                ? 'opacity-40 cursor-not-allowed bg-stone-100 border border-stone-200' 
-                                : hasConflict
-                                ? 'bg-red-50 hover:bg-red-100 border-2 border-red-300 hover:border-red-400'
-                                : 'bg-white hover:bg-amber-50 hover:shadow-md border border-stone-200 hover:border-amber-300'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg font-bold shadow-sm shrink-0 ${colors.bg} ${colors.text}`}>
-                                  {teacher.name.slice(0, 1)}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-base font-bold text-stone-800 flex items-center gap-2 truncate">
-                                    {teacher.name}
-                                    {hasConflict && (
-                                      <span className="text-xs font-semibold text-white bg-gradient-to-r from-red-500 to-rose-500 px-2 py-0.5 rounded-full shrink-0">冲突</span>
-                                    )}
-                                    {isThisClassTeacher && (
-                                      <span className="text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded-full shrink-0">本班</span>
-                                    )}
-                                    {isClassSubjectTeacher && !isThisClassTeacher && (
-                                      <span className="text-xs font-semibold text-white bg-gradient-to-r from-blue-500 to-cyan-500 px-2 py-0.5 rounded-full shrink-0">已排</span>
-                                    )}
-                                  </div>
-                                  <div className="text-sm text-stone-500 truncate">{teacher.subject}教师</div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-4 shrink-0">
-                                <div className="text-right">
-                                  <div className={`text-base font-bold ${teacher.remainingHours > 0 ? 'text-stone-700' : 'text-red-500'}`}>
-                                    {teacher.usedHours}/{teacher.maxHours}
-                                  </div>
-                                  <div className={`text-xs font-medium ${teacher.remainingHours > 0 ? 'text-green-600' : 'text-red-400'}`}>
-                                    {teacher.remainingHours > 0 ? `剩余${teacher.remainingHours}节` : '已满'}
-                                  </div>
-                                </div>
-                                <div className={`w-2 h-8 rounded-full ${teacher.remainingHours > 0 ? 'bg-green-400' : 'bg-red-300'}`} />
-                              </div>
-                            </div>
-                            {/* 时段冲突提示 */}
-                            {teacher.hasSlotConflict && teacher.slotConflict && (
-                              <div className="flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-200">
-                                <span className="text-xs font-medium text-red-600">
-                                  ⚠️ 该时段已在 {teacher.slotConflict.gradeName} {teacher.slotConflict.className} 安排了 {teacher.slotConflict.subject} 课
-                                </span>
-                              </div>
-                            )}
-                            {/* 跨年级任职信息 */}
-                            {otherGradeAssignments.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 pt-2 border-t border-stone-100">
-                                <span className="text-xs text-stone-400 shrink-0">已任职：</span>
-                                {otherGradeAssignments.map(g => (
-                                  <span key={g.grade} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-                                    {g.gradeName}
-                                    <span className="text-blue-400">({g.classes.length}班)</span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-stone-400">
-                  <Sparkles className="w-16 h-16 mb-4 opacity-30" />
-                  <span className="text-lg">请先选择科目</span>
-                </div>
-              )}
-              
-              {/* 不指定教师按钮 */}
-              {selectedSubject && selectedSubject !== '语文' && selectedSubject !== '数学' && (
-                <div className="p-4 border-t border-stone-200 shrink-0">
-                  <button
-                    onClick={() => handleSelectTeacher(null)}
-                    className="w-full p-4 text-base text-stone-500 hover:text-stone-700 hover:bg-stone-50 rounded-xl transition-colors border-2 border-dashed border-stone-300 hover:border-stone-400 flex items-center justify-center gap-2"
-                  >
-                    <X className="w-5 h-5" />
-                    <span>不指定教师（仅安排科目）</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* 选课弹窗 */}
+      <SlotPickerDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        selectedClass={selectedSlot ? { id: selectedSlot.classId, name: selectedSlot.className } as ClassInfo : null}
+        selectedWeekDay={selectedSlot?.weekDay ?? 0}
+        selectedPeriodIndex={selectedSlot?.periodIndex ?? 0}
+        selectedSlot={selectedSlot}
+        teachers={teachers}
+        grade={grade}
+        onSave={(classId, weekDay, periodIndex, subject, teacherId, teacherName) => {
+          const newSlot: SlotData = {
+            id: crypto.randomUUID(),
+            class_id: classId,
+            subject,
+            teacher_id: teacherId,
+            teacher_name: teacherName,
+            week_day: weekDay + 1,
+            period_index: periodIndex,
+          };
+          setSchedulesMap(prev => {
+            const map = new Map(prev);
+            const slots = [...(map.get(classId) || [])];
+            const idx = slots.findIndex(s => s.week_day === weekDay + 1 && s.period_index === periodIndex);
+            if (idx >= 0) slots[idx] = newSlot;
+            else slots.push(newSlot);
+            map.set(classId, slots);
+            return map;
+          });
+        }}
+      />
 
       {/* 右键菜单 */}
       {contextMenu && (
-        <div
-          className="fixed z-[100] bg-white rounded-xl shadow-2xl border border-stone-200 py-2 min-w-[160px] animate-in fade-in-0 zoom-in-95 duration-150"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {contextMenu.hasSlot && (
-            <button
-              onClick={handleCopySlot}
-              className="w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 hover:bg-amber-50 text-stone-700 hover:text-amber-700 transition-colors"
-            >
-              <Copy className="w-4 h-4" />
-              复制课程
-            </button>
-          )}
-          
-          {clipboard && (
-            <button
-              onClick={handlePasteSlot}
-              className="w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 hover:bg-green-50 text-stone-700 hover:text-green-700 transition-colors"
-            >
-              <Clipboard className="w-4 h-4" />
-              粘贴 <span className="text-xs text-stone-400 ml-auto">{clipboard.subject}</span>
-            </button>
-          )}
-          
-          {contextMenu.hasSlot && (
-            <>
-              <div className="h-px bg-stone-200 my-1.5 mx-2" />
-              <button
-                onClick={handleContextMenuClear}
-                className="w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 hover:bg-red-50 text-red-600 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                清除课程
-              </button>
-            </>
-          )}
-          
-          {!contextMenu.hasSlot && !clipboard && (
-            <div className="px-4 py-2 text-sm text-stone-400">
-              空白格子
-            </div>
-          )}
-        </div>
+        <ScheduleContextMenu
+          menu={{
+            visible: true,
+            x: contextMenu.x,
+            y: contextMenu.y,
+            classId: contextMenu.classId,
+            className: '',
+            weekDay: contextMenu.weekDay,
+            periodIndex: contextMenu.periodIndex,
+            hasSlot: contextMenu.hasSlot,
+          }}
+          onClose={() => setContextMenu(null)}
+          onClear={handleContextMenuClear}
+          onCopySlot={handleCopySlot}
+          onPasteSlot={handlePasteSlot}
+          hasCopiedSlot={!!clipboard}
+        />
       )}
     </div>
   );
