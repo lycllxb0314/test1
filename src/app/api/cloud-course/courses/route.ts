@@ -18,13 +18,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const domain = searchParams.get('domain') as CourseDomain | null;
     const keyword = searchParams.get('keyword') || undefined;
+    const includeDraft = searchParams.get('includeDraft') === 'true';
 
     if (!domain) {
       return NextResponse.json(error('缺少 domain 参数', ErrorCode.BAD_REQUEST), { status: 400 });
     }
 
     const courseService = getService<CloudCourseService>(SERVICE_IDENTIFIERS.CloudCourseService);
-    const courses = await courseService.getCourses(domain, keyword);
+    const courses = await courseService.getCourses(domain, keyword, includeDraft);
 
     return NextResponse.json(success(courses, 'database'));
   } catch (err) {

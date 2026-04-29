@@ -13,7 +13,7 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import Hls from 'hls.js';
+import Hls from 'hls.js/dist/hls.js';
 
 type VideoPlayerProps = {
   /** 视频URL */

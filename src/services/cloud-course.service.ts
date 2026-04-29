@@ -55,14 +55,27 @@ import type { StudentRepository } from '@/repositories/student.repository';
 
 class CloudCourseService extends BaseService {
   /** 获取课程库（按域筛选、关键词搜索） */
-  async getCourses(domain: CourseDomain, keyword?: string): Promise<CloudCourse[]> {
+  async getCourses(domain: CourseDomain, keyword?: string, includeDraft?: boolean): Promise<CloudCourse[]> {
     let rows: CloudCourseRow[];
-    if (keyword) {
+
+    if (includeDraft) {
+      // 管理端：返回该域所有课程（含草稿）
+      rows = await cloudCourseRepository.findByDomain(domain);
+      if (keyword) {
+        const kw = keyword.toLowerCase();
+        rows = rows.filter(r =>
+          r.title?.toLowerCase().includes(kw) ||
+          r.description?.toLowerCase().includes(kw) ||
+          r.category?.toLowerCase().includes(kw)
+        );
+      }
+    } else if (keyword) {
       rows = await cloudCourseRepository.searchPublished(domain, keyword);
     } else {
       rows = await cloudCourseRepository.findPublished();
       rows = rows.filter(r => r.domain === domain);
     }
+
     return rows.map(mapCourseFromRow);
   }
 

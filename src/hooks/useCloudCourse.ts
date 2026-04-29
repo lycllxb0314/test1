@@ -21,9 +21,14 @@ import type {
 // useCloudCourses - 课程库
 // ============================================
 
-function useCloudCourses(domain: CourseDomain, keyword?: string) {
+function useCloudCourses(domain: CourseDomain, keyword?: string, includeDraft?: boolean) {
   const [courses, setCourses] = useState<CloudCourse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refresh = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -31,6 +36,7 @@ function useCloudCourses(domain: CourseDomain, keyword?: string) {
       try {
         const params = new URLSearchParams({ domain });
         if (keyword) params.set('keyword', keyword);
+        if (includeDraft) params.set('includeDraft', 'true');
         const res = await apiClient.get<CloudCourse[]>(`/cloud-course/courses?${params}`);
         setCourses(res.data || []);
       } catch (err) {
@@ -40,9 +46,9 @@ function useCloudCourses(domain: CourseDomain, keyword?: string) {
       }
     };
     fetchCourses();
-  }, [domain, keyword]);
+  }, [domain, keyword, includeDraft, refreshKey]);
 
-  return { courses, loading };
+  return { courses, loading, refresh };
 }
 
 // ============================================

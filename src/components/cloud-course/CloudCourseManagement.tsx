@@ -182,11 +182,15 @@ function CourseCard({
 function DomainCourseSection({
   domain,
   domainConfig,
+  includeDraft = false,
+  onMutation,
 }: {
   domain: CourseDomain;
   domainConfig: DomainConfig;
+  includeDraft?: boolean;
+  onMutation?: () => void;
 }) {
-  const { courses } = useCloudCourses(domain);
+  const { courses, refresh } = useCloudCourses(domain, undefined, includeDraft || undefined);
   const { publishCourse, deleteCourse } = useCloudCourseActions();
   const [keyword, setKeyword] = useState('');
 
@@ -199,6 +203,18 @@ function DomainCourseSection({
       c.category?.toLowerCase().includes(kw)
     );
   }, [courses, keyword]);
+
+  const handlePublish = useCallback(async (id: string) => {
+    await publishCourse(id);
+    refresh();
+    onMutation?.();
+  }, [publishCourse, refresh, onMutation]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    await deleteCourse(id);
+    refresh();
+    onMutation?.();
+  }, [deleteCourse, refresh, onMutation]);
 
   return (
     <div className="mb-8">
@@ -239,8 +255,8 @@ function DomainCourseSection({
               key={course.id}
               course={course}
               domainConfig={domainConfig}
-              onPublish={publishCourse}
-              onDelete={deleteCourse}
+              onPublish={handlePublish}
+              onDelete={handleDelete}
             />
           ))}
         </div>
@@ -267,11 +283,13 @@ export function CloudCourseManagement({
   const [activeTab, setActiveTab] = useState(mode === 'class' ? 'push' : 'courses');
   const { stats } = useCloudCourseStats();
   const { createCourse, publishCourse, deleteCourse } = useCloudCourseActions();
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const triggerRefresh = useCallback(() => setRefreshCounter(c => c + 1), []);
 
   // 获取所有域的课程用于推送选择器
-  const { courses: researchCourses } = useCloudCourses('research');
-  const { courses: parentCourses } = useCloudCourses('parent');
-  const { courses: studentCourses } = useCloudCourses('student');
+  const { courses: researchCourses } = useCloudCourses('research', undefined, true);
+  const { courses: parentCourses } = useCloudCourses('parent', undefined, true);
+  const { courses: studentCourses } = useCloudCourses('student', undefined, true);
 
   const allCourses = useMemo(() => [
     ...researchCourses, ...parentCourses, ...studentCourses,
@@ -343,6 +361,7 @@ export function CloudCourseManagement({
         format: 'recorded', category: '', targetAudience: '', coverImage: '',
       });
       setChapters([]);
+      triggerRefresh();
     }
   }, [newCourse, chapters, createCourse, user, defaultDomain, effectiveCreatableDomains]);
 
@@ -558,7 +577,7 @@ export function CloudCourseManagement({
           {mode === 'department' && (
             <TabsContent value="courses">
               {domains.map(dc => (
-                <DomainCourseSection key={dc.domain} domain={dc.domain} domainConfig={dc} />
+                <DomainCourseSection key={`${dc.domain}-${refreshCounter}`} domain={dc.domain} domainConfig={dc} includeDraft onMutation={triggerRefresh} />
               ))}
             </TabsContent>
           )}
