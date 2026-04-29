@@ -120,8 +120,9 @@ export default function CourseLearnPage() {
   }, [enrollment, activeChapterId]);
 
   // 完成章节
-  const onChapterComplete = useCallback(() => {
+  const onChapterComplete = useCallback(async () => {
     if (!activeChapterId) return;
+    const existingProgress = chapterProgressMap[activeChapterId];
     setChapterProgressMap(prev => ({
       ...prev,
       [activeChapterId]: {
@@ -132,7 +133,22 @@ export default function CourseLearnPage() {
         watchDuration: prev[activeChapterId]?.watchDuration || 0,
       },
     }));
-  }, [activeChapterId]);
+
+    // 同时保存到后端
+    if (enrollment) {
+      try {
+        await apiClient.put('/cloud-course/learning', {
+          action: 'progress',
+          enrollmentId: enrollment.id,
+          chapterId: activeChapterId,
+          watchDuration: Math.round(existingProgress?.watchDuration || 0),
+          completed: true,
+        });
+      } catch (err) {
+        console.error('[CourseLearnPage] complete chapter error:', err);
+      }
+    }
+  }, [activeChapterId, enrollment, chapterProgressMap]);
 
   // 切换章节
   const handleChapterChange = useCallback((chapterId: string) => {

@@ -335,13 +335,37 @@ class CloudCourseEnrollmentService extends BaseService {
     const chapters = await cloudCourseChapterRepository.findByCourseId(enrollment.course_id);
     const totalChapters = chapters.length || 1;
 
-    // 获取已完成章节数
+    // 如果本次标记完成，先创建/更新学习记录
+    if (dto.completed) {
+      const existingRecords = await cloudLearningRecordRepository.findByEnrollmentId(dto.enrollmentId);
+      const existingRecord = existingRecords.find(r => r.chapter_id === dto.chapterId);
+
+      if (!existingRecord) {
+        // 创建新的学习记录
+        await cloudLearningRecordRepository.create({
+          id: crypto.randomUUID(),
+          enrollment_id: dto.enrollmentId,
+          chapter_id: dto.chapterId,
+          record_type: 'video',
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          watch_duration: dto.watchDuration || 0,
+          quiz_score: null,
+          notes: null,
+          created_at: new Date().toISOString(),
+        });
+      } else if (!existingRecord.completed_at) {
+        // 更新已有记录为完成
+        await cloudLearningRecordRepository.update(existingRecord.id, {
+          completed_at: new Date().toISOString(),
+          watch_duration: Math.max(dto.watchDuration || 0, existingRecord.watch_duration || 0),
+        });
+      }
+    }
+
+    // 重新获取所有学习记录来计算已完成章节
     const records = await cloudLearningRecordRepository.findByEnrollmentId(dto.enrollmentId);
     const completedChapters = new Set(records.filter(r => r.completed_at).map(r => r.chapter_id));
-
-    if (dto.completed) {
-      completedChapters.add(dto.chapterId);
-    }
 
     const progress = Math.min(100, Math.round((completedChapters.size / totalChapters) * 100));
     const status: EnrollmentStatus = progress >= 100 ? 'completed' : 'learning';
