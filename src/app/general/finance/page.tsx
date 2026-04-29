@@ -89,6 +89,28 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+const ALLOWED_VOUCHER_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+]);
+
+const isAllowedVoucherFile = (file: File) => {
+  const hasAllowedMime = ALLOWED_VOUCHER_MIME_TYPES.has(file.type);
+  const hasAllowedExt = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
+  return hasAllowedMime || hasAllowedExt;
+};
+
+const isSafePreviewUrl = (url: string) => {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === 'blob:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 // 附件预览组件
 const AttachmentPreview: React.FC<{
   files: string[];
@@ -99,7 +121,9 @@ const AttachmentPreview: React.FC<{
 
   return (
     <div className="flex flex-wrap gap-2">
-      {files.map((file, index) => (
+      {files.map((file, index) => {
+        if (!isSafePreviewUrl(file)) return null;
+        return (
         <div key={index} className="relative group">
           <a href={file} target="_blank" rel="noopener noreferrer">
             <div className="w-20 h-20 border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center hover:opacity-80 transition-opacity">
@@ -160,6 +184,10 @@ export default function FinancePage() {
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      if (!isAllowedVoucherFile(file)) {
+        toast.warning(`文件 "${file.name}" 格式不受支持，已跳过`);
+        continue;
+      }
       const url = URL.createObjectURL(file);
       newFiles.push(url);
     }
