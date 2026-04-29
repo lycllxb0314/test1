@@ -10,6 +10,7 @@ import { parentRepository, ParentRecord } from '@/repositories/parent.repository
 import { studentRepository } from '@/repositories/student.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
 
 /**
  * 家长查询参数
@@ -467,8 +468,9 @@ export class ParentService extends BaseService {
           continue;
         }
 
-        // 生成新密码
-        const newPassword = Math.random().toString(36).slice(-6);
+        // 生成新密码（使用密码学安全随机源）
+        const passwordChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const newPassword = Array.from({ length: 6 }, () => passwordChars[randomInt(0, passwordChars.length)]).join('');
         const passwordHash = await bcrypt.hash(newPassword, 10);
         const client = getSupabaseClient();
 
