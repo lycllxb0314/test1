@@ -51,9 +51,9 @@ export default function CourseLearnPage() {
     const load = async () => {
       try {
         // 获取课程详情（含章节）
-        const courseRes = await apiClient.get<{ data: CloudCourse }>(`/cloud-course/courses/${courseId}`);
-        if (courseRes.data?.data) {
-          const c = courseRes.data.data;
+        const courseRes = await apiClient.get<CloudCourse>(`/cloud-course/courses/${courseId}`);
+        if (courseRes.success && courseRes.data) {
+          const c = courseRes.data;
           setCourse(c);
           // 默认选第一个有视频的章节
           const firstVideoChapter = c.chapters?.find(ch => ch.videoUrl);
@@ -66,11 +66,11 @@ export default function CourseLearnPage() {
 
         // 获取选课记录
         if (user?.id) {
-          const enrollRes = await apiClient.get<{ data: CloudCourseEnrollment[] }>(
+          const enrollRes = await apiClient.get<CloudCourseEnrollment[]>(
             `/cloud-course/enrollments?userId=${user.id}&courseId=${courseId}`
           );
-          if (enrollRes.data?.data?.length) {
-            setEnrollment(enrollRes.data.data[0]);
+          if (enrollRes.success && enrollRes.data?.length) {
+            setEnrollment(enrollRes.data[0]);
           }
         }
       } catch (err) {
