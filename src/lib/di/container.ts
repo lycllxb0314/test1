@@ -195,6 +195,14 @@ export const SERVICE_IDENTIFIERS = {
   // 附小少年 Repository
   StudentShowcaseRepository: Symbol.for('StudentShowcaseRepository'),
 
+  // 云教学 Repositories
+  CloudCourseRepository: Symbol.for('CloudCourseRepository'),
+  CloudCourseChapterRepository: Symbol.for('CloudCourseChapterRepository'),
+  CloudCourseEnrollmentRepository: Symbol.for('CloudCourseEnrollmentRepository'),
+  CloudLearningRecordRepository: Symbol.for('CloudLearningRecordRepository'),
+  CloudLiveSessionRepository: Symbol.for('CloudLiveSessionRepository'),
+  CloudCoursePushRepository: Symbol.for('CloudCoursePushRepository'),
+
   // Services
   UserService: Symbol.for('UserService'),
   StudentService: Symbol.for('StudentService'),
@@ -272,6 +280,12 @@ export const SERVICE_IDENTIFIERS = {
 
   // 附小少年 Service
   StudentShowcaseService: Symbol.for('StudentShowcaseService'),
+
+  // 云教学 Services
+  CloudCourseService: Symbol.for('CloudCourseService'),
+  CloudCourseEnrollmentService: Symbol.for('CloudCourseEnrollmentService'),
+  CloudLearningRecordService: Symbol.for('CloudLearningRecordService'),
+  CloudLiveSessionService: Symbol.for('CloudLiveSessionService'),
 } as const;
 
 /**

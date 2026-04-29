@@ -122,6 +122,16 @@ import {
   StudentShowcaseRepository, studentShowcaseRepository,
 } from '@/repositories/student-showcase.repository';
 
+// 云教学 Repositories
+import {
+  cloudCourseRepository, CloudCourseRepository,
+  cloudCourseChapterRepository, CloudCourseChapterRepository,
+  cloudCourseEnrollmentRepository, CloudCourseEnrollmentRepository,
+  cloudLearningRecordRepository, CloudLearningRecordRepository,
+  cloudLiveSessionRepository, CloudLiveSessionRepository,
+  cloudCoursePushRepository, CloudCoursePushRepository,
+} from '@/repositories/cloud-course.repository';
+
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
 import { StudentService, studentService } from '@/services/student.service';
@@ -225,6 +235,14 @@ import {
   StudentShowcaseService, studentShowcaseService,
 } from '@/services/student-showcase.service';
 
+// 云教学 Services
+import {
+  CloudCourseService, cloudCourseService,
+  CloudCourseEnrollmentService, cloudCourseEnrollmentService,
+  CloudLearningRecordService, cloudLearningRecordService,
+  CloudLiveSessionService, cloudLiveSessionService,
+} from '@/services/cloud-course.service';
+
 /**
  * 初始化 DI 容器
  * 注册所有服务到容器中
@@ -314,6 +332,14 @@ export function initializeDI(): void {
   // 附小少年 Repository
   container.registerSingleton(SERVICE_IDENTIFIERS.StudentShowcaseRepository, () => studentShowcaseRepository);
 
+  // 云教学 Repositories
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudCourseRepository, () => cloudCourseRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudCourseChapterRepository, () => cloudCourseChapterRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudCourseEnrollmentRepository, () => cloudCourseEnrollmentRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudLearningRecordRepository, () => cloudLearningRecordRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudLiveSessionRepository, () => cloudLiveSessionRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudCoursePushRepository, () => cloudCoursePushRepository);
+
   // ========================================
   // 注册 Services（单例）
   // ========================================
@@ -393,6 +419,12 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.TeacherAwardService, () => teacherAwardService);
   // 附小少年 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.StudentShowcaseService, () => studentShowcaseService);
+
+  // 云教学 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudCourseService, () => cloudCourseService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudCourseEnrollmentService, () => cloudCourseEnrollmentService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudLearningRecordService, () => cloudLearningRecordService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.CloudLiveSessionService, () => cloudLiveSessionService);
 }
 
 // 导出

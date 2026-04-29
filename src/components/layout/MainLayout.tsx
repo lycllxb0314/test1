@@ -149,6 +149,7 @@ const teacherBaseNav: NavItem[] = [
   { name: '备课中心', href: '/teacher/lesson-prep', icon: BookOpen, description: '学科备课支持，文本解读', badge: '新' },
   { name: '智慧作业', href: '/teacher/smart-homework', icon: Brain, description: 'AI智能命题·校本题库·标准排版', badge: '新' },
   { name: '教研活动', href: '/teacher/research', icon: Target, description: '参与教研活动与集体备课', badge: '智慧' },
+  { name: '云教学', href: '/teacher/research-cloud', icon: GraduationCap, description: '教师研修·在线学习', badge: '新' },
   { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请' },
   { name: '报销申请', href: '/teacher/expense', icon: DollarSign, description: '费用报销申请' },
   { name: '教室预约', href: '/teacher/room-booking', icon: DoorOpen, description: '预约使用教室' },
@@ -181,6 +182,7 @@ const gradeLeaderNav: NavItem[] = [
 // 家长端导航
 const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
+  { name: '云教学', href: '/parent/cloud-course', icon: GraduationCap, description: '家长课程·子女学习', badge: '新' },
   { name: '荣誉申报', href: '/parent/honor-application', icon: Trophy, description: '为孩子申报学校荣誉', badge: '新' },
   { name: '信息收集', href: '/parent/collection', icon: ClipboardList, description: '填写信息收集表', badge: '新' },
   { name: '习惯打卡', href: '/parent/habit', icon: Target, description: '子女习惯养成打卡', badge: '新' },
