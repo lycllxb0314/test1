@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,53 +21,14 @@ import { useApprovals } from '@/hooks/useApprovals';
 import { MessagePanel } from '@/components/messaging/MessagePanel';
 import { PublishNotificationDialog } from '@/components/approval/PublishNotificationDialog';
 import { CourseAdjustmentDialog } from '@/components/course-adjustment/CourseAdjustmentDialog';
+import { PublishedTab } from '@/components/teacher/PublishedTab';
+import { CourseAdjustmentTab } from '@/components/teacher/CourseAdjustmentTab';
 import type { CourseAdjustment } from '@/components/course-adjustment/CourseAdjustmentDialog';
 import type { SubmitApprovalRequest } from '@/types/approval';
-import { cn } from '@/lib/utils';
 import {
-  Bell,
-  Sparkles,
-  Users,
-  Plus,
-  Send,
-  GraduationCap,
-  CalendarClock,
-  CheckCircle,
-  Clock,
-  User,
-  RefreshCw,
-  BookOpen,
+  Bell, Sparkles, Users, Plus, Send, CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-// 请假类型标签
-const LEAVE_TYPE_LABELS: Record<string, string> = {
-  sick: '病假',
-  personal: '事假',
-  official: '公假',
-  maternity: '产假',
-  marriage: '婚假',
-  funeral: '丧假',
-};
-
-// 星期映射
-const WEEK_DAY_NAMES: Record<number, string> = {
-  1: '周一',
-  2: '周二',
-  3: '周三',
-  4: '周四',
-  5: '周五',
-};
-
-// 年级映射
-const GRADE_NAMES: Record<number, string> = {
-  1: '一年级',
-  2: '二年级',
-  3: '三年级',
-  4: '四年级',
-  5: '五年级',
-  6: '六年级',
-};
 
 export default function TeacherPage() {
   const { user } = useAuth();
@@ -84,41 +45,27 @@ export default function TeacherPage() {
   const [showAdjustDialog, setShowAdjustDialog] = useState(false);
 
   // 判断角色类型
-  const isHeadTeacher = user?.role === 'head_teacher'; // 只有班主任才是班主任
+  const isHeadTeacher = user?.role === 'head_teacher';
   const isLeader = ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'].includes(user?.role || '');
-  
-  // 判断是否是年段长（兼任角色）
-  const additionalRoles = user?.additionalRoles;
-  const isGradeLeader = additionalRoles?.includes('grade_leader');
+  const isGradeLeader = user?.additionalRoles?.includes('grade_leader');
 
   // 消息 Hook
   const {
-    messages,
-    loading: messagesLoading,
-    error: messagesError,
-    statistics,
-    page,
-    pageSize,
-    total,
-    totalPages,
-    goToPage,
-    refetch,
-    markAsRead,
-    markAsUnread,
-    archiveMessage,
-    deleteMessage,
-    markAllAsRead,
-    sendMessage,
+    messages, loading: messagesLoading, error: messagesError, statistics,
+    page, pageSize, total, totalPages, goToPage, refetch,
+    markAsRead, markAsUnread, archiveMessage, deleteMessage, markAllAsRead, sendMessage,
   } = useMessages();
 
-  // 审批 Hook - 用于查看我发起的
+  // 审批 Hook
   const {
-    approvals,
-    loading: approvalsLoading,
-    fetchApprovals,
-    submitApproval,
-    statistics: approvalStats,
+    approvals, loading: approvalsLoading, fetchApprovals, submitApproval, statistics: approvalStats,
   } = useApprovals('my');
+
+  // 调课统计数据
+  const adjustStats = {
+    pending: adjustments.length,
+    completed: completedAdjustments.length,
+  };
 
   // 获取待处理调课列表
   const fetchPendingAdjustments = async () => {
@@ -126,9 +73,7 @@ export default function TeacherPage() {
     try {
       const response = await fetch('/api/course-adjustments/process?status=pending');
       const data = await response.json();
-      if (data.success) {
-        setAdjustments(data.data || []);
-      }
+      if (data.success) setAdjustments(data.data || []);
     } catch (error) {
       console.error('获取调课列表失败:', error);
       toast.error('获取调课列表失败');
@@ -143,21 +88,13 @@ export default function TeacherPage() {
     try {
       const response = await fetch('/api/course-adjustments/process?status=completed');
       const data = await response.json();
-      if (data.success) {
-        setCompletedAdjustments(data.data || []);
-      }
+      if (data.success) setCompletedAdjustments(data.data || []);
     } catch (error) {
       console.error('获取已处理调课列表失败:', error);
       toast.error('获取已处理调课列表失败');
     } finally {
       setCompletedLoading(false);
     }
-  };
-  
-  // 调课统计数据
-  const adjustStats = {
-    pending: adjustments.length,
-    completed: completedAdjustments.length,
   };
 
   // 初始化加载
@@ -179,23 +116,14 @@ export default function TeacherPage() {
     toast.success('调课处理成功');
   };
 
-  // 打开调课处理对话框
-  const handleOpenAdjustDialog = (adjust: CourseAdjustment) => {
-    setSelectedAdjust(adjust);
-    setShowAdjustDialog(true);
-  };
-
-  // 发布处理 - 教师只能发布班级通知给家长
+  // 发布处理
   const handleSubmit = async (request: SubmitApprovalRequest) => {
-    // 教师发布的通知只发给家长，不需要审批
     const result = await submitApproval({
       ...request,
-      department: 'teacher', // 教师发布的标识
-      isExternal: false, // 教师不能发布到外部
+      department: 'teacher',
+      isExternal: false,
     });
-    if (result.success) {
-      refetch();
-    }
+    if (result.success) refetch();
     return result;
   };
 
@@ -208,10 +136,10 @@ export default function TeacherPage() {
             {isLeader ? '个人工作台' : isHeadTeacher ? '班主任工作台' : '教师工作台'}
           </h1>
           <p className="text-gray-500 mt-1">
-            {isLeader 
-              ? `${user?.name} · 个人事务管理` 
-              : isHeadTeacher 
-                ? `${user?.className || '我的班级'} · 班级管理与家校沟通` 
+            {isLeader
+              ? `${user?.name} · 个人事务管理`
+              : isHeadTeacher
+                ? `${user?.className || '我的班级'} · 班级管理与家校沟通`
                 : `${user?.department || '教学组'} · 教学与教研工作`
             }
             {isGradeLeader && ' · 年段长'}
@@ -276,7 +204,6 @@ export default function TeacherPage() {
             </div>
           </CardContent>
         </Card>
-        {/* 班主任专属：我发布的 */}
         {isHeadTeacher && (
           <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('published')}>
             <CardContent className="p-4">
@@ -292,7 +219,6 @@ export default function TeacherPage() {
             </CardContent>
           </Card>
         )}
-        {/* 年段长专属：待调课统计 */}
         {isGradeLeader && (
           <Card className="border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('adjust')}>
             <CardContent className="p-4">
@@ -310,7 +236,7 @@ export default function TeacherPage() {
         )}
       </div>
 
-      {/* 发布按钮 - 仅班主任显示 */}
+      {/* 发布按钮 - 仅班主任 */}
       {isHeadTeacher && (
         <div className="flex justify-end">
           <Button onClick={() => setPublishOpen(true)} className="gap-2">
@@ -324,25 +250,18 @@ export default function TeacherPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="messages" className="gap-2">
-            <Bell className="h-4 w-4" />
-            消息中心
+            <Bell className="h-4 w-4" />消息中心
           </TabsTrigger>
-          {/* 班主任专属：我发布的 */}
           {isHeadTeacher && (
             <TabsTrigger value="published" className="gap-2">
-              <Send className="h-4 w-4" />
-              我发布的
+              <Send className="h-4 w-4" />我发布的
             </TabsTrigger>
           )}
-          {/* 年段长专属：调课中心 */}
           {isGradeLeader && (
             <TabsTrigger value="adjust" className="gap-2">
-              <CalendarClock className="h-4 w-4" />
-              调课中心
+              <CalendarClock className="h-4 w-4" />调课中心
               {adjustStats.pending > 0 && (
-                <Badge className="ml-1 bg-amber-500 text-white text-xs">
-                  {adjustStats.pending}
-                </Badge>
+                <Badge className="ml-1 bg-amber-500 text-white text-xs">{adjustStats.pending}</Badge>
               )}
             </TabsTrigger>
           )}
@@ -356,12 +275,7 @@ export default function TeacherPage() {
             error={messagesError}
             unreadCount={statistics.unread}
             statistics={statistics}
-            pagination={{
-              page,
-              pageSize,
-              total,
-              totalPages,
-            }}
+            pagination={{ page, pageSize, total, totalPages }}
             onRefresh={refetch}
             onMarkAsRead={markAsRead}
             onMarkAsUnread={markAsUnread}
@@ -375,276 +289,29 @@ export default function TeacherPage() {
         {/* 我发布的 - 班主任专属 */}
         {isHeadTeacher && (
           <TabsContent value="published" className="mt-4">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>我发布的通知</CardTitle>
-                    <CardDescription>查看您发布的班级通知</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => fetchApprovals('my')}>
-                    刷新
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {approvalsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                ) : approvals.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Send className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>暂无发布记录</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {approvals.map((item) => (
-                      <Card key={item.id} className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium">{item.title}</h4>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {new Date(item.createdAt).toLocaleString()}
-                            </p>
-                          </div>
-                          <Badge variant={item.status === 'approved' ? 'default' : 'secondary'}>
-                            {item.status === 'approved' ? '已发布' : '待审批'}
-                          </Badge>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <PublishedTab
+              approvals={approvals}
+              loading={approvalsLoading}
+              onRefresh={() => fetchApprovals('my')}
+            />
           </TabsContent>
         )}
 
         {/* 调课中心 - 年段长专属 */}
         {isGradeLeader && (
           <TabsContent value="adjust" className="mt-4">
-            <div className="grid gap-6 lg:grid-cols-3">
-              {/* 调课列表 */}
-              <div className="lg:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <CalendarClock className="h-5 w-5" />
-                          调课中心
-                        </CardTitle>
-                        <CardDescription>
-                          {adjustViewMode === 'pending' ? '需要安排代课教师的课程' : '已完成处理的调课记录'}
-                        </CardDescription>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center border rounded-lg p-0.5">
-                          <Button
-                            variant={adjustViewMode === 'pending' ? 'default' : 'ghost'}
-                            size="sm"
-                            className="h-7 px-3"
-                            onClick={() => setAdjustViewMode('pending')}
-                          >
-                            待处理 ({adjustStats.pending})
-                          </Button>
-                          <Button
-                            variant={adjustViewMode === 'completed' ? 'default' : 'ghost'}
-                            size="sm"
-                            className="h-7 px-3"
-                            onClick={() => setAdjustViewMode('completed')}
-                          >
-                            已处理 ({adjustStats.completed})
-                          </Button>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => adjustViewMode === 'pending' ? fetchPendingAdjustments() : fetchCompletedAdjustments()}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                          刷新
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {/* 待处理调课列表 */}
-                    {adjustViewMode === 'pending' && (
-                      <>
-                        {adjustmentLoading ? (
-                          <div className="flex items-center justify-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                          </div>
-                        ) : adjustments.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                            <p>暂无待处理调课</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {adjustments.map((adjust: CourseAdjustment) => (
-                              <Card 
-                                key={adjust.id} 
-                                className="border-l-4 border-l-amber-500 hover:shadow-md transition-shadow cursor-pointer bg-card"
-                                onClick={() => handleOpenAdjustDialog(adjust)}
-                              >
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center flex-wrap gap-2 mb-3">
-                                        <Badge variant="outline" className="border-amber-500/50 text-amber-600">
-                                          {adjust.grade ? (GRADE_NAMES[adjust.grade] || `${adjust.grade}年级`) : '未知年级'}
-                                        </Badge>
-                                        <Badge variant="secondary">
-                                          {adjust.subject || '未知科目'}
-                                        </Badge>
-                                        <Badge variant="outline" className="text-muted-foreground">
-                                          {adjust.applicantName} 请假
-                                        </Badge>
-                                      </div>
-                                      
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                                        <div className="flex items-center gap-2 text-muted-foreground">
-                                          <Clock className="h-4 w-4 shrink-0" />
-                                          <span>第{adjust.effectiveWeek || '?'}周 {adjust.weekDay ? WEEK_DAY_NAMES[adjust.weekDay] : '?'} 第{(adjust.periodIndex ?? 0) + 1}节</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-muted-foreground">
-                                          <GraduationCap className="h-4 w-4 shrink-0" />
-                                          <span>{adjust.className || '未知班级'}</span>
-                                        </div>
-                                      </div>
-                                      
-                                      {adjust.reason && (
-                                        <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
-                                          原因：{adjust.reason}
-                                        </p>
-                                      )}
-                                    </div>
-                                    
-                                    <Button size="sm" variant="default" className="shrink-0">
-                                      处理调课
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* 已处理调课列表 */}
-                    {adjustViewMode === 'completed' && (
-                      <>
-                        {completedLoading ? (
-                          <div className="flex items-center justify-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                          </div>
-                        ) : completedAdjustments.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                            <p>暂无已处理调课记录</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {completedAdjustments.map((adjust: CourseAdjustment) => (
-                              <Card 
-                                key={adjust.id} 
-                                className="border-l-4 border-l-green-500 bg-card"
-                              >
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center flex-wrap gap-2 mb-3">
-                                        <Badge variant="outline" className="border-green-500/50 text-green-600">
-                                          {adjust.grade ? (GRADE_NAMES[adjust.grade] || `${adjust.grade}年级`) : '未知年级'}
-                                        </Badge>
-                                        <Badge variant="secondary">
-                                          {adjust.subject || '未知科目'}
-                                        </Badge>
-                                        <Badge variant="outline" className="text-muted-foreground">
-                                          {adjust.applicantName} 请假
-                                        </Badge>
-                                        <Badge className={cn(
-                                          'font-normal',
-                                          adjust.adjustType === 'substitute' 
-                                            ? 'bg-blue-100 text-blue-700' 
-                                            : 'bg-gray-100 text-gray-700'
-                                        )}>
-                                          {adjust.adjustType === 'substitute' 
-                                            ? `代课：${adjust.substituteName || '未知'}` 
-                                            : '课程取消'}
-                                        </Badge>
-                                      </div>
-                                      
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                                        <div className="flex items-center gap-2 text-muted-foreground">
-                                          <Clock className="h-4 w-4 shrink-0" />
-                                          <span>第{adjust.effectiveWeek || '?'}周 {adjust.weekDay ? WEEK_DAY_NAMES[adjust.weekDay] : '?'} 第{(adjust.periodIndex ?? 0) + 1}节</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-muted-foreground">
-                                          <GraduationCap className="h-4 w-4 shrink-0" />
-                                          <span>{adjust.className || '未知班级'}</span>
-                                        </div>
-                                      </div>
-
-                                      {adjust.adjusterName && (
-                                        <p className="text-sm text-muted-foreground mt-2">
-                                          处理人：{adjust.adjusterName}
-                                          {adjust.completedAt && ` · ${new Date(adjust.completedAt).toLocaleString('zh-CN')}`}
-                                        </p>
-                                      )}
-                                    </div>
-                                    
-                                    <Badge className="bg-green-100 text-green-700 border-green-200">
-                                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                      已完成
-                                    </Badge>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* 操作说明 */}
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">智能调课说明</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm text-gray-600 space-y-2">
-                    <p>• <strong>智能推荐</strong>：系统自动推荐可用的代课教师</p>
-                    <p>• <strong>优先级</strong>：同学科、无课冲突、工作量少</p>
-                    <p>• <strong>一键安排</strong>：选择教师后自动通知并更新课表</p>
-                    <p>• <strong>取消课程</strong>：该节课取消不上</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">统计数据</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-500">待处理</span>
-                      <Badge className="bg-amber-100 text-amber-700">{adjustStats.pending}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-500">已完成</span>
-                      <Badge className="bg-green-100 text-green-700">{adjustStats.completed}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <CourseAdjustmentTab
+              adjustViewMode={adjustViewMode}
+              setAdjustViewMode={setAdjustViewMode}
+              adjustStats={adjustStats}
+              adjustments={adjustments}
+              completedAdjustments={completedAdjustments}
+              adjustmentLoading={adjustmentLoading}
+              completedLoading={completedLoading}
+              onRefreshPending={fetchPendingAdjustments}
+              onRefreshCompleted={fetchCompletedAdjustments}
+              onOpenAdjustDialog={(adjust) => { setSelectedAdjust(adjust); setShowAdjustDialog(true); }}
+            />
           </TabsContent>
         )}
       </Tabs>
