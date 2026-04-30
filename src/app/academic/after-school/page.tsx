@@ -165,7 +165,7 @@ export default function AcademicAfterSchoolPage() {
   const fetchPendingCourses = useCallback(async () => {
     setPendingLoading(true);
     try {
-      const res = await apiClient.get<ApiResponse<AfterSchoolCourse[]>>('/after-school/courses/pending');
+      const res = await apiClient.get<AfterSchoolCourse[]>('/after-school/courses/pending');
       if (res.success && res.data) {
         setPendingCourses(Array.isArray(res.data) ? res.data : []);
       }
@@ -177,15 +177,14 @@ export default function AcademicAfterSchoolPage() {
   }, []);
 
   // 审核操作
-  const handleReview = useCallback(async (courseId: string, action: 'approve' | 'reject') => {
+  const handleReview = useCallback(async (courseId: string, approvalAction: 'approve' | 'reject') => {
     try {
-      const res = await apiClient.post<ApiResponse<unknown>>(`/after-school/courses/${courseId}/review`, {
-        action,
-        reviewerId: 'current-user',
-        remark: reviewRemark,
+      const res = await apiClient.post<unknown>(`/after-school/courses/${courseId}/review`, {
+        approvalStatus: approvalAction === 'approve' ? 'approved' : 'rejected',
+        rejectionReason: approvalAction === 'reject' ? reviewRemark : undefined,
       });
       if (res.success) {
-        toast.success(action === 'approve' ? '已通过审核' : '已拒绝申请');
+        toast.success(approvalAction === 'approve' ? '已通过审核' : '已拒绝申请');
         setReviewRemark('');
         fetchPendingCourses();
         fetchCourses();
