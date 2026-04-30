@@ -192,34 +192,52 @@ export function useCoursePrediction() {
 // ==================== Feature 3: 课程内容生成 Hook ====================
 
 export function useCourseGeneration() {
-  const [generatedContent, setGeneratedContent] = useState('');
+  const [generatedContent, setGeneratedContent] = useState<GeneratedCourseContent | null>(null);
+  const [streamText, setStreamText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generate = useCallback(async (request: CourseGenerationRequest) => {
     setIsGenerating(true);
-    setGeneratedContent('');
+    setGeneratedContent(null);
+    setStreamText('');
 
+    // 先用流式展示生成过程
     await readSSEStream(
       '/api/after-school/ai',
       { action: 'generate-content', payload: request, stream: true },
       (text) => {
-        setGeneratedContent((prev) => prev + text);
+        setStreamText((prev) => prev + text);
       },
-      () => {
+      async () => {
+        // 流式完成后，再用非流式获取结构化结果用于回填
+        try {
+          const response = await fetch('/api/after-school/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'generate-content', payload: request, stream: false }),
+          });
+          const result = await response.json();
+          if (result.success && result.data) {
+            setGeneratedContent(result.data as GeneratedCourseContent);
+          }
+        } catch {
+          // 非流式获取失败不影响，流式文本已展示
+        }
         setIsGenerating(false);
       },
       (error) => {
-        setGeneratedContent((prev) => prev || `[生成失败: ${error}]`);
+        setStreamText((prev) => prev || `[生成失败: ${error}]`);
         setIsGenerating(false);
       }
     );
   }, []);
 
   const clearContent = useCallback(() => {
-    setGeneratedContent('');
+    setGeneratedContent(null);
+    setStreamText('');
   }, []);
 
-  return { generatedContent, isGenerating, generate, clearContent };
+  return { generatedContent, streamText, isGenerating, generate, clearContent };
 }
 
 // ==================== Feature 4: 智能评语 Hook ====================

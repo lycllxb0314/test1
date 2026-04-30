@@ -114,6 +114,16 @@ export default function AcademicAfterSchoolPage() {
   const { generatedContent, isGenerating, generate: generateCourseContent, clearContent } = useCourseGeneration();
   const [showPrediction, setShowPrediction] = useState(false);
 
+  // AI生成完成后回填表单
+  useEffect(() => {
+    if (generatedContent && formDialog.open) {
+      setFormData(prev => ({
+        ...prev,
+        description: generatedContent.description || prev.description,
+      }));
+    }
+  }, [generatedContent, formDialog.open]);
+
   // 教师搜索
   const { teachers } = useTeachers();
   const [teacherSearch, setTeacherSearch] = useState('');
@@ -672,11 +682,18 @@ export default function AcademicAfterSchoolPage() {
                 </Button>
               </div>
               <Textarea
-                value={isGenerating ? generatedContent : formData.description}
-                onChange={(e) => { setFormData({ ...formData, description: e.target.value }); clearContent(); }}
+                value={isGenerating ? (typeof generatedContent === 'string' ? generatedContent : (generatedContent?.description || '正在生成...')) : formData.description}
+                onChange={(e) => { setFormData({ ...formData, description: e.target.value }); if (generatedContent) clearContent(); }}
                 placeholder="简要描述课程内容和特色，或点击上方AI生成"
                 rows={3}
               />
+              {generatedContent && !isGenerating && (
+                <div className="text-xs text-muted-foreground space-y-0.5 bg-muted/30 rounded p-2">
+                  {generatedContent.highlights && <p><span className="font-medium">亮点：</span>{generatedContent.highlights}</p>}
+                  {generatedContent.objectives && <p><span className="font-medium">目标：</span>{generatedContent.objectives}</p>}
+                  {generatedContent.format && <p><span className="font-medium">形式：</span>{generatedContent.format}</p>}
+                </div>
+              )}
               {isGenerating && (
                 <p className="text-xs text-[#5C7A72] flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />AI 正在生成...

@@ -215,10 +215,13 @@ export default function TeacherAfterSchoolPage() {
 
   // AI 生成内容回填表单
   useEffect(() => {
-    if (generatedContent && typeof generatedContent === 'string') {
+    if (generatedContent) {
       setApplyForm(prev => ({
         ...prev,
-        description: generatedContent,
+        description: generatedContent.description || prev.description,
+        highlights: generatedContent.highlights || prev.highlights,
+        objectives: Array.isArray(generatedContent.objectives) ? generatedContent.objectives.join('\n') : (generatedContent.objectives || prev.objectives),
+        format: generatedContent.format || prev.format,
       }));
     }
   }, [generatedContent]);
@@ -674,8 +677,11 @@ export default function TeacherAfterSchoolPage() {
               </div>
 
               {generatedContent && (
-                <div className="border border-[#5C7A72]/20 rounded p-2 bg-[#5C7A72]/5 text-xs text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto">
-                  {generatedContent}
+                <div className="border border-[#5C7A72]/20 rounded p-2 bg-[#5C7A72]/5 text-xs text-muted-foreground space-y-1 max-h-40 overflow-y-auto">
+                  {generatedContent.highlights && <p><span className="font-medium text-foreground">亮点：</span>{generatedContent.highlights}</p>}
+                  {generatedContent.objectives && <p><span className="font-medium text-foreground">目标：</span>{generatedContent.objectives}</p>}
+                  {generatedContent.format && <p><span className="font-medium text-foreground">形式：</span>{generatedContent.format}</p>}
+                  {generatedContent.description && <p><span className="font-medium text-foreground">简介：</span>{generatedContent.description}</p>}
                 </div>
               )}
 
