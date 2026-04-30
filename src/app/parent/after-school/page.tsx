@@ -9,7 +9,7 @@
  * - 名额实时更新，无需教师审批
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/services/api-client';
@@ -38,9 +39,14 @@ import {
   CalendarDays,
   AlertCircle,
   RefreshCw,
+  MessageCircle,
+  Send,
+  X,
+  Sparkles,
 } from 'lucide-react';
 import type { AfterSchoolCourse, CourseEnrollment } from '@/types/after-school';
 import { CATEGORY_CONFIG as CAT_CFG, DAY_LABELS } from '@/types/after-school';
+import { useCopilotChat } from '@/hooks/useAfterSchoolAI';
 
 // 图标映射
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -120,6 +126,23 @@ export default function ParentAfterSchoolPage() {
       fetchEnrollments();
     }
   }, [childInfo]);
+
+  // AI Copilot 聊天
+  const { messages, isStreaming, sendMessage, clearMessages } = useCopilotChat(childInfo?.grade || 1);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendChat = () => {
+    const text = chatInput.trim();
+    if (!text || isStreaming) return;
+    sendMessage(text);
+    setChatInput('');
+  };
 
   // 已选课程的 ID 集合
   const enrolledCourseIds = new Set(enrollments.filter(e => e.status === 'success').map(e => e.courseId));
@@ -428,6 +451,108 @@ export default function ParentAfterSchoolPage() {
       </Tabs>
 
       {renderConfirmDialog()}
+
+      {/* AI 智能选课助手 - 浮动按钮 */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-[#5C7A72] text-white px-4 py-3 rounded-full shadow-lg hover:bg-[#4A6A62] transition-all hover:scale-105"
+        >
+          <Sparkles className="h-5 w-5" />
+          <span className="text-sm font-medium">选课助手</span>
+        </button>
+      )}
+
+      {/* AI 聊天面板 */}
+      {chatOpen && (
+        <div className="fixed bottom-6 right-6 z-50 w-96 max-h-[520px] bg-background border border-border rounded-xl shadow-xl flex flex-col overflow-hidden">
+          {/* 面板头部 */}
+          <div className="flex items-center justify-between px-4 py-3 bg-[#5C7A72] text-white">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              <span className="text-sm font-medium">AI 选课助手</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={clearMessages} className="p-1 hover:bg-white/20 rounded" title="清空对话">
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => setChatOpen(false)} className="p-1 hover:bg-white/20 rounded">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 消息区域 */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[300px] max-h-[380px]">
+            {messages.length === 0 && (
+              <div className="text-center py-8">
+                <MessageCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">您好！我是AI选课助手</p>
+                <p className="text-xs text-muted-foreground mt-1">可以问我课程推荐、时间安排等问题</p>
+                <div className="mt-4 space-y-2">
+                  {['有哪些适合的课程？', '帮我推荐周一的课程', '名额最多的课是哪个？'].map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => { setChatInput(q); }}
+                      className="block w-full text-left text-xs bg-muted/50 hover:bg-muted rounded-lg px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                    msg.role === 'user'
+                      ? 'bg-[#5C7A72] text-white'
+                      : 'bg-muted text-foreground'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                </div>
+              </div>
+            ))}
+            {isStreaming && messages[messages.length - 1]?.content === '' && (
+              <div className="flex justify-start">
+                <div className="bg-muted rounded-lg px-3 py-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* 输入区域 */}
+          <div className="border-t border-border p-3">
+            <div className="flex items-center gap-2">
+              <Input
+                value={chatInput}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setChatInput(e.target.value)}
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendChat();
+                  }
+                }}
+                placeholder="输入您的问题..."
+                className="flex-1 h-9 text-sm"
+                disabled={isStreaming}
+              />
+              <Button
+                size="sm"
+                onClick={handleSendChat}
+                disabled={isStreaming || !chatInput.trim()}
+                className="bg-[#5C7A72] hover:bg-[#4A6A62] text-white h-9 w-9 p-0"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

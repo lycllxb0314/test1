@@ -12,6 +12,7 @@ export const GET = protectedRoute(async (request) => {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('mode');
   const grade = searchParams.get('grade');
+  const teacherId = searchParams.get('teacherId');
   const semester = searchParams.get('semester') || '2025-2026-2';
 
   // 管理端列表
@@ -23,7 +24,16 @@ export const GET = protectedRoute(async (request) => {
     return NextResponse.json({ success: true, data: result.data });
   }
 
-  // 家长端/教师端按年级获取可选课程
+  // 教师端按教师ID查询课程
+  if (teacherId) {
+    const result = await afterSchoolEnrollmentService.getCoursesByTeacher(teacherId);
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+    }
+    return NextResponse.json({ success: true, data: result.data });
+  }
+
+  // 家长端按年级获取可选课程
   if (grade) {
     const gradeNum = parseInt(grade, 10);
     const result = await afterSchoolEnrollmentService.getAvailableCourses(gradeNum);

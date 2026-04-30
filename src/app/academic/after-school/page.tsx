@@ -57,9 +57,16 @@ import {
   BarChart3,
   Download,
   CheckCircle2,
+  Sparkles,
+  TrendingUp,
+  Zap,
+  Flame,
+  Snowflake,
 } from 'lucide-react';
 import type { AfterSchoolCourse, CourseEnrollment, CreateCourseDTO, CourseCategory, DayOfWeek } from '@/types/after-school';
 import { CATEGORY_CONFIG, DAY_LABELS } from '@/types/after-school';
+import { useCoursePrediction, useCourseGeneration } from '@/hooks/useAfterSchoolAI';
+import type { CoursePrediction } from '@/types/after-school-ai';
 
 const CATEGORY_OPTIONS = [
   { value: 'care', label: '课后托管' },
@@ -97,6 +104,11 @@ export default function AcademicAfterSchoolPage() {
   const [formDialog, setFormDialog] = useState<{ open: boolean; course?: AfterSchoolCourse }>({ open: false });
   const [rosterDialog, setRosterDialog] = useState<{ open: boolean; courseId: string; courseName: string }>({ open: false, courseId: '', courseName: '' });
   const [roster, setRoster] = useState<CourseEnrollment[]>([]);
+
+  // AI 功能
+  const { predictions, loading: predicting, predict } = useCoursePrediction();
+  const { generatedContent, isGenerating, generate: generateCourseContent, clearContent } = useCourseGeneration();
+  const [showPrediction, setShowPrediction] = useState(false);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [formData, setFormData] = useState<CreateCourseDTO>({ ...DEFAULT_FORM });
@@ -216,6 +228,10 @@ export default function AcademicAfterSchoolPage() {
           <p className="text-muted-foreground mt-1">管理课后服务课程、查看选课情况</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => { predict(); setShowPrediction(true); }} disabled={predicting}>
+            {predicting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+            AI需求预测
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchCourses}>
             <RefreshCw className="h-3.5 w-3.5 mr-1" />刷新
           </Button>
@@ -280,6 +296,60 @@ export default function AcademicAfterSchoolPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* AI 需求预测面板 */}
+      {showPrediction && (
+        <Card className="border-[#5C7A72]/30 bg-gradient-to-r from-[#5C7A72]/5 to-transparent">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-[#5C7A72]" />
+                AI 需求预测
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowPrediction(false)}>收起</Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {predicting ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-[#5C7A72]" />
+                <span className="ml-2 text-muted-foreground">AI 正在分析历史数据...</span>
+              </div>
+            ) : predictions.length === 0 ? (
+              <div className="text-center py-8">
+                <TrendingUp className="h-10 w-10 mx-auto mb-2 text-muted-foreground/30" />
+                <p className="text-muted-foreground">点击"AI需求预测"按钮开始分析</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {predictions.map((p: CoursePrediction, idx: number) => (
+                  <div key={idx} className={`rounded-lg border p-3 space-y-2 ${
+                    p.heatLevel === 'HOT' ? 'border-[#C8956C]/40 bg-[#FBF3ED]/50' :
+                    p.heatLevel === 'COLD' ? 'border-[#6B8DB5]/30 bg-[#F0F5FA]/50' :
+                    'border-border bg-background'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{p.courseName}</span>
+                      {p.heatLevel === 'HOT' ? (
+                        <Badge className="bg-[#C8956C]/10 text-[#C8956C] text-[10px]"><Flame className="h-3 w-3 mr-0.5" />热门</Badge>
+                      ) : p.heatLevel === 'COLD' ? (
+                        <Badge className="bg-[#6B8DB5]/10 text-[#6B8DB5] text-[10px]"><Snowflake className="h-3 w-3 mr-0.5" />冷门</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[10px]"><Zap className="h-3 w-3 mr-0.5" />正常</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>预测需求: <b className="text-foreground">{p.predictedDemand}</b>人</span>
+                      <span>当前容量: <b className="text-foreground">{p.currentCapacity}</b>人</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">{p.aiSuggestion}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* 课程列表 */}
       <Card>
@@ -468,8 +538,38 @@ export default function AcademicAfterSchoolPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>课程简介</Label>
-              <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="简要描述课程内容和特色" rows={3} />
+              <div className="flex items-center justify-between">
+                <Label>课程简介</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-[#5C7A72] hover:text-[#4A6A62]"
+                  disabled={isGenerating || !formData.name}
+                  onClick={() => {
+                    if (!formData.name) { toast.error('请先填写课程名称'); return; }
+                    generateCourseContent({
+                      courseName: formData.name,
+                      targetGrades: formData.targetGrades.length > 0 ? formData.targetGrades : [1,2,3,4,5,6],
+                      category: CATEGORY_OPTIONS.find(c => c.value === formData.category)?.label || '兴趣班',
+                    });
+                  }}
+                >
+                  {isGenerating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  AI生成简介
+                </Button>
+              </div>
+              <Textarea
+                value={isGenerating ? generatedContent : formData.description}
+                onChange={(e) => { setFormData({ ...formData, description: e.target.value }); clearContent(); }}
+                placeholder="简要描述课程内容和特色，或点击上方AI生成"
+                rows={3}
+              />
+              {isGenerating && (
+                <p className="text-xs text-[#5C7A72] flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />AI 正在生成...
+                </p>
+              )}
             </div>
           </div>
 

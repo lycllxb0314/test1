@@ -53,6 +53,20 @@ export class AfterSchoolEnrollmentService extends BaseService {
   }
 
   /**
+   * 教师端：获取某教师的课后服务课程
+   */
+  async getCoursesByTeacher(teacherId: string): Promise<ServiceResult<AfterSchoolCourse[]>> {
+    try {
+      const rows = await this.courseRepo.findByTeacher(teacherId);
+      const courses = rows.map(mapCourseRow);
+      return this.ok(courses);
+    } catch (err) {
+      console.error('[AfterSchoolEnrollmentService] getCoursesByTeacher error:', err);
+      return this.fail('获取教师课程失败', 'DATABASE_ERROR');
+    }
+  }
+
+  /**
    * 教务端：获取所有课程（按学期）
    */
   async getAllCourses(semester: string): Promise<ServiceResult<AfterSchoolCourse[]>> {

@@ -168,6 +168,7 @@ const teacherBaseNav: NavItem[] = [
   { name: '智慧作业', href: '/teacher/smart-homework', icon: Brain, description: 'AI智能命题·校本题库·标准排版', badge: '新' },
   { name: '教研活动', href: '/teacher/research', icon: Target, description: '参与教研活动与集体备课', badge: '智慧' },
   { name: '云教学', href: '/teacher/research-cloud', icon: GraduationCap, description: '教师研修·在线学习', badge: '新' },
+  { name: '课后服务', href: '/teacher/after-school', icon: CalendarClock, description: '查看点名表·AI期末评语', badge: 'AI' },
   { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请' },
   { name: '报销申请', href: '/teacher/expense', icon: DollarSign, description: '费用报销申请' },
   { name: '教室预约', href: '/teacher/room-booking', icon: DoorOpen, description: '预约使用教室' },
