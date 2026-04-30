@@ -135,6 +135,7 @@ const academicNav: NavItem[] = [
   { name: '教研活动', href: '/academic/research', icon: Target, description: '集体备课与听课评课', badge: '智慧' },
   { name: '教师考勤', href: '/academic/attendance', icon: CheckSquare, description: '教师考勤管理' },
   { name: '云教学管理', href: '/academic/cloud-course', icon: GraduationCap, description: '教师研修·家长课程·学生课程管理', badge: '新' },
+  { name: '课后服务', href: '/academic/after-school', icon: CalendarClock, description: '课后服务选课管理与点名', badge: '新' },
 ];
 
 // 德育管理导航
@@ -202,6 +203,7 @@ const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
   { name: '体育健康', href: '/parent/health', icon: Heart, description: '孩子体育健康数据与建议', badge: 'AI' },
   { name: '云教学', href: '/parent/cloud-course', icon: GraduationCap, description: '家长课程·子女学习', badge: '新' },
+  { name: '课后选课', href: '/parent/after-school', icon: CalendarClock, description: '课后服务一键选课', badge: '新' },
   { name: '荣誉申报', href: '/parent/honor-application', icon: Trophy, description: '为孩子申报学校荣誉', badge: '新' },
   { name: '信息收集', href: '/parent/collection', icon: ClipboardList, description: '填写信息收集表', badge: '新' },
   { name: '习惯打卡', href: '/parent/habit', icon: Target, description: '子女习惯养成打卡', badge: '新' },
