@@ -139,6 +139,12 @@ import { ParentObservationRepository, parentObservationRepository } from '@/repo
 import { HealthPortraitRepository, healthPortraitRepository } from '@/repositories/health-portrait.repository';
 import { HealthPrescriptionRepository, healthPrescriptionRepository } from '@/repositories/health-prescription.repository';
 
+// 课后服务选课 Repositories
+import {
+  AfterSchoolCourseRepository, afterSchoolCourseRepository,
+  AfterSchoolEnrollmentRepository, afterSchoolEnrollmentRepository,
+} from '@/repositories/after-school.repository';
+
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
 import { StudentService, studentService } from '@/services/student.service';
@@ -252,6 +258,9 @@ import {
 
 // 体育健康 Services
 import { HealthManagementService, healthManagementService } from '@/services/health-management.service';
+
+// 课后服务选课 Services
+import { AfterSchoolEnrollmentService, afterSchoolEnrollmentService } from '@/services/after-school.service';
 
 /**
  * 初始化 DI 容器
@@ -445,6 +454,13 @@ export function initializeDI(): void {
 
   // 体育健康 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.HealthManagementService, () => healthManagementService);
+
+  // 课后服务选课 Repositories
+  container.registerSingleton(SERVICE_IDENTIFIERS.AfterSchoolCourseRepository, () => afterSchoolCourseRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AfterSchoolEnrollmentRepository, () => afterSchoolEnrollmentRepository);
+
+  // 课后服务选课 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.AfterSchoolEnrollmentService, () => afterSchoolEnrollmentService);
 }
 
 // 导出

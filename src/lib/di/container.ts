@@ -203,6 +203,10 @@ export const SERVICE_IDENTIFIERS = {
   CloudLiveSessionRepository: Symbol.for('CloudLiveSessionRepository'),
   CloudCoursePushRepository: Symbol.for('CloudCoursePushRepository'),
 
+  // 课后服务选课 Repositories
+  AfterSchoolCourseRepository: Symbol.for('AfterSchoolCourseRepository'),
+  AfterSchoolEnrollmentRepository: Symbol.for('AfterSchoolEnrollmentRepository'),
+
   // 体育健康 Repositories
   HealthProfileRepository: Symbol.for('HealthProfileRepository'),
   FitnessAssessmentRepository: Symbol.for('FitnessAssessmentRepository'),
@@ -293,6 +297,9 @@ export const SERVICE_IDENTIFIERS = {
   CloudCourseEnrollmentService: Symbol.for('CloudCourseEnrollmentService'),
   CloudLearningRecordService: Symbol.for('CloudLearningRecordService'),
   CloudLiveSessionService: Symbol.for('CloudLiveSessionService'),
+
+  // 课后服务选课 Services
+  AfterSchoolEnrollmentService: Symbol.for('AfterSchoolEnrollmentService'),
 
   // 体育健康 Services
   HealthManagementService: Symbol.for('HealthManagementService'),
