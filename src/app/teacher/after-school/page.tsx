@@ -666,53 +666,57 @@ export default function TeacherAfterSchoolPage() {
               />
             </div>
 
-            {/* AI 生成的内容区域 */}
-            {(generatedContent || applyForm.description) && (
-              <div className="border border-[#5C7A72]/20 rounded-lg p-3 bg-[#5C7A72]/5 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-[#5C7A72]">
-                  <FileText className="h-4 w-4" />
-                  课程详情（AI 辅助生成，可编辑修改）
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs">课程简介</Label>
-                  <Textarea
-                    value={applyForm.description}
-                    onChange={(e) => setApplyForm(prev => ({ ...prev, description: e.target.value }))}
-                    rows={2}
-                    placeholder="课程简介..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs">课程亮点</Label>
-                  <Input
-                    value={applyForm.highlights}
-                    onChange={(e) => setApplyForm(prev => ({ ...prev, highlights: e.target.value }))}
-                    placeholder="课程亮点..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs">培养目标</Label>
-                  <Textarea
-                    value={applyForm.objectives}
-                    onChange={(e) => setApplyForm(prev => ({ ...prev, objectives: e.target.value }))}
-                    rows={2}
-                    placeholder="培养目标..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs">课堂形式</Label>
-                  <Input
-                    value={applyForm.format}
-                    onChange={(e) => setApplyForm(prev => ({ ...prev, format: e.target.value }))}
-                    placeholder="课堂形式..."
-                  />
-                </div>
+            {/* 课程详情（始终可见，AI可辅助填充） */}
+            <div className="border border-border rounded-lg p-3 bg-muted/30 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-[#5C7A72]">
+                <FileText className="h-4 w-4" />
+                课程详情{generatedContent ? '（AI 已生成，可编辑修改）' : '（可手动填写，或点击上方AI生成）'}
               </div>
-            )}
+
+              {generatedContent && (
+                <div className="border border-[#5C7A72]/20 rounded p-2 bg-[#5C7A72]/5 text-xs text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto">
+                  {generatedContent}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-xs">课程简介</Label>
+                <Textarea
+                  value={applyForm.description}
+                  onChange={(e) => setApplyForm(prev => ({ ...prev, description: e.target.value }))}
+                  rows={2}
+                  placeholder="请填写课程简介，或点击上方「AI 生成」自动填充..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">课程亮点</Label>
+                <Input
+                  value={applyForm.highlights}
+                  onChange={(e) => setApplyForm(prev => ({ ...prev, highlights: e.target.value }))}
+                  placeholder="课程核心亮点..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">培养目标</Label>
+                <Textarea
+                  value={applyForm.objectives}
+                  onChange={(e) => setApplyForm(prev => ({ ...prev, objectives: e.target.value }))}
+                  rows={2}
+                  placeholder="培养目标..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">课堂形式</Label>
+                <Input
+                  value={applyForm.format}
+                  onChange={(e) => setApplyForm(prev => ({ ...prev, format: e.target.value }))}
+                  placeholder="如：小组合作、项目式学习、动手实践..."
+                />
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
