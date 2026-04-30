@@ -25,7 +25,7 @@ export class AfterSchoolCourseRepository extends BaseRepository<AfterSchoolCours
       .from('after_school_services')
       .select('*')
       .eq('status', 'active')
-      .contains('target_grades', `[${grade}]`)
+      .overlaps('target_grades', [grade])
       .order('day_of_week', { ascending: true });
 
     if (error) {
