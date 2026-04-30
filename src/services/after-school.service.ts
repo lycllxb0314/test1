@@ -290,6 +290,7 @@ export class AfterSchoolEnrollmentService extends BaseService {
         semester: data.semester || '2025-2026-2',
         enrollment_start: data.enrollmentStart || data.enrollment_start || null,
         enrollment_end: data.enrollmentEnd || data.enrollment_end || null,
+        approval_status: 'approved', // 教务端创建的课程不需要审核
       };
 
       const result = await this.courseRepo.create(row as unknown as Partial<AfterSchoolCourseRow>);
@@ -398,6 +399,87 @@ export class AfterSchoolEnrollmentService extends BaseService {
     } catch (err) {
       console.error('[AfterSchoolEnrollmentService] getEnrollmentsByStudent error:', err);
       return this.fail('获取选课记录失败', 'DATABASE_ERROR');
+    }
+  }
+
+  /**
+   * 教师申请开课（提交审核）
+   */
+  async applyCourse(data: Record<string, unknown>): Promise<ServiceResult<AfterSchoolCourse>> {
+    try {
+      const row: Record<string, unknown> = {
+        id: `as_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        name: data.name,
+        type: data.type || '兴趣班',
+        category: data.category || 'interest',
+        description: data.description || null,
+        cover_image: data.coverImage || data.cover_image || null,
+        target_grades: data.targetGrades || data.target_grades || [],
+        teacher_id: data.teacherId || data.teacher_id,
+        teacher_name: data.teacherName || data.teacher_name,
+        classroom: data.classroom || null,
+        day_of_week: data.dayOfWeek || data.day_of_week || 1,
+        start_time: data.startTime || data.start_time || '16:30',
+        end_time: data.endTime || data.end_time || '17:30',
+        max_students: data.maxStudents || data.max_students || 30,
+        current_students: 0,
+        fee: data.fee || null,
+        status: 'draft', // 教师申请的课程默认草稿状态
+        semester: data.semester || '2025-2026-2',
+        enrollment_start: data.enrollmentStart || data.enrollment_start || null,
+        enrollment_end: data.enrollmentEnd || data.enrollment_end || null,
+        approval_status: 'pending', // 待审核
+        applied_by: data.teacherId || data.teacher_id,
+      };
+
+      const result = await this.courseRepo.create(row as unknown as Partial<AfterSchoolCourseRow>);
+      if (!result) {
+        return this.fail('申请课程失败', 'CREATE_FAILED');
+      }
+      return this.ok(mapCourseRow(result as unknown as AfterSchoolCourseRow));
+    } catch (err) {
+      console.error('[AfterSchoolEnrollmentService] applyCourse error:', err);
+      return this.fail('申请课程失败', 'CREATE_ERROR');
+    }
+  }
+
+  /**
+   * 教务端：获取待审核课程
+   */
+  async getPendingCourses(semester?: string): Promise<ServiceResult<AfterSchoolCourse[]>> {
+    try {
+      const rows = await this.courseRepo.findPending(semester);
+      const courses = rows.map(mapCourseRow);
+      return this.ok(courses);
+    } catch (err) {
+      console.error('[AfterSchoolEnrollmentService] getPendingCourses error:', err);
+      return this.fail('获取待审核课程失败', 'DATABASE_ERROR');
+    }
+  }
+
+  /**
+   * 教务端：审核课程（通过/拒绝）
+   */
+  async reviewCourse(id: string, params: {
+    approvalStatus: 'approved' | 'rejected';
+    reviewedBy: string;
+    rejectionReason?: string;
+  }): Promise<ServiceResult<AfterSchoolCourse>> {
+    try {
+      const result = await this.courseRepo.updateApprovalStatus(id, {
+        approvalStatus: params.approvalStatus,
+        reviewedBy: params.reviewedBy,
+        rejectionReason: params.rejectionReason,
+        status: params.approvalStatus === 'approved' ? 'active' : undefined,
+      });
+
+      if (!result) {
+        return this.fail('审核操作失败', 'UPDATE_FAILED');
+      }
+      return this.ok(mapCourseRow(result as unknown as AfterSchoolCourseRow));
+    } catch (err) {
+      console.error('[AfterSchoolEnrollmentService] reviewCourse error:', err);
+      return this.fail('审核操作失败', 'UPDATE_ERROR');
     }
   }
 }

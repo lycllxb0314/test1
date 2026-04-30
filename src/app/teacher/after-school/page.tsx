@@ -7,12 +7,17 @@
  * - 查看我所教授的课后服务课程
  * - 查看选课学生名单（点名表）
  * - AI 智能评语反馈（零教师负担）
+ * - 申请开设新课程（含AI辅助生成，教务审核）
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -42,10 +47,16 @@ import {
   Star,
   MessageSquareText,
   CheckCircle2,
+  Plus,
+  Send,
+  Hourglass,
+  XCircle,
+  CheckCircle,
+  FileText,
 } from 'lucide-react';
-import type { AfterSchoolCourse, CourseEnrollment } from '@/types/after-school';
+import type { AfterSchoolCourse, CourseEnrollment, DayOfWeek, CourseCategory } from '@/types/after-school';
 import { DAY_LABELS, CATEGORY_CONFIG } from '@/types/after-school';
-import { useFeedbackGeneration } from '@/hooks/useAfterSchoolAI';
+import { useFeedbackGeneration, useCourseGeneration } from '@/hooks/useAfterSchoolAI';
 import type { FeedbackTag } from '@/types/after-school-ai';
 
 const FEEDBACK_TAGS: FeedbackTag[] = [
@@ -56,6 +67,44 @@ type Teacher = {
   id: string;
   name: string;
   employeeId: string;
+};
+
+type ApplyFormData = {
+  name: string;
+  category: CourseCategory;
+  targetGrades: number[];
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  classroom: string;
+  maxStudents: number;
+  description: string;
+  highlights: string;
+  objectives: string;
+  format: string;
+};
+
+const EMPTY_APPLY_FORM: ApplyFormData = {
+  name: '',
+  category: 'interest',
+  targetGrades: [],
+  dayOfWeek: 1,
+  startTime: '16:30',
+  endTime: '17:30',
+  classroom: '',
+  maxStudents: 25,
+  description: '',
+  highlights: '',
+  objectives: '',
+  format: '',
+};
+
+const GRADE_OPTIONS = [1, 2, 3, 4, 5, 6];
+
+const APPROVAL_STATUS_MAP: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  pending: { label: '待审核', color: 'text-amber-600 bg-amber-50 border-amber-200', icon: <Hourglass className="h-3 w-3 mr-1" /> },
+  approved: { label: '已通过', color: 'text-[#5C7A72] bg-[#5C7A72]/10 border-[#5C7A72]/30', icon: <CheckCircle className="h-3 w-3 mr-1" /> },
+  rejected: { label: '已拒绝', color: 'text-red-600 bg-red-50 border-red-200', icon: <XCircle className="h-3 w-3 mr-1" /> },
 };
 
 export default function TeacherAfterSchoolPage() {
@@ -72,7 +121,13 @@ export default function TeacherAfterSchoolPage() {
   const [selectedTags, setSelectedTags] = useState<FeedbackTag[]>([]);
   const [attendanceRate, setAttendanceRate] = useState(95);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
-  const { feedback, isGenerating, generate: generateFeedback, clearFeedback } = useFeedbackGeneration();
+  const { feedback, isGenerating: isGeneratingFeedback, generate: generateFeedback, clearFeedback } = useFeedbackGeneration();
+
+  // 申请课程相关
+  const [showApplyDialog, setShowApplyDialog] = useState(false);
+  const [applyForm, setApplyForm] = useState<ApplyFormData>(EMPTY_APPLY_FORM);
+  const [applying, setApplying] = useState(false);
+  const { generatedContent, isGenerating: isGeneratingCourse, generate: generateCourse, clearContent } = useCourseGeneration();
 
   // 获取当前教师信息
   useEffect(() => {
@@ -144,8 +199,79 @@ export default function TeacherAfterSchoolPage() {
     });
   };
 
+  // AI 生成课程内容
+  const handleAIGenerate = () => {
+    if (!applyForm.name.trim()) {
+      toast.error('请先输入课程名称');
+      return;
+    }
+    generateCourse({
+      courseName: applyForm.name,
+      targetGrades: applyForm.targetGrades.length > 0 ? applyForm.targetGrades : [1,2,3,4,5,6],
+      category: applyForm.category,
+      teacherName: teacher?.name,
+    });
+  };
+
+  // AI 生成内容回填表单
+  useEffect(() => {
+    if (generatedContent && typeof generatedContent === 'string') {
+      setApplyForm(prev => ({
+        ...prev,
+        description: generatedContent,
+      }));
+    }
+  }, [generatedContent]);
+
+  // 提交课程申请
+  const handleApplySubmit = async () => {
+    if (!teacher) return;
+    if (!applyForm.name.trim()) {
+      toast.error('请输入课程名称');
+      return;
+    }
+    if (applyForm.targetGrades.length === 0) {
+      toast.error('请选择面向年级');
+      return;
+    }
+    setApplying(true);
+    try {
+      const res = await apiClient.post<ApiResponse<unknown>>('/after-school/courses/apply', {
+        ...applyForm,
+        teacherId: teacher.employeeId,
+        teacherName: teacher.name,
+        appliedBy: teacher.employeeId,
+      });
+      if (res.success) {
+        toast.success('课程申请已提交，等待教务审核');
+        setShowApplyDialog(false);
+        setApplyForm(EMPTY_APPLY_FORM);
+        clearContent();
+        fetchMyCourses();
+      } else {
+        toast.error(res.error || '提交失败');
+      }
+    } catch {
+      toast.error('提交失败');
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  // 打开申请弹窗
+  const openApplyDialog = () => {
+    setApplyForm(EMPTY_APPLY_FORM);
+    clearContent();
+    setShowApplyDialog(true);
+  };
+
   // 当前查看点名表的课程
   const currentRosterCourse = courses.find(c => c.id === rosterCourseId);
+
+  // 按审批状态分组
+  const approvedCourses = courses.filter(c => c.approvalStatus === 'approved');
+  const pendingCourses = courses.filter(c => c.approvalStatus === 'pending');
+  const rejectedCourses = courses.filter(c => c.approvalStatus === 'rejected');
 
   if (loading) {
     return (
@@ -161,27 +287,65 @@ export default function TeacherAfterSchoolPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">我的课后服务</h1>
-          <p className="text-sm text-muted-foreground mt-1">查看课程名单，一键生成AI期末评语</p>
+          <p className="text-sm text-muted-foreground mt-1">查看课程名单、申请开课、一键生成AI期末评语</p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchMyCourses}>
-          <Loader2 className="h-3.5 w-3.5 mr-1" />刷新
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchMyCourses}>
+            <Loader2 className="h-3.5 w-3.5 mr-1" />刷新
+          </Button>
+          <Button size="sm" className="bg-[#5C7A72] hover:bg-[#4A6A62] text-white" onClick={openApplyDialog}>
+            <Plus className="h-3.5 w-3.5 mr-1" />申请开课
+          </Button>
+        </div>
       </div>
 
-      {/* 课程卡片 */}
-      {courses.length === 0 ? (
+      {/* 待审核提示 */}
+      {pendingCourses.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="py-3 flex items-center gap-3">
+            <Hourglass className="h-5 w-5 text-amber-600" />
+            <div>
+              <span className="text-sm font-medium text-amber-800">
+                {pendingCourses.length} 门课程待审核：
+              </span>
+              <span className="text-sm text-amber-700 ml-1">
+                {pendingCourses.map(c => c.name).join('、')}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 被拒绝提示 */}
+      {rejectedCourses.length > 0 && (
+        <Card className="border-red-200 bg-red-50/50">
+          <CardContent className="py-3 space-y-2">
+            {rejectedCourses.map(c => (
+              <div key={c.id} className="flex items-center gap-2 text-sm">
+                <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                <span className="text-red-800 font-medium">{c.name}</span>
+                {c.rejectionReason && (
+                  <span className="text-red-600">— {c.rejectionReason}</span>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 已通过的课程卡片 */}
+      {approvedCourses.length === 0 && rejectedCourses.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <BookOpen className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
             <p className="text-muted-foreground">暂无课后服务课程</p>
-            <p className="text-xs text-muted-foreground mt-1">请联系教务处分配课后服务课程</p>
+            <p className="text-xs text-muted-foreground mt-1">点击右上角"申请开课"提交课程申请</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {courses.map(course => {
+          {approvedCourses.map(course => {
             const categoryConf = CATEGORY_CONFIG[course.category] || CATEGORY_CONFIG.interest;
-            const remain = course.maxStudents - course.currentStudents;
             return (
               <Card key={course.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
@@ -286,7 +450,6 @@ export default function TeacherAfterSchoolPage() {
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* 表现标签 */}
             <div className="space-y-2">
               <label className="text-sm font-medium">本学期表现标签</label>
               <div className="flex flex-wrap gap-2">
@@ -312,7 +475,6 @@ export default function TeacherAfterSchoolPage() {
               </div>
             </div>
 
-            {/* 出勤率 */}
             <div className="space-y-2">
               <label className="text-sm font-medium">出勤率: {attendanceRate}%</label>
               <input
@@ -329,20 +491,18 @@ export default function TeacherAfterSchoolPage() {
               </div>
             </div>
 
-            {/* 生成按钮 */}
             <Button
               className="w-full bg-[#5C7A72] hover:bg-[#4A6A62] text-white"
               onClick={handleGenerateFeedback}
-              disabled={isGenerating || selectedTags.length === 0}
+              disabled={isGeneratingFeedback || selectedTags.length === 0}
             >
-              {isGenerating ? (
+              {isGeneratingFeedback ? (
                 <><Loader2 className="h-4 w-4 mr-1 animate-spin" />正在生成评语...</>
               ) : (
                 <><Sparkles className="h-4 w-4 mr-1" />生成评语</>
               )}
             </Button>
 
-            {/* 评语结果 */}
             {feedback && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#5C7A72]">生成的评语</label>
@@ -363,6 +523,212 @@ export default function TeacherAfterSchoolPage() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 申请开课弹窗 */}
+      <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-[#5C7A72]" />
+              申请开设课后服务课程
+            </DialogTitle>
+            <DialogDescription>
+              提交后需教务审核通过方可开放选课
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* 课程名称 + AI生成 */}
+            <div className="space-y-2">
+              <Label>课程名称 *</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={applyForm.name}
+                  onChange={(e) => setApplyForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="如：趣味编程、创意美术"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAIGenerate}
+                  disabled={isGeneratingCourse || !applyForm.name.trim()}
+                  className="shrink-0 text-[#5C7A72] border-[#5C7A72]/30 hover:bg-[#5C7A72]/5"
+                >
+                  {isGeneratingCourse ? (
+                    <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />生成中...</>
+                  ) : (
+                    <><Sparkles className="h-3.5 w-3.5 mr-1" />AI生成内容</>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* 课程分类 + 面向年级 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>课程分类</Label>
+                <Select
+                  value={applyForm.category}
+                  onValueChange={(v) => setApplyForm(prev => ({ ...prev, category: v as CourseCategory }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(CATEGORY_CONFIG).map(([key, conf]) => (
+                      <SelectItem key={key} value={key}>{conf.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>面向年级 *</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {GRADE_OPTIONS.map(g => {
+                    const isSelected = applyForm.targetGrades.includes(g);
+                    return (
+                      <Button
+                        key={g}
+                        type="button"
+                        size="sm"
+                        variant={isSelected ? 'default' : 'outline'}
+                        className={isSelected ? 'bg-[#5C7A72] hover:bg-[#4A6A62] text-white h-7 text-xs px-2.5' : 'h-7 text-xs px-2.5'}
+                        onClick={() => {
+                          setApplyForm(prev => ({
+                            ...prev,
+                            targetGrades: isSelected
+                              ? prev.targetGrades.filter(x => x !== g)
+                              : [...prev.targetGrades, g].sort(),
+                          }));
+                        }}
+                      >
+                        {g}年级
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 上课时间 + 教室 + 人数 */}
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-2">
+                <Label>星期</Label>
+                <Select
+                  value={String(applyForm.dayOfWeek)}
+                  onValueChange={(v) => setApplyForm(prev => ({ ...prev, dayOfWeek: Number(v) as DayOfWeek }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DAY_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>开始时间</Label>
+                <Input
+                  type="time"
+                  value={applyForm.startTime}
+                  onChange={(e) => setApplyForm(prev => ({ ...prev, startTime: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>结束时间</Label>
+                <Input
+                  type="time"
+                  value={applyForm.endTime}
+                  onChange={(e) => setApplyForm(prev => ({ ...prev, endTime: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>最大人数</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={50}
+                  value={applyForm.maxStudents}
+                  onChange={(e) => setApplyForm(prev => ({ ...prev, maxStudents: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+
+            {/* 教室 */}
+            <div className="space-y-2">
+              <Label>上课地点</Label>
+              <Input
+                value={applyForm.classroom}
+                onChange={(e) => setApplyForm(prev => ({ ...prev, classroom: e.target.value }))}
+                placeholder="如：美术教室、操场、三(1)班"
+              />
+            </div>
+
+            {/* AI 生成的内容区域 */}
+            {(generatedContent || applyForm.description) && (
+              <div className="border border-[#5C7A72]/20 rounded-lg p-3 bg-[#5C7A72]/5 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-[#5C7A72]">
+                  <FileText className="h-4 w-4" />
+                  课程详情（AI 辅助生成，可编辑修改）
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">课程简介</Label>
+                  <Textarea
+                    value={applyForm.description}
+                    onChange={(e) => setApplyForm(prev => ({ ...prev, description: e.target.value }))}
+                    rows={2}
+                    placeholder="课程简介..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">课程亮点</Label>
+                  <Input
+                    value={applyForm.highlights}
+                    onChange={(e) => setApplyForm(prev => ({ ...prev, highlights: e.target.value }))}
+                    placeholder="课程亮点..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">培养目标</Label>
+                  <Textarea
+                    value={applyForm.objectives}
+                    onChange={(e) => setApplyForm(prev => ({ ...prev, objectives: e.target.value }))}
+                    rows={2}
+                    placeholder="培养目标..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">课堂形式</Label>
+                  <Input
+                    value={applyForm.format}
+                    onChange={(e) => setApplyForm(prev => ({ ...prev, format: e.target.value }))}
+                    placeholder="课堂形式..."
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApplyDialog(false)}>取消</Button>
+            <Button
+              className="bg-[#5C7A72] hover:bg-[#4A6A62] text-white"
+              onClick={handleApplySubmit}
+              disabled={applying || !applyForm.name.trim()}
+            >
+              {applying ? (
+                <><Loader2 className="h-4 w-4 mr-1 animate-spin" />提交中...</>
+              ) : (
+                <><Send className="h-4 w-4 mr-1" />提交申请</>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

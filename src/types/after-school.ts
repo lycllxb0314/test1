@@ -14,6 +14,9 @@ export type EnrollmentStatus = 'success' | 'cancelled';
 /** 课程状态 */
 export type CourseStatus = 'active' | 'closed' | 'completed' | 'scheduled';
 
+/** 审批状态 */
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 /** 课程分类 */
 export type CourseCategory = 'care' | 'interest' | 'academic' | 'sports' | 'art' | 'tech';
 
@@ -46,6 +49,11 @@ export type AfterSchoolCourse = {
   semester: string;
   enrollmentStart: string | null;
   enrollmentEnd: string | null;
+  approvalStatus: ApprovalStatus;
+  rejectionReason: string | null;
+  appliedBy: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -87,10 +95,13 @@ export type CreateCourseDTO = {
   endTime: string;
   maxStudents: number;
   fee?: number | null;
-  status: CourseStatus;
+  status?: CourseStatus;
   semester?: string;
   enrollmentStart?: string | null;
   enrollmentEnd?: string | null;
+  /** 教师申请时设为 'pending'，教务创建时默认 'approved' */
+  approvalStatus?: ApprovalStatus;
+  appliedBy?: string;
 };
 
 /** 课程统计 */
@@ -136,6 +147,11 @@ export type AfterSchoolCourseRow = {
   semester: string | null;
   enrollment_start: string | null;
   enrollment_end: string | null;
+  approval_status: string | null;
+  rejection_reason: string | null;
+  applied_by: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -181,6 +197,11 @@ export function mapCourseRow(row: AfterSchoolCourseRow): AfterSchoolCourse {
     semester: row.semester || '',
     enrollmentStart: row.enrollment_start,
     enrollmentEnd: row.enrollment_end,
+    approvalStatus: (row.approval_status || 'approved') as ApprovalStatus,
+    rejectionReason: row.rejection_reason,
+    appliedBy: row.applied_by,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

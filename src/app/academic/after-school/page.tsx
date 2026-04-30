@@ -10,7 +10,7 @@
  * - 零教师审批负担
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,6 +57,8 @@ import {
   BarChart3,
   Download,
   CheckCircle2,
+  CheckCircle,
+  XCircle,
   Sparkles,
   TrendingUp,
   Zap,
@@ -67,6 +69,8 @@ import type { AfterSchoolCourse, CourseEnrollment, CreateCourseDTO, CourseCatego
 import { CATEGORY_CONFIG, DAY_LABELS } from '@/types/after-school';
 import { useCoursePrediction, useCourseGeneration } from '@/hooks/useAfterSchoolAI';
 import type { CoursePrediction } from '@/types/after-school-ai';
+import { useTeachers } from '@/hooks/useTeachers';
+import type { TeacherInfo } from '@/hooks/useTeachers';
 
 const CATEGORY_OPTIONS = [
   { value: 'care', label: '课后托管' },
@@ -109,6 +113,23 @@ export default function AcademicAfterSchoolPage() {
   const { predictions, loading: predicting, predict } = useCoursePrediction();
   const { generatedContent, isGenerating, generate: generateCourseContent, clearContent } = useCourseGeneration();
   const [showPrediction, setShowPrediction] = useState(false);
+
+  // 教师搜索
+  const { teachers } = useTeachers();
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
+  const filteredTeachers = useMemo(() => {
+    if (!teacherSearch.trim()) return (teachers || []).slice(0, 10);
+    return (teachers || []).filter((t: TeacherInfo) =>
+      t.name.includes(teacherSearch) || (t.employeeId || '').includes(teacherSearch) || (t.subject || '').includes(teacherSearch)
+    ).slice(0, 10);
+  }, [teachers, teacherSearch]);
+
+  // 审核管理
+  const [pendingCourses, setPendingCourses] = useState<AfterSchoolCourse[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [reviewRemark, setReviewRemark] = useState('');
+  const [activeTab, setActiveTab] = useState<'courses' | 'review'>('courses');
   const [rosterLoading, setRosterLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [formData, setFormData] = useState<CreateCourseDTO>({ ...DEFAULT_FORM });
@@ -129,6 +150,40 @@ export default function AcademicAfterSchoolPage() {
   }, []);
 
   useEffect(() => { fetchCourses(); }, [fetchCourses]);
+
+  // 获取待审核课程
+  const fetchPendingCourses = useCallback(async () => {
+    setPendingLoading(true);
+    try {
+      const res = await apiClient.get<ApiResponse<AfterSchoolCourse[]>>('/after-school/courses/pending');
+      if (res.success && res.data) {
+        setPendingCourses(Array.isArray(res.data) ? res.data : []);
+      }
+    } catch {
+      toast.error('加载待审核课程失败');
+    } finally {
+      setPendingLoading(false);
+    }
+  }, []);
+
+  // 审核操作
+  const handleReview = useCallback(async (courseId: string, action: 'approve' | 'reject') => {
+    try {
+      const res = await apiClient.post<ApiResponse<unknown>>(`/after-school/courses/${courseId}/review`, {
+        action,
+        reviewerId: 'current-user',
+        remark: reviewRemark,
+      });
+      if (res.success) {
+        toast.success(action === 'approve' ? '已通过审核' : '已拒绝申请');
+        setReviewRemark('');
+        fetchPendingCourses();
+        fetchCourses();
+      }
+    } catch {
+      toast.error('审核操作失败');
+    }
+  }, [reviewRemark, fetchPendingCourses, fetchCourses]);
 
   // 打开创建/编辑表单
   const openFormDialog = (course?: AfterSchoolCourse) => {
@@ -241,6 +296,27 @@ export default function AcademicAfterSchoolPage() {
         </div>
       </div>
 
+      {/* Tab 切换 */}
+      <div className="flex gap-1 border-b border-border">
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'courses' ? 'border-[#5C7A72] text-[#5C7A72]' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          onClick={() => setActiveTab('courses')}
+        >
+          <BookOpen className="h-4 w-4 inline mr-1" />课程管理
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'review' ? 'border-[#5C7A72] text-[#5C7A72]' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          onClick={() => { setActiveTab('review'); fetchPendingCourses(); }}
+        >
+          <Clock className="h-4 w-4 inline mr-1" />审核管理
+          {pendingCourses.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-orange-500 text-white rounded-full">{pendingCourses.length}</span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'courses' && (
+      <>
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
@@ -469,7 +545,43 @@ export default function AcademicAfterSchoolPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>授课教师 *</Label>
-                <Input value={formData.teacherName} onChange={(e) => setFormData({ ...formData, teacherName: e.target.value, teacherId: e.target.value })} placeholder="教师姓名" />
+                <div className="relative">
+                  <Input
+                    value={teacherSearch || formData.teacherName}
+                    onChange={(e) => {
+                      setTeacherSearch(e.target.value);
+                      setShowTeacherDropdown(true);
+                      setFormData({ ...formData, teacherName: e.target.value, teacherId: '' });
+                    }}
+                    onFocus={() => setShowTeacherDropdown(true)}
+                    placeholder="搜索教师姓名/工号/学科"
+                  />
+                  {showTeacherDropdown && filteredTeachers.length > 0 && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {filteredTeachers.map((t: TeacherInfo) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-muted text-sm flex items-center gap-2"
+                          onClick={() => {
+                            setFormData({ ...formData, teacherId: t.employeeId || t.id, teacherName: t.name });
+                            setTeacherSearch('');
+                            setShowTeacherDropdown(false);
+                          }}
+                        >
+                          <span className="font-medium">{t.name}</span>
+                          <span className="text-muted-foreground text-xs">{t.subject}</span>
+                          {t.employeeId && <span className="text-muted-foreground text-xs">({t.employeeId})</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {formData.teacherId && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      已选: {formData.teacherName} {formData.teacherId}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>教室 *</Label>
@@ -581,6 +693,74 @@ export default function AcademicAfterSchoolPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      </>
+      )}
+
+      {activeTab === 'review' && (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Clock className="h-5 w-5" />待审核课程
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pendingLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : pendingCourses.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">暂无待审核课程</div>
+            ) : (
+              <div className="space-y-4">
+                {pendingCourses.map((course) => (
+                  <div key={course.id} className="border border-border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-medium text-foreground">{course.name}</h3>
+                        <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                          <span>申请教师: {course.teacherName}</span>
+                          <span>类别: {course.type}</span>
+                          <span>时间: 周{['一','二','三','四','五'][course.dayOfWeek - 1]} {course.startTime}-{course.endTime}</span>
+                          <span>教室: {course.classroom}</span>
+                          <span>容量: {course.maxStudents}人</span>
+                        </div>
+                        {course.description && <p className="text-sm text-muted-foreground mt-1">{course.description}</p>}
+                      </div>
+                      <Badge className="bg-orange-100 text-orange-700 border-orange-200">待审核</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="审核备注（拒绝时必填）"
+                        value={reviewRemark}
+                        onChange={(e) => setReviewRemark(e.target.value)}
+                        className="flex-1 h-8 text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        className="bg-[#5C7A72] hover:bg-[#4A6A62] text-white"
+                        onClick={() => handleReview(course.id, 'approve')}
+                      >
+                        <CheckCircle className="h-3.5 w-3.5 mr-1" />通过
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          if (!reviewRemark.trim()) { toast.error('拒绝时请填写原因'); return; }
+                          handleReview(course.id, 'reject');
+                        }}
+                      >
+                        <XCircle className="h-3.5 w-3.5 mr-1" />拒绝
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      )}
 
       {/* 点名表弹窗 */}
       <Dialog open={rosterDialog.open} onOpenChange={(open) => setRosterDialog({ open, courseId: rosterDialog.courseId, courseName: rosterDialog.courseName })}>

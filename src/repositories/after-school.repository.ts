@@ -67,6 +67,58 @@ export class AfterSchoolCourseRepository extends BaseRepository<AfterSchoolCours
     return (data || []) as AfterSchoolCourseRow[];
   }
 
+  /** 获取待审核课程 */
+  async findPending(semester?: string): Promise<AfterSchoolCourseRow[]> {
+    let query = this.client
+      .from('after_school_services')
+      .select('*')
+      .eq('approval_status', 'pending');
+
+    if (semester) query = query.eq('semester', semester);
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('[AfterSchoolCourseRepository] findPending error:', error.message);
+      return [];
+    }
+    return (data || []) as AfterSchoolCourseRow[];
+  }
+
+  /** 审核课程（通过/拒绝） */
+  async updateApprovalStatus(id: string, params: {
+    approvalStatus: 'approved' | 'rejected';
+    reviewedBy: string;
+    rejectionReason?: string;
+    status?: string;
+  }): Promise<AfterSchoolCourseRow | null> {
+    const updateData: Record<string, unknown> = {
+      approval_status: params.approvalStatus,
+      reviewed_by: params.reviewedBy,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (params.approvalStatus === 'approved') {
+      updateData.status = params.status || 'active';
+    }
+    if (params.rejectionReason) {
+      updateData.rejection_reason = params.rejectionReason;
+    }
+
+    const { data, error } = await this.client
+      .from('after_school_services')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[AfterSchoolCourseRepository] updateApprovalStatus error:', error.message);
+      return null;
+    }
+    return data as AfterSchoolCourseRow;
+  }
+
   /** 获取课程统计 */
   async getStats(semester: string): Promise<{
     totalCourses: number;
