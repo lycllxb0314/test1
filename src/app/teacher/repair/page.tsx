@@ -40,6 +40,8 @@ import {
   Loader2,
   AlertTriangle,
   FileText,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMyRepairs, useRepairActions } from '@/hooks/useRepairs';
@@ -69,6 +71,7 @@ export default function TeacherRepairPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [detailDialog, setDetailDialog] = useState<{ open: boolean; repair: RepairRecord | null }>({ open: false, repair: null });
 
   const [formData, setFormData] = useState({
@@ -77,6 +80,7 @@ export default function TeacherRepairPage() {
     location: '',
     description: '',
     urgency: 'normal' as RepairUrgency,
+    images: [] as string[],
   });
 
   const filteredRepairs = useMemo(() => {
@@ -85,6 +89,66 @@ export default function TeacherRepairPage() {
              repair.location.toLowerCase().includes(searchTerm.toLowerCase());
     });
   }, [repairs, searchTerm]);
+
+  // 上传图片
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // 限制最多上传 3 张图片
+    if (formData.images.length >= 3) {
+      toast.error('最多上传 3 张图片');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (formData.images.length >= 3) break;
+        
+        if (!file.type.startsWith('image/')) {
+          toast.error('只能上传图片文件');
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error('图片大小不能超过 10MB');
+          continue;
+        }
+
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('folder', 'repair-images');
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+
+        const data = await res.json();
+        if (data.success && data.data?.url) {
+          setFormData(prev => ({
+            ...prev,
+            images: [...prev.images, data.data.url],
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('图片上传失败:', err);
+      toast.error('图片上传失败');
+    } finally {
+      setUploading(false);
+      // 重置 input
+      e.target.value = '';
+    }
+  };
+
+  // 移除图片
+  const handleRemoveImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
+  };
 
   const handleSubmit = async () => {
     if (!formData.item || !formData.location || !formData.description) {
@@ -105,6 +169,7 @@ export default function TeacherRepairPage() {
         location: formData.location,
         description: formData.description,
         urgency: formData.urgency,
+        images: formData.images,
         applicantId: user.id,
         applicantName: user.name,
       });
@@ -116,6 +181,7 @@ export default function TeacherRepairPage() {
         location: '',
         description: '',
         urgency: 'normal',
+        images: [],
       });
       refetch();
     } catch (err) {
@@ -264,9 +330,14 @@ export default function TeacherRepairPage() {
                 {filteredRepairs.map((repair) => (
                   <TableRow key={repair.id} className="hover:bg-muted/30">
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{repair.item}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">{repair.description}</p>
+                      <div className="flex items-center gap-2">
+                        {repair.images && repair.images.length > 0 && (
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <div>
+                          <p className="font-medium">{repair.item}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{repair.description}</p>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -299,12 +370,12 @@ export default function TeacherRepairPage() {
 
       {/* 新建报修弹窗 */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>新建报修申请</DialogTitle>
             <DialogDescription>填写报修信息，提交后将有专人处理</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
+          <div className="space-y-4 pt-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
               <Label>报修类型</Label>
               <Select
@@ -363,6 +434,63 @@ export default function TeacherRepairPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* 图片上传 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>问题图片（可选，最多3张）</Label>
+                <span className="text-xs text-muted-foreground">{formData.images.length}/3</span>
+              </div>
+              
+              {/* 已上传图片预览 */}
+              {formData.images.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {formData.images.map((url, index) => (
+                    <div key={index} className="relative group aspect-square rounded-lg overflow-hidden border bg-muted">
+                      <img
+                        src={url}
+                        alt={`问题图片 ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* 上传按钮 */}
+              {formData.images.length < 3 && (
+                <label className="flex flex-col items-center justify-center gap-1.5 py-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+                      <span className="text-xs text-muted-foreground">上传中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">点击上传图片</span>
+                      <span className="text-[10px] text-muted-foreground/60">支持 JPG/PNG/GIF，最大 10MB</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                  />
+                </label>
+              )}
+            </div>
+            
             <div className="flex gap-3 pt-4">
               <Button variant="outline" className="flex-1" onClick={() => setShowAddDialog(false)}>
                 取消
@@ -416,6 +544,31 @@ export default function TeacherRepairPage() {
                 <Label className="text-muted-foreground">问题描述</Label>
                 <p className="mt-1">{detailDialog.repair.description}</p>
               </div>
+              
+              {/* 问题图片 */}
+              {detailDialog.repair.images && detailDialog.repair.images.length > 0 && (
+                <div>
+                  <Label className="text-muted-foreground">问题图片</Label>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {detailDialog.repair.images.map((url, index) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="aspect-square rounded-lg overflow-hidden border bg-muted hover:opacity-80 transition-opacity"
+                      >
+                        <img
+                          src={url}
+                          alt={`问题图片 ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {detailDialog.repair.completed_at && (
                 <div>
                   <Label className="text-muted-foreground">完成时间</Label>
