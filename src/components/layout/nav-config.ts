@@ -185,31 +185,39 @@ export const healthNav: NavItem[] = [
 ];
 
 // 教师空间导航 - 基础功能（所有教师可见）
+// 分组逻辑：按使用场景划分，而非功能属性
+// - 无 group：首页入口，独立置顶
+// - 教学：每天要用的高频教学工具
+// - 教研：周期性教研与研修活动
+// - 办事：偶发性的行政/后勤申请
+// - 个人：低频的个人设置
 export const teacherBaseNav: NavItem[] = [
-  { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台', group: '概览' },
-  { name: '个人档案', href: '/teacher/profile', icon: UserCircle, description: '个人信息维护', group: '概览' },
+  { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台' },
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排', group: '教学' },
   { name: '备课中心', href: '/teacher/lesson-prep', icon: BookOpen, description: '学科备课支持，文本解读', badge: '新', group: '教学' },
   { name: '智慧作业', href: '/teacher/smart-homework', icon: Brain, description: 'AI智能命题·校本题库·标准排版', badge: '新', group: '教学' },
-  { name: '教研活动', href: '/teacher/research', icon: Target, description: '参与教研活动与集体备课', badge: '智慧', group: '教学' },
-  { name: '云教学', href: '/teacher/research-cloud', icon: GraduationCap, description: '教师研修·在线学习', badge: '新', group: '教学' },
-  { name: '课后服务', href: '/teacher/after-school', icon: CalendarClock, description: '查看点名表·AI期末评语', badge: 'AI', group: '教学' },
-  { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请', group: '行政' },
-  { name: '报修申请', href: '/teacher/repair', icon: Wrench, description: '提交设施设备报修', group: '行政' },
-  { name: '采购申请', href: '/teacher/purchase', icon: ShoppingCart, description: '提交物资采购申请', group: '行政' },
-  { name: '报销申请', href: '/teacher/expense', icon: DollarSign, description: '费用报销申请', group: '行政' },
-  { name: '教室预约', href: '/teacher/room-booking', icon: DoorOpen, description: '预约使用教室', group: '行政' },
+  { name: '教研活动', href: '/teacher/research', icon: Target, description: '参与教研活动与集体备课', badge: '智慧', group: '教研' },
+  { name: '云教学', href: '/teacher/research-cloud', icon: GraduationCap, description: '教师研修·在线学习', badge: '新', group: '教研' },
+  { name: '课后服务', href: '/teacher/after-school', icon: CalendarClock, description: '查看点名表·AI期末评语', badge: 'AI', group: '教研' },
+  { name: '请假调课', href: '/teacher/leave', icon: FileText, description: '请假和调课申请', group: '办事' },
+  { name: '报修申请', href: '/teacher/repair', icon: Wrench, description: '提交设施设备报修', group: '办事' },
+  { name: '采购申请', href: '/teacher/purchase', icon: ShoppingCart, description: '提交物资采购申请', group: '办事' },
+  { name: '报销申请', href: '/teacher/expense', icon: DollarSign, description: '费用报销申请', group: '办事' },
+  { name: '教室预约', href: '/teacher/room-booking', icon: DoorOpen, description: '预约使用教室', group: '办事' },
+  { name: '个人档案', href: '/teacher/profile', icon: UserCircle, description: '个人信息维护', group: '个人' },
 ];
 
 // 教师空间导航 - 班主任专属功能
+// - 班级：学生家长信息管理、信息采集、课程推送
+// - 德育：习惯养成、荣誉、德育活动、SOP台账（班级德育事务）
 export const headTeacherNav: NavItem[] = [
   { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息', group: '班级' },
   { name: '信息收集', href: '/teacher/collection', icon: ClipboardList, description: '创建表单收集信息', badge: '新', group: '班级' },
+  { name: '云教学管理', href: '/teacher/cloud-course-manage', icon: GraduationCap, description: '推送家长/学生课程·查看本班学习进度', badge: '新', group: '班级' },
   { name: '习惯养成', href: '/teacher/habit', icon: Target, description: '制定班级月度习惯目标', badge: '新', group: '德育' },
   { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', badge: '新', group: '德育' },
   { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新', group: '德育' },
   { name: 'SOP台账', href: '/teacher/class-sop', icon: ClipboardCheck, description: '标准化操作流程与台账管理', badge: '新', group: '德育' },
-  { name: '云教学管理', href: '/teacher/cloud-course-manage', icon: GraduationCap, description: '推送家长/学生课程·查看本班学习进度', badge: '新', group: '班级' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能
