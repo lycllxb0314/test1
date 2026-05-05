@@ -1,412 +1,410 @@
 /**
  * 门禁管理统一服务
  * 
- * 整合人员管理、申请审批、通行记录、人脸向量等功能
+ * 核心逻辑：
+ * 1. 人员数据自动从教务表(teachers/students)合并展示，无需手动同步
+ * 2. 照片上传/更新时自动生成人脸向量
+ * 3. 访客通行身份有时间限制
  */
 
-import { BaseService, ServiceResult } from './base.service';
+import { BaseService } from './base.service';
 import {
   accessPersonRepository,
   accessApplicationRepository,
   accessRecordRepository,
-  AccessPerson,
-  AccessApplication,
-  AccessRecordItem,
-  AccessStatistics,
-  PersonQueryParams,
-  ApplicationQueryParams,
-  RecordQueryParams,
-  PersonType,
-  ApplicationStatus,
 } from '@/repositories/access-control.repository';
+import type { AccessPerson, AccessApplication, AccessRecord, PersonType } from '@/repositories/access-control.repository';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// ==================== 人员管理服务 ====================
+// 教务数据行类型
+type AcademicPerson = {
+  id: string;
+  name: string;
+  department?: string;
+  phone?: string;
+  photoUrl?: string;
+  personType: PersonType;
+  relatedId: string;
+};
 
-export class AccessPersonService extends BaseService {
-  /** 获取人员列表 */
-  async getPersons(params: PersonQueryParams) {
+export class AccessControlService extends BaseService {
+
+  // ==================== 人员管理 ====================
+
+  /**
+   * 获取人员列表（自动合并教务数据）
+   * 教师/学生直接从 teachers/students 表查询
+   * 家长/访客从 access_persons 表查询
+   */
+  async getPersonsWithAcademic(params: {
+    personType?: PersonType;
+    status?: string;
+    search?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{
+    success: boolean;
+    data?: { items: AccessPerson[]; total: number };
+    error?: string;
+  }> {
     try {
-      const result = await accessPersonRepository.findPersons(params);
-      return this.ok(result);
-    } catch (error) {
-      console.error('[AccessPersonService] getPersons error:', error);
-      return this.fail('获取人员列表失败');
-    }
-  }
+      const { personType, search, page, pageSize } = params;
+      const allItems: AccessPerson[] = [];
 
-  /** 获取人员详情 */
-  async getPersonById(id: string): Promise<ServiceResult<AccessPerson>> {
-    try {
-      const data = await accessPersonRepository.findById(id);
-      if (!data) return this.fail('人员不存在');
-      // 手动映射
-      const row = data as Record<string, unknown>;
-      return this.ok({
-        id: row.id as string,
-        name: row.name as string,
-        personType: row.person_type as PersonType,
-        phone: (row.phone as string) || null,
-        idCard: (row.id_card as string) || null,
-        photoUrl: (row.photo_url as string) || null,
-        relatedId: (row.related_id as string) || null,
-        department: (row.department as string) || null,
-        status: (row.status as string) || 'active',
-        validFrom: (row.valid_from as string) || null,
-        validUntil: (row.valid_until as string) || null,
-        createdAt: row.created_at as string,
-        updatedAt: (row.updated_at as string) || '',
-      });
-    } catch (error) {
-      console.error('[AccessPersonService] getPersonById error:', error);
-      return this.fail('获取人员详情失败');
-    }
-  }
-
-  /** 创建人员 */
-  async createPerson(data: Partial<AccessPerson>): Promise<ServiceResult<AccessPerson>> {
-    try {
-      const record = await accessPersonRepository.createPerson(data);
-      if (!record) return this.fail('创建人员失败');
-      return this.ok(record);
-    } catch (error) {
-      console.error('[AccessPersonService] createPerson error:', error);
-      return this.fail('创建人员失败');
-    }
-  }
-
-  /** 更新人员 */
-  async updatePerson(id: string, data: Partial<AccessPerson>): Promise<ServiceResult<AccessPerson>> {
-    try {
-      const record = await accessPersonRepository.updatePerson(id, data);
-      if (!record) return this.fail('更新人员失败');
-      return this.ok(record);
-    } catch (error) {
-      console.error('[AccessPersonService] updatePerson error:', error);
-      return this.fail('更新人员失败');
-    }
-  }
-
-  /** 删除人员 */
-  async deletePerson(id: string): Promise<ServiceResult<boolean>> {
-    try {
-      const success = await accessPersonRepository.delete(id);
-      return this.ok(success);
-    } catch (error) {
-      console.error('[AccessPersonService] deletePerson error:', error);
-      return this.fail('删除人员失败');
-    }
-  }
-
-  /** 从教务系统同步教师/学生数据 */
-  async syncFromAcademic(personType: PersonType): Promise<ServiceResult<{ synced: number }>> {
-    try {
-      const client = accessPersonRepository['client'];
-      let synced = 0;
-
-      if (personType === 'teacher') {
-        const { data: teachers } = await client
-          .from('teachers')
-          .select('id, name, employee_id, department, primary_subject, photo_url')
-          .eq('status', 'active');
-
-        if (teachers) {
-          for (const t of teachers) {
-            const existing = await client
-              .from('access_persons')
-              .select('id')
-              .eq('related_id', t.employee_id)
-              .eq('person_type', 'teacher')
-              .maybeSingle();
-
-            if (!existing.data) {
-              await accessPersonRepository.createPerson({
-                name: t.name,
-                personType: 'teacher',
-                relatedId: t.employee_id,
-                department: t.department || t.primary_subject,
-                photoUrl: t.photo_url || null,
-                status: 'active',
-                validFrom: new Date().toISOString().split('T')[0],
-              });
-              synced++;
-            }
-          }
-        }
-      } else if (personType === 'student') {
-        const { data: students } = await client
-          .from('students')
-          .select('id, name, student_no, class_id')
-          .eq('status', 'active');
-
-        if (students) {
-          // 获取班级名称映射
-          const { data: classes } = await client
-            .from('classes')
-            .select('id, name');
-
-          const classMap = new Map((classes || []).map((c: { id: string; name: string }) => [c.id, c.name]));
-
-          for (const s of students) {
-            const existing = await client
-              .from('access_persons')
-              .select('id')
-              .eq('related_id', s.id)
-              .eq('person_type', 'student')
-              .maybeSingle();
-
-            if (!existing.data) {
-              await accessPersonRepository.createPerson({
-                name: s.name,
-                personType: 'student',
-                relatedId: s.id,
-                department: classMap.get(s.class_id) || null,
-                status: 'active',
-                validFrom: new Date().toISOString().split('T')[0],
-              });
-              synced++;
-            }
-          }
-        }
+      // 如果未指定类型或指定了 teacher/student，从教务表获取
+      if (!personType || personType === 'teacher') {
+        const teachers = await this.fetchAcademicTeachers(search);
+        allItems.push(...teachers);
+      }
+      if (!personType || personType === 'student') {
+        const students = await this.fetchAcademicStudents(search);
+        allItems.push(...students);
       }
 
-      return this.ok({ synced });
-    } catch (error) {
-      console.error('[AccessPersonService] syncFromAcademic error:', error);
-      return this.fail('同步数据失败');
+      // 如果未指定类型或指定了 parent/visitor，从门禁表获取
+      if (!personType || personType === 'parent' || personType === 'visitor') {
+        const types: PersonType[] = personType ? [personType] : ['parent', 'visitor'];
+        const accessPersons = await accessPersonRepository.getList({
+          personTypes: types,
+          search,
+        });
+        allItems.push(...accessPersons);
+      }
+
+      // 查询人脸向量状态
+      const personIds = allItems.map(p => p.id);
+      const vectorStatusMap = await accessPersonRepository.getVectorStatusBatch(personIds);
+
+      // 合并向量状态
+      allItems.forEach(p => {
+        p.hasFaceVector = vectorStatusMap[p.id] || false;
+      });
+
+      // 分页
+      const total = allItems.length;
+      const start = (page - 1) * pageSize;
+      const items = allItems.slice(start, start + pageSize);
+
+      return { success: true, data: { items, total } };
+    } catch (err) {
+      console.error('[AccessControlService] getPersonsWithAcademic error:', err);
+      return { success: false, error: '获取人员列表失败' };
     }
   }
 
-  /** 生成人脸向量 (使用 Embedding API) */
-  async generateFaceVector(personId: string, photoUrl: string, headers: Record<string, string>): Promise<ServiceResult<boolean>> {
+  /**
+   * 从教务系统获取教师列表
+   */
+  private async fetchAcademicTeachers(search?: string): Promise<AccessPerson[]> {
     try {
-      // 动态导入 EmbeddingClient 避免构建时依赖
-      const { EmbeddingClient, HeaderUtils } = await import('coze-coding-dev-sdk');
-      const customHeaders = HeaderUtils.extractForwardHeaders(headers as Record<string, string>);
-      const client = new EmbeddingClient(undefined, customHeaders);
+      const client = getSupabaseClient();
+
+      let query = client
+        .from('teachers')
+        .select('id, name, department, phone, photo_url, employee_id')
+        .eq('status', 'active');
+
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,department.ilike.%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error || !data) return [];
+
+      return data.map((t: Record<string, unknown>) => ({
+        id: `ap-t-${t.employee_id || t.id}`,
+        name: (t.name as string) || '',
+        personType: 'teacher' as PersonType,
+        phone: (t.phone as string) || undefined,
+        photoUrl: (t.photo_url as string) || undefined,
+        relatedId: (t.employee_id as string) || (t.id as string),
+        department: (t.department as string) || undefined,
+        status: 'active' as const,
+        hasFaceVector: false,
+        validFrom: undefined,
+        validUntil: undefined,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 从教务系统获取学生列表
+   */
+  private async fetchAcademicStudents(search?: string): Promise<AccessPerson[]> {
+    try {
+      const client = getSupabaseClient();
+
+      let query = client
+        .from('students')
+        .select('id, name, class_name, student_no')
+        .eq('status', 'active');
+
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,class_name.ilike.%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error || !data) return [];
+
+      return data.map((s: Record<string, unknown>) => ({
+        id: `ap-s-${s.id}`,
+        name: (s.name as string) || '',
+        personType: 'student' as PersonType,
+        phone: undefined,
+        photoUrl: undefined,
+        relatedId: s.id as string,
+        department: (s.class_name as string) || undefined,
+        status: 'active' as const,
+        hasFaceVector: false,
+        validFrom: undefined,
+        validUntil: undefined,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 更新人员照片（自动触发人脸向量生成）
+   */
+  async updatePersonPhoto(
+    personId: string,
+    photoUrl: string,
+    personInfo?: { name?: string; personType?: PersonType; department?: string; relatedId?: string },
+  ): Promise<{ success: boolean; data?: AccessPerson; error?: string }> {
+    try {
+      // 1. 确保 access_persons 中有记录
+      const existing = await accessPersonRepository.getById(personId);
+      if (!existing && personInfo) {
+        await accessPersonRepository.upsert({
+          id: personId,
+          name: personInfo.name || '',
+          personType: personInfo.personType || 'teacher',
+          department: personInfo.department,
+          relatedId: personInfo.relatedId,
+          status: 'active',
+        });
+      }
+
+      // 2. 更新照片 URL
+      const updated = await accessPersonRepository.updatePhoto(personId, photoUrl);
+      if (!updated) {
+        return { success: false, error: '人员不存在' };
+      }
+
+      // 3. 异步生成人脸向量（不阻塞响应）
+      this.generateFaceVectorAsync(personId, photoUrl).catch(err => {
+        console.error('[AccessControlService] 向量生成失败:', err);
+      });
+
+      return { success: true, data: updated };
+    } catch (err) {
+      console.error('[AccessControlService] updatePersonPhoto error:', err);
+      return { success: false, error: '更新照片失败' };
+    }
+  }
+
+  /**
+   * 异步生成人脸向量
+   */
+  private async generateFaceVectorAsync(personId: string, photoUrl: string): Promise<void> {
+    try {
+      const { EmbeddingClient } = await import('coze-coding-dev-sdk');
+      const { Config } = await import('coze-coding-dev-sdk');
+      const client = new EmbeddingClient(
+        new Config({ apiKey: process.env.COZE_API_TOKEN || '' }),
+      );
 
       const vector = await client.embedImage(photoUrl);
 
-      // 将向量存入数据库
-      const client2 = accessPersonRepository['client'];
-      const { error } = await client2
-        .from('access_persons')
-        .update({
-          photo_url: photoUrl,
-          face_vector: `[${vector.join(',')}]`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', personId);
-
-      if (error) {
-        console.error('[AccessPersonService] generateFaceVector save error:', error.message);
-        return this.fail('保存人脸向量失败');
+      if (vector && vector.length > 0) {
+        await accessPersonRepository.updateFaceVector(personId, vector);
+        console.log(`[AccessControlService] 人员 ${personId} 人脸向量生成成功, 维度: ${vector.length}`);
       }
-
-      return this.ok(true);
-    } catch (error) {
-      console.error('[AccessPersonService] generateFaceVector error:', error);
-      return this.fail('生成人脸向量失败');
-    }
-  }
-}
-
-// ==================== 申请管理服务 ====================
-
-export class AccessApplicationService extends BaseService {
-  /** 获取申请列表 */
-  async getApplications(params: ApplicationQueryParams) {
-    try {
-      const result = await accessApplicationRepository.findApplications(params);
-      return this.ok(result);
-    } catch (error) {
-      console.error('[AccessApplicationService] getApplications error:', error);
-      return this.fail('获取申请列表失败');
+    } catch (err) {
+      console.error('[AccessControlService] generateFaceVectorAsync error:', err);
     }
   }
 
-  /** 获取申请详情 */
-  async getApplicationById(id: string): Promise<ServiceResult<AccessApplication>> {
+  /**
+   * 创建人员（家长/访客）
+   */
+  async createPerson(data: Partial<AccessPerson>): Promise<{
+    success: boolean;
+    data?: AccessPerson;
+    error?: string;
+  }> {
     try {
-      const data = await accessApplicationRepository.findById(id);
-      if (!data) return this.fail('申请不存在');
-      const row = data as Record<string, unknown>;
-      return this.ok({
-        id: row.id as string,
-        applicantName: row.applicant_name as string,
-        applicantPhone: (row.applicant_phone as string) || null,
-        applicantType: row.applicant_type as 'parent' | 'visitor',
-        purpose: row.purpose as string,
-        targetPerson: (row.target_person as string) || null,
-        targetDepartment: (row.target_department as string) || null,
-        relation: (row.relation as string) || null,
-        studentName: (row.student_name as string) || null,
-        studentId: (row.student_id as string) || null,
-        expectedDate: row.expected_date as string,
-        expectedTimeStart: (row.expected_time_start as string) || null,
-        expectedTimeEnd: (row.expected_time_end as string) || null,
-        idCard: (row.id_card as string) || null,
-        photoUrl: (row.photo_url as string) || null,
-        status: row.status as ApplicationStatus,
-        approverId: (row.approver_id as string) || null,
-        approverName: (row.approver_name as string) || null,
-        approvedAt: (row.approved_at as string) || null,
-        rejectionReason: (row.rejection_reason as string) || null,
-        remark: (row.remark as string) || null,
-        createdAt: row.created_at as string,
-        updatedAt: (row.updated_at as string) || '',
-      });
-    } catch (error) {
-      console.error('[AccessApplicationService] getApplicationById error:', error);
-      return this.fail('获取申请详情失败');
-    }
-  }
-
-  /** 创建申请 (门户端使用) */
-  async createApplication(data: Partial<AccessApplication>): Promise<ServiceResult<AccessApplication>> {
-    try {
-      if (!data.applicantName || !data.purpose || !data.expectedDate) {
-        return this.fail('缺少必填字段');
+      const person = await accessPersonRepository.create(data);
+      // 如果有照片，自动触发向量生成
+      if (person.photoUrl) {
+        this.generateFaceVectorAsync(person.id, person.photoUrl).catch(() => {});
       }
-      const record = await accessApplicationRepository.createApplication(data);
-      if (!record) return this.fail('创建申请失败');
-      return this.ok(record);
-    } catch (error) {
-      console.error('[AccessApplicationService] createApplication error:', error);
-      return this.fail('创建申请失败');
+      return { success: true, data: person };
+    } catch (err) {
+      console.error('[AccessControlService] createPerson error:', err);
+      return { success: false, error: '创建人员失败' };
     }
   }
 
-  /** 审批通过 */
-  async approve(id: string, approverId: string, approverName: string): Promise<ServiceResult<AccessApplication>> {
+  // ==================== 申请管理 ====================
+
+  async getApplications(params: {
+    status?: string;
+    applicantType?: string;
+    search?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{
+    success: boolean;
+    data?: { items: AccessApplication[]; total: number };
+    error?: string;
+  }> {
     try {
-      const record = await accessApplicationRepository.updateApplicationStatus(id, 'approved', {
-        approver_id: approverId,
-        approver_name: approverName,
-        approved_at: new Date().toISOString(),
-      });
-      if (!record) return this.fail('审批失败');
+      const result = await accessApplicationRepository.getList(params);
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('[AccessControlService] getApplications error:', err);
+      return { success: false, error: '获取申请列表失败' };
+    }
+  }
+
+  async createApplication(data: Partial<AccessApplication>): Promise<{
+    success: boolean;
+    data?: AccessApplication;
+    error?: string;
+  }> {
+    try {
+      const app = await accessApplicationRepository.create(data);
+      return { success: true, data: app };
+    } catch (err) {
+      console.error('[AccessControlService] createApplication error:', err);
+      return { success: false, error: '提交申请失败' };
+    }
+  }
+
+  async approveApplication(id: string, approverId: string, approverName: string): Promise<{
+    success: boolean;
+    data?: AccessApplication;
+    error?: string;
+  }> {
+    try {
+      const app = await accessApplicationRepository.approve(id, approverId, approverName);
+      if (!app) return { success: false, error: '申请不存在' };
 
       // 审批通过后自动创建门禁人员记录
-      if (record.applicantType === 'visitor' || record.applicantType === 'parent') {
-        const client = accessApplicationRepository['client'];
-        const existing = await client
-          .from('access_persons')
-          .select('id')
-          .eq('name', record.applicantName)
-          .eq('person_type', record.applicantType)
-          .maybeSingle();
+      await this.createPersonFromApplication(app);
 
-        if (!existing.data) {
-          await accessPersonRepository.createPerson({
-            name: record.applicantName,
-            personType: record.applicantType,
-            phone: record.applicantPhone,
-            idCard: record.idCard,
-            photoUrl: record.photoUrl,
-            department: record.applicantType === 'parent' ? record.targetDepartment : '外部人员',
-            status: 'active',
-            validFrom: record.expectedDate,
-            validUntil: record.expectedDate,
-          });
-        }
+      return { success: true, data: app };
+    } catch (err) {
+      console.error('[AccessControlService] approveApplication error:', err);
+      return { success: false, error: '审批失败' };
+    }
+  }
+
+  async rejectApplication(id: string, reason: string): Promise<{
+    success: boolean;
+    data?: AccessApplication;
+    error?: string;
+  }> {
+    try {
+      const app = await accessApplicationRepository.reject(id, reason);
+      if (!app) return { success: false, error: '申请不存在' };
+      return { success: true, data: app };
+    } catch (err) {
+      console.error('[AccessControlService] rejectApplication error:', err);
+      return { success: false, error: '驳回失败' };
+    }
+  }
+
+  private async createPersonFromApplication(app: AccessApplication): Promise<void> {
+    try {
+      const validFrom = app.expectedDate;
+      const validUntil = app.expectedDate;
+
+      await accessPersonRepository.upsert({
+        id: `ap-${app.applicantType.charAt(0)}-${app.id}`,
+        name: app.applicantName,
+        personType: app.applicantType as PersonType,
+        phone: app.applicantPhone,
+        photoUrl: app.photoUrl,
+        department: app.targetDepartment,
+        relatedId: app.id,
+        status: 'active',
+        validFrom,
+        validUntil,
+      });
+
+      if (app.photoUrl) {
+        this.generateFaceVectorAsync(`ap-${app.applicantType.charAt(0)}-${app.id}`, app.photoUrl).catch(() => {});
       }
-
-      return this.ok(record);
-    } catch (error) {
-      console.error('[AccessApplicationService] approve error:', error);
-      return this.fail('审批失败');
+    } catch (err) {
+      console.error('[AccessControlService] createPersonFromApplication error:', err);
     }
   }
 
-  /** 审批驳回 */
-  async reject(id: string, approverId: string, approverName: string, reason: string): Promise<ServiceResult<AccessApplication>> {
+  // ==================== 通行记录 ====================
+
+  async getRecords(params: {
+    personType?: string;
+    direction?: string;
+    search?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{
+    success: boolean;
+    data?: { items: AccessRecord[]; total: number };
+    error?: string;
+  }> {
     try {
-      const record = await accessApplicationRepository.updateApplicationStatus(id, 'rejected', {
-        approver_id: approverId,
-        approver_name: approverName,
-        approved_at: new Date().toISOString(),
-        rejection_reason: reason,
-      });
-      if (!record) return this.fail('驳回失败');
-      return this.ok(record);
-    } catch (error) {
-      console.error('[AccessApplicationService] reject error:', error);
-      return this.fail('驳回失败');
+      const result = await accessRecordRepository.getList(params);
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('[AccessControlService] getRecords error:', err);
+      return { success: false, error: '获取通行记录失败' };
     }
   }
 
-  /** 取消申请 */
-  async cancel(id: string): Promise<ServiceResult<AccessApplication>> {
+  // ==================== 统计 ====================
+
+  async getStatistics(): Promise<{
+    success: boolean;
+    data?: {
+      totalPersons: number;
+      todayRecords: number;
+      todayIn: number;
+      todayOut: number;
+      pendingApplications: number;
+      activeVisitors: number;
+      personTypeDistribution: { type: string; count: number }[];
+    };
+    error?: string;
+  }> {
     try {
-      const record = await accessApplicationRepository.updateApplicationStatus(id, 'cancelled');
-      if (!record) return this.fail('取消失败');
-      return this.ok(record);
-    } catch (error) {
-      console.error('[AccessApplicationService] cancel error:', error);
-      return this.fail('取消失败');
+      const stats = await accessRecordRepository.getStatistics();
+      const pendingApps = await accessApplicationRepository.getPendingCount();
+      const activeVisitors = await accessPersonRepository.getActiveVisitorCount();
+      const personDistribution = await accessPersonRepository.getPersonTypeDistribution();
+
+      return {
+        success: true,
+        data: {
+          totalPersons: stats.totalPersons || 0,
+          todayRecords: stats.todayRecords || 0,
+          todayIn: stats.todayIn || 0,
+          todayOut: stats.todayOut || 0,
+          pendingApplications: pendingApps,
+          activeVisitors,
+          personTypeDistribution: personDistribution,
+        },
+      };
+    } catch (err) {
+      console.error('[AccessControlService] getStatistics error:', err);
+      return { success: false, error: '获取统计数据失败' };
     }
   }
 }
 
-// ==================== 通行记录服务 ====================
-
-export class AccessRecordService extends BaseService {
-  /** 获取通行记录 */
-  async getRecords(params: RecordQueryParams) {
-    try {
-      const result = await accessRecordRepository.findRecords(params);
-      return this.ok(result);
-    } catch (error) {
-      console.error('[AccessRecordService] getRecords error:', error);
-      return this.fail('获取通行记录失败');
-    }
-  }
-
-  /** 创建通行记录 */
-  async createRecord(data: Partial<AccessRecordItem>): Promise<ServiceResult<AccessRecordItem>> {
-    try {
-      const record = await accessRecordRepository.createRecord(data);
-      if (!record) return this.fail('创建通行记录失败');
-      return this.ok(record);
-    } catch (error) {
-      console.error('[AccessRecordService] createRecord error:', error);
-      return this.fail('创建通行记录失败');
-    }
-  }
-
-  /** 获取统计 */
-  async getStatistics(): Promise<ServiceResult<AccessStatistics>> {
-    try {
-      const [todayCounts, totalPersons, pendingApps, activeVisitors, typeDistribution] = await Promise.all([
-        accessRecordRepository.countToday(),
-        accessRecordRepository.countTotalPersons(),
-        accessApplicationRepository.countByStatus('pending'),
-        accessApplicationRepository.countActiveVisitors(),
-        accessPersonRepository.countByType(),
-      ]);
-
-      return this.ok({
-        totalPersons,
-        todayRecords: todayCounts.total,
-        todayIn: todayCounts.inCount,
-        todayOut: todayCounts.outCount,
-        pendingApplications: pendingApps,
-        activeVisitors,
-        personTypeDistribution: typeDistribution,
-      });
-    } catch (error) {
-      console.error('[AccessRecordService] getStatistics error:', error);
-      return this.fail('获取统计数据失败');
-    }
-  }
-}
-
-// ==================== 导出单例 ====================
-
-export const accessPersonService = new AccessPersonService();
-export const accessApplicationService = new AccessApplicationService();
-export const accessRecordService = new AccessRecordService();
-
-/** 统一导出供 DI 容器使用 */
-export const accessControlService = accessPersonService;
-export const AccessControlService = AccessPersonService;
+export const accessControlService = new AccessControlService();

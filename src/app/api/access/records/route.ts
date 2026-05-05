@@ -6,25 +6,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { protectedRoute } from '@/lib/auth/route-protection';
-import { accessRecordService } from '@/services/access-control.service';
+import { accessControlService } from '@/services/access-control.service';
 import { success, error, ErrorCode } from '@/lib/api';
-import type { PersonType, Direction } from '@/repositories/access-control.repository';
+import type { PersonType } from '@/repositories/access-control.repository';
 
 export const GET = protectedRoute(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const personType = searchParams.get('personType') as PersonType | null;
-  const direction = searchParams.get('direction') as Direction | null;
-  const startDate = searchParams.get('startDate');
-  const endDate = searchParams.get('endDate');
+  const direction = searchParams.get('direction');
   const search = searchParams.get('search');
   const page = parseInt(searchParams.get('page') || '1');
   const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
-  const result = await accessRecordService.getRecords({
+  const result = await accessControlService.getRecords({
     personType: personType || undefined,
     direction: direction || undefined,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
     search: search || undefined,
     page,
     pageSize,
@@ -40,10 +36,9 @@ export const GET = protectedRoute(async (request: NextRequest) => {
 export const POST = protectedRoute(async (request: NextRequest) => {
   const body = await request.json();
 
-  const result = await accessRecordService.createRecord(body);
-  if (!result.success) {
-    return NextResponse.json(error(result.error || '创建失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
-  }
+  // 直接通过 repository 创建记录
+  const { accessRecordRepository } = await import('@/repositories/access-control.repository');
+  const record = await accessRecordRepository.create(body);
 
-  return NextResponse.json(success(result.data, 'database'));
+  return NextResponse.json(success(record, 'database'));
 });

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { accessApplicationService } from '@/services/access-control.service';
+import { accessControlService } from '@/services/access-control.service';
 import { success, error, ErrorCode } from '@/lib/api';
 
 export const POST = async (request: NextRequest) => {
@@ -26,7 +26,7 @@ export const POST = async (request: NextRequest) => {
       );
     }
 
-    const result = await accessApplicationService.createApplication(body);
+    const result = await accessControlService.createApplication(body);
 
     if (!result.success) {
       return NextResponse.json(

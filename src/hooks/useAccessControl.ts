@@ -1,220 +1,179 @@
 /**
  * 门禁管理 Hooks
- * 
- * 整合人员管理、申请审批、通行记录等功能
  */
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import type {
-  AccessPerson,
-  AccessApplication,
-  AccessRecordItem,
-  AccessStatistics,
-  PersonType,
-  ApplicationStatus,
-  Direction,
-} from '@/repositories/access-control.repository';
+import { useState, useCallback, useEffect } from 'react';
+import { apiClient } from '@/services/api-client';
+import type { AccessPerson, AccessApplication, AccessRecord, PersonType, ApplicationStatus } from '@/repositories/access-control.repository';
 
-// ==================== 通用请求工具 ====================
+// ==================== 统计 ====================
 
-async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || json.error || '请求失败');
-  return json.data as T;
-}
-
-// ==================== 统计 Hook ====================
+type AccessStatistics = {
+  totalPersons: number;
+  todayRecords: number;
+  todayIn: number;
+  todayOut: number;
+  pendingApplications: number;
+  activeVisitors: number;
+  personTypeDistribution: { type: string; count: number }[];
+};
 
 export function useAccessStatistics() {
   const [data, setData] = useState<AccessStatistics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = useCallback(async () => {
+  const fetch = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      const result = await apiFetch<AccessStatistics>('/api/access/statistics');
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '获取统计失败');
-    } finally {
-      setLoading(false);
-    }
+      const res = await apiClient.get<AccessStatistics>('/api/access/statistics');
+      if (res.success && res.data) setData(res.data);
+    } catch { /* ignore */ }
+    setLoading(false);
   }, []);
 
-  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetch(); }, [fetch]);
 
-  return { data, loading, error, refresh: fetchStats };
+  return { data, loading, refresh: fetch };
 }
 
-// ==================== 人员管理 Hook ====================
+// ==================== 人员管理 ====================
+
+type PersonListResult = { items: AccessPerson[]; total: number };
 
 export function useAccessPersons(params: {
   personType?: PersonType;
-  status?: string;
   search?: string;
-  page?: number;
-  pageSize?: number;
+  page: number;
+  pageSize: number;
 }) {
   const [data, setData] = useState<AccessPerson[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchPersons = useCallback(async () => {
+  const fetch = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      const query = new URLSearchParams();
-      if (params.personType) query.set('personType', params.personType);
-      if (params.status) query.set('status', params.status);
-      if (params.search) query.set('search', params.search);
-      if (params.page) query.set('page', String(params.page));
-      if (params.pageSize) query.set('pageSize', String(params.pageSize));
+      const searchParams = new URLSearchParams();
+      if (params.personType) searchParams.set('personType', params.personType);
+      if (params.search) searchParams.set('search', params.search);
+      searchParams.set('page', String(params.page));
+      searchParams.set('pageSize', String(params.pageSize));
 
-      const result = await apiFetch<{ data: AccessPerson[]; total: number; page: number; pageSize: number; totalPages: number }>(`/api/access/persons?${query}`);
-      setData(result.data);
-      setTotal(result.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '获取人员列表失败');
-    } finally {
-      setLoading(false);
+      const res = await apiClient.get<PersonListResult>(`/api/access/persons?${searchParams}`);
+      if (res.success && res.data) {
+        setData(res.data.items || []);
+        setTotal(res.data.total || 0);
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, [params.personType, params.search, params.page, params.pageSize]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const updatePhoto = useCallback(async (personId: string, photoUrl: string, personInfo?: { name?: string; personType?: PersonType; department?: string; relatedId?: string }) => {
+    const res = await apiClient.post<AccessPerson>('/api/access/persons', {
+      action: 'updatePhoto',
+      personId,
+      photoUrl,
+      ...personInfo,
+    });
+    if (res.success) {
+      await fetch();
     }
-  }, [params.personType, params.status, params.search, params.page, params.pageSize]);
+    return res;
+  }, [fetch]);
 
-  useEffect(() => { fetchPersons(); }, [fetchPersons]);
-
-  const syncFromAcademic = useCallback(async (personType: PersonType) => {
-    const result = await apiFetch<{ synced: number }>('/api/access/persons', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'sync', personType }),
-    });
-    fetchPersons();
-    return result;
-  }, [fetchPersons]);
-
-  const generateFaceVector = useCallback(async (personId: string, photoUrl: string) => {
-    await apiFetch<boolean>('/api/access/persons', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'generateFaceVector', personId, photoUrl }),
-    });
-    fetchPersons();
-  }, [fetchPersons]);
-
-  return { data, total, loading, error, refresh: fetchPersons, syncFromAcademic, generateFaceVector };
+  return { data, total, loading, refresh: fetch, updatePhoto };
 }
 
-// ==================== 申请管理 Hook ====================
+// ==================== 申请管理 ====================
+
+type ApplicationListResult = { items: AccessApplication[]; total: number };
 
 export function useAccessApplications(params: {
   status?: ApplicationStatus;
   applicantType?: 'parent' | 'visitor';
   search?: string;
-  page?: number;
-  pageSize?: number;
+  page: number;
+  pageSize: number;
 }) {
   const [data, setData] = useState<AccessApplication[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchApplications = useCallback(async () => {
+  const fetch = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      const query = new URLSearchParams();
-      if (params.status) query.set('status', params.status);
-      if (params.applicantType) query.set('applicantType', params.applicantType);
-      if (params.search) query.set('search', params.search);
-      if (params.page) query.set('page', String(params.page));
-      if (params.pageSize) query.set('pageSize', String(params.pageSize));
+      const searchParams = new URLSearchParams();
+      if (params.status) searchParams.set('status', params.status);
+      if (params.applicantType) searchParams.set('applicantType', params.applicantType);
+      if (params.search) searchParams.set('search', params.search);
+      searchParams.set('page', String(params.page));
+      searchParams.set('pageSize', String(params.pageSize));
 
-      const result = await apiFetch<{ data: AccessApplication[]; total: number; page: number; pageSize: number; totalPages: number }>(`/api/access/applications?${query}`);
-      setData(result.data);
-      setTotal(result.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '获取申请列表失败');
-    } finally {
-      setLoading(false);
-    }
+      const res = await apiClient.get<ApplicationListResult>(`/api/access/applications?${searchParams}`);
+      if (res.success && res.data) {
+        setData(res.data.items || []);
+        setTotal(res.data.total || 0);
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
   }, [params.status, params.applicantType, params.search, params.page, params.pageSize]);
 
-  useEffect(() => { fetchApplications(); }, [fetchApplications]);
+  useEffect(() => { fetch(); }, [fetch]);
 
   const approveApplication = useCallback(async (id: string) => {
-    await apiFetch<AccessApplication>(`/api/access/applications/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ action: 'approve' }),
-    });
-    fetchApplications();
-  }, [fetchApplications]);
+    const res = await apiClient.put<AccessApplication>(`/api/access/applications/${id}`, { action: 'approve' });
+    if (res.success) await fetch();
+    return res;
+  }, [fetch]);
 
   const rejectApplication = useCallback(async (id: string, reason: string) => {
-    await apiFetch<AccessApplication>(`/api/access/applications/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ action: 'reject', reason }),
-    });
-    fetchApplications();
-  }, [fetchApplications]);
+    const res = await apiClient.put<AccessApplication>(`/api/access/applications/${id}`, { action: 'reject', reason });
+    if (res.success) await fetch();
+    return res;
+  }, [fetch]);
 
-  const cancelApplication = useCallback(async (id: string) => {
-    await apiFetch<AccessApplication>(`/api/access/applications/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ action: 'cancel' }),
-    });
-    fetchApplications();
-  }, [fetchApplications]);
-
-  return { data, total, loading, error, refresh: fetchApplications, approveApplication, rejectApplication, cancelApplication };
+  return { data, total, loading, refresh: fetch, approveApplication, rejectApplication };
 }
 
-// ==================== 通行记录 Hook ====================
+// ==================== 通行记录 ====================
+
+type RecordListResult = { items: AccessRecord[]; total: number };
 
 export function useAccessRecords(params: {
   personType?: PersonType;
-  direction?: Direction;
-  startDate?: string;
-  endDate?: string;
+  direction?: 'in' | 'out';
   search?: string;
-  page?: number;
-  pageSize?: number;
+  page: number;
+  pageSize: number;
 }) {
-  const [data, setData] = useState<AccessRecordItem[]>([]);
+  const [data, setData] = useState<AccessRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchRecords = useCallback(async () => {
+  const fetch = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      const query = new URLSearchParams();
-      if (params.personType) query.set('personType', params.personType);
-      if (params.direction) query.set('direction', params.direction);
-      if (params.startDate) query.set('startDate', params.startDate);
-      if (params.endDate) query.set('endDate', params.endDate);
-      if (params.search) query.set('search', params.search);
-      if (params.page) query.set('page', String(params.page));
-      if (params.pageSize) query.set('pageSize', String(params.pageSize));
+      const searchParams = new URLSearchParams();
+      if (params.personType) searchParams.set('personType', params.personType);
+      if (params.direction) searchParams.set('direction', params.direction);
+      if (params.search) searchParams.set('search', params.search);
+      searchParams.set('page', String(params.page));
+      searchParams.set('pageSize', String(params.pageSize));
 
-      const result = await apiFetch<{ data: AccessRecordItem[]; total: number; page: number; pageSize: number; totalPages: number }>(`/api/access/records?${query}`);
-      setData(result.data);
-      setTotal(result.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '获取通行记录失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [params.personType, params.direction, params.startDate, params.endDate, params.search, params.page, params.pageSize]);
+      const res = await apiClient.get<RecordListResult>(`/api/access/records?${searchParams}`);
+      if (res.success && res.data) {
+        setData(res.data.items || []);
+        setTotal(res.data.total || 0);
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, [params.personType, params.direction, params.search, params.page, params.pageSize]);
 
-  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => { fetch(); }, [fetch]);
 
-  return { data, total, loading, error, refresh: fetchRecords };
+  return { data, total, loading, refresh: fetch };
 }

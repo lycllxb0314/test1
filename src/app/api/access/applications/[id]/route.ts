@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { protectedRoute, ExtendedRouteContext } from '@/lib/auth/route-protection';
-import { accessApplicationService } from '@/services/access-control.service';
+import { accessControlService } from '@/services/access-control.service';
 import { success, error, ErrorCode } from '@/lib/api';
 
 export const PUT = protectedRoute(async (
@@ -20,21 +20,18 @@ export const PUT = protectedRoute(async (
   const body = await request.json();
   const { action, reason } = body;
 
-  // 从请求中获取审批人信息
   const userId = request.headers.get('x-user-id') || 'unknown';
   const userName = request.headers.get('x-user-name') || '未知';
 
   let result;
 
   if (action === 'approve') {
-    result = await accessApplicationService.approve(id, userId, userName);
+    result = await accessControlService.approveApplication(id, userId, userName);
   } else if (action === 'reject') {
     if (!reason) {
       return NextResponse.json(error('驳回原因不能为空', ErrorCode.BAD_REQUEST), { status: 400 });
     }
-    result = await accessApplicationService.reject(id, userId, userName, reason);
-  } else if (action === 'cancel') {
-    result = await accessApplicationService.cancel(id);
+    result = await accessControlService.rejectApplication(id, reason);
   } else {
     return NextResponse.json(error('无效的操作', ErrorCode.BAD_REQUEST), { status: 400 });
   }

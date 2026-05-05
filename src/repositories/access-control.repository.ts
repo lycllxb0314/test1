@@ -1,424 +1,232 @@
 /**
- * 门禁管理统一 Repository
+ * 门禁管理数据仓库
  * 
- * 整合人员管理、申请审批、通行记录等功能
- * 合并原 visitor.repository 和 access.repository
+ * 三张表：access_persons, access_applications, access_records
+ * 教师/学生数据直接从教务表(teachers/students)查询，仅家长/访客存入 access_persons
  */
 
-import { BaseRepository, PaginatedResult } from './base.repository';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 // ==================== 类型定义 ====================
 
-/** 门禁人员类型 */
 export type PersonType = 'teacher' | 'student' | 'parent' | 'visitor';
-
-/** 申请状态 */
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'expired';
-
-/** 通行方向 */
 export type Direction = 'in' | 'out';
 
-/** 验证方式 */
-export type VerifyMethod = 'face' | 'card' | 'manual';
-
-/** 门禁人员记录 */
 export type AccessPerson = {
   id: string;
   name: string;
   personType: PersonType;
-  phone: string | null;
-  idCard: string | null;
-  photoUrl: string | null;
-  relatedId: string | null;
-  department: string | null;
-  status: string;
-  validFrom: string | null;
-  validUntil: string | null;
-  createdAt: string;
-  updatedAt: string;
+  phone?: string;
+  idCard?: string;
+  photoUrl?: string;
+  hasFaceVector?: boolean;
+  relatedId?: string;
+  department?: string;
+  status: 'active' | 'inactive' | 'expired';
+  validFrom?: string;
+  validUntil?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-/** 门禁申请记录 */
 export type AccessApplication = {
   id: string;
   applicantName: string;
-  applicantPhone: string | null;
+  applicantPhone?: string;
   applicantType: 'parent' | 'visitor';
   purpose: string;
-  targetPerson: string | null;
-  targetDepartment: string | null;
-  relation: string | null;
-  studentName: string | null;
-  studentId: string | null;
+  targetPerson?: string;
+  targetDepartment?: string;
+  relation?: string;
+  studentName?: string;
+  studentId?: string;
   expectedDate: string;
-  expectedTimeStart: string | null;
-  expectedTimeEnd: string | null;
-  idCard: string | null;
-  photoUrl: string | null;
+  expectedTimeStart?: string;
+  expectedTimeEnd?: string;
+  idCard?: string;
+  photoUrl?: string;
   status: ApplicationStatus;
-  approverId: string | null;
-  approverName: string | null;
-  approvedAt: string | null;
-  rejectionReason: string | null;
-  remark: string | null;
-  createdAt: string;
-  updatedAt: string;
+  approverId?: string;
+  approverName?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  remark?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-/** 通行记录 */
-export type AccessRecordItem = {
+export type AccessRecord = {
   id: string;
-  personId: string | null;
+  personId?: string;
   personName: string;
   personType: PersonType;
   direction: Direction;
-  deviceId: string | null;
-  deviceName: string | null;
+  deviceId?: string;
+  deviceName?: string;
   occurredAt: string;
-  verifyMethod: VerifyMethod;
-  photoUrl: string | null;
-  temperature: number | null;
-  isAbnormal: boolean;
-  remark: string | null;
-  createdAt: string;
+  verifyMethod?: string;
+  photoUrl?: string;
+  temperature?: number;
+  isAbnormal?: boolean;
+  remark?: string;
+  createdAt?: string;
 };
 
-/** 门禁统计 */
-export type AccessStatistics = {
-  totalPersons: number;
-  todayRecords: number;
-  todayIn: number;
-  todayOut: number;
-  pendingApplications: number;
-  activeVisitors: number;
-  personTypeDistribution: { type: PersonType; count: number }[];
-};
+// ==================== 人员仓库 ====================
 
-/** 人员查询参数 */
-export type PersonQueryParams = {
-  personType?: PersonType;
-  status?: string;
-  search?: string;
-  page?: number;
-  pageSize?: number;
-};
-
-/** 申请查询参数 */
-export type ApplicationQueryParams = {
-  status?: ApplicationStatus;
-  applicantType?: 'parent' | 'visitor';
-  search?: string;
-  page?: number;
-  pageSize?: number;
-};
-
-/** 通行记录查询参数 */
-export type RecordQueryParams = {
-  personType?: PersonType;
-  direction?: Direction;
-  startDate?: string;
-  endDate?: string;
-  search?: string;
-  page?: number;
-  pageSize?: number;
-};
-
-// ==================== 数据库行类型 (下划线) ====================
-
-type PersonRow = {
-  id: string;
-  name: string;
-  person_type: PersonType;
-  phone: string | null;
-  id_card: string | null;
-  photo_url: string | null;
-  related_id: string | null;
-  department: string | null;
-  status: string;
-  valid_from: string | null;
-  valid_until: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type ApplicationRow = {
-  id: string;
-  applicant_name: string;
-  applicant_phone: string | null;
-  applicant_type: 'parent' | 'visitor';
-  purpose: string;
-  target_person: string | null;
-  target_department: string | null;
-  relation: string | null;
-  student_name: string | null;
-  student_id: string | null;
-  expected_date: string;
-  expected_time_start: string | null;
-  expected_time_end: string | null;
-  id_card: string | null;
-  photo_url: string | null;
-  status: ApplicationStatus;
-  approver_id: string | null;
-  approver_name: string | null;
-  approved_at: string | null;
-  rejection_reason: string | null;
-  remark: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type RecordRow = {
-  id: string;
-  person_id: string | null;
-  person_name: string;
-  person_type: PersonType;
-  direction: Direction;
-  device_id: string | null;
-  device_name: string | null;
-  occurred_at: string;
-  verify_method: VerifyMethod;
-  photo_url: string | null;
-  temperature: number | null;
-  is_abnormal: boolean;
-  remark: string | null;
-  created_at: string;
-};
-
-// ==================== 字段映射 ====================
-
-const mapPersonToBusiness = (row: PersonRow): AccessPerson => ({
-  id: row.id,
-  name: row.name,
-  personType: row.person_type,
-  phone: row.phone,
-  idCard: row.id_card,
-  photoUrl: row.photo_url,
-  relatedId: row.related_id,
-  department: row.department,
-  status: row.status,
-  validFrom: row.valid_from,
-  validUntil: row.valid_until,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-});
-
-const mapPersonToDb = (data: Partial<AccessPerson>): Record<string, unknown> => {
-  const mapping: Record<string, unknown> = {};
-  if (data.name !== undefined) mapping.name = data.name;
-  if (data.personType !== undefined) mapping.person_type = data.personType;
-  if (data.phone !== undefined) mapping.phone = data.phone;
-  if (data.idCard !== undefined) mapping.id_card = data.idCard;
-  if (data.photoUrl !== undefined) mapping.photo_url = data.photoUrl;
-  if (data.relatedId !== undefined) mapping.related_id = data.relatedId;
-  if (data.department !== undefined) mapping.department = data.department;
-  if (data.status !== undefined) mapping.status = data.status;
-  if (data.validFrom !== undefined) mapping.valid_from = data.validFrom;
-  if (data.validUntil !== undefined) mapping.valid_until = data.validUntil;
-  return mapping;
-};
-
-const mapApplicationToBusiness = (row: ApplicationRow): AccessApplication => ({
-  id: row.id,
-  applicantName: row.applicant_name,
-  applicantPhone: row.applicant_phone,
-  applicantType: row.applicant_type,
-  purpose: row.purpose,
-  targetPerson: row.target_person,
-  targetDepartment: row.target_department,
-  relation: row.relation,
-  studentName: row.student_name,
-  studentId: row.student_id,
-  expectedDate: row.expected_date,
-  expectedTimeStart: row.expected_time_start,
-  expectedTimeEnd: row.expected_time_end,
-  idCard: row.id_card,
-  photoUrl: row.photo_url,
-  status: row.status,
-  approverId: row.approver_id,
-  approverName: row.approver_name,
-  approvedAt: row.approved_at,
-  rejectionReason: row.rejection_reason,
-  remark: row.remark,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-});
-
-const mapApplicationToDb = (data: Partial<AccessApplication>): Record<string, unknown> => {
-  const mapping: Record<string, unknown> = {};
-  if (data.applicantName !== undefined) mapping.applicant_name = data.applicantName;
-  if (data.applicantPhone !== undefined) mapping.applicant_phone = data.applicantPhone;
-  if (data.applicantType !== undefined) mapping.applicant_type = data.applicantType;
-  if (data.purpose !== undefined) mapping.purpose = data.purpose;
-  if (data.targetPerson !== undefined) mapping.target_person = data.targetPerson;
-  if (data.targetDepartment !== undefined) mapping.target_department = data.targetDepartment;
-  if (data.relation !== undefined) mapping.relation = data.relation;
-  if (data.studentName !== undefined) mapping.student_name = data.studentName;
-  if (data.studentId !== undefined) mapping.student_id = data.studentId;
-  if (data.expectedDate !== undefined) mapping.expected_date = data.expectedDate;
-  if (data.expectedTimeStart !== undefined) mapping.expected_time_start = data.expectedTimeStart;
-  if (data.expectedTimeEnd !== undefined) mapping.expected_time_end = data.expectedTimeEnd;
-  if (data.idCard !== undefined) mapping.id_card = data.idCard;
-  if (data.photoUrl !== undefined) mapping.photo_url = data.photoUrl;
-  if (data.status !== undefined) mapping.status = data.status;
-  if (data.approverId !== undefined) mapping.approver_id = data.approverId;
-  if (data.approverName !== undefined) mapping.approver_name = data.approverName;
-  if (data.approvedAt !== undefined) mapping.approved_at = data.approvedAt;
-  if (data.rejectionReason !== undefined) mapping.rejection_reason = data.rejectionReason;
-  if (data.remark !== undefined) mapping.remark = data.remark;
-  return mapping;
-};
-
-const mapRecordToBusiness = (row: RecordRow): AccessRecordItem => ({
-  id: row.id,
-  personId: row.person_id,
-  personName: row.person_name,
-  personType: row.person_type,
-  direction: row.direction,
-  deviceId: row.device_id,
-  deviceName: row.device_name,
-  occurredAt: row.occurred_at,
-  verifyMethod: row.verify_method,
-  photoUrl: row.photo_url,
-  temperature: row.temperature,
-  isAbnormal: row.is_abnormal,
-  remark: row.remark,
-  createdAt: row.created_at,
-});
-
-const mapRecordToDb = (data: Partial<AccessRecordItem>): Record<string, unknown> => {
-  const mapping: Record<string, unknown> = {};
-  if (data.personId !== undefined) mapping.person_id = data.personId;
-  if (data.personName !== undefined) mapping.person_name = data.personName;
-  if (data.personType !== undefined) mapping.person_type = data.personType;
-  if (data.direction !== undefined) mapping.direction = data.direction;
-  if (data.deviceId !== undefined) mapping.device_id = data.deviceId;
-  if (data.deviceName !== undefined) mapping.device_name = data.deviceName;
-  if (data.occurredAt !== undefined) mapping.occurred_at = data.occurredAt;
-  if (data.verifyMethod !== undefined) mapping.verify_method = data.verifyMethod;
-  if (data.photoUrl !== undefined) mapping.photo_url = data.photoUrl;
-  if (data.temperature !== undefined) mapping.temperature = data.temperature;
-  if (data.isAbnormal !== undefined) mapping.is_abnormal = data.isAbnormal;
-  if (data.remark !== undefined) mapping.remark = data.remark;
-  return mapping;
-};
-
-// ==================== 人员 Repository ====================
-
-export class AccessPersonRepository extends BaseRepository<PersonRow> {
-  constructor() {
-    super('access_persons');
-  }
-
-  async findPersons(params: PersonQueryParams): Promise<PaginatedResult<AccessPerson>> {
-    const { page = 1, pageSize = 20 } = params;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    let query = this.client
+export const accessPersonRepository = {
+  async getList(params: {
+    personTypes?: PersonType[];
+    search?: string;
+  }): Promise<AccessPerson[]> {
+    const client = getSupabaseClient();
+    let query = client
       .from('access_persons')
-      .select('*', { count: 'exact' })
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (params.personType) query = query.eq('person_type', params.personType);
-    if (params.status) query = query.eq('status', params.status);
+    if (params.personTypes && params.personTypes.length > 0) {
+      query = query.in('person_type', params.personTypes);
+    }
     if (params.search) {
-      query = query.or(`name.ilike.%${params.search}%,phone.ilike.%${params.search}%,department.ilike.%${params.search}%`);
+      query = query.or(`name.ilike.%${params.search}%,department.ilike.%${params.search}%,phone.ilike.%${params.search}%`);
     }
 
-    const { data, error, count } = await query.range(from, to);
+    const { data, error } = await query;
     if (error) {
-      console.error('[AccessPersonRepository] findPersons error:', error.message);
-      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+      console.error('[AccessPersonRepo] getList error:', error.message);
+      return [];
     }
+    return (data || []).map(mapPersonRow);
+  },
 
-    return {
-      data: (data || []).map(mapPersonToBusiness),
-      total: count || 0,
-      page,
-      pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
-    };
-  }
-
-  async createPerson(data: Partial<AccessPerson>): Promise<AccessPerson | null> {
-    const dbData = mapPersonToDb(data);
-    const id = data.id || `ap-${Date.now()}`;
-    const { data: row, error } = await this.client
+  async getById(id: string): Promise<AccessPerson | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
       .from('access_persons')
-      .insert({ id, ...dbData })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[AccessPersonRepository] createPerson error:', error.message);
-      return null;
-    }
-    return row ? mapPersonToBusiness(row as PersonRow) : null;
-  }
-
-  async updatePerson(id: string, data: Partial<AccessPerson>): Promise<AccessPerson | null> {
-    const dbData = mapPersonToDb(data);
-    const { data: row, error } = await this.client
-      .from('access_persons')
-      .update({ ...dbData, updated_at: new Date().toISOString() })
+      .select('*')
       .eq('id', id)
-      .select()
       .single();
+    if (error || !data) return null;
+    return mapPersonRow(data);
+  },
 
+  async create(person: Partial<AccessPerson>): Promise<AccessPerson> {
+    const client = getSupabaseClient();
+    const row = toPersonRow(person);
+    const { data, error } = await client
+      .from('access_persons')
+      .insert(row)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapPersonRow(data);
+  },
+
+  async upsert(person: Partial<AccessPerson>): Promise<AccessPerson> {
+    const client = getSupabaseClient();
+    const row = toPersonRow(person);
+    const { data, error } = await client
+      .from('access_persons')
+      .upsert(row, { onConflict: 'id' })
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapPersonRow(data);
+  },
+
+  async updatePhoto(personId: string, photoUrl: string): Promise<AccessPerson | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('access_persons')
+      .update({ photo_url: photoUrl, updated_at: new Date().toISOString() })
+      .eq('id', personId)
+      .select('*')
+      .single();
     if (error) {
-      console.error('[AccessPersonRepository] updatePerson error:', error.message);
+      console.error('[AccessPersonRepo] updatePhoto error:', error.message);
       return null;
     }
-    return row ? mapPersonToBusiness(row as PersonRow) : null;
-  }
+    return mapPersonRow(data);
+  },
 
-  async updateFaceVector(id: string, faceUrl: string): Promise<boolean> {
-    // 存储照片URL，向量通过API端点单独计算
-    const { error } = await this.client
+  async updateFaceVector(personId: string, vector: number[]): Promise<void> {
+    const client = getSupabaseClient();
+    const { error } = await client
       .from('access_persons')
-      .update({ photo_url: faceUrl, updated_at: new Date().toISOString() })
-      .eq('id', id);
-
+      .update({ face_vector: vector, updated_at: new Date().toISOString() })
+      .eq('id', personId);
     if (error) {
-      console.error('[AccessPersonRepository] updateFaceVector error:', error.message);
-      return false;
+      console.error('[AccessPersonRepo] updateFaceVector error:', error.message);
+      throw new Error(error.message);
     }
-    return true;
-  }
+  },
 
-  async countByType(): Promise<{ type: PersonType; count: number }[]> {
-    const { data, error } = await this.client
+  async getVectorStatusBatch(personIds: string[]): Promise<Record<string, boolean>> {
+    if (personIds.length === 0) return {};
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('access_persons')
+      .select('id, face_vector')
+      .in('id', personIds);
+    if (error || !data) return {};
+
+    const result: Record<string, boolean> = {};
+    for (const row of data) {
+      result[row.id as string] = !!row.face_vector;
+    }
+    return result;
+  },
+
+  async getActiveVisitorCount(): Promise<number> {
+    const client = getSupabaseClient();
+    const today = new Date().toISOString().split('T')[0];
+    const { count, error } = await client
+      .from('access_persons')
+      .select('*', { count: 'exact', head: true })
+      .eq('person_type', 'visitor')
+      .eq('status', 'active')
+      .gte('valid_from', today)
+      .lte('valid_until', today);
+    if (error) return 0;
+    return count || 0;
+  },
+
+  async getPersonTypeDistribution(): Promise<{ type: string; count: number }[]> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
       .from('access_persons')
       .select('person_type');
-
     if (error || !data) return [];
 
     const counts: Record<string, number> = {};
     for (const row of data) {
-      counts[row.person_type] = (counts[row.person_type] || 0) + 1;
+      const t = row.person_type as string;
+      counts[t] = (counts[t] || 0) + 1;
     }
+    return Object.entries(counts).map(([type, count]) => ({ type, count }));
+  },
 
-    return Object.entries(counts).map(([type, count]) => ({
-      type: type as PersonType,
-      count,
-    }));
-  }
-}
+  async delete(id: string): Promise<boolean> {
+    const client = getSupabaseClient();
+    const { error } = await client.from('access_persons').delete().eq('id', id);
+    return !error;
+  },
+};
 
-// ==================== 申请 Repository ====================
+// ==================== 申请仓库 ====================
 
-export class AccessApplicationRepository extends BaseRepository<ApplicationRow> {
-  constructor() {
-    super('access_applications');
-  }
-
-  async findApplications(params: ApplicationQueryParams): Promise<PaginatedResult<AccessApplication>> {
-    const { page = 1, pageSize = 20 } = params;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    let query = this.client
+export const accessApplicationRepository = {
+  async getList(params: {
+    status?: string;
+    applicantType?: string;
+    search?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{ items: AccessApplication[]; total: number }> {
+    const client = getSupabaseClient();
+    let query = client
       .from('access_applications')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false });
@@ -429,162 +237,281 @@ export class AccessApplicationRepository extends BaseRepository<ApplicationRow> 
       query = query.or(`applicant_name.ilike.%${params.search}%,target_person.ilike.%${params.search}%,purpose.ilike.%${params.search}%`);
     }
 
-    const { data, error, count } = await query.range(from, to);
+    const from = (params.page - 1) * params.pageSize;
+    const to = from + params.pageSize - 1;
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
     if (error) {
-      console.error('[AccessApplicationRepository] findApplications error:', error.message);
-      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+      console.error('[AccessAppRepo] getList error:', error.message);
+      return { items: [], total: 0 };
     }
+    return { items: (data || []).map(mapAppRow), total: count || 0 };
+  },
 
-    return {
-      data: (data || []).map(mapApplicationToBusiness),
-      total: count || 0,
-      page,
-      pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
-    };
-  }
-
-  async createApplication(data: Partial<AccessApplication>): Promise<AccessApplication | null> {
-    const dbData = mapApplicationToDb(data);
-    const { data: row, error } = await this.client
+  async getById(id: string): Promise<AccessApplication | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
       .from('access_applications')
-      .insert({ ...dbData, status: 'pending' })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[AccessApplicationRepository] createApplication error:', error.message);
-      return null;
-    }
-    return row ? mapApplicationToBusiness(row as ApplicationRow) : null;
-  }
-
-  async updateApplicationStatus(id: string, status: ApplicationStatus, extra: Record<string, unknown> = {}): Promise<AccessApplication | null> {
-    const { data: row, error } = await this.client
-      .from('access_applications')
-      .update({ status, ...extra, updated_at: new Date().toISOString() })
+      .select('*')
       .eq('id', id)
-      .select()
       .single();
+    if (error || !data) return null;
+    return mapAppRow(data);
+  },
 
+  async create(app: Partial<AccessApplication>): Promise<AccessApplication> {
+    const client = getSupabaseClient();
+    const row = toAppRow(app);
+    const { data, error } = await client
+      .from('access_applications')
+      .insert(row)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapAppRow(data);
+  },
+
+  async approve(id: string, approverId: string, approverName: string): Promise<AccessApplication | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('access_applications')
+      .update({
+        status: 'approved',
+        approver_id: approverId,
+        approver_name: approverName,
+        approved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
     if (error) {
-      console.error('[AccessApplicationRepository] updateStatus error:', error.message);
+      console.error('[AccessAppRepo] approve error:', error.message);
       return null;
     }
-    return row ? mapApplicationToBusiness(row as ApplicationRow) : null;
-  }
+    return mapAppRow(data);
+  },
 
-  async countByStatus(status: ApplicationStatus): Promise<number> {
-    const { count, error } = await this.client
+  async reject(id: string, reason: string): Promise<AccessApplication | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('access_applications')
+      .update({
+        status: 'rejected',
+        rejection_reason: reason,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) {
+      console.error('[AccessAppRepo] reject error:', error.message);
+      return null;
+    }
+    return mapAppRow(data);
+  },
+
+  async getPendingCount(): Promise<number> {
+    const client = getSupabaseClient();
+    const { count, error } = await client
       .from('access_applications')
       .select('*', { count: 'exact', head: true })
-      .eq('status', status);
-
+      .eq('status', 'pending');
     if (error) return 0;
     return count || 0;
-  }
+  },
+};
 
-  async countActiveVisitors(): Promise<number> {
-    const today = new Date().toISOString().split('T')[0];
-    const { count, error } = await this.client
-      .from('access_applications')
-      .select('*', { count: 'exact', head: true })
-      .eq('applicant_type', 'visitor')
-      .eq('status', 'approved')
-      .eq('expected_date', today);
+// ==================== 通行记录仓库 ====================
 
-    if (error) return 0;
-    return count || 0;
-  }
-}
-
-// ==================== 通行记录 Repository ====================
-
-export class AccessRecordRepository extends BaseRepository<RecordRow> {
-  constructor() {
-    super('access_records');
-  }
-
-  async findRecords(params: RecordQueryParams): Promise<PaginatedResult<AccessRecordItem>> {
-    const { page = 1, pageSize = 20 } = params;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    let query = this.client
+export const accessRecordRepository = {
+  async getList(params: {
+    personType?: string;
+    direction?: string;
+    search?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{ items: AccessRecord[]; total: number }> {
+    const client = getSupabaseClient();
+    let query = client
       .from('access_records')
       .select('*', { count: 'exact' })
       .order('occurred_at', { ascending: false });
 
     if (params.personType) query = query.eq('person_type', params.personType);
     if (params.direction) query = query.eq('direction', params.direction);
-    if (params.startDate) query = query.gte('occurred_at', params.startDate);
-    if (params.endDate) query = query.lte('occurred_at', params.endDate);
     if (params.search) {
       query = query.or(`person_name.ilike.%${params.search}%,device_name.ilike.%${params.search}%`);
     }
 
-    const { data, error, count } = await query.range(from, to);
+    const from = (params.page - 1) * params.pageSize;
+    const to = from + params.pageSize - 1;
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
     if (error) {
-      console.error('[AccessRecordRepository] findRecords error:', error.message);
-      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+      console.error('[AccessRecordRepo] getList error:', error.message);
+      return { items: [], total: 0 };
     }
+    return { items: (data || []).map(mapRecordRow), total: count || 0 };
+  },
 
-    return {
-      data: (data || []).map(mapRecordToBusiness),
-      total: count || 0,
-      page,
-      pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
+  async create(record: Omit<AccessRecord, 'id' | 'createdAt'>): Promise<AccessRecord | null> {
+    const client = getSupabaseClient();
+    const row: Record<string, unknown> = {
+      person_id: record.personId,
+      person_name: record.personName,
+      person_type: record.personType,
+      direction: record.direction,
+      device_id: record.deviceId,
+      device_name: record.deviceName,
+      occurred_at: record.occurredAt,
+      verify_method: record.verifyMethod,
+      photo_url: record.photoUrl,
+      temperature: record.temperature,
+      is_abnormal: record.isAbnormal,
+      remark: record.remark,
     };
-  }
-
-  async createRecord(data: Partial<AccessRecordItem>): Promise<AccessRecordItem | null> {
-    const dbData = mapRecordToDb(data);
-    const { data: row, error } = await this.client
+    const { data, error } = await client
       .from('access_records')
-      .insert({ ...dbData, occurred_at: data.occurredAt || new Date().toISOString() })
-      .select()
+      .insert(row)
+      .select('*')
       .single();
-
     if (error) {
-      console.error('[AccessRecordRepository] createRecord error:', error.message);
+      console.error('[AccessRecordRepo] create error:', error.message);
       return null;
     }
-    return row ? mapRecordToBusiness(row as RecordRow) : null;
-  }
+    return data ? mapRecordRow(data) : null;
+  },
 
-  async countToday(): Promise<{ total: number; inCount: number; outCount: number }> {
+  async getStatistics(): Promise<{
+    totalPersons: number;
+    todayRecords: number;
+    todayIn: number;
+    todayOut: number;
+  }> {
+    const client = getSupabaseClient();
     const today = new Date().toISOString().split('T')[0];
-    const [totalResult, inResult, outResult] = await Promise.all([
-      this.client.from('access_records').select('*', { count: 'exact', head: true }).gte('occurred_at', `${today}T00:00:00`).lt('occurred_at', `${today}T23:59:59`),
-      this.client.from('access_records').select('*', { count: 'exact', head: true }).eq('direction', 'in').gte('occurred_at', `${today}T00:00:00`).lt('occurred_at', `${today}T23:59:59`),
-      this.client.from('access_records').select('*', { count: 'exact', head: true }).eq('direction', 'out').gte('occurred_at', `${today}T00:00:00`).lt('occurred_at', `${today}T23:59:59`),
+
+    const [personsRes, recordsRes, inRes, outRes] = await Promise.all([
+      client.from('access_persons').select('*', { count: 'exact', head: true }),
+      client.from('access_records').select('*', { count: 'exact', head: true }).gte('occurred_at', today),
+      client.from('access_records').select('*', { count: 'exact', head: true }).gte('occurred_at', today).eq('direction', 'in'),
+      client.from('access_records').select('*', { count: 'exact', head: true }).gte('occurred_at', today).eq('direction', 'out'),
     ]);
 
     return {
-      total: totalResult.count || 0,
-      inCount: inResult.count || 0,
-      outCount: outResult.count || 0,
+      totalPersons: personsRes.count || 0,
+      todayRecords: recordsRes.count || 0,
+      todayIn: inRes.count || 0,
+      todayOut: outRes.count || 0,
     };
-  }
+  },
+};
 
-  async countTotalPersons(): Promise<number> {
-    const { count, error } = await this.client
-      .from('access_persons')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active');
+// ==================== 行映射 ====================
 
-    if (error) return 0;
-    return count || 0;
-  }
+function mapPersonRow(row: Record<string, unknown>): AccessPerson {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    personType: row.person_type as PersonType,
+    phone: row.phone as string || undefined,
+    idCard: row.id_card as string || undefined,
+    photoUrl: row.photo_url as string || undefined,
+    hasFaceVector: !!row.face_vector,
+    relatedId: row.related_id as string || undefined,
+    department: row.department as string || undefined,
+    status: row.status as 'active' | 'inactive' | 'expired',
+    validFrom: row.valid_from as string || undefined,
+    validUntil: row.valid_until as string || undefined,
+    createdAt: row.created_at as string || undefined,
+    updatedAt: row.updated_at as string || undefined,
+  };
 }
 
-// ==================== 导出单例 ====================
+function toPersonRow(person: Partial<AccessPerson>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (person.id) row.id = person.id;
+  if (person.name) row.name = person.name;
+  if (person.personType) row.person_type = person.personType;
+  if (person.phone !== undefined) row.phone = person.phone;
+  if (person.idCard !== undefined) row.id_card = person.idCard;
+  if (person.photoUrl !== undefined) row.photo_url = person.photoUrl;
+  if (person.relatedId !== undefined) row.related_id = person.relatedId;
+  if (person.department !== undefined) row.department = person.department;
+  if (person.status) row.status = person.status;
+  if (person.validFrom !== undefined) row.valid_from = person.validFrom;
+  if (person.validUntil !== undefined) row.valid_until = person.validUntil;
+  return row;
+}
 
-export const accessPersonRepository = new AccessPersonRepository();
-export const accessApplicationRepository = new AccessApplicationRepository();
-export const accessRecordRepository = new AccessRecordRepository();
+function mapAppRow(row: Record<string, unknown>): AccessApplication {
+  return {
+    id: row.id as string,
+    applicantName: row.applicant_name as string,
+    applicantPhone: row.applicant_phone as string || undefined,
+    applicantType: row.applicant_type as 'parent' | 'visitor',
+    purpose: row.purpose as string,
+    targetPerson: row.target_person as string || undefined,
+    targetDepartment: row.target_department as string || undefined,
+    relation: row.relation as string || undefined,
+    studentName: row.student_name as string || undefined,
+    studentId: row.student_id as string || undefined,
+    expectedDate: row.expected_date as string,
+    expectedTimeStart: row.expected_time_start as string || undefined,
+    expectedTimeEnd: row.expected_time_end as string || undefined,
+    idCard: row.id_card as string || undefined,
+    photoUrl: row.photo_url as string || undefined,
+    status: row.status as ApplicationStatus,
+    approverId: row.approver_id as string || undefined,
+    approverName: row.approver_name as string || undefined,
+    approvedAt: row.approved_at as string || undefined,
+    rejectionReason: row.rejection_reason as string || undefined,
+    remark: row.remark as string || undefined,
+    createdAt: row.created_at as string || undefined,
+    updatedAt: row.updated_at as string || undefined,
+  };
+}
 
-/** 统一导出供 DI 容器使用 */
-export const accessControlRepository = accessPersonRepository;
-export const AccessControlRepository = AccessPersonRepository;
+function toAppRow(app: Partial<AccessApplication>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (app.id) row.id = app.id;
+  if (app.applicantName) row.applicant_name = app.applicantName;
+  if (app.applicantPhone !== undefined) row.applicant_phone = app.applicantPhone;
+  if (app.applicantType) row.applicant_type = app.applicantType;
+  if (app.purpose) row.purpose = app.purpose;
+  if (app.targetPerson !== undefined) row.target_person = app.targetPerson;
+  if (app.targetDepartment !== undefined) row.target_department = app.targetDepartment;
+  if (app.relation !== undefined) row.relation = app.relation;
+  if (app.studentName !== undefined) row.student_name = app.studentName;
+  if (app.studentId !== undefined) row.student_id = app.studentId;
+  if (app.expectedDate) row.expected_date = app.expectedDate;
+  if (app.expectedTimeStart !== undefined) row.expected_time_start = app.expectedTimeStart;
+  if (app.expectedTimeEnd !== undefined) row.expected_time_end = app.expectedTimeEnd;
+  if (app.idCard !== undefined) row.id_card = app.idCard;
+  if (app.photoUrl !== undefined) row.photo_url = app.photoUrl;
+  if (app.status) row.status = app.status;
+  if (app.remark !== undefined) row.remark = app.remark;
+  return row;
+}
+
+function mapRecordRow(row: Record<string, unknown>): AccessRecord {
+  return {
+    id: row.id as string,
+    personId: row.person_id as string || undefined,
+    personName: row.person_name as string,
+    personType: row.person_type as PersonType,
+    direction: row.direction as Direction,
+    deviceId: row.device_id as string || undefined,
+    deviceName: row.device_name as string || undefined,
+    occurredAt: row.occurred_at as string,
+    verifyMethod: row.verify_method as string || undefined,
+    photoUrl: row.photo_url as string || undefined,
+    temperature: row.temperature as number || undefined,
+    isAbnormal: row.is_abnormal as boolean || undefined,
+    remark: row.remark as string || undefined,
+    createdAt: row.created_at as string || undefined,
+  };
+}

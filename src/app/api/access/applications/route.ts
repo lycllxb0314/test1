@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { protectedRoute } from '@/lib/auth/route-protection';
-import { accessApplicationService } from '@/services/access-control.service';
+import { accessControlService } from '@/services/access-control.service';
 import { success, error, ErrorCode } from '@/lib/api';
 import type { ApplicationStatus } from '@/repositories/access-control.repository';
 
@@ -18,7 +18,7 @@ export const GET = protectedRoute(async (request: NextRequest) => {
   const page = parseInt(searchParams.get('page') || '1');
   const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
-  const result = await accessApplicationService.getApplications({
+  const result = await accessControlService.getApplications({
     status: status || undefined,
     applicantType: applicantType || undefined,
     search: search || undefined,
@@ -36,7 +36,7 @@ export const GET = protectedRoute(async (request: NextRequest) => {
 export const POST = protectedRoute(async (request: NextRequest) => {
   const body = await request.json();
 
-  const result = await accessApplicationService.createApplication(body);
+  const result = await accessControlService.createApplication(body);
   if (!result.success) {
     return NextResponse.json(error(result.error || '创建失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }

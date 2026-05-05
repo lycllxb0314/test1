@@ -937,7 +937,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     || pathname.startsWith('/notices')
     || pathname.startsWith('/achievements')
     || pathname.startsWith('/teacher-excellence')
-    || pathname.startsWith('/student-showcase');
+    || pathname.startsWith('/student-showcase')
+    || pathname.startsWith('/visitor-apply');
 
   if (isLoading) {
     return (

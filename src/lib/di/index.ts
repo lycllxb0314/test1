@@ -77,7 +77,9 @@ import {
 } from '@/repositories/portal.repository';
 // P3 新增 Repository
 import {
-  accessControlRepository, AccessControlRepository,
+  accessPersonRepository,
+  accessApplicationRepository,
+  accessRecordRepository,
 } from '@/repositories/access-control.repository';
 import {
   safetyDrillRepository, SafetyDrillRepository,
@@ -337,7 +339,7 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.AnnouncementRepository, () => announcementRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AchievementRepository, () => achievementRepository);
   // P3 新增 Repositories
-  container.registerSingleton(SERVICE_IDENTIFIERS.AccessControlRepository, () => accessControlRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AccessControlRepository, () => accessPersonRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyDrillRepository, () => safetyDrillRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionRepository, () => safetyInspectionRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AssetRepository, () => assetRepository);

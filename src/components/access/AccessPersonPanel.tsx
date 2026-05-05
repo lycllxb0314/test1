@@ -1,80 +1,72 @@
 /**
  * 门禁人员管理组件
- * 管理教师/学生/家长/访客四类人员
+ * 教师/学生数据自动从教务系统展示，家长/访客从门禁表展示
+ * 照片上传后自动触发人脸向量生成
  */
 
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ImageUploader } from '@/components/ui/image-uploader';
 import { useAccessPersons } from '@/hooks/useAccessControl';
-import { Search, RefreshCw, Download, UserPlus, ScanFace } from 'lucide-react';
+import { Search, RefreshCw, ScanFace, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { AccessPerson, PersonType } from '@/repositories/access-control.repository';
 import { toast } from 'sonner';
 
 const personTypeLabels: Record<PersonType, string> = {
-  teacher: '教师',
-  student: '学生',
-  parent: '家长',
-  visitor: '访客',
+  teacher: '教师', student: '学生', parent: '家长', visitor: '访客',
 };
 
-const personTypeColors: Record<PersonType, string> = {
-  teacher: 'bg-blue-100 text-blue-800',
-  student: 'bg-green-100 text-green-800',
-  parent: 'bg-amber-100 text-amber-800',
-  visitor: 'bg-purple-100 text-purple-800',
+const personTypeBadgeStyles: Record<PersonType, string> = {
+  teacher: 'bg-primary/10 text-primary',
+  student: 'bg-emerald-500/10 text-emerald-700',
+  parent: 'bg-amber-500/10 text-amber-700',
+  visitor: 'bg-violet-500/10 text-violet-700',
 };
 
 export function AccessPersonPanel() {
   const [personType, setPersonType] = useState<PersonType | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const pageSize = 15;
 
-  const { data, total, loading, refresh, syncFromAcademic, generateFaceVector } = useAccessPersons({
+  const { data, total, loading, refresh, updatePhoto } = useAccessPersons({
     personType,
     search: search || undefined,
     page,
-    pageSize: 15,
+    pageSize,
   });
 
-  const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [syncType, setSyncType] = useState<PersonType>('teacher');
-  const [syncing, setSyncing] = useState(false);
+  const [photoPerson, setPhotoPerson] = useState<AccessPerson | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const handleSync = useCallback(async () => {
-    setSyncing(true);
+  const handlePhotoChange = useCallback(async (url: string | undefined) => {
+    if (!url || !photoPerson) return;
+    setUploading(true);
     try {
-      const result = await syncFromAcademic(syncType);
-      toast.success(`同步完成，新增 ${result.synced} 条记录`);
-      setShowSyncDialog(false);
+      await updatePhoto(photoPerson.id, url, {
+        name: photoPerson.name,
+        personType: photoPerson.personType,
+        department: photoPerson.department,
+        relatedId: photoPerson.relatedId,
+      });
+      toast.success('照片已更新，人脸向量正在生成中...');
+      setPhotoPerson(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '同步失败');
+      toast.error(err instanceof Error ? err.message : '更新失败');
     } finally {
-      setSyncing(false);
+      setUploading(false);
     }
-  }, [syncType, syncFromAcademic]);
+  }, [photoPerson, updatePhoto]);
 
-  const handleGenerateFace = useCallback(async (person: AccessPerson) => {
-    if (!person.photoUrl) {
-      toast.error('该人员未上传照片，无法生成人脸向量');
-      return;
-    }
-    try {
-      await generateFaceVector(person.id, person.photoUrl);
-      toast.success('人脸向量生成成功');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : '生成失败');
-    }
-  }, [generateFaceVector]);
-
-  const totalPages = Math.ceil(total / 15);
+  const totalPages = Math.ceil(total / pageSize);
 
   return (
     <div className="space-y-4">
@@ -101,64 +93,70 @@ export function AccessPersonPanel() {
             />
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowSyncDialog(true)}>
-            <Download className="h-4 w-4 mr-1" /> 同步教务数据
-          </Button>
-          <Button variant="outline" size="sm" onClick={refresh}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={refresh}>
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* 人员表格 */}
-      <Card>
+      <Card className="border-border/50">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-transparent">
                 <TableHead className="w-20">类型</TableHead>
                 <TableHead>姓名</TableHead>
                 <TableHead>部门/班级</TableHead>
                 <TableHead>联系电话</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>有效期</TableHead>
+                <TableHead className="w-28">有效期</TableHead>
                 <TableHead className="w-24">人脸</TableHead>
+                <TableHead className="w-20">照片</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : data.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : data.map((person) => (
                 <TableRow key={person.id}>
                   <TableCell>
-                    <Badge variant="secondary" className={personTypeColors[person.personType]}>
+                    <Badge variant="secondary" className={personTypeBadgeStyles[person.personType]}>
                       {personTypeLabels[person.personType]}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{person.name}</TableCell>
                   <TableCell className="text-muted-foreground">{person.department || '-'}</TableCell>
                   <TableCell className="text-muted-foreground">{person.phone || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={person.status === 'active' ? 'default' : 'secondary'}>
-                      {person.status === 'active' ? '正常' : person.status === 'expired' ? '过期' : '停用'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-xs text-muted-foreground">
                     {person.validFrom && person.validUntil
                       ? `${person.validFrom} ~ ${person.validUntil}`
                       : person.validFrom ? '长期有效' : '-'}
                   </TableCell>
                   <TableCell>
-                    {person.photoUrl ? (
-                      <Button variant="ghost" size="sm" onClick={() => handleGenerateFace(person)} title="生成人脸向量">
-                        <ScanFace className="h-4 w-4 text-green-600" />
-                      </Button>
+                    {person.hasFaceVector ? (
+                      <div className="flex items-center gap-1 text-emerald-600">
+                        <ScanFace className="h-4 w-4" />
+                        <span className="text-xs font-medium">已录入</span>
+                      </div>
+                    ) : person.photoUrl ? (
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <ScanFace className="h-4 w-4" />
+                        <span className="text-xs font-medium">待录入</span>
+                      </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">未录入</span>
+                      <span className="text-xs text-muted-foreground">无照片</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPhotoPerson(person)}
+                      title={person.photoUrl ? '更换照片' : '上传照片'}
+                    >
+                      <Upload className="h-4 w-4 text-muted-foreground" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -171,34 +169,37 @@ export function AccessPersonPanel() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>共 {total} 条</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一页</Button>
-            <span className="py-1">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>下一页</Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span>{page} / {totalPages}</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       )}
 
-      {/* 同步弹窗 */}
-      <Dialog open={showSyncDialog} onOpenChange={setShowSyncDialog}>
+      {/* 照片上传弹窗 */}
+      <Dialog open={!!photoPerson} onOpenChange={() => setPhotoPerson(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>同步教务数据</DialogTitle>
+            <DialogTitle>上传人脸照片 - {photoPerson?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">从教务系统导入教师或学生数据到门禁系统</p>
-            <Select value={syncType} onValueChange={(v) => setSyncType(v as PersonType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="teacher">教师</SelectItem>
-                <SelectItem value="student">学生</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="py-2">
+            <p className="text-sm text-muted-foreground mb-3">
+              上传照片后将自动生成人脸向量，用于后续人脸比对通行
+            </p>
+            <ImageUploader
+              value={photoPerson?.photoUrl}
+              onChange={handlePhotoChange}
+              folder="access-faces"
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSyncDialog(false)}>取消</Button>
-            <Button onClick={handleSync} disabled={syncing}>
-              {syncing ? '同步中...' : '开始同步'}
+            <Button variant="outline" onClick={() => setPhotoPerson(null)} disabled={uploading}>
+              关闭
             </Button>
           </DialogFooter>
         </DialogContent>
