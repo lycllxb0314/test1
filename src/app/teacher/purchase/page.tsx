@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,15 +38,16 @@ import {
   XCircle,
   DollarSign,
   Package,
-  Truck,
   Eye,
   Image as ImageIcon,
   X,
+  FileText,
   Trash2,
   Loader2,
   Upload,
 } from 'lucide-react';
-import { usePurchases, usePurchaseStatistics, usePurchaseActions } from '@/hooks/usePurchases';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiClient } from '@/services/api-client';
 import type { PurchaseRecord, PurchaseItem, PurchaseStatus, PurchaseType, PurchaseUrgency } from '@/types/general';
 import { toast } from 'sonner';
 
@@ -74,30 +75,24 @@ const URGENCY_CONFIG: Record<PurchaseUrgency, { label: string; color: string }> 
   urgent: { label: '紧急', color: 'text-red-600' },
 };
 
-export default function PurchaseManagementPage() {
-  const { purchases, loading, refetch } = usePurchases();
-  const { stats, refetch: refetchStats } = usePurchaseStatistics();
-  const { createPurchase, updateStatus, deletePurchase } = usePurchaseActions();
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<PurchaseStatus | 'all'>('all');
-  const [typeFilter, setTypeFilter] = useState<PurchaseType | 'all'>('all');
+export default function TeacherPurchasePage() {
+  const { user } = useAuth();
+  const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // 弹窗状态
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [processNote, setProcessNote] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 表单状态
   const [formData, setFormData] = useState({
     title: '',
     type: 'office_supplies' as PurchaseType,
-    items: [{ name: '', specification: '', quantity: 1, unit: '件', unitPrice: 0 }] as PurchaseItem[],
+    items: [{ id: crypto.randomUUID(), name: '', quantity: 1, unit: '个', estimatedPrice: 0, remark: '' }] as PurchaseItem[],
     reason: '',
     urgency: 'normal' as PurchaseUrgency,
     department: '',
@@ -105,23 +100,41 @@ export default function PurchaseManagementPage() {
     images: [] as string[],
   });
 
-  // 过滤后的采购列表
-  const filteredPurchases = purchases.filter(p => {
-    const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.applicant_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
-    const matchesType = typeFilter === 'all' || p.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
-  });
+  // 加载我的采购申请
+  const loadPurchases = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const res = await apiClient.get<PurchaseRecord[]>(`/api/general/purchase?applicantId=${user.id}`);
+      if (res.success && res.data) {
+        setPurchases(res.data);
+      }
+    } catch (err) {
+      console.error('加载采购申请失败:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // 计算总金额
-  const totalAmount = formData.items.reduce((sum, item) => sum + (item.unitPrice || 0) * (item.quantity || 1), 0);
+  useEffect(() => {
+    loadPurchases();
+  }, [user?.id]);
+
+  // 统计数据
+  const stats = useMemo(() => {
+    return {
+      total: purchases.length,
+      pending: purchases.filter(p => p.status === 'pending').length,
+      approved: purchases.filter(p => p.status === 'approved').length,
+      completed: purchases.filter(p => p.status === 'completed').length,
+    };
+  }, [purchases]);
 
   // 添加物品项
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { id: crypto.randomUUID(), name: '', specification: '', quantity: 1, unit: '件', unitPrice: 0 }],
+      items: [...prev.items, { id: crypto.randomUUID(), name: '', quantity: 1, unit: '个', estimatedPrice: 0, remark: '' }],
     }));
   };
 
@@ -143,6 +156,11 @@ export default function PurchaseManagementPage() {
       ),
     }));
   };
+
+  // 计算总金额
+  const totalAmount = useMemo(() => {
+    return formData.items.reduce((sum, item) => sum + (item.estimatedPrice || 0) * (item.quantity || 1), 0);
+  }, [formData.items]);
 
   // 图片上传
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,84 +222,59 @@ export default function PurchaseManagementPage() {
 
   // 提交采购申请
   const handleSubmit = async () => {
-    if (!formData.title || formData.items.some(i => !i.name)) {
-      toast.error('请填写采购标题和物品名称');
+    if (!formData.title || !formData.reason) {
+      toast.error('请填写采购标题和申请原因');
+      return;
+    }
+
+    if (formData.items.some(item => !item.name)) {
+      toast.error('请填写所有物品名称');
+      return;
+    }
+
+    if (!user?.id || !user?.name) {
+      toast.error('请先登录');
       return;
     }
 
     setSaving(true);
     try {
-      const result = await createPurchase({
-        title: formData.title,
-        type: formData.type,
-        items: formData.items,
+      const res = await apiClient.post<PurchaseRecord>('/api/general/purchase', {
+        ...formData,
+        status: 'pending',
+        applicantId: user.id,
+        applicantName: user.name,
         totalAmount,
-        reason: formData.reason,
-        urgency: formData.urgency,
-        images: formData.images,
-        department: formData.department,
-        budgetSource: formData.budgetSource,
       });
 
-      if (result) {
-        toast.success('采购申请创建成功');
+      if (res.success) {
+        toast.success('采购申请提交成功');
         setShowCreateDialog(false);
-        resetForm();
-        refetch();
-        refetchStats();
+        setFormData({
+          title: '',
+          type: 'office_supplies',
+          items: [{ name: '', quantity: 1, unit: '个', estimatedPrice: 0, remark: '' }],
+          reason: '',
+          urgency: 'normal',
+          department: '',
+          budgetSource: '',
+          images: [],
+        });
+        loadPurchases();
       } else {
-        toast.error('创建失败');
+        toast.error('提交失败');
       }
     } catch (err) {
-      toast.error('创建失败，请重试');
+      toast.error('提交失败，请重试');
     } finally {
       setSaving(false);
     }
   };
 
-  // 处理状态更新
-  const handleStatusUpdate = async (status: 'pending' | 'approved' | 'ordered' | 'received' | 'completed' | 'rejected') => {
-    if (!selectedPurchase) return;
-    setSaving(true);
-    try {
-      const result = await updateStatus(selectedPurchase.id, status, { note: processNote });
-      if (result) {
-        toast.success('状态更新成功');
-        setShowProcessDialog(false);
-        setProcessNote('');
-        refetch();
-        refetchStats();
-      }
-    } catch (err) {
-      toast.error('更新失败');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // 删除采购
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除此采购申请吗？')) return;
-    const success = await deletePurchase(id);
-    if (success) {
-      toast.success('删除成功');
-      refetch();
-      refetchStats();
-    }
-  };
-
-  // 重置表单
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      type: 'office_supplies',
-      items: [{ name: '', specification: '', quantity: 1, unit: '件', unitPrice: 0 }],
-      reason: '',
-      urgency: 'normal',
-      department: '',
-      budgetSource: '',
-      images: [],
-    });
+  // 查看详情
+  const handleViewDetail = (purchase: PurchaseRecord) => {
+    setSelectedPurchase(purchase);
+    setShowDetailDialog(true);
   };
 
   const getStatusBadge = (status: PurchaseStatus) => {
@@ -289,30 +282,49 @@ export default function PurchaseManagementPage() {
     return <Badge className={`${config.color} ${config.bgColor} hover:${config.bgColor}`}>{config.label}</Badge>;
   };
 
+  const getUrgencyBadge = (urgency: PurchaseUrgency) => {
+    const config = URGENCY_CONFIG[urgency];
+    return <span className={`${config.color} font-medium`}>{config.label}</span>;
+  };
+
   return (
-    <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/30 min-h-screen">
+    <div className="p-6 lg:p-8 space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">采购管理</h1>
-          <p className="text-gray-500 mt-1">物资采购申请与审批</p>
+          <h1 className="text-2xl font-bold">采购申请</h1>
+          <p className="text-muted-foreground mt-1">提交物品采购申请，查看审批进度</p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} className="bg-amber-500 hover:bg-amber-600 text-white gap-2">
-          <Plus className="h-4 w-4" />
-          新建采购申请
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          新建申请
         </Button>
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">待审批</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats?.pending || 0}</p>
+                <p className="text-sm text-muted-foreground">我的申请</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
               </div>
-              <div className="p-2 rounded-lg bg-yellow-100">
+              <div className="p-2 rounded-lg bg-muted">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">待审批</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-yellow-50">
                 <Clock className="h-5 w-5 text-yellow-600" />
               </div>
             </div>
@@ -323,10 +335,10 @@ export default function PurchaseManagementPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">已批准</p>
-                <p className="text-2xl font-bold text-blue-600">{stats?.approved || 0}</p>
+                <p className="text-sm text-muted-foreground">已批准</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.approved}</p>
               </div>
-              <div className="p-2 rounded-lg bg-blue-100">
+              <div className="p-2 rounded-lg bg-blue-50">
                 <CheckCircle className="h-5 w-5 text-blue-600" />
               </div>
             </div>
@@ -337,112 +349,50 @@ export default function PurchaseManagementPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">已下单</p>
-                <p className="text-2xl font-bold text-purple-600">{stats?.ordered || 0}</p>
+                <p className="text-sm text-muted-foreground">已完成</p>
+                <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
               </div>
-              <div className="p-2 rounded-lg bg-purple-100">
-                <Truck className="h-5 w-5 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">已到货</p>
-                <p className="text-2xl font-bold text-cyan-600">{stats?.received || 0}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-cyan-100">
-                <Package className="h-5 w-5 text-cyan-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">本月完成</p>
-                <p className="text-2xl font-bold text-green-600">{stats?.completed || 0}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-green-100">
-                <DollarSign className="h-5 w-5 text-green-600" />
+              <div className="p-2 rounded-lg bg-green-50">
+                <Package className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 筛选栏 */}
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <Input
-              placeholder="搜索采购标题或申请人..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="max-w-xs"
-            />
-            <Select value={statusFilter} onValueChange={(v: PurchaseStatus | 'all') => setStatusFilter(v)}>
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="状态筛选" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
-                <SelectItem value="pending">待审批</SelectItem>
-                <SelectItem value="approved">已批准</SelectItem>
-                <SelectItem value="ordered">已下单</SelectItem>
-                <SelectItem value="received">已到货</SelectItem>
-                <SelectItem value="completed">已完成</SelectItem>
-                <SelectItem value="rejected">已拒绝</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={typeFilter} onValueChange={(v: PurchaseType | 'all') => setTypeFilter(v)}>
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="类型筛选" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部类型</SelectItem>
-                <SelectItem value="office_supplies">办公用品</SelectItem>
-                <SelectItem value="equipment">教学设备</SelectItem>
-                <SelectItem value="maintenance">维修材料</SelectItem>
-                <SelectItem value="other">其他</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 采购列表 */}
+      {/* 申请列表 */}
       <Card className="border-0 shadow-md">
         <CardHeader>
-          <CardTitle>采购申请列表</CardTitle>
-          <CardDescription>共 {filteredPurchases.length} 条记录</CardDescription>
+          <CardTitle>我的采购申请</CardTitle>
+          <CardDescription>查看您提交的所有采购申请及其处理进度</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : purchases.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <ShoppingCart className="h-12 w-12 mb-4" />
+              <p>暂无采购申请</p>
+              <p className="text-sm mt-1">点击右上角"新建申请"按钮提交采购申请</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>采购标题</TableHead>
+                  <TableHead>申请标题</TableHead>
                   <TableHead>类型</TableHead>
-                  <TableHead>申请人</TableHead>
-                  <TableHead>金额</TableHead>
+                  <TableHead>物品数量</TableHead>
+                  <TableHead>预估金额</TableHead>
                   <TableHead>紧急程度</TableHead>
                   <TableHead>状态</TableHead>
-                  <TableHead>申请时间</TableHead>
+                  <TableHead>提交时间</TableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPurchases.map(purchase => (
+                {purchases.map(purchase => (
                   <TableRow key={purchase.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
@@ -453,31 +403,16 @@ export default function PurchaseManagementPage() {
                       </div>
                     </TableCell>
                     <TableCell>{TYPE_LABELS[purchase.type]}</TableCell>
-                    <TableCell>{purchase.applicant_name}</TableCell>
+                    <TableCell>{purchase.items?.length || 0} 项</TableCell>
                     <TableCell>¥{(purchase.total_amount || 0).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <span className={URGENCY_CONFIG[purchase.urgency]?.color}>
-                        {URGENCY_CONFIG[purchase.urgency]?.label}
-                      </span>
-                    </TableCell>
+                    <TableCell>{getUrgencyBadge(purchase.urgency)}</TableCell>
                     <TableCell>{getStatusBadge(purchase.status)}</TableCell>
                     <TableCell>{new Date(purchase.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => { setSelectedPurchase(purchase); setShowDetailDialog(true); }}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {purchase.status === 'pending' && (
-                          <>
-                            <Button variant="ghost" size="sm" className="text-green-600" onClick={() => { setSelectedPurchase(purchase); setShowProcessDialog(true); }}>
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(purchase.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => handleViewDetail(purchase)}>
+                        <Eye className="h-4 w-4 mr-1" />
+                        查看
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -487,7 +422,7 @@ export default function PurchaseManagementPage() {
         </CardContent>
       </Card>
 
-      {/* 新建采购弹窗 */}
+      {/* 新建申请弹窗 */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -496,17 +431,20 @@ export default function PurchaseManagementPage() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* 基本信息 */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>采购标题 *</Label>
+                <Label htmlFor="title">采购标题 *</Label>
                 <Input
+                  id="title"
                   value={formData.title}
                   onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="请输入采购标题"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label>采购类型</Label>
+                <Label htmlFor="type">采购类型</Label>
                 <Select value={formData.type} onValueChange={(v: PurchaseType) => setFormData(prev => ({ ...prev, type: v }))}>
                   <SelectTrigger>
                     <SelectValue />
@@ -523,27 +461,39 @@ export default function PurchaseManagementPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>申请部门</Label>
+                <Label htmlFor="department">申请部门</Label>
                 <Input
+                  id="department"
                   value={formData.department}
                   onChange={e => setFormData(prev => ({ ...prev, department: e.target.value }))}
                   placeholder="请输入申请部门"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label>紧急程度</Label>
-                <Select value={formData.urgency} onValueChange={(v: PurchaseUrgency) => setFormData(prev => ({ ...prev, urgency: v }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">低</SelectItem>
-                    <SelectItem value="normal">普通</SelectItem>
-                    <SelectItem value="high">高</SelectItem>
-                    <SelectItem value="urgent">紧急</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="budgetSource">预算来源</Label>
+                <Input
+                  id="budgetSource"
+                  value={formData.budgetSource}
+                  onChange={e => setFormData(prev => ({ ...prev, budgetSource: e.target.value }))}
+                  placeholder="请输入预算来源"
+                />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="urgency">紧急程度</Label>
+              <Select value={formData.urgency} onValueChange={(v: PurchaseUrgency) => setFormData(prev => ({ ...prev, urgency: v }))}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">低</SelectItem>
+                  <SelectItem value="normal">普通</SelectItem>
+                  <SelectItem value="high">高</SelectItem>
+                  <SelectItem value="urgent">紧急</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 物品清单 */}
@@ -560,7 +510,7 @@ export default function PurchaseManagementPage() {
                 {formData.items.map((item, index) => (
                   <div key={index} className="flex items-end gap-3 p-3 bg-muted/50 rounded-lg">
                     <div className="flex-1 space-y-1">
-                      <Label className="text-xs">物品名称 *</Label>
+                      <Label className="text-xs">物品名称</Label>
                       <Input
                         value={item.name}
                         onChange={e => updateItem(index, 'name', e.target.value)}
@@ -584,21 +534,21 @@ export default function PurchaseManagementPage() {
                         placeholder="单位"
                       />
                     </div>
-                    <div className="w-28 space-y-1">
+                    <div className="w-24 space-y-1">
                       <Label className="text-xs">预估单价</Label>
                       <Input
                         type="number"
                         min={0}
-                        value={item.unitPrice}
-                        onChange={e => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                        value={item.estimatedPrice}
+                        onChange={e => updateItem(index, 'estimatedPrice', parseFloat(e.target.value) || 0)}
                       />
                     </div>
                     <div className="flex-1 space-y-1">
-                      <Label className="text-xs">规格</Label>
+                      <Label className="text-xs">备注</Label>
                       <Input
-                        value={item.specification}
-                        onChange={e => updateItem(index, 'specification', e.target.value)}
-                        placeholder="规格（选填）"
+                        value={item.remark}
+                        onChange={e => updateItem(index, 'remark', e.target.value)}
+                        placeholder="备注（选填）"
                       />
                     </div>
                     {formData.items.length > 1 && (
@@ -621,22 +571,15 @@ export default function PurchaseManagementPage() {
               </div>
             </div>
 
+            {/* 申请原因 */}
             <div className="space-y-2">
-              <Label>申请原因</Label>
+              <Label htmlFor="reason">申请原因 *</Label>
               <Textarea
+                id="reason"
                 value={formData.reason}
                 onChange={e => setFormData(prev => ({ ...prev, reason: e.target.value }))}
                 placeholder="请详细说明采购原因和用途"
                 rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>预算来源</Label>
-              <Input
-                value={formData.budgetSource}
-                onChange={e => setFormData(prev => ({ ...prev, budgetSource: e.target.value }))}
-                placeholder="如：部门预算、专项资金等"
               />
             </div>
 
@@ -686,9 +629,12 @@ export default function PurchaseManagementPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>取消</Button>
-            <Button onClick={handleSubmit} disabled={saving || !formData.title.trim() || formData.items.some(i => !i.name.trim())}>
-              {saving ? '提交中...' : '提交申请'}
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSubmit} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              提交申请
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -696,71 +642,61 @@ export default function PurchaseManagementPage() {
 
       {/* 详情弹窗 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>采购详情</DialogTitle>
+            <DialogTitle>采购申请详情</DialogTitle>
           </DialogHeader>
 
           {selectedPurchase && (
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-gray-500">采购标题</Label>
+                  <p className="text-sm text-muted-foreground">采购标题</p>
                   <p className="font-medium">{selectedPurchase.title}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">状态</Label>
-                  <p>{getStatusBadge(selectedPurchase.status)}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">采购类型</Label>
+                  <p className="text-sm text-muted-foreground">采购类型</p>
                   <p>{TYPE_LABELS[selectedPurchase.type]}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">紧急程度</Label>
-                  <p className={URGENCY_CONFIG[selectedPurchase.urgency]?.color}>
-                    {URGENCY_CONFIG[selectedPurchase.urgency]?.label}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">申请人</Label>
-                  <p>{selectedPurchase.applicant_name}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">申请部门</Label>
+                  <p className="text-sm text-muted-foreground">申请部门</p>
                   <p>{selectedPurchase.department || '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">申请时间</Label>
-                  <p>{new Date(selectedPurchase.created_at).toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">预算来源</p>
+                  <p>{selectedPurchase.budget_source || '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500">预算来源</Label>
-                  <p>{selectedPurchase.budget_source || '-'}</p>
+                  <p className="text-sm text-muted-foreground">紧急程度</p>
+                  <p>{getUrgencyBadge(selectedPurchase.urgency)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">状态</p>
+                  <p>{getStatusBadge(selectedPurchase.status)}</p>
                 </div>
               </div>
 
               <div>
-                <Label className="text-gray-500">物品清单</Label>
-                <div className="mt-2 bg-muted/50 rounded-lg p-3">
+                <p className="text-sm text-muted-foreground mb-2">物品清单</p>
+                <div className="bg-muted/50 rounded-lg p-3">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>物品名称</TableHead>
-                        <TableHead>规格</TableHead>
                         <TableHead>数量</TableHead>
                         <TableHead>单位</TableHead>
-                        <TableHead>单价</TableHead>
+                        <TableHead>预估单价</TableHead>
+                        <TableHead>备注</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedPurchase.items?.map((item, index) => (
                         <TableRow key={index}>
                           <TableCell>{item.name}</TableCell>
-                          <TableCell>{item.specification || '-'}</TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell>{item.unit}</TableCell>
-                          <TableCell>¥{(item.unitPrice || 0).toLocaleString()}</TableCell>
+                          <TableCell>¥{(item.estimatedPrice || 0).toLocaleString()}</TableCell>
+                          <TableCell>{item.remark || '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -772,14 +708,14 @@ export default function PurchaseManagementPage() {
               </div>
 
               <div>
-                <Label className="text-gray-500">申请原因</Label>
-                <p className="whitespace-pre-wrap">{selectedPurchase.reason || '-'}</p>
+                <p className="text-sm text-muted-foreground">申请原因</p>
+                <p className="whitespace-pre-wrap">{selectedPurchase.reason}</p>
               </div>
 
               {selectedPurchase.images && selectedPurchase.images.length > 0 && (
                 <div>
-                  <Label className="text-gray-500">附件图片</Label>
-                  <div className="flex gap-3 mt-2">
+                  <p className="text-sm text-muted-foreground mb-2">附件图片</p>
+                  <div className="flex gap-3">
                     {selectedPurchase.images.map((url, index) => (
                       <a
                         key={index}
@@ -805,52 +741,8 @@ export default function PurchaseManagementPage() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailDialog(false)}>关闭</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 处理弹窗 */}
-      <Dialog open={showProcessDialog} onOpenChange={setShowProcessDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>审批采购申请</DialogTitle>
-          </DialogHeader>
-
-          {selectedPurchase && (
-            <div className="space-y-4 py-4">
-              <p>采购标题：<strong>{selectedPurchase.title}</strong></p>
-              <p>预估金额：<strong>¥{(selectedPurchase.total_amount || 0).toLocaleString()}</strong></p>
-
-              <div className="space-y-2">
-                <Label>备注</Label>
-                <Textarea
-                  value={processNote}
-                  onChange={e => setProcessNote(e.target.value)}
-                  placeholder="审批意见（选填）"
-                  rows={3}
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => handleStatusUpdate('rejected')}
-              disabled={saving}
-            >
-              <XCircle className="h-4 w-4 mr-2" />
-              拒绝
-            </Button>
-            <Button
-              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
-              onClick={() => handleStatusUpdate('approved')}
-              disabled={saving}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              批准
+            <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
+              关闭
             </Button>
           </DialogFooter>
         </DialogContent>

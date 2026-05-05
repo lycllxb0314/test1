@@ -94,6 +94,9 @@ import {
   repairRepository, RepairRepository,
 } from '@/repositories/repair.repository';
 import {
+  purchaseRepository, PurchaseRepository,
+} from '@/repositories/purchase.repository';
+import {
   roomRepository as facilityRoomRepository, RoomRepository as FacilityRoomRepository,
   spaceReservationRepository, SpaceReservationRepository,
 } from '@/repositories/facility.repository';
@@ -225,6 +228,9 @@ import {
   repairService, RepairService,
 } from '@/services/repair.service';
 import {
+  purchaseService, PurchaseService,
+} from '@/services/purchase.service';
+import {
   roomService, RoomService,
   spaceReservationService as spaceReservationSvc, SpaceReservationService,
 } from '@/services/facility.service';
@@ -341,6 +347,7 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionRepository, () => safetyInspectionRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AssetRepository, () => assetRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.RepairRequestRepository, () => repairRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.PurchaseRepository, () => purchaseRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.FacilityRoomRepository, () => facilityRoomRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SpaceReservationRepository, () => spaceReservationRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.GroupRepository, () => groupRepository);
@@ -437,6 +444,7 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionService, () => safetyInspectionService);
   container.registerSingleton(SERVICE_IDENTIFIERS.AssetService, () => assetService);
   container.registerSingleton(SERVICE_IDENTIFIERS.RepairRequestService, () => repairService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.PurchaseService, () => purchaseService);
   container.registerSingleton(SERVICE_IDENTIFIERS.RoomService, () => roomService);
   container.registerSingleton(SERVICE_IDENTIFIERS.SpaceReservationService, () => spaceReservationSvc);
   container.registerSingleton(SERVICE_IDENTIFIERS.GroupService, () => groupService);

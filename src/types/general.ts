@@ -318,6 +318,12 @@ export interface RepairStatistics {
 
 // ==================== 采购管理 ====================
 
+/** 采购类型 */
+export type PurchaseType = 'office_supplies' | 'equipment' | 'maintenance' | 'other';
+
+/** 采购紧急程度 */
+export type PurchaseUrgency = 'low' | 'normal' | 'high' | 'urgent';
+
 /** 采购申请状态 */
 export type PurchaseStatus = 
   | 'draft'        // 草稿
@@ -356,14 +362,67 @@ export interface PurchaseRequest {
 
 /** 采购项目 */
 export interface PurchaseItem {
-  id: string;
+  id?: string;
   name: string;
   specification?: string;
   quantity: number;
   unit: string;
-  unitPrice: number;
-  totalPrice: number;
-  note?: string;
+  unitPrice?: number;
+  totalPrice?: number;
+  estimatedPrice?: number;
+  remark?: string;
+}
+
+/** 采购申请记录 (数据库字段映射) */
+export interface PurchaseRecord {
+  id: string;
+  title: string;
+  type: 'office_supplies' | 'equipment' | 'maintenance' | 'other';
+  items: PurchaseItem[];
+  total_amount: number;
+  reason: string;
+  urgency: 'low' | 'normal' | 'high' | 'urgent';
+  applicant_id: string;
+  applicant_name: string;
+  department: string;
+  status: PurchaseStatus;
+  budget_source: string | null;
+  approved_amount: number | null;
+  approver_id: string | null;
+  approver_name: string | null;
+  approved_at: string | null;
+  supplier: string | null;
+  order_date: string | null;
+  received_date: string | null;
+  note: string | null;
+  rejection_reason: string | null;
+  images: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 采购统计 */
+export interface PurchaseStatistics {
+  total: number;
+  pending: number;
+  approved: number;
+  ordered: number;
+  received: number;
+  completed: number;
+  rejected: number;
+  totalAmount: number;
+  monthAmount: number;
+  monthCompleted: number;
+  byStatus: {
+    status: PurchaseStatus;
+    count: number;
+    amount: number;
+  }[];
+  byType: {
+    type: string;
+    count: number;
+    amount: number;
+  }[];
 }
 
 // ==================== 场地管理 ====================
