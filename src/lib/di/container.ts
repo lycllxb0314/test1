@@ -166,9 +166,8 @@ export const SERVICE_IDENTIFIERS = {
   SchoolHonorRepository: Symbol.for('SchoolHonorRepository'),
   AnnouncementRepository: Symbol.for('AnnouncementRepository'),
   AchievementRepository: Symbol.for('AchievementRepository'),
-  // P3 新增 Repositories
-  AccessDeviceRepository: Symbol.for('AccessDeviceRepository'),
-  AccessRecordRepository: Symbol.for('AccessRecordRepository'),
+  // P3 新增 Repospositories
+  AccessControlRepository: Symbol.for('AccessControlRepository'),
   SafetyDrillRepository: Symbol.for('SafetyDrillRepository'),
   SafetyInspectionRepository: Symbol.for('SafetyInspectionRepository'),
   AssetRepository: Symbol.for('AssetRepository'),
@@ -268,9 +267,7 @@ export const SERVICE_IDENTIFIERS = {
   AnnouncementService: Symbol.for('AnnouncementService'),
   AchievementService: Symbol.for('AchievementService'),
   // P3 新增 Services
-  AccessDeviceService: Symbol.for('AccessDeviceService'),
-  AccessRecordService: Symbol.for('AccessRecordService'),
-  AccessStatisticsService: Symbol.for('AccessStatisticsService'),
+  AccessControlService: Symbol.for('AccessControlService'),
   SafetyDrillService: Symbol.for('SafetyDrillService'),
   SafetyInspectionService: Symbol.for('SafetyInspectionService'),
   AssetService: Symbol.for('AssetService'),

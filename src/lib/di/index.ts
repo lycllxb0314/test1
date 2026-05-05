@@ -68,7 +68,6 @@ import {
 } from '@/repositories/academic.repository';
 // P2 新增 Repository
 import { scheduleChangeRepository, ScheduleChangeRepository } from '@/repositories/schedule-change.repository';
-import { visitorRepository, VisitorRepository } from '@/repositories/visitor.repository';
 import { courseAdjustmentRepository, CourseAdjustmentRepository } from '@/repositories/course-adjustment.repository';
 import {
   carouselRepository, CarouselRepository,
@@ -78,10 +77,8 @@ import {
 } from '@/repositories/portal.repository';
 // P3 新增 Repository
 import {
-  accessDeviceRepository, AccessDeviceRepository,
-  accessRecordRepository, AccessRecordRepository,
-  accessStatisticsRepository,
-} from '@/repositories/access.repository';
+  accessControlRepository, AccessControlRepository,
+} from '@/repositories/access-control.repository';
 import {
   safetyDrillRepository, SafetyDrillRepository,
   safetyInspectionRepository, SafetyInspectionRepository,
@@ -204,7 +201,6 @@ import { LeaveRequestService, leaveRequestService } from '@/services/leave-reque
 import { RoomBookingService, roomBookingService } from '@/services/room-booking.service';
 // P2 新增 Service
 import { scheduleChangeService, ScheduleChangeService } from '@/services/schedule-change.service';
-import { visitorService, VisitorService } from '@/services/visitor.service';
 import { courseAdjustmentService, CourseAdjustmentService } from '@/services/course-adjustment.service';
 import {
   carouselService, CarouselService,
@@ -214,10 +210,8 @@ import {
 } from '@/services/portal.service';
 // P3 新增 Service
 import {
-  accessDeviceService, AccessDeviceService,
-  accessRecordService, AccessRecordService,
-  accessStatisticsService, AccessStatisticsService,
-} from '@/services/access.service';
+  accessControlService, AccessControlService,
+} from '@/services/access-control.service';
 import {
   safetyDrillService, SafetyDrillService,
   safetyInspectionService, SafetyInspectionService,
@@ -337,15 +331,13 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleDraftRepository, () => scheduleDraftRepository);
   // P2 新增 Repositories
   container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleChangeRepository, () => scheduleChangeRepository);
-  container.registerSingleton(SERVICE_IDENTIFIERS.VisitorRepository, () => visitorRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.CourseAdjustmentRepository, () => courseAdjustmentRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.CarouselRepository, () => carouselRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SchoolHonorRepository, () => schoolHonorRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AnnouncementRepository, () => announcementRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AchievementRepository, () => achievementRepository);
   // P3 新增 Repositories
-  container.registerSingleton(SERVICE_IDENTIFIERS.AccessDeviceRepository, () => accessDeviceRepository);
-  container.registerSingleton(SERVICE_IDENTIFIERS.AccessRecordRepository, () => accessRecordRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AccessControlRepository, () => accessControlRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyDrillRepository, () => safetyDrillRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionRepository, () => safetyInspectionRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AssetRepository, () => assetRepository);
@@ -433,16 +425,13 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.RoomBookingService, () => roomBookingService);
   // P2 新增 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleChangeService, () => scheduleChangeService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.VisitorService, () => visitorService);
   container.registerSingleton(SERVICE_IDENTIFIERS.CourseAdjustmentService, () => courseAdjustmentService);
   container.registerSingleton(SERVICE_IDENTIFIERS.CarouselService, () => carouselService);
   container.registerSingleton(SERVICE_IDENTIFIERS.SchoolHonorService, () => schoolHonorService);
   container.registerSingleton(SERVICE_IDENTIFIERS.AnnouncementService, () => announcementService);
   container.registerSingleton(SERVICE_IDENTIFIERS.AchievementService, () => achievementService);
   // P3 新增 Services
-  container.registerSingleton(SERVICE_IDENTIFIERS.AccessDeviceService, () => accessDeviceService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.AccessRecordService, () => accessRecordService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.AccessStatisticsService, () => accessStatisticsService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.AccessControlService, () => accessControlService);
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyDrillService, () => safetyDrillService);
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionService, () => safetyInspectionService);
   container.registerSingleton(SERVICE_IDENTIFIERS.AssetService, () => assetService);

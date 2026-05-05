@@ -386,18 +386,9 @@ export type {
 
 // ==================== 门禁管理 ====================
 export type {
-  AccessDeviceType,
-  AccessDeviceStatus,
-  AccessDevice,
-  AccessRule,
   PersonType,
-  AccessPerson,
-  AccessCredential,
-  AccessPermission,
-  AccessRecord,
-  AccessStatistics,
-  Visitor,
-  VisitorStatistics,
+  ApplicationStatus,
+  Direction,
 } from './access';
 
 // ==================== 财务管理 ====================

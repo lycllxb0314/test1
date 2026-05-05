@@ -37,8 +37,8 @@ import type {
   CollectivePreparation,
   LessonObservation,
   TeacherResearchProfile,
-  AccessPerson,
-  AccessRecord,
+  PersonType,
+  Direction,
   LeaveRequest,
   ScheduleChange,
   MoralActivity,
@@ -880,11 +880,11 @@ export const roomApi = {
 export const accessApi = {
   /** 获取人员列表 */
   getPersons: (params?: QueryParams) =>
-    apiClient.get<AccessPerson[]>('/access/persons', params),
+    apiClient.get<Record<string, unknown>[]>('/access/persons', params),
   
   /** 获取通行记录 */
   getRecords: (params?: QueryParams) =>
-    apiClient.get<AccessRecord[]>('/access/records', params),
+    apiClient.get<Record<string, unknown>[]>('/access/records', params),
   
   /** 获取统计数据 */
   getStatistics: (date: string) =>

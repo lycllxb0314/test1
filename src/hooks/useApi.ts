@@ -1064,7 +1064,6 @@ import type {
   ExpenseReimbursement,
   Room,
   RoomBooking,
-  AccessRecord,
   HabitGoal,
   HabitStar,
 } from '@/types';

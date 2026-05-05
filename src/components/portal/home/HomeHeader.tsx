@@ -14,6 +14,7 @@ import {
   Sun,
   Sprout,
   Sparkles,
+  DoorOpen,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { roleConfigs, administrativeRoleConfigs } from '@/config/roles';
@@ -121,6 +122,9 @@ export function HomeHeader({ scrolled }: HomeHeaderProps) {
             <Link href="/notices" className={`px-4 py-2 text-base rounded-md transition-all duration-300 ${
               scrolled ? 'hover:bg-white/10' : ''
             }`}>校园公告</Link>
+            <Link href="/visitor-apply" className={`px-4 py-2 text-base rounded-md transition-all duration-300 flex items-center gap-1 ${
+              scrolled ? 'hover:bg-white/10' : ''
+            }`}><DoorOpen className="h-4 w-4" />访客预约</Link>
           </nav>
 
           <div className="flex items-center gap-4 transition-all duration-500">
