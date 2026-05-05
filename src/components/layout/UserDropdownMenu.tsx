@@ -70,17 +70,14 @@ export function UserDropdownMenu({ collapsed }: UserDropdownMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {/* 家长修改密码 */}
-        {user.role === 'parent' && (
-          <ChangePasswordDialog
-            trigger={
-              <div className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:bg-accent">
-                <Key className="mr-2 h-4 w-4" />
-                修改密码
-              </div>
-            }
-          />
-        )}
+        <ChangePasswordDialog
+          trigger={
+            <div className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:bg-accent">
+              <Key className="mr-2 h-4 w-4" />
+              修改密码
+            </div>
+          }
+        />
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
