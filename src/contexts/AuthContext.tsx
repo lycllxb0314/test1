@@ -146,37 +146,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 登录
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
+    console.log('[Auth] Login called for:', username);
     
     try {
-      // 统一使用 API 登录
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 关键：确保 Cookie 被保存和发送
+        credentials: 'include',
         body: JSON.stringify({ username, password }),
       });
       
+      console.log('[Auth] Response status:', response.status);
+      
+      // 检查响应是否为 JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('[Auth] Non-JSON response:', contentType);
+        const text = await response.text();
+        console.error('[Auth] Response text:', text.substring(0, 500));
+        setIsLoading(false);
+        return false;
+      }
+      
       const result = await response.json();
+      console.log('[Auth] Result:', { success: result.success, hasUser: !!result.data?.user });
       
       if (result.success && result.data?.user) {
         const userData = result.data.user;
         setUser(userData);
         localStorage.setItem('smart_campus_user', JSON.stringify(userData));
         
-        // 保存 token 到 localStorage（用于 Authorization header）
         if (result.data.tokens?.accessToken) {
           localStorage.setItem('smart_campus_token', result.data.tokens.accessToken);
           localStorage.setItem('smart_campus_refresh_token', result.data.tokens.refreshToken);
         }
         
+        console.log('[Auth] Login successful');
         setIsLoading(false);
         return true;
       }
       
+      console.log('[Auth] Login failed:', result.error || result.message || 'Unknown');
       setIsLoading(false);
       return false;
     } catch (error) {
-      console.error('[AuthContext] Login error:', error);
+      console.error('[Auth] Login error:', error);
       setIsLoading(false);
       return false;
     }

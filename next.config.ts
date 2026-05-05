@@ -37,8 +37,8 @@ const nextConfig: NextConfig = {
   
   // 编译优化
   compiler: {
-    // 移除 console.log (仅生产环境)
-    removeConsole: process.env.NODE_ENV === 'production',
+    // 暂时禁用 console.log 移除以便调试
+    // removeConsole: process.env.NODE_ENV === 'production',
   },
   
   // 模块导入优化

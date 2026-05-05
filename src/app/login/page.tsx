@@ -40,22 +40,25 @@ export default function LoginPage() {
         setIsLoggingIn(true);
 
         try {
+            console.log('[Login] Starting login for:', username);
             const success = await login(username.trim(), password);
+            console.log('[Login] Result:', success);
 
             if (success) {
-                setTimeout(() => {
-                    router.push("/");
-                    router.refresh();
-                }, 100);
+                console.log('[Login] Success, redirecting to home...');
+                // 使用 window.location 强制刷新页面
+                window.location.href = '/';
             } else {
+                // 登录失败，显示错误
                 setError("用户名或密码错误");
                 setIsLoggingIn(false);
             }
         } catch (err) {
+            console.error('[Login] Error:', err);
             setError("登录失败，请稍后重试");
             setIsLoggingIn(false);
         }
-    }, [username, password, login, router]);
+    }, [username, password, login]);
 
     return (
         <div className="min-h-screen flex">

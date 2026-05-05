@@ -77,40 +77,49 @@ export async function login(
   password: string,
   isProduction: boolean = false
 ): Promise<LoginResult> {
-  // 1. 验证输入
-  if (!username || !password) {
-    return { success: false, error: '请输入用户名和密码' };
-  }
-
-  // 2. 从数据库查询用户
-  const client = getSupabaseClient();
-  
-  // 支持多种登录方式：工号、手机号、姓名
-  const { data: dbUser, error } = await client
-    .from('users')
-    .select('*')
-    .or(`employee_id.eq.${username},phone.eq.${username},name.eq.${username}`)
-    .eq('status', 'active')
-    .single();
-
-  if (error || !dbUser) {
-    // 如果用户表为空，尝试从教师表迁移
-    if (error?.code === 'PGRST116') {
-      return { success: false, error: '用户不存在，请先运行用户迁移 /api/migrate/users' };
+  try {
+    // 1. 验证输入
+    if (!username || !password) {
+      return { success: false, error: '请输入用户名和密码' };
     }
-    return { success: false, error: '用户不存在' };
-  }
 
-  // 3. 验证密码（使用 bcrypt）
-  if (!dbUser.password_hash) {
-    return { success: false, error: '用户密码未设置，请联系管理员' };
-  }
-  
-  const isValidPassword = await bcrypt.compare(password, dbUser.password_hash);
+    console.log('[Login] Attempting login for:', username);
 
-  if (!isValidPassword) {
-    return { success: false, error: '密码错误' };
-  }
+    // 2. 从数据库查询用户
+    const client = getSupabaseClient();
+    
+    // 支持多种登录方式：工号、手机号、姓名
+    const { data: dbUser, error } = await client
+      .from('users')
+      .select('*')
+      .or(`employee_id.eq.${username},phone.eq.${username},name.eq.${username}`)
+      .eq('status', 'active')
+      .single();
+
+    if (error || !dbUser) {
+      console.log('[Login] User query error:', error?.message || 'User not found');
+      // 如果用户表为空，尝试从教师表迁移
+      if (error?.code === 'PGRST116') {
+        return { success: false, error: '用户不存在，请先运行用户迁移 /api/migrate/users' };
+      }
+      return { success: false, error: '用户不存在' };
+    }
+
+    console.log('[Login] User found:', dbUser.name, 'role:', dbUser.role);
+
+    // 3. 验证密码（使用 bcrypt）
+    if (!dbUser.password_hash) {
+      return { success: false, error: '用户密码未设置，请联系管理员' };
+    }
+    
+    const isValidPassword = await bcrypt.compare(password, dbUser.password_hash);
+
+    if (!isValidPassword) {
+      console.log('[Login] Invalid password for:', username);
+      return { success: false, error: '密码错误' };
+    }
+
+    console.log('[Login] Password verified, generating tokens...');
 
   // 4. 构建用户信息
   const user: User = {
@@ -195,11 +204,17 @@ export async function login(
     role: user.role,
   });
 
+  console.log('[Login] Login successful for:', user.name);
+
   return {
     success: true,
     user,
     tokens,
   };
+  } catch (error) {
+    console.error('[Login] Unexpected error:', error);
+    return { success: false, error: '登录服务异常，请稍后重试' };
+  }
 }
 
 /**
