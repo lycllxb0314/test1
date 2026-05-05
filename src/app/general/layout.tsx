@@ -12,7 +12,7 @@ import Link from 'next/link';
 
 // 系统维护状态配置
 const MAINTENANCE_CONFIG = {
-  enabled: true, // 设为 false 可恢复正常访问
+  enabled: false, // 设为 false 可恢复正常访问
   title: '系统正在升级维护中',
   message: '总务后勤系统正在进行功能升级，请稍后再访问。',
   contactInfo: '如有紧急事务，请联系总务处：0597-XXX-XXXX',
