@@ -15,11 +15,16 @@ export interface AssetRecord {
   category: string;
   brand: string | null;
   model: string | null;
-  purchase_date: string | null;
+  specification?: string | null;
+  quantity?: number;
+  unit?: string | null;
   purchase_price: number | null;
+  purchase_date: string | null;
   location: string | null;
+  department?: string | null;
   manager: string | null;
   status: string;
+  warranty_expiry?: string | null;
   last_maintenance: string | null;
   next_maintenance: string | null;
   created_at: string;
