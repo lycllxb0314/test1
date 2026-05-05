@@ -258,6 +258,7 @@ export interface NavGroup {
 
 /** 将平铺的 NavItem[] 按 group 字段归组 */
 export function groupNavItems(items: NavItem[]): NavGroup[] {
+  if (!items || items.length === 0) return [];
   const groups: NavGroup[] = [];
   let currentGroup = '';
   items.forEach((item) => {
@@ -266,7 +267,7 @@ export function groupNavItems(items: NavItem[]): NavGroup[] {
       groups.push({ label: group, items: [] });
       currentGroup = group;
     }
-    groups[groups.length - 1].items.push(item);
+    groups[groups.length - 1]!.items.push(item);
   });
   return groups;
 }
