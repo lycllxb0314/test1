@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { roleOptions } from '@/contexts/AuthContext';
+
 import { roleConfigs } from '@/config/roles';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -28,7 +28,7 @@ interface UserDropdownMenuProps {
 // ─── Component ───────────────────────────────────────────────────
 
 export function UserDropdownMenu({ collapsed }: UserDropdownMenuProps) {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
 
   if (!user) return null;
@@ -88,17 +88,6 @@ export function UserDropdownMenu({ collapsed }: UserDropdownMenuProps) {
             }
           />
         )}
-        <DropdownMenuLabel className="text-xs text-gray-500">切换角色（演示）</DropdownMenuLabel>
-        {roleOptions.map((role) => (
-          <DropdownMenuItem
-            key={role.value}
-            onClick={() => switchRole(role.value as Parameters<typeof switchRole>[0])}
-            className={user.role === role.value ? 'bg-primary/10' : ''}
-          >
-            <span className="font-medium">{role.label}</span>
-            <span className="ml-2 text-xs text-gray-500">{role.description}</span>
-          </DropdownMenuItem>
-        ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
