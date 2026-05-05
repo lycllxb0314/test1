@@ -27,7 +27,7 @@ export function useAccessStatistics() {
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get<AccessStatistics>('/api/access/statistics');
+      const res = await apiClient.get<AccessStatistics>('/access/statistics');
       if (res.success && res.data) setData(res.data);
     } catch { /* ignore */ }
     setLoading(false);
@@ -61,7 +61,7 @@ export function useAccessPersons(params: {
       searchParams.set('page', String(params.page));
       searchParams.set('pageSize', String(params.pageSize));
 
-      const res = await apiClient.get<PersonListResult>(`/api/access/persons?${searchParams}`);
+      const res = await apiClient.get<PersonListResult>(`/access/persons?${searchParams}`);
       if (res.success && res.data) {
         setData(res.data.items || []);
         setTotal(res.data.total || 0);
@@ -73,7 +73,7 @@ export function useAccessPersons(params: {
   useEffect(() => { fetch(); }, [fetch]);
 
   const updatePhoto = useCallback(async (personId: string, photoUrl: string, personInfo?: { name?: string; personType?: PersonType; department?: string; relatedId?: string }) => {
-    const res = await apiClient.post<AccessPerson>('/api/access/persons', {
+    const res = await apiClient.post<AccessPerson>('/access/persons', {
       action: 'updatePhoto',
       personId,
       photoUrl,
@@ -113,7 +113,7 @@ export function useAccessApplications(params: {
       searchParams.set('page', String(params.page));
       searchParams.set('pageSize', String(params.pageSize));
 
-      const res = await apiClient.get<ApplicationListResult>(`/api/access/applications?${searchParams}`);
+      const res = await apiClient.get<ApplicationListResult>(`/access/applications?${searchParams}`);
       if (res.success && res.data) {
         setData(res.data.items || []);
         setTotal(res.data.total || 0);
@@ -125,13 +125,13 @@ export function useAccessApplications(params: {
   useEffect(() => { fetch(); }, [fetch]);
 
   const approveApplication = useCallback(async (id: string) => {
-    const res = await apiClient.put<AccessApplication>(`/api/access/applications/${id}`, { action: 'approve' });
+    const res = await apiClient.put<AccessApplication>(`/access/applications/${id}`, { action: 'approve' });
     if (res.success) await fetch();
     return res;
   }, [fetch]);
 
   const rejectApplication = useCallback(async (id: string, reason: string) => {
-    const res = await apiClient.put<AccessApplication>(`/api/access/applications/${id}`, { action: 'reject', reason });
+    const res = await apiClient.put<AccessApplication>(`/access/applications/${id}`, { action: 'reject', reason });
     if (res.success) await fetch();
     return res;
   }, [fetch]);
@@ -164,7 +164,7 @@ export function useAccessRecords(params: {
       searchParams.set('page', String(params.page));
       searchParams.set('pageSize', String(params.pageSize));
 
-      const res = await apiClient.get<RecordListResult>(`/api/access/records?${searchParams}`);
+      const res = await apiClient.get<RecordListResult>(`/access/records?${searchParams}`);
       if (res.success && res.data) {
         setData(res.data.items || []);
         setTotal(res.data.total || 0);

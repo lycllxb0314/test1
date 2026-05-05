@@ -101,8 +101,8 @@ export class AccessControlService extends BaseService {
 
       let query = client
         .from('teachers')
-        .select('id, name, department, phone, photo_url, employee_id')
-        .eq('status', 'active');
+        .select('id, name, department, phone, employee_id')
+        .in('status', ['active', '在职']);
 
       if (search) {
         query = query.or(`name.ilike.%${search}%,department.ilike.%${search}%`);
@@ -116,7 +116,7 @@ export class AccessControlService extends BaseService {
         name: (t.name as string) || '',
         personType: 'teacher' as PersonType,
         phone: (t.phone as string) || undefined,
-        photoUrl: (t.photo_url as string) || undefined,
+        photoUrl: undefined,
         relatedId: (t.employee_id as string) || (t.id as string),
         department: (t.department as string) || undefined,
         status: 'active' as const,
@@ -139,7 +139,7 @@ export class AccessControlService extends BaseService {
       let query = client
         .from('students')
         .select('id, name, class_name, student_no')
-        .eq('status', 'active');
+        .in('status', ['active', '在校']);
 
       if (search) {
         query = query.or(`name.ilike.%${search}%,class_name.ilike.%${search}%`);
@@ -383,21 +383,43 @@ export class AccessControlService extends BaseService {
     error?: string;
   }> {
     try {
+      // 统计教师和学生数量（从教务表）
+      const client = getSupabaseClient();
+      const [teacherRes, studentRes] = await Promise.all([
+        client.from('teachers').select('*', { count: 'exact', head: true }).in('status', ['active', '在职']),
+        client.from('students').select('*', { count: 'exact', head: true }).in('status', ['active', '在校']),
+      ]);
+      const academicTotal = (teacherRes.count || 0) + (studentRes.count || 0);
+
       const stats = await accessRecordRepository.getStatistics();
       const pendingApps = await accessApplicationRepository.getPendingCount();
       const activeVisitors = await accessPersonRepository.getActiveVisitorCount();
-      const personDistribution = await accessPersonRepository.getPersonTypeDistribution();
+      const accessPersonDistribution = await accessPersonRepository.getPersonTypeDistribution();
+
+      // 合并人员分布（教务 + 门禁表）
+      const distribution = [...accessPersonDistribution];
+      const existingTypes = new Set(distribution.map(d => d.type));
+      if (!existingTypes.has('teacher')) distribution.push({ type: 'teacher', count: teacherRes.count || 0 });
+      else {
+        const t = distribution.find(d => d.type === 'teacher');
+        if (t) t.count += teacherRes.count || 0;
+      }
+      if (!existingTypes.has('student')) distribution.push({ type: 'student', count: studentRes.count || 0 });
+      else {
+        const s = distribution.find(d => d.type === 'student');
+        if (s) s.count += studentRes.count || 0;
+      }
 
       return {
         success: true,
         data: {
-          totalPersons: stats.totalPersons || 0,
+          totalPersons: academicTotal + stats.totalPersons,
           todayRecords: stats.todayRecords || 0,
           todayIn: stats.todayIn || 0,
           todayOut: stats.todayOut || 0,
           pendingApplications: pendingApps,
           activeVisitors,
-          personTypeDistribution: personDistribution,
+          personTypeDistribution: distribution,
         },
       };
     } catch (err) {
