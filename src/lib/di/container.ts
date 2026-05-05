@@ -207,6 +207,9 @@ export const SERVICE_IDENTIFIERS = {
   AfterSchoolCourseRepository: Symbol.for('AfterSchoolCourseRepository'),
   AfterSchoolEnrollmentRepository: Symbol.for('AfterSchoolEnrollmentRepository'),
 
+  // 智能设备 Repositories
+  DeviceRepository: Symbol.for('DeviceRepository'),
+
   // 体育健康 Repositories
   HealthProfileRepository: Symbol.for('HealthProfileRepository'),
   FitnessAssessmentRepository: Symbol.for('FitnessAssessmentRepository'),
@@ -300,6 +303,9 @@ export const SERVICE_IDENTIFIERS = {
 
   // 课后服务选课 Services
   AfterSchoolEnrollmentService: Symbol.for('AfterSchoolEnrollmentService'),
+
+  // 智能设备 Services
+  DeviceService: Symbol.for('DeviceService'),
 
   // 体育健康 Services
   HealthManagementService: Symbol.for('HealthManagementService'),

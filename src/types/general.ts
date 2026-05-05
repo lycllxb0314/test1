@@ -421,6 +421,123 @@ export interface SafetyIssue {
   resolution?: string;
 }
 
+// ==================== 设备管理 ====================
+
+/** 设备类型 */
+export type DeviceType = 
+  | 'light'        // 灯光
+  | 'ac'           // 空调
+  | 'door'         // 门禁
+  | 'projector'    // 投影仪
+  | 'curtain'      // 窗帘
+  | 'speaker'      // 音响
+  | 'camera'       // 摄像头
+  | 'sensor'       // 传感器
+  | 'other';       // 其他
+
+/** 设备状态 */
+export type DeviceStatus = 
+  | 'online'       // 在线
+  | 'offline'      // 离线
+  | 'maintenance'  // 维护中
+  | 'fault';       // 故障
+
+/** 设备信息 */
+export interface Device {
+  id: string;
+  name: string;                           // 设备名称
+  deviceNo?: string;                      // 设备编号
+  type: DeviceType;                       // 设备类型
+  status: DeviceStatus;                   // 设备状态
+  
+  // 位置信息
+  building: string;                       // 所属楼宇
+  buildingName?: string;                  // 楼宇名称
+  floor: number;                          // 楼层
+  room?: string;                          // 房间号
+  location?: string;                      // 具体位置
+  
+  // 设备属性
+  brand?: string;                         // 品牌
+  model?: string;                         // 型号
+  sn?: string;                            // 序列号
+  
+  // 控制状态
+  isOn: boolean;                          // 开关状态
+  brightness?: number;                    // 亮度 (0-100)
+  temperature?: number;                   // 温度 (16-30)
+  locked?: boolean;                       // 门锁状态
+  position?: number;                      // 窗帘位置 (0-100)
+  
+  // 管理信息
+  managerId?: string;                     // 管理员ID
+  managerName?: string;                   // 管理员姓名
+  department?: string;                    // 所属部门
+  
+  // 网络信息
+  ipAddress?: string;                     // IP地址
+  macAddress?: string;                    // MAC地址
+  
+  // 维护信息
+  lastMaintenance?: string;               // 上次维护时间
+  nextMaintenance?: string;               // 下次维护时间
+  warrantyExpiry?: string;                // 保修到期
+  
+  // 图片和备注
+  images?: string[];
+  note?: string;
+  
+  // 时间戳
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 设备控制日志 */
+export interface DeviceControlLog {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  action: string;                         // 操作类型
+  value?: string;                         // 操作值
+  operatorId: string;                     // 操作人ID
+  operatorName: string;                   // 操作人姓名
+  result: 'success' | 'failed';           // 操作结果
+  errorMessage?: string;                  // 错误信息
+  createdAt: string;
+}
+
+/** 设备统计数据 */
+export interface DeviceStatistics {
+  total: number;                          // 设备总数
+  online: number;                         // 在线设备
+  offline: number;                        // 离线设备
+  running: number;                        // 运行中设备
+  maintenance: number;                    // 维护中设备
+  fault: number;                          // 故障设备
+  byType: {                               // 按类型统计
+    type: DeviceType;
+    typeName: string;
+    count: number;
+    online: number;
+    running: number;
+  }[];
+  byBuilding: {                           // 按楼宇统计
+    building: string;
+    buildingName: string;
+    total: number;
+    online: number;
+  }[];
+}
+
+/** 设备筛选条件 */
+export interface DeviceFilters {
+  type?: DeviceType | 'all';
+  status?: DeviceStatus | 'all';
+  building?: string;
+  floor?: number | 'all';
+  search?: string;
+}
+
 // ==================== 总务筛选 ====================
 
 /** 资产筛选条件 */

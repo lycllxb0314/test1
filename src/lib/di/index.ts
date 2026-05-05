@@ -145,6 +145,9 @@ import {
   AfterSchoolEnrollmentRepository, afterSchoolEnrollmentRepository,
 } from '@/repositories/after-school.repository';
 
+// 智能设备 Repositories
+import { DeviceRepository, deviceRepository } from '@/repositories/device.repository';
+
 // 导入 Service 实现
 import { UserService, userService } from '@/services/user.service';
 import { StudentService, studentService } from '@/services/student.service';
@@ -261,6 +264,9 @@ import { HealthManagementService, healthManagementService } from '@/services/hea
 
 // 课后服务选课 Services
 import { AfterSchoolEnrollmentService, afterSchoolEnrollmentService } from '@/services/after-school.service';
+
+// 智能设备 Services
+import { DeviceService, deviceService } from '@/services/device.service';
 
 /**
  * 初始化 DI 容器
@@ -459,8 +465,14 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.AfterSchoolCourseRepository, () => afterSchoolCourseRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AfterSchoolEnrollmentRepository, () => afterSchoolEnrollmentRepository);
 
+  // 智能设备 Repositories
+  container.registerSingleton(SERVICE_IDENTIFIERS.DeviceRepository, () => deviceRepository);
+
   // 课后服务选课 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.AfterSchoolEnrollmentService, () => afterSchoolEnrollmentService);
+
+  // 智能设备 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.DeviceService, () => deviceService);
 }
 
 // 导出
