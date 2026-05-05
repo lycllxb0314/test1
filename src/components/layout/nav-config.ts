@@ -193,6 +193,7 @@ export const healthNav: NavItem[] = [
 // - 个人：低频的个人设置
 export const teacherBaseNav: NavItem[] = [
   { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台' },
+  { name: '个人档案', href: '/teacher/profile', icon: UserCircle, description: '个人信息维护' },
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排', group: '教学' },
   { name: '备课中心', href: '/teacher/lesson-prep', icon: BookOpen, description: '学科备课支持，文本解读', badge: '新', group: '教学' },
   { name: '智慧作业', href: '/teacher/smart-homework', icon: Brain, description: 'AI智能命题·校本题库·标准排版', badge: '新', group: '教学' },
@@ -204,7 +205,6 @@ export const teacherBaseNav: NavItem[] = [
   { name: '采购申请', href: '/teacher/purchase', icon: ShoppingCart, description: '提交物资采购申请', group: '办事' },
   { name: '报销申请', href: '/teacher/expense', icon: DollarSign, description: '费用报销申请', group: '办事' },
   { name: '教室预约', href: '/teacher/room-booking', icon: DoorOpen, description: '预约使用教室', group: '办事' },
-  { name: '个人档案', href: '/teacher/profile', icon: UserCircle, description: '个人信息维护', group: '个人' },
 ];
 
 // 教师空间导航 - 班主任专属功能
