@@ -324,11 +324,14 @@ export class AccessControlService extends BaseService {
       const validFrom = app.expectedDate;
       const validUntil = app.expectedDate;
 
+      const personId = `ap-${app.applicantType.charAt(0)}-${app.id}`;
+
       await accessPersonRepository.upsert({
-        id: `ap-${app.applicantType.charAt(0)}-${app.id}`,
+        id: personId,
         name: app.applicantName,
         personType: app.applicantType as PersonType,
         phone: app.applicantPhone,
+        idCard: app.idCard,
         photoUrl: app.photoUrl,
         department: app.targetDepartment,
         relatedId: app.id,
@@ -337,8 +340,9 @@ export class AccessControlService extends BaseService {
         validUntil,
       });
 
+      // 照片存在时自动触发生成人脸向量
       if (app.photoUrl) {
-        this.generateFaceVectorAsync(`ap-${app.applicantType.charAt(0)}-${app.id}`, app.photoUrl).catch(() => {});
+        this.generateFaceVectorAsync(personId, app.photoUrl).catch(() => {});
       }
     } catch (err) {
       console.error('[AccessControlService] createPersonFromApplication error:', err);

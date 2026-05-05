@@ -14,6 +14,7 @@ type FormData = {
   applicantName: string;
   applicantPhone: string;
   idCard: string;
+  photoUrl: string;
   purpose: string;
   targetPerson: string;
   targetDepartment: string;
@@ -31,6 +32,7 @@ const initialForm: FormData = {
   applicantName: '',
   applicantPhone: '',
   idCard: '',
+  photoUrl: '',
   purpose: '',
   targetPerson: '',
   targetDepartment: '',
@@ -63,6 +65,10 @@ export default function VisitorApplyPage() {
     }
     if (!form.expectedDate) {
       setResult({ success: false, message: '请选择来访日期' });
+      return;
+    }
+    if (!form.photoUrl) {
+      setResult({ success: false, message: '请上传本人照片，用于门禁人脸识别' });
       return;
     }
 
@@ -198,6 +204,59 @@ export default function VisitorApplyPage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* 照片上传 */}
+        <div className="bg-card border rounded-xl p-6 mb-6">
+          <h2 className="text-sm font-semibold text-foreground mb-1">本人照片 <span className="text-destructive">*</span></h2>
+          <p className="text-xs text-muted-foreground mb-4">用于门禁人脸识别通行，请上传正面免冠照</p>
+          {form.photoUrl ? (
+            <div className="relative group w-32 h-32 mx-auto rounded-xl overflow-hidden border bg-muted/20">
+              <img src={form.photoUrl} alt="申请人照片" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => updateForm('photoUrl', '')}
+                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/80 border shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          ) : (
+            <label className="block w-32 h-32 mx-auto border-2 border-dashed rounded-xl cursor-pointer hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-1.5 bg-muted/5">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !file.type.startsWith('image/')) return;
+                  if (file.size > 10 * 1024 * 1024) {
+                    setResult({ success: false, message: '照片不能超过10MB' });
+                    return;
+                  }
+                  try {
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    fd.append('folder', 'access-photos');
+                    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (data.success && data.data?.url) {
+                      updateForm('photoUrl', data.data.url);
+                    } else {
+                      setResult({ success: false, message: '照片上传失败，请重试' });
+                    }
+                  } catch {
+                    setResult({ success: false, message: '照片上传失败，请重试' });
+                  }
+                }}
+              />
+              <svg className="w-8 h-8 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+              <span className="text-xs text-muted-foreground">点击上传照片</span>
+            </label>
+          )}
+          <p className="text-[10px] text-muted-foreground/60 text-center mt-2">支持 JPG/PNG，建议正面免冠照</p>
         </div>
 
         {/* 被访信息 */}
