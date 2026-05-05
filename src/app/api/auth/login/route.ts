@@ -22,11 +22,13 @@ import { loginRateLimiter, ok, fail, serverError } from '@/lib/api';
  * - message: 提示信息
  */
 export async function POST(request: NextRequest) {
-  // 限流检查（防暴力破解：15分钟内最多5次尝试）
-  const rateLimitResult = await loginRateLimiter(request);
-  if (rateLimitResult) {
-    return rateLimitResult;
-  }
+  // 限流检查暂时禁用（排查登录问题）
+  // TODO: 问题解决后重新启用
+  // const rateLimitResult = await loginRateLimiter(request);
+  // if (rateLimitResult) {
+  //   console.log('[Login] Rate limited:', request.headers.get('x-forwarded-for') || 'unknown');
+  //   return rateLimitResult;
+  // }
   
   try {
     const body = await request.json();

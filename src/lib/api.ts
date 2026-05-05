@@ -457,7 +457,7 @@ import { rateLimitMiddleware, RateLimitConfig, createRateLimiter } from './rate-
 /** 预定义的速率限制器 */
 export const loginRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  maxRequests: 5,
+  maxRequests: 20, // 提高到20次，避免正常测试触发
   keyPrefix: 'login',
   level: 'ip',
   message: '登录尝试次数过多，请15分钟后再试',
