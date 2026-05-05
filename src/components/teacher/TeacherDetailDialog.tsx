@@ -137,6 +137,7 @@ export interface TeacherDetail {
   id: string;
   name: string;
   gender: string;
+  photoUrl?: string;
   phone: string;
   email: string;
   employeeId: string;  // 工号
@@ -365,6 +366,53 @@ export function TeacherDetailDialog({
 
           {/* 基本信息 Tab */}
           <TabsContent value="basic" className="space-y-4 py-4">
+            {/* 头像上传区域 */}
+            <div className="flex items-center gap-4 pb-3 border-b">
+              <div className="relative group">
+                {form.photoUrl ? (
+                  <img
+                    src={form.photoUrl}
+                    alt={form.name}
+                    className="w-20 h-20 rounded-full object-cover border-2 border-border"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30">
+                    <User className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                )}
+                <label className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <span className="text-white text-xs">更换</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                        const data = await res.json();
+                        if (data.success && data.data?.url) {
+                          setForm(prev => ({ ...prev, photoUrl: data.data.url }));
+                        }
+                      } catch (err) {
+                        console.error('上传照片失败:', err);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">{form.name || '教师姓名'}</p>
+                <p className="text-xs text-muted-foreground">{form.employeeId && `工号: ${form.employeeId}`}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {form.photoUrl ? '点击头像更换照片，将同步到门禁系统' : '点击头像上传照片，用于门禁人脸识别'}
+                </p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               {/* 姓名 */}
               <div className="space-y-2">

@@ -48,11 +48,30 @@ export const PUT = protectedRoute(async (request: NextRequest, context: Extended
     }
     
     const body = await request.json();
+    
+    // 处理照片字段映射
+    if (body.photoUrl !== undefined) body.photo_url = body.photoUrl;
+    
     const result = await studentService.updateStudent(id, body);
     
     if (!result.success) {
       const statusCode = result.code === 'NOT_FOUND' ? 404 : 500;
       return NextResponse.json(error(result.error || '更新学生信息失败', result.code as ErrorCode), { status: statusCode });
+    }
+    
+    // 照片更新时同步到门禁系统并触发生成人脸向量
+    if (body.photo_url) {
+      try {
+        const { accessControlService } = await import('@/services/access-control.service');
+        const studentData = result.data as Record<string, unknown> | undefined;
+        const studentName = (studentData?.name as string) || (body.name as string) || '';
+        const className = (studentData?.class_name as string) || (body.class_name as string) || '';
+        accessControlService.syncPhotoFromAcademic(
+          'student', id, body.photo_url, studentName, className
+        ).catch(err => console.error('同步照片到门禁失败:', err));
+      } catch (err) {
+        console.error('触发门禁同步失败:', err);
+      }
     }
     
     return NextResponse.json({ success: true, data: result.data, message: '学生信息更新成功' });

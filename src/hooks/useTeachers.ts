@@ -192,6 +192,7 @@ export interface TeacherInfo {
   status: string;
   teachYears: number;
   avatar?: string;
+  photoUrl?: string;             // 照片URL（用于门禁人脸识别）
   
   // === 个人信息扩展 ===
   birthDate?: string;           // 出生日期

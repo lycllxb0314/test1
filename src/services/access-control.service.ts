@@ -101,7 +101,7 @@ export class AccessControlService extends BaseService {
 
       let query = client
         .from('teachers')
-        .select('id, name, department, phone, employee_id')
+        .select('id, name, department, phone, employee_id, photo_url')
         .in('status', ['active', '在职']);
 
       if (search) {
@@ -116,7 +116,7 @@ export class AccessControlService extends BaseService {
         name: (t.name as string) || '',
         personType: 'teacher' as PersonType,
         phone: (t.phone as string) || undefined,
-        photoUrl: undefined,
+        photoUrl: (t.photo_url as string) || undefined,
         relatedId: (t.employee_id as string) || (t.id as string),
         department: (t.department as string) || undefined,
         status: 'active' as const,
@@ -138,7 +138,7 @@ export class AccessControlService extends BaseService {
 
       let query = client
         .from('students')
-        .select('id, name, class_name, student_no')
+        .select('id, name, class_name, student_no, photo_url')
         .in('status', ['active', '在校']);
 
       if (search) {
@@ -153,7 +153,7 @@ export class AccessControlService extends BaseService {
         name: (s.name as string) || '',
         personType: 'student' as PersonType,
         phone: undefined,
-        photoUrl: undefined,
+        photoUrl: (s.photo_url as string) || undefined,
         relatedId: s.id as string,
         department: (s.class_name as string) || undefined,
         status: 'active' as const,
@@ -167,7 +167,85 @@ export class AccessControlService extends BaseService {
   }
 
   /**
-   * 更新人员照片（自动触发人脸向量生成）
+   * 从教务端同步照片到门禁（教务更新照片时调用）
+   * 教师ID格式：employee_id (如 ly0001)
+   * 学生ID格式：student.id (如 s0001)
+   */
+  async syncPhotoFromAcademic(
+    personType: 'teacher' | 'student',
+    relatedId: string,
+    photoUrl: string,
+    name: string,
+    department?: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const personId = personType === 'teacher'
+        ? `ap-t-${relatedId}`
+        : `ap-s-${relatedId}`;
+
+      // Upsert 到 access_persons
+      await accessPersonRepository.upsert({
+        id: personId,
+        name,
+        personType,
+        photoUrl,
+        relatedId,
+        department,
+        status: 'active',
+      });
+
+      // 更新照片 URL（确保 access_persons 中的 photo_url 字段也被更新）
+      await accessPersonRepository.updatePhoto(personId, photoUrl);
+
+      // 异步触发人脸向量生成
+      this.generateFaceVectorAsync(personId, photoUrl).catch(err => {
+        console.error('[AccessControlService] 教务同步向量生成失败:', err);
+      });
+
+      console.log(`[AccessControlService] 教务照片同步到门禁成功: ${personId}`);
+      return { success: true };
+    } catch (err) {
+      console.error('[AccessControlService] syncPhotoFromAcademic error:', err);
+      return { success: false, error: '同步照片到门禁失败' };
+    }
+  }
+
+  /**
+   * 从门禁端同步照片到教务（门禁更新照片时调用）
+   * personId 格式: ap-t-{employeeId} 或 ap-s-{studentId}
+   */
+  async syncPhotoToAcademic(personId: string, photoUrl: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const client = getSupabaseClient();
+
+      if (personId.startsWith('ap-t-')) {
+        // 同步到 teachers 表
+        const employeeId = personId.replace('ap-t-', '');
+        const { error } = await client
+          .from('teachers')
+          .update({ photo_url: photoUrl })
+          .eq('employee_id', employeeId);
+        if (error) console.error('[AccessControlService] 同步照片到教师表失败:', error.message);
+      } else if (personId.startsWith('ap-s-')) {
+        // 同步到 students 表
+        const studentId = personId.replace('ap-s-', '');
+        const { error } = await client
+          .from('students')
+          .update({ photo_url: photoUrl })
+          .eq('id', studentId);
+        if (error) console.error('[AccessControlService] 同步照片到学生表失败:', error.message);
+      }
+
+      console.log(`[AccessControlService] 门禁照片同步到教务成功: ${personId}`);
+      return { success: true };
+    } catch (err) {
+      console.error('[AccessControlService] syncPhotoToAcademic error:', err);
+      return { success: false, error: '同步照片到教务失败' };
+    }
+  }
+
+  /**
+   * 更新人员照片（自动触发双向同步 + 人脸向量生成）
    */
   async updatePersonPhoto(
     personId: string,
@@ -194,7 +272,14 @@ export class AccessControlService extends BaseService {
         return { success: false, error: '人员不存在' };
       }
 
-      // 3. 异步生成人脸向量（不阻塞响应）
+      // 3. 双向同步：如果是教师/学生，同步回教务表
+      if (personId.startsWith('ap-t-') || personId.startsWith('ap-s-')) {
+        this.syncPhotoToAcademic(personId, photoUrl).catch(err => {
+          console.error('[AccessControlService] 同步回教务失败:', err);
+        });
+      }
+
+      // 4. 异步生成人脸向量（不阻塞响应）
       this.generateFaceVectorAsync(personId, photoUrl).catch(err => {
         console.error('[AccessControlService] 向量生成失败:', err);
       });

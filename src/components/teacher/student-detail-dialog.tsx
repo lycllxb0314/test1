@@ -39,6 +39,7 @@ import {
   X,
   Loader2,
   Trophy,
+  Camera,
 } from 'lucide-react';
 import { useStudents } from '@/hooks/useStudents';
 import { withAuth } from '@/lib/auth-client';
@@ -106,6 +107,7 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
   const [formData, setFormData] = useState({
     name: '',
     gender: 'male' as 'male' | 'female',
+    photoUrl: '',
     birthDate: '',
     ethnicity: '',
     nativePlace: '',
@@ -146,6 +148,7 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
         setFormData({
           name: result.name || '',
           gender: result.gender || 'male',
+          photoUrl: result.photoUrl ?? '',
           birthDate: result.birthDate || '',
           ethnicity: result.ethnicity || '',
           nativePlace: result.nativePlace || '',
@@ -199,6 +202,7 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
     const updateData: Partial<StudentFullProfile> = {
       name: formData.name || undefined,
       gender: formData.gender,
+      photoUrl: formData.photoUrl || undefined,
       birthDate: formData.birthDate || undefined,
       ethnicity: formData.ethnicity || undefined,
       nativePlace: formData.nativePlace || undefined,
@@ -233,6 +237,7 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
       setFormData({
         name: profile.name || '',
         gender: profile.gender || 'male',
+        photoUrl: profile.photoUrl ?? '',
         birthDate: profile.birthDate || '',
         ethnicity: profile.ethnicity || '',
         nativePlace: profile.nativePlace || '',
@@ -364,8 +369,52 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
             <Card className="shadow-sm">
               <CardContent className="pt-4">
                 <div className="flex items-start gap-4">
-                  <div className={`w-16 h-16 rounded-full ${genderDisplay.bg} flex items-center justify-center text-2xl`}>
-                    {genderDisplay.icon}
+                  <div className="flex-shrink-0">
+                    {isEditing ? (
+                      <div className="relative group">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          id="student-photo-upload"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const uploadForm = new FormData();
+                              uploadForm.append('file', file);
+                              uploadForm.append('folder', 'student-photos');
+                              const res = await fetch('/api/upload', { method: 'POST', body: uploadForm });
+                              const data = await res.json();
+                              if (data.success && data.data?.url) {
+                                handleFieldChange('photoUrl', data.data.url);
+                              }
+                            } catch { /* ignore */ }
+                          }}
+                        />
+                        {formData.photoUrl ? (
+                          <div className="relative">
+                            <img src={formData.photoUrl} alt={profile.name} className="w-16 h-16 rounded-full object-cover" />
+                            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('student-photo-upload')?.click()}>
+                              <Camera className="w-4 h-4 text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`w-16 h-16 rounded-full ${genderDisplay.bg} flex items-center justify-center text-2xl relative group-hover:opacity-80 transition-opacity cursor-pointer`} onClick={() => document.getElementById('student-photo-upload')?.click()}>
+                            {genderDisplay.icon}
+                            <Camera className="w-3 h-3 absolute bottom-0 right-0 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      formData.photoUrl ? (
+                        <img src={formData.photoUrl} alt={profile.name} className="w-16 h-16 rounded-full object-cover" />
+                      ) : (
+                        <div className={`w-16 h-16 rounded-full ${genderDisplay.bg} flex items-center justify-center text-2xl`}>
+                          {genderDisplay.icon}
+                        </div>
+                      )
+                    )}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">

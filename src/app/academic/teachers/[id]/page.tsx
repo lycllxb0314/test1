@@ -47,6 +47,7 @@ import {
   Save,
   X,
   Loader2,
+  Camera,
   type LucideIcon,
 } from 'lucide-react';
 import { DatePicker, MonthPicker } from '@/components/ui/date-picker';
@@ -120,6 +121,7 @@ const getRecordTypeInfo = (type: string) => {
 interface FormData {
   name: string;
   gender: string;
+  photoUrl: string;
   birthDate: string;
   ethnicity: string;
   politicalStatus: string;
@@ -265,6 +267,7 @@ export default function TeacherDetailPage() {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     gender: '',
+    photoUrl: '',
     birthDate: '',
     ethnicity: '',
     politicalStatus: '',
@@ -295,6 +298,7 @@ export default function TeacherDetailPage() {
       setFormData({
         name: teacher.name ?? '',
         gender: teacher.gender ?? '男',
+        photoUrl: teacher.photoUrl ?? '',
         birthDate: teacher.birthDate ?? '',
         ethnicity: teacher.ethnicity ?? '',
         politicalStatus: teacher.politicalStatus ?? '',
@@ -335,6 +339,7 @@ export default function TeacherDetailPage() {
         updateProfile({
           name: formData.name,
           gender: formData.gender as '男' | '女',
+          photoUrl: formData.photoUrl,
           birthDate: formData.birthDate,
           ethnicity: formData.ethnicity,
           politicalStatus: formData.politicalStatus,
@@ -386,6 +391,7 @@ export default function TeacherDetailPage() {
       setFormData({
         name: teacher.name ?? '',
         gender: teacher.gender ?? '男',
+        photoUrl: teacher.photoUrl ?? '',
         birthDate: teacher.birthDate ?? '',
         ethnicity: teacher.ethnicity ?? '',
         politicalStatus: teacher.politicalStatus ?? '',
@@ -526,11 +532,53 @@ export default function TeacherDetailPage() {
       <Card className="shadow-lg">
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-6">
-            {/* 头像 */}
+            {/* 头像/照片 */}
             <div className="flex-shrink-0">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
-                {teacher.name.charAt(0)}
-              </div>
+              {isEditing ? (
+                <div className="relative group">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="teacher-photo-upload"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const uploadForm = new FormData();
+                        uploadForm.append('file', file);
+                        uploadForm.append('folder', 'teacher-photos');
+                        const res = await fetch('/api/upload', { method: 'POST', body: uploadForm });
+                        const data = await res.json();
+                        if (data.success && data.data?.url) {
+                          handleFieldChange('photoUrl', data.data.url);
+                        }
+                      } catch { /* ignore */ }
+                    }}
+                  />
+                  {formData.photoUrl ? (
+                    <div className="relative">
+                      <img src={formData.photoUrl} alt={teacher.name} className="w-32 h-32 rounded-full object-cover shadow-lg" />
+                      <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('teacher-photo-upload')?.click()}>
+                        <Camera className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg group-hover:opacity-80 transition-opacity cursor-pointer" onClick={() => document.getElementById('teacher-photo-upload')?.click()}>
+                      {teacher.name.charAt(0)}
+                      <Camera className="w-5 h-5 absolute bottom-1 right-1 text-white/80" />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                formData.photoUrl ? (
+                  <img src={formData.photoUrl} alt={teacher.name} className="w-32 h-32 rounded-full object-cover shadow-lg" />
+                ) : (
+                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
+                    {teacher.name.charAt(0)}
+                  </div>
+                )
+              )}
             </div>
             
             {/* 基本信息 */}

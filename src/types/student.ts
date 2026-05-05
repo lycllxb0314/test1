@@ -59,6 +59,7 @@ export interface StudentFullProfile {
   studentNo: string;
   name: string;
   gender: 'male' | 'female';
+  photoUrl?: string;
   birthDate?: string;
   idCard?: string;
   ethnicity?: string;

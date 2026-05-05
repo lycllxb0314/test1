@@ -118,6 +118,8 @@ export const PUT = withAuthAndParams(async (request: NextRequest, { params }) =>
     if (body.total_weekly_hours !== undefined) updateData.weekly_hours = body.total_weekly_hours;
     if (body.teachable_grades !== undefined) updateData.teachable_grades = body.teachable_grades;
     if (body.is_head_teacher !== undefined) updateData.is_head_teacher = body.is_head_teacher;
+    if (body.photoUrl !== undefined) updateData.photo_url = body.photoUrl;
+    if (body.photo_url !== undefined) updateData.photo_url = body.photo_url;
     
     const result = await teacherService.updateTeacher(id as string, updateData);
     
@@ -126,6 +128,22 @@ export const PUT = withAuthAndParams(async (request: NextRequest, { params }) =>
         return notFound('教师不存在');
       }
       return fail(result.error || '更新失败');
+    }
+    
+    // 照片更新时同步到门禁系统并触发生成人脸向量
+    if (updateData.photo_url) {
+      try {
+        const { accessControlService } = await import('@/services/access-control.service');
+        const teacherData = result.data as Record<string, unknown> | undefined;
+        const teacherName = (teacherData?.name as string) || (body.name as string) || '';
+        const employeeId = (teacherData?.employee_id as string) || (body.employeeId as string) || (id as string);
+        const department = (teacherData?.department as string) || (body.department as string) || '';
+        accessControlService.syncPhotoFromAcademic(
+          'teacher', employeeId, updateData.photo_url as string, teacherName, department
+        ).catch(err => console.error('同步照片到门禁失败:', err));
+      } catch (err) {
+        console.error('触发门禁同步失败:', err);
+      }
     }
     
     return ok(result.data);
@@ -201,6 +219,8 @@ export const PATCH = withAuthAndParams(async (request: NextRequest, { params }) 
     if (body.additionalRoles !== undefined) updateData.additional_roles = body.additionalRoles;
     if (body.secondarySubjects !== undefined) updateData.secondary_subjects = body.secondarySubjects;
     if (body.managedGrades !== undefined) updateData.managed_grades = body.managedGrades;
+    if (body.photoUrl !== undefined) updateData.photo_url = body.photoUrl;
+    if (body.photo_url !== undefined) updateData.photo_url = body.photo_url;
     
     const result = await teacherService.updateTeacher(id as string, updateData);
     
@@ -209,6 +229,22 @@ export const PATCH = withAuthAndParams(async (request: NextRequest, { params }) 
         return notFound('教师不存在');
       }
       return fail(result.error || '更新失败');
+    }
+    
+    // 照片更新时同步到门禁系统并触发生成人脸向量
+    if (updateData.photo_url) {
+      try {
+        const { accessControlService } = await import('@/services/access-control.service');
+        const teacherData = result.data as Record<string, unknown> | undefined;
+        const teacherName = (teacherData?.name as string) || (body.name as string) || '';
+        const employeeId = (teacherData?.employee_id as string) || (body.employeeId as string) || (id as string);
+        const department = (teacherData?.department as string) || (body.department as string) || '';
+        accessControlService.syncPhotoFromAcademic(
+          'teacher', employeeId, updateData.photo_url as string, teacherName, department
+        ).catch(err => console.error('同步照片到门禁失败:', err));
+      } catch (err) {
+        console.error('触发门禁同步失败:', err);
+      }
     }
     
     return ok(result.data);
