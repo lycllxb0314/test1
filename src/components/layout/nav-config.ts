@@ -208,22 +208,21 @@ export const teacherBaseNav: NavItem[] = [
 ];
 
 // 教师空间导航 - 班主任专属功能
-// - 班级：学生家长信息管理、信息采集、课程推送
-// - 德育：习惯养成、荣誉、德育活动、SOP台账（班级德育事务）
+// 统一归入"班级"组——对班主任而言，习惯/荣誉/活动/SOP都是班级事务
 export const headTeacherNav: NavItem[] = [
   { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息', group: '班级' },
   { name: '信息收集', href: '/teacher/collection', icon: ClipboardList, description: '创建表单收集信息', badge: '新', group: '班级' },
   { name: '云教学管理', href: '/teacher/cloud-course-manage', icon: GraduationCap, description: '推送家长/学生课程·查看本班学习进度', badge: '新', group: '班级' },
-  { name: '习惯养成', href: '/teacher/habit', icon: Target, description: '制定班级月度习惯目标', badge: '新', group: '德育' },
-  { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', badge: '新', group: '德育' },
-  { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新', group: '德育' },
-  { name: 'SOP台账', href: '/teacher/class-sop', icon: ClipboardCheck, description: '标准化操作流程与台账管理', badge: '新', group: '德育' },
+  { name: '习惯养成', href: '/teacher/habit', icon: Target, description: '制定班级月度习惯目标', badge: '新', group: '班级' },
+  { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', badge: '新', group: '班级' },
+  { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', badge: '新', group: '班级' },
+  { name: 'SOP台账', href: '/teacher/class-sop', icon: ClipboardCheck, description: '标准化操作流程与台账管理', badge: '新', group: '班级' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能
 export const subTeacherNav: NavItem[] = [
   { name: '班级管理', href: '/teacher/class', icon: Users, description: '学生家长信息', group: '班级' },
-  { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', badge: '新', group: '德育' },
+  { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', badge: '新', group: '班级' },
 ];
 
 // 教师空间导航 - 年段长专属功能
