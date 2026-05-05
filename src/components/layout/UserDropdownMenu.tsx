@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { School, LogOut, Key } from 'lucide-react';
+import { LogOut, Key } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 
 // ─── Props ───────────────────────────────────────────────────────
@@ -71,12 +70,6 @@ export function UserDropdownMenu({ collapsed }: UserDropdownMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/" className="cursor-pointer">
-            <School className="mr-2 h-4 w-4" />
-            网站首页
-          </Link>
-        </DropdownMenuItem>
         {/* 家长修改密码 */}
         {user.role === 'parent' && (
           <ChangePasswordDialog
