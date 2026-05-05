@@ -244,16 +244,47 @@ export type RepairStatus =
   | 'completed'    // 已完成
   | 'rejected';    // 已拒绝
 
-/** 维修申请 */
+/** 报修类型 */
+export type RepairType = 'asset' | 'facility' | 'other';
+
+/** 紧急程度 */
+export type RepairUrgency = 'low' | 'normal' | 'high' | 'urgent';
+
+/** 数据库行类型 - 报修记录 */
+export interface RepairRecord {
+  id: string;
+  type: RepairType;
+  asset_id: string | null;
+  item: string;
+  location: string;
+  description: string;
+  urgency: RepairUrgency;
+  images: string[] | null;
+  applicant_id: string;
+  applicant_name: string;
+  department: string | null;
+  status: RepairStatus;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  estimated_cost: number | null;
+  actual_cost: number | null;
+  scheduled_date: string | null;
+  completed_at: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 前端类型 - 报修申请 */
 export interface RepairRequest {
   id: string;
-  type?: 'asset' | 'facility' | 'other';
+  type?: RepairType;
   assetId?: string;
   assetName?: string;
-  item?: string;                        // 维修项目（兼容字段）
+  item?: string;
   location?: string;
   description?: string;
-  urgency?: 'low' | 'normal' | 'high' | 'urgent';
+  urgency?: RepairUrgency;
   priority?: 'urgent' | 'high' | 'normal' | 'low';
   images?: string[];
   applicantId?: string;
@@ -272,6 +303,17 @@ export interface RepairRequest {
   note?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** 报修统计数据 */
+export interface RepairStatistics {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  rejected: number;
+  avgResponseTime: number;
+  monthCompleted: number;
 }
 
 // ==================== 采购管理 ====================

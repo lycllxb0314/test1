@@ -89,8 +89,10 @@ import {
 } from '@/repositories/safety.repository';
 import {
   assetRepository, AssetRepository,
-  repairRequestRepository, RepairRequestRepository,
 } from '@/repositories/asset.repository';
+import {
+  repairRepository, RepairRepository,
+} from '@/repositories/repair.repository';
 import {
   roomRepository as facilityRoomRepository, RoomRepository as FacilityRoomRepository,
   spaceReservationRepository, SpaceReservationRepository,
@@ -218,8 +220,10 @@ import {
 } from '@/services/safety.service';
 import {
   assetService, AssetService,
-  repairRequestService, RepairRequestService,
 } from '@/services/asset.service';
+import {
+  repairService, RepairService,
+} from '@/services/repair.service';
 import {
   roomService, RoomService,
   spaceReservationService as spaceReservationSvc, SpaceReservationService,
@@ -336,7 +340,7 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyDrillRepository, () => safetyDrillRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionRepository, () => safetyInspectionRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.AssetRepository, () => assetRepository);
-  container.registerSingleton(SERVICE_IDENTIFIERS.RepairRequestRepository, () => repairRequestRepository);
+  container.registerSingleton(SERVICE_IDENTIFIERS.RepairRequestRepository, () => repairRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.FacilityRoomRepository, () => facilityRoomRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.SpaceReservationRepository, () => spaceReservationRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.GroupRepository, () => groupRepository);
@@ -432,7 +436,7 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyDrillService, () => safetyDrillService);
   container.registerSingleton(SERVICE_IDENTIFIERS.SafetyInspectionService, () => safetyInspectionService);
   container.registerSingleton(SERVICE_IDENTIFIERS.AssetService, () => assetService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.RepairRequestService, () => repairRequestService);
+  container.registerSingleton(SERVICE_IDENTIFIERS.RepairRequestService, () => repairService);
   container.registerSingleton(SERVICE_IDENTIFIERS.RoomService, () => roomService);
   container.registerSingleton(SERVICE_IDENTIFIERS.SpaceReservationService, () => spaceReservationSvc);
   container.registerSingleton(SERVICE_IDENTIFIERS.GroupService, () => groupService);
