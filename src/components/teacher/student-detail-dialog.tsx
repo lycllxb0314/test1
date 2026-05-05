@@ -393,16 +393,17 @@ export function StudentDetailDialog({ open, onOpenChange, studentId }: StudentDe
                           }}
                         />
                         {formData.photoUrl ? (
-                          <div className="relative">
+                          <div className="relative cursor-pointer" onClick={() => document.getElementById('student-photo-upload')?.click()}>
                             <img src={formData.photoUrl} alt={profile.name} className="w-16 h-16 rounded-full object-cover" />
-                            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('student-photo-upload')?.click()}>
-                              <Camera className="w-4 h-4 text-white" />
+                            <div className="absolute bottom-0 inset-x-0 h-5 bg-black/60 rounded-b-full flex items-center justify-center gap-0.5">
+                              <Camera className="w-3 h-3 text-white" />
+                              <span className="text-white text-[10px]">换</span>
                             </div>
                           </div>
                         ) : (
-                          <div className={`w-16 h-16 rounded-full ${genderDisplay.bg} flex items-center justify-center text-2xl relative group-hover:opacity-80 transition-opacity cursor-pointer`} onClick={() => document.getElementById('student-photo-upload')?.click()}>
-                            {genderDisplay.icon}
-                            <Camera className="w-3 h-3 absolute bottom-0 right-0 text-muted-foreground" />
+                          <div className="w-16 h-16 rounded-full bg-muted border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors" onClick={() => document.getElementById('student-photo-upload')?.click()}>
+                            <Camera className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-muted-foreground text-[9px]">上传</span>
                           </div>
                         )}
                       </div>

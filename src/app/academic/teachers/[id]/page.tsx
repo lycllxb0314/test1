@@ -557,16 +557,17 @@ export default function TeacherDetailPage() {
                     }}
                   />
                   {formData.photoUrl ? (
-                    <div className="relative">
+                    <div className="relative group/img cursor-pointer" onClick={() => document.getElementById('teacher-photo-upload')?.click()}>
                       <img src={formData.photoUrl} alt={teacher.name} className="w-32 h-32 rounded-full object-cover shadow-lg" />
-                      <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('teacher-photo-upload')?.click()}>
-                        <Camera className="w-6 h-6 text-white" />
+                      <div className="absolute bottom-0 inset-x-0 h-9 bg-black/60 rounded-b-full flex items-center justify-center gap-1">
+                        <Camera className="w-4 h-4 text-white" />
+                        <span className="text-white text-xs">更换</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg group-hover:opacity-80 transition-opacity cursor-pointer" onClick={() => document.getElementById('teacher-photo-upload')?.click()}>
-                      {teacher.name.charAt(0)}
-                      <Camera className="w-5 h-5 absolute bottom-1 right-1 text-white/80" />
+                    <div className="w-32 h-32 rounded-full bg-muted border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-muted/80 hover:border-primary/50 transition-colors" onClick={() => document.getElementById('teacher-photo-upload')?.click()}>
+                      <Camera className="w-8 h-8 text-muted-foreground" />
+                      <span className="text-muted-foreground text-xs">上传照片</span>
                     </div>
                   )}
                 </div>
