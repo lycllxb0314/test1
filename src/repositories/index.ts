@@ -194,7 +194,6 @@ export {
 // P0 新增 Repository
 // ============================================
 export { ParentRepository, parentRepository } from './parent.repository';
-export { ExpenseRepository, expenseRepository } from './expense.repository';
 export {
   RoomRepository, roomRepository,
   RoomBookingRepository, roomBookingRepository,

@@ -41,8 +41,6 @@ import type {
   AccessRecord,
   LeaveRequest,
   ScheduleChange,
-  ExpenseReimbursement,
-  ExpenseStatistics,
   MoralActivity,
   MoralEvaluation,
   StudentHonor,
@@ -894,51 +892,6 @@ export const accessApi = {
 } as const;
 
 /**
- * 报销API
- */
-export const expenseApi = {
-  /** 获取报销列表 */
-  list: (params?: QueryParams) =>
-    apiClient.get<ExpenseReimbursement[]>('/expenses', params),
-  
-  /** 获取报销详情 */
-  get: (id: string) =>
-    apiClient.get<ExpenseReimbursement>(`/expenses/${id}`),
-  
-  /** 创建报销申请 */
-  create: (data: Partial<ExpenseReimbursement>) =>
-    apiClient.post<ExpenseReimbursement>('/expenses', data),
-  
-  /** 更新报销申请 */
-  update: (id: string, data: Partial<ExpenseReimbursement>) =>
-    apiClient.put<ExpenseReimbursement>(`/expenses/${id}`, data),
-  
-  /** 提交报销申请（从草稿变为待审批） */
-  submit: (id: string) =>
-    apiClient.put<ExpenseReimbursement>(`/expenses/${id}/submit`, {}),
-  
-  /** 审批报销 */
-  approve: (id: string, approved: boolean, comment?: string) =>
-    apiClient.post<ExpenseReimbursement>(`/expenses/${id}/approve`, { approved, comment }),
-  
-  /** 财务处理（打款） */
-  process: (id: string, data: { paymentDate: string; paymentVoucher?: string; remark?: string }) =>
-    apiClient.post<ExpenseReimbursement>(`/expenses/${id}/process`, { action: 'process', ...data }),
-  
-  /** 取消报销 */
-  cancel: (id: string, reason?: string) =>
-    apiClient.put<ExpenseReimbursement>(`/expenses/${id}/cancel`, { reason }),
-  
-  /** 删除报销（仅草稿可删除） */
-  delete: (id: string) =>
-    apiClient.delete(`/expenses/${id}`),
-  
-  /** 获取报销统计 */
-  getStatistics: () =>
-    apiClient.get<ExpenseStatistics>('/expenses/statistics'),
-} as const;
-
-/**
  * 新生注册API
  */
 export const enrollmentApi = {
@@ -976,7 +929,6 @@ export const api = {
   research: researchApi,
   room: roomApi,
   access: accessApi,
-  expense: expenseApi,
   enrollment: enrollmentApi,
 } as const;
 

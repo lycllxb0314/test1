@@ -188,8 +188,8 @@ export default function StudentHonorsPage() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [batchMode, setBatchMode] = useState<'edit' | 'delete'>('edit');
   const [batchFormData, setBatchFormData] = useState({
-    level: '' as HonorLevel | '',
-    category: '' as HonorCategory | '',
+    level: '__no_change__' as HonorLevel | '__no_change__',
+    category: '__no_change__' as HonorCategory | '__no_change__',
     issuer: '',
   });
   
@@ -449,8 +449,8 @@ export default function StudentHonorsPage() {
     }
     setBatchMode('edit');
     setBatchFormData({
-      level: '',
-      category: '',
+      level: '__no_change__',
+      category: '__no_change__',
       issuer: '',
     });
     setBatchDialogOpen(true);
@@ -494,8 +494,8 @@ export default function StudentHonorsPage() {
     } else {
       // 批量编辑
       const updateData: Record<string, string> = {};
-      if (batchFormData.level) updateData.level = batchFormData.level;
-      if (batchFormData.category) updateData.category = batchFormData.category;
+      if (batchFormData.level && batchFormData.level !== '__no_change__') updateData.level = batchFormData.level;
+      if (batchFormData.category && batchFormData.category !== '__no_change__') updateData.category = batchFormData.category;
       if (batchFormData.issuer) updateData.issuer = batchFormData.issuer;
       
       if (Object.keys(updateData).length === 0) {
@@ -1252,7 +1252,7 @@ export default function StudentHonorsPage() {
                     <SelectValue placeholder="不修改" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">不修改</SelectItem>
+                    <SelectItem value="__no_change__">不修改</SelectItem>
                     {HONOR_LEVELS.map(level => (
                       <SelectItem key={level} value={level}>{level}</SelectItem>
                     ))}
@@ -1269,7 +1269,7 @@ export default function StudentHonorsPage() {
                     <SelectValue placeholder="不修改" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">不修改</SelectItem>
+                    <SelectItem value="__no_change__">不修改</SelectItem>
                     {HONOR_CATEGORIES.map(cat => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}

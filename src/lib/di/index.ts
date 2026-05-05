@@ -60,7 +60,6 @@ import { dutyTeacherRepository } from '@/repositories/duty-teacher.repository';
 import { weeklyEvaluationRepository } from '@/repositories/weekly-evaluation.repository';
 // P0 新增 Repository
 import { parentRepository, ParentRepository } from '@/repositories/parent.repository';
-import { expenseRepository, ExpenseRepository } from '@/repositories/expense.repository';
 import {
   roomRepository, RoomRepository,
   roomBookingRepository, RoomBookingRepository,
@@ -201,7 +200,6 @@ import { WritingTeachingService, createWritingTeachingService } from '@/services
 import { TextbookService, createTextbookService } from '@/services/textbook.service';
 // P0 新增 Service
 import { ParentService, parentService } from '@/services/parent.service';
-import { ExpenseService, expenseService } from '@/services/expense.service';
 import { LeaveRequestService, leaveRequestService } from '@/services/leave-request.service';
 import { RoomBookingService, roomBookingService } from '@/services/room-booking.service';
 // P2 新增 Service
@@ -333,7 +331,6 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.WeeklyEvaluationRepository, () => weeklyEvaluationRepository);
   // P0 新增 Repositories
   container.registerSingleton(SERVICE_IDENTIFIERS.ParentRepository, () => parentRepository);
-  container.registerSingleton(SERVICE_IDENTIFIERS.ExpenseRepository, () => expenseRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.RoomRepository, () => roomRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.RoomBookingRepository, () => roomBookingRepository);
   container.registerSingleton(SERVICE_IDENTIFIERS.ScheduleSlotRepository, () => scheduleSlotRepository);
@@ -432,7 +429,6 @@ export function initializeDI(): void {
   container.registerSingleton(SERVICE_IDENTIFIERS.TextbookService, () => createTextbookService());
   // P0 新增 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.ParentService, () => parentService);
-  container.registerSingleton(SERVICE_IDENTIFIERS.ExpenseService, () => expenseService);
   container.registerSingleton(SERVICE_IDENTIFIERS.LeaveRequestService, () => leaveRequestService);
   container.registerSingleton(SERVICE_IDENTIFIERS.RoomBookingService, () => roomBookingService);
   // P2 新增 Services

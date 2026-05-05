@@ -3,19 +3,17 @@
  * 
  * GET: 获取安全演练列表
  * POST: 创建安全演练
- * 
- * ⚠️ 架构原则：
- * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute } from '@/lib/auth/route-protection';
 import { safetyDrillService } from '@/services/safety.service';
 import { success, error, ErrorCode } from '@/lib/api';
 
 /**
  * GET - 获取安全演练列表
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || undefined;
   const year = searchParams.get('year') || undefined;
@@ -29,7 +27,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const formattedData = result.data.map((drill: any) => ({
+  const formattedData = result.data.map((drill) => ({
     id: drill.id,
     type: drill.type,
     title: drill.title,
@@ -45,12 +43,12 @@ export async function GET(request: NextRequest) {
   }));
 
   return NextResponse.json(success(formattedData));
-}
+});
 
 /**
  * POST - 创建安全演练
  */
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request: NextRequest) => {
   const body = await request.json();
 
   const result = await safetyDrillService.create({
@@ -74,4 +72,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(success(result.data));
-}
+});

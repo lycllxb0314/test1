@@ -3,19 +3,17 @@
  * 
  * GET: 获取安全检查列表
  * POST: 创建安全检查
- * 
- * ⚠️ 架构原则：
- * - 通过 Service 层访问数据，禁止直接操作数据库
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { protectedRoute } from '@/lib/auth/route-protection';
 import { safetyInspectionService } from '@/services/safety.service';
 import { success, error, ErrorCode } from '@/lib/api';
 
 /**
  * GET - 获取安全检查列表
  */
-export async function GET(request: NextRequest) {
+export const GET = protectedRoute(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || undefined;
   const area = searchParams.get('area') || undefined;
@@ -33,7 +31,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const formattedData = result.data.data.map((inspection: any) => ({
+  const formattedData = result.data.data.map((inspection) => ({
     id: inspection.id,
     inspector: inspection.inspector,
     inspectionDate: inspection.inspection_date,
@@ -57,12 +55,12 @@ export async function GET(request: NextRequest) {
       totalPages: result.data.totalPages,
     },
   }));
-}
+});
 
 /**
  * POST - 创建安全检查
  */
-export async function POST(request: NextRequest) {
+export const POST = protectedRoute(async (request: NextRequest) => {
   const body = await request.json();
 
   const result = await safetyInspectionService.create({
@@ -84,4 +82,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(success(result.data));
-}
+});

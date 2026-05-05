@@ -81,8 +81,8 @@ const URGENCY_CONFIG: Record<string, { label: string; color: string }> = {
 export default function FinanceManagementPage() {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedExpense, setSelectedExpense] = useState<ExpenseRecord | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
@@ -96,8 +96,8 @@ export default function FinanceManagementPage() {
   });
 
   const { expenses, loading, refetch } = useExpenses({
-    status: statusFilter ? statusFilter as ExpenseStatus : undefined,
-    type: typeFilter ? typeFilter as ExpenseType : undefined,
+    status: statusFilter && statusFilter !== 'all' ? statusFilter as ExpenseStatus : undefined,
+    type: typeFilter && typeFilter !== 'all' ? typeFilter as ExpenseType : undefined,
   });
 
   const { statistics, refetch: refetchStats } = useExpenseStatistics();
@@ -281,7 +281,7 @@ export default function FinanceManagementPage() {
                 <SelectValue placeholder="状态筛选" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部状态</SelectItem>
+                <SelectItem value="all">全部状态</SelectItem>
                 <SelectItem value="pending">待审批</SelectItem>
                 <SelectItem value="approved">已审批</SelectItem>
                 <SelectItem value="rejected">已拒绝</SelectItem>
@@ -293,7 +293,7 @@ export default function FinanceManagementPage() {
                 <SelectValue placeholder="类型筛选" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部类型</SelectItem>
+                <SelectItem value="all">全部类型</SelectItem>
                 <SelectItem value="travel">差旅费</SelectItem>
                 <SelectItem value="office">办公费</SelectItem>
                 <SelectItem value="teaching">教学费</SelectItem>

@@ -278,15 +278,6 @@ export const SAFETY_API = {
 } as const;
 
 /**
- * 财务管理
- * 故事：学校财务收支记录
- */
-export const FINANCE_API = {
-  recordsList: '/api/finance/records',
-  recordsCreate: '/api/finance/records',
-} as const;
-
-/**
  * 通知消息
  * 故事：校内消息沟通
  */
@@ -352,7 +343,6 @@ export const API = {
   asset: ASSET_API,
   access: ACCESS_API,
   safety: SAFETY_API,
-  finance: FINANCE_API,
   communication: COMMUNICATION_API,
 
   // 系统层
