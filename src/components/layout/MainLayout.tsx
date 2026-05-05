@@ -102,7 +102,6 @@ export function AppSidebar() {
         href: '/teacher/duty',
         icon: ClipboardCheck,
         description: '班级常规评分',
-        badge: '值日',
       };
 
       let nav: NavItem[];
