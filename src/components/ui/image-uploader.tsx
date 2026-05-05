@@ -177,3 +177,162 @@ export function ImageUploader({
     </div>
   );
 }
+
+/**
+ * 多图上传组件
+ */
+type MultiImageUploaderProps = {
+  /** 已上传图片 URL 列表 */
+  images: string[];
+  /** 变更回调 */
+  onChange: (images: string[]) => void;
+  /** 最大图片数量 */
+  maxImages?: number;
+  /** 上传文件夹 */
+  folder?: string;
+  /** 额外类名 */
+  className?: string;
+  /** 是否禁用 */
+  disabled?: boolean;
+};
+
+export function MultiImageUploader({
+  images,
+  onChange,
+  maxImages = 5,
+  folder = 'question-images',
+  className,
+  disabled = false,
+}: MultiImageUploaderProps) {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return;
+    }
+    if (images.length >= maxImages) {
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', folder);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success && data.data?.url) {
+        onChange([...images, data.data.url]);
+      }
+    } catch (err) {
+      console.error('图片上传失败:', err);
+    } finally {
+      setUploading(false);
+    }
+  }, [folder, images, maxImages, onChange]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [uploadFile]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadFile(file);
+  }, [uploadFile]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false);
+  }, []);
+
+  const handleRemove = useCallback((index: number) => {
+    onChange(images.filter((_, i) => i !== index));
+  }, [images, onChange]);
+
+  const canAddMore = images.length < maxImages && !disabled;
+
+  return (
+    <div className={cn('space-y-2', className)}>
+      {/* 已上传图片预览 */}
+      {images.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {images.map((url, index) => (
+            <div key={index} className="relative group w-20 h-20">
+              <img
+                src={url}
+                alt={`图片${index + 1}`}
+                className="w-full h-full object-cover rounded border cursor-pointer"
+                onClick={() => window.open(url, '_blank')}
+              />
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => handleRemove(index)}
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 上传区域 */}
+      {canAddMore && (
+        <div
+          className={cn(
+            'border-2 border-dashed rounded-lg p-3 text-center cursor-pointer transition-colors',
+            dragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-muted-foreground/40'
+          )}
+          onClick={() => !uploading && fileInputRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
+          {uploading ? (
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 text-primary animate-spin" />
+              <span className="text-xs text-muted-foreground">上传中...</span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <ImagePlus className="w-4 h-4 text-muted-foreground/50" />
+              <span className="text-xs text-muted-foreground">
+                点击上传 ({images.length}/{maxImages})
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 隐藏文件输入 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileSelect}
+        disabled={disabled || uploading}
+      />
+    </div>
+  );
+}

@@ -672,3 +672,126 @@ export interface VenueFilters {
   building?: string;
   search?: string;
 }
+
+// ==================== 报销申请 ====================
+
+/** 报销类型 */
+export type ExpenseType = 
+  | 'travel'           // 差旅费
+  | 'office'           // 办公费
+  | 'teaching'         // 教学经费
+  | 'training'         // 培训费
+  | 'meeting'          // 会议费
+  | 'transportation'   // 交通费
+  | 'communication'    // 通讯费
+  | 'other';           // 其他
+
+/** 报销状态 */
+export type ExpenseStatus = 
+  | 'pending'          // 待审批
+  | 'approved'         // 已批准
+  | 'rejected'         // 已拒绝
+  | 'paid'             // 已支付
+  | 'reimbursed'       // 已报销
+  | 'cancelled';       // 已取消
+
+/** 报销紧急程度 */
+export type ExpenseUrgency = 'low' | 'normal' | 'high' | 'urgent';
+
+/** 报销项目 */
+export interface ExpenseItem {
+  id?: string;
+  name: string;              // 项目名称
+  amount: number;            // 金额
+  description: string;       // 说明
+  date?: string;             // 发生日期
+  invoiceNo?: string;        // 发票号
+}
+
+/** 报销申请记录 */
+export interface ExpenseRecord {
+  id: string;
+  expenseNo: string;                     // 报销单号
+  title: string;                         // 报销标题
+  
+  // 申请人信息
+  applicantId: string;                   // 申请人ID
+  applicantName: string;                 // 申请人姓名
+  department: string;                    // 所属部门
+  phone?: string;                        // 联系电话
+  
+  // 报销内容
+  type: ExpenseType;                     // 报销类型
+  items: ExpenseItem[];                  // 报销项目明细
+  totalAmount: number;                   // 报销总额
+  amount: number;                        // 报销总额（别名）
+  description?: string;                  // 报销说明
+  urgency: ExpenseUrgency;               // 紧急程度
+  
+  // 附件
+  invoices?: string[];                   // 发票图片
+  images?: string[];                     // 图片附件
+  
+  // 审批信息
+  status: ExpenseStatus;                 // 状态
+  reviewedById?: string;                 // 审核人ID
+  reviewedByName?: string;               // 审核人姓名
+  reviewedAt?: string;                   // 审核时间
+  reviewComment?: string;                // 审核意见
+  
+  // 报销支付信息
+  reimbursedById?: string;               // 报销人ID
+  reimbursedByName?: string;             // 报销人姓名
+  reimbursedAt?: string;                 // 报销时间
+  reimbursementNo?: string;              // 支付凭证号
+  rejectionReason?: string;              // 拒绝原因
+  rejection_reason?: string;             // 拒绝原因（兼容旧字段）
+  
+  // 时间戳
+  createdAt: string;
+  created_at?: string;                   // 兼容旧字段
+  updatedAt: string;
+  updated_at?: string;                   // 兼容旧字段
+}
+
+/** 报销统计数据 */
+export interface ExpenseStatistics {
+  total: number;                         // 总申请数
+  totalCount: number;                    // 总申请数（别名）
+  pending: number;                       // 待审批
+  pendingCount: number;                  // 待审批（别名）
+  approved: number;                      // 已批准
+  approvedCount: number;                 // 已批准（别名）
+  rejected: number;                      // 已拒绝
+  paid: number;                          // 已支付
+  paidCount: number;                     // 已支付（别名）
+  reimbursed: number;                    // 已报销
+  totalAmount: number;                   // 总金额
+  pendingAmount: number;                 // 待审批金额
+  approvedAmount: number;                // 已批准金额
+  paidAmount: number;                    // 已支付金额
+  reimbursedAmount: number;              // 已报销金额
+  byType?: {                             // 按类型统计
+    type: ExpenseType;
+    typeName: string;
+    count: number;
+    amount: number;
+  }[];
+}
+
+/** 报销筛选条件 */
+export interface ExpenseFilters {
+  type?: ExpenseType | 'all';
+  status?: ExpenseStatus | 'all';
+  applicantId?: string;
+  department?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+}
+
+// 别名导出，保持向后兼容
+export type ExpenseReimbursementRecord = ExpenseRecord;
+export type ExpenseReimbursementStatus = ExpenseStatus;
+export type ExpenseReimbursementFilters = ExpenseFilters;
+export type ExpenseReimbursementStatistics = ExpenseStatistics;
