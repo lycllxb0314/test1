@@ -10,12 +10,15 @@ import { success, error, ErrorCode } from '@/lib/api';
 import { assetService } from '@/services/asset.service';
 import { protectedRoute } from '@/lib/auth';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = protectedRoute(async (request, { params }) => {
   try {
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams?.id;
+
+    if (!id) {
+      return NextResponse.json(error('缺少资产ID', ErrorCode.BAD_REQUEST), { status: 400 });
+    }
+
     const result = await assetService.getById(id);
     
     if (!result.success) {
@@ -27,14 +30,17 @@ export async function GET(
     console.error('[Assets API] GET error:', err);
     return NextResponse.json(error('获取资产详情失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PUT = protectedRoute(async (request, { params }) => {
   try {
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams?.id;
+
+    if (!id) {
+      return NextResponse.json(error('缺少资产ID', ErrorCode.BAD_REQUEST), { status: 400 });
+    }
+
     const body = await request.json();
     
     const result = await assetService.update(id, body);
@@ -48,14 +54,17 @@ export async function PUT(
     console.error('[Assets API] PUT error:', err);
     return NextResponse.json(error('更新资产失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = protectedRoute(async (request, { params }) => {
   try {
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams?.id;
+
+    if (!id) {
+      return NextResponse.json(error('缺少资产ID', ErrorCode.BAD_REQUEST), { status: 400 });
+    }
+
     const result = await assetService.delete(id);
 
     if (!result.success) {
@@ -67,4 +76,4 @@ export async function DELETE(
     console.error('[Assets API] DELETE error:', err);
     return NextResponse.json(error('删除资产失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
-}
+});
