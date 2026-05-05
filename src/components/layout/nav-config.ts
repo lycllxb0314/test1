@@ -258,16 +258,17 @@ export interface NavGroup {
 
 /** 将平铺的 NavItem[] 按 group 字段归组 */
 export function groupNavItems(items: NavItem[]): NavGroup[] {
-  if (!items || items.length === 0) return [];
+  if (!Array.isArray(items) || items.length === 0) return [];
   const groups: NavGroup[] = [];
-  let currentGroup = '';
-  items.forEach((item) => {
+  let currentGroup: string | null = null;
+  for (const item of items) {
     const group = item.group || '';
     if (group !== currentGroup) {
-      groups.push({ label: group, items: [] });
+      groups.push({ label: group, items: [item] });
       currentGroup = group;
+    } else {
+      groups[groups.length - 1]!.items.push(item);
     }
-    groups[groups.length - 1]!.items.push(item);
-  });
+  }
   return groups;
 }

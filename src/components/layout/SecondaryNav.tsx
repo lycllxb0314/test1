@@ -22,7 +22,7 @@ export function SecondaryNav({ navItems, title, onClose }: SecondaryNavProps) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
 
-  const groups = React.useMemo(() => groupNavItems(navItems), [navItems]);
+  const groups = React.useMemo(() => groupNavItems(navItems ?? []), [navItems]);
 
   const toggleExpand = (href: string) => {
     setExpandedItems((prev) =>
