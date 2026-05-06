@@ -406,18 +406,18 @@ export default function StaffManagementPage() {
 
       {/* 列表 */}
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-2">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[60px]">照片</TableHead>
-                <TableHead>姓名</TableHead>
-                <TableHead>岗位</TableHead>
-                <TableHead>部门</TableHead>
-                <TableHead>联系电话</TableHead>
-                <TableHead>负责区域</TableHead>
-                <TableHead>门禁状态</TableHead>
-                <TableHead className="w-[80px]">操作</TableHead>
+                <TableHead className="w-[60px] px-4 py-3">照片</TableHead>
+                <TableHead className="px-4 py-3">姓名</TableHead>
+                <TableHead className="px-4 py-3">岗位</TableHead>
+                <TableHead className="px-4 py-3">部门</TableHead>
+                <TableHead className="px-4 py-3">联系电话</TableHead>
+                <TableHead className="px-4 py-3">负责区域</TableHead>
+                <TableHead className="px-4 py-3">门禁状态</TableHead>
+                <TableHead className="w-[80px] px-4 py-3">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -437,7 +437,7 @@ export default function StaffManagementPage() {
               ) : (
                 staffList.map(staff => (
                   <TableRow key={staff.id}>
-                    <TableCell>
+                    <TableCell className="px-4 py-3">
                       <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                         {staff.photoUrl ? (
                           <img src={staff.photoUrl} alt={staff.name} className="h-full w-full object-cover" />
@@ -446,14 +446,14 @@ export default function StaffManagementPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{staff.name}</TableCell>
-                    <TableCell>{staff.position}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium px-4 py-3">{staff.name}</TableCell>
+                    <TableCell className="px-4 py-3">{staff.position}</TableCell>
+                    <TableCell className="px-4 py-3">
                       <Badge variant="secondary">{DEPARTMENT_MAP[staff.department] || staff.department}</Badge>
                     </TableCell>
-                    <TableCell>{staff.phone || '-'}</TableCell>
-                    <TableCell>{staff.area || '-'}</TableCell>
-                    <TableCell>
+                    <TableCell className="px-4 py-3">{staff.phone || '-'}</TableCell>
+                    <TableCell className="px-4 py-3">{staff.area || '-'}</TableCell>
+                    <TableCell className="px-4 py-3">
                       {staff.hasFaceVector ? (
                         <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
                           <CheckCircle2 className="h-3 w-3 mr-1" /> 已录入
@@ -464,7 +464,7 @@ export default function StaffManagementPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-4 py-3">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
