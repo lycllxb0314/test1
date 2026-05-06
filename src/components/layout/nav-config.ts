@@ -255,7 +255,7 @@ export const gradeLeaderNav: NavItem[] = [
 // 家长端导航
 export const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
-  { name: '暖心童童', href: '/parent/mental', icon: HeartHandshake, description: '与树洞朋友聊天' },
+  { name: '暖心童童', href: '/parent/tongtong', icon: HeartHandshake, description: '与树洞朋友聊天' },
   { name: '体育健康', href: '/parent/health', icon: Heart, description: '孩子体育健康数据与建议' },
   { name: '云教学', href: '/parent/cloud-course', icon: GraduationCap, description: '家长课程·子女学习' },
   { name: '课后选课', href: '/parent/after-school', icon: CalendarClock, description: '课后服务一键选课' },
