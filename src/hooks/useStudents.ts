@@ -59,6 +59,7 @@ export interface StudentInfo {
   gender: 'male' | 'female';
   birthDate?: string;
   avatar?: string;
+  photoUrl?: string;
   
   // === 学籍信息（班级归属 - 核心关联） ===
   grade: number;
@@ -512,6 +513,7 @@ export function useStudents(initialFilters?: StudentFilters): UseStudentsReturn 
           emergency_contact: data.emergencyContact,
           emergency_phone: data.emergencyPhone,
           home_address: data.homeAddress,
+          photo_url: data.photoUrl,
         }),
       }));
       
