@@ -323,7 +323,7 @@ export default function StaffManagementPage() {
   const withoutVector = staffList.filter(s => !s.hasFaceVector).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-6 py-4">
       {/* 页面标题 */}
       <div>
         <h1 className="text-2xl font-bold">人员管理</h1>
