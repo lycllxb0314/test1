@@ -8,14 +8,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { mentalHealthService } from '@/services/mental-health.service';
+import { authenticateRequest } from '@/lib/auth/auth-middleware';
 
 export async function POST(request: NextRequest) {
   try {
-    // 简单认证：从请求头获取用户信息
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 });
+    // 认证用户
+    const authResult = await authenticateRequest(request);
+    console.log('[Chat API] authResult:', {
+      success: authResult.success,
+      hasUser: !!authResult.user,
+      error: authResult.error,
+      userId: authResult.user?.id,
+    });
+    if (!authResult.user) {
+      return NextResponse.json({ error: authResult.error || '请先登录' }, { status: 401 });
     }
+    const userId = authResult.user.id;
 
     const body = await request.json();
     const { sessionId, message, studentId: bodyStudentId } = body as {
@@ -88,7 +96,7 @@ async function getStudentIdFromParent(parentId: string): Promise<string | null> 
   const { data, error } = await client
     .from('parents')
     .select('student_id')
-    .eq('user_id', parentId)
+    .eq('account_id', parentId)
     .limit(1);
 
   if (error || !data || data.length === 0) return null;
@@ -102,7 +110,7 @@ async function verifyChildBelongsToParent(parentId: string, studentId: string): 
   const { data, error } = await client
     .from('parents')
     .select('id')
-    .eq('user_id', parentId)
+    .eq('account_id', parentId)
     .eq('student_id', studentId)
     .limit(1);
 

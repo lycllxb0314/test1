@@ -65,7 +65,9 @@ export default function TongTongPage() {
     if (!verified) return;
     const fetchSessions = async () => {
       try {
-        const res = await fetch('/api/mental-health/sessions');
+        const res = await fetch('/api/mental-health/sessions', {
+          headers: { 'x-user-id': user?.id || '' },
+        });
         const data = await res.json();
         if (data.data) {
           setSessions(data.data.map((s: Record<string, unknown>) => ({
@@ -86,7 +88,9 @@ export default function TongTongPage() {
   // 加载会话消息
   const loadSessionMessages = useCallback(async (sessionId: string) => {
     try {
-      const res = await fetch(`/api/mental-health/sessions?id=${sessionId}`);
+      const res = await fetch(`/api/mental-health/sessions?id=${sessionId}`, {
+        headers: { 'x-user-id': user?.id || '' },
+      });
       const data = await res.json();
       if (data.messages) {
         setMessages(data.messages.map((m: Record<string, unknown>) => ({
@@ -130,7 +134,10 @@ export default function TongTongPage() {
 
       const res = await fetch('/api/mental-health/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user?.id || '',
+        },
         body: JSON.stringify({
           message: userMessage.content,
           sessionId: currentSessionId,
@@ -164,9 +171,9 @@ export default function TongTongPage() {
             try {
               const parsed = JSON.parse(dataStr);
               if (parsed.type === 'session') {
-                returnedSessionId = parsed.sessionId;
+                returnedSessionId = (parsed.data as { sessionId: string })?.sessionId;
               } else if (parsed.type === 'content') {
-                fullContent += parsed.content;
+                fullContent += parsed.data as string;
                 setMessages(prev => prev.map(m =>
                   m.id === assistantId ? { ...m, content: fullContent } : m
                 ));
