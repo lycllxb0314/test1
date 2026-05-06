@@ -1,10 +1,21 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Plus, MessageCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Send, 
+  Plus, 
+  MessageCircle, 
+  Heart, 
+  Sparkles,
+  Sun,
+  Moon,
+  Leaf,
+  Rainbow
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import FaceVerifyGate from '@/components/mental-health/FaceVerifyGate';
@@ -21,6 +32,13 @@ type SessionInfo = {
   title: string;
   createdAt: string;
 };
+
+const greetingPrompts = [
+  { icon: Sun, text: '今天心情怎么样？', color: 'text-amber-500' },
+  { icon: Heart, text: '有什么开心的事想分享吗？', color: 'text-rose-500' },
+  { icon: Moon, text: '最近睡得好吗？', color: 'text-indigo-400' },
+  { icon: Leaf, text: '遇到什么困难了吗？', color: 'text-teal-500' },
+];
 
 export default function TongTongPage() {
   const { user } = useAuth();
@@ -197,126 +215,223 @@ export default function TongTongPage() {
   // 未验证 → 显示人脸验证门禁
   if (!verified) {
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <FaceVerifyGate onVerified={handleVerified} />
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-background to-rose-50/30 dark:from-teal-950/20 dark:via-background dark:to-rose-950/10">
+        <div className="max-w-2xl mx-auto py-8 px-4">
+          <FaceVerifyGate onVerified={handleVerified} />
+        </div>
       </div>
     );
   }
 
   // 已验证 → 显示聊天界面
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-muted-foreground">加载中...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-background to-rose-50/30 dark:from-teal-950/20 dark:via-background dark:to-rose-950/10 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-12 w-12 border-2 border-teal-500 border-t-transparent" />
+            <Heart className="absolute inset-0 m-auto h-5 w-5 text-teal-500" />
+          </div>
+          <p className="text-muted-foreground">正在为你准备温馨空间...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-[calc(100vh-120px)] gap-4">
-      {/* 左侧会话列表 */}
-      <div className="w-64 shrink-0 flex flex-col gap-2">
-        <Button variant="outline" className="w-full justify-start" onClick={newChat}>
-          <Plus className="h-4 w-4 mr-2" /> 新对话
-        </Button>
-        <div className="flex-1 overflow-y-auto space-y-1">
-          {sessions.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => loadSessionMessages(s.id)}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted ${
-                currentSessionId === s.id ? 'bg-muted' : ''
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="truncate">{s.title}</span>
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-background to-rose-50/30 dark:from-teal-950/20 dark:via-background dark:to-rose-950/10">
+      <div className="flex h-[calc(100vh-120px)] max-w-6xl mx-auto gap-6 p-4">
+        {/* 左侧会话列表 */}
+        <div className="w-72 shrink-0 flex flex-col gap-4">
+          {/* 品牌区域 */}
+          <div className="bg-gradient-to-br from-teal-500/10 to-rose-500/5 rounded-2xl p-4 border border-teal-500/10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-rose-400 rounded-full flex items-center justify-center">
+                  <Heart className="h-2.5 w-2.5 text-white" />
+                </div>
               </div>
-            </button>
-          ))}
-          {sessions.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">
-              还没有对话记录，开始新对话吧
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* 右侧聊天区域 */}
-      <Card className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center gap-3 px-6 py-4 border-b">
-          <Image
-            src="/tongtong-avatar.png"
-            alt="童童"
-            width={40}
-            height={40}
-            className="rounded-full"
-          />
-          <div>
-            <h2 className="font-semibold">暖心童童</h2>
-            <p className="text-xs text-muted-foreground">我是童童，随时可以和我聊天哦~</p>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <Image
-                src="/tongtong-avatar.png"
-                alt="童童"
-                width={80}
-                height={80}
-                className="rounded-full mb-4"
-              />
-              <p className="text-lg font-medium mb-1">你好呀！我是童童~</p>
-              <p className="text-sm">有什么想聊的，随时告诉我吧</p>
+              <div>
+                <h1 className="font-bold text-lg text-foreground">暖心童童</h1>
+                <p className="text-xs text-muted-foreground">你的心灵伙伴</p>
+              </div>
             </div>
-          )}
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              童童会用心倾听你的每一句话，陪你度过每一个心情起伏的时刻 ✨
+            </p>
+          </div>
 
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {msg.role === 'assistant' && (
-                <Image
-                  src="/tongtong-avatar.png"
-                  alt="童童"
-                  width={32}
-                  height={32}
-                  className="rounded-full shrink-0 mt-1"
-                />
-              )}
-              <div
-                className={`max-w-[70%] rounded-2xl px-4 py-2.5 text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
+          {/* 新对话按钮 */}
+          <Button 
+            variant="outline" 
+            className="w-full justify-start gap-2 h-11 rounded-xl border-dashed border-2 hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition-all" 
+            onClick={newChat}
+          >
+            <Plus className="h-4 w-4" /> 
+            <span>开始新对话</span>
+          </Button>
+
+          {/* 会话列表 */}
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            {sessions.length > 0 && (
+              <div className="text-xs text-muted-foreground px-2 py-1">历史对话</div>
+            )}
+            {sessions.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => loadSessionMessages(s.id)}
+                className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all group ${
+                  currentSessionId === s.id 
+                    ? 'bg-gradient-to-r from-teal-500/10 to-teal-500/5 border border-teal-500/20' 
+                    : 'hover:bg-muted/50 border border-transparent'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{msg.content || '...'}</p>
+                <div className="flex items-center gap-3">
+                  <div className={`p-1.5 rounded-lg ${currentSessionId === s.id ? 'bg-teal-500/20' : 'bg-muted'}`}>
+                    <MessageCircle className="h-3.5 w-3.5 text-teal-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="truncate block font-medium">{s.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(s.createdAt).toLocaleDateString('zh-CN')}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ))}
+            {sessions.length === 0 && (
+              <div className="text-center py-8">
+                <Rainbow className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">
+                  还没有对话记录<br />开始新对话吧~
+                </p>
               </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
+            )}
+          </div>
         </div>
 
-        <div className="border-t px-6 py-4">
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              placeholder="和童童说点什么..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-              disabled={isStreaming}
-              className="flex-1"
-            />
-            <Button onClick={sendMessage} disabled={isStreaming || !input.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
+        {/* 右侧聊天区域 */}
+        <Card className="flex-1 flex flex-col overflow-hidden border-0 shadow-lg bg-white/80 dark:bg-card/80 backdrop-blur-sm">
+          {/* 头部 */}
+          <div className="flex items-center gap-4 px-6 py-4 border-b bg-gradient-to-r from-teal-50/50 to-rose-50/30 dark:from-teal-950/20 dark:to-rose-950/10">
+            <div className="relative">
+              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-md shadow-teal-500/20">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-card" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-semibold text-foreground">暖心童童</h2>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                在线，随时陪你聊天
+              </p>
+            </div>
+            <Badge variant="secondary" className="text-xs bg-teal-500/10 text-teal-700 dark:text-teal-300 border-0">
+              <Heart className="h-3 w-3 mr-1" /> 温暖陪伴中
+            </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            童童是您的心灵伙伴，对话内容会脱敏后由专业老师关注
-          </p>
-        </div>
-      </Card>
+
+          {/* 消息区域 */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <div className="relative mb-6">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-100 to-rose-100 dark:from-teal-900/30 dark:to-rose-900/30 flex items-center justify-center">
+                    <Sparkles className="h-12 w-12 text-teal-500" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                    <Sun className="h-4 w-4 text-amber-500" />
+                  </div>
+                </div>
+                <p className="text-xl font-medium text-foreground mb-2">你好呀！我是童童~</p>
+                <p className="text-sm text-muted-foreground mb-6">有什么想聊的，随时告诉我吧</p>
+                
+                {/* 快捷话题 */}
+                <div className="grid grid-cols-2 gap-2 w-full max-w-md">
+                  {greetingPrompts.map((prompt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setInput(prompt.text)}
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl bg-muted/50 hover:bg-muted text-sm text-left transition-colors group"
+                    >
+                      <prompt.icon className={`h-4 w-4 ${prompt.color}`} />
+                      <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+                        {prompt.text}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {msg.role === 'assistant' && (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shrink-0 shadow-sm">
+                    <Sparkles className="h-4 w-4 text-white" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    msg.role === 'user'
+                      ? 'bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-md shadow-teal-500/20'
+                      : 'bg-muted/80 backdrop-blur-sm'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{msg.content || (
+                    <span className="flex items-center gap-1">
+                      <span className="animate-bounce">●</span>
+                      <span className="animate-bounce" style={{ animationDelay: '100ms' }}>●</span>
+                      <span className="animate-bounce" style={{ animationDelay: '200ms' }}>●</span>
+                    </span>
+                  )}</p>
+                </div>
+                {msg.role === 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
+                    <Heart className="h-4 w-4 text-rose-500" />
+                  </div>
+                )}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* 输入区域 */}
+          <div className="border-t px-6 py-4 bg-gradient-to-r from-teal-50/30 to-rose-50/20 dark:from-teal-950/10 dark:to-rose-950/5">
+            <div className="flex gap-3 items-end">
+              <div className="flex-1 relative">
+                <Input
+                  ref={inputRef}
+                  placeholder="和童童说点什么..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  disabled={isStreaming}
+                  className="w-full pr-12 h-12 rounded-xl border-2 focus:border-teal-500 transition-colors"
+                />
+                <Button 
+                  size="icon"
+                  onClick={sendMessage} 
+                  disabled={isStreaming || !input.trim()}
+                  className="absolute right-1 top-1 h-10 w-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 shadow-sm"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground/60 mt-3 text-center">
+              💝 童童是你的心灵伙伴，对话内容会脱敏后由专业老师关注
+            </p>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
