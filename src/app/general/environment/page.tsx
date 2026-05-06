@@ -54,9 +54,17 @@ const STATUS_MAP: Record<string, { label: string; variant: string }> = {
   warning: { label: '需整改', variant: 'bg-red-100 text-red-700' },
 };
 
+type StaffMember = {
+  id: string;
+  name: string;
+  position: string | null;
+  area: string | null;
+};
+
 export default function EnvironmentPage() {
   const [envAreas, setEnvAreas] = useState<EnvironmentArea[]>([]);
   const [greenAreas, setGreenAreas] = useState<GreenArea[]>([]);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'env' | 'green'>('env');
@@ -74,14 +82,17 @@ export default function EnvironmentPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [envRes, greenRes] = await Promise.all([
+      const [envRes, greenRes, staffRes] = await Promise.all([
         fetch('/api/general/environment', { credentials: 'include' }),
         fetch('/api/general/green-areas', { credentials: 'include' }),
+        fetch('/api/general/staff', { credentials: 'include' }),
       ]);
       const envData = await envRes.json();
       const greenData = await greenRes.json();
+      const staffData = await staffRes.json();
       if (envData.success) setEnvAreas(envData.data);
       if (greenData.success) setGreenAreas(greenData.data);
+      if (staffData.success) setStaffList(staffData.data);
     } catch {
       toast.error('加载数据失败');
     } finally {
@@ -427,7 +438,18 @@ export default function EnvironmentPage() {
             </div>
             <div>
               <label className="text-sm font-medium">保洁人员</label>
-              <Input value={envForm.cleanerName} onChange={e => setEnvForm(f => ({ ...f, cleanerName: e.target.value }))} placeholder="保洁人员姓名" />
+              <Select value={envForm.cleanerName || '_none'} onValueChange={v => setEnvForm(f => ({ ...f, cleanerName: v === '_none' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="选择保洁人员" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">不指定</SelectItem>
+                  {staffList.map(s => (
+                    <SelectItem key={s.id} value={s.name}>{s.name}{s.position ? ` (${s.position})` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {staffList.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">暂无后勤人员，请先在人员管理中添加</p>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium">备注</label>
@@ -473,7 +495,18 @@ export default function EnvironmentPage() {
             </div>
             <div>
               <label className="text-sm font-medium">养护人</label>
-              <Input value={greenForm.maintainerName} onChange={e => setGreenForm(f => ({ ...f, maintainerName: e.target.value }))} placeholder="养护人员姓名" />
+              <Select value={greenForm.maintainerName || '_none'} onValueChange={v => setGreenForm(f => ({ ...f, maintainerName: v === '_none' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="选择养护人" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">不指定</SelectItem>
+                  {staffList.map(s => (
+                    <SelectItem key={s.id} value={s.name}>{s.name}{s.position ? ` (${s.position})` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {staffList.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">暂无后勤人员，请先在人员管理中添加</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
