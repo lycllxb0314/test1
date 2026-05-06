@@ -758,8 +758,8 @@ export class MentalHealthService extends BaseService {
       // 5. 余弦相似度计算（归一化后点积即为余弦相似度）
       const similarity = this.cosineSimilarity(normalizedStored, normalizedInput);
 
-      // 5. 阈值判断（0.85 为通过阈值）
-      const THRESHOLD = 0.85;
+      // 5. 阈值判断（0.75 为通过阈值）
+      const THRESHOLD = 0.75;
       if (similarity >= THRESHOLD) {
         console.log(`[MentalHealthService] 人脸验证通过: studentId=${studentId}, similarity=${similarity.toFixed(4)}`);
         return { success: true, similarity };
