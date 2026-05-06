@@ -61,9 +61,9 @@ export class AccessControlService extends BaseService {
         allItems.push(...students);
       }
 
-      // 如果未指定类型或指定了 parent/visitor，从门禁表获取
-      if (!personType || personType === 'parent' || personType === 'visitor') {
-        const types: PersonType[] = personType ? [personType] : ['parent', 'visitor'];
+      // 如果未指定类型或指定了 parent/visitor/staff，从门禁表获取
+      if (!personType || personType === 'parent' || personType === 'visitor' || personType === 'staff') {
+        const types: PersonType[] = personType ? [personType] : ['parent', 'visitor', 'staff'];
         const accessPersons = await accessPersonRepository.getList({
           personTypes: types,
           search,
@@ -319,7 +319,7 @@ export class AccessControlService extends BaseService {
   }
 
   /**
-   * 创建人员（家长/访客）
+   * 创建人员（家长/访客/后勤人员）
    */
   async createPerson(data: Partial<AccessPerson>): Promise<{
     success: boolean;
@@ -336,6 +336,149 @@ export class AccessControlService extends BaseService {
     } catch (err) {
       console.error('[AccessControlService] createPerson error:', err);
       return { success: false, error: '创建人员失败' };
+    }
+  }
+
+  // ==================== 后勤人员管理 ====================
+
+  /**
+   * 获取后勤人员列表
+   */
+  async getStaffList(params: {
+    search?: string;
+    department?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{
+    success: boolean;
+    data?: { items: AccessPerson[]; total: number };
+    error?: string;
+  }> {
+    try {
+      const allItems = await accessPersonRepository.getList({
+        personTypes: ['staff'],
+        search: params.search,
+      });
+
+      // 按部门过滤
+      let filtered = allItems;
+      if (params.department && params.department !== 'all') {
+        filtered = allItems.filter(p => p.department === params.department);
+      }
+
+      const total = filtered.length;
+      const start = (params.page - 1) * params.pageSize;
+      const items = filtered.slice(start, start + params.pageSize);
+
+      return { success: true, data: { items, total } };
+    } catch (err) {
+      console.error('[AccessControlService] getStaffList error:', err);
+      return { success: false, error: '获取后勤人员列表失败' };
+    }
+  }
+
+  /**
+   * 创建后勤人员
+   */
+  async createStaff(data: {
+    name: string;
+    position: string;
+    department: string;
+    phone?: string;
+    area?: string;
+    photoUrl?: string;
+  }): Promise<{
+    success: boolean;
+    data?: AccessPerson;
+    error?: string;
+  }> {
+    try {
+      const id = `ap-staff-${crypto.randomUUID()}`;
+      const person = await accessPersonRepository.create({
+        id,
+        name: data.name,
+        personType: 'staff',
+        position: data.position,
+        department: data.department,
+        phone: data.phone,
+        area: data.area,
+        photoUrl: data.photoUrl,
+        status: 'active',
+      });
+
+      // 如果有照片，自动触发向量生成
+      if (person.photoUrl) {
+        this.generateFaceVectorAsync(person.id, person.photoUrl).catch(() => {});
+      }
+
+      return { success: true, data: person };
+    } catch (err) {
+      console.error('[AccessControlService] createStaff error:', err);
+      return { success: false, error: '创建后勤人员失败' };
+    }
+  }
+
+  /**
+   * 更新后勤人员照片（管理员手动上传）
+   */
+  async updateStaffPhoto(
+    staffId: string,
+    photoUrl: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const updated = await accessPersonRepository.updatePhoto(staffId, photoUrl);
+      if (!updated) {
+        return { success: false, error: '人员不存在' };
+      }
+
+      // 异步生成人脸向量
+      this.generateFaceVectorAsync(staffId, photoUrl).catch(err => {
+        console.error('[AccessControlService] 后勤人员向量生成失败:', err);
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('[AccessControlService] updateStaffPhoto error:', err);
+      return { success: false, error: '更新照片失败' };
+    }
+  }
+
+  /**
+   * 更新后勤人员信息
+   */
+  async updateStaff(
+    staffId: string,
+    data: {
+      name?: string;
+      position?: string;
+      department?: string;
+      phone?: string;
+      area?: string;
+      status?: 'active' | 'inactive';
+    },
+  ): Promise<{ success: boolean; data?: AccessPerson; error?: string }> {
+    try {
+      const updated = await accessPersonRepository.update(staffId, data);
+      if (!updated) {
+        return { success: false, error: '人员不存在' };
+      }
+      return { success: true, data: updated };
+    } catch (err) {
+      console.error('[AccessControlService] updateStaff error:', err);
+      return { success: false, error: '更新失败' };
+    }
+  }
+
+  /**
+   * 删除后勤人员
+   */
+  async deleteStaff(staffId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await accessPersonRepository.delete(staffId);
+      return { success: true };
+    } catch (err) {
+      console.error('[AccessControlService] deleteStaff error:', err);
+      return { success: false, error: '删除失败' };
     }
   }
 

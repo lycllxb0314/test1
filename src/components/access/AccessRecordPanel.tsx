@@ -17,7 +17,7 @@ import { Search, ChevronLeft, ChevronRight, ArrowDownCircle, ArrowUpCircle, Aler
 import type { PersonType } from '@/repositories/access-control.repository';
 
 const personTypeLabels: Record<PersonType, string> = {
-  teacher: '教师', student: '学生', parent: '家长', visitor: '访客',
+  teacher: '教师', student: '学生', parent: '家长', visitor: '访客', staff: '后勤人员',
 };
 
 const personTypeStyles: Record<PersonType, string> = {
@@ -25,6 +25,7 @@ const personTypeStyles: Record<PersonType, string> = {
   student: 'bg-emerald-500/10 text-emerald-700',
   parent: 'bg-amber-500/10 text-amber-700',
   visitor: 'bg-violet-500/10 text-violet-700',
+  staff: 'bg-orange-500/10 text-orange-700',
 };
 
 const verifyMethodLabels: Record<string, string> = {

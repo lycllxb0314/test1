@@ -9,7 +9,7 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 // ==================== 类型定义 ====================
 
-export type PersonType = 'teacher' | 'student' | 'parent' | 'visitor';
+export type PersonType = 'teacher' | 'student' | 'parent' | 'visitor' | 'staff';
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'expired';
 export type Direction = 'in' | 'out';
 
@@ -23,6 +23,8 @@ export type AccessPerson = {
   hasFaceVector?: boolean;
   relatedId?: string;
   department?: string;
+  position?: string;
+  area?: string;
   status: 'active' | 'inactive' | 'expired';
   validFrom?: string;
   validUntil?: string;
@@ -161,6 +163,21 @@ export const accessPersonRepository = {
       console.error('[AccessPersonRepo] updateFaceVector error:', error.message);
       throw new Error(error.message);
     }
+  },
+
+  async update(personId: string, data: Record<string, unknown>): Promise<AccessPerson | null> {
+    const client = getSupabaseClient();
+    const { data: updated, error } = await client
+      .from('access_persons')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', personId)
+      .select()
+      .single();
+    if (error) {
+      console.error('[AccessPersonRepo] update error:', error.message);
+      return null;
+    }
+    return mapPersonRow(updated);
   },
 
   async getVectorStatusBatch(personIds: string[]): Promise<Record<string, boolean>> {
@@ -423,6 +440,8 @@ function mapPersonRow(row: Record<string, unknown>): AccessPerson {
     hasFaceVector: !!row.face_vector,
     relatedId: row.related_id as string || undefined,
     department: row.department as string || undefined,
+    position: row.position as string || undefined,
+    area: row.area as string || undefined,
     status: row.status as 'active' | 'inactive' | 'expired',
     validFrom: row.valid_from as string || undefined,
     validUntil: row.valid_until as string || undefined,
@@ -441,6 +460,8 @@ function toPersonRow(person: Partial<AccessPerson>): Record<string, unknown> {
   if (person.photoUrl !== undefined) row.photo_url = person.photoUrl;
   if (person.relatedId !== undefined) row.related_id = person.relatedId;
   if (person.department !== undefined) row.department = person.department;
+  if (person.position !== undefined) row.position = person.position;
+  if (person.area !== undefined) row.area = person.area;
   if (person.status) row.status = person.status;
   if (person.validFrom !== undefined) row.valid_from = person.validFrom;
   if (person.validUntil !== undefined) row.valid_until = person.validUntil;
