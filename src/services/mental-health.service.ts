@@ -738,8 +738,12 @@ export class MentalHealthService extends BaseService {
       const inputVector = await embeddingClient.embedImage(imageUrl);
 
       if (!inputVector || inputVector.length === 0) {
+        console.error('[MentalHealthService] embedImage returned empty, imageUrl:', imageUrl);
         return { success: false, similarity: 0, error: '人脸识别失败，请确保照片清晰' };
       }
+
+      console.log(`[MentalHealthService] storedVector dim=${storedVector.length}, sample=[${storedVector.slice(0, 5).map((v: number) => v.toFixed(6)).join(',')}]`);
+      console.log(`[MentalHealthService] inputVector dim=${inputVector.length}, sample=[${inputVector.slice(0, 5).map((v: number) => v.toFixed(6)).join(',')}]`);
 
       // 4. 余弦相似度计算
       const similarity = this.cosineSimilarity(storedVector, inputVector);

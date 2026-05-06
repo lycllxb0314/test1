@@ -305,6 +305,7 @@ export class AccessControlService extends BaseService {
       const vector = await client.embedImage(photoUrl);
 
       if (vector && vector.length > 0) {
+        console.log(`[AccessControlService] embedImage result dim=${vector.length}, sample=[${vector.slice(0, 5).map((v: number) => v.toFixed(6)).join(',')}]`);
         await accessPersonRepository.updateFaceVector(personId, vector);
         console.log(`[AccessControlService] 人员 ${personId} 人脸向量生成成功, 维度: ${vector.length}`);
       }
