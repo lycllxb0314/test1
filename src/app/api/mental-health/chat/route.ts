@@ -1,6 +1,9 @@
 /**
  * 暖心童童对话 API（SSE 流式）
  * POST /api/mental-health/chat
+ *
+ * 请求体: { sessionId?, message, studentId? }
+ * studentId: 人脸验证后传入，多孩子时必须指定
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,21 +13,34 @@ export async function POST(request: NextRequest) {
   try {
     // 简单认证：从请求头获取用户信息
     const userId = request.headers.get('x-user-id');
-    const userRole = request.headers.get('x-user-role');
-
     if (!userId) {
       return NextResponse.json({ error: '请先登录' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { sessionId, message } = body;
+    const { sessionId, message, studentId: bodyStudentId } = body as {
+      sessionId?: string;
+      message?: string;
+      studentId?: string;
+    };
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: '消息内容不能为空' }, { status: 400 });
     }
 
-    // 通过家长身份获取关联学生的 ID
-    const studentId = await getStudentIdFromParent(userId);
+    // 获取 studentId：优先用前端传入的（人脸验证后设定），否则从家长记录取
+    let studentId = bodyStudentId || null;
+
+    if (!studentId) {
+      studentId = await getStudentIdFromParent(userId);
+    } else {
+      // 验证该学生确实属于该家长
+      const isChild = await verifyChildBelongsToParent(userId, studentId);
+      if (!isChild) {
+        return NextResponse.json({ error: '无权访问该学生的数据' }, { status: 403 });
+      }
+    }
+
     if (!studentId) {
       return NextResponse.json({ error: '未找到关联的学生信息' }, { status: 403 });
     }
@@ -65,7 +81,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** 通过家长 ID 获取关联学生 ID */
+/** 通过家长 ID 获取关联学生 ID（取第一个） */
 async function getStudentIdFromParent(parentId: string): Promise<string | null> {
   const { getSupabaseClient } = await import('@/storage/database/supabase-client');
   const client = getSupabaseClient();
@@ -73,8 +89,23 @@ async function getStudentIdFromParent(parentId: string): Promise<string | null> 
     .from('parents')
     .select('student_id')
     .eq('user_id', parentId)
-    .single();
+    .limit(1);
 
-  if (error || !data) return null;
-  return data.student_id as string;
+  if (error || !data || data.length === 0) return null;
+  return data[0].student_id as string;
+}
+
+/** 验证学生是否属于该家长 */
+async function verifyChildBelongsToParent(parentId: string, studentId: string): Promise<boolean> {
+  const { getSupabaseClient } = await import('@/storage/database/supabase-client');
+  const client = getSupabaseClient();
+  const { data, error } = await client
+    .from('parents')
+    .select('id')
+    .eq('user_id', parentId)
+    .eq('student_id', studentId)
+    .limit(1);
+
+  if (error || !data || data.length === 0) return false;
+  return true;
 }

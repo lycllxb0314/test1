@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Send, Plus, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
+import FaceVerifyGate from '@/components/mental-health/FaceVerifyGate';
 
 type Message = {
   id: string;
@@ -23,6 +24,8 @@ type SessionInfo = {
 
 export default function TongTongPage() {
   const { user } = useAuth();
+  const [verified, setVerified] = useState(false);
+  const [verifiedStudentId, setVerifiedStudentId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -33,8 +36,15 @@ export default function TongTongPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // 加载历史会话
+  // 人脸验证通过后的回调
+  const handleVerified = useCallback((studentId: string) => {
+    setVerified(true);
+    setVerifiedStudentId(studentId);
+  }, []);
+
+  // 加载历史会话（验证通过后）
   useEffect(() => {
+    if (!verified) return;
     const fetchSessions = async () => {
       try {
         const res = await fetch('/api/mental-health/sessions');
@@ -53,7 +63,7 @@ export default function TongTongPage() {
       }
     };
     fetchSessions();
-  }, []);
+  }, [verified]);
 
   // 加载会话消息
   const loadSessionMessages = useCallback(async (sessionId: string) => {
@@ -89,7 +99,6 @@ export default function TongTongPage() {
     setInput('');
     setIsStreaming(true);
 
-    // 创建助手消息占位
     const assistantId = crypto.randomUUID();
     setMessages(prev => [...prev, {
       id: assistantId,
@@ -107,6 +116,7 @@ export default function TongTongPage() {
         body: JSON.stringify({
           message: userMessage.content,
           sessionId: currentSessionId,
+          studentId: verifiedStudentId,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -144,7 +154,6 @@ export default function TongTongPage() {
                 ));
               }
             } catch {
-              // 非 JSON 数据，可能是纯文本内容
               fullContent += dataStr;
               setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, content: fullContent } : m
@@ -154,7 +163,6 @@ export default function TongTongPage() {
         }
       }
 
-      // 更新会话 ID
       if (returnedSessionId && !currentSessionId) {
         setCurrentSessionId(returnedSessionId);
         setSessions(prev => [{
@@ -174,20 +182,28 @@ export default function TongTongPage() {
       abortControllerRef.current = null;
       inputRef.current?.focus();
     }
-  }, [input, isStreaming, currentSessionId]);
+  }, [input, isStreaming, currentSessionId, verifiedStudentId]);
 
-  // 新建对话
   const newChat = useCallback(() => {
     setCurrentSessionId(null);
     setMessages([]);
     inputRef.current?.focus();
   }, []);
 
-  // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // 未验证 → 显示人脸验证门禁
+  if (!verified) {
+    return (
+      <div className="max-w-2xl mx-auto py-8">
+        <FaceVerifyGate onVerified={handleVerified} />
+      </div>
+    );
+  }
+
+  // 已验证 → 显示聊天界面
   if (loading) {
     return <div className="flex items-center justify-center h-full text-muted-foreground">加载中...</div>;
   }
@@ -224,7 +240,6 @@ export default function TongTongPage() {
 
       {/* 右侧聊天区域 */}
       <Card className="flex-1 flex flex-col overflow-hidden">
-        {/* 顶部 */}
         <div className="flex items-center gap-3 px-6 py-4 border-b">
           <Image
             src="/tongtong-avatar.png"
@@ -239,7 +254,6 @@ export default function TongTongPage() {
           </div>
         </div>
 
-        {/* 消息区域 */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -283,7 +297,6 @@ export default function TongTongPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* 输入区域 */}
         <div className="border-t px-6 py-4">
           <div className="flex gap-2">
             <Input

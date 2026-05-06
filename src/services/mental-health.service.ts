@@ -570,6 +570,160 @@ export class MentalHealthService extends BaseService {
   async getStudentSessions(studentId: string): Promise<ChatSession[]> {
     return this.sessionRepo.findByStudentId(studentId);
   }
+
+  // ==================== 人脸验证 ====================
+
+  /**
+   * 获取家长关联的孩子列表（含人脸向量状态）
+   */
+  async getParentChildren(parentPhone: string): Promise<Array<{
+    studentId: string;
+    studentName: string;
+    className: string;
+    hasFaceVector: boolean;
+    photoUrl: string | null;
+  }>> {
+    const client = getSupabaseClient();
+
+    // 查询该手机号关联的所有家长记录（可能多个孩子）
+    const { data: parentRows, error: parentErr } = await client
+      .from('parents')
+      .select('student_id')
+      .eq('phone', parentPhone)
+      .eq('status', 'active');
+
+    if (parentErr || !parentRows || parentRows.length === 0) {
+      return [];
+    }
+
+    const studentIds = [...new Set(parentRows.map((r: Record<string, unknown>) => r.student_id as string).filter(Boolean))];
+
+    if (studentIds.length === 0) return [];
+
+    // 批量查询学生信息
+    const { data: studentRows, error: studentErr } = await client
+      .from('students')
+      .select('id, name, class_id, photo_url')
+      .in('id', studentIds);
+
+    if (studentErr || !studentRows) return [];
+
+    // 查询班级名
+    const classIds = [...new Set(studentRows.map((r: Record<string, unknown>) => r.class_id as string).filter(Boolean))];
+    let classMap: Record<string, string> = {};
+    if (classIds.length > 0) {
+      const { data: classRows } = await client
+        .from('classes')
+        .select('id, name')
+        .in('id', classIds);
+      if (classRows) {
+        for (const c of classRows) {
+          classMap[c.id as string] = c.name as string;
+        }
+      }
+    }
+
+    // 查询门禁系统的人脸向量状态
+    const accessPersonIds = studentIds.map(sid => `ap-s-${sid}`);
+    const { data: accessRows } = await client
+      .from('access_persons')
+      .select('id, face_vector')
+      .in('id', accessPersonIds);
+
+    const vectorMap: Record<string, boolean> = {};
+    if (accessRows) {
+      for (const row of accessRows) {
+        vectorMap[row.id as string] = !!(row.face_vector);
+      }
+    }
+
+    return studentRows.map((s: Record<string, unknown>) => ({
+      studentId: s.id as string,
+      studentName: s.name as string,
+      className: classMap[s.class_id as string] || '',
+      hasFaceVector: vectorMap[`ap-s-${s.id}`] || false,
+      photoUrl: (s.photo_url as string) || null,
+    }));
+  }
+
+  /**
+   * 人脸验证：用摄像头捕获的照片与数据库中存储的向量做比对
+   */
+  async verifyFace(studentId: string, imageBase64: string): Promise<{
+    success: boolean;
+    similarity: number;
+    error?: string;
+  }> {
+    try {
+      const client = getSupabaseClient();
+
+      // 1. 从 access_persons 获取该学生的人脸向量
+      const accessPersonId = `ap-s-${studentId}`;
+      const { data: personRow, error: personErr } = await client
+        .from('access_persons')
+        .select('face_vector')
+        .eq('id', accessPersonId)
+        .single();
+
+      if (personErr || !personRow || !personRow.face_vector) {
+        return { success: false, similarity: 0, error: '该学生尚未录入人脸信息，无法验证' };
+      }
+
+      const storedVector = personRow.face_vector as number[];
+
+      // 2. 用 EmbeddingClient 生成输入照片的向量
+      const { EmbeddingClient } = await import('coze-coding-dev-sdk');
+      const { Config } = await import('coze-coding-dev-sdk');
+      const embeddingClient = new EmbeddingClient(
+        new Config({ apiKey: process.env.COZE_API_TOKEN || '' }),
+      );
+
+      // base64 转 data URL
+      const dataUrl = imageBase64.startsWith('data:')
+        ? imageBase64
+        : `data:image/jpeg;base64,${imageBase64}`;
+
+      const inputVector = await embeddingClient.embedImage(dataUrl);
+
+      if (!inputVector || inputVector.length === 0) {
+        return { success: false, similarity: 0, error: '人脸识别失败，请确保照片清晰' };
+      }
+
+      // 3. 余弦相似度计算
+      const similarity = this.cosineSimilarity(storedVector, inputVector);
+
+      // 4. 阈值判断（0.85 为通过阈值）
+      const THRESHOLD = 0.85;
+      if (similarity >= THRESHOLD) {
+        console.log(`[MentalHealthService] 人脸验证通过: studentId=${studentId}, similarity=${similarity.toFixed(4)}`);
+        return { success: true, similarity };
+      } else {
+        console.log(`[MentalHealthService] 人脸验证未通过: studentId=${studentId}, similarity=${similarity.toFixed(4)}`);
+        return { success: false, similarity, error: '人脸比对未通过，请重新尝试' };
+      }
+    } catch (err) {
+      console.error('[MentalHealthService] verifyFace error:', err);
+      return { success: false, similarity: 0, error: '验证过程出错，请重试' };
+    }
+  }
+
+  /**
+   * 计算两个向量的余弦相似度
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length || a.length === 0) return 0;
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+    if (denominator === 0) return 0;
+    return dotProduct / denominator;
+  }
 }
 
 export const mentalHealthService = new MentalHealthService();
