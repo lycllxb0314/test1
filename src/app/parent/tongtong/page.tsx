@@ -247,9 +247,13 @@ export default function TongTongPage() {
           <div className="bg-gradient-to-br from-teal-500/10 to-rose-500/5 rounded-2xl p-4 border border-teal-500/10">
             <div className="flex items-center gap-3 mb-3">
               <div className="relative">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
-                  <Sparkles className="h-6 w-6 text-white" />
-                </div>
+                <Image
+                  src="/tongtong-avatar.png"
+                  alt="童童"
+                  width={48}
+                  height={48}
+                  className="rounded-full"
+                />
                 <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-rose-400 rounded-full flex items-center justify-center">
                   <Heart className="h-2.5 w-2.5 text-white" />
                 </div>
@@ -318,9 +322,13 @@ export default function TongTongPage() {
           {/* 头部 */}
           <div className="flex items-center gap-4 px-6 py-4 border-b bg-gradient-to-r from-teal-50/50 to-rose-50/30 dark:from-teal-950/20 dark:to-rose-950/10">
             <div className="relative">
-              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-md shadow-teal-500/20">
-                <Sparkles className="h-5 w-5 text-white" />
-              </div>
+              <Image
+                src="/tongtong-avatar.png"
+                alt="童童"
+                width={44}
+                height={44}
+                className="rounded-full"
+              />
               <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-card" />
             </div>
             <div className="flex-1">
@@ -340,9 +348,13 @@ export default function TongTongPage() {
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <div className="relative mb-6">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-100 to-rose-100 dark:from-teal-900/30 dark:to-rose-900/30 flex items-center justify-center">
-                    <Sparkles className="h-12 w-12 text-teal-500" />
-                  </div>
+                  <Image
+                    src="/tongtong-avatar.png"
+                    alt="童童"
+                    width={96}
+                    height={96}
+                    className="rounded-full"
+                  />
                   <div className="absolute -top-1 -right-1 w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
                     <Sun className="h-4 w-4 text-amber-500" />
                   </div>
@@ -374,9 +386,13 @@ export default function TongTongPage() {
                 className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shrink-0 shadow-sm">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
+                  <Image
+                    src="/tongtong-avatar.png"
+                    alt="童童"
+                    width={32}
+                    height={32}
+                    className="rounded-full shrink-0 mt-1"
+                  />
                 )}
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
