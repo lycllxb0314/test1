@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,9 +15,39 @@ import {
   Search,
   AlertCircle,
   CheckCircle2,
-  MessageSquare
+  MessageSquare,
+  User,
+  X
 } from 'lucide-react';
 import { useWarnings } from '@/hooks/useMentalHealth';
+
+type WarningWithStudent = {
+  id: string;
+  studentId: string;
+  studentName?: string;
+  className?: string;
+  sessionId?: string;
+  warningType: string;
+  severity: string;
+  title: string;
+  description?: string;
+  keywords?: string[];
+  isRead: boolean;
+  readBy?: string;
+  readAt?: string;
+  isHandled: boolean;
+  handledBy?: string;
+  handledAt?: string;
+  handleNote?: string;
+  createdAt: string;
+};
+
+type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
+};
 
 const severityConfig: Record<string, { 
   label: string; 
@@ -51,19 +81,50 @@ const warningTypeLabels: Record<string, string> = {
 export default function WarningsPage() {
   const { warnings, loading, fetchWarnings, markAsRead, handleWarning } = useWarnings();
   const [filter, setFilter] = useState<'all' | 'red' | 'yellow'>('all');
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'handled' | 'all'>('pending');
   const [handleNote, setHandleNote] = useState<Record<string, string>>({});
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [detailSession, setDetailSession] = useState<{ sessionId: string; studentName: string } | null>(null);
+  const [detailMessages, setDetailMessages] = useState<ChatMessage[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
-    const params: Record<string, string | boolean> = { isHandled: false };
+    const params: Record<string, string | boolean> = {};
+    if (statusFilter === 'pending') params.isHandled = false;
+    else if (statusFilter === 'handled') params.isHandled = true;
     if (filter !== 'all') params.severity = filter;
     fetchWarnings(params);
-  }, [filter, fetchWarnings]);
+  }, [filter, statusFilter, fetchWarnings]);
 
-  const filteredWarnings = warnings.filter(w => 
+  const viewSessionDetail = useCallback(async (sessionId: string, studentName: string) => {
+    setDetailSession({ sessionId, studentName });
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/mental-health/sessions?sessionId=${sessionId}`);
+      const data = await res.json();
+      if (data.data?.messages) {
+        setDetailMessages(data.data.messages.map((m: Record<string, unknown>) => ({
+          id: m.id as string,
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content as string,
+          createdAt: m.createdAt as string,
+        })));
+      }
+    } catch (err) {
+      console.error('load session detail error:', err);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const typedWarnings = warnings as WarningWithStudent[];
+
+  const filteredWarnings = typedWarnings.filter(w => 
     !searchKeyword || 
     w.title.includes(searchKeyword) || 
     w.description?.includes(searchKeyword) ||
+    w.studentName?.includes(searchKeyword) ||
+    w.className?.includes(searchKeyword) ||
     w.keywords?.some(kw => kw.includes(searchKeyword))
   );
 
@@ -72,6 +133,7 @@ export default function WarningsPage() {
     red: warnings.filter(w => w.severity === 'red').length,
     yellow: warnings.filter(w => w.severity === 'yellow').length,
     unread: warnings.filter(w => !w.isRead).length,
+    handled: warnings.filter(w => w.isHandled).length,
   };
 
   return (
@@ -168,15 +230,26 @@ export default function WarningsPage() {
 
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
+            {(['pending', 'handled', 'all'] as const).map((s) => (
+              <Button
+                key={s}
+                variant={statusFilter === s ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter(s)}
+                className={statusFilter === s ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-0' : ''}
+              >
+                {s === 'pending' ? '待处理' : s === 'handled' ? '已处理' : '全部'}
+              </Button>
+            ))}
+            <div className="w-px h-5 bg-border mx-1" />
             {(['all', 'red', 'yellow'] as const).map((f) => (
               <Button
                 key={f}
                 variant={filter === f ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter(f)}
-                className={filter === f ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-0' : ''}
               >
-                {f === 'all' ? '全部' : severityConfig[f].label}
+                {f === 'all' ? '全部等级' : severityConfig[f].label}
               </Button>
             ))}
           </div>
@@ -195,8 +268,8 @@ export default function WarningsPage() {
                 <CheckCircle2 className="h-10 w-10 text-primary" />
               </div>
               <div className="text-center">
-                <p className="font-medium text-foreground">暂无{filter !== 'all' ? severityConfig[filter].label : ''}预警</p>
-                <p className="text-sm text-muted-foreground mt-1">学生心理状态良好</p>
+                <p className="font-medium text-foreground">暂无{statusFilter === 'handled' ? '已处理' : filter !== 'all' ? severityConfig[filter].label : ''}预警</p>
+                <p className="text-sm text-muted-foreground mt-1">{statusFilter === 'handled' ? '暂无已处理的预警记录' : '学生心理状态良好'}</p>
               </div>
             </CardContent>
           </Card>
@@ -235,8 +308,16 @@ export default function WarningsPage() {
                           </span>
                         </div>
 
-                        {/* 标题 */}
-                        <h3 className="font-semibold text-foreground text-lg">{w.title}</h3>
+                        {/* 标题 + 学生信息 */}
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-foreground text-lg">{w.title}</h3>
+                          {(w.studentName || w.className) && (
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <User className="h-3.5 w-3.5" />
+                              <span>{w.className ? `${w.className} ` : ''}{w.studentName || '未知学生'}</span>
+                            </div>
+                          )}
+                        </div>
 
                         {/* 描述 */}
                         {w.description && (
@@ -255,18 +336,28 @@ export default function WarningsPage() {
                         )}
 
                         {/* 操作区 */}
-                        {!w.isHandled && (
-                          <div className="flex items-center gap-3 pt-2 border-t border-border/50">
-                            {!w.isRead && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => markAsRead(w.id)}
-                                className="text-muted-foreground hover:text-foreground"
-                              >
-                                <Eye className="h-4 w-4 mr-1.5" /> 标记已读
-                              </Button>
-                            )}
+                        <div className="flex items-center gap-3 pt-2 border-t border-border/50">
+                          {w.sessionId && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => viewSessionDetail(w.sessionId!, w.studentName || '未知学生')}
+                              className="text-primary hover:text-primary/80"
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1.5" /> 查看对话
+                            </Button>
+                          )}
+                          {!w.isRead && !w.isHandled && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => markAsRead(w.id)}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <Eye className="h-4 w-4 mr-1.5" /> 标记已读
+                            </Button>
+                          )}
+                          {!w.isHandled && (
                             <div className="flex items-center gap-2 flex-1">
                               <Input
                                 placeholder="添加处理备注..."
@@ -276,14 +367,23 @@ export default function WarningsPage() {
                               />
                               <Button
                                 size="sm"
-                                onClick={() => handleWarning(w.id, handleNote[w.id] ?? '已处理')}
+                                onClick={async () => { await handleWarning(w.id, handleNote[w.id] ?? '已处理'); /* 刷新当前筛选 */ const params: Record<string, string | boolean> = {}; if (statusFilter === 'pending') params.isHandled = false; else if (statusFilter === 'handled') params.isHandled = true; if (filter !== 'all') params.severity = filter; fetchWarnings(params); }}
                                 className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
                               >
                                 <Check className="h-4 w-4 mr-1.5" /> 处理完成
                               </Button>
                             </div>
-                          </div>
-                        )}
+                          )}
+                          {w.isHandled && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <CheckCircle2 className="h-4 w-4 text-teal-500" />
+                              <span>已处理</span>
+                              {w.handledBy && <span>by {w.handledBy}</span>}
+                              {w.handledAt && <span>· {new Date(w.handledAt).toLocaleString('zh-CN')}</span>}
+                              {w.handleNote && <span>· {w.handleNote}</span>}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -293,6 +393,49 @@ export default function WarningsPage() {
           </div>
         )}
       </div>
+
+      {/* 对话详情弹窗 */}
+      {detailSession && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setDetailSession(null)}>
+          <div className="bg-card rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">对话详情 - {detailSession.studentName}</h3>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setDetailSession(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {detailLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
+                </div>
+              ) : detailMessages.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">暂无对话记录</p>
+              ) : (
+                detailMessages.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                      msg.role === 'user' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : msg.role === 'system'
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-muted text-foreground'
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                        {new Date(msg.createdAt).toLocaleString('zh-CN')}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

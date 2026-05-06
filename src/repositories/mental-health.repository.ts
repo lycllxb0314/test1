@@ -103,6 +103,7 @@ export class ChatSessionRepository extends BaseRepository<ChatSession> {
       .from(this.tableName)
       .select('*')
       .eq('student_id', studentId)
+      .neq('student_deleted', true)
       .order('created_at', { ascending: false });
 
     if (error || !data) return [];
@@ -181,6 +182,21 @@ export class ChatSessionRepository extends BaseRepository<ChatSession> {
         closed_at: new Date().toISOString(),
       })
       .eq('id', id);
+  }
+
+  /** 软删除：对学生隐藏会话，后端数据保留（预警等不受影响） */
+  async softDeleteByStudent(id: string): Promise<void> {
+    const client = getSupabaseClient();
+    // 标记会话为学生已删除
+    await client
+      .from(this.tableName)
+      .update({ student_deleted: true })
+      .eq('id', id);
+    // 标记关联消息为学生已删除
+    await client
+      .from('mental_health_messages')
+      .update({ student_deleted: true })
+      .eq('session_id', id);
   }
 
   async countByFilter(studentIds?: string[]): Promise<number> {
@@ -278,13 +294,18 @@ export class MentalChatMessageRepository extends BaseRepository<MentalChatMessag
     super('mental_health_messages');
   }
 
-  async findBySessionId(sessionId: string): Promise<MentalChatMessage[]> {
+  async findBySessionId(sessionId: string, excludeStudentDeleted = false): Promise<MentalChatMessage[]> {
     const client = getSupabaseClient();
-    const { data, error } = await client
+    let query = client
       .from(this.tableName)
       .select('*')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true });
+      .eq('session_id', sessionId);
+
+    if (excludeStudentDeleted) {
+      query = query.neq('student_deleted', true);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true });
 
     if (error || !data) return [];
     return data.map(row => this.mapRow(row));
@@ -386,6 +407,41 @@ export class MentalHealthWarningRepository extends BaseRepository<MentalHealthWa
 
     if (error || !data) return [];
     return data.map(row => this.mapRow(row));
+  }
+
+  async findBySessionId(sessionId: string): Promise<MentalHealthWarning | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from(this.tableName)
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return this.mapRow(data);
+  }
+
+  async upgradeWarning(id: string, params: {
+    severity?: string;
+    warningType?: string;
+    title?: string;
+    description?: string;
+    keywords?: string[];
+  }): Promise<void> {
+    const client = getSupabaseClient();
+    const updateData: Record<string, unknown> = {};
+    if (params.severity) updateData.severity = params.severity;
+    if (params.warningType) updateData.warning_type = params.warningType;
+    if (params.title) updateData.title = params.title;
+    if (params.description) updateData.description = params.description;
+    if (params.keywords) updateData.keywords = params.keywords;
+
+    await client
+      .from(this.tableName)
+      .update(updateData)
+      .eq('id', id);
   }
 
   async createWarning(params: {

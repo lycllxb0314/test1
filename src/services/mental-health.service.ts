@@ -131,12 +131,21 @@ const TONGTONG_SYSTEM_PROMPT = `你是"暖心童童"，面向小学生的情绪�
 2. 现实锚点：引导孩子回到现实生活中的积极事物。
    "现在心情有没有像天上飘走的小乌云一样，轻松一点了？要去喝杯温水，或者看看窗外的绿树吗？"
 
-## 第四层：后台数据静默处理
+## 第四层：后台数据静默处理（极其重要！）
 
-对话结束后，静默生成结构化日志，供教师端后台读取（不对孩子可见）：
-- 情绪基调：绿灯（已平复）/ 黄灯（需关注）/ 红灯（已触发熔断）
-- 核心事件摘要：因课间游戏产生小摩擦，已倾听疏导。
-- 建议：无需特殊干预，班主任可日常关注。
+每次回复的末尾，你必须使用 <backend_log> XML标签输出后台分析日志。这个标签内的内容绝对不会被学生看到，仅供后台教师读取。
+
+格式要求：
+<backend_log>
+情绪基调：绿灯（已平复）/ 黄灯（需关注）/ 红灯（已触发熔断）
+核心事件摘要：一句话概括
+建议：给班主任的建议
+</backend_log>
+
+重要：
+- <backend_log> 标签内的内容对学生完全不可见，由系统自动过滤
+- 你必须在每次回复末尾都加上这个标签
+- 标签外的内容才是给学生的对话，必须温暖简短
 
 ## 注意事项
 
@@ -286,7 +295,7 @@ export class MentalHealthService extends BaseService {
     sessionId: string | null,
     userMessage: string,
     request: NextRequest,
-  ): AsyncGenerator<{ type: 'content' | 'sensitivity' | 'warning' | 'session' | 'done' | 'error'; data: unknown }> {
+  ): AsyncGenerator<{ type: 'content' | 'sensitivity' | 'warning' | 'session' | 'done' | 'error' | 'backend_log'; data: unknown }> {
     try {
       // 1. 获取或创建会话
       let session: ChatSession;
@@ -320,9 +329,9 @@ export class MentalHealthService extends BaseService {
         sensitivityTags: sensitivityResult.tags,
       });
 
-      // 5. 敏感内容 → 创建预警
-      if (sensitivityResult.flag !== 'safe') {
-        await this.createWarningFromSensitivity(studentId, session.id, sensitivityResult);
+      // 5. 先记录敏感级别（预警在 LLM 完成后创建，以便包含后台日志）
+      const needsWarning = sensitivityResult.flag !== 'safe';
+      if (needsWarning) {
         yield { type: 'warning', data: { severity: sensitivityResult.flag === 'critical' ? 'red' : 'yellow' } };
       }
 
@@ -333,8 +342,8 @@ export class MentalHealthService extends BaseService {
         if (knowledgeResult) {
           knowledgeContext = `\n\n【参考资料（请自然融入回复，不要提及"参考资料"）】\n${knowledgeResult}`;
         }
-      } catch (e) {
-        console.error('[MentalHealth] 知识库检索失败:', e);
+      } catch {
+        // 知识库检索失败时静默继续，不影响对话
       }
 
       // 7. 构建对话消息（脱敏版，给智能体看）
@@ -363,22 +372,79 @@ export class MentalHealthService extends BaseService {
 
       for await (const chunk of llmStream) {
         if (chunk.content) {
-          const text = chunk.content.toString();
-          fullResponse += text;
-          yield { type: 'content', data: text };
+          fullResponse += chunk.content.toString();
         }
       }
 
-      // 9. 存储助手回复
+      // 10. 从完整回复中提取并过滤 backend_log
+      // 支持多种格式：<backend_log>...</backend_log>、【后台日志】...、---分隔线
+      let cleanResponse = fullResponse;
+      let backendLogContent = '';
+
+      // 1) 优先匹配 XML 标签
+      const xmlMatch = fullResponse.match(/<backend_log>([\s\S]*?)<\/backend_log>/);
+      if (xmlMatch) {
+        backendLogContent = xmlMatch[1].trim();
+        cleanResponse = fullResponse.replace(/<backend_log>[\s\S]*?<\/backend_log>/, '').trim();
+      }
+
+      // 2) 匹配【后台日志】
+      if (!backendLogContent) {
+        const bracketMatch = fullResponse.match(/【后台日志】([\s\S]*?)$/);
+        if (bracketMatch) {
+          backendLogContent = bracketMatch[1].trim();
+          cleanResponse = fullResponse.replace(/【后台日志】[\s\S]*$/, '').trim();
+        }
+      }
+
+      // 3) 匹配 --- 分隔线后的后台分析内容（含"情绪基调"）
+      if (!backendLogContent) {
+        const dashMatch = fullResponse.match(/\n---\s*\n([\s\S]*情绪基调[\s\S]*?)$/);
+        if (dashMatch) {
+          backendLogContent = dashMatch[1].trim();
+          cleanResponse = fullResponse.replace(/\n---\s*\n[\s\S]*情绪基调[\s\S]*?$/, '').trim();
+        }
+      }
+
+      // 4) 兜底：只要包含"情绪基调"就认为是后台日志，从该位置截断
+      if (!backendLogContent) {
+        const emotionIdx = cleanResponse.indexOf('情绪基调');
+        if (emotionIdx !== -1) {
+          // 往前找到分隔线或换行
+          const before = cleanResponse.substring(0, emotionIdx);
+          const lastSep = Math.max(before.lastIndexOf('\n---'), before.lastIndexOf('【'));
+          const cutIdx = lastSep > 0 ? lastSep : emotionIdx;
+          backendLogContent = cleanResponse.substring(cutIdx).replace(/^[\s\-—【】]*/, '').trim();
+          cleanResponse = cleanResponse.substring(0, cutIdx).trim();
+        }
+      }
+
+      // 清理残留的分隔线和空白
+      cleanResponse = cleanResponse.replace(/\n---\s*$/, '').replace(/\n【后台日志】\s*$/, '').trim();
+
+      // 流式已结束，把过滤后的内容一次性 yield（因为 LLM 流已经全部收集完了）
+      yield { type: 'content', data: cleanResponse };
+
+      // 输出后台日志
+      if (backendLogContent) {
+        yield { type: 'backend_log', data: backendLogContent };
+      }
+
+      // 11. 存储助手回复（存储的是过滤后的干净内容）
       await this.messageRepo.createMessage({
         sessionId: session.id,
         role: 'assistant',
-        content: fullResponse,
+        content: cleanResponse,
       });
 
       // 10. 更新会话
       await this.sessionRepo.incrementTurn(session.id);
       await this.sessionRepo.updateEmotion(session.id, sensitivityResult.level);
+
+      // 11. 敏感内容 → 创建预警（在 LLM 完成后，包含后台日志摘要和建议）
+      if (needsWarning) {
+        await this.createWarningFromSensitivity(studentId, session.id, sensitivityResult, backendLogContent.trim() || undefined);
+      }
 
       yield { type: 'done', data: null };
     } catch (error) {
@@ -437,6 +503,7 @@ export class MentalHealthService extends BaseService {
     studentId: string,
     sessionId: string,
     sensitivity: { flag: string; tags: string[]; level: string },
+    backendLog?: string,
   ): Promise<void> {
     const severity = sensitivity.level === 'red' ? 'red' : 'yellow';
     const warningType = severity === 'red' ? 'red_line' : 'sensitive';
@@ -444,15 +511,67 @@ export class MentalHealthService extends BaseService {
       ? `学生对话触及红线关键词：${sensitivity.tags.slice(0, 3).join('、')}`
       : `学生对话出现敏感表述：${sensitivity.tags[0]}`;
 
-    await this.warningRepo.createWarning({
-      studentId,
-      sessionId,
-      warningType,
-      severity,
-      title,
-      description: `学生在与"暖心童童"对话中提及了以下关键词：${sensitivity.tags.join('、')}。请及时关注。`,
-      keywords: sensitivity.tags,
-    });
+    // 从后台日志中提取核心事件摘要和建议
+    let summary = '';
+    let suggestion = '';
+    if (backendLog) {
+      const summaryMatch = backendLog.match(/核心事件摘要[：:]\s*(.+)/);
+      if (summaryMatch) summary = summaryMatch[1].trim();
+      const suggestMatch = backendLog.match(/建议[：:]\s*([\s\S]+)/);
+      if (suggestMatch) suggestion = suggestMatch[1].trim();
+    }
+
+    // 构建描述：优先使用后台日志的摘要和建议，否则用关键词
+    let description = '';
+    if (summary) {
+      description = summary;
+    } else {
+      description = `学生在与"暖心童童"对话中提及了以下关键词：${sensitivity.tags.join('、')}。`;
+    }
+    if (suggestion) {
+      description += `\n\n【建议】${suggestion}`;
+    }
+
+    // 查找该会话是否已有预警（升级+合并逻辑）
+    const existingWarning = await this.warningRepo.findBySessionId(sessionId);
+
+    if (existingWarning) {
+      // 已有预警 → 合并内容，等级就高不就低
+      const currentSeverity = existingWarning.severity;
+      const shouldUpgrade = severity === 'red' && currentSeverity === 'yellow';
+
+      // 合并关键词（去重）
+      const mergedKeywords = [...new Set([...(existingWarning.keywords || []), ...sensitivity.tags])];
+
+      // 合并描述（追加新内容，标注追加时间）
+      const now = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+      const mergedDescription = existingWarning.description
+        + `\n\n---\n[${now} 更新] ${shouldUpgrade ? '⚠️ 预警等级升级为红色' : '追加信息'}\n${description}`;
+
+      // 合并标题
+      const mergedTitle = shouldUpgrade
+        ? `学生对话触及红线关键词：${mergedKeywords.slice(0, 3).join('、')}`
+        : existingWarning.title;
+
+      await this.warningRepo.upgradeWarning(existingWarning.id, {
+        severity: shouldUpgrade ? 'red' : currentSeverity,
+        warningType: shouldUpgrade ? 'red_line' : existingWarning.warningType,
+        title: mergedTitle,
+        description: mergedDescription,
+        keywords: mergedKeywords,
+      });
+    } else {
+      // 无已有预警 → 新建
+      await this.warningRepo.createWarning({
+        studentId,
+        sessionId,
+        warningType,
+        severity,
+        title,
+        description,
+        keywords: sensitivity.tags,
+      });
+    }
   }
 
   // ==================== 知识库检索 ====================
@@ -484,8 +603,44 @@ export class MentalHealthService extends BaseService {
 
   // ==================== 预警管理 ====================
 
-  async getWarnings(studentIds?: string[]): Promise<MentalHealthWarning[]> {
-    return this.warningRepo.findWarnings(studentIds);
+  async getWarnings(studentIds?: string[]): Promise<Array<MentalHealthWarning & { studentName?: string; className?: string }>> {
+    const warnings = await this.warningRepo.findWarnings(studentIds);
+    if (warnings.length === 0) return [];
+
+    // 批量查询学生姓名和班级
+    const uniqueStudentIds = [...new Set(warnings.map(w => w.studentId))];
+    const studentNames: Record<string, string> = {};
+    const classNames: Record<string, string> = {};
+
+    const client = getSupabaseClient();
+    for (const sid of uniqueStudentIds) {
+      try {
+        const { data: student } = await client
+          .from('students')
+          .select('name, class_id')
+          .eq('id', sid)
+          .single();
+        if (student) {
+          studentNames[sid] = student.name;
+          if (student.class_id) {
+            const { data: cls } = await client
+              .from('classes')
+              .select('name')
+              .eq('id', student.class_id)
+              .single();
+            if (cls) classNames[sid] = cls.name;
+          }
+        }
+      } catch {
+        // 忽略查不到的学生
+      }
+    }
+
+    return warnings.map(w => ({
+      ...w,
+      studentName: studentNames[w.studentId] || '未知学生',
+      className: classNames[w.studentId] || '',
+    }));
   }
 
   async getUnreadWarningCount(studentIds?: string[]): Promise<number> {
@@ -560,15 +715,29 @@ export class MentalHealthService extends BaseService {
     return summaries;
   }
 
-  async getSessionDetail(sessionId: string): Promise<{ session: ChatSession; messages: MentalChatMessage[] } | null> {
+  async getSessionDetail(sessionId: string, excludeStudentDeleted = false): Promise<{ session: ChatSession; messages: MentalChatMessage[] } | null> {
     const session = await this.sessionRepo.findById(sessionId);
     if (!session) return null;
-    const messages = await this.messageRepo.findBySessionId(sessionId);
+    const messages = await this.messageRepo.findBySessionId(sessionId, excludeStudentDeleted);
     return { session, messages };
   }
 
   async getStudentSessions(studentId: string): Promise<ChatSession[]> {
     return this.sessionRepo.findByStudentId(studentId);
+  }
+
+  /**
+   * 删除会话及其消息
+   */
+  async deleteSession(sessionId: string, studentId: string): Promise<{ success: boolean }> {
+    // 验证会话属于该学生
+    const session = await this.sessionRepo.findById(sessionId);
+    if (!session || session.studentId !== studentId) {
+      return { success: false };
+    }
+    // 软删除：仅对学生隐藏，后端数据和预警不受影响
+    await this.sessionRepo.softDeleteByStudent(sessionId);
+    return { success: true };
   }
 
   /**

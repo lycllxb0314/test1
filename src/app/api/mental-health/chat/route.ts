@@ -14,12 +14,6 @@ export async function POST(request: NextRequest) {
   try {
     // 认证用户
     const authResult = await authenticateRequest(request);
-    console.log('[Chat API] authResult:', {
-      success: authResult.success,
-      hasUser: !!authResult.user,
-      error: authResult.error,
-      userId: authResult.user?.id,
-    });
     if (!authResult.user) {
       return NextResponse.json({ error: authResult.error || '请先登录' }, { status: 401 });
     }

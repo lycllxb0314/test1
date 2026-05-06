@@ -4,6 +4,7 @@
  * GET /api/mental-health/sessions?studentId - 学生会话列表
  * GET /api/mental-health/sessions?sessionId - 会话详情（含消息）
  * GET /api/mental-health/sessions?classId   - 班级学生心理摘要
+ * DELETE /api/mental-health/sessions        - 删除会话 (body: { sessionId, studentId })
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -29,7 +30,8 @@ export const GET = protectedRoute(async (request: NextRequest) => {
 
     // 会话详情
     if (sessionId) {
-      const detail = await mentalHealthService.getSessionDetail(sessionId);
+      const fromStudent = searchParams.get('fromStudent') === 'true';
+      const detail = await mentalHealthService.getSessionDetail(sessionId, fromStudent);
       if (!detail) {
         return NextResponse.json(error('会话不存在', ErrorCode.NOT_FOUND), { status: 404 });
       }
@@ -53,5 +55,27 @@ export const GET = protectedRoute(async (request: NextRequest) => {
   } catch (err) {
     console.error('[MentalHealth Sessions GET Error]:', err);
     return NextResponse.json(error('获取会话失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
+  }
+});
+
+// 删除会话
+export const DELETE = protectedRoute(async (request: NextRequest) => {
+  try {
+    const body = await request.json();
+    const { sessionId, studentId } = body;
+
+    if (!sessionId || !studentId) {
+      return NextResponse.json(error('缺少必要参数', ErrorCode.BAD_REQUEST), { status: 400 });
+    }
+
+    const result = await mentalHealthService.deleteSession(sessionId, studentId);
+    if (!result.success) {
+      return NextResponse.json(error('无权删除此会话', ErrorCode.FORBIDDEN), { status: 403 });
+    }
+
+    return NextResponse.json(success({ deleted: true }, 'database'));
+  } catch (err) {
+    console.error('[MentalHealth Sessions DELETE Error]:', err);
+    return NextResponse.json(error('删除会话失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 });

@@ -14,7 +14,8 @@ import {
   Sun,
   Moon,
   Leaf,
-  Rainbow
+  Rainbow,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
@@ -65,12 +66,14 @@ export default function TongTongPage() {
     if (!verified) return;
     const fetchSessions = async () => {
       try {
-        const res = await fetch('/api/mental-health/sessions', {
+        const res = await fetch(`/api/mental-health/sessions?studentId=${verifiedStudentId}`, {
           headers: { 'x-user-id': user?.id || '' },
+          credentials: 'include',
         });
         const data = await res.json();
         if (data.data) {
-          setSessions(data.data.map((s: Record<string, unknown>) => ({
+          const list = Array.isArray(data.data) ? data.data : [];
+          setSessions(list.map((s: Record<string, unknown>) => ({
             id: s.id as string,
             title: (s.title as string) ?? '新对话',
             createdAt: s.createdAt as string,
@@ -88,12 +91,15 @@ export default function TongTongPage() {
   // 加载会话消息
   const loadSessionMessages = useCallback(async (sessionId: string) => {
     try {
-      const res = await fetch(`/api/mental-health/sessions?id=${sessionId}`, {
+      const res = await fetch(`/api/mental-health/sessions?sessionId=${sessionId}&fromStudent=true`, {
         headers: { 'x-user-id': user?.id || '' },
+        credentials: 'include',
       });
       const data = await res.json();
-      if (data.messages) {
-        setMessages(data.messages.map((m: Record<string, unknown>) => ({
+      // API 返回格式: { success: true, data: { session, messages } }
+      const detail = data.data;
+      if (detail?.messages) {
+        setMessages(detail.messages.map((m: Record<string, unknown>) => ({
           id: m.id as string,
           role: m.role as 'user' | 'assistant' | 'system',
           content: m.content as string,
@@ -105,6 +111,34 @@ export default function TongTongPage() {
       console.error('load messages error:', err);
     }
   }, []);
+
+  // 删除会话
+  const deleteSession = useCallback(async (sessionId: string) => {
+    if (!verifiedStudentId) return;
+    if (!confirm('确定要删除这条对话记录吗？')) return;
+    
+    try {
+      const res = await fetch('/api/mental-health/sessions', {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': user?.id || '' 
+        },
+        credentials: 'include',
+        body: JSON.stringify({ sessionId, studentId: verifiedStudentId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSessions(prev => prev.filter(s => s.id !== sessionId));
+        if (currentSessionId === sessionId) {
+          setMessages([]);
+          setCurrentSessionId(null);
+        }
+      }
+    } catch (err) {
+      console.error('delete session error:', err);
+    }
+  }, [verifiedStudentId, currentSessionId, user?.id]);
 
   // 发送消息（SSE 流式）
   const sendMessage = useCallback(async () => {
@@ -138,6 +172,7 @@ export default function TongTongPage() {
           'Content-Type': 'application/json',
           'x-user-id': user?.id || '',
         },
+        credentials: 'include',
         body: JSON.stringify({
           message: userMessage.content,
           sessionId: currentSessionId,
@@ -156,34 +191,35 @@ export default function TongTongPage() {
       const decoder = new TextDecoder();
       let fullContent = '';
       let returnedSessionId: string | null = null;
+      let buffer = ''; // SSE 数据可能跨 chunk 分割，需要 buffer
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // 最后一个元素可能是不完整的行，保留在 buffer 中
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6).trim();
-            if (dataStr === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(dataStr);
-              if (parsed.type === 'session') {
-                returnedSessionId = (parsed.data as { sessionId: string })?.sessionId;
-              } else if (parsed.type === 'content') {
-                fullContent += parsed.data as string;
-                setMessages(prev => prev.map(m =>
-                  m.id === assistantId ? { ...m, content: fullContent } : m
-                ));
-              }
-            } catch {
-              fullContent += dataStr;
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          const dataStr = trimmed.slice(6).trim();
+          if (dataStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.type === 'session') {
+              returnedSessionId = (parsed.data as { sessionId: string })?.sessionId;
+            } else if (parsed.type === 'content') {
+              fullContent += parsed.data as string;
               setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, content: fullContent } : m
               ));
             }
+            // sensitivity, warning, done 等类型静默处理，不输出到聊天
+          } catch {
+            // JSON 解析失败的不完整数据，忽略
           }
         }
       }
@@ -291,27 +327,41 @@ export default function TongTongPage() {
               <div className="text-xs text-muted-foreground px-2 py-1">历史对话</div>
             )}
             {sessions.map((s) => (
-              <button
+              <div
                 key={s.id}
-                onClick={() => loadSessionMessages(s.id)}
-                className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all group ${
+                className={`group relative w-full text-left px-4 py-3 rounded-xl text-sm transition-all ${
                   currentSessionId === s.id 
                     ? 'bg-gradient-to-r from-teal-500/10 to-teal-500/5 border border-teal-500/20' 
                     : 'hover:bg-muted/50 border border-transparent'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-lg ${currentSessionId === s.id ? 'bg-teal-500/20' : 'bg-muted'}`}>
-                    <MessageCircle className="h-3.5 w-3.5 text-teal-600" />
+                <button
+                  onClick={() => loadSessionMessages(s.id)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-1.5 rounded-lg ${currentSessionId === s.id ? 'bg-teal-500/20' : 'bg-muted'}`}>
+                      <MessageCircle className="h-3.5 w-3.5 text-teal-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="truncate block font-medium">{s.title}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(s.createdAt).toLocaleDateString('zh-CN')}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="truncate block font-medium">{s.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(s.createdAt).toLocaleDateString('zh-CN')}
-                    </span>
-                  </div>
-                </div>
-              </button>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteSession(s.id);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="删除对话"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ))}
             {sessions.length === 0 && (
               <div className="text-center py-8">
@@ -393,13 +443,15 @@ export default function TongTongPage() {
                 className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.role === 'assistant' && (
-                  <Image
-                    src="/tongtong-avatar.png"
-                    alt="童童"
-                    width={32}
-                    height={32}
-                    className="rounded-full shrink-0 mt-1"
-                  />
+                  <div className="shrink-0 mt-1">
+                    <Image
+                      src="/tongtong-avatar.png"
+                      alt="童童"
+                      width={32}
+                      height={32}
+                      className="rounded-full object-cover w-8 h-8"
+                    />
+                  </div>
                 )}
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
