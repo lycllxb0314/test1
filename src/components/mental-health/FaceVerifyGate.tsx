@@ -121,7 +121,7 @@ export default function FaceVerifyGate({ onVerified }: FaceVerifyGateProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: selectedChild.studentId,
-          image: imageBase64,
+          imageBase64: imageBase64,
         }),
       });
       const data = await res.json();
