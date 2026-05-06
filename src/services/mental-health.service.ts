@@ -719,7 +719,12 @@ export class MentalHealthService extends BaseService {
         return { success: false, similarity: 0, error: '该学生尚未录入人脸信息，无法验证' };
       }
 
-      const storedVector = personRow.face_vector as number[];
+      // Supabase VECTOR 类型返回的是字符串 "[0.1,0.2,...]"，必须解析为数组
+      const storedVector = this.parseVector(personRow.face_vector);
+
+      if (!storedVector || storedVector.length === 0) {
+        return { success: false, similarity: 0, error: '该学生人脸数据异常，请重新录入' };
+      }
 
       // 2. 将 base64 图片上传到对象存储，获取 URL
       //    EmbeddingClient.embedImage 只接受 URL，不接受 base64 data URL
@@ -735,18 +740,23 @@ export class MentalHealthService extends BaseService {
         new Config({ apiKey: process.env.COZE_API_TOKEN || '' }),
       );
 
-      const inputVector = await embeddingClient.embedImage(imageUrl);
+      const rawInputVector = await embeddingClient.embedImage(imageUrl);
 
-      if (!inputVector || inputVector.length === 0) {
+      if (!rawInputVector || rawInputVector.length === 0) {
         console.error('[MentalHealthService] embedImage returned empty, imageUrl:', imageUrl);
         return { success: false, similarity: 0, error: '人脸识别失败，请确保照片清晰' };
       }
 
-      console.log(`[MentalHealthService] storedVector dim=${storedVector.length}, sample=[${storedVector.slice(0, 5).map((v: number) => v.toFixed(6)).join(',')}]`);
-      console.log(`[MentalHealthService] inputVector dim=${inputVector.length}, sample=[${inputVector.slice(0, 5).map((v: number) => v.toFixed(6)).join(',')}]`);
+      // 4. L2 归一化 — 向量必须归一化后才能正确计算余弦相似度
+      const normalizedStored = this.l2Normalize(storedVector);
+      const normalizedInput = this.l2Normalize(rawInputVector);
 
-      // 4. 余弦相似度计算
-      const similarity = this.cosineSimilarity(storedVector, inputVector);
+      console.log(`[MentalHealthService] stored dim=${storedVector.length}, input dim=${rawInputVector.length}`);
+      console.log(`[MentalHealthService] stored sample=[${normalizedStored.slice(0, 5).map(v => v.toFixed(6)).join(',')}]`);
+      console.log(`[MentalHealthService] input  sample=[${normalizedInput.slice(0, 5).map(v => v.toFixed(6)).join(',')}]`);
+
+      // 5. 余弦相似度计算（归一化后点积即为余弦相似度）
+      const similarity = this.cosineSimilarity(normalizedStored, normalizedInput);
 
       // 5. 阈值判断（0.85 为通过阈值）
       const THRESHOLD = 0.85;
@@ -802,19 +812,50 @@ export class MentalHealthService extends BaseService {
   }
 
   /**
+   * 解析 Supabase VECTOR 类型返回值
+   * Supabase JS 客户端对 VECTOR 列返回字符串 "[0.1,0.2,...]" 或已解析的数组
+   */
+  private parseVector(raw: unknown): number[] {
+    if (Array.isArray(raw)) return raw as number[];
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        // 尝试去掉首尾方括号后按逗号分割
+        const cleaned = raw.replace(/^\[|\]$/g, '');
+        return cleaned.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+      }
+    }
+    return [];
+  }
+
+  /**
+   * L2 归一化：将向量归一化为单位向量
+   * 归一化后的余弦相似度 = 归一化向量的点积
+   */
+  private l2Normalize(vec: number[]): number[] {
+    const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
+    if (norm === 0) return vec;
+    return vec.map(v => v / norm);
+  }
+
+  /**
    * 计算两个向量的余弦相似度
+   * 归一化后的向量，点积即为余弦相似度
    */
   private cosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length || a.length === 0) return 0;
+    // 归一化后的点积 = 余弦相似度
     let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
     for (let i = 0; i < a.length; i++) {
       dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
     }
-    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+    // 归一化向量范数=1，所以 dot = cos(θ)
+    // 但为了安全还是除以范数
+    const normA = Math.sqrt(a.reduce((s, v) => s + v * v, 0));
+    const normB = Math.sqrt(b.reduce((s, v) => s + v * v, 0));
+    const denominator = normA * normB;
     if (denominator === 0) return 0;
     return dotProduct / denominator;
   }

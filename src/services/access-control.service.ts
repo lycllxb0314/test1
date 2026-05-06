@@ -302,12 +302,16 @@ export class AccessControlService extends BaseService {
         new Config({ apiKey: process.env.COZE_API_TOKEN || '' }),
       );
 
-      const vector = await client.embedImage(photoUrl);
+      const rawVector = await client.embedImage(photoUrl);
 
-      if (vector && vector.length > 0) {
+      if (rawVector && rawVector.length > 0) {
+        // L2 归一化：存储前必须归一化，确保与验证时归一化后的向量可比较
+        const norm = Math.sqrt(rawVector.reduce((sum: number, v: number) => sum + v * v, 0));
+        const vector = norm > 0 ? rawVector.map((v: number) => v / norm) : rawVector;
+
         console.log(`[AccessControlService] embedImage result dim=${vector.length}, sample=[${vector.slice(0, 5).map((v: number) => v.toFixed(6)).join(',')}]`);
         await accessPersonRepository.updateFaceVector(personId, vector);
-        console.log(`[AccessControlService] 人员 ${personId} 人脸向量生成成功, 维度: ${vector.length}`);
+        console.log(`[AccessControlService] 人员 ${personId} 人脸向量生成成功(L2归一化), 维度: ${vector.length}`);
       }
     } catch (err) {
       console.error('[AccessControlService] generateFaceVectorAsync error:', err);
