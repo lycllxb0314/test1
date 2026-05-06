@@ -697,6 +697,7 @@ export class MentalHealthService extends BaseService {
 
   /**
    * 人脸验证：用摄像头捕获的照片与数据库中存储的向量做比对
+   * 流程：base64 → 上传对象存储获取URL → 生成向量 → 余弦相似度比对
    */
   async verifyFace(studentId: string, imageBase64: string): Promise<{
     success: boolean;
@@ -720,28 +721,30 @@ export class MentalHealthService extends BaseService {
 
       const storedVector = personRow.face_vector as number[];
 
-      // 2. 用 EmbeddingClient 生成输入照片的向量
+      // 2. 将 base64 图片上传到对象存储，获取 URL
+      //    EmbeddingClient.embedImage 只接受 URL，不接受 base64 data URL
+      const imageUrl = await this._uploadBase64ToStorage(imageBase64);
+      if (!imageUrl) {
+        return { success: false, similarity: 0, error: '图片上传失败，请重试' };
+      }
+
+      // 3. 用 EmbeddingClient 生成输入照片的向量（必须用 URL）
       const { EmbeddingClient } = await import('coze-coding-dev-sdk');
       const { Config } = await import('coze-coding-dev-sdk');
       const embeddingClient = new EmbeddingClient(
         new Config({ apiKey: process.env.COZE_API_TOKEN || '' }),
       );
 
-      // base64 转 data URL
-      const dataUrl = imageBase64.startsWith('data:')
-        ? imageBase64
-        : `data:image/jpeg;base64,${imageBase64}`;
-
-      const inputVector = await embeddingClient.embedImage(dataUrl);
+      const inputVector = await embeddingClient.embedImage(imageUrl);
 
       if (!inputVector || inputVector.length === 0) {
         return { success: false, similarity: 0, error: '人脸识别失败，请确保照片清晰' };
       }
 
-      // 3. 余弦相似度计算
+      // 4. 余弦相似度计算
       const similarity = this.cosineSimilarity(storedVector, inputVector);
 
-      // 4. 阈值判断（0.85 为通过阈值）
+      // 5. 阈值判断（0.85 为通过阈值）
       const THRESHOLD = 0.85;
       if (similarity >= THRESHOLD) {
         console.log(`[MentalHealthService] 人脸验证通过: studentId=${studentId}, similarity=${similarity.toFixed(4)}`);
@@ -753,6 +756,44 @@ export class MentalHealthService extends BaseService {
     } catch (err) {
       console.error('[MentalHealthService] verifyFace error:', err);
       return { success: false, similarity: 0, error: '验证过程出错，请重试' };
+    }
+  }
+
+  /**
+   * 将 base64 图片上传到对象存储，返回可访问的 URL
+   */
+  private async _uploadBase64ToStorage(imageBase64: string): Promise<string | null> {
+    try {
+      const { S3Storage } = await import('coze-coding-dev-sdk');
+      const storage = new S3Storage({
+        endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
+        accessKey: '',
+        secretKey: '',
+        bucketName: process.env.COZE_BUCKET_NAME,
+        region: 'cn-beijing',
+      });
+
+      // 去掉 data:image/xxx;base64, 前缀
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      const fileName = `face-verify/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const key = await storage.uploadFile({
+        fileContent: buffer,
+        fileName,
+        contentType: 'image/jpeg',
+      });
+
+      // 生成 5 分钟有效期的预签名 URL（验证用完即弃）
+      const url = await storage.generatePresignedUrl({
+        key,
+        expireTime: 5 * 60,
+      });
+
+      return url;
+    } catch (err) {
+      console.error('[MentalHealthService] _uploadBase64ToStorage error:', err);
+      return null;
     }
   }
 
