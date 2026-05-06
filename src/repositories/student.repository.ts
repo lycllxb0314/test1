@@ -72,6 +72,7 @@ function mapStudentRow(s: Record<string, unknown>): Student {
     familyType: s.family_type as string,
     parents: (Array.isArray(s.parents) ? s.parents : []) as Parent[],
     status: (s.status as Student['status']) || '在校',
+    photoUrl: (s.photo_url as string) || undefined,
     avatar: s.avatar as string,
     createdAt: s.created_at as string,
     updatedAt: s.updated_at as string,

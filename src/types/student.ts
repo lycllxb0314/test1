@@ -47,6 +47,7 @@ export interface Student {
   // 状态
   status: StudentStatus;
   avatar?: string;
+  photoUrl?: string;
   enrollmentDate?: string;
   
   createdAt?: string;

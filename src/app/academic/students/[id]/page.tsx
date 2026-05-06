@@ -54,6 +54,7 @@ import {
   Heart,
   Trophy,
   Activity,
+  Camera,
 } from 'lucide-react';
 import { useStudents } from '@/hooks';
 import { StudentFullProfile, Parent, StudentType } from '@/types';
@@ -557,10 +558,57 @@ export default function StudentDetailPage({ params }: PageProps) {
       <Card className="shadow-lg">
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-6">
-            {/* 头像 */}
+            {/* 头像+照片上传 */}
             <div className="flex-shrink-0 text-center">
-              <div className={`w-32 h-32 rounded-full ${genderDisplay.bg} flex items-center justify-center text-6xl shadow-lg mx-auto`}>
-                {genderDisplay.icon}
+              <div className="relative w-32 h-32 mx-auto group">
+                {profile.photoUrl ? (
+                  <img
+                    src={profile.photoUrl}
+                    alt={profile.name}
+                    className="w-32 h-32 rounded-full object-cover shadow-lg"
+                  />
+                ) : (
+                  <div className={`w-32 h-32 rounded-full ${genderDisplay.bg} flex items-center justify-center text-6xl shadow-lg`}>
+                    {genderDisplay.icon}
+                  </div>
+                )}
+                <label className="absolute bottom-0 left-0 right-0 h-8 bg-black/50 rounded-b-full flex items-center justify-center cursor-pointer opacity-80 hover:opacity-100 transition-opacity">
+                  <Camera className="h-4 w-4 text-white mr-1" />
+                  <span className="text-white text-xs">{profile.photoUrl ? '更换' : '上传'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) {
+                        toast.error('照片不能超过5MB');
+                        return;
+                      }
+                      try {
+                        const formDataUpload = new FormData();
+                        formDataUpload.append('file', file);
+                        const uploadRes = await fetch('/api/upload', {
+                          method: 'POST',
+                          body: formDataUpload,
+                        });
+                        const uploadResult = await uploadRes.json();
+                        if (uploadResult.success && uploadResult.data?.url) {
+                          const photoUrl = uploadResult.data.url;
+                          await updateProfile({ photoUrl } as Partial<StudentFullProfile>);
+                          setProfile(prev => prev ? { ...prev, photoUrl } : prev);
+                          toast.success('照片已上传');
+                        } else {
+                          toast.error('照片上传失败');
+                        }
+                      } catch {
+                        toast.error('照片上传失败');
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
               </div>
               <Badge className={`mt-3 ${getStatusColor(profile.status)}`}>
                 {profile.status}
