@@ -34,6 +34,7 @@ const MODULE_TITLES: Record<string, string> = {
   teacher: '教师空间',
   parent: '家长端',
   health: '体育健康',
+  mental: '心理健康',
 };
 
 // ─── AppSidebar (薄编排层) ───────────────────────────────────────
