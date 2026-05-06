@@ -152,6 +152,26 @@ export type {
   CreateHealthPrescriptionDTO,
 } from './health-management';
 
+// ==================== 学生心理健康 ====================
+export type {
+  AuthKeyScope,
+  AuthorizationKey,
+  CreateAuthKeyRequest,
+  VerifyAuthKeyRequest,
+  EmotionLevel,
+  ChatSession,
+  MentalChatMessage,
+  SensitivityFlag,
+  WarningType,
+  WarningSeverity,
+  MentalHealthWarning,
+  HandleWarningRequest,
+  MentalHealthStats,
+  ChatRequest,
+  ChatStreamChunk,
+  StudentMentalHealthSummary,
+} from './mental-health';
+
 // ==================== 教师管理 ====================
 export type {
   Teacher,

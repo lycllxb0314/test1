@@ -32,6 +32,7 @@ import {
   TrendingUp,
   Pill,
   Dumbbell,
+  HeartHandshake,
 } from 'lucide-react';
 import type { ModuleType } from '@/types';
 
@@ -97,6 +98,15 @@ export const MODULE_METAS: ModuleMeta[] = [
     activeShadow: 'shadow-teal-500/25',
     hoverBg: 'hover:bg-teal-50',
     hoverText: 'hover:text-teal-600',
+  },
+  {
+    key: 'mental',
+    label: '心理健康',
+    icon: HeartHandshake,
+    activeBg: 'bg-rose-500',
+    activeShadow: 'shadow-rose-500/25',
+    hoverBg: 'hover:bg-rose-50',
+    hoverText: 'hover:text-rose-600',
   },
   {
     key: 'teacher',
@@ -184,6 +194,14 @@ export const healthNav: NavItem[] = [
   { name: '周期报告', href: '/health/reports', icon: BarChart3, description: '周/月/学期健康报告' },
 ];
 
+// 心理健康管理导航（校领导 + 德育处）
+export const mentalHealthNav: NavItem[] = [
+  { name: '心理概览', href: '/mental', icon: LayoutDashboard, description: '学生心理健康看板' },
+  { name: '预警管理', href: '/mental/warnings', icon: Brain, description: '学生心理预警记录' },
+  { name: '授权密钥', href: '/mental/auth-keys', icon: DoorOpen, description: '班主任查看授权管理' },
+  { name: '会话记录', href: '/mental/sessions', icon: FileText, description: '智能体对话记录查看' },
+];
+
 // 教师空间导航 - 基础功能（所有教师可见）
 // 分组逻辑：按使用场景划分，而非功能属性
 // - 无 group：首页入口，独立置顶
@@ -217,6 +235,7 @@ export const headTeacherNav: NavItem[] = [
   { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', group: '班级' },
   { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', group: '班级' },
   { name: 'SOP台账', href: '/teacher/class-sop', icon: ClipboardCheck, description: '标准化操作流程与台账管理', group: '班级' },
+  { name: '心理健康', href: '/teacher/mental', icon: HeartHandshake, description: '查看本班学生心理状况', group: '班级' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能
@@ -236,6 +255,7 @@ export const gradeLeaderNav: NavItem[] = [
 // 家长端导航
 export const parentNav: NavItem[] = [
   { name: '家长工作台', href: '/parent', icon: LayoutDashboard, description: '家长端工作台' },
+  { name: '暖心童童', href: '/parent/mental', icon: HeartHandshake, description: '与树洞朋友聊天' },
   { name: '体育健康', href: '/parent/health', icon: Heart, description: '孩子体育健康数据与建议' },
   { name: '云教学', href: '/parent/cloud-course', icon: GraduationCap, description: '家长课程·子女学习' },
   { name: '课后选课', href: '/parent/after-school', icon: CalendarClock, description: '课后服务一键选课' },

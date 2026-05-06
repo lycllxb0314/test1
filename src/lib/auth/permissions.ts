@@ -376,6 +376,7 @@ export const MODULE_NAMES: Record<ModuleType, string> = {
   teacher: '教师空间',
   parent: '家长端',
   health: '体育健康',
+  mental: '心理健康',
 };
 
 /**

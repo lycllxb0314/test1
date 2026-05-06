@@ -47,6 +47,7 @@ export type ModuleType =
   | 'academic'     // 教务教研
   | 'moral'        // 德育管理
   | 'health'       // 学生体育健康管理
+  | 'mental'       // 学生心理健康
   | 'teacher'      // 教师空间
   | 'parent';      // 家长端
 
@@ -210,6 +211,7 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
       moral: ['view', 'edit', 'admin'],
       general: ['view', 'edit', 'admin'],
       health: ['view', 'edit', 'admin'],
+      mental: ['view', 'edit', 'admin'],
       teacher: ['view', 'edit', 'admin'],
     },
     autoIncludeRoles: ['principal', 'secretary', 'academic_vice_principal', 'moral_vice_principal', 'general_vice_principal'],
@@ -221,7 +223,7 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
     description: '负责教学管理、课程安排、教师培训等',
     modulePermissions: {
       academic: ['view', 'edit', 'admin'],
-      health: ['view'],  // 教务处可查看健康画像数据
+      health: ['view'],
     },
     autoIncludeRoles: [],
     directorRole: 'academic_director',
@@ -232,7 +234,8 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
     description: '负责学生德育、班级管理、少先队等',
     modulePermissions: {
       moral: ['view', 'edit', 'admin'],
-      health: ['view', 'edit', 'admin'],  // 德育处主管健康管理模块
+      health: ['view', 'edit', 'admin'],
+      mental: ['view', 'edit', 'admin'],
     },
     autoIncludeRoles: [],
     directorRole: 'moral_director',
@@ -252,7 +255,8 @@ export const GROUP_CONFIGS: Record<GroupType, GroupConfig> = {
     name: '医务室',
     description: '负责学生体质健康监测、体检数据管理、健康档案维护',
     modulePermissions: {
-      health: ['view', 'edit', 'admin'],  // 医务室专注于健康管理
+      health: ['view', 'edit', 'admin'],
+      mental: ['view', 'edit'],
     },
     autoIncludeRoles: [],
     directorRole: undefined,

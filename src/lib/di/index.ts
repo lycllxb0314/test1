@@ -278,6 +278,9 @@ import { AfterSchoolEnrollmentService, afterSchoolEnrollmentService } from '@/se
 // 智能设备 Services
 import { DeviceService, deviceService } from '@/services/device.service';
 
+// 心理健康 Services
+import { MentalHealthService, mentalHealthService } from '@/services/mental-health.service';
+
 /**
  * 初始化 DI 容器
  * 注册所有服务到容器中
@@ -480,6 +483,9 @@ export function initializeDI(): void {
 
   // 智能设备 Services
   container.registerSingleton(SERVICE_IDENTIFIERS.DeviceService, () => deviceService);
+
+  // 心理健康 Services
+  container.registerSingleton(SERVICE_IDENTIFIERS.MentalHealthService, () => mentalHealthService);
 }
 
 // 导出

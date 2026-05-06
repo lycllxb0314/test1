@@ -17,6 +17,7 @@ import {
   academicNav,
   moralNav,
   healthNav,
+  mentalHealthNav,
   teacherBaseNav,
   headTeacherNav,
   subTeacherNav,
@@ -94,6 +95,7 @@ export function AppSidebar() {
     if (activeModule === 'academic') return academicNav;
     if (activeModule === 'moral') return moralNav;
     if (activeModule === 'health') return healthNav;
+    if (activeModule === 'mental') return mentalHealthNav;
     if (activeModule === 'parent') return parentNav;
 
     if (activeModule === 'teacher') {

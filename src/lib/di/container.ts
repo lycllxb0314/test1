@@ -308,6 +308,7 @@ export const SERVICE_IDENTIFIERS = {
 
   // 体育健康 Services
   HealthManagementService: Symbol.for('HealthManagementService'),
+  MentalHealthService: Symbol.for('MentalHealthService'),
 } as const;
 
 /**
