@@ -127,15 +127,15 @@ export default function FaceVerifyGate({ onVerified }: FaceVerifyGateProps) {
       const data = await res.json();
 
       if (data.data) {
-        const result = data.data as { verified: boolean; similarity: number; error?: string };
+        const result = data.data as { success: boolean; similarity: number; error?: string };
         setVerifyResult({
-          success: result.verified,
+          success: result.success,
           similarity: result.similarity,
           error: result.error,
         });
         setStep('result');
 
-        if (result.verified) {
+        if (result.success) {
           setTimeout(() => onVerified(selectedChild.studentId), 1500);
         }
       } else {
