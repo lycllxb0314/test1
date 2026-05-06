@@ -196,10 +196,10 @@ export const healthNav: NavItem[] = [
 
 // 心理健康管理导航（校领导 + 德育处）
 export const mentalHealthNav: NavItem[] = [
-  { name: '心理概览', href: '/mental', icon: LayoutDashboard, description: '学生心理健康看板' },
-  { name: '预警管理', href: '/mental/warnings', icon: Brain, description: '学生心理预警记录' },
-  { name: '授权密钥', href: '/mental/auth-keys', icon: DoorOpen, description: '班主任查看授权管理' },
-  { name: '会话记录', href: '/mental/sessions', icon: FileText, description: '智能体对话记录查看' },
+  { name: '心理概览', href: '/mental-health', icon: LayoutDashboard, description: '学生心理健康看板' },
+  { name: '预警管理', href: '/mental-health/warnings', icon: Brain, description: '学生心理预警记录' },
+  { name: '授权密钥', href: '/mental-health/auth-keys', icon: DoorOpen, description: '班主任查看授权管理' },
+  { name: '会话记录', href: '/mental-health/sessions', icon: FileText, description: '智能体对话记录查看' },
 ];
 
 // 教师空间导航 - 基础功能（所有教师可见）
@@ -235,7 +235,7 @@ export const headTeacherNav: NavItem[] = [
   { name: '荣誉管理', href: '/teacher/honors', icon: Trophy, description: '管理本班学生荣誉', group: '班级' },
   { name: '德育活动', href: '/teacher/activities', icon: Calendar, description: '参与德育活动提交材料', group: '班级' },
   { name: 'SOP台账', href: '/teacher/class-sop', icon: ClipboardCheck, description: '标准化操作流程与台账管理', group: '班级' },
-  { name: '心理健康', href: '/teacher/mental', icon: HeartHandshake, description: '查看本班学生心理状况', group: '班级' },
+  { name: '心理健康', href: '/teacher/mental-health', icon: HeartHandshake, description: '查看本班学生心理状况', group: '班级' },
 ];
 
 // 教师空间导航 - 科任教师（副班主任）功能
