@@ -92,7 +92,7 @@ export default function EnvironmentPage() {
       const staffData = await staffRes.json();
       if (envData.success) setEnvAreas(envData.data);
       if (greenData.success) setGreenAreas(greenData.data);
-      if (staffData.success) setStaffList(staffData.data);
+      if (staffData.success) setStaffList(staffData.data?.items || staffData.data || []);
     } catch {
       toast.error('加载数据失败');
     } finally {
