@@ -216,6 +216,27 @@ export class ChatSessionRepository extends BaseRepository<ChatSession> {
     return data.map(row => this.mapRow(row));
   }
 
+  // 获取所有会话（支持分页）
+  async findAllPaginated(page: number, pageSize: number): Promise<{ sessions: ChatSession[]; total: number }> {
+    const client = getSupabaseClient();
+    const offset = (page - 1) * pageSize;
+
+    // 获取总数
+    const { count } = await client
+      .from(this.tableName)
+      .select('id', { count: 'exact', head: true });
+
+    // 获取分页数据
+    const { data, error } = await client
+      .from(this.tableName)
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (error || !data) return { sessions: [], total: 0 };
+    return { sessions: data.map(row => this.mapRow(row)), total: count ?? 0 };
+  }
+
   async countByEmotionLevel(studentIds: string[]): Promise<Record<string, number>> {
     if (studentIds.length === 0) return {};
     const client = getSupabaseClient();

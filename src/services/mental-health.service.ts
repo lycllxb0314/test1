@@ -571,6 +571,44 @@ export class MentalHealthService extends BaseService {
     return this.sessionRepo.findByStudentId(studentId);
   }
 
+  /**
+   * 获取所有会话记录（分页）
+   */
+  async getAllSessions(page: number, pageSize: number): Promise<{
+    sessions: Array<ChatSession & { studentName?: string; className?: string }>;
+    total: number;
+  }> {
+    const client = getSupabaseClient();
+    const { sessions, total } = await this.sessionRepo.findAllPaginated(page, pageSize);
+
+    // 获取学生信息
+    if (sessions.length === 0) return { sessions: [], total };
+
+    const studentIds = [...new Set(sessions.map(s => s.studentId))];
+    const { data: students } = await client
+      .from('students')
+      .select('id, name, class_id')
+      .in('id', studentIds);
+
+    const { data: classes } = await client
+      .from('classes')
+      .select('id, name');
+
+    const studentMap = new Map((students || []).map(s => [s.id, s]));
+    const classMap = new Map((classes || []).map(c => [c.id, c.name]));
+
+    const enrichedSessions = sessions.map(session => {
+      const student = studentMap.get(session.studentId);
+      return {
+        ...session,
+        studentName: student?.name || '未知学生',
+        className: student?.class_id ? classMap.get(student.class_id) || '未知班级' : '未知班级',
+      };
+    });
+
+    return { sessions: enrichedSessions, total };
+  }
+
   // ==================== 人脸验证 ====================
 
   /**

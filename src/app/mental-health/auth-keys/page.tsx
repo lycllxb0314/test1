@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { useAuthKeys } from '@/hooks/useMentalHealth';
+import { useClasses } from '@/hooks/useClasses';
 import { toast } from 'sonner';
 
 const scopeConfig: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -30,6 +31,7 @@ const scopeConfig: Record<string, { label: string; color: string; bgColor: strin
 
 export default function AuthKeysPage() {
   const { authKeys, loading, fetchAuthKeys, createAuthKey, deactivateAuthKey } = useAuthKeys();
+  const { allClasses, loading: classesLoading } = useClasses();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     description: '',
@@ -38,6 +40,26 @@ export default function AuthKeysPage() {
     maxUses: 1,
     expiresInHours: 24,
   });
+
+  // 按年级分组班级
+  const classesByGrade = useMemo(() => {
+    const grouped: Record<number, typeof allClasses> = {};
+    allClasses.forEach(c => {
+      if (!grouped[c.grade]) grouped[c.grade] = [];
+      grouped[c.grade].push(c);
+    });
+    // 每个年级内按班级号排序
+    Object.keys(grouped).forEach(grade => {
+      grouped[Number(grade)].sort((a, b) => a.classNumber - b.classNumber);
+    });
+    return grouped;
+  }, [allClasses]);
+
+  // 年级名称映射
+  const gradeNames: Record<number, string> = {
+    1: '一年级', 2: '二年级', 3: '三年级', 4: '四年级',
+    5: '五年级', 6: '六年级',
+  };
 
   useEffect(() => {
     fetchAuthKeys();
@@ -185,13 +207,24 @@ export default function AuthKeysPage() {
 
                 {form.scope === 'class' && (
                   <div className="space-y-2">
-                    <Label className="text-foreground font-medium">班级ID</Label>
-                    <Input
-                      placeholder="输入班级ID"
+                    <Label className="text-foreground font-medium">选择班级</Label>
+                    <select
+                      className="w-full h-10 rounded-lg border border-input bg-muted/30 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                       value={form.targetClassId}
                       onChange={(e) => setForm(prev => ({ ...prev, targetClassId: e.target.value }))}
-                      className="bg-muted/30"
-                    />
+                      disabled={classesLoading}
+                    >
+                      <option value="">{classesLoading ? '加载中...' : '请选择班级'}</option>
+                      {Object.entries(classesByGrade)
+                        .sort(([a], [b]) => Number(a) - Number(b))
+                        .map(([grade, classes]) => (
+                          <optgroup key={grade} label={gradeNames[Number(grade)] || `${grade}年级`}>
+                            {classes.map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                    </select>
                   </div>
                 )}
 
