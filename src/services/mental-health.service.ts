@@ -574,7 +574,45 @@ export class MentalHealthService extends BaseService {
   // ==================== 人脸验证 ====================
 
   /**
-   * 获取家长关联的孩子列表（含人脸向量状态）
+   * 通过用户ID获取家长关联的孩子列表（含人脸向量状态）
+   */
+  async getParentChildrenByUserId(userId: string): Promise<Array<{
+    studentId: string;
+    studentName: string;
+    className: string;
+    hasFaceVector: boolean;
+    photoUrl: string | null;
+  }>> {
+    const client = getSupabaseClient();
+
+    // 通过 account_id 查询该用户关联的所有家长记录
+    const { data: parentRows, error: parentErr } = await client
+      .from('parents')
+      .select('student_id')
+      .eq('account_id', userId);
+
+    if (parentErr || !parentRows || parentRows.length === 0) {
+      // 兜底：尝试用 users 表的 phone 关联
+      const { data: userRow } = await client
+        .from('users')
+        .select('phone')
+        .eq('id', userId)
+        .single();
+      if (userRow?.phone) {
+        return this.getParentChildren(userRow.phone as string);
+      }
+      return [];
+    }
+
+    const studentIds = [...new Set(parentRows.map((r: Record<string, unknown>) => r.student_id as string).filter(Boolean))];
+
+    if (studentIds.length === 0) return [];
+
+    return this._buildChildrenList(client, studentIds);
+  }
+
+  /**
+   * 获取家长关联的孩子列表（通过手机号）
    */
   async getParentChildren(parentPhone: string): Promise<Array<{
     studentId: string;
@@ -585,20 +623,31 @@ export class MentalHealthService extends BaseService {
   }>> {
     const client = getSupabaseClient();
 
-    // 查询该手机号关联的所有家长记录（可能多个孩子）
     const { data: parentRows, error: parentErr } = await client
       .from('parents')
       .select('student_id')
-      .eq('phone', parentPhone)
-      .eq('status', 'active');
+      .eq('phone', parentPhone);
 
     if (parentErr || !parentRows || parentRows.length === 0) {
       return [];
     }
 
     const studentIds = [...new Set(parentRows.map((r: Record<string, unknown>) => r.student_id as string).filter(Boolean))];
-
     if (studentIds.length === 0) return [];
+
+    return this._buildChildrenList(client, studentIds);
+  }
+
+  /**
+   * 内部方法：根据学生ID列表构建孩子信息
+   */
+  private async _buildChildrenList(client: ReturnType<typeof getSupabaseClient>, studentIds: string[]): Promise<Array<{
+    studentId: string;
+    studentName: string;
+    className: string;
+    hasFaceVector: boolean;
+    photoUrl: string | null;
+  }>> {
 
     // 批量查询学生信息
     const { data: studentRows, error: studentErr } = await client
