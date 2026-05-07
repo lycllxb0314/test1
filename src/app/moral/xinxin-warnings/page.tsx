@@ -43,14 +43,16 @@ type ConversationMessage = {
   createdAt: string;
 };
 
-const riskConfig: Record<RiskLevel, { label: string; color: string; icon: typeof ShieldAlert }> = {
+const riskConfig: Record<RiskLevel | string, { label: string; color: string; icon: typeof ShieldAlert }> = {
   high: { label: '高危', color: 'bg-red-500', icon: ShieldAlert },
   medium: { label: '中危', color: 'bg-amber-500', icon: AlertTriangle },
+  _default: { label: '未知', color: 'bg-gray-500', icon: AlertTriangle },
 };
 
-const triggerConfig: Record<TriggerType, { label: string; desc: string }> = {
+const triggerConfig: Record<TriggerType | string, { label: string; desc: string }> = {
   legal_safety: { label: '法律安全红线', desc: '家长暴力威胁/极端维权/学生自残倾向' },
   psychological: { label: '心理承载红线', desc: '教师极度崩溃/职业倦怠/无法承受' },
+  _default: { label: '未知类型', desc: '' },
 };
 
 export default function XinxinWarningsPage() {
@@ -195,8 +197,8 @@ export default function XinxinWarningsPage() {
       ) : (
         <div className="space-y-3">
           {warnings.map(w => {
-            const risk = riskConfig[w.riskLevel];
-            const trigger = triggerConfig[w.triggerType];
+            const risk = riskConfig[w.riskLevel] || riskConfig._default;
+            const trigger = triggerConfig[w.triggerType] || { label: '未知类型', desc: '' };
             return (
               <Card key={w.id} className="overflow-hidden">
                 <div className={`h-1 ${risk.color}`} />
@@ -301,8 +303,8 @@ export default function XinxinWarningsPage() {
               <MessageSquare className="h-5 w-5" />
               对话详情 - {detailDialog?.teacherName || '未知教师'}
               {detailDialog && (
-                <Badge className={`${riskConfig[detailDialog.riskLevel].color} text-white text-xs`}>
-                  {riskConfig[detailDialog.riskLevel].label}
+                <Badge className={`${(riskConfig[detailDialog.riskLevel] || riskConfig._default).color} text-white text-xs`}>
+                  {(riskConfig[detailDialog.riskLevel] || riskConfig._default).label}
                 </Badge>
               )}
             </DialogTitle>
@@ -311,7 +313,7 @@ export default function XinxinWarningsPage() {
             <div className="space-y-3">
               {/* 预警信息摘要 */}
               <div className="grid grid-cols-3 gap-3 text-sm p-3 bg-muted/50 rounded-lg">
-                <div><span className="text-muted-foreground">触发类型</span><p className="font-medium">{triggerConfig[detailDialog.triggerType].label}</p></div>
+                <div><span className="text-muted-foreground">触发类型</span><p className="font-medium">{(triggerConfig[detailDialog.triggerType] || triggerConfig._default).label}</p></div>
                 <div><span className="text-muted-foreground">班级</span><p className="font-medium">{detailDialog.className || '-'}</p></div>
                 <div><span className="text-muted-foreground">涉及家长</span><p className="font-medium">{detailDialog.studentName ? `${detailDialog.studentName}家长` : '-'}</p></div>
               </div>
