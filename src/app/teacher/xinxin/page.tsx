@@ -191,7 +191,7 @@ export default function XinxinPage() {
             const parsed = JSON.parse(dataStr);
             
             if (parsed.type === 'session') {
-              newSessionId = (parsed.data as { sessionId: string })?.sessionId || null;
+              newSessionId = (parsed.data as { conversationId: string })?.conversationId || null;
               setSessionId(newSessionId);
             } else if (parsed.type === 'content') {
               const text = typeof parsed.data === 'string' ? parsed.data : '';
@@ -288,7 +288,7 @@ export default function XinxinPage() {
             新对话
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
           {conversations.length > 0 && (
             <div className="text-xs text-muted-foreground px-2 py-1">历史对话</div>
           )}
