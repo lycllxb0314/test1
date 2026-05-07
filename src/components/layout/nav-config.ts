@@ -33,6 +33,7 @@ import {
   Pill,
   Dumbbell,
   HeartHandshake,
+  Sparkles,
 } from 'lucide-react';
 import type { ModuleType } from '@/types';
 
@@ -211,6 +212,7 @@ export const mentalHealthNav: NavItem[] = [
 // - 个人：低频的个人设置
 export const teacherBaseNav: NavItem[] = [
   { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台' },
+  { name: '心心', href: '/teacher/xinxin', icon: Sparkles, description: '家校沟通助手', color: 'text-pink-500' },
   { name: '个人档案', href: '/teacher/profile', icon: UserCircle, description: '个人信息维护' },
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排', group: '教学教研' },
   { name: '备课中心', href: '/teacher/lesson-prep', icon: BookOpen, description: '学科备课支持，文本解读', group: '教学教研' },
