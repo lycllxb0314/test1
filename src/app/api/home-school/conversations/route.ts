@@ -3,7 +3,8 @@ import { homeSchoolService } from '@/services/home-school.service';
 import { authenticateRequest } from '@/lib/auth/auth-middleware';
 import { success, error, ErrorCode } from '@/lib/api';
 
-// GET /api/home-school/sessions - 获取会话列表
+// GET /api/home-school/conversations - 获取会话列表
+// GET /api/home-school/conversations?conversationId=xxx - 获取会话详情（含消息）
 export async function GET(request: NextRequest) {
   const authResult = await authenticateRequest(request);
   if (!authResult.success || !authResult.user) {
@@ -16,21 +17,24 @@ export async function GET(request: NextRequest) {
 
   try {
     if (conversationId) {
-      // 获取单个会话的消息
-      const messages = await homeSchoolService.getConversationMessages(conversationId);
-      return NextResponse.json(success(messages));
+      // 获取会话详情（含消息）—— 与心理健康系统对齐
+      const detail = await homeSchoolService.getSessionDetail(conversationId, true);
+      if (!detail) {
+        return NextResponse.json(error('会话不存在', ErrorCode.NOT_FOUND), { status: 404 });
+      }
+      return NextResponse.json(success(detail));
     } else {
       // 获取会话列表
       const conversations = await homeSchoolService.getTeacherConversations(teacherId);
       return NextResponse.json(success(conversations));
     }
   } catch (err) {
-    console.error('[HomeSchool Sessions API] Error:', err);
+    console.error('[HomeSchool Conversations API] Error:', err);
     return NextResponse.json(error('获取失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }
 
-// DELETE /api/home-school/sessions - 删除会话
+// DELETE /api/home-school/conversations - 软删除会话（教师端）
 export async function DELETE(request: NextRequest) {
   const authResult = await authenticateRequest(request);
   if (!authResult.success || !authResult.user) {
@@ -45,10 +49,11 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
+    // 软删除：仅对教师端隐藏，后端数据和预警不受影响
     await homeSchoolService.softDeleteConversation(conversationId);
     return NextResponse.json(success(null));
   } catch (err) {
-    console.error('[HomeSchool Sessions API] Delete error:', err);
+    console.error('[HomeSchool Conversations API] Delete error:', err);
     return NextResponse.json(error('删除失败', ErrorCode.INTERNAL_ERROR), { status: 500 });
   }
 }

@@ -400,6 +400,16 @@ export class HomeSchoolService {
   }
 
   /**
+   * 获取会话详情（含消息）
+   */
+  async getSessionDetail(conversationId: string, excludeTeacherDeleted = false): Promise<{ conversation: HomeSchoolConversation; messages: HomeSchoolMessage[] } | null> {
+    const conversation = await homeSchoolRepository.findById(conversationId);
+    if (!conversation) return null;
+    const messages = await homeSchoolRepository.getMessages(conversationId, excludeTeacherDeleted);
+    return { conversation, messages };
+  }
+
+  /**
    * 获取会话消息
    */
   async getConversationMessages(conversationId: string): Promise<HomeSchoolMessage[]> {

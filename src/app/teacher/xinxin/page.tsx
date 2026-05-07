@@ -69,7 +69,10 @@ export default function XinxinPage() {
   // 加载会话列表
   const loadConversations = useCallback(async () => {
     try {
-      const res = await fetch('/api/home-school/conversations', { credentials: 'include' });
+      const res = await fetch('/api/home-school/conversations', {
+        headers: { 'x-user-id': user?.id || '' },
+        credentials: 'include',
+      });
       const data = await res.json();
       if (data.success && data.data) {
         setConversations(data.data);
@@ -77,7 +80,7 @@ export default function XinxinPage() {
     } catch (err) {
       console.error('加载会话列表失败:', err);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     loadConversations();
@@ -88,13 +91,18 @@ export default function XinxinPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 加载会话消息
+  // 加载会话消息（模仿心理健康系统的 getSessionDetail 格式）
   const loadConversationMessages = async (convId: string) => {
     try {
-      const res = await fetch(`/api/home-school/conversations?conversationId=${convId}`, { credentials: 'include' });
+      const res = await fetch(`/api/home-school/conversations?conversationId=${convId}`, {
+        headers: { 'x-user-id': user?.id || '' },
+        credentials: 'include',
+      });
       const data = await res.json();
-      if (data.success && data.data) {
-        setMessages(data.data.map((m: { id: string; role: string; content: string; createdAt: string }) => ({
+      // API 返回格式: { success: true, data: { conversation, messages } }
+      const detail = data.data;
+      if (detail?.messages) {
+        setMessages(detail.messages.map((m: { id: string; role: string; content: string; createdAt: string }) => ({
           id: m.id,
           role: m.role as 'user' | 'assistant',
           content: m.content,
@@ -141,7 +149,10 @@ export default function XinxinPage() {
     try {
       const res = await fetch('/api/home-school/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user?.id || '',
+        },
         credentials: 'include',
         body: JSON.stringify({
           message: messageText.trim(),
@@ -159,56 +170,62 @@ export default function XinxinPage() {
       const decoder = new TextDecoder();
       let assistantMessage = '';
       let newSessionId = sessionId;
+      let buffer = ''; // SSE 数据可能跨 chunk 分割，需要 buffer
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // 最后一个元素可能是不完整的行，保留在 buffer 中
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const parsed = JSON.parse(line.slice(6));
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          const dataStr = trimmed.slice(6).trim();
+          if (dataStr === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(dataStr);
+            
+            if (parsed.type === 'session') {
+              newSessionId = (parsed.data as { sessionId: string })?.sessionId || null;
+              setSessionId(newSessionId);
+            } else if (parsed.type === 'content') {
+              const text = typeof parsed.data === 'string' ? parsed.data : '';
+              assistantMessage += text;
               
-              if (parsed.type === 'session') {
-                newSessionId = (parsed.data as { sessionId: string })?.sessionId || null;
-                setSessionId(newSessionId);
-              } else if (parsed.type === 'content') {
-                const text = typeof parsed.data === 'string' ? parsed.data : '';
-                assistantMessage += text;
-                
-                setMessages(prev => {
-                  const last = prev[prev.length - 1];
-                  if (last?.role === 'assistant' && last.id.startsWith('stream-')) {
-                    return [...prev.slice(0, -1), { ...last, content: assistantMessage }];
-                  }
-                  return [...prev, {
-                    id: `stream-${Date.now()}`,
-                    role: 'assistant',
-                    content: assistantMessage,
-                    timestamp: new Date().toISOString(),
-                  }];
-                });
-              } else if (parsed.type === 'warning_alert') {
-                // 第三层：阳光确认——告知教师已脱敏上报
-                const warningData = parsed.data as { riskLevel: string; triggerType: string; triggerSummary: string; recommendation: string };
-                setMessages(prev => [...prev, {
-                  id: `warning-${Date.now()}`,
-                  role: 'assistant' as const,
-                  content: '',
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'assistant' && last.id.startsWith('stream-')) {
+                  return [...prev.slice(0, -1), { ...last, content: assistantMessage }];
+                }
+                return [...prev, {
+                  id: `stream-${Date.now()}`,
+                  role: 'assistant',
+                  content: assistantMessage,
                   timestamp: new Date().toISOString(),
-                  isWarningConfirm: true,
-                  warningRiskLevel: warningData.riskLevel,
-                  warningTriggerType: warningData.triggerType,
-                  warningSummary: warningData.triggerSummary,
-                  warningRecommendation: warningData.recommendation,
-                }]);
-              }
-            } catch {
-              // 忽略解析错误
+                }];
+              });
+            } else if (parsed.type === 'warning_alert') {
+              // 第三层：阳光确认——告知教师已脱敏上报
+              const warningData = parsed.data as { riskLevel: string; triggerType: string; triggerSummary: string; recommendation: string };
+              setMessages(prev => [...prev, {
+                id: `warning-${Date.now()}`,
+                role: 'assistant' as const,
+                content: '',
+                timestamp: new Date().toISOString(),
+                isWarningConfirm: true,
+                warningRiskLevel: warningData.riskLevel,
+                warningTriggerType: warningData.triggerType,
+                warningSummary: warningData.triggerSummary,
+                warningRecommendation: warningData.recommendation,
+              }]);
             }
+          } catch {
+            // JSON 解析失败的不完整数据，忽略
           }
         }
       }
@@ -224,13 +241,14 @@ export default function XinxinPage() {
     }
   };
 
-  // 删除会话
+  // 删除会话（软删除：仅对教师端隐藏，后端数据和预警不受影响）
   const handleDeleteConversation = async (convId: string) => {
-    if (!confirm('确定要删除这个会话吗？')) return;
+    if (!confirm('确定要删除这个会话吗？删除后仅在你端隐藏，后台数据不受影响。')) return;
 
     try {
       const res = await fetch(`/api/home-school/conversations?conversationId=${convId}`, {
         method: 'DELETE',
+        headers: { 'x-user-id': user?.id || '' },
         credentials: 'include',
       });
       const data = await res.json();
@@ -263,7 +281,7 @@ export default function XinxinPage() {
   return (
     <div className="flex h-[calc(100vh-80px)] px-6 py-4 gap-4">
       {/* 左侧会话列表 */}
-      <div className="w-72 flex-shrink-0 bg-card rounded-xl border border-border flex flex-col">
+      <div className="w-72 flex-shrink-0 bg-card rounded-xl border border-border flex flex-col overflow-hidden">
         <div className="p-4 border-b border-border">
           <Button onClick={handleNewConversation} className="w-full" variant="default">
             <Plus className="h-4 w-4 mr-2" />
@@ -272,17 +290,23 @@ export default function XinxinPage() {
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
+            {conversations.length > 0 && (
+              <div className="text-xs text-muted-foreground px-2 py-1">历史对话</div>
+            )}
             {conversations.map(conv => (
               <div
                 key={conv.id}
                 onClick={() => handleSelectConversation(conv)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors group ${
+                className={`relative p-3 rounded-lg cursor-pointer transition-colors group overflow-hidden ${
                   currentConversation?.id === conv.id
                     ? 'bg-primary/10 border border-primary/20'
-                    : 'hover:bg-muted/50'
+                    : 'hover:bg-muted/50 border border-transparent'
                 }`}
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3 pr-8">
+                  <div className={`p-1.5 rounded-lg shrink-0 ${currentConversation?.id === conv.id ? 'bg-primary/20' : 'bg-muted'}`}>
+                    <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate text-sm">
                       {conv.title || '家校沟通'}
@@ -292,22 +316,21 @@ export default function XinxinPage() {
                         学生：{conv.studentName}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(conv.updatedAt).toLocaleDateString()}
-                    </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteConversation(conv.id);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 text-muted-foreground" />
-                  </Button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1.5 pl-9">
+                  {new Date(conv.updatedAt).toLocaleDateString('zh-CN')}
+                </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteConversation(conv.id);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="删除对话"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
             {conversations.length === 0 && (

@@ -170,15 +170,19 @@ export const homeSchoolRepository = {
   },
 
   // 获取会话消息
-  async getMessages(conversationId: string): Promise<HomeSchoolMessage[]> {
+  async getMessages(conversationId: string, excludeTeacherDeleted = true): Promise<HomeSchoolMessage[]> {
     const client = getSupabaseClient();
-    const { data, error } = await client
+    let query = client
       .from('home_school_messages')
       .select('*')
       .eq('conversation_id', conversationId)
-      .eq('teacher_deleted', false)
       .order('created_at', { ascending: true });
 
+    if (excludeTeacherDeleted) {
+      query = query.eq('teacher_deleted', false);
+    }
+
+    const { data, error } = await query;
     if (error) return [];
     return (data || []).map(mapMessage);
   },

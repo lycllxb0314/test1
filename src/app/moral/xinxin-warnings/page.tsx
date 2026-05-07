@@ -5,11 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   ShieldAlert, ShieldCheck, AlertTriangle, Clock, User, School, MessageSquare, CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 
 type RiskLevel = 'high' | 'medium';
@@ -33,6 +36,13 @@ type HomeSchoolWarning = {
   createdAt: string;
 };
 
+type ConversationMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+};
+
 const riskConfig: Record<RiskLevel, { label: string; color: string; icon: typeof ShieldAlert }> = {
   high: { label: '高危', color: 'bg-red-500', icon: ShieldAlert },
   medium: { label: '中危', color: 'bg-amber-500', icon: AlertTriangle },
@@ -51,6 +61,32 @@ export default function XinxinWarningsPage() {
   const [handleNote, setHandleNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [detailDialog, setDetailDialog] = useState<HomeSchoolWarning | null>(null);
+  const [detailMessages, setDetailMessages] = useState<ConversationMessage[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // 查看对话详情（模仿心理健康系统的 viewSessionDetail）
+  const viewConversationDetail = useCallback(async (warning: HomeSchoolWarning) => {
+    setDetailDialog(warning);
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/home-school/conversations?conversationId=${warning.conversationId}`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.data?.messages) {
+        setDetailMessages(data.data.messages.map((m: { id: string; role: string; content: string; createdAt: string }) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          createdAt: m.createdAt,
+        })));
+      }
+    } catch (err) {
+      console.error('加载对话详情失败:', err);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
 
   const fetchWarnings = useCallback(async () => {
     try {
@@ -214,8 +250,8 @@ export default function XinxinWarningsPage() {
                           处理
                         </Button>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => setDetailDialog(w)}>
-                        <MessageSquare className="h-3.5 w-3.5 mr-1" />详情
+                      <Button size="sm" variant="outline" onClick={() => viewConversationDetail(w)}>
+                        <MessageSquare className="h-3.5 w-3.5 mr-1" />对话
                       </Button>
                     </div>
                   </div>
@@ -257,34 +293,74 @@ export default function XinxinWarningsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 详情弹窗 */}
-      <Dialog open={!!detailDialog} onOpenChange={(v) => { if (!v) setDetailDialog(null); }}>
-        <DialogContent className="max-w-lg">
+      {/* 对话详情弹窗 - 模仿心理健康系统 */}
+      <Dialog open={!!detailDialog} onOpenChange={(v) => { if (!v) { setDetailDialog(null); setDetailMessages([]); } }}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>预警详情</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              对话详情 - {detailDialog?.teacherName || '未知教师'}
+              {detailDialog && (
+                <Badge className={`${riskConfig[detailDialog.riskLevel].color} text-white text-xs`}>
+                  {riskConfig[detailDialog.riskLevel].label}
+                </Badge>
+              )}
+            </DialogTitle>
           </DialogHeader>
           {detailDialog && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div><span className="text-muted-foreground">风险等级</span><p className="font-medium">{riskConfig[detailDialog.riskLevel].label}</p></div>
+            <div className="space-y-3">
+              {/* 预警信息摘要 */}
+              <div className="grid grid-cols-3 gap-3 text-sm p-3 bg-muted/50 rounded-lg">
                 <div><span className="text-muted-foreground">触发类型</span><p className="font-medium">{triggerConfig[detailDialog.triggerType].label}</p></div>
-                <div><span className="text-muted-foreground">教师</span><p className="font-medium">{detailDialog.teacherName}</p></div>
                 <div><span className="text-muted-foreground">班级</span><p className="font-medium">{detailDialog.className || '-'}</p></div>
                 <div><span className="text-muted-foreground">涉及家长</span><p className="font-medium">{detailDialog.studentName ? `${detailDialog.studentName}家长` : '-'}</p></div>
-                <div><span className="text-muted-foreground">触发时间</span><p className="font-medium">{new Date(detailDialog.createdAt).toLocaleString('zh-CN')}</p></div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">风险摘要</span>
-                <p className="font-medium mt-1 p-2 bg-muted rounded-md">{detailDialog.triggerSummary}</p>
               </div>
               {detailDialog.recommendation && (
-                <div>
-                  <span className="text-muted-foreground">处理建议</span>
-                  <p className="font-medium mt-1 p-2 bg-amber-50 rounded-md text-amber-800">{detailDialog.recommendation}</p>
+                <div className="text-sm p-2 bg-amber-50 dark:bg-amber-950/20 rounded-md">
+                  <span className="text-amber-700 dark:text-amber-400 font-medium">处理建议：</span>
+                  <span className="text-amber-800 dark:text-amber-300">{detailDialog.recommendation}</span>
                 </div>
               )}
+              {/* 对话记录 */}
+              <div className="border rounded-lg">
+                <div className="px-3 py-2 border-b bg-muted/30 text-xs font-medium text-muted-foreground">
+                  对话记录（共 {detailMessages.length} 条）
+                </div>
+                {detailLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                    <span className="text-sm text-muted-foreground">加载中...</span>
+                  </div>
+                ) : detailMessages.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">暂无对话记录</div>
+                ) : (
+                  <ScrollArea className="h-[400px]">
+                    <div className="p-3 space-y-3">
+                      {detailMessages.map((msg) => (
+                        <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                          <Avatar className="h-7 w-7 shrink-0">
+                            <AvatarFallback className={`text-xs ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-pink-100 text-pink-700'}`}>
+                              {msg.role === 'user' ? '师' : '心'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
+                            msg.role === 'user'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted/50'
+                          }`}>
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                              {new Date(msg.createdAt).toLocaleString('zh-CN')}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
               <div className="text-xs text-muted-foreground border-t pt-2">
-                此预警由心心智能体通过「脱敏折叠」算法生成，不含原始聊天记录，仅保留结构化风险实体数据。
+                此预警由心心智能体通过「脱敏折叠」算法生成。对话记录仅供德育处了解上下文，请勿外传。
               </div>
             </div>
           )}
