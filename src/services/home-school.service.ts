@@ -400,6 +400,51 @@ export class HomeSchoolService {
   }
 
   /**
+   * 获取所有会话列表（德育处用）
+   */
+  async getAllConversations(): Promise<HomeSchoolConversation[]> {
+    const client = getSupabaseClient();
+    const conversations = await homeSchoolRepository.findAllConversations();
+
+    if (conversations.length === 0) return [];
+
+    // 获取教师信息
+    const teacherIds = [...new Set(conversations.map(c => c.teacherId))];
+    const { data: teachers } = await client
+      .from('users')
+      .select('id, name')
+      .in('id', teacherIds);
+
+    // 获取班级信息
+    const classIds = [...new Set(conversations.filter(c => c.classId).map(c => c.classId as string))];
+    const { data: classes } = classIds.length > 0 ? await client
+      .from('classes')
+      .select('id, name')
+      .in('id', classIds) : { data: [] };
+
+    // 获取每个会话的消息数量
+    const conversationIds = conversations.map(c => c.id);
+    const { data: messageCounts } = await client
+      .from('home_school_messages')
+      .select('conversation_id')
+      .in('conversation_id', conversationIds);
+
+    const teacherMap = new Map((teachers || []).map(t => [t.id, t.name]));
+    const classMap = new Map((classes || []).map(c => [c.id, c.name]));
+    const countMap = new Map<string, number>();
+    (messageCounts || []).forEach(m => {
+      countMap.set(m.conversation_id, (countMap.get(m.conversation_id) || 0) + 1);
+    });
+
+    return conversations.map(conv => ({
+      ...conv,
+      teacherName: teacherMap.get(conv.teacherId) || '未知教师',
+      className: conv.classId ? classMap.get(conv.classId) || '未知班级' : undefined,
+      turnCount: countMap.get(conv.id) ? Math.ceil((countMap.get(conv.id) || 0) / 2) : 0,
+    }));
+  }
+
+  /**
    * 获取会话详情（含消息）
    */
   async getSessionDetail(conversationId: string, excludeTeacherDeleted = false): Promise<{ conversation: HomeSchoolConversation; messages: HomeSchoolMessage[] } | null> {

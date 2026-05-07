@@ -18,12 +18,16 @@ export type ContextType =
 export type HomeSchoolConversation = {
   id: string;
   teacherId: string;
+  teacherName?: string;  // 关联查询
   classId: string | null;
+  className?: string;    // 关联查询
   title: string | null;
   studentId: string | null;
   studentName: string | null;
   contextType: ContextType;
   emotionLevel: EmotionLevel;
+  summary?: string;      // 对话摘要
+  turnCount?: number;    // 对话轮数
   teacherDeleted: boolean;
   createdAt: string;
   updatedAt: string;

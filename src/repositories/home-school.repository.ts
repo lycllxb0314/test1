@@ -98,6 +98,18 @@ export const homeSchoolRepository = {
     return (data || []).map(mapConversation);
   },
 
+  // 获取所有会话列表（德育处用）
+  async findAllConversations(): Promise<HomeSchoolConversation[]> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('home_school_conversations')
+      .select('*')
+      .order('updated_at', { ascending: false });
+
+    if (error) return [];
+    return (data || []).map(mapConversation);
+  },
+
   // 获取会话详情
   async findById(id: string): Promise<HomeSchoolConversation | null> {
     const client = getSupabaseClient();

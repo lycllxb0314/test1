@@ -5,6 +5,7 @@ import { success, error, ErrorCode } from '@/lib/api';
 
 // GET /api/home-school/conversations - 获取会话列表
 // GET /api/home-school/conversations?conversationId=xxx - 获取会话详情（含消息）
+// GET /api/home-school/conversations?all=true - 获取所有会话（德育处用）
 export async function GET(request: NextRequest) {
   const authResult = await authenticateRequest(request);
   if (!authResult.success || !authResult.user) {
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
   const teacherId = authResult.user.id;
   const { searchParams } = new URL(request.url);
   const conversationId = searchParams.get('conversationId');
+  const getAll = searchParams.get('all');
 
   try {
     if (conversationId) {
@@ -23,8 +25,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(error('会话不存在', ErrorCode.NOT_FOUND), { status: 404 });
       }
       return NextResponse.json(success(detail));
+    } else if (getAll === 'true') {
+      // 获取所有会话列表（德育处用）
+      const conversations = await homeSchoolService.getAllConversations();
+      return NextResponse.json(success(conversations));
     } else {
-      // 获取会话列表
+      // 获取教师的会话列表
       const conversations = await homeSchoolService.getTeacherConversations(teacherId);
       return NextResponse.json(success(conversations));
     }
