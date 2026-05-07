@@ -281,17 +281,18 @@ export default function XinxinPage() {
   return (
     <div className="flex h-[calc(100vh-80px)] px-6 py-4 gap-4">
       {/* 左侧会话列表 */}
-      <div className="w-72 shrink-0 flex flex-col bg-card rounded-xl border border-border overflow-hidden">
-        <div className="p-4 border-b border-border">
+      <div className="w-72 shrink-0 flex flex-col bg-card rounded-xl border border-border">
+        <div className="p-4 border-b border-border shrink-0">
           <Button onClick={handleNewConversation} className="w-full" variant="default">
             <Plus className="h-4 w-4 mr-2" />
             新对话
           </Button>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
-          {conversations.length > 0 && (
-            <div className="text-xs text-muted-foreground px-2 py-1">历史对话</div>
-          )}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="p-2 space-y-1">
+            {conversations.length > 0 && (
+              <div className="text-xs text-muted-foreground px-2 py-1">历史对话</div>
+            )}
           {conversations.map(conv => (
             <div
               key={conv.id}
@@ -333,6 +334,7 @@ export default function XinxinPage() {
               <p className="text-sm">暂无历史对话</p>
             </div>
           )}
+          </div>
         </div>
       </div>
 
