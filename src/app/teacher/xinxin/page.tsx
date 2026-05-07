@@ -281,66 +281,59 @@ export default function XinxinPage() {
   return (
     <div className="flex h-[calc(100vh-80px)] px-6 py-4 gap-4">
       {/* 左侧会话列表 */}
-      <div className="w-72 flex-shrink-0 bg-card rounded-xl border border-border flex flex-col overflow-hidden">
+      <div className="w-72 shrink-0 flex flex-col bg-card rounded-xl border border-border overflow-hidden">
         <div className="p-4 border-b border-border">
           <Button onClick={handleNewConversation} className="w-full" variant="default">
             <Plus className="h-4 w-4 mr-2" />
             新对话
           </Button>
         </div>
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {conversations.length > 0 && (
-              <div className="text-xs text-muted-foreground px-2 py-1">历史对话</div>
-            )}
-            {conversations.map(conv => (
-              <div
-                key={conv.id}
-                onClick={() => handleSelectConversation(conv)}
-                className={`relative p-3 rounded-lg cursor-pointer transition-colors group overflow-hidden ${
-                  currentConversation?.id === conv.id
-                    ? 'bg-primary/10 border border-primary/20'
-                    : 'hover:bg-muted/50 border border-transparent'
-                }`}
-              >
-                <div className="flex items-center gap-3 pr-8">
-                  <div className={`p-1.5 rounded-lg shrink-0 ${currentConversation?.id === conv.id ? 'bg-primary/20' : 'bg-muted'}`}>
-                    <MessageCircle className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate text-sm">
-                      {conv.title || '家校沟通'}
-                    </p>
-                    {conv.studentName && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        学生：{conv.studentName}
-                      </p>
-                    )}
-                  </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {conversations.length > 0 && (
+            <div className="text-xs text-muted-foreground px-2 py-1">历史对话</div>
+          )}
+          {conversations.map(conv => (
+            <div
+              key={conv.id}
+              className={`group relative w-full px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                currentConversation?.id === conv.id
+                  ? 'bg-primary/10 border border-primary/20'
+                  : 'hover:bg-muted/50 border border-transparent'
+              }`}
+              onClick={() => handleSelectConversation(conv)}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-1.5 rounded-lg shrink-0 ${currentConversation?.id === conv.id ? 'bg-primary/20' : 'bg-muted'}`}>
+                  <MessageCircle className="h-3.5 w-3.5 text-primary" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1.5 pl-9">
-                  {new Date(conv.updatedAt).toLocaleDateString('zh-CN')}
-                </p>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteConversation(conv.id);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="删除对话"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex-1 min-w-0">
+                  <span className="truncate block font-medium text-sm">
+                    {conv.title || '家校沟通'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {conv.studentName ? `学生：${conv.studentName}` : new Date(conv.updatedAt).toLocaleDateString('zh-CN')}
+                  </span>
+                </div>
               </div>
-            ))}
-            {conversations.length === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">暂无历史对话</p>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteConversation(conv.id);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="删除对话"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {conversations.length === 0 && (
+            <div className="text-center text-muted-foreground py-8">
+              <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">暂无历史对话</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 右侧聊天区域 */}
