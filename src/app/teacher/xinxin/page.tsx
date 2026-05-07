@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -355,7 +354,7 @@ export default function XinxinPage() {
         </div>
 
         {/* 消息区域 */}
-        <ScrollArea className="flex-1 p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center px-8">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pink-100 to-rose-100 flex items-center justify-center mb-6">
@@ -449,7 +448,7 @@ export default function XinxinPage() {
               <div ref={messagesEndRef} />
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* 输入区域 */}
         <div className="p-4 border-t border-border">
