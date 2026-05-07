@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -297,7 +296,7 @@ export default function XinxinWarningsPage() {
 
       {/* 对话详情弹窗 - 模仿心理健康系统 */}
       <Dialog open={!!detailDialog} onOpenChange={(v) => { if (!v) { setDetailDialog(null); setDetailMessages([]); } }}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
@@ -310,7 +309,7 @@ export default function XinxinWarningsPage() {
             </DialogTitle>
           </DialogHeader>
           {detailDialog && (
-            <div className="space-y-3">
+            <div className="space-y-3 min-h-0 flex-1 overflow-y-auto">
               {/* 预警信息摘要 */}
               <div className="grid grid-cols-3 gap-3 text-sm p-3 bg-muted/50 rounded-lg">
                 <div><span className="text-muted-foreground">触发类型</span><p className="font-medium">{(triggerConfig[detailDialog.triggerType] || triggerConfig._default).label}</p></div>
@@ -336,7 +335,7 @@ export default function XinxinWarningsPage() {
                 ) : detailMessages.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">暂无对话记录</div>
                 ) : (
-                  <ScrollArea className="h-[400px]">
+                  <div className="flex-1 min-h-0 overflow-y-auto max-h-[300px]">
                     <div className="p-3 space-y-3">
                       {detailMessages.map((msg) => (
                         <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -345,12 +344,12 @@ export default function XinxinWarningsPage() {
                               {msg.role === 'user' ? '师' : '心'}
                             </AvatarFallback>
                           </Avatar>
-                          <div className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
+                          <div className={`max-w-[75%] rounded-xl px-3 py-2 text-sm break-words overflow-hidden ${
                             msg.role === 'user'
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted/50'
                           }`}>
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                             <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                               {new Date(msg.createdAt).toLocaleString('zh-CN')}
                             </p>
@@ -358,7 +357,7 @@ export default function XinxinWarningsPage() {
                         </div>
                       ))}
                     </div>
-                  </ScrollArea>
+                  </div>
                 )}
               </div>
               <div className="text-xs text-muted-foreground border-t pt-2">

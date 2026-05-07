@@ -1,7 +1,7 @@
 // 家校沟通助手 Repository
 
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { HomeSchoolConversation, HomeSchoolMessage, HomeSchoolWarning, ContextType, EmotionLevel, RiskLevel, TriggerType } from '@/types/home-school';
+import type { HomeSchoolConversation, HomeSchoolMessage, HomeSchoolWarning, ContextType, EmotionLevel, RiskLevel, TriggerType, WarningRiskLevel, WarningTriggerType } from '@/types/home-school';
 
 // 数据库行类型
 type ConversationRow = {
@@ -280,8 +280,28 @@ export const homeSchoolRepository = {
     }
 
     const { data, error } = await query;
-    if (error) return [];
-    return (data || []) as HomeSchoolWarning[];
+    if (error || !data) return [];
+    return data.map(row => ({
+      id: row.id as string,
+      conversationId: row.conversation_id as string,
+      teacherId: row.teacher_id as string,
+      teacherName: row.teacher_name as string | null,
+      classId: row.class_id as string | null,
+      className: row.class_name as string | null,
+      studentId: row.student_id as string | null,
+      studentName: row.student_name as string | null,
+      riskLevel: row.risk_level as WarningRiskLevel,
+      triggerType: row.trigger_type as WarningTriggerType,
+      triggerSummary: row.trigger_summary as string,
+      recommendation: row.recommendation as string | null,
+      isHandled: row.is_handled as boolean,
+      handlerId: row.handler_id as string | null,
+      handlerName: row.handler_name as string | null,
+      handleNote: row.handle_note as string | null,
+      handledAt: row.handled_at as string | null,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+    }));
   },
 
   // 处理预警
