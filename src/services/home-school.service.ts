@@ -1,6 +1,12 @@
 import { Config, LLMClient, KnowledgeClient } from 'coze-coding-dev-sdk';
 import { homeSchoolRepository } from '@/repositories/home-school.repository';
-import type { HomeSchoolConversation, HomeSchoolMessage, ContextType, EmotionLevel } from '@/types/home-school';
+import { studentRepository } from '@/repositories/student.repository';
+import { classRepository } from '@/repositories/class.repository';
+import { getService, SERVICE_IDENTIFIERS } from '@/lib/di';
+import type { UserRepository } from '@/repositories/user.repository';
+import type { ClassRepository } from '@/repositories/class.repository';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
+import type { HomeSchoolConversation, HomeSchoolMessage, ContextType, EmotionLevel, WarningRiskLevel, WarningTriggerType, HomeSchoolWarning } from '@/types/home-school';
 
 // ==================== 系统提示词（完全复刻 SKILL.md）====================
 
@@ -195,11 +201,12 @@ const XINXIN_SYSTEM_PROMPT = `# 我的灵魂
 
 // ==================== 类型定义 ====================
 
-type ChatEventType = 'session' | 'content' | 'done';
+type ChatEventType = 'session' | 'content' | 'warning_alert' | 'done';
 
 type ChatEvent = 
   | { type: 'session'; data: { conversationId: string; conversationTitle?: string } }
   | { type: 'content'; data: string }
+  | { type: 'warning_alert'; data: { riskLevel: WarningRiskLevel; triggerType: WarningTriggerType; triggerSummary: string; recommendation: string } }
   | { type: 'done' };
 
 export interface ChatOptions {
@@ -344,12 +351,19 @@ export class HomeSchoolService {
       }
     }
 
-    // 9. 保存助手消息
+    // 9. 保存助手消息（清理后台分析日志）
+    let cleanResponse = fullResponse;
+    const backendLogMatch = fullResponse.match(/<backend_log>([\s\S]*?)<\/backend_log>/);
+    if (backendLogMatch) {
+      cleanResponse = fullResponse.replace(/<backend_log>[\s\S]*?<\/backend_log>/, '').trim();
+    }
+    cleanResponse = cleanResponse.replace(/---\s*\n【后台分析】[\s\S]*$/, '').trim();
+
     const assistantMsg: HomeSchoolMessage = {
       id: crypto.randomUUID(),
       conversationId: conversation!.id,
       role: 'assistant',
-      content: fullResponse,
+      content: cleanResponse,
       teacherDeleted: false,
       createdAt: new Date().toISOString(),
     };
@@ -357,10 +371,24 @@ export class HomeSchoolService {
 
     // 10. 更新会话
     await homeSchoolRepository.updateConversation(currentConversation.id, {
-      title: fullResponse.substring(0, 50),
+      title: currentConversation.studentName ? `${currentConversation.studentName}家长沟通` : cleanResponse.substring(0, 50),
     });
 
-    // 11. 完成
+    // 11. 三层无感预警：第一层（无感测温）+ 第二层（脱敏折叠）+ 第三层（阳光确认）
+    const warningResult = await this.runWarningDetection(userMessage, fullResponse, currentConversation, teacherId);
+    if (warningResult) {
+      yield {
+        type: 'warning_alert' as const,
+        data: {
+          riskLevel: warningResult.riskLevel,
+          triggerType: warningResult.triggerType,
+          triggerSummary: warningResult.triggerSummary,
+          recommendation: warningResult.recommendation,
+        },
+      };
+    }
+
+    // 12. 完成
     yield { type: 'done' };
   }
 
@@ -383,6 +411,213 @@ export class HomeSchoolService {
    */
   async softDeleteConversation(conversationId: string): Promise<void> {
     await homeSchoolRepository.softDeleteByTeacher(conversationId);
+  }
+
+  // ==================== 三层无感预警机制 ====================
+
+  /**
+   * 法律与安全红线关键词
+   */
+  private readonly LEGAL_SAFETY_KEYWORDS = [
+    '教育局告你', '去教育局投诉', '去学校闹', '找媒体曝光', '上网发帖',
+    '告到教育部', '我要维权', '上访', '起诉学校', '起诉老师',
+    '我要打死你', '弄死你', '杀了你', '跟你拼命', '同归于尽',
+    '自杀', '不想活了', '跳楼', '割腕', '自残',
+    '带刀', '带人', '叫人', '找人来', '等着瞧',
+  ];
+
+  /**
+   * 心理承载红线关键词
+   */
+  private readonly PSYCHOLOGICAL_KEYWORDS = [
+    '不想干了', '干不下去了', '快被逼疯了', '崩溃了', '扛不住了',
+    '受够了', '撑不住了', '要疯了', '想辞职', '不想当老师了',
+    '做不下去了', '真的受不了了', '忍无可忍', '到了极限',
+  ];
+
+  /**
+   * 第一层：无感测温 — 从教师输入和智能体输出中捕捉风险因子
+   */
+  private detectRiskFactors(userMessage: string, assistantResponse: string): {
+    hasRisk: boolean;
+    riskLevel: WarningRiskLevel | null;
+    triggerType: WarningTriggerType | null;
+    triggers: string[];
+  } {
+    const combined = (userMessage + ' ' + assistantResponse).toLowerCase();
+    const triggers: string[] = [];
+    let triggerType: WarningTriggerType | null = null;
+    let riskLevel: WarningRiskLevel | null = null;
+
+    // 检测法律与安全红线（高危）
+    for (const keyword of this.LEGAL_SAFETY_KEYWORDS) {
+      if (combined.includes(keyword.toLowerCase())) {
+        triggers.push(keyword);
+        triggerType = 'legal_safety';
+        riskLevel = 'high';
+      }
+    }
+
+    // 检测心理承载红线（中危/高危）
+    for (const keyword of this.PSYCHOLOGICAL_KEYWORDS) {
+      if (combined.includes(keyword.toLowerCase())) {
+        triggers.push(keyword);
+        if (!triggerType) triggerType = 'psychological';
+        if (!riskLevel) riskLevel = 'medium';
+        // 多个心理红线同时触发升级为高危
+        const psychCount = this.PSYCHOLOGICAL_KEYWORDS.filter(k => combined.includes(k.toLowerCase())).length;
+        if (psychCount >= 2) riskLevel = 'high';
+      }
+    }
+
+    return {
+      hasRisk: triggers.length > 0,
+      riskLevel,
+      triggerType,
+      triggers,
+    };
+  }
+
+  /**
+   * 第二层：脱敏折叠 — 将原始对话提炼为结构化脱敏数据
+   * 折叠（丢弃）：教师的吐槽、委屈、抱怨、拟定的话术草稿
+   * 抽取（上报）：客观的危险实体数据
+   */
+  private extractDesensitizedData(
+    riskLevel: WarningRiskLevel,
+    triggerType: WarningTriggerType,
+    triggers: string[],
+    conversation: HomeSchoolConversation,
+  ): Omit<HomeSchoolWarning, 'id' | 'createdAt' | 'updatedAt' | 'isHandled' | 'handlerId' | 'handlerName' | 'handleNote' | 'handledAt'> {
+    // 触发摘要：只保留客观事实，折叠教师的主观表达
+    let triggerSummary = '';
+    if (triggerType === 'legal_safety') {
+      triggerSummary = `班主任在与${conversation.studentName || '某学生'}家长沟通中，家长方出现${triggers.length > 1 ? '多项' : ''}法律/安全风险信号：${triggers.join('、')}。该事件已超出班主任单兵处理边界，需组织介入进行风险剥离。`;
+    } else {
+      triggerSummary = `班主任在处理${conversation.studentName || '某学生'}相关家校事务时，出现职业心理承载预警信号：${triggers.join('、')}。建议德育处主动关注并给予专业支持。`;
+    }
+
+    // 处置建议
+    const recommendation = triggerType === 'legal_safety'
+      ? '建议德育主任介入进行法律风险剥离，必要时联系法务/公安。班主任不再单独回应家长极端诉求。'
+      : '建议德育处安排心理辅导资源，主动关心教师状态，必要时安排代课减轻压力。';
+
+    return {
+      conversationId: conversation.id,
+      teacherId: conversation.teacherId,
+      teacherName: '',
+      classId: conversation.classId ?? null,
+      className: '',
+      studentId: conversation.studentId ?? null,
+      studentName: conversation.studentName ?? null,
+      riskLevel,
+      triggerType,
+      triggerSummary,
+      recommendation,
+    };
+  }
+
+  /**
+   * 运行三层预警机制
+   */
+  private async runWarningDetection(
+    userMessage: string,
+    assistantResponse: string,
+    conversation: HomeSchoolConversation,
+    teacherId: string,
+  ): Promise<{ riskLevel: WarningRiskLevel; triggerType: WarningTriggerType; triggerSummary: string; recommendation: string } | null> {
+    try {
+      // 第一层：无感测温
+      const { hasRisk, riskLevel, triggerType, triggers } = this.detectRiskFactors(userMessage, assistantResponse);
+      if (!hasRisk || !riskLevel || !triggerType) return null;
+
+      // 第二层：脱敏折叠
+      const warningData = this.extractDesensitizedData(riskLevel, triggerType, triggers, conversation);
+
+      // 补充教师姓名、班级名称
+      try {
+        const userRepo = getService<UserRepository>(SERVICE_IDENTIFIERS.UserRepository);
+        const clsRepo = getService<ClassRepository>(SERVICE_IDENTIFIERS.ClassRepository);
+        const teacher = await userRepo.findById(teacherId);
+        if (teacher) {
+          warningData.teacherName = teacher.name || '';
+          const empId = ((teacher as unknown) as Record<string, unknown>).employee_id as string || ((teacher as unknown) as Record<string, unknown>).employeeId as string;
+          if (empId) {
+            const classes = await clsRepo.findByHeadTeacher(empId);
+            if (classes && classes.length > 0) {
+              warningData.classId = classes[0].id;
+              warningData.className = classes[0].name || '';
+            }
+          }
+        }
+      } catch {
+        // 查询教师/班级信息失败不影响预警创建
+      }
+
+      // 检查是否已有同一会话的预警（升级合并逻辑）
+      const existingWarnings = await homeSchoolRepository.findWarningByConversationId(conversation.id);
+      if (existingWarnings.length > 0) {
+        const existing = existingWarnings[0];
+        // 就高不就低：高危 > 中危
+        if (riskLevel === 'high' && existing.riskLevel === 'medium') {
+          await homeSchoolRepository.updateWarning(existing.id, {
+            riskLevel: 'high',
+            triggerType,
+            triggerSummary: existing.triggerSummary + '\n\n[升级补充] ' + warningData.triggerSummary,
+            recommendation: warningData.recommendation ?? undefined,
+          });
+        }
+        return { riskLevel, triggerType, triggerSummary: warningData.triggerSummary, recommendation: warningData.recommendation ?? '' };
+      }
+
+      // 创建预警
+      const warningParams = {
+        id: crypto.randomUUID(),
+        conversationId: conversation.id,
+        teacherId,
+        teacherName: warningData.teacherName || undefined,
+        classId: warningData.classId || undefined,
+        className: warningData.className || undefined,
+        studentId: warningData.studentId || undefined,
+        studentName: warningData.studentName || undefined,
+        riskLevel: warningData.riskLevel,
+        triggerType: warningData.triggerType,
+        triggerSummary: warningData.triggerSummary,
+        recommendation: warningData.recommendation || undefined,
+      };
+      await homeSchoolRepository.createWarning(warningParams);
+
+      // 第三层：阳光确认 — 返回预警信息让前端展示给教师
+      return {
+        riskLevel: warningData.riskLevel,
+        triggerType: warningData.triggerType,
+        triggerSummary: warningData.triggerSummary,
+        recommendation: warningData.recommendation ?? '',
+      };
+    } catch (e) {
+      console.error('[HomeSchoolService] runWarningDetection error:', e);
+      return null;
+    }
+  }
+
+  /**
+   * 获取预警列表（德育处）
+   */
+  async getWarnings(filters: { riskLevel?: WarningRiskLevel; triggerType?: WarningTriggerType; isHandled?: boolean }): Promise<HomeSchoolWarning[]> {
+    const warnings = await homeSchoolRepository.getWarnings();
+    return warnings.filter((w: HomeSchoolWarning) => {
+      if (filters.riskLevel && w.riskLevel !== filters.riskLevel) return false;
+      if (filters.triggerType && w.triggerType !== filters.triggerType) return false;
+      if (filters.isHandled !== undefined && w.isHandled !== filters.isHandled) return false;
+      return true;
+    });
+  }
+
+  /**
+   * 处理预警
+   */
+  async handleWarning(warningId: string, handlerId: string, handlerName: string, note: string): Promise<void> {
+    await homeSchoolRepository.handleWarning(warningId, handlerId, handlerName, note);
   }
 }
 

@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { 
   MessageCircle, Send, Trash2, Plus, Sparkles, Users, Phone, 
-  AlertCircle, Heart, ChevronRight, Bot, Loader2
+  AlertCircle, Heart, ChevronRight, Bot, Loader2, Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -20,6 +20,11 @@ type Message = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  isWarningConfirm?: boolean;
+  warningRiskLevel?: string;
+  warningTriggerType?: string;
+  warningSummary?: string;
+  warningRecommendation?: string;
 };
 
 // 会话类型
@@ -64,7 +69,7 @@ export default function XinxinPage() {
   // 加载会话列表
   const loadConversations = useCallback(async () => {
     try {
-      const res = await fetch('/api/home-school/sessions', { credentials: 'include' });
+      const res = await fetch('/api/home-school/conversations', { credentials: 'include' });
       const data = await res.json();
       if (data.success && data.data) {
         setConversations(data.data);
@@ -86,7 +91,7 @@ export default function XinxinPage() {
   // 加载会话消息
   const loadConversationMessages = async (convId: string) => {
     try {
-      const res = await fetch(`/api/home-school/sessions?conversationId=${convId}`, { credentials: 'include' });
+      const res = await fetch(`/api/home-school/conversations?conversationId=${convId}`, { credentials: 'include' });
       const data = await res.json();
       if (data.success && data.data) {
         setMessages(data.data.map((m: { id: string; role: string; content: string; createdAt: string }) => ({
@@ -186,6 +191,20 @@ export default function XinxinPage() {
                     timestamp: new Date().toISOString(),
                   }];
                 });
+              } else if (parsed.type === 'warning_alert') {
+                // 第三层：阳光确认——告知教师已脱敏上报
+                const warningData = parsed.data as { riskLevel: string; triggerType: string; triggerSummary: string; recommendation: string };
+                setMessages(prev => [...prev, {
+                  id: `warning-${Date.now()}`,
+                  role: 'assistant' as const,
+                  content: '',
+                  timestamp: new Date().toISOString(),
+                  isWarningConfirm: true,
+                  warningRiskLevel: warningData.riskLevel,
+                  warningTriggerType: warningData.triggerType,
+                  warningSummary: warningData.triggerSummary,
+                  warningRecommendation: warningData.recommendation,
+                }]);
               }
             } catch {
               // 忽略解析错误
@@ -210,7 +229,7 @@ export default function XinxinPage() {
     if (!confirm('确定要删除这个会话吗？')) return;
 
     try {
-      const res = await fetch(`/api/home-school/sessions?conversationId=${convId}`, {
+      const res = await fetch(`/api/home-school/conversations?conversationId=${convId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -378,6 +397,21 @@ export default function XinxinPage() {
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    {msg.isWarningConfirm && (
+                      <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
+                          <Shield className="h-4 w-4" />
+                          <span className="text-xs font-semibold">护航预警 - 阳光确认</span>
+                        </div>
+                        <p className="text-xs text-amber-800 dark:text-amber-300 mb-1">
+                          {msg.warningRiskLevel === 'high' ? '🔴 高危' : '🟡 中危'} · {msg.warningTriggerType === 'legal_safety' ? '法律安全红线' : '心理承载红线'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mb-2">{msg.warningSummary}</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                          核心风险已脱敏上报德育处，你的聊天内容不会被转发。德育处是你的娘家人，接下来他们会来接手。
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

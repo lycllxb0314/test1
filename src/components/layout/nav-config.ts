@@ -34,6 +34,7 @@ import {
   Dumbbell,
   HeartHandshake,
   Sparkles,
+  ShieldAlert,
 } from 'lucide-react';
 import type { ModuleType } from '@/types';
 
@@ -182,6 +183,7 @@ export const moralNav: NavItem[] = [
   { name: '学生荣誉', href: '/moral/honors', icon: Award, description: '学生荣誉管理与可视化' },
   { name: '班级常规', href: '/moral/routine', icon: ClipboardCheck, description: '班级常规评比与值日管理' },
   { name: '云教学管理', href: '/moral/cloud-course', icon: GraduationCap, description: '家长课程·学生课程管理' },
+  { name: '家校预警', href: '/moral/xinxin-warnings', icon: ShieldAlert, description: '家校沟通风险预警与护航' },
 ];
 
 // 学生体育健康管理导航

@@ -64,9 +64,43 @@ export type SendMessageParams = {
   contextType?: ContextType;
 };
 
+// 预警触发类型
+export type WarningTriggerType = 'legal_safety' | 'psychological';
+
+// 预警风险等级
+export type WarningRiskLevel = 'high' | 'medium';
+
+// 别名导出（兼容 Repository）
+export type RiskLevel = WarningRiskLevel;
+export type TriggerType = WarningTriggerType;
+
+// 家校沟通预警（脱敏结构化数据）
+export type HomeSchoolWarning = {
+  id: string;
+  conversationId: string;
+  teacherId: string;
+  teacherName: string | null;
+  classId: string | null;
+  className: string | null;
+  studentId: string | null;
+  studentName: string | null;
+  riskLevel: WarningRiskLevel;
+  triggerType: WarningTriggerType;
+  triggerSummary: string;
+  recommendation: string | null;
+  isHandled: boolean;
+  handlerId: string | null;
+  handlerName: string | null;
+  handleNote: string | null;
+  handledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 // SSE 流事件
 export type HomeSchoolStreamEvent = 
   | { type: 'session'; data: { sessionId: string } }
   | { type: 'content'; data: string }
   | { type: 'emotion'; data: { level: EmotionLevel; suggestion?: string } }
+  | { type: 'warning'; data: { riskLevel: WarningRiskLevel; triggerType: WarningTriggerType; summary: string; sunshineMessage: string } }
   | { type: 'done'; data: { conversationId: string } };
