@@ -150,6 +150,14 @@ export class ChatSessionRepository extends BaseRepository<ChatSession> {
     return this.mapRow(data);
   }
 
+  async updateTitle(id: string, title: string): Promise<void> {
+    const client = getSupabaseClient();
+    await client
+      .from(this.tableName)
+      .update({ title, updated_at: new Date().toISOString() })
+      .eq('id', id);
+  }
+
   async updateEmotion(id: string, emotionLevel: string, summary?: string): Promise<void> {
     const client = getSupabaseClient();
     await client

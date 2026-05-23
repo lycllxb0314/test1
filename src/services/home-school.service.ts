@@ -370,9 +370,14 @@ export class HomeSchoolService {
     await homeSchoolRepository.addMessage(assistantMsg);
 
     // 10. 更新会话
-    await homeSchoolRepository.updateConversation(currentConversation.id, {
-      title: currentConversation.studentName ? `${currentConversation.studentName}家长沟通` : cleanResponse.substring(0, 50),
-    });
+    // 10.2 更新会话标题：如果是默认标题，用首条用户消息摘要
+    const currentTitle = currentConversation.title;
+    if (!currentTitle || currentTitle === '新的对话' || currentTitle === '新对话') {
+      const titleText = userMessage.length > 20 ? userMessage.slice(0, 20) + '...' : userMessage;
+      await homeSchoolRepository.updateConversation(currentConversation.id, {
+        title: titleText,
+      });
+    }
 
     // 11. 三层无感预警：第一层（无感测温）+ 第二层（脱敏折叠）+ 第三层（阳光确认）
     const warningResult = await this.runWarningDetection(userMessage, fullResponse, currentConversation, teacherId);

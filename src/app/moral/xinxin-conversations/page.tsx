@@ -20,8 +20,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { useHomeSchoolConversations } from '@/hooks/useHomeSchool';
-import type { HomeSchoolConversation, HomeSchoolMessage } from '@/types/home-school';
+import { useHomeSchoolConversations, useConversationDetail } from '@/hooks/useHomeSchool';
+import type { HomeSchoolConversation } from '@/types/home-school';
 
 type ConversationWithInfo = HomeSchoolConversation;
 
@@ -29,31 +29,17 @@ export default function ConversationsPage() {
   const [page, setPage] = useState(1);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithInfo | null>(null);
-  const [sessionMessages, setSessionMessages] = useState<HomeSchoolMessage[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const { conversations, loading } = useHomeSchoolConversations();
+  const { conversations, loading } = useHomeSchoolConversations({ getAll: true });
+  const { data: detailData, loading: messagesLoading, refetch: refetchDetail } = useConversationDetail(selectedConversation?.id ?? null);
+  const sessionMessages = detailData?.messages ?? [];
   const pageSize = 15;
 
   const handleSearch = () => {
     setPage(1);
   };
 
-  const viewConversationDetail = async (conversation: ConversationWithInfo) => {
+  const viewConversationDetail = (conversation: ConversationWithInfo) => {
     setSelectedConversation(conversation);
-    setMessagesLoading(true);
-    try {
-      const res = await fetch(`/api/home-school/conversations?conversationId=${conversation.id}`, {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSessionMessages(data.data?.messages || []);
-      }
-    } catch (err) {
-      console.error('获取会话详情失败:', err);
-    } finally {
-      setMessagesLoading(false);
-    }
   };
 
   const formatDate = (dateStr: string) => {

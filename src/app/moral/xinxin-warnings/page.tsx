@@ -13,7 +13,7 @@ import {
   ShieldAlert, ShieldCheck, AlertTriangle, Clock, User, School, MessageSquare, CheckCircle2,
   Loader2,
 } from 'lucide-react';
-import { useHomeSchoolWarnings } from '@/hooks/useHomeSchool';
+import { useHomeSchoolWarnings, useConversationDetail } from '@/hooks/useHomeSchool';
 
 type RiskLevel = 'high' | 'medium';
 type TriggerType = 'legal_safety' | 'psychological';
@@ -33,13 +33,6 @@ type HomeSchoolWarning = {
   handlerName: string | null;
   handleNote: string | null;
   handledAt: string | null;
-  createdAt: string;
-};
-
-type ConversationMessage = {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
   createdAt: string;
 };
 
@@ -63,31 +56,14 @@ export default function XinxinWarningsPage() {
   const [handleNote, setHandleNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [detailDialog, setDetailDialog] = useState<HomeSchoolWarning | null>(null);
-  const [detailMessages, setDetailMessages] = useState<ConversationMessage[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [viewingConversationId, setViewingConversationId] = useState<string | null>(null);
+  const { data: detailData, loading: detailLoading } = useConversationDetail(viewingConversationId);
+  const detailMessages = detailData?.messages ?? [];
 
-  // 查看对话详情（模仿心理健康系统的 viewSessionDetail）
-  const viewConversationDetail = useCallback(async (warning: HomeSchoolWarning) => {
+  // 查看对话详情
+  const viewConversationDetail = useCallback((warning: HomeSchoolWarning) => {
     setDetailDialog(warning);
-    setDetailLoading(true);
-    try {
-      const res = await fetch(`/api/home-school/conversations?conversationId=${warning.conversationId}`, {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.data?.messages) {
-        setDetailMessages(data.data.messages.map((m: { id: string; role: string; content: string; createdAt: string }) => ({
-          id: m.id,
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-          createdAt: m.createdAt,
-        })));
-      }
-    } catch (err) {
-      console.error('加载对话详情失败:', err);
-    } finally {
-      setDetailLoading(false);
-    }
+    setViewingConversationId(warning.conversationId);
   }, []);
 
   const handleWarning = async () => {
@@ -275,7 +251,7 @@ export default function XinxinWarningsPage() {
       </Dialog>
 
       {/* 对话详情弹窗 - 模仿心理健康系统 */}
-      <Dialog open={!!detailDialog} onOpenChange={(v) => { if (!v) { setDetailDialog(null); setDetailMessages([]); } }}>
+      <Dialog open={!!detailDialog} onOpenChange={(v) => { if (!v) { setDetailDialog(null); setViewingConversationId(null); } }}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -317,7 +293,7 @@ export default function XinxinWarningsPage() {
                 ) : (
                   <div className="flex-1 min-h-0 overflow-y-auto max-h-[300px]">
                     <div className="p-3 space-y-3">
-                      {detailMessages.map((msg) => (
+                      {detailMessages.map((msg: { id: string; role: string; content: string; createdAt: string }) => (
                         <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                           <Avatar className="h-7 w-7 shrink-0">
                             <AvatarFallback className={`text-xs ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-pink-100 text-pink-700'}`}>

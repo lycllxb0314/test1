@@ -441,6 +441,12 @@ export class MentalHealthService extends BaseService {
       await this.sessionRepo.incrementTurn(session.id);
       await this.sessionRepo.updateEmotion(session.id, sensitivityResult.level);
 
+      // 10.1 如果标题是默认的"新的对话"，用首条用户消息摘要更新
+      if (session.title === '新的对话' || !session.title) {
+        const titleText = userMessage.length > 20 ? userMessage.slice(0, 20) + '...' : userMessage;
+        await this.sessionRepo.updateTitle(session.id, titleText);
+      }
+
       // 11. 敏感内容 → 创建预警（在 LLM 完成后，包含后台日志摘要和建议）
       if (needsWarning) {
         await this.createWarningFromSensitivity(studentId, session.id, sensitivityResult, backendLogContent.trim() || undefined);

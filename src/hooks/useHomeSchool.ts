@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
 import { useCache, useStaticCache } from './useCache';
 import type { HomeSchoolConversation, HomeSchoolWarning } from '@/types/home-school';
@@ -11,24 +11,22 @@ export function useHomeSchoolConversations(params?: {
   classId?: string;
   getAll?: boolean;
 }) {
-  const cacheKey = useMemo(() => {
-    const parts = ['home-school-conversations'];
-    if (params?.teacherId) parts.push(`teacher:${params.teacherId}`);
-    if (params?.classId) parts.push(`class:${params.classId}`);
-    if (params?.getAll) parts.push('all');
-    return parts.join('-');
-  }, [params]);
+  const teacherId = params?.teacherId;
+  const classId = params?.classId;
+  const getAll = params?.getAll;
+
+  const cacheKey = `home-school-conv-${teacherId ?? ''}-${classId ?? ''}-${getAll ? 'all' : 'self'}`;
 
   const fetcher = useCallback(async () => {
     const query = new URLSearchParams();
-    if (params?.teacherId) query.set('teacherId', params.teacherId);
-    if (params?.classId) query.set('classId', params.classId);
-    if (params?.getAll) query.set('getAll', 'true');
+    if (teacherId) query.set('teacherId', teacherId);
+    if (classId) query.set('classId', classId);
+    if (getAll) query.set('all', 'true');
     const res = await apiClient.get<HomeSchoolConversation[]>(`/home-school/conversations?${query}`);
     return res.data ?? [];
-  }, [params]);
+  }, [teacherId, classId, getAll]);
 
-  const { data: conversations, loading, refetch } = useStaticCache<HomeSchoolConversation[]>(cacheKey, fetcher);
+  const { data: conversations, loading, refetch } = useStaticCache<HomeSchoolConversation[]>(cacheKey, fetcher, 3 * 60 * 1000);
 
   return { conversations: conversations ?? [], loading, refetch };
 }
@@ -39,24 +37,22 @@ export function useHomeSchoolWarnings(params?: {
   riskLevel?: string;
   teacherId?: string;
 }) {
-  const cacheKey = useMemo(() => {
-    const parts = ['home-school-warnings'];
-    if (params?.isHandled !== undefined) parts.push(`handled:${params.isHandled}`);
-    if (params?.riskLevel) parts.push(`risk:${params.riskLevel}`);
-    if (params?.teacherId) parts.push(`teacher:${params.teacherId}`);
-    return parts.join('-');
-  }, [params]);
+  const isHandled = params?.isHandled;
+  const riskLevel = params?.riskLevel;
+  const teacherId = params?.teacherId;
+
+  const cacheKey = `home-school-warn-${isHandled ?? 'all'}-${riskLevel ?? 'all'}-${teacherId ?? ''}`;
 
   const fetcher = useCallback(async () => {
     const query = new URLSearchParams();
-    if (params?.isHandled !== undefined) query.set('isHandled', String(params.isHandled));
-    if (params?.riskLevel) query.set('riskLevel', params.riskLevel);
-    if (params?.teacherId) query.set('teacherId', params.teacherId);
+    if (isHandled !== undefined) query.set('isHandled', String(isHandled));
+    if (riskLevel) query.set('riskLevel', riskLevel);
+    if (teacherId) query.set('teacherId', teacherId);
     const res = await apiClient.get<HomeSchoolWarning[]>(`/home-school/warnings?${query}`);
     return res.data ?? [];
-  }, [params]);
+  }, [isHandled, riskLevel, teacherId]);
 
-  const { data: warnings, loading, refetch } = useStaticCache<HomeSchoolWarning[]>(cacheKey, fetcher);
+  const { data: warnings, loading, refetch } = useStaticCache<HomeSchoolWarning[]>(cacheKey, fetcher, 2 * 60 * 1000);
 
   const handleWarning = useCallback(async (warningId: string, note: string) => {
     try {
