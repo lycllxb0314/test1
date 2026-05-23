@@ -13,6 +13,7 @@ import {
   ShieldAlert, ShieldCheck, AlertTriangle, Clock, User, School, MessageSquare, CheckCircle2,
   Loader2,
 } from 'lucide-react';
+import { useHomeSchoolWarnings } from '@/hooks/useHomeSchool';
 
 type RiskLevel = 'high' | 'medium';
 type TriggerType = 'legal_safety' | 'psychological';
@@ -55,9 +56,9 @@ const triggerConfig: Record<TriggerType | string, { label: string; desc: string 
 };
 
 export default function XinxinWarningsPage() {
-  const [warnings, setWarnings] = useState<HomeSchoolWarning[]>([]);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'pending' | 'handled'>('pending');
+  const isHandled = tab === 'handled';
+  const { warnings, loading, refetch: refetchWarnings, handleWarning: doHandleWarning } = useHomeSchoolWarnings({ isHandled });
   const [handleDialog, setHandleDialog] = useState<HomeSchoolWarning | null>(null);
   const [handleNote, setHandleNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -89,34 +90,13 @@ export default function XinxinWarningsPage() {
     }
   }, []);
 
-  const fetchWarnings = useCallback(async () => {
-    try {
-      const isHandled = tab === 'handled';
-      const res = await fetch(`/api/home-school/warnings?isHandled=${isHandled}`, { credentials: 'include' });
-      const data = await res.json();
-      setWarnings(data.data || []);
-    } catch (err) {
-      console.error('获取预警失败:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [tab]);
-
-  useEffect(() => { fetchWarnings(); }, [fetchWarnings]);
-
   const handleWarning = async () => {
     if (!handleDialog) return;
     setSubmitting(true);
     try {
-      await fetch('/api/home-school/warnings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ warningId: handleDialog.id, handleNote }),
-      });
+      await doHandleWarning(handleDialog.id, handleNote);
       setHandleDialog(null);
       setHandleNote('');
-      fetchWarnings();
     } catch (err) {
       console.error('处理预警失败:', err);
     } finally {
@@ -175,10 +155,10 @@ export default function XinxinWarningsPage() {
 
       {/* Tab 切换 */}
       <div className="flex gap-2">
-        <Button variant={tab === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => { setTab('pending'); setLoading(true); }}>
+        <Button variant={tab === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => { setTab('pending'); refetchWarnings(); }}>
           待处理 {pendingCount > 0 && <Badge variant="destructive" className="ml-2 text-xs">{pendingCount}</Badge>}
         </Button>
-        <Button variant={tab === 'handled' ? 'default' : 'outline'} size="sm" onClick={() => { setTab('handled'); setLoading(true); }}>
+        <Button variant={tab === 'handled' ? 'default' : 'outline'} size="sm" onClick={() => { setTab('handled'); refetchWarnings(); }}>
           已处理
         </Button>
       </div>

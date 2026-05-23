@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { useHomeSchoolConversations } from '@/hooks/useHomeSchool';
 
 // 消息类型
 type Message = {
@@ -55,7 +56,7 @@ const EMOTION_COLORS: Record<string, string> = {
 
 export default function XinxinPage() {
   const { user } = useAuth();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const { conversations: cachedConversations, refetch: refetchConversations } = useHomeSchoolConversations({ teacherId: user?.id });
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -65,32 +66,15 @@ export default function XinxinPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 加载会话列表
-  const loadConversations = useCallback(async () => {
-    try {
-      const res = await fetch('/api/home-school/conversations', {
-        headers: { 'x-user-id': user?.id || '' },
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.success && data.data) {
-        setConversations(data.data);
-      }
-    } catch (err) {
-      console.error('加载会话列表失败:', err);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+  // 会话列表来自缓存
+  const conversations = cachedConversations as unknown as Conversation[];
 
   // 滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 加载会话消息（模仿心理健康系统的 getSessionDetail 格式）
+  // 加载会话消息（使用缓存的 apiClient）
   const loadConversationMessages = async (convId: string) => {
     try {
       const res = await fetch(`/api/home-school/conversations?conversationId=${convId}`, {
@@ -98,7 +82,6 @@ export default function XinxinPage() {
         credentials: 'include',
       });
       const data = await res.json();
-      // API 返回格式: { success: true, data: { conversation, messages } }
       const detail = data.data;
       if (detail?.messages) {
         setMessages(detail.messages.map((m: { id: string; role: string; content: string; createdAt: string }) => ({
@@ -230,7 +213,7 @@ export default function XinxinPage() {
       }
 
       // 刷新会话列表
-      loadConversations();
+      refetchConversations();
     } catch (err) {
       console.error('发送消息失败:', err);
       toast.error('发送失败，请稍后重试');
@@ -252,7 +235,7 @@ export default function XinxinPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setConversations(prev => prev.filter(c => c.id !== convId));
+        refetchConversations();
         if (currentConversation?.id === convId) {
           handleNewConversation();
         }

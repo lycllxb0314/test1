@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   MessageSquare,
   Clock,
@@ -20,40 +20,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useHomeSchoolConversations } from '@/hooks/useHomeSchool';
 import type { HomeSchoolConversation, HomeSchoolMessage } from '@/types/home-school';
 
 type ConversationWithInfo = HomeSchoolConversation;
 
 export default function ConversationsPage() {
-  const [conversations, setConversations] = useState<ConversationWithInfo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithInfo | null>(null);
   const [sessionMessages, setSessionMessages] = useState<HomeSchoolMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const { conversations, loading } = useHomeSchoolConversations();
   const pageSize = 15;
-
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  const fetchConversations = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/home-school/conversations?all=true', {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.success) {
-        setConversations(data.data || []);
-      }
-    } catch (err) {
-      console.error('获取会话列表失败:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSearch = () => {
     setPage(1);
