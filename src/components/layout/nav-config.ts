@@ -33,6 +33,9 @@ import {
   Pill,
   Dumbbell,
   HeartHandshake,
+  Sparkles,
+  ShieldAlert,
+  MessageSquare,
 } from 'lucide-react';
 import type { ModuleType } from '@/types';
 
@@ -181,6 +184,16 @@ export const moralNav: NavItem[] = [
   { name: '学生荣誉', href: '/moral/honors', icon: Award, description: '学生荣誉管理与可视化' },
   { name: '班级常规', href: '/moral/routine', icon: ClipboardCheck, description: '班级常规评比与值日管理' },
   { name: '云教学管理', href: '/moral/cloud-course', icon: GraduationCap, description: '家长课程·学生课程管理' },
+  {
+    name: '家校沟通',
+    href: '/moral/xinxin',
+    icon: HeartHandshake,
+    description: '家校沟通助手心心管理',
+    children: [
+      { name: '家校预警', href: '/moral/xinxin-warnings', icon: ShieldAlert, description: '家校沟通风险预警与护航' },
+      { name: '会话记录', href: '/moral/xinxin-conversations', icon: MessageSquare, description: '教师与心心对话记录查看' },
+    ],
+  },
 ];
 
 // 学生体育健康管理导航
@@ -211,6 +224,7 @@ export const mentalHealthNav: NavItem[] = [
 // - 个人：低频的个人设置
 export const teacherBaseNav: NavItem[] = [
   { name: '工作台', href: '/teacher', icon: LayoutDashboard, description: '教师工作台' },
+  { name: '心心', href: '/teacher/xinxin', icon: Sparkles, description: '家校沟通助手', color: 'text-pink-500' },
   { name: '个人档案', href: '/teacher/profile', icon: UserCircle, description: '个人信息维护' },
   { name: '我的课表', href: '/teacher/schedule', icon: Calendar, description: '查看我的课程安排', group: '教学教研' },
   { name: '备课中心', href: '/teacher/lesson-prep', icon: BookOpen, description: '学科备课支持，文本解读', group: '教学教研' },

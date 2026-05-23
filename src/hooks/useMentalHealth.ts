@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { apiClient } from '@/services/api-client';
+import { useCache, useStaticCache } from './useCache';
 
 // ==================== 类型 ====================
 type WarningItem = {
@@ -63,72 +64,64 @@ type StatsData = {
   todaySessions: number;
 };
 
-// ==================== 预警管理 ====================
-export function useWarnings() {
-  const [warnings, setWarnings] = useState<WarningItem[]>([]);
-  const [loading, setLoading] = useState(false);
+// ==================== 预警管理（带缓存） ====================
+export function useWarnings(params?: {
+  severity?: string;
+  warningType?: string;
+  isRead?: boolean;
+  isHandled?: boolean;
+  studentId?: string;
+}) {
+  const severity = params?.severity;
+  const warningType = params?.warningType;
+  const isRead = params?.isRead;
+  const isHandled = params?.isHandled;
+  const studentId = params?.studentId;
 
-  const fetchWarnings = useCallback(async (params?: {
-    severity?: string;
-    warningType?: string;
-    isRead?: boolean;
-    isHandled?: boolean;
-    studentId?: string;
-  }) => {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams();
-      if (params?.severity) query.set('severity', params.severity);
-      if (params?.warningType) query.set('warningType', params.warningType);
-      if (params?.isRead !== undefined) query.set('isRead', String(params.isRead));
-      if (params?.isHandled !== undefined) query.set('isHandled', String(params.isHandled));
-      if (params?.studentId) query.set('studentId', params.studentId);
-      const res = await apiClient.get<WarningItem[]>(`/mental-health/warnings?${query}`);
-      setWarnings(res.data ?? []);
-    } catch (err) {
-      console.error('[useWarnings] fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const cacheKey = `mh-warn-${severity ?? ''}-${warningType ?? ''}-${isRead ?? 'x'}-${isHandled ?? 'x'}-${studentId ?? ''}`;
+
+  const fetcher = useCallback(async () => {
+    const query = new URLSearchParams();
+    if (severity) query.set('severity', severity);
+    if (warningType) query.set('warningType', warningType);
+    if (isRead !== undefined) query.set('isRead', String(isRead));
+    if (isHandled !== undefined) query.set('isHandled', String(isHandled));
+    if (studentId) query.set('studentId', studentId);
+    const res = await apiClient.get<WarningItem[]>(`/mental-health/warnings?${query}`);
+    return res.data ?? [];
+  }, [severity, warningType, isRead, isHandled, studentId]);
+
+  const { data: warnings, loading, refetch } = useStaticCache<WarningItem[]>(cacheKey, fetcher, 2 * 60 * 1000);
 
   const markAsRead = useCallback(async (warningId: string) => {
     try {
       await apiClient.patch(`/mental-health/warnings`, { warningId, action: 'read' });
-      setWarnings(prev => prev.map(w => w.id === warningId ? { ...w, isRead: true } : w));
+      refetch();
     } catch (err) {
       console.error('[useWarnings] markAsRead error:', err);
     }
-  }, []);
+  }, [refetch]);
 
   const handleWarning = useCallback(async (warningId: string, note: string) => {
     try {
       await apiClient.patch(`/mental-health/warnings`, { warningId, action: 'handle', handleNote: note });
-      setWarnings(prev => prev.map(w => w.id === warningId ? { ...w, isHandled: true, handleNote: note } : w));
+      refetch();
     } catch (err) {
       console.error('[useWarnings] handleWarning error:', err);
     }
-  }, []);
+  }, [refetch]);
 
-  return { warnings, loading, fetchWarnings, markAsRead, handleWarning };
+  return { warnings: warnings ?? [], loading, refetch, markAsRead, handleWarning };
 }
 
-// ==================== 授权密钥管理 ====================
+// ==================== 授权密钥管理（带缓存） ====================
 export function useAuthKeys() {
-  const [authKeys, setAuthKeys] = useState<AuthKeyItem[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const fetchAuthKeys = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get<AuthKeyItem[]>('/mental-health/auth-keys');
-      setAuthKeys(res.data ?? []);
-    } catch (err) {
-      console.error('[useAuthKeys] fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
+  const fetcher = useCallback(async () => {
+    const res = await apiClient.get<AuthKeyItem[]>('/mental-health/auth-keys');
+    return res.data ?? [];
   }, []);
+
+  const { data: authKeys, loading, refetch } = useStaticCache<AuthKeyItem[]>('mental-health-auth-keys', fetcher, 5 * 60 * 1000);
 
   const createAuthKey = useCallback(async (data: {
     description?: string;
@@ -140,24 +133,22 @@ export function useAuthKeys() {
   }) => {
     try {
       const res = await apiClient.post<AuthKeyItem>('/mental-health/auth-keys', data);
-      if (res.data) {
-        setAuthKeys(prev => [res.data!, ...prev]);
-      }
+      refetch();
       return res.data ?? null;
     } catch (err) {
       console.error('[useAuthKeys] create error:', err);
       return null;
     }
-  }, []);
+  }, [refetch]);
 
   const deactivateAuthKey = useCallback(async (keyId: string) => {
     try {
       await apiClient.patch('/mental-health/auth-keys', { keyId, action: 'deactivate' });
-      setAuthKeys(prev => prev.map(k => k.id === keyId ? { ...k, isActive: false } : k));
+      refetch();
     } catch (err) {
       console.error('[useAuthKeys] deactivate error:', err);
     }
-  }, []);
+  }, [refetch]);
 
   const verifyAuthKey = useCallback(async (keyCode: string, classId?: string) => {
     try {
@@ -169,53 +160,72 @@ export function useAuthKeys() {
     }
   }, []);
 
-  return { authKeys, loading, fetchAuthKeys, createAuthKey, deactivateAuthKey, verifyAuthKey };
+  return { authKeys: authKeys ?? [], loading, refetch, createAuthKey, deactivateAuthKey, verifyAuthKey };
 }
 
-// ==================== 会话管理 ====================
-export function useSessions() {
-  const [sessions, setSessions] = useState<SessionItem[]>([]);
-  const [loading, setLoading] = useState(false);
+// ==================== 会话管理（带缓存） ====================
+export function useSessions(params?: {
+  studentId?: string;
+  classId?: string;
+  isClosed?: boolean;
+}) {
+  const studentId = params?.studentId;
+  const classId = params?.classId;
+  const isClosed = params?.isClosed;
 
-  const fetchSessions = useCallback(async (params?: {
-    studentId?: string;
-    classId?: string;
-    isClosed?: boolean;
-  }) => {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams();
-      if (params?.studentId) query.set('studentId', params.studentId);
-      if (params?.classId) query.set('classId', params.classId);
-      if (params?.isClosed !== undefined) query.set('isClosed', String(params.isClosed));
-      const res = await apiClient.get<SessionItem[]>(`/mental-health/sessions?${query}`);
-      setSessions(res.data ?? []);
-    } catch (err) {
-      console.error('[useSessions] fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const cacheKey = `mh-sessions-${studentId ?? ''}-${classId ?? ''}-${isClosed ?? 'x'}`;
 
-  return { sessions, loading, fetchSessions };
+  const fetcher = useCallback(async () => {
+    const query = new URLSearchParams();
+    if (studentId) query.set('studentId', studentId);
+    if (classId) query.set('classId', classId);
+    if (isClosed !== undefined) query.set('isClosed', String(isClosed));
+    const res = await apiClient.get<SessionItem[]>(`/mental-health/sessions?${query}`);
+    return res.data ?? [];
+  }, [studentId, classId, isClosed]);
+
+  const { data: sessions, loading, refetch } = useStaticCache<SessionItem[]>(cacheKey, fetcher, 3 * 60 * 1000);
+
+  return { sessions: sessions ?? [], loading, refetch };
 }
 
-// ==================== 统计概览 ====================
+// ==================== 统计概览（带缓存） ====================
 export function useMentalStats() {
-  const [stats, setStats] = useState<StatsData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get<StatsData>('/mental-health/stats');
-      setStats(res.data ?? null);
-    } catch (err) {
-      console.error('[useMentalStats] fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
+  const fetcher = useCallback(async () => {
+    const res = await apiClient.get<StatsData>('/mental-health/stats');
+    return res.data ?? null;
   }, []);
 
-  return { stats, loading, fetchStats };
+  const { data: stats, loading, refetch } = useStaticCache<StatsData | null>('mental-health-stats', fetcher, 2 * 60 * 1000);
+
+  return { stats: stats ?? null, loading, refetch };
+}
+
+// ==================== 会话详情（带缓存，懒加载） ====================
+type SessionDetail = {
+  session: SessionItem;
+  messages: Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    createdAt: string;
+  }>;
+};
+
+export function useSessionDetail(sessionId: string | null) {
+  const fetcher = useCallback(async () => {
+    if (!sessionId) return null;
+    const res = await apiClient.get<SessionDetail>(`/mental-health/sessions?sessionId=${sessionId}`);
+    return res.data ?? null;
+  }, [sessionId]);
+
+  const { data, loading, refetch } = useCache<SessionDetail | null>({
+    key: 'mental-health-session-detail',
+    params: { sessionId: sessionId ?? '' },
+    fetcher,
+    enabled: !!sessionId,
+    ttl: 2 * 60 * 1000,
+  });
+
+  return { data, loading, refetch };
 }
